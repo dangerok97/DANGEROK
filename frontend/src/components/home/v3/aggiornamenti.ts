@@ -16,10 +16,13 @@
  */
 import type { HomeV2Response } from '@/src/api/client';
 
-export type GenereAggiornamento = 'lavoro' | 'suggerimento' | 'spunto' | 'occasione';
+export type GenereAggiornamento = 'situazione' | 'lavoro' | 'suggerimento' | 'spunto' | 'occasione';
 
 export type Aggiornamento = {
   testo_preparato?: string;
+  situazione_id?: string;
+  situazione_revisione?: number;
+  evidenza_verificata_at?: string;
   id: string;
   genere: GenereAggiornamento;
   /** Di che cosa si tratta, in una riga. */
@@ -50,7 +53,30 @@ const SENZA_FONTE = 'originale non disponibile';
 export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Aggiornamento[] {
   if (!home) return [];
 
-  const lavori: Aggiornamento[] = (home.agent_work || []).slice(0, 2).map((w) => ({
+  // A monitoring Goal or a plan to check later is not an update. Show a
+  // temporary Situation only when ORA has a fresh, sourced consequence that
+  // actually matters to the person. All surfaces use this single projection.
+  const situazioni: Aggiornamento[] = (home.situation_updates || []).slice(0, 3).map((u) => ({
+    id: u.id,
+    genere: 'situazione',
+    situazione_id: u.situation_id,
+    situazione_revisione: u.revision,
+    evidenza_verificata_at: u.evidence_at,
+    cosa: u.headline,
+    perche: u.evidence_summary,
+    fonte: u.source_label,
+    stato: '',
+    cosa_sta_facendo: '',
+    cosa_serve: '',
+    non_so: '',
+    prossimo_passo: '',
+    quando: u.created_at,
+  }));
+  const represented = new Set((home.situation_updates || []).map((u) => u.situation_id));
+
+  const lavori: Aggiornamento[] = (home.agent_work || [])
+    .filter((w) => !w.situation_id || !represented.has(w.situation_id))
+    .slice(0, 2).map((w) => ({
     id: w.id,
     genere: 'lavoro',
     testo_preparato: w.prepared_text || '',
@@ -67,7 +93,9 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     quando: '',
   }));
 
-  const occasioni: Aggiornamento[] = (home.opportunities || []).slice(0, 2).map((o) => ({
+  const occasioni: Aggiornamento[] = (home.opportunities || [])
+    .filter((o) => !o.situation_id || !represented.has(o.situation_id))
+    .slice(0, 2).map((o) => ({
     id: o.id,
     genere: 'occasione',
     lavoro: 'verify',
@@ -117,11 +145,12 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
 
   // L'ordine è quello della sezione in Home: prima il lavoro, poi le occasioni
   // sollevate, poi i suggerimenti, poi gli spunti.
-  return [...lavori, ...occasioni, ...suggerimenti, ...spunti];
+  return [...situazioni, ...lavori, ...occasioni, ...suggerimenti, ...spunti];
 }
 
 /** Come si chiama, per chi legge, il genere di un aggiornamento. */
 export function comeSiChiama(genere: GenereAggiornamento): string {
+  if (genere === 'situazione') return 'Da fare adesso';
   if (genere === 'lavoro') return 'Sto lavorando a questo';
   if (genere === 'occasione') return 'Una cosa che ho notato';
   if (genere === 'suggerimento') return 'Un consiglio';
