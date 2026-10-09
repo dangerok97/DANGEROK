@@ -23,6 +23,7 @@ import { OraBadge, OraCard } from '@/src/components/ora-ui';
 import { NienteQui, PaginaOra } from '@/src/components/pagine/PaginaOra';
 import {
   comeSiChiama,
+  quandoAggiornamento,
   elencoAggiornamenti,
   type Aggiornamento,
 } from '@/src/components/home/v3/aggiornamenti';
@@ -120,6 +121,12 @@ function Dettaglio({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }
         </View>
       ) : null}
 
+      <Voce
+        icona="time-outline"
+        titolo="Quando è nato e fino a quando serve"
+        testo={`Creato: ${quandoAggiornamento(a.quando) || 'data non disponibile'}\n${a.scade ? `Scade: ${quandoAggiornamento(a.scade) || a.scade}` : 'Scadenza non indicata dalla fonte'}`}
+        testID="dettaglio-scadenza"
+      />
       <Voce
         icona="information-circle-outline"
         titolo={a.genere === 'occasione' ? 'Segnalazione da verificare' : 'Cosa è successo'}
