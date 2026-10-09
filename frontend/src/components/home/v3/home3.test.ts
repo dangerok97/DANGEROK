@@ -409,7 +409,7 @@ console.log('PX1.2 Home 3.0 guards: all assertions passed');
   assert.ok(view.includes('situation.last_checked_at'), 'actual last check must be distinguishable from a scheduled check');
   assert.ok(view.includes("situationDecision('stop_alerts')"), 'user must be able to stop alerts');
   assert.ok(view.includes("situationDecision('resolved')"), 'physical completion must be explicit');
-  assert.ok(view.includes('Non ancora · Ricalcola') && view.includes('È cambiata · Spiega a ORA'));
+  assert.ok(view.includes('Non ancora · Rispondi a ORA') && view.includes('È cambiata · Spiega a ORA'));
   assert.ok(client.includes('stopSituationAlerts:'));
   assert.ok(detail.includes('<UpdateNextStep a={a} />'), 'same situation response remains in details');
   assert.ok(conversation.includes('initialDraft') && conversation.includes('useState((initialDraft'), 'draft must not auto-submit');
