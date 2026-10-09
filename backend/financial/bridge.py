@@ -85,6 +85,31 @@ async def read_money_in(
     if answer["what_it_is"] == "nothing":
         return {"outcome": "nothing", "why": answer.get("reasoning", "")}
 
+    # The first AI already looked at the requested email body and emitted
+    # bounded facts. The second AI must not overwrite an EXPLICIT observed
+    # card-total unknown with a guessed amount from the bank history.
+    structured = what_arrived.get("financial_observation")
+    if isinstance(structured, dict) and structured.get("source_quality") == "body":
+        if structured.get("amount_unknown") is True:
+            answer["amount"] = None
+            unknowns = list(answer.get("what_is_not_known") or [])
+            if not any("importo" in str(s).lower() for s in unknowns):
+                unknowns.append("l'importo indicato nell'app o estratto della banca")
+            answer["what_is_not_known"] = unknowns[:8]
+        elif type(structured.get("amount")) in (int, float):
+            answer["amount"] = structured["amount"]
+            if structured.get("currency"):
+                answer["currency"] = structured["currency"]
+        if structured.get("due_at") and answer.get("what_it_is") == "commitment":
+            answer["due_at"] = structured["due_at"]
+        purpose = str(structured.get("purpose") or "").strip()
+        if purpose and str(answer.get("in_their_words") or "").strip().lower() in (
+            "", "qualcosa di economico", "pagamento", "spesa", "addebito"
+        ):
+            answer["in_their_words"] = purpose[:160]
+        if structured.get("counterparty") and not answer.get("counterparty"):
+            answer["counterparty"] = str(structured["counterparty"])[:120]
+
     # Once cognition identified a due obligation, a single exact timestamp
     # present in the original source (including its timezone) outranks an
     # approximation like "in two days" from the subject. Do not manufacture
