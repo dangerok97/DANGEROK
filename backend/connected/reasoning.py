@@ -227,6 +227,11 @@ async def interpret_signal(
         fin["amount_unknown"] = bool(fin.get("amount_unknown"))
         if fin["amount_unknown"]:
             fin["amount"] = None
+        # A model cannot claim to have read the body when this call did not
+        # receive it. Source quality is a runtime fact, not AI authority.
+        fin["source_quality"] = (
+            "body" if content and content.get("body") else "summary"
+        )
         if content and fin["due_at"]:
             from financial.source_display import exact_named_zone_timestamp
             exact = exact_named_zone_timestamp(content)
