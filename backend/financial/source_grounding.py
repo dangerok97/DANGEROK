@@ -11,7 +11,7 @@ import re
 
 _AMOUNT = r"\d+(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?"
 _WITH_CURRENCY = re.compile(
-    rf"(?i)(?:€\s*(?P<after>{_AMOUNT})|"
+    rf"(?i)(?:(?:€|\bEUR\b|\beuro\b)\s*(?P<after>{_AMOUNT})|"
     rf"(?P<before>{_AMOUNT})\s*(?:€|\bEUR\b|\beuro\b))"
 )
 
