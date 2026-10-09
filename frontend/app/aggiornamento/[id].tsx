@@ -52,8 +52,15 @@ export default function DettaglioAggiornamento() {
         return;
       }
       if (String(id).startsWith('gol_')) {
-        const goal = await api.getAgentGoal(String(id));
-        setFallback(elencoAggiornamenti({ agent_work: [goal] } as HomeV2Response)[0] || null);
+        try {
+          const goal = await api.getAgentGoal(String(id));
+          setFallback(elencoAggiornamenti({ agent_work: [goal] } as HomeV2Response)[0] || null);
+        } catch (e: any) {
+          // A bookmarked URL for a finished trip is an expired update, not
+          // an error that asks the user to retry or grant permission.
+          if (e?.status !== 404 && e?.status !== 410) throw e;
+          setFallback(null);
+        }
         setErrore(null);
         return;
       }
@@ -92,7 +99,7 @@ export default function DettaglioAggiornamento() {
         <NienteQui testo={errore} testID="dettaglio-errore" />
       ) : !a ? (
         <NienteQui
-          testo="Questo aggiornamento non è più fra quelli attivi: può essere stato chiuso o superato."
+          testo="Questo aggiornamento è scaduto o non è più attivo. ORA non ti chiederà di risolvere un evento già passato."
           testID="dettaglio-mancante"
         />
       ) : (
