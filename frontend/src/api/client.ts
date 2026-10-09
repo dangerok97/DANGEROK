@@ -524,6 +524,8 @@ export type MoneyOverview = {
     // SO · PENSO · HO VISTO. Tre cose diverse, non tre toni della stessa.
     stato?: 'SO' | 'PENSO' | 'HO VISTO';
     perche?: string;
+    /** Exact owner-owned source email subject, when available. */
+    fonte_email?: string;
     non_so?: string;
     quanto_ci_conto: string; come_lo_so?: string;
   }[];
