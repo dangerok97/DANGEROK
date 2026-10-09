@@ -1,4 +1,5 @@
 import { UpdateNextStep } from '@/src/components/home/v3/UpdateNextStep';
+import { SituationFeedback } from '@/src/components/home/v3/SituationFeedback';
 /**
  * Il dettaglio di un aggiornamento — quello, non un altro.
  *
@@ -112,6 +113,40 @@ function Dettaglio({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }
     catch (e) { setRemoveError(humanizeError(e)); }
     finally { setRemoving(false); }
   };
+  if (a.genere === 'situazione') {
+    const at = a.evidenza_verificata_at
+      ? new Date(a.evidenza_verificata_at).toLocaleString('it-IT', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+      })
+      : null;
+    const began = a.quando ? new Date(a.quando).toLocaleDateString('it-IT') : null;
+    return (
+      <>
+        <Voce
+          icona="alert-circle-outline"
+          titolo="Cosa conviene fare"
+          testo={a.cosa}
+          testID="dettaglio-cosa"
+        />
+        {a.perche ? (
+          <Voce
+            icona="checkmark-circle-outline"
+            titolo="Su quali informazioni si basa"
+            testo={a.perche}
+            nota={at ? `Informazioni verificate: ${at}` : undefined}
+            testID="dettaglio-evidenza"
+          />
+        ) : null}
+        {began ? (
+          <Text style={[oraType.small, { color: ora.ink3 }]}>
+            Situazione iniziata il {began}.
+          </Text>
+        ) : null}
+        <SituationFeedback item={a} onUpdated={onRemoved} />
+      </>
+    );
+  }
+
   return (
     <>
       {a.stato ? (
