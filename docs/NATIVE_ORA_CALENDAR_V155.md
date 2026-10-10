@@ -13,6 +13,7 @@ Esisteva già una persistenza locale nel Life Graph (`attributes.kind=home_manua
 - **Provenienza e permessi**: la lista indica sempre la fonte. Un nodo Apple o di altra origine di sola lettura può essere consultato, ma non induce cancellazioni o modifiche Google, né mostra una finta promessa di scrittura.
 - **Home**: il suggerimento di collegare Google presenta prima il calendario ORA e l'azione di apertura, lasciando la connessione esterna facoltativa.
 - **Nessuna copia silenziosa**: creare/modificare/rimuovere un evento ORA agisce sul solo calendario ORA. Collegare Google o Apple **non** attiva per implicito esportazione automatica, sincronizzazione bidirezionale o inviti a terzi.
+- **Chat AI**: `create_calendar_event` può ora creare un evento canonico in ORA senza Google. Il target `ora` è esplicito; in assenza di un Google collegato è anche il default. Se la persona nomina Google senza averlo collegato, ORA deve chiedere il collegamento e non cambiare destinazione; Apple rimane di sola lettura. Le scritture locali passano comunque per autorità del comando, deduplicazione, ricevuta, rilettura e controlli orari/DST. Nessun invitato viene contattato automaticamente.
 
 ## Limiti dichiarati
 - Google è un connettore già implementato; Apple richiede autorizzazione EventKit su build nativa iOS/iPadOS, non nel browser. Non si promettono connessioni ad altri provider senza connettore dedicato.
