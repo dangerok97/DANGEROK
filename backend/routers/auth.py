@@ -20,6 +20,8 @@ from deps import (
 )
 from profile_media import InvalidAvatar, ProfileMediaService
 from social_auth import SocialAuthService, social_auth_status
+from connectors.google_calendar.oauth import OAuthConfigError
+from social_auth.browser import begin_google_browser_login, redeem_google_browser_ticket
 from social_auth.store import IdentityStore
 from security.rate_limit import enforce_rate_limit
 
@@ -63,6 +65,15 @@ class GoogleSessionIn(BaseModel):
 class GoogleIdTokenIn(BaseModel):
     id_token: str = Field(..., min_length=20)
     nonce: Optional[str] = None
+
+
+class GoogleBrowserStartIn(BaseModel):
+    frontend_origin: str = Field(min_length=10, max_length=300)
+
+
+class GoogleBrowserCompleteIn(BaseModel):
+    ticket: str = Field(min_length=24, max_length=160)
+    proof: str = Field(min_length=24, max_length=160)
 
 
 class AppleIdTokenIn(BaseModel):
@@ -205,6 +216,30 @@ async def google_session(body: GoogleSessionIn, request: Request):
 async def providers_status():
     """Public: which social providers are configured (no secrets)."""
     return social_auth_status()
+
+
+@router.post("/google/browser/start")
+async def google_browser_start(body: GoogleBrowserStartIn, request: Request, response: Response):
+    """iOS browser Google login: one-use state + PKCE, no Calendar consent."""
+    await enforce_rate_limit(db, request, scope="auth.google.browser.start", limit=20, window_seconds=300)
+    origin = str(request.headers.get("origin") or "").rstrip("/")
+    if origin and origin != body.frontend_origin.rstrip("/"):
+        raise HTTPException(status_code=403, detail="Origine browser non valida")
+    try:
+        result = await begin_google_browser_login(db, frontend_origin=body.frontend_origin)
+    except OAuthConfigError:
+        raise HTTPException(status_code=503, detail="Accesso Google tramite browser non configurato")
+    response.headers["Cache-Control"] = "no-store"
+    return result
+
+
+@router.post("/google/browser/complete", response_model=AuthOut)
+async def google_browser_complete(body: GoogleBrowserCompleteIn, request: Request, response: Response):
+    """Exchange one-use browser ticket + tab proof for a normal ORA session."""
+    await enforce_rate_limit(db, request, scope="auth.google.browser.complete", limit=30, window_seconds=300)
+    user = await redeem_google_browser_ticket(db, ticket=body.ticket, proof=body.proof)
+    response.headers["Cache-Control"] = "no-store"
+    return await _auth_out(user)
 
 
 @router.post("/google", response_model=AuthOut)

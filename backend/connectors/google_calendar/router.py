@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from deps import get_current_user, get_google_calendar_service
+from deps import db, get_current_user, get_google_calendar_service
 from permissions import ConsentDenied
 
 from .oauth import OAuthConfigError, OAuthStateInvalid, sanitize_redirect_after
@@ -61,12 +61,29 @@ async def oauth_start(body: OAuthStartIn, request: Request, user=Depends(get_cur
 
 
 @router.get("/oauth/callback")
-async def oauth_callback(request: Request, state: str = Query(...), code: str = Query(...)):
-    """Real OAuth callback — hit by Google after the user authorizes.
-    Requires no auth header (Google-provided state binds the flow to the
-    user that started it). Redirects to the allowlisted frontend origin when
-    ``redirect_after`` was supplied at start; otherwise returns JSON.
+async def oauth_callback(
+    request: Request, state: str = Query(...),
+    code: Optional[str] = Query(None), error: Optional[str] = Query(None),
+):
+    """Google OAuth callback shared by separate, state-isolated flows.
+
+    The first-party browser LOGIN flow asks only for OIDC identity and cannot
+    link a Google Calendar. Existing Calendar state/callback semantics are
+    unchanged. Every flow consumes its own one-time state.
     """
+    from social_auth.browser import maybe_handle_google_browser_callback
+
+    browser_return = await maybe_handle_google_browser_callback(
+        db, state=state, code=code or "",
+    )
+    if browser_return:
+        return RedirectResponse(
+            url=browser_return, status_code=303,
+            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+        )
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Codice OAuth mancante")
     svc = get_google_calendar_service()
     try:
         result = await svc.handle_oauth_callback(state=state, code=code)

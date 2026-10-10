@@ -74,6 +74,9 @@ jobs:
       - name: ORA native calendar without any external connector
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py -x
+      - name: Google browser sign-in redirect and one-use ticket security
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_google_browser_login_v156.py tests/test_social_auth_unit.py -x
       - name: Focused pytest (AI docs + analysis versions + LE docs + V2)
         working-directory: backend
         run: |
@@ -306,6 +309,9 @@ jobs:
       - name: Auth provider regressions
         working-directory: frontend
         run: npm run test:auth
+      - name: Google login iOS browser redirect and blank-button fallback
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/auth/googleBrowserRedirect.regression.test.ts
       - name: Home update lifecycle regression
         working-directory: frontend
         run: node --experimental-strip-types src/components/home/v3/home3.test.ts

@@ -36,6 +36,9 @@ import { routeAfterAuth } from '@/src/life-setup/routeAfterAuth';
 import { RegistrationIntro, RegistrationMap } from '@/src/life-setup/RegistrationIntro';
 import { humanizeError } from '@/src/utils/errors';
 import type { GoogleAuthResult } from '@/src/auth/googleAuth.types';
+import {
+  authorizedGoogleUrl, GOOGLE_BROWSER_PROOF_KEY, isIOSWebBrowser,
+} from '@/src/auth/googleBrowserRedirect';
 
 type Mode = 'buttons' | 'email';
 type Busy = 'google' | 'apple' | 'email' | null;
@@ -130,7 +133,12 @@ export default function LoginScreen() {
   const [appleNative, setAppleNative] = useState(false);
   const [backendGoogle, setBackendGoogle] = useState<boolean | null>(null);
   const [backendApple, setBackendApple] = useState<boolean | null>(null);
+  const [googleButtonState, setGoogleButtonState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [googleButtonRetry, setGoogleButtonRetry] = useState(0);
   const googleButtonHost = useRef<View | null>(null);
+  const webOnIOS = Platform.OS === 'web'
+    && typeof navigator !== 'undefined'
+    && isIOSWebBrowser(navigator.userAgent);
 
   const googleAuth = useGoogleAuth();
   const renderGoogleButton = googleAuth.renderButton;
@@ -192,16 +200,57 @@ export default function LoginScreen() {
   }, [router, signIn]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !googleButtonConfigured || !renderGoogleButton) return;
+    // Google requires a full-page redirect on iOS browsers. An empty
+    // Google iframe is not a button: use our OIDC redirect path on iPhone.
+    if (Platform.OS !== 'web' || webOnIOS || !googleButtonConfigured || !renderGoogleButton) return;
     const host = googleButtonHost.current as unknown as HTMLElement | null;
     if (!host) return;
+    let alive = true;
+    setGoogleButtonState('loading');
     const width = host.getBoundingClientRect?.().width || 400;
     renderGoogleButton(host, (result) => {
       void handleGoogleResult(result);
-    }, { width }).catch(() => {
-      setErr('Accesso con Google non disponibile in questo momento.');
+    }, { width }).then(() => {
+      if (alive) setGoogleButtonState(host.childElementCount ? 'ready' : 'failed');
+    }).catch(() => {
+      if (alive) setGoogleButtonState('failed');
     });
-  }, [googleButtonConfigured, renderGoogleButton, handleGoogleResult]);
+    return () => { alive = false; };
+  }, [googleButtonConfigured, renderGoogleButton, handleGoogleResult, googleButtonRetry, webOnIOS]);
+
+  const handleGoogleBrowserRedirect = async () => {
+    if (busy || Platform.OS !== 'web' || typeof window === 'undefined') return;
+    setErr(null);
+    if (backendGoogle === false) {
+      setErr(notConfiguredMessage());
+      return;
+    }
+    try {
+      setBusy('google');
+      const started = await api.googleBrowserLoginStart(window.location.origin);
+      if (!authorizedGoogleUrl(started.authorize_url)) {
+        throw new Error('google_authorize_url_invalid');
+      }
+      // Only a short-lived browser proof stays in this tab. Credentials and
+      // the eventual ORA JWT never appear in a redirect URL.
+      window.sessionStorage.setItem(GOOGLE_BROWSER_PROOF_KEY, started.proof);
+      window.location.assign(started.authorize_url);
+    } catch {
+      setErr('Non riesco ad aprire Google. Riprova o usa Email.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const retryGoogleButton = () => {
+    const host = googleButtonHost.current as unknown as HTMLElement | null;
+    if (host) {
+      delete host.dataset.oraGisButton;
+      host.replaceChildren();
+    }
+    setGoogleButtonState('loading');
+    setGoogleButtonRetry((value) => value + 1);
+  };
 
   const handleGoogle = async () => {
     if (busy) return;
@@ -372,12 +421,53 @@ export default function LoginScreen() {
                       />
                     ) : null}
 
-                    {Platform.OS === 'web' && googleButtonConfigured ? (
-                      <View
-                        ref={googleButtonHost}
-                        testID="login-google-button"
-                        style={styles.googleOfficialButtonHost}
+                    {webOnIOS ? (
+                      <AppButton
+                        testID="login-google-browser-redirect"
+                        label="Continua con Google"
+                        icon="logo-google"
+                        variant="secondary"
+                        fullWidth
+                        loading={busy === 'google'}
+                        disabled={anyBusy || backendGoogle === false}
+                        onPress={() => { void handleGoogleBrowserRedirect(); }}
+                        style={googleSurfaceStyle}
+                        accessibilityHint="Accedi a Google nel browser e ritorna su ORA"
                       />
+                    ) : Platform.OS === 'web' && googleButtonConfigured ? (
+                      <View style={styles.googleWidgetWrap}>
+                        <View
+                          ref={googleButtonHost}
+                          testID="login-google-button"
+                          style={styles.googleOfficialButtonHost}
+                        />
+                        {googleButtonState === 'loading' ? (
+                          <Text testID="login-google-loading" style={[styles.googleFallbackText, { color: colors.textTertiary }]}>
+                            Caricamento accesso Google…
+                          </Text>
+                        ) : null}
+                        {googleButtonState === 'failed' ? (
+                          <View style={styles.googleFallback}>
+                            <Text style={[styles.googleFallbackText, { color: colors.textSecondary }]}>
+                              Google non ha caricato il pulsante.
+                            </Text>
+                            <AppButton
+                              testID="login-google-redirect-fallback"
+                              label="Accedi con Google nel browser"
+                              icon="logo-google"
+                              variant="secondary"
+                              fullWidth
+                              disabled={anyBusy}
+                              loading={busy === 'google'}
+                              onPress={() => { void handleGoogleBrowserRedirect(); }}
+                            />
+                            <Pressable onPress={retryGoogleButton} accessibilityRole="button"
+                              testID="login-google-retry" style={styles.googleRetry}>
+                              <Text style={{ color: colors.textSecondary }}>Riprova il pulsante Google</Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </View>
                     ) : (
                       <AppButton
                         testID="login-google-button"
@@ -665,4 +755,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  googleWidgetWrap: { gap: 6, alignItems: 'center' },
+  googleFallback: { width: '100%', gap: 8, alignItems: 'center' },
+  googleFallbackText: { fontSize: 13, textAlign: 'center' },
+  googleRetry: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 8 },
 });
