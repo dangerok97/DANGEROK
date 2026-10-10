@@ -1021,6 +1021,114 @@ def _phone_action_requested(text: str) -> bool:
     return bool(_PHONE_ACTION_ASK_RE.search(text or ""))
 
 
+def _bare_phone_answer(text: str) -> bool:
+    """Only a standalone phone number can be applied as a pending number answer."""
+    return bool(re.fullmatch(r"\s*\+?[\d\s().-]{9,30}\s*", text or ""))
+
+
+def _phone_short_continuation(text: str) -> bool:
+    """A bare go-ahead can refer to the existing preparation, not a new contact."""
+    cleaned = re.sub(r"[.,;:!?]+", " ", str(text or "").casefold())
+    cleaned = " ".join(cleaned.split())
+    return cleaned in {
+        "chiama", "chiamala", "chiamalo", "vai", "procedi", "fallo",
+        "si", "sì", "confermo", "ok",
+        "non aggiungo altro chiama", "non aggiungo altro chiamala",
+        "non aggiungo altro chiamalo",
+    }
+
+
+async def _phone_limit_handoff(
+    *, db, sess, st: dict, user_message: str, phone_input_hint: dict,
+    observations: List[Dict[str, Any]], turn_start: int, tools, epoch: str, trace: dict,
+) -> tuple[str, bool]:
+    """Close a bounded phone turn with verified state, never a fake 'still thinking'.
+
+    The AI normally selects and runs the skill. If it runs out of passes right
+    after the phone tool, preserve that tool's exact question. If it has NOT
+    called the tool and the person supplied only a number for an already-owned
+    preparation, the only permitted recovery is to register that candidate
+    number. No go_ahead or external dial is possible on this path.
+    """
+    recent = observations[turn_start:]
+    if _has_phone_observation(recent):
+        said = _the_tool_s_own_sentence(recent)
+        if said:
+            return said, False
+        latest = next(
+            (row for row in reversed(recent)
+             if isinstance(row, dict) and row.get("name") == _PHONE_CAPABILITY),
+            {},
+        )
+        payload = latest.get("payload") or {}
+        reason = str(payload.get("reason") or payload.get("detail") or "").strip()
+        if reason:
+            return f"Non sono riuscita a preparare la telefonata: {reason[:180]}. Nessuna chiamata confermata.", False
+        return "Non ho una conferma che la telefonata sia stata preparata o avviata.", False
+
+    if not (phone_input_hint or _phone_action_requested(user_message)):
+        return "", False
+
+    ref = str(st.get("active_preparation_id") or "")
+    if phone_input_hint and _bare_phone_answer(user_message) and db is not None:
+        from preparation.preparation import by_id
+        prep = await by_id(db, sess.user_id, ref)
+        if prep is not None and not prep.call_id and not prep.number_confirmed:
+            # Explicitly NO go_ahead. The person gave a number, not a call
+            # authorization. The real capability validates and stores it;
+            # its subsequent human question is what must reach the screen.
+            obs = await tools.execute(
+                _PHONE_CAPABILITY,
+                {
+                    "preparation_id": ref,
+                    "give_number": phone_input_hint["observed_phone_number"],
+                },
+                runtime={
+                    "user_id": sess.user_id, "session_id": sess.id,
+                    "db": db, "reasoning_epoch": epoch, "platform": "web",
+                    "user_message": user_message,
+                },
+            )
+            observations.append(obs.model_dump())
+            payload = obs.payload or {}
+            if payload.get("preparation_id"):
+                st["active_preparation_id"] = str(payload["preparation_id"])[:64]
+            add_step(trace, event="PHONE_BOUND_NUMBER_CAPTURE", status=obs.status)
+            said = _the_tool_s_own_sentence(observations[turn_start:])
+            if said:
+                return said, True
+            why = str(payload.get("reason") or payload.get("detail") or "").strip()
+            return (
+                (f"Non sono riuscita a registrare il numero: {why[:180]}."
+                 if why else "Non sono riuscita a registrare il numero.")
+                + " Nessuna telefonata avviata.",
+                True,
+            )
+
+    # Read-only readback of the same owner's preparation. Do not guess
+    # recipients when the latest request may concern a different person.
+    if ref and _phone_short_continuation(user_message) and db is not None:
+        from preparation.preparation import by_id
+        from preparation.service import as_a_card
+        from telephone.caps import _the_sentence
+
+        prep = await by_id(db, sess.user_id, ref)
+        if prep is not None:
+            if prep.call_id:
+                return (
+                    "Esiste già una richiesta di telefonata collegata. "
+                    "Controllo il suo stato prima di promettere un'altra chiamata."
+                ), False
+            card = as_a_card(prep)
+            return _the_sentence(card, False), False
+
+    return (
+        "Non sono riuscita a completare la preparazione della telefonata. "
+        "Non risulta confermato alcun nuovo tentativo di chiamata. "
+        "Puoi riprendere la stessa richiesta nella conversazione."
+    ), False
+
+
 def _has_phone_observation(observations: List[Dict[str, Any]]) -> bool:
     """A phone observation proves the request entered the governed flow."""
     return any(
@@ -3038,6 +3146,27 @@ async def run_cognitive_loop(
             if detto_dallo_strumento and detto_dallo_strumento not in (ora or ""):
                 ora = detto_dallo_strumento
 
+            # At the final available reasoning pass, a phone intent must not
+            # end as an unverified promise or model placeholder.
+            if (
+                step + 1 >= max_steps
+                and (phone_input_hint or _phone_action_requested(user_message))
+                and not _has_phone_observation(observations[turn_start:])
+            ):
+                phone_message, captured_number = await _phone_limit_handoff(
+                    db=db, sess=sess, st=st, user_message=user_message,
+                    phone_input_hint=phone_input_hint, observations=observations,
+                    turn_start=turn_start, tools=tools, epoch=epoch, trace=trace,
+                )
+                if phone_message:
+                    ora = phone_message
+                    mode = "answer"
+                    decision.question = None
+                    blocking_ask = None
+                    if captured_number:
+                        tool_calls += 1
+                        trace["tool_calls"] = tool_calls
+
             phone_turn = _has_phone_observation(observations[turn_start:])
             ora = _with_situation_handoff(
                 ora, situation_result, suppress=phone_turn
@@ -3692,8 +3821,29 @@ async def run_cognitive_loop(
                 continue
 
             args = dict(decision.tool_call.arguments or {})
-            if cap == "prepare_a_phone_call" and phone_input_hint and not args.get("preparation_id"):
-                args["preparation_id"] = phone_input_hint["preparation_id"]
+            if cap == _PHONE_CAPABILITY:
+                # The phone tool always owns its own recipient/approval checks.
+                # Short follow-ups continue the already owner-scoped preparation
+                # instead of silently starting a new one without the message.
+                if not args.get("preparation_id") and (
+                    phone_input_hint or _phone_short_continuation(user_message)
+                ):
+                    pending_ref = (
+                        (phone_input_hint or {}).get("preparation_id")
+                        or st.get("active_preparation_id")
+                    )
+                    if pending_ref:
+                        args["preparation_id"] = pending_ref
+                # A single bare number directly answering the active phone
+                # question is a candidate number, never a call authorization.
+                if (
+                    phone_input_hint and _bare_phone_answer(user_message)
+                    and not any(args.get(k) for k in (
+                        "give_number", "choose_number", "number_is_right",
+                        "correct_counterparty", "identity_resolution",
+                    ))
+                ):
+                    args["give_number"] = phone_input_hint["observed_phone_number"]
             # Prefer active plan / object from state when AI omits ids
             if cap in (
                 "update_plan",
@@ -4043,7 +4193,7 @@ async def run_cognitive_loop(
     ora = (
         (last_decision.message_to_user if last_decision else None)
         or (last_decision.question if last_decision else None)
-        or "Sto ancora ragionando su questo — dimmi pure se vuoi aggiungere qualcosa."
+        or "Non ho completato la richiesta in questo turno. Non considero eseguita alcuna azione senza una conferma verificata."
     )
     if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
         ora = (
@@ -4198,6 +4348,26 @@ async def run_cognitive_loop(
             or "Non ho ancora una risposta verificata a questa richiesta."
         )
         add_step(trace, event="BARE_ACK_BLOCKED_BOUND")
+
+    # The last AI decision can be a phone tool call with no model prose.
+    # Its grounded number/confirmation sentence survives the reasoning bound.
+    # If the model skipped the skill altogether, provide a safe readback or
+    # capture a standalone number for an existing preparation (never dial).
+    if (
+        (phone_input_hint or _phone_action_requested(user_message)
+         or _has_phone_observation(observations[turn_start:]))
+        and not (bound_unseen or bound_waiting or bound_failed)
+    ):
+        phone_message, captured_number = await _phone_limit_handoff(
+            db=db, sess=sess, st=st, user_message=user_message,
+            phone_input_hint=phone_input_hint, observations=observations,
+            turn_start=turn_start, tools=tools, epoch=epoch, trace=trace,
+        )
+        if phone_message:
+            ora = phone_message
+            if captured_number:
+                tool_calls += 1
+                trace["tool_calls"] = tool_calls
 
     ora, formatting_findings = normalize_route_weather_reply(ora, observations[turn_start:])
     if formatting_findings:
