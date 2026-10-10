@@ -531,11 +531,25 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
     # user's own local record and stay visible regardless of Google
     # connection state (their provenance is already explicit as
     # "ora_managed", never presented as current Google state).
-    sync = await _sync_service(db)
-    instance_id = await _active_instance_id(sync, uid)
-    google_read_granted = await calendar_consent_granted(
-        db, user_id=uid, write=False, connector_instance_id=instance_id,
-    )
+    # Calendario ORA is first-party. Reading local events cannot depend on
+    # constructing the Google client, on Google credentials, or on OAuth
+    # tokens. Only a currently connected instance may contribute a mirror.
+    google_read_granted = False
+    try:
+        google_instance = await db.connector_instances.find_one(
+            {"user_id": uid, "connector_id": "calendar_google",
+             "status": {"$in": ["connected", "syncing", "active"]}},
+            {"_id": 0, "id": 1},
+        )
+        if google_instance:
+            sync = await _sync_service(db)
+            instance_id = await _active_instance_id(sync, uid)
+            google_read_granted = await calendar_consent_granted(
+                db, user_id=uid, write=False, connector_instance_id=instance_id,
+            )
+    except Exception as exc:
+        # A broken optional integration must never hide ORA's own events.
+        logger.info("optional Google calendar read unavailable: %s", type(exc).__name__)
 
     remaining = max(0, _MAX_EVENTS_RETURNED - len(items))
     if remaining and google_read_granted:
@@ -613,7 +627,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         "calendar_ref": _ref(e["id"]), "source": "ora_local", "title": e["title"],
         "start_datetime": e["starts_at"], "end_datetime": e["ends_at"],
         "timezone": e["timezone"], "location": e["location"], "description": e["description"],
-        "all_day": False, "status": "confirmed", "sync_status": "local_only",
+        "all_day": bool(e.get("all_day")), "status": "confirmed", "sync_status": "local_only",
     } for e in local_events)
     def event_instant(item):
         at = _parse_dt(item.get("start_datetime")) or time_min
