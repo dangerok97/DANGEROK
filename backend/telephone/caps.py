@@ -205,6 +205,16 @@ def _the_person_said_yes(detto: str, *, via_libera: bool = False,
         return False
     if richiesta and testo == " ".join((richiesta or "").lower().split()):
         return False
+    # After the full summary has been read in a PREVIOUS turn, this is a
+    # natural affirmative: "Non aggiungo altro, chiama". "Non" negates adding
+    # details, not the call. It cannot approve a number (via_libera=False).
+    # The caller still checks number trust and summary_shown_in separately.
+    if via_libera and re.fullmatch(
+        r"non\s+aggiungo\s+(?:altro|niente|nient['’]?altro)"
+        r"\s*[,;:.!]?\s*(?:chiama(?:la|lo)?|procedi|vai|fallo)[.!]?",
+        testo,
+    ):
+        return True
     parole = [p for p in re.split(r"[^\wàèéìòù']+", testo) if p]
     if not parole or "no" in parole or "non" in parole[:2]:
         return False
