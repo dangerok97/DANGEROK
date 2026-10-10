@@ -1,3 +1,15 @@
+## 10 ottobre 2026 — v153: contratto unico per il feed aggiornamenti
+
+`UpdatesFeed` (Home) e `elencoAggiornamenti` (pagina di dettaglio)
+applicano ora la medesima sequenza: filtrare ogni collezione in base alla
+scadenza, poi limitarla (agent_work/opportunities 2, suggestions/insights 3),
+poi proiettare i campi per la UI. Prima il dettaglio eseguiva `slice`
+prima del filtro e lasciava passare tutti gli insights: il conteggio poteva
+divergere dalla lista aperta. Nessuna API o migrazione Mongo richiesta.
+Le prove sintetiche stale-first/over-limit sono in `home3.test.ts`.
+
+---
+
 ## 8 ottobre 2026 — Fase 1 v126: risultati persistiti e provider reali in isolamento
 
 `AICoreOrchestrator.message` confronta una fingerprint di testo completo,

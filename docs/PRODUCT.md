@@ -1,3 +1,14 @@
+## 10 ottobre 2026 — v153: aggiornamenti coerenti tra Home e dettaglio
+
+Quando ORA scrive «N aggiornamenti» in Home, la pagina aperta deve mostrare
+gli stessi N elementi ancora validi. Segnalazioni scadute non possono occupare
+posti riservati a informazioni nuove. Il limite resta contenuto: fino a due
+lavori autonomi, due opportunità, tre suggerimenti e tre spunti.
+I dati originali, la memoria e le scadenze restano invariati. Una segnalazione
+informativa non diventa un compito soltanto perché è visibile.
+
+---
+
 ## 8 ottobre 2026 — Fase 1 v126: continuità del risultato e letture attendibili
 
 Quando il telefono ritrasmette lo stesso messaggio dopo aver perso una risposta,

@@ -1,3 +1,20 @@
+## 10 ottobre 2026 — v153: verifica coerenza degli aggiornamenti
+
+Ispezione del codice dopo v152: la Home selezionava gli avvisi vivi con
+`filter().slice()`, mentre `elencoAggiornamenti` usava `slice().map()`
+e filtrava soltanto alla fine; non limitava gli spunti. Il difetto rendeva
+possibili liste incomplete rispetto al numero mostrato in Home. Corrette
+quattro categorie e aggiunta una regressione con avvisi scaduti davanti
+a quelli validi e più elementi vivi del limite.
+
+Verifiche precedenti: CI della v152 verde; backend Railway attivo;
+Gmail e Calendar rispondevano HTTP 200 al polling osservato.
+Queste osservazioni non provano la qualità semantica delle card né i
+checkpoint della situazione di un utente autenticato. La v153 non modifica
+documenti, saldi, origine delle email o programmazione dei follow-up.
+
+---
+
 ## 8 ottobre 2026 — Fase 1 v126: integrazione provider, ripresa e autenticazione
 
 Ripresa dal checkpoint v125 / PR #161 (`9d46ac3`), che aveva provato il modello

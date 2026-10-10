@@ -512,3 +512,44 @@ console.log('PX1.2 Home 3.0 guards: all assertions passed');
   assert.ok(backend.includes('situation_schedule_failed'),
     'an explicitly failed attempt needs a persisted error, not a silent failure');
 }
+
+
+
+// v153 — Home count and the opened update list must agree even when
+// stale notices are ahead of valid ones. Do not let expired rows consume slots.
+{
+  const expired = '2000-01-01T00:00:00Z';
+  const live = '2099-01-01T00:00:00Z';
+  const work = (id: string, valid_until: string) => ({ id, what: id, valid_until });
+  const opportunity = (id: string, valid_until: string) => ({ id, title: id, valid_until });
+  const advice = (id: string, expires_at: string) => ({ id, title: id, expires_at });
+  const insight = (id: string, valid_until: string) => ({ id, text: id, valid_until });
+  const rows = elencoAggiornamenti({
+    agent_work: [
+      work('old-work-1', expired), work('old-work-2', expired),
+      work('live-work-1', live), work('live-work-2', live), work('live-work-3', live),
+    ],
+    opportunities: [
+      opportunity('old-opportunity', expired),
+      opportunity('live-opportunity-1', live), opportunity('live-opportunity-2', live),
+      opportunity('live-opportunity-3', live),
+    ],
+    ora_ti_consiglia: [
+      advice('old-advice', expired),
+      advice('live-advice-1', live), advice('live-advice-2', live),
+      advice('live-advice-3', live), advice('live-advice-4', live),
+    ],
+    insights: [
+      insight('old-insight', expired),
+      insight('live-insight-1', live), insight('live-insight-2', live),
+      insight('live-insight-3', live), insight('live-insight-4', live),
+    ],
+  } as any);
+  assert.deepEqual(rows.map(row => row.id), [
+    'live-work-1', 'live-work-2',
+    'live-opportunity-1', 'live-opportunity-2',
+    'live-advice-1', 'live-advice-2', 'live-advice-3',
+    'live-insight-1', 'live-insight-2', 'live-insight-3',
+  ], 'details must use the same fresh two/two/three/three entries as Home');
+  assert.equal(rows.length, 10, 'Home link count must match details length');
+}
