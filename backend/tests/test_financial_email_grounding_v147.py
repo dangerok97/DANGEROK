@@ -151,6 +151,23 @@ async def test_unlinked_admin_action_engine_hint_is_not_a_fake_bill_focus():
     })
     hidden, _ = await load_action_engine_items(db, "owner")
     assert hidden == []
+    # The previous gate accepted any linked document as "actionable".
+    # A merely read email/document must not create a fake admin Focus,
+    # even when there is a completed guided session attached.
+    await db.action_projects.insert_one({
+        "id": "document_only", "user_id": "owner",
+        "status": "active", "flow": "admin",
+        "title": "Promemoria finanziario da un documento",
+        "next_focus_hint": "Admin: Conosco un pagamento entro fine mese",
+        "session_ids": ["completed_session"],
+        "linked": {
+            "documents": ["document_receipt"],
+            "task_ids": [], "reminder_ids": [], "decision_ids": [],
+            "calendar_event_ids": [],
+        },
+    })
+    docs_only, _ = await load_action_engine_items(db, "owner")
+    assert docs_only == [], "document provenance is not unfinished work"
     await db.action_projects.insert_one({
         "id": "real_task", "user_id": "owner", "status": "active",
         "flow": "admin", "title": "Richiedere una ricevuta",
