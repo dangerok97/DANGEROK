@@ -45,3 +45,42 @@ def test_go_ahead_requires_explicit_post_summary_assent():
     assert not _the_person_said_yes("non aggiungo altro, chiama", via_libera=False)
     assert not _the_person_said_yes("non chiamare", via_libera=True)
     assert not _the_person_said_yes("chiama", via_libera=True)
+
+
+@pytest.mark.asyncio
+async def test_ask_for_missing_number_survives_short_followup(monkeypatch):
+    from preparation.preparation import MissionPreparation, MissingInformation, remember
+
+    db = AsyncMongoMockClient().phone_followup
+    prep = MissionPreparation(
+        owner_id="synthetic-owner", counterparty="Persona Esempio",
+        user_request="Chiama Persona Esempio.",
+        missing_information=[MissingInformation(
+            field="phone", question="Mi serve il recapito di Persona Esempio.",
+        )],
+    )
+    await remember(db, prep)
+
+    async def execute(self, capability, args, *, runtime):
+        return Observation(kind="tool", name=capability, status="ok", payload={})
+
+    async def decide(system, user):
+        return {
+            "response_mode": "tool", "reasoning_status": "needs_tool",
+            "tool_call": {"capability": "note_intention", "arguments": {}},
+            "user_intent_summary": "continuare una richiesta",
+            "situation_update": {"operation": "none"},
+        }
+
+    monkeypatch.setattr(ToolRegistry, "execute", execute)
+    result = await run_cognitive_loop(
+        sess=ConversationSession(
+            user_id="synthetic-owner",
+            meta={"ui_mode": "ai_core", "ai_core": {
+                "active_preparation_id": prep.preparation_id,
+            }},
+        ),
+        user_message="non aggiungo altro, chiama",
+        db=db, decision_fn=decide, max_steps=1,
+    )
+    assert result.ora_text == "Mi serve il recapito di Persona Esempio."
