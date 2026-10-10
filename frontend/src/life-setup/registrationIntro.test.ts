@@ -128,6 +128,11 @@ test('actual login mounts introduction before credentials and sends completed tu
       notConfiguredMessage: () => 'Integrazione non configurata in questo ambiente',
     },
     '@/src/auth/googleAuth': { useGoogleAuth: () => ({ availability: { status: 'unavailable' } }) },
+    '@/src/auth/googleBrowserRedirect': {
+      GOOGLE_BROWSER_PROOF_KEY: 'synthetic-tab-proof',
+      authorizedGoogleUrl: () => false,
+      isIOSWebBrowser: () => false,
+    },
     '@/src/auth/appleSignIn': {}, '@/src/life-setup/routeAfterAuth': { routeAfterAuth: async () => {} },
     '@/src/life-setup/RegistrationIntro': h.intro, '@/src/utils/errors': { humanizeError: () => 'error' },
   });
