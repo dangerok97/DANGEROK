@@ -198,3 +198,43 @@ async def test_apple_write_is_not_silently_redirected_to_ora(isolated_calendar):
     assert result.status == "error"
     assert result.payload["failure_kind"] == "READ_ONLY_CALENDAR"
     assert await db.life_nodes.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_chat_reads_native_events_even_when_google_service_unavailable(
+    isolated_calendar, monkeypatch,
+):
+    from conversation_engine.ai_core.tools import calendar_caps
+    from home.manual_event import create_manual_event
+
+    db, owner, app = isolated_calendar
+
+    async def user_timezone(db_, user_id):
+        return SimpleNamespace(tz_name="Europe/Rome")
+
+    async def no_google(*args, **kwargs):
+        raise AssertionError("The optional Google client must not be initialized")
+
+    monkeypatch.setattr(calendar_caps, "resolve_user_timezone", user_timezone)
+    monkeypatch.setattr(calendar_caps, "_sync_service", no_google)
+    await create_manual_event(
+        db, owner["user_id"], title="Giornata locale",
+        start="2026-10-15T00:00:00+02:00",
+        end="2026-10-16T00:00:00+02:00",
+        tz_name="Europe/Rome", all_day=True,
+    )
+
+    observed = await calendar_caps.get_calendar_events(
+        {
+            "time_min": "2026-10-14T00:00:00+02:00",
+            "time_max": "2026-10-17T00:00:00+02:00",
+        },
+        {"db": db, "user_id": owner["user_id"]},
+    )
+    assert observed.status == "ok", observed.payload
+    rows = observed.payload["events"]
+    assert len(rows) == 1
+    assert rows[0]["source"] == "ora_local"
+    assert rows[0]["title"] == "Giornata locale"
+    assert rows[0]["all_day"] is True
+    assert observed.payload["google_events_included"] is False
