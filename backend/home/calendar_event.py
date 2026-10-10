@@ -72,7 +72,7 @@ async def _row(db, user_id: str, item_id: str) -> Optional[Dict[str, Any]]:
                 "title": local["label"], "starts_at": attrs.get("starts_at"),
                 "ends_at": attrs.get("ends_at"), "timezone": attrs.get("timezone"),
                 "location": attrs.get("location"), "description": local.get("description"),
-                "calendar_name": "Calendario ORA", "all_day": False,
+                "calendar_name": "Calendario ORA", "all_day": bool(attrs.get("all_day")),
                 "status": "confirmed" if local.get("status") == "active" else "cancelled",
             },
         }
