@@ -115,6 +115,15 @@ class AgendaService:
         events = await self._events_between(
             user_id, first, next_month, with_notes=False,
         )
+        # Old connector mirrors must not appear as an active subscription
+        # after the person disconnects the provider. ORA entries are always
+        # available, regardless of OAuth/device permissions.
+        connected = await self._connected_sources(user_id)
+        events = [
+            event for event in events
+            if event.get("source_type") == "ora"
+            or event.get("source_type") in connected
+        ]
         grouped: Dict[str, List[Dict[str, Any]]] = {}
         sources = {"ora": 0, "google": 0, "apple": 0, "other": 0}
         for item in events:
@@ -143,9 +152,31 @@ class AgendaService:
             "days": days,
             "total_events": len(events),
             "source_counts": sources,
-            "calendar_connected": await self._a_calendar_is_connected(user_id),
+            "calendar_connected": bool(connected),
+            "connected_sources": sorted(connected),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
+
+    async def _connected_sources(self, user_id: str) -> set[str]:
+        try:
+            rows = await self.db.connector_instances.find({
+                "user_id": user_id,
+                "status": {"$in": ["connected", "syncing", "active"]},
+            }, {"_id": 0, "connector_id": 1}).to_list(length=40)
+        except Exception:
+            return set()
+        sources: set[str] = set()
+        for row in rows:
+            connector = str(row.get("connector_id") or "").lower()
+            if "calendar" not in connector:
+                continue
+            if "google" in connector:
+                sources.add("google")
+            elif "apple" in connector:
+                sources.add("apple")
+            else:
+                sources.add("other")
+        return sources
 
     async def _events_between(
         self, user_id: str, inizio: datetime, fine: datetime, *,
