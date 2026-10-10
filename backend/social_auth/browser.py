@@ -38,6 +38,10 @@ def _hash(value: str) -> str:
 
 def _completion_url(frontend_return: str, **params: str) -> str:
     parts = urlsplit(frontend_return)
+    if "ticket" in params:
+        # A URI fragment is never sent to nginx or included in HTTP Referer.
+        # The ticket is also unusable without the proof kept in the same tab.
+        return urlunsplit(parts._replace(query="", fragment=urlencode(params)))
     return urlunsplit(parts._replace(query=urlencode(params), fragment=""))
 
 
