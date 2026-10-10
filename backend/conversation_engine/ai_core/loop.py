@@ -1023,7 +1023,7 @@ def _phone_action_requested(text: str) -> bool:
 
 def _bare_phone_answer(text: str) -> bool:
     """Only a standalone phone number can be applied as a pending number answer."""
-    return bool(re.fullmatch(r"\\s*\\+?[\\d\\s().-]{9,30}\\s*", text or ""))
+    return bool(re.fullmatch(r"\s*\+?[\d\s().-]{9,30}\s*", text or ""))
 
 
 def _phone_short_continuation(text: str) -> bool:
