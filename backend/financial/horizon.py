@@ -126,8 +126,17 @@ async def what_is_coming(
 
     for fact in facts:
         when = _moment(fact.due_at)
-        if when is not None and not (moment <= when <= until):
-            continue
+        if when is not None:
+            # A source that says only "10 October" did not say midnight.
+            # Such an obligation remains relevant *throughout* October 10,
+            # rather than disappearing from Home after 00:00 UTC.
+            raw_due = str(fact.due_at or "").strip()
+            if len(raw_due) == 10 and raw_due[4:5] == "-" and raw_due[7:8] == "-":
+                in_window = moment.date() <= when.date() <= until.date()
+            else:
+                in_window = moment <= when <= until
+            if not in_window:
+                continue
         if when is None:
             if fact.cadence != "recurring":
                 # Nessuna data e nessuna ricorrenza: non si sa se cade in
