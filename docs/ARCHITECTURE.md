@@ -1,3 +1,19 @@
+## 10 ottobre 2026 — v155: vista mensile senza provider obbligatorio
+
+Il servizio `agenda.month_view` proietta `life_nodes` event owner-scoped nella
+timezone risolta dell'utente. La nuova API `GET /api/agenda/month` non
+richiede connector instances e include ogni giorno del mese, anche vuoto.
+La provenienza è `ora/google/apple/other`; i soli overlay esterni attivi
+richiedono una connector instance connessa. Gli eventi locali usano i metodi
+transazionali/idempotenti già esistenti di `home.manual_event`.
+Il dettaglio di nodi esterni riconosciuti per id canonico è in sola lettura
+se manca un handle provider di scrittura; le cancellazioni Apple non sono
+inoltrate accidentalmente al provider Google.
+
+Documentazione completa e limiti: `NATIVE_ORA_CALENDAR_V155.md`.
+
+---
+
 ## 10 ottobre 2026 — v153: contratto unico per il feed aggiornamenti
 
 `UpdatesFeed` (Home) e `elencoAggiornamenti` (pagina di dettaglio)
