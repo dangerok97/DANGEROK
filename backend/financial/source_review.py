@@ -120,6 +120,11 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
             message += f" {unchanged} erano già corrette."
         if unconfirmed:
             message += f" Per {unconfirmed} non è stato confermato un fatto economico."
+    elif read_ok and unavailable:
+        message = (
+            f"Ho letto {read_ok} email, ma una o più interpretazioni non "
+            "sono state completate con affidabilità. Puoi riprovare."
+        )
     elif read_ok:
         message = (
             f"Ho riletto {read_ok} email, ma non ho nuovi importi o scadenze "
@@ -132,9 +137,11 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
             )
     elif already_reviewed and not inspected:
         message = (
-            f"Le {already_reviewed} email economiche disponibili erano già "
-            "state verificate. Non è necessario ripetere la lettura."
-        )
+            "La fonte email economica disponibile era già stata verificata."
+            if already_reviewed == 1 else
+            f"Le {already_reviewed} fonti email economiche disponibili "
+            "erano già state verificate."
+        ) + " Non è necessario ripetere la lettura."
     elif not inspected:
         message = (
             "Non risultano email economiche precedentemente riconosciute da "
