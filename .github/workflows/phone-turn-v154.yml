@@ -28,7 +28,9 @@ jobs:
           cache-dependency-path: backend/requirements-cloud.txt
       - name: Install test dependencies
         working-directory: backend
-        run: python -m pip install -r requirements-cloud.txt
+        run: |
+          python -m pip install -r requirements-cloud.txt
+          python -m pip install mongomock-motor==0.0.36
       - name: Compile changed Python modules
         working-directory: backend
         run: python -m compileall -q conversation_engine/ai_core/loop.py telephone/caps.py tests/test_phone_turn_closure_v154.py
