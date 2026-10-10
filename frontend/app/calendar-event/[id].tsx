@@ -226,7 +226,11 @@ export default function CalendarEventScreen() {
               </View> : null}
 
               <Text style={styles.footnote}>
-                {event.is_local ? 'Questo impegno è salvato nel calendario ORA.' : 'Le modifiche si applicano anche al tuo Google Calendar.'}
+                {event.is_local
+                  ? 'Questo impegno è salvato nel calendario ORA, senza dipendere da altri account.'
+                  : event.can_be_changed && event.provider === 'Google Calendar'
+                    ? 'Le modifiche a questo evento si applicano al calendario Google collegato.'
+                    : 'Evento proveniente da un calendario collegato: qui puoi consultarlo, senza modificare la fonte.'}
               </Text>
             </>
           ) : null}
