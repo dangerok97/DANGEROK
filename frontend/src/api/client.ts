@@ -860,6 +860,20 @@ export const api = {
       false,
     ),
 
+  /** First-party Google OAuth redirect: full page, usable on iOS browsers. */
+  googleBrowserLoginStart: (frontend_origin: string) =>
+    request<{ authorize_url: string; proof: string; expires_at: string }>(
+      '/auth/google/browser/start',
+      { method: 'POST', body: JSON.stringify({ frontend_origin }) },
+      false,
+    ),
+  googleBrowserLoginComplete: (ticket: string, proof: string) =>
+    request<ApiAuth>(
+      '/auth/google/browser/complete',
+      { method: 'POST', body: JSON.stringify({ ticket, proof }) },
+      false,
+    ),
+
   authApple: (payload: {
     id_token: string;
     nonce?: string;
