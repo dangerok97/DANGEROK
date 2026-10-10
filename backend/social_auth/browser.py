@@ -113,6 +113,8 @@ async def maybe_handle_google_browser_callback(
         return None
 
     return_url = state_doc["return_url"]
+    if not code:
+        return _completion_url(return_url, error="google_login_cancelled")
     try:
         tokens = await exchange_code_for_tokens(
             code=code,
