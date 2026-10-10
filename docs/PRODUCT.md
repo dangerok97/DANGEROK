@@ -1,3 +1,15 @@
+## 10 ottobre 2026 — v155: calendario ORA nativo e indipendente
+
+Il calendario ORA è sempre disponibile e non dipende da un login Google o
+Apple. Una vista mensile permette di scegliere il giorno, creare un impegno,
+consultarlo, modificarlo o rimuoverlo dal calendario ORA. Gli eventi Google,
+Apple e di altri connettori già disponibili sono fonti *opzionali*: possono
+essere mostrati nella stessa vista, con etichetta e filtro di provenienza.
+Scollegare una fonte non cancella gli eventi locali. Collegarsi non abilita
+automaticamente la replica degli eventi ORA nei calendari esterni.
+
+---
+
 ## 10 ottobre 2026 — v153: aggiornamenti coerenti tra Home e dettaglio
 
 Quando ORA scrive «N aggiornamenti» in Home, la pagina aperta deve mostrare
