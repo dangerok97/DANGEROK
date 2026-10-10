@@ -11,7 +11,7 @@ from financial.models import Provenance
 
 
 async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -> dict:
-    inspected = corrected = unavailable = 0
+    inspected = read_ok = updated = unchanged = unconfirmed = unavailable = already_reviewed = 0
     seen: set[str] = set()
     max_count = max(1, min(int(limit), 5))
     candidates = await db.financial_facts.find(
@@ -28,8 +28,8 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
         ), None)
         if not source:
             continue
-        message_ref = str(source["source_ref"])
-        if message_ref in seen:
+        message_ref = str(source["source_ref"]).strip().removeprefix("mail:")
+        if not message_ref or message_ref in seen:
             continue
         seen.add(message_ref)
         if inspected >= max_count:
@@ -41,6 +41,7 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
              "status": "completed"}, {"_id": 0, "message_ref": 1}
         )
         if already:
+            already_reviewed += 1
             continue
         inspected += 1
         email = await db.ingestion_events.find_one(
@@ -65,6 +66,7 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
         if not body:
             unavailable += 1
             continue
+        read_ok += 1
         await _note_the_read(
             db, owner_id, signal, fields=["body"],
             why="Rilettura richiesta per verificare servizio, importo e data.",
@@ -85,9 +87,14 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
             ),
             source_refs=[f"mail:{message_ref}"],
         )
-        if outcome.get("outcome") in (
-            "kept", "superseded", "already_known", "disputed", "nothing"
-        ):
+        result = str(outcome.get("outcome") or "")
+        if result in ("kept", "superseded", "already_known", "disputed"):
+            # Read succeeded, but the financial model may have learned
+            # nothing new. Distinguish that from an actual correction.
+            if result == "already_known":
+                unchanged += 1
+            else:
+                updated += 1
             await db.financial_source_reviews.update_one(
                 {"owner_id": owner_id, "message_ref": message_ref},
                 {"$set": {
@@ -96,19 +103,54 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
                 }},
                 upsert=True,
             )
-            corrected += 1
+        elif result == "nothing":
+            # The source was read, but the previous economic classification
+            # was not confirmed. Preserve the original record; do not claim
+            # the information was updated or quietly delete financial data.
+            unconfirmed += 1
         else:
             unavailable += 1
 
-    return {
-        "checked": inspected, "read_successfully": corrected,
-        "not_available": unavailable,
-        "message": (
-            f"Ho riletto {corrected} fonti email. "
-            "Le informazioni economiche aggiornate compaiono dopo il ricaricamento. "
-            "Se un importo non è nella fonte, resta sconosciuto."
-            if corrected else
+    if updated:
+        message = (
+            f"Ho verificato {read_ok} email e aggiornato {updated} informazioni "
+            "economiche. Gli importi non presenti nelle fonti restano sconosciuti."
+        )
+        if unchanged:
+            message += f" {unchanged} erano già corrette."
+        if unconfirmed:
+            message += f" Per {unconfirmed} non è stato confermato un fatto economico."
+    elif read_ok:
+        message = (
+            f"Ho riletto {read_ok} email, ma non ho nuovi importi o scadenze "
+            "confermati da aggiungere."
+        )
+        if unconfirmed:
+            message += (
+                f" In {unconfirmed} casi la fonte non ha confermato "
+                "il precedente significato economico."
+            )
+    elif already_reviewed and not inspected:
+        message = (
+            f"Le {already_reviewed} email economiche disponibili erano già "
+            "state verificate. Non è necessario ripetere la lettura."
+        )
+    elif not inspected:
+        message = (
+            "Non risultano email economiche precedentemente riconosciute da "
+            "rileggere. Questo non dimostra che la casella sia vuota."
+        )
+    else:
+        message = (
             "Non ho potuto rileggere le email selezionate. "
             "Controlla il collegamento Gmail o riprova."
-        ),
+        )
+    if unavailable and read_ok:
+        message += f" {unavailable} verifiche non sono riuscite."
+
+    return {
+        "checked": inspected, "read_successfully": read_ok,
+        "updated": updated, "unchanged": unchanged,
+        "unconfirmed": unconfirmed, "already_reviewed": already_reviewed,
+        "not_available": unavailable, "message": message,
     }
