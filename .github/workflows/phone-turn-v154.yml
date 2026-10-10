@@ -36,4 +36,4 @@ jobs:
         run: python -m compileall -q conversation_engine/ai_core/loop.py telephone/caps.py tests/test_phone_turn_closure_v154.py
       - name: Bounded turn and explicit approval regression
         working-directory: backend
-        run: python -m pytest -q tests/test_phone_turn_closure_v154.py tests/test_phase1_cognitive_bound_v116.py -x
+        run: python -m pytest -q -n 0 tests/test_phone_turn_closure_v154.py tests/test_phase1_cognitive_bound_v116.py -x
