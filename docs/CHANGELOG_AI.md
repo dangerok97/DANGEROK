@@ -1,3 +1,14 @@
+## 10 ottobre 2026 — v153: corrispondenza aggiornamenti Home/dettaglio
+
+- Corretta la discrepanza tra il numero di aggiornamenti in Home e la
+  lista aperta: avvisi scaduti eliminati prima di applicare i limiti.
+- Uniformati i limiti per lavori (2), opportunità (2), suggerimenti (3)
+  e spunti (3) su entrambe le superfici.
+- Test sintetico con avvisi vecchi davanti a quelli nuovi e più elementi
+  validi del limite. Nessun dato personale o memoria modificato.
+
+---
+
 ## 2026-10-08 — Fase 1 v126: continuità dei messaggi e provider di lettura
 
 - Corretto il retry dello stesso `client_message_id` dopo la persistenza:
