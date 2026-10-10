@@ -1218,7 +1218,8 @@ class ToolRegistry:
                 description=(
                     "ADD a calendar commitment. Calendario ORA exists for every user "
                     "WITHOUT a Google or Apple connection. Use calendar_target='ora' "
-                    "when the user asks for ORA's own calendar. If no Google account "
+                    "when the user asks for ORA's own calendar. Never use it to move or reschedule "
+                    "an existing event. If no Google account "
                     "is connected, the default automatically saves to ORA. Use "
                     "calendar_target='google' ONLY for an explicitly requested Google "
                     "event; that write requires Google connection and consent. Apple "
