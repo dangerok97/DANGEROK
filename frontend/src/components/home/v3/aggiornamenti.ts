@@ -80,7 +80,9 @@ export function quandoAggiornamento(iso?: string | null): string | null {
 export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Aggiornamento[] {
   if (!home) return [];
 
-  const lavori: Aggiornamento[] = (home.agent_work || []).slice(0, 2).map((w) => ({
+  // Match UpdatesFeed: expire stale entries before applying each section limit.
+  // Otherwise an old notice can hide the current one only on the detail page.
+  const lavori: Aggiornamento[] = (home.agent_work || []).filter(w => !aggiornamentoScaduto(w.valid_until)).slice(0, 2).map((w) => ({
     id: w.id,
     genere: 'lavoro',
     testo_preparato: w.prepared_text || '',
@@ -99,7 +101,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     situazione: w.situation || null,
   }));
 
-  const occasioni: Aggiornamento[] = (home.opportunities || []).slice(0, 2).map((o) => ({
+  const occasioni: Aggiornamento[] = (home.opportunities || []).filter(o => !aggiornamentoScaduto(o.valid_until)).slice(0, 2).map((o) => ({
     id: o.id,
     genere: 'occasione',
     solo_informazione: o.informational_only ??
@@ -133,7 +135,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     scade: o.valid_until || undefined,
   }));
 
-  const suggerimenti: Aggiornamento[] = (home.ora_ti_consiglia || []).slice(0, 3).map((s) => ({
+  const suggerimenti: Aggiornamento[] = (home.ora_ti_consiglia || []).filter(s => !aggiornamentoScaduto(s.expires_at)).slice(0, 3).map((s) => ({
     id: s.id,
     genere: 'suggerimento',
     lavoro: s.action?.kind === 'prepare_change' ? 'prepare' : undefined,
@@ -151,7 +153,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     scade: s.expires_at || undefined,
   }));
 
-  const spunti: Aggiornamento[] = (home.insights || []).map((i) => ({
+  const spunti: Aggiornamento[] = (home.insights || []).filter(i => !aggiornamentoScaduto(i.valid_until)).slice(0, 3).map((i) => ({
     id: i.id,
     genere: 'spunto',
     cosa: i.text,
