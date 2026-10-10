@@ -71,6 +71,9 @@ jobs:
             tests/test_vita_flow_v3213c.py \
             tests/test_vita_semantics_v3213d.py \
             tests/test_vita_state_semantics_v3213e.py
+      - name: ORA native calendar without any external connector
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py -x
       - name: Focused pytest (AI docs + analysis versions + LE docs + V2)
         working-directory: backend
         run: |
@@ -306,6 +309,9 @@ jobs:
       - name: Home update lifecycle regression
         working-directory: frontend
         run: node --experimental-strip-types src/components/home/v3/home3.test.ts
+      - name: ORA calendar month-grid regression
+        working-directory: frontend
+        run: node --experimental-strip-types src/components/calendar/nativeMonth.test.ts
       - name: Device location consent and native background presence
         working-directory: frontend
         run: node --test src/location/shareForeground.test.cjs src/location/presenceTask.test.cjs
