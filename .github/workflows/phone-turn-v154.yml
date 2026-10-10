@@ -1,0 +1,37 @@
+name: Phone turn boundary checks
+
+on:
+  pull_request:
+    paths:
+      - "backend/conversation_engine/ai_core/loop.py"
+      - "backend/telephone/caps.py"
+      - "backend/tests/test_phone_turn_closure_v154.py"
+      - ".github/workflows/phone-turn-v154.yml"
+  push:
+    branches: ["ora/v154-phone-turn-closure"]
+
+jobs:
+  bounded-phone:
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: synthetic-ci-only
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_phone_synthetic
+      DOCUMENT_STORAGE_DIR: /tmp/ora-phone-documents
+      GEMINI_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Install test dependencies
+        working-directory: backend
+        run: python -m pip install -r requirements-cloud.txt
+      - name: Compile changed Python modules
+        working-directory: backend
+        run: python -m compileall -q conversation_engine/ai_core/loop.py telephone/caps.py tests/test_phone_turn_closure_v154.py
+      - name: Bounded turn and explicit approval regression
+        working-directory: backend
+        run: python -m pytest -q tests/test_phone_turn_closure_v154.py tests/test_phase1_cognitive_bound_v116.py -x
