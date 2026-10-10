@@ -63,15 +63,16 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
         hint = p.get("next_focus_hint") or p.get("title")
         flow = p.get("flow") or "generic"
         links = p.get("linked") or {}
-        # The AI-generated hint is not proof of a bill, a real task or a due
-        # date. Legacy administrative projects with no resulting reminder,
-        # task, decision, event or source document must not become Daily Focus
-        # with a fake "Organizza" button. The active session can still be
-        # resumed through its own (separate) truthful row.
+        # The AI-generated hint and a source document are NOT proof of
+        # unfinished work. A source document is evidence the assistant read,
+        # not an obligation to "organize" a new payment. Only a committed
+        # task, reminder, decision or calendar event can elevate the project
+        # to Daily Focus. The project's source documents remain attached in
+        # storage and its active session has a separate, truthful resume row.
         actionable_refs = [
             v for kind in (
                 "task_ids", "reminder_ids", "decision_ids",
-                "calendar_event_ids", "documents",
+                "calendar_event_ids",
             )
             for v in (links.get(kind) or []) if v
         ]
