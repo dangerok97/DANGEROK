@@ -46,9 +46,18 @@ export function QuietGoogleNotice({ visible, onDismiss, onConnected }: Props) {
       accessibilityRole="summary"
     >
       <Text style={[styles.text, { color: colors.textTertiary }]}>
-        Google Calendar non collegato — arricchisce le priorità.
+        Il calendario ORA funziona già. Se vuoi, puoi aggiungere anche Google Calendar.
       </Text>
       <View style={styles.actions}>
+        <Pressable
+          onPress={() => router.push('/agenda')}
+          testID="btn-open-ora-calendar"
+          accessibilityRole="button"
+          accessibilityLabel="Apri il calendario ORA"
+          style={styles.hit}
+        >
+          <Text style={[styles.link, { color: colors.accent }]}>Apri calendario ORA</Text>
+        </Pressable>
         <Pressable
           onPress={connect}
           disabled={busy}
@@ -58,7 +67,7 @@ export function QuietGoogleNotice({ visible, onDismiss, onConnected }: Props) {
           style={styles.hit}
         >
           <Text style={[styles.link, { color: colors.accent }]}>
-            {busy ? '…' : 'Collega'}
+            {busy ? '…' : 'Collega Google'}
           </Text>
         </Pressable>
         <Pressable
@@ -83,7 +92,7 @@ const styles = StyleSheet.create({
     fontSize: tokens.typography.footnote.fontSize,
     lineHeight: 16,
   },
-  actions: { flexDirection: 'row', gap: tokens.spacing.lg },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.lg },
   hit: { minHeight: tokens.touch.min, justifyContent: 'center' },
   link: { fontSize: 13, fontWeight: '600' },
   linkMuted: { fontSize: 13, fontWeight: '500' },

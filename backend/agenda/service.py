@@ -90,8 +90,97 @@ class AgendaService:
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
+    async def month_view(self, user_id: str, *, month: str) -> Dict[str, Any]:
+        """The ORA-owned calendar, with optional linked sources in the same month.
+
+        There is no dependency on Google, Apple or any connector to see dates
+        or create events. This is a read-only projection of existing nodes;
+        connected sources never become the owner of local appointments.
+        """
+        if len(month) != 7:
+            raise ValueError("invalid_month")
+        try:
+            parsed = datetime.strptime(month, "%Y-%m")
+        except ValueError as exc:
+            raise ValueError("invalid_month") from exc
+        if parsed.strftime("%Y-%m") != month:
+            raise ValueError("invalid_month")
+        zone = ZoneInfo((await resolve_user_timezone(self.db, user_id)).tz_name)
+        first = datetime(parsed.year, parsed.month, 1, tzinfo=zone)
+        next_month = datetime(
+            parsed.year + int(parsed.month == 12), parsed.month % 12 + 1, 1,
+            tzinfo=zone,
+        )
+        today = datetime.now(zone).date()
+        events = await self._events_between(
+            user_id, first, next_month, with_notes=False,
+        )
+        # Old connector mirrors must not appear as an active subscription
+        # after the person disconnects the provider. ORA entries are always
+        # available, regardless of OAuth/device permissions.
+        connected = await self._connected_sources(user_id)
+        events = [
+            event for event in events
+            if event.get("source_type") == "ora"
+            or event.get("source_type") in connected
+        ]
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        sources = {"ora": 0, "google": 0, "apple": 0, "other": 0}
+        for item in events:
+            key = str(item.get("starts_at") or "")[:10]
+            if key:
+                grouped.setdefault(key, []).append(item)
+                source = item.get("source_type") or "other"
+                sources[source] = sources.get(source, 0) + 1
+        days = []
+        cursor = first.date()
+        while cursor < next_month.date():
+            key = cursor.isoformat()
+            days.append({
+                "date": key,
+                "label": _come_si_chiama_il_giorno(cursor, today),
+                "is_today": cursor == today,
+                "events": sorted(
+                    grouped.get(key, []),
+                    key=lambda item: str(item.get("starts_at") or ""),
+                ),
+            })
+            cursor += timedelta(days=1)
+        return {
+            "month": month,
+            "timezone": str(zone),
+            "days": days,
+            "total_events": len(events),
+            "source_counts": sources,
+            "calendar_connected": bool(connected),
+            "connected_sources": sorted(connected),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    async def _connected_sources(self, user_id: str) -> set[str]:
+        try:
+            rows = await self.db.connector_instances.find({
+                "user_id": user_id,
+                "status": {"$in": ["connected", "syncing", "active"]},
+            }, {"_id": 0, "connector_id": 1}).to_list(length=40)
+        except Exception:
+            return set()
+        sources: set[str] = set()
+        for row in rows:
+            connector = str(row.get("connector_id") or "").lower()
+            if "calendar" not in connector:
+                continue
+            if "google" in connector:
+                sources.add("google")
+            elif "apple" in connector:
+                sources.add("apple")
+            else:
+                sources.add("other")
+        return sources
+
     async def _events_between(
-        self, user_id: str, inizio: datetime, fine: datetime,
+        self, user_id: str, inizio: datetime, fine: datetime, *,
+        with_notes: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         Gli eventi del periodo, dagli stessi nodi che legge il riepilogo.
@@ -111,7 +200,7 @@ class AgendaService:
         try:
             docs = await self.db.life_nodes.find(
                 query, {"_id": 0, "id": 1, "label": 1, "attributes": 1},
-            ).sort("attributes.starts_at", 1).to_list(length=500)
+            ).sort("attributes.starts_at", 1).to_list(length=1000)
         except Exception as e:  # pragma: no cover
             logger.info("agenda senza eventi: %s", type(e).__name__)
             return []
@@ -146,7 +235,11 @@ class AgendaService:
                 # calendario» sono due cose diverse, e chi legge ha diritto di
                 # sapere quale sta guardando.
                 "source_label": _da_dove(attrs),
-                "ora_note": await self._what_ora_has_to_do_with_it(user_id, d.get("id")),
+                "source_type": _source_type(attrs),
+                "ora_note": (
+                    await self._what_ora_has_to_do_with_it(user_id, d.get("id"))
+                    if with_notes else ""
+                ),
             })
         return fuori
 
@@ -214,12 +307,24 @@ def _ora_di(quando: Any) -> str:
         return ""
 
 
+def _source_type(attrs: Dict[str, Any]) -> str:
+    if attrs.get("kind") == "home_manual":
+        return "ora"
+    connector = str(attrs.get("connector_id") or "").lower()
+    if "google" in connector:
+        return "google"
+    if "apple" in connector:
+        return "apple"
+    if connector:
+        return "other"
+    # No external connector: an event managed within ORA's own Life Graph.
+    return "ora"
+
+
 def _da_dove(attrs: Dict[str, Any]) -> str:
-    connettore = str(attrs.get("connector_id") or "")
-    if "google" in connettore:
-        return "Google Calendar"
-    if "apple" in connettore:
-        return "Calendario di Apple"
-    if connettore:
-        return connettore
-    return "Aggiunto qui"
+    source = _source_type(attrs)
+    return {
+        "ora": "Calendario ORA",
+        "google": "Google Calendar",
+        "apple": "Calendario Apple",
+    }.get(source, str(attrs.get("connector_id") or "Altro calendario"))

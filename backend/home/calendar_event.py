@@ -72,7 +72,7 @@ async def _row(db, user_id: str, item_id: str) -> Optional[Dict[str, Any]]:
                 "title": local["label"], "starts_at": attrs.get("starts_at"),
                 "ends_at": attrs.get("ends_at"), "timezone": attrs.get("timezone"),
                 "location": attrs.get("location"), "description": local.get("description"),
-                "calendar_name": "Calendario ORA", "all_day": False,
+                "calendar_name": "Calendario ORA", "all_day": bool(attrs.get("all_day")),
                 "status": "confirmed" if local.get("status") == "active" else "cancelled",
             },
         }
@@ -90,6 +90,39 @@ async def _row(db, user_id: str, item_id: str) -> Optional[Dict[str, Any]]:
         )
         if found:
             return found
+
+    # Ingestion can create Life Graph nodes whose id differs from the provider
+    # event id. The agenda links to that canonical node. Show it read-only
+    # unless a provider-specific write handle has actually been resolved.
+    node = await db.life_nodes.find_one(
+        {"id": item_id, "user_id": user_id, "type": "event",
+         "status": "active"},
+        {"_id": 0},
+    )
+    if node:
+        attrs = node.get("attributes") or {}
+        connector = str(attrs.get("connector_id") or "")
+        return {
+            "id": node.get("id"),
+            "external_id": "",
+            "source_connector_id": connector,
+            "read_only": True,
+            "normalized_payload": {
+                "title": node.get("label") or "Evento",
+                "starts_at": attrs.get("starts_at"),
+                "ends_at": attrs.get("ends_at"),
+                "all_day": bool(attrs.get("all_day")),
+                "location": attrs.get("location"),
+                "description": node.get("description"),
+                "timezone": attrs.get("timezone"),
+                "calendar_name": (
+                    "Calendario Apple" if "apple" in connector else
+                    "Google Calendar" if "google" in connector else
+                    "Calendario ORA" if not connector else connector
+                ),
+                "status": "confirmed",
+            },
+        }
     return await _from_our_own_record(db, user_id, item_id)
 
 
@@ -161,6 +194,25 @@ def _human_notes(text: Any) -> Optional[str]:
     return chr(10).join(kept).strip() or None
 
 
+def _event_provider(row: Dict[str, Any], payload: Dict[str, Any]) -> str:
+    if row.get("ora_manual"):
+        return "ORA"
+    connector = str(
+        row.get("source_connector_id")
+        or row.get("connector_id")
+        or payload.get("connector_id")
+        or ""
+    ).lower()
+    if "apple" in connector:
+        return "Calendario Apple"
+    if "google" in connector:
+        return "Google Calendar"
+    if row.get("read_only"):
+        return "Calendario ORA" if not connector else "Altro calendario"
+    # Legacy Google ingestion rows may not have a connector_id.
+    return "Google Calendar"
+
+
 async def event_detail(db, user_id: str, item_id: str) -> Optional[Dict[str, Any]]:
     """Cosa c'e' da sapere di questo appuntamento, in parole."""
     row = await _row(db, user_id, item_id)
@@ -168,6 +220,7 @@ async def event_detail(db, user_id: str, item_id: str) -> Optional[Dict[str, Any
         return None
     payload = plain(row.get("normalized_payload"))
     cancelled = str(payload.get("status") or "").lower() == "cancelled"
+    provider = _event_provider(row, payload)
     return {
         "id": row.get("id"),
         "title": payload.get("title") or "Evento",
@@ -179,9 +232,9 @@ async def event_detail(db, user_id: str, item_id: str) -> Optional[Dict[str, Any
         # Da dove arriva, detto come lo direbbe una persona: «il tuo Google
         # Calendar», non «connector_id=calendar_google».
         "where_it_comes_from": (
-            payload.get("calendar_name") or payload.get("calendar_id") or "Google Calendar"
+            payload.get("calendar_name") or payload.get("calendar_id") or provider
         ),
-        "provider": "ORA" if row.get("ora_manual") else "Google Calendar",
+        "provider": provider,
         "is_local": bool(row.get("ora_manual")),
         "timezone": payload.get("timezone"),
         "updated_at": row.get("updated_at"),
@@ -190,7 +243,10 @@ async def event_detail(db, user_id: str, item_id: str) -> Optional[Dict[str, Any
         # ORA puo' spostarlo e toglierlo solo se e' un calendario su cui puo'
         # scrivere. Non e' un dettaglio tecnico: e' la differenza fra un
         # pulsante che funziona e uno che mente.
-        "can_be_changed": not cancelled,
+        "can_be_changed": (
+            not cancelled and not row.get("read_only")
+            and provider in ("ORA", "Google Calendar")
+        ),
     }
 
 
@@ -233,6 +289,9 @@ async def delete_event(
             "ok": True, "operation": "already_gone", "verified": True,
             "title": title, "say_it_as": "eliminato",
         }
+
+    if row.get("read_only") or _event_provider(row, payload) not in ("ORA", "Google Calendar"):
+        return {"ok": False, "reason": "read_only_calendar", "title": title}
 
     if (row.get("ora_manual") and not confirmed_title) or (confirmed_title and confirmed_title.strip() != title.strip()):
         return {

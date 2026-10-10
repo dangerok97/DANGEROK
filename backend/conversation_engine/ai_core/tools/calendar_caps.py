@@ -531,11 +531,25 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
     # user's own local record and stay visible regardless of Google
     # connection state (their provenance is already explicit as
     # "ora_managed", never presented as current Google state).
-    sync = await _sync_service(db)
-    instance_id = await _active_instance_id(sync, uid)
-    google_read_granted = await calendar_consent_granted(
-        db, user_id=uid, write=False, connector_instance_id=instance_id,
-    )
+    # Calendario ORA is first-party. Reading local events cannot depend on
+    # constructing the Google client, on Google credentials, or on OAuth
+    # tokens. Only a currently connected instance may contribute a mirror.
+    google_read_granted = False
+    try:
+        google_instance = await db.connector_instances.find_one(
+            {"user_id": uid, "connector_id": "calendar_google",
+             "status": {"$in": ["connected", "syncing", "active"]}},
+            {"_id": 0, "id": 1},
+        )
+        if google_instance:
+            sync = await _sync_service(db)
+            instance_id = await _active_instance_id(sync, uid)
+            google_read_granted = await calendar_consent_granted(
+                db, user_id=uid, write=False, connector_instance_id=instance_id,
+            )
+    except Exception as exc:
+        # A broken optional integration must never hide ORA's own events.
+        logger.info("optional Google calendar read unavailable: %s", type(exc).__name__)
 
     remaining = max(0, _MAX_EVENTS_RETURNED - len(items))
     if remaining and google_read_granted:
@@ -613,7 +627,7 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         "calendar_ref": _ref(e["id"]), "source": "ora_local", "title": e["title"],
         "start_datetime": e["starts_at"], "end_datetime": e["ends_at"],
         "timezone": e["timezone"], "location": e["location"], "description": e["description"],
-        "all_day": False, "status": "confirmed", "sync_status": "local_only",
+        "all_day": bool(e.get("all_day")), "status": "confirmed", "sync_status": "local_only",
     } for e in local_events)
     def event_instant(item):
         at = _parse_dt(item.get("start_datetime")) or time_min
@@ -906,7 +920,9 @@ def _same_thing(title: str) -> str:
     return " ".join(flat.split())
 
 
-async def _already_have_one(db, uid: str, *, title: str, start: str) -> Optional[Dict[str, Any]]:
+async def _already_have_one(
+    db, uid: str, *, title: str, start: str, tz_name: str | None = None,
+) -> Optional[Dict[str, Any]]:
     """
     Un impegno che ORA gia' gestisce e che porta esattamente questo nome.
 
@@ -931,6 +947,8 @@ async def _already_have_one(db, uid: str, *, title: str, start: str) -> Optional
     when = _parse_dt(start)
     if not when:
         return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=ZoneInfo(tz_name or "UTC"))
     wanted = _same_thing(title)
     if not wanted:
         return None
@@ -971,6 +989,133 @@ async def _already_have_one(db, uid: str, *, title: str, start: str) -> Optional
             row["_starts_at_the_same_time"] = True
         return row
     return None
+
+
+async def _create_ora_calendar_event(
+    arguments: Dict[str, Any], runtime: Dict[str, Any], *,
+    uid: str, db, title: str, start: str, end: str, tz: str, tz_authority: str,
+) -> Observation:
+    """First-party calendar write; never contacts Google, Apple or a carrier.
+
+    The same user-command authority, receipt and readback checks as any other
+    calendar write apply. Google consent is not a prerequisite to ORA storage.
+    """
+    from home.manual_event import create_manual_event, get_manual_event
+
+    if any(arguments.get(key) for key in ("guests", "attendees", "invitees", "participants")):
+        return _fail(
+            "create_calendar_event", "INVITES_UNSUPPORTED",
+            "Il calendario ORA non invia inviti a terzi. L'evento non è stato creato.",
+        )
+
+    try:
+        zone = ZoneInfo(tz)
+        begins = _parse_dt(start)
+        finishes = _parse_dt(end)
+        if begins is None or finishes is None:
+            return _fail("create_calendar_event", "INVALID_INPUT", "invalid datetime")
+        if begins.tzinfo is None:
+            begins = begins.replace(tzinfo=zone)
+        if finishes.tzinfo is None:
+            finishes = finishes.replace(tzinfo=zone)
+        begins = begins.astimezone(zone)
+        finishes = finishes.astimezone(zone)
+        # A made-up DST hour cannot silently become a different real hour.
+        for point in (begins, finishes):
+            roundtrip = point.astimezone(timezone.utc).astimezone(zone)
+            if (
+                roundtrip.replace(tzinfo=None) != point.replace(tzinfo=None)
+                or roundtrip.utcoffset() != point.utcoffset()
+            ):
+                return _fail("create_calendar_event", "INVALID_TIMEZONE", "nonexistent local time")
+        duration = (finishes.astimezone(timezone.utc) - begins.astimezone(timezone.utc)).total_seconds() / 60
+        if duration < 5 or (duration > 1440 and not arguments.get("all_day")):
+            return _fail("create_calendar_event", "INVALID_INPUT", "duration out of range")
+    except (ValueError, OverflowError) as exc:
+        return _fail("create_calendar_event", "INVALID_INPUT", type(exc).__name__)
+
+    effect = commanded.calendar_effect(arguments)
+    act = await commanded.assess(
+        db, uid,
+        capability="calendar.local.write",
+        effect=effect,
+        parameters={
+            "title": title, "starts_at": begins.isoformat(),
+            "ends_at": finishes.isoformat(), "timezone": tz,
+            "calendar": "ora",
+        },
+        summary=f"Segnare nel calendario ORA: {title}",
+        expected=f"«{title}» risulta nel calendario ORA.",
+        command=_user_command(arguments, runtime),
+        answered_proposal=_answered_a_proposal(runtime),
+    )
+    if not act.may_execute:
+        return _authority_required("create_calendar_event", act)
+
+    taken = await commanded.begin(db, act)
+    if taken == "already_done":
+        ref = await commanded.already_done_ref(db, uid, act.intent) or ""
+        node = await get_manual_event(db, uid, ref) if ref else None
+        if node and node.get("status") == "active":
+            return Observation(
+                kind="tool", name="create_calendar_event", status="ok",
+                payload={
+                    "status": "ok", "operation": "already_created",
+                    "created_now": False, "verified": True,
+                    "provider": "ora", "calendar_ref": _ref(ref),
+                    "reason": "Questo appuntamento è già nel calendario ORA; non ne ho creato un altro.",
+                },
+                provenance=[_ref(ref)],
+            )
+        taken = await commanded.reopen(db, act)
+    if taken != "go":
+        return Observation(
+            kind="tool", name="create_calendar_event", status="partial",
+            payload={"status": "already_running", "reason": "La stessa operazione è in corso."},
+        )
+
+    try:
+        saved = await create_manual_event(
+            db, uid, title=title, start=begins.isoformat(),
+            end=finishes.isoformat(), tz_name=tz,
+            request_id=act.intent.idempotency_key,
+            location=str(arguments.get("location") or "")[:_MAX_LOCATION],
+            description=str(arguments.get("description") or "")[:_MAX_DESCRIPTION],
+            all_day=bool(arguments.get("all_day")),
+        )
+        node = await get_manual_event(db, uid, saved["id"])
+        confirmed = bool(
+            node and node.get("status") == "active"
+            and node.get("label") == title
+            and (node.get("attributes") or {}).get("starts_at") == begins.isoformat()
+        )
+    except (ValueError, TypeError) as exc:
+        await commanded.settle(
+            db, act, provider="ora_calendar", external_ref="",
+            accepted=False, observed=False, error_type=str(exc)[:80],
+        )
+        return _fail("create_calendar_event", "LOCAL_SAVE_FAILED", str(exc))
+    await commanded.settle(
+        db, act, provider="ora_calendar",
+        external_ref=saved["id"], accepted=True, observed=confirmed,
+    )
+    return Observation(
+        kind="tool", name="create_calendar_event",
+        status="ok" if confirmed else "partial",
+        payload={
+            "status": "ok" if confirmed else "partial",
+            "operation": "created", "created_now": bool(confirmed),
+            "verified": confirmed, "provider": "ora",
+            "calendar_ref": _ref(saved["id"]),
+            "timezone": {"tz_name": tz, "authority": tz_authority},
+            "reason": (
+                "Appuntamento creato e verificato nel calendario ORA, indipendente da Google e Apple."
+                if confirmed else
+                "L'archivio ORA ha accettato l'evento, ma la rilettura non lo ha ancora confermato."
+            ),
+        },
+        provenance=[_ref(saved["id"])],
+    )
 
 
 async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
@@ -1080,7 +1225,7 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     # gia' e con quale riferimento aggiornarlo, e se davvero ne servono due
     # basta ripetere la chiamata con `create_anyway`.
     if not arguments.get("create_anyway"):
-        twin = await _already_have_one(db, uid, title=title, start=str(start))
+        twin = await _already_have_one(db, uid, title=title, start=str(start), tz_name=str(tz))
         if twin and twin.get("_starts_at_the_same_time"):
             # Non e' uno spostamento e non e' un rifiuto: e' gia' fatto, e
             # dirlo cosi' e' la risposta giusta. Nessuna seconda scrittura,
@@ -1135,6 +1280,36 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
                 },
                 provenance=[_ref(twin["id"])],
             )
+
+    # ORA is a calendar in its own right. The AI can target it explicitly,
+    # and an account without Google must be able to schedule here by default.
+    # An explicitly requested Google write still requires Google's authority.
+    target = str(arguments.get("calendar_target") or "").strip().lower()
+    spoken_target = str(runtime.get("user_message") or "").casefold()
+    if "calendario ora" in spoken_target:
+        target = "ora"
+    elif "google calendar" in spoken_target or "calendario google" in spoken_target:
+        target = "google"
+    elif "calendario apple" in spoken_target or "calendario di apple" in spoken_target:
+        target = "apple"
+    if target == "apple":
+        return _fail(
+            "create_calendar_event", "READ_ONLY_CALENDAR",
+            "Il calendario Apple collegato è in sola lettura: posso creare l'evento nel calendario ORA.",
+        )
+    if target not in ("ora", "google"):
+        connected_google = await db.connector_instances.find_one(
+            {"user_id": uid, "connector_id": "calendar_google",
+             "status": {"$in": ["connected", "syncing", "active"]}},
+            {"_id": 1},
+        )
+        if not connected_google:
+            target = "ora"
+    if target == "ora":
+        return await _create_ora_calendar_event(
+            arguments, runtime, uid=uid, db=db, title=title,
+            start=str(start), end=str(end), tz=str(tz), tz_authority=tz_authority,
+        )
 
     sync = await _sync_service(db)
     instance_id = await _active_instance_id(sync, uid)

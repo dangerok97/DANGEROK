@@ -54,7 +54,8 @@ def manual_event_public(node):
     return {"id": node["id"], "title": node["label"], "starts_at": attrs.get("starts_at"),
             "ends_at": attrs.get("ends_at"), "timezone": attrs.get("timezone"),
             "location": attrs.get("location") or "", "description": node.get("description") or "",
-            "source": "ora", "status": node.get("status"), "updated_at": node.get("updated_at")}
+            "source": "ora", "all_day": bool(attrs.get("all_day")),
+            "status": node.get("status"), "updated_at": node.get("updated_at")}
 
 
 async def _wake(db, user_id, event_id, kind, revision):
@@ -75,7 +76,7 @@ async def _wake(db, user_id, event_id, kind, revision):
 
 
 async def create_manual_event(db, user_id, *, title, start, end, tz_name,
-                              request_id=None, location="", description=""):
+                              request_id=None, location="", description="", all_day=False):
     title = title.strip()
     if not title:
         raise ValueError("title_required")
@@ -84,6 +85,10 @@ async def create_manual_event(db, user_id, *, title, start, end, tz_name,
     event_id = "node_home_" + key[:24]
     attrs = {"starts_at": start, "ends_at": end, "timezone": tz_name,
              "kind": "home_manual", "location": location.strip()}
+    # Preserve the historical fingerprint of ordinary timed events.
+    # Only explicitly all-day events need the new attribute.
+    if all_day:
+        attrs["all_day"] = True
     fingerprint = hashlib.sha256(json.dumps([title, attrs, description.strip()], sort_keys=True).encode()).hexdigest()
     now = _now()
     try:

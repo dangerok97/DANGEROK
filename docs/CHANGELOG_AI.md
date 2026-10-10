@@ -1,3 +1,15 @@
+## 10 ottobre 2026 — v155: calendario ORA autonomo
+
+- Agenda mensile navigabile, scelta del giorno e `Nuovo evento` ORA.
+- Fonte ORA sempre presente senza Google/Apple; opzionali filtri per eventi
+  importati da servizi esterni.
+- Fonte di un evento visibile nel dettaglio; azioni Apple di sola lettura
+  non vengono confuse con cancellazioni su Google.
+- Home offre l'apertura del calendario ORA senza collegare Google.
+- Nuovi test backend/frontend e CI. Zero migrazioni distruttive.
+
+---
+
 ## 10 ottobre 2026 — v153: corrispondenza aggiornamenti Home/dettaglio
 
 - Corretta la discrepanza tra il numero di aggiornamenti in Home e la

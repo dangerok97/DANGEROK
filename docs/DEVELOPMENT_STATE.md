@@ -1,3 +1,19 @@
+## 10 ottobre 2026 — v155: recupero del calendario interno ORA
+
+Individuata infrastruttura preesistente per eventi locali (Life Graph e CRUD
+con idempotenza), ma agenda limitata ai prossimi sette giorni e UI che
+presentava Google come passaggio necessario. Introdotti vista mensile, API
+di sola lettura per eventi del mese, creazione locale, filtri provenienza,
+CTA verso calendario ORA in Home, etichette delle fonti e protezione sulle
+azioni Apple. Test sintetici senza OAuth/telefono in CI e test frontend della
+griglia. Nessuna migrazione, nessuna cancellazione di eventi esistenti,
+nessuna sincronizzazione bidirezionale automatica.
+
+La funzionalità Apple richiede una build nativa iOS e consenso EventKit:
+il collaudo con account/dispositivo reali non è sostituito dai test.
+
+---
+
 ## 10 ottobre 2026 — v153: verifica coerenza degli aggiornamenti
 
 Ispezione del codice dopo v152: la Home selezionava gli avvisi vivi con

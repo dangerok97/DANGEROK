@@ -1216,17 +1216,18 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="create_calendar_event",
                 description=(
-                    "ADD a new calendar commitment ORA manages (local record, synced to "
-                    "Google when connected). Never use it to move or reschedule something "
-                    "that already exists — that is update_calendar_event, and creating "
-                    "instead leaves the old event in place and the person with two. "
-                    "Call it directly when the user has just asked "
-                    "for it — their own request is the authority, and asking them to "
-                    "confirm a decision they have already made is a wasted turn. Propose "
-                    "first via response_mode=act only when the idea is ORA's, not theirs. "
-                    "Requires a resolved timezone (use context/timezone evidence, never "
-                    "assume). Fails honestly and never claims success if Google sync does "
-                    "not confirm."
+                    "ADD a calendar commitment. Calendario ORA exists for every user "
+                    "WITHOUT a Google or Apple connection. Use calendar_target='ora' "
+                    "when the user asks for ORA's own calendar. Never use it to move or reschedule "
+                    "an existing event. If no Google account "
+                    "is connected, the default automatically saves to ORA. Use "
+                    "calendar_target='google' ONLY for an explicitly requested Google "
+                    "event; that write requires Google connection and consent. Apple "
+                    "calendar is read-only in this version. NEVER imply an ORA event "
+                    "was also copied to Google or Apple. Do not create an event when "
+                    "the user wants to MOVE an existing one; use update_calendar_event. "
+                    "Direct instructions can supply authority; suggestions need an "
+                    "actual user confirmation. Resolve timezone from evidence."
                 ),
                 input_schema={
                     "type": "object",
@@ -1239,6 +1240,16 @@ class ToolRegistry:
                         "all_day": {"type": "boolean"},
                         "location": {"type": "string"},
                         "description": {"type": "string"},
+                        "calendar_target": {
+                            "type": "string",
+                            "enum": ["ora", "google", "apple"],
+                            "description": (
+                                "Which calendar the PERSON chose. ORA works without "
+                                "any external connection. Google needs an account "
+                                "and Apple remains read-only. Do not silently switch "
+                                "an explicitly named provider."
+                            ),
+                        },
                         "operation_intent": {
                             "type": "string",
                             "enum": ["new", "modify"],

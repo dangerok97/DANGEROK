@@ -2255,6 +2255,9 @@ export const api = {
     request<{ ok: boolean; items: OpenQuestionItem[] }>('/questions/open'),
   /** L'agenda vera: i prossimi giorni con i loro impegni, dai dati canonici. */
   agenda: (days = 7) => request<AgendaResponse>(`/agenda?days=${days}`),
+  /** Il calendario ORA per mese, disponibile anche senza alcun collegamento. */
+  agendaMonth: (month: string) =>
+    request<AgendaMonthResponse>(`/agenda/month?month=${encodeURIComponent(month)}`),
   /** Il meteo per esteso, dove si trova la persona. Stessa fonte della Home. */
   weather: () => request<WeatherDetail>('/weather'),
   answerQuestion: (
@@ -2745,6 +2748,7 @@ export type AgendaEvent = {
   location?: string;
   time_label?: string;
   source_label?: string;
+  source_type?: 'ora' | 'google' | 'apple' | 'other';
   /** Che cosa c'entra ORA con questo appuntamento. Vuoto quando non c'entra. */
   ora_note?: string;
 };
@@ -2754,6 +2758,14 @@ export type AgendaResponse = {
   total_events: number;
   calendar_connected: boolean;
   generated_at?: string;
+};
+
+/** ORA owns all internal events. External sources are optional overlays. */
+export type AgendaMonthResponse = AgendaResponse & {
+  month: string;
+  timezone: string;
+  source_counts: Record<'ora' | 'google' | 'apple' | 'other', number>;
+  connected_sources: Array<'google' | 'apple' | 'other'>;
 };
 
 export type DocumentPreferences = {
