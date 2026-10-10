@@ -140,3 +140,61 @@ async def test_reject_invalid_month(isolated_calendar, month):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
         result = await http.get("/api/agenda/month", params={"month": month})
     assert result.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_ai_can_add_to_ora_without_a_google_account(isolated_calendar, monkeypatch):
+    from conversation_engine.ai_core.tools import calendar_caps
+
+    db, owner, app = isolated_calendar
+
+    async def no_google(*args, **kwargs):
+        raise AssertionError("Native ORA write must never call Google sync or consent")
+
+    monkeypatch.setattr(calendar_caps, "_sync_service", no_google)
+    monkeypatch.setattr(calendar_caps, "require_calendar_consent", no_google)
+    message = "Segna la visita fittizia nel calendario ORA il 15 ottobre alle 10."
+    args = {
+        "title": "Visita fittizia",
+        "start_datetime": "2026-10-15T10:00:00+02:00",
+        "end_datetime": "2026-10-15T10:45:00+02:00",
+        "timezone": "Europe/Rome",
+        "calendar_target": "ora",
+        "user_authority": {
+            "requested_by_user": True,
+            "user_words": message,
+            "what_they_asked_for": "aggiungere una visita nel calendario ORA",
+        },
+    }
+    runtime = {"db": db, "user_id": owner["user_id"], "user_message": message}
+    result = await calendar_caps.create_calendar_event(args, runtime)
+    assert result.status == "ok", result.payload
+    assert result.payload["provider"] == "ora"
+    assert result.payload["verified"] is True
+    saved = await db.life_nodes.find({
+        "user_id": owner["user_id"], "type": "event",
+        "attributes.kind": "home_manual",
+    }).to_list(10)
+    assert len(saved) == 1
+    assert saved[0]["label"] == "Visita fittizia"
+
+    again = await calendar_caps.create_calendar_event(args, runtime)
+    assert again.status == "ok", again.payload
+    assert again.payload["operation"] == "already_created"
+    assert await db.life_nodes.count_documents({"user_id": owner["user_id"]}) == 1
+
+
+@pytest.mark.asyncio
+async def test_apple_write_is_not_silently_redirected_to_ora(isolated_calendar):
+    from conversation_engine.ai_core.tools import calendar_caps
+
+    db, owner, app = isolated_calendar
+    result = await calendar_caps.create_calendar_event({
+        "title": "Evento di prova",
+        "start_datetime": "2026-10-15T10:00:00+02:00",
+        "timezone": "Europe/Rome",
+        "calendar_target": "apple",
+    }, {"db": db, "user_id": owner["user_id"], "user_message": "Segnalo su Apple"})
+    assert result.status == "error"
+    assert result.payload["failure_kind"] == "READ_ONLY_CALENDAR"
+    assert await db.life_nodes.count_documents({}) == 0
