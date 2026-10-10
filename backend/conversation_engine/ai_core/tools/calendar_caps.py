@@ -906,7 +906,9 @@ def _same_thing(title: str) -> str:
     return " ".join(flat.split())
 
 
-async def _already_have_one(db, uid: str, *, title: str, start: str) -> Optional[Dict[str, Any]]:
+async def _already_have_one(
+    db, uid: str, *, title: str, start: str, tz_name: str | None = None,
+) -> Optional[Dict[str, Any]]:
     """
     Un impegno che ORA gia' gestisce e che porta esattamente questo nome.
 
@@ -931,6 +933,8 @@ async def _already_have_one(db, uid: str, *, title: str, start: str) -> Optional
     when = _parse_dt(start)
     if not when:
         return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=ZoneInfo(tz_name or "UTC"))
     wanted = _same_thing(title)
     if not wanted:
         return None
@@ -983,6 +987,12 @@ async def _create_ora_calendar_event(
     calendar write apply. Google consent is not a prerequisite to ORA storage.
     """
     from home.manual_event import create_manual_event, get_manual_event
+
+    if any(arguments.get(key) for key in ("guests", "attendees", "invitees", "participants")):
+        return _fail(
+            "create_calendar_event", "INVITES_UNSUPPORTED",
+            "Il calendario ORA non invia inviti a terzi. L'evento non è stato creato.",
+        )
 
     try:
         zone = ZoneInfo(tz)
@@ -1201,7 +1211,7 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     # gia' e con quale riferimento aggiornarlo, e se davvero ne servono due
     # basta ripetere la chiamata con `create_anyway`.
     if not arguments.get("create_anyway"):
-        twin = await _already_have_one(db, uid, title=title, start=str(start))
+        twin = await _already_have_one(db, uid, title=title, start=str(start), tz_name=str(tz))
         if twin and twin.get("_starts_at_the_same_time"):
             # Non e' uno spostamento e non e' un rifiuto: e' gia' fatto, e
             # dirlo cosi' e' la risposta giusta. Nessuna seconda scrittura,
@@ -1264,7 +1274,11 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     spoken_target = str(runtime.get("user_message") or "").casefold()
     if "calendario ora" in spoken_target:
         target = "ora"
-    if "calendario apple" in spoken_target or target == "apple":
+    elif "google calendar" in spoken_target or "calendario google" in spoken_target:
+        target = "google"
+    elif "calendario apple" in spoken_target or "calendario di apple" in spoken_target:
+        target = "apple"
+    if target == "apple":
         return _fail(
             "create_calendar_event", "READ_ONLY_CALENDAR",
             "Il calendario Apple collegato è in sola lettura: posso creare l'evento nel calendario ORA.",
