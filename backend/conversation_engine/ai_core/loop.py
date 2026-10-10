@@ -3821,8 +3821,29 @@ async def run_cognitive_loop(
                 continue
 
             args = dict(decision.tool_call.arguments or {})
-            if cap == "prepare_a_phone_call" and phone_input_hint and not args.get("preparation_id"):
-                args["preparation_id"] = phone_input_hint["preparation_id"]
+            if cap == _PHONE_CAPABILITY:
+                # The phone tool always owns its own recipient/approval checks.
+                # Short follow-ups continue the already owner-scoped preparation
+                # instead of silently starting a new one without the message.
+                if not args.get("preparation_id") and (
+                    phone_input_hint or _phone_short_continuation(user_message)
+                ):
+                    pending_ref = (
+                        (phone_input_hint or {}).get("preparation_id")
+                        or st.get("active_preparation_id")
+                    )
+                    if pending_ref:
+                        args["preparation_id"] = pending_ref
+                # A single bare number directly answering the active phone
+                # question is a candidate number, never a call authorization.
+                if (
+                    phone_input_hint and _bare_phone_answer(user_message)
+                    and not any(args.get(k) for k in (
+                        "give_number", "choose_number", "number_is_right",
+                        "correct_counterparty", "identity_resolution",
+                    ))
+                ):
+                    args["give_number"] = phone_input_hint["observed_phone_number"]
             # Prefer active plan / object from state when AI omits ids
             if cap in (
                 "update_plan",
