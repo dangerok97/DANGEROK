@@ -13,7 +13,7 @@ export function authorizedGoogleUrl(url: string): boolean {
       && parsed.hostname === 'accounts.google.com'
       && parsed.pathname === '/o/oauth2/v2/auth'
       && !!parsed.searchParams.get('state')
-      && parsed.searchParams.get('code_challenge');
+      && !!parsed.searchParams.get('code_challenge');
   } catch {
     return false;
   }
