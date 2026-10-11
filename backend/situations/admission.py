@@ -13,7 +13,7 @@ from agent.models import AutonomousGoal
 from agent.repository import AgentRepository
 from ambient.service import AmbientService
 from situations.repository import SituationRepository
-from situations.followup import KIND, goal_id_for
+from situations.followup import _enabled, goal_id_for
 
 logger = logging.getLogger("ora.situations.admission")
 INITIAL_KIND = "situation_initial_review"
@@ -25,6 +25,8 @@ async def ensure_initial_review(db, owner: str, sid: str) -> dict:
     The stable id makes retries idempotent. An existing dedicated scheduled
     check always wins; a closed/cancelled Situation cannot resurrect work.
     """
+    if not _enabled():
+        return {"status": "runtime_disabled"}
     situation = await SituationRepository(db).get(owner, sid)
     if situation is None or situation.status not in ("active", "changed"):
         return {"status": "not_active"}
