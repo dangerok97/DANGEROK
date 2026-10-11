@@ -1,0 +1,28 @@
+name: Refine Vision catalog camera UI
+on:
+  push:
+    branches: [qa/vision-catalog-camera-prepare]
+    paths: ['.github/workflows/refine-vision-catalog-camera.yml']
+permissions:
+  contents: write
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply four explicit refinements
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/refine_vision_catalog_camera.py /tmp/refine_vision_catalog_camera.py
+          git fetch origin feat/vision-catalog-25
+          test "$(git rev-parse FETCH_HEAD)" = "55f446569df25766b5a8ca561c9a8a751a43d89f"
+          git switch -c refined-vision-catalog-camera FETCH_HEAD
+          python /tmp/refine_vision_catalog_camera.py
+          git diff --check
+          git add frontend/src/vision-xray/visualStyle.ts frontend/src/vision-xray/LiveExplorer.web.tsx frontend/e2e/vision-catalog-camera.spec.ts .github/workflows/vision-catalog-live.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(vision): make category selector readable on WebKit and expose clear flash fallback'
+          git push origin HEAD:refs/heads/feat/vision-catalog-25
