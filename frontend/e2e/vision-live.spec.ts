@@ -8,9 +8,10 @@ async function session(page: Page) {
 }
 async function virtualCamera(page: Page) {
   await page.addInitScript(() => {
-    const state:any={offset:0,blank:false,frames:0,stream:null};
+    const state:any={offset:0,blank:false,frames:0,stream:null,openings:0};
     (window as any).__visionFixture=state;
     const getUserMedia=async()=>{
+      state.openings++;
       const c=document.createElement('canvas');c.width=640;c.height=480;
       const ctx=c.getContext('2d')!;
       const draw=()=>{
@@ -34,6 +35,8 @@ async function virtualCamera(page: Page) {
 test('catalog model is rendered, every part is selectable and reload reuses the version',async({page},info)=>{
   await session(page);await page.goto('/vision-xray');
   await expect(page.getByTestId('vision-live-explorer')).toBeVisible();
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  await expect(page.getByTestId('vision-catalog-policy')).toContainText('automaticamente');
   await page.getByTestId('vision-catalog-toggle').click();
   await expect(page.getByTestId('vision-catalog-remote_control')).toBeVisible();
   await page.getByTestId('vision-catalog-remote_control').click();
@@ -54,12 +57,16 @@ test('catalog model is rendered, every part is selectable and reload reuses the 
   expect(after.version_id).toBe(remote.version_id);expect(after.cache_hit).toBe(true);expect(after.generation_used).toBe(false);
 });
 
-test('video remains live during analysis and exploded view, hides on loss, stops on command',async({page,browserName},info)=>{
+test('held diagram survives loss, remains interactive, X restarts scanning without reopening camera',async({page,browserName},info)=>{
   test.skip(browserName==='webkit','Real iPhone camera validation remains a separate device test.');
-  await session(page);await virtualCamera(page);await page.goto('/vision-xray');
+  await session(page);await virtualCamera(page);
+  const scans:any[]=[];
+  page.on('request',r=>{if(r.url().endsWith('/api/vision-xray/scan'))scans.push(r.postDataJSON());});
+  await page.goto('/vision-xray');
   await page.getByTestId('vision-open-camera').click();
   await expect.poll(()=>page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
   await expect(page.getByTestId('vision-status')).toContainText('Riconosco');
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
   const start=await page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>v.currentTime);
   await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count','8');
   await page.waitForTimeout(800);
@@ -72,8 +79,29 @@ test('video remains live during analysis and exploded view, hides on loss, stops
   await page.getByTestId('vision-toggle-explode').click();await expect(page.getByTestId('vision-toggle-explode')).toHaveText('Scomponi');
   await page.getByTestId('vision-toggle-explode').click();
   await page.evaluate(()=>{(window as any).__visionFixture.blank=true;});
-  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count','0');
-  await expect(page.getByTestId('vision-status')).toContainText('Riaggancio');
+  // Exceed both old 12s and 15s automatic scan thresholds with the object absent.
+  await page.waitForTimeout(17_000);
+  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count','8');
+  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-scene-state','held');
+  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-selected-part','pcb');
+  await expect(page.getByTestId('vision-status')).toContainText('Schema fissato');
+  expect(scans).toHaveLength(1);expect(scans[0]).not.toHaveProperty('contribute');
+  await expect(page.getByTestId('vision-retry')).toHaveCount(0);
+  await page.getByTestId('vision-part-battery_a').click();
+  await expect(page.getByTestId('vision-part-detail')).toContainText('Prima pila');
+  await page.getByTestId('vision-toggle-explode').click();
+  await expect(page.getByTestId('vision-toggle-explode')).toHaveText('Scomponi');
+  await page.getByTestId('vision-toggle-explode').click();
+  await page.screenshot({path:'../.vision-evidence/vision-held-without-object-'+info.project.name+'.png',fullPage:true});
+  const close=page.getByTestId('vision-close-model');
+  await expect(close).toBeVisible();
+  const size=await close.boundingBox();expect(size!.width).toBeGreaterThanOrEqual(44);expect(size!.height).toBeGreaterThanOrEqual(44);
+  await page.evaluate(()=>{(window as any).__visionFixture.blank=false;});
+  await close.click();
+  await expect.poll(()=>scans.length).toBe(2);
+  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count','8');
+  expect(await page.evaluate(()=>(window as any).__visionFixture.openings)).toBe(1);
+  expect(await page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>(v.srcObject as MediaStream).getTracks()[0].readyState)).toBe('live');
   await page.getByTestId('vision-stop-camera').click();
   expect(await page.evaluate(()=>(window as any).__visionFixture.stream.getTracks().map((t:MediaStreamTrack)=>t.readyState))).toEqual(['ended']);
   await expect(page.getByTestId('vision-open-camera')).toBeVisible();

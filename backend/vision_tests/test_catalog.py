@@ -94,28 +94,34 @@ async def test_generated_model_is_reused_without_second_generation(database):
         nonlocal calls
         calls += 1; return generated_fixture()
     first = await CatalogService(database).resolve(key="stapler", title="", user_id="alice", generator=generate)
-    second = await CatalogService(database).resolve(key="stapler", title="", user_id="alice", generator=generate)
+    second = await CatalogService(database).resolve(key="stapler", title="", user_id="bob", generator=generate)
     assert calls == 1 and first["generation_used"] and second["cache_hit"]
     assert first["version_id"] == second["version_id"]
-    assert not first["shared"]
+    assert first["shared"] and second["shared"]
 
 
 @pytest.mark.asyncio
-async def test_private_model_cannot_be_read_by_another_user(database):
+async def test_legacy_private_model_is_not_republished(database):
     service = CatalogService(database)
-    async def generate(): return generated_fixture()
-    first = await service.resolve(key="stapler", title="", user_id="alice", generator=generate)
+    await service.initialize()
+    scope = service.private_scope("alice")
+    first = await service._store(Manifest.model_validate(generated_fixture()), scope, "generated")
+    await database[JOBS].insert_one({"_id":"legacy-private-job", "model_id":first["model_id"],
+                                    "scope":scope, "state":"ready"})
     assert await service.find("stapler", "bob") is None
     assert await service.read(first["model_id"], scope=service.private_scope("bob")) is None
-    job = await database[JOBS].find_one({"model_id": first["model_id"]})
-    assert await service.job_result(job["_id"], "bob") is None
+    assert await service.job_result("legacy-private-job", "bob") is None
+    await CatalogService(database).initialize()
+    assert (await service.find("stapler", "alice"))["shared"] is False
+    assert await database[MODELS].count_documents({"canonical_key":"stapler", "scope":"shared"}) == 0
 
 
 @pytest.mark.asyncio
-async def test_opted_in_generic_model_is_reused_by_another_user(database):
+@pytest.mark.parametrize("legacy_flag", [None, False, True])
+async def test_generic_model_is_shared_automatically(database, legacy_flag):
     async def generate(): return generated_fixture()
     service = CatalogService(database)
-    a = await service.resolve(key="stapler", title="", user_id="alice", generator=generate, contribute=True)
+    a = await service.resolve(key="stapler", title="", user_id="alice", generator=generate, contribute=legacy_flag)
     b = await CatalogService(database).resolve(key="stapler", title="", user_id="bob")
     assert a["shared"] and b["shared"] and b["cache_hit"]
     assert a["version_id"] == b["version_id"]
@@ -129,7 +135,7 @@ async def test_concurrent_users_share_one_build(database):
         nonlocal calls
         calls += 1; await asyncio.sleep(.15); return generated_fixture()
     a, b = await asyncio.gather(*[CatalogService(database).resolve(key="stapler", title="", user_id=u,
-                                generator=generate, contribute=True) for u in ("alice", "bob")])
+                                generator=generate) for u in ("alice", "bob")])
     assert calls == 1
     assert any(x["status"] == "family" for x in (a,b))
     assert await database[MODELS].count_documents({"canonical_key": "stapler"}) == 1
@@ -180,7 +186,7 @@ async def test_initializing_does_not_resurrect_retired_seed(database):
 @pytest.mark.asyncio
 async def test_expired_build_lease_is_recoverable(database):
     service = CatalogService(database); await service.initialize()
-    scope = service.private_scope("alice"); model_id = service.model_id("stapler", scope)
+    scope = "shared"; model_id = service.model_id("stapler", scope)
     from vision_catalog import digest
     job_id = "vxj_" + digest(model_id)
     await database[JOBS].insert_one({"_id":job_id,"scope":scope,"model_id":model_id,
@@ -273,3 +279,39 @@ async def test_router_returns_persisted_model_and_never_photo_bytes(api_module,m
         docs=await database[name].find({}).to_list(100)
         serialized=json.dumps(docs,default=str)
         assert "image_base64" not in serialized and "private-metadata-never-persist" not in serialized
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("legacy_flag", [None, False, True])
+async def test_api_shares_generic_recipe_without_client_opt_in(api_module, monkeypatch, database, legacy_flag):
+    monkeypatch.setattr(api_module, "can_see", lambda: True)
+    async def recognize(*args, **kwargs):
+        return {"recognized":True, "canonical_key":"stapler", "object_name":"Pinzatrice",
+                "confidence":"high", "bbox":[100,200,900,600], "safe_to_generate":True}
+    calls = []
+    async def generate(key):
+        calls.append(key)
+        return generated_fixture(key)
+    monkeypatch.setattr(api_module, "ask_json", recognize)
+    monkeypatch.setattr(api_module, "generate_family", generate)
+    app = FastAPI(); app.include_router(api_module.router, prefix="/api")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        body = {"mime_type":"image/jpeg", "image_base64":jpeg(), "allow_generation":True}
+        if legacy_flag is not None: body["contribute"] = legacy_flag
+        response = await client.post("/api/vision-xray/scan", json=body,
+                                     headers={"Authorization":"Bearer vision-test-alice"})
+        assert response.status_code == 200, response.text
+        first = response.json()
+        assert first["shared"] is True and first["generation_used"] is True
+        second = await client.get("/api/vision-xray/catalog/" + first["model_id"],
+                                  headers={"Authorization":"Bearer vision-test-bob"})
+        assert second.status_code == 200
+        assert second.json()["version_id"] == first["version_id"]
+        assert second.json()["cache_hit"] and not second.json()["generation_used"]
+        available = await client.get("/api/vision-xray/available",
+                                     headers={"Authorization":"Bearer vision-test-alice"})
+        assert available.json()["catalog_policy"] == "automatic_generic_shared"
+    assert calls == ["stapler"]
+    for collection in (MODELS, VERSIONS, JOBS):
+        text = json.dumps(await database[collection].find({}).to_list(100), default=str)
+        assert "image_base64" not in text and "private-metadata-never-persist" not in text
