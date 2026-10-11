@@ -40,7 +40,7 @@ async def database():
         client.close()
 
 
-def generated_fixture(key="stapler"):
+def generated_fixture(key="test_widget"):
     # A geometry fixture, NOT evidence about a physical stapler.
     data = seeds()[1].model_dump(mode="json")
     data["canonical_key"] = key
@@ -82,8 +82,8 @@ async def test_seed_hit_never_calls_generator(database):
     two = await CatalogService(database).resolve(key="remote_control", title="", user_id="bob", generator=forbidden)
     assert one["version_id"] == two["version_id"]
     assert one["cache_hit"] and two["cache_hit"] and not two["generation_used"]
-    assert await database[MODELS].count_documents({}) == 5
-    assert await database[VERSIONS].count_documents({}) == 5
+    assert await database[MODELS].count_documents({}) == len(seeds())
+    assert await database[VERSIONS].count_documents({}) == len(seeds())
     assert await database[JOBS].count_documents({}) == 0
 
 
@@ -93,8 +93,8 @@ async def test_generated_model_is_reused_without_second_generation(database):
     async def generate():
         nonlocal calls
         calls += 1; return generated_fixture()
-    first = await CatalogService(database).resolve(key="stapler", title="", user_id="alice", generator=generate)
-    second = await CatalogService(database).resolve(key="stapler", title="", user_id="bob", generator=generate)
+    first = await CatalogService(database).resolve(key="test_widget", title="", user_id="alice", generator=generate)
+    second = await CatalogService(database).resolve(key="test_widget", title="", user_id="bob", generator=generate)
     assert calls == 1 and first["generation_used"] and second["cache_hit"]
     assert first["version_id"] == second["version_id"]
     assert first["shared"] and second["shared"]
@@ -108,12 +108,12 @@ async def test_legacy_private_model_is_not_republished(database):
     first = await service._store(Manifest.model_validate(generated_fixture()), scope, "generated")
     await database[JOBS].insert_one({"_id":"legacy-private-job", "model_id":first["model_id"],
                                     "scope":scope, "state":"ready"})
-    assert await service.find("stapler", "bob") is None
+    assert await service.find("test_widget", "bob") is None
     assert await service.read(first["model_id"], scope=service.private_scope("bob")) is None
     assert await service.job_result("legacy-private-job", "bob") is None
     await CatalogService(database).initialize()
-    assert (await service.find("stapler", "alice"))["shared"] is False
-    assert await database[MODELS].count_documents({"canonical_key":"stapler", "scope":"shared"}) == 0
+    assert (await service.find("test_widget", "alice"))["shared"] is False
+    assert await database[MODELS].count_documents({"canonical_key":"test_widget", "scope":"shared"}) == 0
 
 
 @pytest.mark.asyncio
@@ -121,8 +121,8 @@ async def test_legacy_private_model_is_not_republished(database):
 async def test_generic_model_is_shared_automatically(database, legacy_flag):
     async def generate(): return generated_fixture()
     service = CatalogService(database)
-    a = await service.resolve(key="stapler", title="", user_id="alice", generator=generate, contribute=legacy_flag)
-    b = await CatalogService(database).resolve(key="stapler", title="", user_id="bob")
+    a = await service.resolve(key="test_widget", title="", user_id="alice", generator=generate, contribute=legacy_flag)
+    b = await CatalogService(database).resolve(key="test_widget", title="", user_id="bob")
     assert a["shared"] and b["shared"] and b["cache_hit"]
     assert a["version_id"] == b["version_id"]
     assert b["manifest"]["evidence_level"] == "illustrative"
@@ -134,24 +134,24 @@ async def test_concurrent_users_share_one_build(database):
     async def generate():
         nonlocal calls
         calls += 1; await asyncio.sleep(.15); return generated_fixture()
-    a, b = await asyncio.gather(*[CatalogService(database).resolve(key="stapler", title="", user_id=u,
+    a, b = await asyncio.gather(*[CatalogService(database).resolve(key="test_widget", title="", user_id=u,
                                 generator=generate) for u in ("alice", "bob")])
     assert calls == 1
     assert any(x["status"] == "family" for x in (a,b))
-    assert await database[MODELS].count_documents({"canonical_key": "stapler"}) == 1
-    assert await database[JOBS].count_documents({"canonical_key": "stapler"}) == 1
+    assert await database[MODELS].count_documents({"canonical_key": "test_widget"}) == 1
+    assert await database[JOBS].count_documents({"canonical_key": "test_widget"}) == 1
 
 
 @pytest.mark.asyncio
 async def test_generated_model_survives_a_new_python_process(database):
     async def generate(): return generated_fixture()
-    first = await CatalogService(database).resolve(key="stapler", title="", user_id="alice", generator=generate)
+    first = await CatalogService(database).resolve(key="test_widget", title="", user_id="alice", generator=generate)
     script = '''import asyncio,json,os
 from motor.motor_asyncio import AsyncIOMotorClient
 from vision_catalog import CatalogService
 async def main():
  c=AsyncIOMotorClient(os.environ["VISION_TEST_MONGO_URL"])
- value=await CatalogService(c[os.environ["VISION_TEST_DB"]]).find("stapler","alice")
+ value=await CatalogService(c[os.environ["VISION_TEST_DB"]]).find("test_widget","alice")
  print(json.dumps({"version_id":value["version_id"]}))
  c.close()
 asyncio.run(main())
@@ -167,9 +167,9 @@ asyncio.run(main())
 async def test_failed_generation_is_not_published(database):
     async def generate(): return {"parts": []}
     service = CatalogService(database)
-    result = await service.resolve(key="stapler", title="", user_id="alice", generator=generate)
+    result = await service.resolve(key="test_widget", title="", user_id="alice", generator=generate)
     assert result["status"] == "unknown"
-    assert await service.find("stapler", "alice") is None
+    assert await service.find("test_widget", "alice") is None
     assert await database[JOBS].count_documents({"state": "failed"}) == 1
 
 
@@ -180,20 +180,20 @@ async def test_initializing_does_not_resurrect_retired_seed(database):
     await database[MODELS].update_one({"_id": found["model_id"]}, {"$set": {"status": "retired"}})
     fresh = CatalogService(database); await fresh.initialize()
     assert await fresh.find("remote_control", "alice") is None
-    assert len(await fresh.list_models("alice")) == 4
+    assert len(await fresh.list_models("alice")) == len(seeds()) - 1
 
 
 @pytest.mark.asyncio
 async def test_expired_build_lease_is_recoverable(database):
     service = CatalogService(database); await service.initialize()
-    scope = "shared"; model_id = service.model_id("stapler", scope)
+    scope = "shared"; model_id = service.model_id("test_widget", scope)
     from vision_catalog import digest
     job_id = "vxj_" + digest(model_id)
     await database[JOBS].insert_one({"_id":job_id,"scope":scope,"model_id":model_id,
-        "canonical_key":"stapler","state":"building","lease_until":now()-timedelta(seconds=2),
+        "canonical_key":"test_widget","state":"building","lease_until":now()-timedelta(seconds=2),
         "lease_token":"dead-process","attempts":1})
     async def generate(): return generated_fixture()
-    result = await service.resolve(key="stapler",title="",user_id="alice",generator=generate)
+    result = await service.resolve(key="test_widget",title="",user_id="alice",generator=generate)
     assert result["status"] == "family"
     assert (await database[JOBS].find_one({"_id":job_id}))["attempts"] == 2
 
@@ -202,11 +202,11 @@ async def test_expired_build_lease_is_recoverable(database):
 async def test_stale_builder_cannot_publish(database):
     service = CatalogService(database)
     async def generate():
-        await database[JOBS].update_one({"canonical_key":"stapler"},{"$set":{"lease_token":"new-worker"}})
+        await database[JOBS].update_one({"canonical_key":"test_widget"},{"$set":{"lease_token":"new-worker"}})
         return generated_fixture()
-    result = await service.resolve(key="stapler",title="",user_id="alice",generator=generate)
+    result = await service.resolve(key="test_widget",title="",user_id="alice",generator=generate)
     assert result["status"] == "building"
-    assert await service.find("stapler","alice") is None
+    assert await service.find("test_widget","alice") is None
 
 
 @pytest.mark.asyncio
@@ -240,7 +240,7 @@ def jpeg():
 
 
 def test_initial_families_are_distinct():
-    assert len({seed.canonical_key for seed in seeds()}) == 5
+    assert len({seed.canonical_key for seed in seeds()}) == len(seeds())
 
 
 @pytest.mark.asyncio
@@ -286,7 +286,7 @@ async def test_router_returns_persisted_model_and_never_photo_bytes(api_module,m
 async def test_api_shares_generic_recipe_without_client_opt_in(api_module, monkeypatch, database, legacy_flag):
     monkeypatch.setattr(api_module, "can_see", lambda: True)
     async def recognize(*args, **kwargs):
-        return {"recognized":True, "canonical_key":"stapler", "object_name":"Pinzatrice",
+        return {"recognized":True, "canonical_key":"test_widget", "object_name":"Pinzatrice",
                 "confidence":"high", "bbox":[100,200,900,600], "safe_to_generate":True}
     calls = []
     async def generate(key):
@@ -311,7 +311,7 @@ async def test_api_shares_generic_recipe_without_client_opt_in(api_module, monke
         available = await client.get("/api/vision-xray/available",
                                      headers={"Authorization":"Bearer vision-test-alice"})
         assert available.json()["catalog_policy"] == "automatic_generic_shared"
-    assert calls == ["stapler"]
+    assert calls == ["test_widget"]
     for collection in (MODELS, VERSIONS, JOBS):
         text = json.dumps(await database[collection].find({}).to_list(100), default=str)
         assert "image_base64" not in text and "private-metadata-never-persist" not in text

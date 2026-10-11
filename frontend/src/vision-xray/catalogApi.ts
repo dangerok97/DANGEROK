@@ -1,9 +1,10 @@
 import { API_BASE_URL, authToken } from '@/src/api/client';
 import type { Box, Manifest } from './scene';
 
-export type CatalogEntry = { model_id: string; version_id: string; canonical_key: string; title: string; source_type: 'seed' | 'generated'; shared: boolean };
+export type CatalogEntry = { model_id: string; version_id: string; canonical_key: string; title: string; source_type: 'seed' | 'generated'; shared: boolean; category?: string; aliases?: string[] };
 export type CatalogResult = {
   status: 'family' | 'building' | 'unknown';
+  sources?: {title:string;url:string}[];
   model_id?: string; version_id?: string; manifest?: Manifest;
   source_type?: 'seed' | 'generated' | 'source_based';
   cache_hit?: boolean; generation_used?: boolean; shared?: boolean;
