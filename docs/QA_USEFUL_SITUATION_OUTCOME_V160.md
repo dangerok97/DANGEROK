@@ -74,7 +74,7 @@ rimuovono alla scadenza. Modelli e risposte esterne sono fixture sintetiche.
 
 | Area | Evidenza locale |
 |---|---|
-| Backend aggregato finale | 311 PASS in 33 moduli: valutazione, worker, meteo/luogo, consegna, Home/outbox, chiusura, clock e recupero |
+| Backend aggregato finale | 319 PASS in 34 moduli: valutazione, worker, meteo/luogo, consegna, Home/outbox, chiusura, clock, recupero e azione immediata |
 | Conversazione e proiezione | 19 PASS su chiusura, fallimento reale di persistenza, contesto ipotetico, guard memoria temporanea e mappa |
 | Frontend integrato | 31 PASS, inclusi 16 nuovi casi sull'esito, controlli Home, calendario e presenza |
 | Mobile Chromium | 5 PASS, compreso stima → rischio anticipato → indicazione finale dopo completamento del watch |
@@ -94,6 +94,9 @@ un goal legacy parziale o un assessment malformato non deve impedire la
 diagnosi di un checkpoint mancante. I due test storici sono rimasti invariati
 e passano; un nuovo caso copre la proiezione opzionale malformata. I payload
 lunghi sono verificati ai confini reali di choose e verify.
+Il gate remoto ha inoltre richiesto di mantenere la formulazione storica
+dell'istruzione sulla prima aspettativa utile: ripristinata con il vincolo
+esplicito delle evidenze disponibili, mantenendo invariati i test v88b.
 
 ## Riscontro sul caso reale precedente
 

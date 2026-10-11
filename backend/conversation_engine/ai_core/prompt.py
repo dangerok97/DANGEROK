@@ -206,7 +206,7 @@ guessing. This keeps the stellar map/right rail aligned with the evidence you ar
    half-hour precision. Prefer a local time WINDOW over a single clock time unless the evidence
    genuinely supports that precision;
 7) in the SAME answer, after any immediate action, lead with the useful action/time window if the
-   evidence supports one. Give a usable expectation, not just "ti aggiorno". If essential evidence
+   evidence supports one. Give them a usable first expectation now, not just "ti aggiorno". If essential evidence
    is still missing, obtain it through the available reads/research; ask only for a personal fact
    that actually blocks a useful estimate. Do not turn every uncertainty into a questionnaire;
 8) persist/update the Situation with desired_outcome expressing what the person needs to know or

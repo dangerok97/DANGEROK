@@ -19,7 +19,7 @@ Situation. Ripristinato nel repository il rapporto finale della precedente
 verifica, già pubblicato separatamente. Il vecchio caso reale è stato chiuso
 su conferma dell'utente; i nuovi casi di regressione sono sintetici.
 
-Aggregato locale finale: 311 test backend PASS; 31 test frontend PASS,
+Aggregato locale finale: 319 test backend PASS; 31 test frontend PASS,
 TypeScript ed export web PASS. La verifica mobile locale conta 5 casi
 Chromium PASS; WebKit richiede il gate CI con le dipendenze di sistema.
 Corretta durante l'aggregato la compatibilità della diagnosi dei controlli
