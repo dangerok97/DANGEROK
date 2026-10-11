@@ -35,12 +35,12 @@ export const catalogApi = {
   available: () => request<{available: boolean; catalog_count: number; seed_count: number}>('/available'),
   model: (id: string, signal?: AbortSignal) => request<CatalogResult>('/catalog/' + encodeURIComponent(id), {}, signal),
   job: (id: string, signal?: AbortSignal) => request<CatalogResult>('/jobs/' + encodeURIComponent(id), {}, signal),
-  scan: (dataUri: string, frameId: string, contribute: boolean, signal?: AbortSignal) => {
+  scan: (dataUri: string, frameId: string, signal?: AbortSignal) => {
     const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUri);
     if (!match || match[2].length > 4_194_304) throw new Error('Usa una foto JPEG, PNG o WebP inferiore a 3 MB.');
     return request<CatalogResult>('/scan', { method: 'POST', body: JSON.stringify({
       mime_type: match[1], image_base64: match[2], frame_id: frameId,
-      allow_generation: true, contribute,
+      allow_generation: true,
     }) }, signal);
   },
 };

@@ -236,7 +236,9 @@ class CatalogService:
             return {"status": "family", "cache_hit": True, "generation_used": False, **found}
         if generator is None:
             return {"status": "unknown", "reason": "Oggetto non ancora presente nel catalogo."}
-        scope = "shared" if contribute else self.private_scope(user_id)
+        # Generated recipes are generic shared knowledge. Legacy client flags do not control this.
+        # Do not republish previously-private records; existing owner isolation remains intact.
+        scope = "shared"
         model_id = self.model_id(key, scope)
         # Tombstones forbid implicit republication after moderation.
         if await self.db[MODELS].find_one({"_id": model_id, "status": {"$ne": "published"}}):

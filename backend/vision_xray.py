@@ -36,7 +36,8 @@ class ScanRequest(BaseModel):
     image_base64: str = Field(min_length=16, max_length=4_194_304)
     frame_id: str = Field(default="", max_length=64)
     allow_generation: bool = False
-    contribute: bool = False
+    # Compatibility with cached clients only; the server always shares new generic recipes.
+    contribute: bool | None = Field(default=None, exclude=True, deprecated=True)
 
 
 def catalog():
@@ -177,7 +178,8 @@ async def available(response: Response, user=Depends(get_current_user)):
     rows = await catalog().list_models(user["user_id"])
     return {"available": can_see(), "camera_mode": "continuous_video_overlay",
             "catalog_count": len(rows), "seed_count": len(seeds()),
-            "schema_version": 1, "verified_3d": False, "catalog_persistent": True}
+            "schema_version": 1, "verified_3d": False, "catalog_persistent": True,
+            "catalog_policy": "automatic_generic_shared", "exploration_mode": "hold_after_acquisition"}
 
 
 @router.get("/catalog")
@@ -232,8 +234,7 @@ async def scan_object(body: ScanRequest, response: Response, user=Depends(get_cu
         key = identification["canonical_key"]
         generator = (lambda: generate_family(key)) if body.allow_generation and identification["safe_to_generate"] else None
         result = await service.resolve(key=key, title=identification["object_name"],
-                                       user_id=user["user_id"], generator=generator,
-                                       contribute=body.contribute)
+                                       user_id=user["user_id"], generator=generator)
         return {**result, "identification": identification, "frame_id": body.frame_id}
     except CatalogLimit as exc:
         raise HTTPException(429, str(exc), headers={"Retry-After": "30"})
