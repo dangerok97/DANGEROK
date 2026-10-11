@@ -95,6 +95,25 @@ def followup_diagnosis(state):
         return ("ORA aveva registrato un orario, ma non risulta una sveglia "
                 "eseguibile collegata al lavoro: deve riparare la programmazione.")
     if status == "not_scheduled":
+        admission = str(state.get("admission_state") or "")
+        because = str(state.get("admission_reason") or "").strip()
+        if admission == "needs_input":
+            return ("Il controllo non è stato programmato perché manca "
+                    "un'informazione o una fonte indispensabile." +
+                    (f" Motivo: {because}." if because else ""))
+        if admission == "no_benefit":
+            return ("ORA ha valutato che ripetere il controllo non "
+                    "aggiungerebbe valore con le informazioni disponibili." +
+                    (f" Motivo: {because}." if because else ""))
+        if admission == "processing":
+            return ("ORA sta valutando quando effettuare il primo controllo. "
+                    "Non c'è ancora un orario confermato.")
+        if admission == "retry":
+            return ("La valutazione del primo controllo non è riuscita. "
+                    "È registrato un nuovo tentativo tecnico, non una verifica del mondo.")
+        if admission == "paused":
+            return ("I tentativi di organizzare il primo controllo non sono "
+                    "riusciti. Nessun controllo o avviso è garantito.")
         if state.get("goal_id"):
             return ("La situazione è registrata e il lavoro esiste, ma non "
                     "risulta una prossima esecuzione confermata.")
@@ -124,6 +143,19 @@ async def read_followup(db, owner, situation_id):
                     state["last_schedule_attempt_at"] = event.get("at")
         except Exception:
             # An audit lookup failure cannot change the schedule's truth.
+            pass
+    if state.get("status") == "not_scheduled":
+        try:
+            from situations.first_checkpoint import decision_for
+            situation = await SituationRepository(db).get(owner, situation_id)
+            if situation:
+                admission = await decision_for(db, owner, situation_id, situation.revision)
+                if admission:
+                    state["admission_state"] = admission.get("status")
+                    state["admission_reason"] = admission.get("reason")
+                    state["admission_retry_after"] = admission.get("retry_after")
+        except Exception:
+            # This extra diagnostic must never hide the owned schedule truth.
             pass
     state["diagnosis"] = followup_diagnosis(state)
     return state
