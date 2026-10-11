@@ -192,6 +192,7 @@ async def _read_followup_snapshot(db, owner, situation_id):
         stop_conditions = [str(x)[:240] for x in (goal.get("stop_conditions") or []) if str(x).strip()]
         out.update(
             goal_id=goal["id"],
+            goal_source_kind=str(goal.get("source_kind") or ""),
             purpose=str(goal.get("rationale") or "")[:300],
             completion_when=str(goal.get("desired_outcome") or "")[:400] or None,
             monitoring_goal=str(goal.get("desired_outcome") or "")[:400] or None,
@@ -261,7 +262,14 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
     if before["status"] == "unavailable":
         return {"ok": False, "error": "followup_state_unavailable"}
     repo = AgentRepository(db)
-    gid = before.get("goal_id") or goal_id_for(owner, situation_id)
+    # A generic opportunity linked to this Situation is not ORA's dedicated
+    # watch. Never claim, mutate or reschedule that unrelated goal merely
+    # because both goals reference the same life fact.
+    gid = (
+        before.get("goal_id")
+        if before.get("goal_source_kind") == KIND and before.get("goal_id")
+        else goal_id_for(owner, situation_id)
+    )
     worker = f"schedule:{situation_id}"
     if not await repo.claim(owner, gid, worker_id=worker):
         return {"ok": False, "error": "already_being_arranged", **(await read_followup(db, owner, situation_id))}
