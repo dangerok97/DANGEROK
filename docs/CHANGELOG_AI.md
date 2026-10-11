@@ -1,3 +1,19 @@
+## 11 ottobre 2026 — v158: seguito della rilettura live e della prima verifica
+
+- Le domande finanziarie espongono la differenza reale rispetto al fatto
+  corrente, escludono proposte senza cambiamenti e versioni non più attive.
+- La risposta esplicita usa la stessa selezione e conserva informazioni
+  confermate che la proposta non specifica; le letture non mutano la memoria.
+- Il contesto della Situation e l'ambito geografico arrivano alle fasi di
+  ricerca, valutazione e sintesi; esiti parziali o privi di supporto non
+  costituiscono prova sufficiente della prima verifica.
+- PR #203 rilasciata con CI completa verde. Home e Agenda coerenti nel
+  collaudo; prima valutazione e checkpoint della Situation recuperati in
+  autonomia. Pertinenza del luogo e consegna sul dispositivo restano prove
+  distinte. Nessun evento esterno, pagamento o messaggio a terzi nel QA.
+
+---
+
 ## 11 ottobre 2026 — v158: correzioni dopo il rilascio autenticato
 
 - Il calendario della Home esclude scadenze di task, promemoria e checkpoint;

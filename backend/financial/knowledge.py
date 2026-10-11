@@ -108,6 +108,9 @@ async def what_ora_knows(
                 "quanto": a["how_much"],
                 "invece_di": a["instead_of"],
                 "come_lo_so": a["how_directly"],
+                "domanda": a["question"],
+                "perche": a["why_needed"],
+                "cosa_cambia": a["changes"],
             }
             for a in asking
         ],
@@ -207,34 +210,37 @@ async def resolve_open_question(
     Nessun goal, nessun engine nuovo: e' una risposta a una domanda, non
     l'inizio di un lavoro.
     """
-    from financial.durable import propose
+    from financial.durable import propose, _with_known_fields
 
     wanted = " ".join(str(about or "").strip().lower().split())
-    pending = await db.financial_facts.find(
-        {"owner_id": owner_id, "governance_decision": "CLARIFY"},
-        {"_id": 0},
-    ).sort("observed_at", -1).to_list(20)
-
-    target: Optional[FinancialFact] = None
-    for row in pending:
-        try:
-            fact = FinancialFact.model_validate(row)
-        except Exception:
-            continue
-        name = " ".join(str(fact.what).lower().split())
-        if wanted and (name == wanted or wanted in name or name in wanted):
-            target = fact
-            break
-
-    if target is None:
+    pending = await needs_your_word(db, owner_id)
+    exact = [q for q in pending if " ".join(q["what"].lower().split()) == wanted]
+    matches = exact or [
+        q for q in pending
+        if wanted and (wanted in " ".join(q["what"].lower().split())
+                       or " ".join(q["what"].lower().split()) in wanted)
+    ]
+    if not matches:
         return {"resolved": False, "reason": "nessuna domanda aperta su questo"}
+    if len(matches) != 1 or not matches[0]["can_answer"]:
+        return {"resolved": False, "reason": "serve identificare una sola proposta e conoscenza corrente"}
+    # Resolve the same material proposal that the surfaces actually showed,
+    # never a newer no-op or an inactive historical CLARIFY with the same name.
+    row = await db.financial_facts.find_one(
+        {"owner_id": owner_id, "id": matches[0]["fact_id"],
+         "governance_decision": "CLARIFY", "status": {"$in": ["known", "disputed"]}},
+        {"_id": 0},
+    )
+    if not row:
+        return {"resolved": False, "reason": "la proposta non è più aperta"}
+    target = FinancialFact.model_validate(row)
 
     if not confirmed:
         # Rifiutata. Il fatto resta come osservazione — con la sua
         # provenienza, perche' e' vero che quel messaggio lo diceva — e
         # smette di essere una domanda.
         await db.financial_facts.update_one(
-            {"id": target.id},
+            {"owner_id": owner_id, "id": target.id},
             {"$set": {
                 "governance_decision": "DECLINED_BY_USER",
                 "status": "withdrawn",
@@ -247,6 +253,17 @@ async def resolve_open_question(
         }
 
     # Confermata. Adesso l'autorita' c'e': l'ha detta la persona.
+    current = [f for f in await governed_facts(db, owner_id)
+               if identity_of(f) == identity_of(target)]
+    if len(current) > 1:
+        return {"resolved": False, "reason": "serve identificare la conoscenza da aggiornare"}
+    previous = current[0] if current and current[0].status == "known" else None
+    target = _with_known_fields(target, previous)
+    if previous:
+        # Retained values keep their evidence too. The source journal is not
+        # rewritten with values that the new email itself did not contain.
+        target.source_refs = list(dict.fromkeys([*target.source_refs, *previous.source_refs]))[:8]
+        target.provenance += list(previous.provenance)
     target.confidence = "observed"
     # La parola della persona va davanti, non in coda.
     #
@@ -269,7 +286,7 @@ async def resolve_open_question(
         confirmed_by_user=True,
     )
     await db.financial_facts.update_one(
-        {"id": target.id},
+        {"owner_id": owner_id, "id": target.id},
         {"$set": {
             "governance_decision": out["decision"],
             "confidence": "observed",

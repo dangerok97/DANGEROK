@@ -1830,6 +1830,10 @@ class AgentService:
             )
             evidence = await self.evidence.for_goal(owner_id, goal.id)
             supporting = [e for e in evidence if e.provenance.freshness != "stale"
+                          and (e.provenance.capability != "web.research"
+                               or (e.provenance.research_sufficient is True
+                                   and (research_until := _aware_wait_until(e.provenance.research_valid_until))
+                                   and research_until > now))
                           and any(not ref.startswith(("situation:", "goal:", "plan:", "agent:"))
                                   for ref in e.provenance.source_refs)]
             promote = explicit_time and total_minutes <= 72 * 60 and real_support(supporting)

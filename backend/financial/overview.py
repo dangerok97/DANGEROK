@@ -274,12 +274,11 @@ async def money_overview(db, owner_id: str, *, days: int = 30) -> Dict[str, Any]
     # Da capire: le domande aperte piu' le ricorrenze che nessuno ha nominato.
     to_understand: List[Dict[str, Any]] = []
     for ask in await needs_your_word(db, owner_id):
-        was = f" Finora sapevo {ask['instead_of']}." if ask["instead_of"] else ""
         to_understand.append({
-            "cosa": f"«{ask['what']}» è {ask['how_much']}?",
-            "perche": f"L'ho letto: {ask['how_directly']}.{was}".strip(),
+            "cosa": ask["question"],
+            "perche": ask["why_needed"],
             "stato": "DA CAPIRE",
-            "posso_rispondere": True,
+            "posso_rispondere": ask["can_answer"],
         })
 
     return {

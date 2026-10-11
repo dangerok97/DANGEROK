@@ -220,6 +220,13 @@ Hold to these:
   what would settle it.
 - Recency matters differently for different questions. Decide what it means
   for this one, and say how long your answer should be trusted.
+- Preserve the geographic scope and current source_context through every
+  judgement. Recorded Situation fields are context, not proof that each field
+  was stated by the person. Keep facts and assumptions distinct. An absent
+  location stays unknown: a place appearing in search results or a provider's
+  default location does not establish where the Situation is happening.
+  When a place-dependent answer lacks that anchor, report missing evidence;
+  do not turn general or differently scoped findings into local facts.
 - Only ask for what the world needs to know about this person. A public search
   does not need a name, an address, an income or an identifier to return what
   is generally true. If a detail genuinely changes the answer, include the
@@ -306,6 +313,9 @@ async def assess_evidence(
     user = json.dumps(
         {
             "goal": plan.goal,
+            "geographic_scope": plan.geographic_scope,
+            "known_context": plan.known_context,
+            "unknowns": plan.unknowns,
             "questions": [
                 {
                     "ref": q.ref,
@@ -382,6 +392,10 @@ async def synthesize(
     user = json.dumps(
         {
             "goal": plan.goal,
+            "geographic_scope": plan.geographic_scope,
+            "known_context": plan.known_context,
+            "unknowns": plan.unknowns,
+            "freshness_requirement": plan.freshness_requirement,
             "sufficiency": assessment.sufficiency,
             "still_missing": assessment.missing_evidence,
             "conflicts": [
@@ -487,6 +501,7 @@ async def consider_reuse(
         {
             "question_i_need_answered": need.question,
             "why": need.purpose,
+            "already_known": need.already_known,
             "already_looked_up": candidates,
             "produce": {
                 "reuse_run_id": (

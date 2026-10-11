@@ -429,21 +429,15 @@ class HomeService:
             from financial.durable import needs_your_word
 
             for ask in (await needs_your_word(self.db, user_id))[:2]:
-                was = (
-                    f" Finora sapevo {ask['instead_of']}."
-                    if ask["instead_of"] else ""
-                )
                 open_questions.append({
                     "id": f"ask:{ask['what']}",
-                    "question": f"«{ask['what']}» è {ask['how_much']}?",
-                    "why_needed": (
-                        f"L'ho letto: {ask['how_directly']}.{was}"
-                    ).strip(),
+                    "question": ask["question"],
+                    "why_needed": ask["why_needed"],
                     "context_label": "",
                     "answers": [
                         {"label": "Sì", "action": "money_yes"},
                         {"label": "No", "action": "money_no"},
-                    ],
+                    ] if ask["can_answer"] else [],
                 })
         except Exception as e:
             logger.info("financial questions soft-fail: %s", type(e).__name__)

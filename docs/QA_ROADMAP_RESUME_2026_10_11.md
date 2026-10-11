@@ -162,3 +162,76 @@ informazioni fuori da quel testo possono ancora richiedere una lettura più
 completa della fonte. I duplicati storici ambigui non vengono fusi in modo
 automatico. Il calendario seleziona gli eventi per data di inizio e mantiene
 il comportamento preesistente sugli eventi che attraversano più mesi.
+
+## Rilascio #203 e collaudo successivo
+
+La [PR #203](https://github.com/dangerok97/DANGEROK/pull/203) è stata
+integrata in `42fba0e93ba2e6c8be263b2bc072bbe1c7956b15`, con tree identico
+al locale verificato `41a45b65952c27cf8e54fd02d67a4556bbb1412b` e base
+`bb1a6a2`. Tutti i gate della PR sono verdi: CI, Situation e otto prove
+mobile distribuite fra Chromium e WebKit. Anche la CI dopo il merge
+[38166067866](https://github.com/dangerok97/DANGEROK/actions/runs/38166067866)
+e la suite Situation
+[38166067849](https://github.com/dangerok97/DANGEROK/actions/runs/38166067849)
+sono SUCCESS sullo stesso SHA.
+
+Backend Railway `2fdda864-6146-49b3-a893-ce30fee16210` SUCCESS alle
+19:01:37 UTC; web `0add894b-d7cf-4dbe-a367-759a979467ed` SUCCESS alle
+19:02:12 UTC dell'11 ottobre. Entrambi distribuiscono `42fba0e9`, con
+una replica sana, nessun lavoro pendente e health HTTP 200. Le sorgenti
+dei due servizi erano prive di branch e sono state ricollegate a
+`staging/cloud` per distribuire il commit integrato.
+
+Il confronto autenticato sul giorno precedentemente incoerente mostra
+zero eventi sia nel calendario Home sia in Agenda. L'attività operativa
+resta presente nella sua sezione. Non sono stati creati, spostati o
+eliminati appuntamenti per ottenere questo risultato.
+
+La Situation esistente è stata recuperata dal worker senza ricrearla o
+reinviare la richiesta di attenzione: la schermata mostra un'ultima verifica
+alle 21:03 e un prossimo controllo alle 22:03 nel fuso visualizzato dalla UI.
+Il risultato cita una località la cui associazione alla Situation fisica
+non è stata dimostrata. La diagnosi testuale del modello non costituisce
+una prova autonoma della provenienza geografica. Il collaudo dimostra ora
+ammissione, esecuzione e checkpoint persistito, ma non ancora la correttezza
+del giudizio locale o la consegna di una notifica sul dispositivo.
+
+## Rilettura email e ultimo approfondimento
+
+La vista dettagliata delle connessioni mostra Gmail connesso e Google
+Calendar con autorizzazione scaduta. Il login Google e la disponibilità di
+Gmail non sono stati usati come prova di accesso agli eventi Calendar.
+
+Una sola pressione di «Rileggi le email economiche» ha elaborato fonti già
+collegate, senza cercare una nuova raccolta di messaggi. Esito UI: cinque
+email verificate, una informazione aggiornata, due già corrette, due senza
+un fatto economico confermato. Non è stato letto o salvato il corpo email
+tramite il browser del collaudo, né è stata data una risposta di conferma
+alle proposte finanziarie. Il saldo e i movimenti bancari visibili restano
+esplicitamente dati simulati.
+
+La rilettura ha prodotto una domanda «importo non noto» rispetto a «importo
+non noto». Riproduzione sintetica: il confronto mancava prima della
+presentazione, e anche una differenza reale di data veniva mostrata come
+domanda sul solo importo. La patch successiva seleziona proposte attive
+con differenze concrete, condivide la domanda fra le superfici e conserva
+i campi confermati non specificati dalla nuova proposta quando l'utente
+risponde esplicitamente sì. Le letture restano prive di mutazioni.
+
+L'analisi del controllo ha inoltre rilevato la perdita del contesto della
+Situation nel passaggio alla ricerca e dell'ambito geografico nelle fasi
+di valutazione e sintesi. Un risultato parziale con un riferimento di ricerca
+poteva superare la promozione della prima verifica. La patch preserva il
+contesto dell'owner e richiede un esito completato e sufficientemente
+supportato. Questo controllo meccanico non dimostra da solo che una fonte
+riguardi il luogo fisico corretto: tale limite rimane esplicito.
+
+Validazione locale dell'ultima patch: 148 test backend integrati PASS
+(Situation, diagnosi, finanza, ricerca e calendario), 55 regressioni
+finanziarie mirate PASS con sovrapposizione, TypeScript PASS, build web
+completa PASS (1.745 moduli), lint frontend senza errori. I 47 warning di
+stile del client API sono preesistenti. La correzione tipografica di un
+apostrofo JSX nel file Vita elimina l'unico errore lint incontrato.
+Scansione Git disponibile e diff check PASS. Le prove sono sintetiche e
+non sostituiscono i gate con Mongo reale, il collaudo della versione
+distribuita o la verifica della località della Situation.

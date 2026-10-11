@@ -1,3 +1,20 @@
+## 11 ottobre 2026 — v158: domande economiche e contesto delle verifiche
+
+Una domanda su informazioni economiche deve mostrare ciò che cambierebbe:
+importo, scadenza, ricorrenza o natura della voce. Una fonte che non aggiunge
+una differenza concreta non richiede una nuova conferma. Le letture non
+modificano i fatti confermati; un eventuale sì conserva le informazioni già
+note che la nuova fonte non afferma. Conti, Home e VITA condividono la stessa
+domanda e non ripropongono versioni ritirate o superate.
+
+Una ricerca usata per seguire una Situation deve mantenere il contesto di
+quella situazione e l'ambito geografico durante la valutazione delle fonti.
+Un esito parziale o privo di affermazioni supportate non basta a dichiarare
+che la prima verifica è compiuta. La presenza di una fonte reale non prova,
+da sola, che il luogo sia quello della situazione fisica dell'utente.
+
+---
+
 ## 11 ottobre 2026 — v158: coerenza dopo il collaudo autenticato
 
 Il mini calendario della Home e «Prossimi appuntamenti» mostrano eventi di

@@ -443,7 +443,10 @@ export type MoneyLine = {
 export type MoneyKnowledge = {
   so: MoneyLine[];
   ho_letto: MoneyLine[];
-  devo_chiederti: { cosa: string; quanto: string; invece_di?: string; come_lo_so?: string }[];
+  devo_chiederti: {
+    cosa: string; quanto: string; invece_di?: string; come_lo_so?: string;
+    domanda?: string; perche?: string;
+  }[];
   in_arrivo?: Record<string, unknown>;
 };
 

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from financial.models import FinancialFact, Money, Provenance
@@ -294,6 +295,156 @@ async def open_questions(db, owner_id: str) -> List[Dict[str, Any]]:
     return out
 
 
+def _with_known_fields(fact: FinancialFact, current: Optional[FinancialFact]) -> FinancialFact:
+    """An omitted source field does not retract something already known.
+
+    This is a prospective copy, never a journal or Memory write. Confirmation
+    can use the same copy so accepting a date cannot erase a known amount.
+    """
+    proposed = fact.model_copy(deep=True)
+    if current is None:
+        return proposed
+    if not proposed.money.currency:
+        proposed.money.currency = current.money.currency
+    currency_changed = bool(
+        current.money.currency and proposed.money.currency
+        and current.money.currency.upper() != proposed.money.currency.upper()
+    )
+    if not proposed.money.is_known and not currency_changed:
+        proposed.money.amount = current.money.amount
+    if proposed.money.is_known:
+        # The bridge emits this exact marker for an omitted amount. Retaining
+        # a known amount makes that marker stale; other source wording stays.
+        proposed.unknowns = [value for value in proposed.unknowns if value != "l'importo"]
+    for field in ("due_at", "occurred_at", "valid_from", "valid_until"):
+        incoming, previous = getattr(proposed, field), getattr(current, field)
+        if not incoming or (
+            previous and len(incoming) == 10 and len(previous) > 10
+            and incoming == previous[:10]
+        ):
+            setattr(proposed, field, previous)
+    if proposed.cadence == "unknown":
+        proposed.cadence = current.cadence
+    if fact.cadence == "one_time":
+        proposed.recurrence = fact.recurrence
+    elif not proposed.recurrence:
+        proposed.recurrence = current.recurrence
+    return proposed
+
+
+_CLAIM_LABELS = {
+    "kind": "tipo", "direction": "direzione", "amount": "importo", "currency": "valuta",
+    "cadence": "periodicità", "recurrence": "ricorrenza",
+    "due_at": "scadenza", "occurred_at": "data dell'evento",
+    "valid_from": "valido dal", "valid_until": "valido fino al",
+}
+
+
+def _claims(fact: FinancialFact) -> Dict[str, Any]:
+    """Only the structured claims persisted by financial governance."""
+    values: Dict[str, Any] = {"kind": fact.kind, "direction": fact.direction}
+    if fact.money.is_known:
+        values["amount"] = (round(fact.money.amount, 2), (fact.money.currency or "").upper())
+    if fact.money.currency:
+        values["currency"] = fact.money.currency.upper()
+    if fact.cadence != "unknown":
+        values["cadence"] = fact.cadence
+    if fact.recurrence:
+        values["recurrence"] = " ".join(fact.recurrence.lower().split())
+    for field in ("due_at", "occurred_at", "valid_from", "valid_until"):
+        if getattr(fact, field):
+            values[field] = getattr(fact, field)
+    return values
+
+
+def _claim_text(field: str, value: Any) -> str:
+    if value is None:
+        return "non noto"
+    if field == "amount":
+        amount, currency = value
+        money = Money(amount=amount, currency=currency or None).for_human()
+        return money if currency else money.removeprefix("€") + " (valuta non indicata)"
+    labels = {
+        "kind": {"commitment": "impegno economico", "income": "entrata",
+                 "event": "evento economico", "constraint": "vincolo economico",
+                 "goal_context": "contesto economico di un obiettivo"},
+        "direction": {"outgoing": "in uscita", "incoming": "in entrata",
+                      "neutral": "senza movimento di denaro"},
+        "cadence": {"recurring": "ricorrente", "one_time": "una tantum"},
+    }
+    if field in labels:
+        return labels[field].get(value, str(value))
+    if field in ("due_at", "occurred_at", "valid_from", "valid_until"):
+        try:
+            when = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            text = when.strftime("%d/%m/%Y")
+            if len(str(value)) > 10:
+                clock = when.strftime("%H:%M")
+                if when.second or when.microsecond:
+                    clock += when.strftime(":%S")
+                if when.microsecond:
+                    clock += f".{when.microsecond:06d}".rstrip("0")
+                text += f" alle {clock}"
+                offset = when.strftime("%z")
+                if offset:
+                    text += f" UTC{offset[:3]}:{offset[3:]}"
+            return text
+        except (TypeError, ValueError):
+            pass
+    return str(value)
+
+
+def _question_for(fact: FinancialFact, current: Optional[FinancialFact]) -> Optional[Dict[str, Any]]:
+    from financial.store import _same_date_claim
+
+    proposed = _with_known_fields(fact, current)
+    previous = _claims(current) if current else {}
+    incoming = _claims(proposed)
+    changes = []
+    for field, value in incoming.items():
+        if field == "currency" and "amount" in incoming and incoming["amount"] != previous.get("amount"):
+            # An explicit amount already displays its currency. Currency is
+            # still an independent claim when the amount itself is unknown.
+            continue
+        before = previous.get(field)
+        same = (
+            _same_date_claim(value, before)
+            if field in ("due_at", "occurred_at", "valid_from", "valid_until")
+            else value == before
+        )
+        if not same:
+            changes.append({"field": field, "before": _claim_text(field, before),
+                            "after": _claim_text(field, value)})
+    if current and not changes:
+        return None
+    details = "; ".join(f"{_CLAIM_LABELS[c['field']]}: {c['after']}" for c in changes)
+    source = (
+        fact.provenance[0].how_directly or fact.provenance[0].source
+        if fact.provenance else ""
+    )
+    why = f"L'ho letto: {source}."
+    if current:
+        before = "; ".join(f"{_CLAIM_LABELS[c['field']]}: {c['before']}" for c in changes)
+        why += f" Finora: {before}."
+    if not fact.money.is_known:
+        why += " La fonte non indica l'importo."
+    can_answer = not (
+        current and current.money.is_known and not fact.money.is_known
+        and current.money.currency and fact.money.currency
+        and current.money.currency.upper() != fact.money.currency.upper()
+    )
+    if not can_answer:
+        why += " Serve l'importo nella nuova valuta prima di aggiornare quello confermato."
+    return {
+        "fact_id": fact.id, "what": fact.what,
+        "how_much": fact.money.for_human(), "how_directly": source,
+        "instead_of": current.money.for_human() if current else "",
+        # Keep the subject first: existing answer controls resolve this name.
+        "question": f"«{fact.what}»: confermi {details}?",
+        "why_needed": why, "changes": changes, "can_answer": can_answer,
+    }
+
+
 async def needs_your_word(db, owner_id: str) -> List[Dict[str, Any]]:
     """
     Le cose economiche che ORA ha visto e non puo' credere da sola.
@@ -310,39 +461,49 @@ async def needs_your_word(db, owner_id: str) -> List[Dict[str, Any]]:
     Quindi escono di qui, come domande: cosa si e' visto, quanto, da dove, e
     cosa cambierebbe rispetto a quello che ORA gia' sa.
     """
-    try:
-        rows = await db.financial_facts.find(
-            {"owner_id": owner_id, "governance_decision": "CLARIFY"},
-            {"_id": 0},
-        ).sort("observed_at", -1).to_list(20)
-    except Exception as e:
-        logger.info("clarify read soft-fail: %s", type(e).__name__)
-        return []
-
-    known = {identity_of(f): f for f in await governed_facts(db, owner_id)}
+    known: Dict[str, List[FinancialFact]] = {}
+    for fact in await governed_facts(db, owner_id):
+        known.setdefault(identity_of(fact), []).append(fact)
 
     out: List[Dict[str, Any]] = []
     seen: set = set()
-    for row in rows:
-        try:
-            fact = FinancialFact.model_validate(row)
-        except Exception:
-            continue
-        identity = identity_of(fact)
-        if identity in seen:
-            continue
-        seen.add(identity)
-        current = known.get(identity)
-        out.append({
-            "what": fact.what,
-            "how_much": fact.money.for_human(),
-            "how_directly": (
-                fact.provenance[0].how_directly or fact.provenance[0].source
-                if fact.provenance else ""
-            ),
-            # Cosa cambierebbe. Senza questo la domanda e' «e' giusto?», che
-            # non aiuta nessuno; con questo e' «prima sapevo 700, adesso
-            # leggo 760, quale vale?».
-            "instead_of": current.money.for_human() if current else "",
-        })
+    try:
+        rows = db.financial_facts.find(
+            {"owner_id": owner_id, "governance_decision": "CLARIFY",
+             "status": {"$in": ["known", "disputed"]}},
+            {"_id": 0},
+        ).sort("observed_at", -1)
+        # Limit material questions, not source rows: repeated no-ops must not
+        # hide an older question that still needs an answer.
+        async for row in rows:
+            try:
+                fact = FinancialFact.model_validate(row)
+            except Exception:
+                continue
+            identity = identity_of(fact)
+            if identity in seen:
+                continue
+            versions = known.get(identity) or []
+            current = versions[0] if len(versions) == 1 and versions[0].status == "known" else None
+            question = _question_for(fact, current)
+            if question is None:
+                continue
+            if len(versions) > 1:
+                question["can_answer"] = False
+                question["why_needed"] += " Ci sono più versioni correnti: serve chiarire quale aggiornare."
+            seen.add(identity)
+            out.append(question)
+            if len(out) >= 20:
+                break
+    except Exception as e:
+        logger.info("clarify read soft-fail: %s", type(e).__name__)
+        return []
+    names: Dict[str, List[Dict[str, Any]]] = {}
+    for question in out:
+        names.setdefault(" ".join(question["what"].lower().split()), []).append(question)
+    for questions in names.values():
+        if len(questions) > 1:
+            for question in questions:
+                question["can_answer"] = False
+                question["why_needed"] += " Ci sono più proposte con questo nome: serve distinguere quale confermare."
     return out

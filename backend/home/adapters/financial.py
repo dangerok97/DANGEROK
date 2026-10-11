@@ -163,16 +163,15 @@ async def load_financial_context(
         pending = []
 
     for ask in pending[:1]:
-        was = f" Finora sapevo {ask['instead_of']}." if ask["instead_of"] else ""
         items.append(HomeItem(
             id=stable_id("fin", user_id, f"ask:{ask['what']}"),
             # «verify» e' il tipo che questa Home usa per «guarda se e'
             # giusto»: e' esattamente cosa si sta chiedendo.
             type="verify",
             subtype="financial_confirmation",
-            title=f"«{ask['what']}» è {ask['how_much']}?",
+            title=ask["question"],
             description=(
-                f"L'ho letto: {ask['how_directly']}.{was} "
+                f"{ask['why_needed']} "
                 "Prima di darlo per buono volevo chiedertelo."
             ),
             source_type="financial",
@@ -184,12 +183,13 @@ async def load_financial_context(
             # Mandare la persona altrove per dire «sì» sarebbe chiederle di
             # fare un viaggio per una parola. Il terzo pulsante c'e' perche'
             # a volte la risposta non e' sì o no: è «fammi capire meglio».
-            actions=[
+            actions=([
                 HomeAction(id="money_yes", label="Sì", kind="complete",
                            params={"about": ask["what"], "confirmed": True},
                            primary=True),
                 HomeAction(id="money_no", label="No", kind="ignore",
                            params={"about": ask["what"], "confirmed": False}),
+            ] if ask["can_answer"] else []) + [
                 HomeAction(id="money_ask", label="Approfondisci con ORA",
                            kind="navigate", route="/ora"),
             ],
