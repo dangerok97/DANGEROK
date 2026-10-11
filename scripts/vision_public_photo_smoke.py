@@ -8,9 +8,19 @@ import httpx
 from PIL import Image, ImageOps
 import vision_production_smoke as smoke
 
+# This file's public-domain dedication is documented on the Commons source page.
+smoke.SOURCES[1].update({
+    "url": "https://upload.wikimedia.org/wikipedia/commons/f/f2/StaplerKM.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:StaplerKM.jpg",
+    "author": "Juseppi", "license": "Public domain",
+})
+_cached = {}
+
 
 def public_picture(client, source):
     origin = source["url"]
+    if origin in _cached:
+        return _cached[origin]
     urls = [origin,
             "https://wsrv.nl/?" + urllib.parse.urlencode({"url": origin, "w": 960, "output": "jpg"}),
             "https://images.weserv.nl/?" + urllib.parse.urlencode({"url": origin, "w": 960, "output": "jpg"})]
@@ -29,6 +39,7 @@ def public_picture(client, source):
             (smoke.OUT/(source["name"]+"-source.jpg")).write_bytes(data)
             smoke.record("public_photo_loaded", photo_name=source["name"], host=urllib.parse.urlparse(url).hostname,
                          width=clean.width, height=clean.height, original_source=source["page"])
+            _cached[origin] = data
             return data
         except (httpx.HTTPError, OSError, ValueError):
             continue
@@ -37,6 +48,10 @@ def public_picture(client, source):
 smoke.picture = public_picture
 if __name__ == "__main__":
     try:
+        # Check public fixtures before any registration; don't create accounts for a failed download.
+        with httpx.Client(timeout=25) as client:
+            for source in smoke.SOURCES:
+                public_picture(client, source)
         smoke.main()
     except Exception as exc:
         smoke.REPORT["completed"] = False
