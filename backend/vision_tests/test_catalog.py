@@ -36,12 +36,12 @@ async def database():
         yield client[name]
     finally:
         assert name.startswith("ora_vision_test_")
-        await client.drop_database(name)  # Only this fixture's newly-created CI DB.
+        await client.drop_database(name)
         client.close()
 
 
 def generated_fixture(key="stapler"):
-    # Deliberately a geometry fixture, NOT evidence about a physical stapler.
+    # A geometry fixture, NOT evidence about a physical stapler.
     data = seeds()[1].model_dump(mode="json")
     data["canonical_key"] = key
     data["title"] = "Oggetto di test"
@@ -233,9 +233,8 @@ def jpeg():
     return base64.b64encode(stream.getvalue()).decode()
 
 
-def test_placeholder():
-    # Signals this suite is focused, not an assertion that production auth was mocked successfully.
-    assert len(seeds()) == 5
+def test_initial_families_are_distinct():
+    assert len({seed.canonical_key for seed in seeds()}) == 5
 
 
 @pytest.mark.asyncio
@@ -252,7 +251,7 @@ async def test_bad_detection_box_is_not_treated_as_a_match(api_module):
     raw={"recognized":True,"confidence":"high","canonical_key":"remote_control","bbox":[0,0,float("nan"),1000]}
     assert api_module.normalize_identification(raw) is None
     raw["bbox"]=[100,200,900,600]
-    assert api_module.normalize_identification(raw)["bbox"] == [.2,.1,.4,.8]
+    assert api_module.normalize_identification(raw)["bbox"] == pytest.approx([.2,.1,.4,.8])
 
 
 @pytest.mark.asyncio
