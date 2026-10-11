@@ -85,16 +85,18 @@ class FinancialStore:
             if p.source == "email" and p.source_ref
         ), None)
         if source is not None:
+            message_ref = source.source_ref.strip().removeprefix("mail:")
             source_rows = await self.db[FACTS].find({
                 "owner_id": fact.owner_id,
                 "status": {"$in": ["known", "disputed"]},
                 "provenance": {"$elemMatch": {
-                    "source": source.source, "source_ref": source.source_ref,
+                    "source": source.source,
+                    "source_ref": {"$in": [message_ref, f"mail:{message_ref}"]},
                 }},
             }, {"_id": 0}).limit(3).to_list(3)
             if len(source_rows) == 1:
                 previous = FinancialFact.model_validate(source_rows[0])
-                same = _says_the_same_thing(fact, previous)
+                same = _says_the_same_thing(fact, previous, exact_source=True)
                 if same:
                     await self.db[FACTS].update_one(
                         {"owner_id": fact.owner_id, "id": previous.id},
@@ -103,22 +105,38 @@ class FinancialStore:
                     )
                     return {"outcome": "already_known", "fact_id": previous.id,
                             "disputes": []}
+                if _says_something_different(fact, previous):
+                    # Rereading the same source is not authority to replace a
+                    # known amount with a conflicting known amount/currency.
+                    # Preserve both versions under the normal dispute policy.
+                    await self.db[FACTS].update_one(
+                        {"owner_id": fact.owner_id, "id": previous.id},
+                        {"$set": {"status": "disputed"}},
+                    )
+                    fact.status = "disputed"
+                    await self.db[FACTS].insert_one(fact.model_dump())
+                    return {"outcome": "disputed", "fact_id": fact.id,
+                            "disputes": [previous.id]}
                 new_specificity = sum(bool(x) for x in (
                     fact.money.is_known, fact.due_at, fact.counterparty,
-                    fact.cadence == "recurring",
+                    fact.cadence == "recurring", fact.occurred_at,
                 ))
                 old_specificity = sum(bool(x) for x in (
                     previous.money.is_known, previous.due_at,
                     previous.counterparty, previous.cadence == "recurring",
+                    previous.occurred_at,
                 ))
-                improved = (
-                    new_specificity > old_specificity
-                    or (
-                        new_specificity >= old_specificity
-                        and len(fact.what.split()) > len(previous.what.split())
-                    )
-                )
+                # The same source can correct the service name, the kind of
+                # notice or an exact time without adding another amount/date.
+                # A shorter name ("iCloud+") can be more precise than the old
+                # fallback ("qualcosa di economico"). Word count is no proof.
+                # The full equality check above already ruled out a no-op.
+                improved = new_specificity >= old_specificity
                 if previous.money.is_known and not fact.money.is_known:
+                    improved = False
+                if (previous.due_at and fact.due_at
+                        and len(previous.due_at) > 10 and len(fact.due_at) == 10):
+                    # A day-only reread cannot erase an exact source time.
                     improved = False
                 if improved:
                     await self.db[FACTS].update_one(
@@ -128,6 +146,10 @@ class FinancialStore:
                                   "valid_until": fact.observed_at}},
                     )
                     fact.supersedes = previous.id
+                    # A corrected interpretation of the same email did not
+                    # arrive today. Preserve when this source fact first
+                    # appeared; observed_at still records the new reading.
+                    fact.created_at = previous.created_at
                     await self.db[FACTS].insert_one(fact.model_dump())
                     return {"outcome": "superseded", "fact_id": fact.id,
                             "disputes": []}
@@ -341,17 +363,32 @@ def _is_a_new_version_of(fresh: FinancialFact, older: FinancialFact) -> bool:
     return before is None or since > before
 
 
-def _says_the_same_thing(fresh: FinancialFact, older: FinancialFact) -> bool:
+def _says_the_same_thing(
+    fresh: FinancialFact, older: FinancialFact, *, exact_source: bool = False,
+) -> bool:
     """
     Se i due fatti dicono esattamente la stessa cosa.
 
-    Stesso importo, stessa valuta, stessa cadenza e stessa scadenza. Non e'
+    Stesso importo, valuta, cadenza e scadenza. Non e'
     una somiglianza: e' l'identita' di quello che affermano. Due letture
     dello stesso addebito mensile finiscono qui, e ne resta una.
     """
     if fresh.cadence != older.cadence or fresh.direction != older.direction:
         return False
-    if (fresh.due_at or "")[:10] != (older.due_at or "")[:10]:
+    if exact_source:
+        # A reread of one email must also preserve its corrected meaning and
+        # time precision. Other observations still use the established
+        # recurrence dedupe: successive monthly rent payments are one rent.
+        if (
+            fresh.kind != older.kind
+            or _same_name(fresh.what) != _same_name(older.what)
+            or _same_name(fresh.counterparty) != _same_name(older.counterparty)
+            or _same_name(fresh.recurrence) != _same_name(older.recurrence)
+            or not all(_same_date_claim(getattr(fresh, name), getattr(older, name))
+                       for name in ("due_at", "occurred_at", "valid_from"))
+        ):
+            return False
+    elif (fresh.due_at or "")[:10] != (older.due_at or "")[:10]:
         return False
     if fresh.money.is_known != older.money.is_known:
         return False
@@ -361,6 +398,19 @@ def _says_the_same_thing(fresh: FinancialFact, older: FinancialFact) -> bool:
         fresh.money.currency == older.money.currency
         and round(fresh.money.amount, 2) == round(older.money.amount, 2)
     )
+
+
+def _same_date_claim(first: Optional[str], second: Optional[str]) -> bool:
+    """A day and an exact timestamp are different claims, even on the same day."""
+    left, right = str(first or "").strip(), str(second or "").strip()
+    if left == right:
+        return True
+    if not left or not right or (len(left) == 10) != (len(right) == 10):
+        return False
+    # Equivalent offsets can describe the same instant. Never erase a
+    # source's time by truncating both strings to their calendar date.
+    left_at, right_at = _moment(left), _moment(right)
+    return left_at is not None and right_at is not None and left_at == right_at
 
 
 def _says_something_different(fresh: FinancialFact, older: FinancialFact) -> bool:

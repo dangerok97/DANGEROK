@@ -2,8 +2,9 @@
 
 No provider responses are invented and no third-party notification is sent.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from mongomock_motor import AsyncMongoMockClient
@@ -107,14 +108,14 @@ def test_internal_generic_need_is_never_presented_as_question():
     )) == "Dimmi se hai già riportato dentro i panni"
 
 
-@pytest.mark.asyncio
-async def test_user_can_stop_alerts_without_claiming_situation_resolved(monkeypatch):
+async def _monitor_fixture(monkeypatch, *, wake_status="pending"):
     import deps
-    from agent.router import SituationAlertsIn, situation_alerts
-    from agent.service import AgentService
+    from ambient.models import AmbientWake
+    from opportunities.discovery import OpportunityDiscovery
 
     db = AsyncMongoMockClient().stop_v144
     monkeypatch.setattr(deps, "db", db)
+    monkeypatch.setattr(OpportunityDiscovery, "note", AsyncMock(return_value={"outcome": "accepted"}))
     situation = SituationState(
         id="sit_active", user_id="owner", session_id="session-own",
         summary="Situazione temporanea", attention_intent="Controllare prima di avvisare",
@@ -125,12 +126,36 @@ async def test_user_can_stop_alerts_without_claiming_situation_resolved(monkeypa
         id="gol_sit_stop", owner_id="owner", status="waiting",
         source_kind="situation_followup", source_refs=["situation:sit_active"],
         objective="Monitor", desired_outcome="Controllo",
+        next_run_at=(datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat(),
     )
     await db.agent_goals.insert_one(goal.model_dump())
+    wake = AmbientWake(
+        owner_id="owner", source_ref=f"goal:{goal.id}", reason="opportunity_revisit",
+        scheduled_for=goal.next_run_at, status=wake_status,
+    )
+    await db.ambient_wakes.insert_one(wake.model_dump())
+    return db, situation, goal, wake
+
+
+@pytest.mark.asyncio
+async def test_user_can_stop_alerts_without_claiming_situation_resolved(monkeypatch):
+    from agent.router import SituationAlertsIn, situation_alerts
+    from agent.service import AgentService
+    from ambient.models import AmbientWake
+
+    db, situation, goal, _ = await _monitor_fixture(monkeypatch)
+    foreign = AmbientWake(
+        owner_id="other-owner", source_ref=f"goal:{goal.id}", reason="opportunity_revisit",
+        scheduled_for=goal.next_run_at,
+    )
+    await db.ambient_wakes.insert_one(foreign.model_dump())
     cancelled = []
+    real_cancel = AgentService.cancel
+
     async def cancel(service, owner, goal_id, *, reason=""):
         cancelled.append((owner, goal_id))
-        return {"ok": True, "state": "cancelled"}
+        return await real_cancel(service, owner, goal_id, reason=reason)
+
     monkeypatch.setattr(AgentService, "cancel", cancel)
     result = await situation_alerts(
         goal.id, SituationAlertsIn(decision="stop_alerts", expected_revision=1),
@@ -142,6 +167,105 @@ async def test_user_can_stop_alerts_without_claiming_situation_resolved(monkeypa
     assert not after.attention_intent
     assert not after.next_check_summary
     assert cancelled == [("owner", goal.id)]
+    saved = await db.agent_goals.find_one({"id": goal.id, "owner_id": "owner"})
+    assert saved["status"] == "cancelled" and saved["next_run_at"] is None
+    assert "monitoraggio" in saved["rationale"]
+    assert "risolta" not in saved["rationale"] and "annullata" not in saved["rationale"]
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": "owner", "source_ref": f"goal:{goal.id}",
+        "status": {"$in": ["pending", "claimed"]},
+    }) == 0
+    assert (await db.ambient_wakes.find_one({"id": foreign.id}))["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_stop_alerts_rejects_cancel_success_without_persisted_goal_stop(monkeypatch):
+    from fastapi import HTTPException
+    from agent.router import SituationAlertsIn, situation_alerts
+    from agent.service import AgentService
+
+    db, situation, goal, _ = await _monitor_fixture(monkeypatch)
+    cancel = AsyncMock(return_value={"ok": True, "state": "cancelled"})
+    monkeypatch.setattr(AgentService, "cancel", cancel)
+    with pytest.raises(HTTPException) as raised:
+        await situation_alerts(goal.id, SituationAlertsIn(decision="stop_alerts", expected_revision=1),
+                               user={"user_id": "owner"})
+    assert raised.value.status_code == 409 and raised.value.detail == "monitor_not_stopped"
+    assert cancel.await_count == 1
+    assert (await db.agent_goals.find_one({"id": goal.id}))["status"] == "waiting"
+    after = await SituationRepository(db).get("owner", situation.id)
+    assert after.status == "changed" and not after.attention_intent
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wake_status", ["pending", "claimed"])
+async def test_stop_alerts_rejects_durable_goal_stop_with_uncancelled_wake(monkeypatch, wake_status):
+    from fastapi import HTTPException
+    from agent.router import SituationAlertsIn, situation_alerts
+    from ambient.repository import AmbientRepository
+
+    db, _, goal, wake = await _monitor_fixture(monkeypatch, wake_status=wake_status)
+    monkeypatch.setattr(AmbientRepository, "cancel_for", AsyncMock(
+        side_effect=RuntimeError("synthetic wake persistence failure"),
+    ))
+    with pytest.raises(HTTPException) as raised:
+        await situation_alerts(goal.id, SituationAlertsIn(decision="stop_alerts", expected_revision=1),
+                               user={"user_id": "owner"})
+    assert raised.value.status_code == 409 and raised.value.detail == "monitor_not_stopped"
+    assert (await db.agent_goals.find_one({"id": goal.id}))["status"] == "cancelled"
+    assert (await db.ambient_wakes.find_one({"id": wake.id}))["status"] == wake_status
+
+
+@pytest.mark.asyncio
+async def test_user_resolution_closes_situation_and_confirms_persisted_stop(monkeypatch):
+    from agent.router import SituationAlertsIn, situation_alerts
+
+    db, situation, goal, wake = await _monitor_fixture(monkeypatch)
+    result = await situation_alerts(
+        goal.id, SituationAlertsIn(decision="resolved", expected_revision=1), user={"user_id": "owner"},
+    )
+    assert result == {"ok": True, "decision": "resolved", "monitor_stopped": True}
+    assert (await SituationRepository(db).get("owner", situation.id)).status == "resolved"
+    assert (await db.agent_goals.find_one({"id": goal.id}))["status"] == "cancelled"
+    assert (await db.ambient_wakes.find_one({"id": wake.id}))["status"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_stop_alerts_does_not_cancel_a_new_cycle_or_confirm_old_stop(monkeypatch):
+    from fastapi import HTTPException
+    from agent.router import SituationAlertsIn, situation_alerts
+    from agent.service import AgentService
+    from opportunities.discovery import OpportunityDiscovery
+
+    db, situation, goal, _ = await _monitor_fixture(monkeypatch)
+    real_cancel = AgentService.cancel
+    cancelled = []
+
+    async def cancel(service, owner, goal_id, *, reason=""):
+        cancelled.append((owner, goal_id))
+        return await real_cancel(service, owner, goal_id, reason=reason)
+
+    async def newer_cycle(*args, **kwargs):
+        # Another request lands after the first cancellation, before apply
+        # returns. Its source and goal are now the authoritative newer cycle.
+        await db.situations.update_one({"id": situation.id, "user_id": "owner"}, {"$set": {
+            "revision": 3, "attention_intent": "Nuova richiesta esplicita di controllo",
+        }})
+        await db.agent_goals.update_one({"id": goal.id, "owner_id": "owner"}, {"$set": {
+            "status": "active", "next_run_at": goal.next_run_at,
+        }})
+        return {"outcome": "accepted"}
+
+    monkeypatch.setattr(AgentService, "cancel", cancel)
+    monkeypatch.setattr(OpportunityDiscovery, "note", newer_cycle)
+    with pytest.raises(HTTPException) as raised:
+        await situation_alerts(goal.id, SituationAlertsIn(decision="stop_alerts", expected_revision=1),
+                               user={"user_id": "owner"})
+    assert raised.value.status_code == 409 and raised.value.detail == "monitor_not_stopped"
+    assert cancelled == [("owner", goal.id)]
+    after = await SituationRepository(db).get("owner", situation.id)
+    assert after.revision == 3 and after.attention_intent == "Nuova richiesta esplicita di controllo"
+    assert (await db.agent_goals.find_one({"id": goal.id}))["status"] == "active"
 
 
 @pytest.mark.asyncio

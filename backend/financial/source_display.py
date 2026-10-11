@@ -25,6 +25,14 @@ def _mail_ref(fact) -> str:
 
 
 async def email_labels_for_facts(db, owner_id: str, facts: Iterable) -> Dict[str, str]:
+    details = await email_details_for_facts(db, owner_id, facts)
+    return {fid: source["label"] for fid, source in details.items()}
+
+
+async def email_details_for_facts(
+    db, owner_id: str, facts: Iterable,
+) -> Dict[str, Dict[str, str]]:
+    """Exact subject and receipt date from the same owner-scoped metadata."""
     refs = {
         str(fact.id): _mail_ref(fact)
         for fact in facts
@@ -41,7 +49,7 @@ async def email_labels_for_facts(db, owner_id: str, facts: Iterable) -> Dict[str
         },
         {"_id": 0, "external_id": 1, "normalized_payload": 1, "ingested_at": 1},
     ).sort("ingested_at", -1).to_list(100)
-    by_ref: Dict[str, str] = {}
+    by_ref: Dict[str, Dict[str, str]] = {}
     for row in messages:
         ref = str(row.get("external_id") or "")
         if ref in by_ref:
@@ -49,5 +57,8 @@ async def email_labels_for_facts(db, owner_id: str, facts: Iterable) -> Dict[str
         data = plain(row.get("normalized_payload"))
         subject = " ".join(str(data.get("subject") or "").split())[:160]
         if subject:
-            by_ref[ref] = f"Email «{subject}»"
+            by_ref[ref] = {
+                "label": f"Email «{subject}»",
+                "received_at": str(data.get("received_at") or "").strip(),
+            }
     return {fid: by_ref[ref] for fid, ref in refs.items() if ref in by_ref}

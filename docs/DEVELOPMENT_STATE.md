@@ -1,3 +1,22 @@
+## 11 ottobre 2026 — ripresa della verifica roadmap finale, v157–v158
+
+Recuperata base `295c464` (v156, distribuita il 10 ottobre) e le proposte
+alternative #199/#200 rimaste aperte. Ripresa #200, integrando selettivamente
+la proprietà del monitor dedicato e il dettaglio UI di #199. Aggiunti guard
+contro ammissione dopo revoca, rinvii tecnici spacciati per checkpoint,
+prosecuzione con revisioni obsolete e false conferme di arresto. Le correzioni
+del calendario e delle card finanziarie derivano da riproduzioni sintetiche
+dei difetti osservati nel precedente collaudo autenticato.
+
+Verificati localmente ciclo Situation, programmazione, revoca e calendario;
+risultati conclusivi, CI e distribuzione sono registrati nel documento
+`QA_ROADMAP_RESUME_2026_10_11.md`. La nuova sessione browser mostra il login:
+nessuna nuova prova autenticata viene dichiarata compiuta senza accesso e
+riscontro effettivo. Nessuna telefonata, email, pagamento o evento esterno
+è stato eseguito dai test. Il filone Vision resta separato da questo lavoro.
+
+---
+
 ## 10 ottobre 2026 — v155: recupero del calendario interno ORA
 
 Individuata infrastruttura preesistente per eventi locali (Life Graph e CRUD

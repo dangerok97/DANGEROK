@@ -107,4 +107,7 @@ async def test_agent_close_completed_settles_watch_lifecycle(monkeypatch):
     assert refreshed.status == "changed"
     assert refreshed.attention_intent is None
     assert refreshed.next_check_summary is None
-    assert (await read_followup(db, OWNER, SID))["status"] == "not_scheduled"
+    state = await read_followup(db, OWNER, SID)
+    assert state["status"] == "stopped"
+    assert state["next_check_at"] is None
+    assert "monitoraggio è stato chiuso" in state["diagnosis"]

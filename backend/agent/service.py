@@ -166,11 +166,30 @@ def _wait_parameters(raw: Dict[str, Any]) -> Dict[str, Any]:
     if target is not None and target > now:
         due, _ = _wait_schedule(wait_until=target, now=now)
         return {"wait_until": due.isoformat()}
-    if raw.get("wait_minutes") is not None:
+    if _explicit_wait_target(wait_minutes=raw.get("wait_minutes"), now=now):
         return {"wait_minutes": _bounded_wait_minutes(raw.get("wait_minutes"))}
-    if raw.get("wait_hours") is not None:
+    if _explicit_wait_target(wait_hours=raw.get("wait_hours"), now=now):
         return {"wait_hours": _bounded_wait_hours(raw.get("wait_hours"), default=6)}
-    return {"wait_minutes": DEFAULT_WAIT_MINUTES}
+    # _wait may still arrange a bounded technical retry. Keep the absent
+    # model choice absent here, so that retry cannot become a claimed check.
+    return {}
+
+
+def _explicit_wait_target(*, wait_until=None, wait_minutes=None, wait_hours=None, now=None):
+    now = now or _now()
+    target = _aware_wait_until(wait_until)
+    if target is not None and target > now:
+        return True
+    for value in (wait_minutes, wait_hours):
+        if isinstance(value, bool) or value is None:
+            continue
+        try:
+            number = float(value)
+            if math.isfinite(number) and number > 0:
+                return True
+        except (TypeError, ValueError, OverflowError):
+            continue
+    return False
 
 
 def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
@@ -282,7 +301,8 @@ class AgentService:
             ref.startswith(("situation:", "place:")) for ref in (source_refs or [])
         ):
             dedicated = await self.db.agent_goals.find_one(
-                {"owner_id": owner_id, "source_kind": "situation_followup",
+                {"owner_id": owner_id,
+                 "source_kind": {"$in": ["situation_followup", "situation_initial_review"]},
                  "source_refs": situation_refs[0], "status": {"$in": ["active", "waiting", "proposed"]}},
                 {"_id": 0})
             if dedicated:
@@ -768,6 +788,7 @@ class AgentService:
                     minutes=timing.get("wait_minutes"),
                     hours=timing.get("wait_hours"),
                     note=(step.intent if step is not None else ""),
+                    model_decision=True,
                 )
 
             if decision == "ask":
@@ -817,6 +838,7 @@ class AgentService:
                     minutes=timing.get("wait_minutes"),
                     hours=timing.get("wait_hours"),
                     note=step.intent,
+                    model_decision=True,
                 )
 
             # The ceiling is on work done, not on deciding to stop. Checked
@@ -1461,6 +1483,7 @@ class AgentService:
                 minutes=answer.get("wait_minutes"),
                 hours=answer.get("wait_hours"),
                 note=note,
+                model_decision=True,
             )
 
         if decision == "ask":
@@ -1602,8 +1625,9 @@ class AgentService:
         if verification.outcome in ("waiting_for_external_result", "needs_followup"):
             return await self._wait(
                 owner_id, goal, plan, None, run,
-                hours=int(verification.revisit_in_hours or 12),
+                hours=verification.revisit_in_hours or 12,
                 note=verification.reasoning,
+                model_decision=_explicit_wait_target(wait_hours=verification.revisit_in_hours),
             )
 
         if verification.outcome == "not_achieved":
@@ -1733,17 +1757,53 @@ class AgentService:
         run: AgentRun, *, hours: Optional[int] = None,
         minutes: Optional[int] = None, wait_until: Optional[str] = None,
         note: str = "",
+        model_decision: bool = False,
     ) -> Dict[str, Any]:
         """
         Depend on something that has not happened, and arrange one exact recheck.
 
             NO POLLING. ONE DUE INSTANT.
 
-        The same canonical timestamp is persisted on the goal and handed to
-        Ambient, so a 20-minute follow-up cannot drift into 21 minutes merely
-        because two separate calls to _now() happened around a second boundary.
+        Situation checkpoints are confirmed against the persisted wake, including
+        Ambient's time bounds and an equivalent alarm that was already present.
         """
         now = _now()
+        situation_wait = goal.source_kind in ("situation_initial_review", "situation_followup")
+
+        async def interrupted():
+            # User cancellation does not have to alter the Situation. The goal
+            # itself must still be open before and after scheduling a wake.
+            latest = await self.repo.get_goal(owner_id, goal.id)
+            if latest is None or not latest.is_open:
+                if latest:
+                    for field in type(goal).model_fields:
+                        setattr(goal, field, getattr(latest, field))
+                else:
+                    goal.status, goal.next_run_at = "cancelled", None
+                from ambient.repository import AmbientRepository
+                await AmbientRepository(self.db).cancel_for(owner_id, source_ref=f"goal:{goal.id}")
+                return {"ok": False, "state": latest.status if latest else "goal_closed"}
+            from agent.source_refresh import changed, refresh
+            if await changed(self.db, goal):
+                await refresh(self, goal)
+                # A direct cancellation can also arrive while source refresh
+                # is saving its revised goal and arranging a replacement wake.
+                latest = await self.repo.get_goal(owner_id, goal.id)
+                if latest is None or not latest.is_open:
+                    if latest:
+                        for field in type(goal).model_fields:
+                            setattr(goal, field, getattr(latest, field))
+                    else:
+                        goal.status, goal.next_run_at = "cancelled", None
+                    from ambient.repository import AmbientRepository
+                    await AmbientRepository(self.db).cancel_for(owner_id, source_ref=f"goal:{goal.id}")
+                return {"ok": False, "state": "source_changed" if goal.is_open else goal.status}
+            return None
+
+        if situation_wait:
+            stopped = await interrupted()
+            if stopped:
+                return stopped
         due, total_minutes = _wait_schedule(
             wait_until=wait_until,
             wait_minutes=minutes,
@@ -1760,14 +1820,46 @@ class AgentService:
         plan.status = "waiting"
         goal.status = "waiting"
         goal.background_runs = 0
+        # Technical retries and a wait with no source observation remain an
+        # initial assessment. Promotion requires an explicit, valid model
+        # time and real, current evidence owned by this same goal.
+        promote = False
+        if goal.source_kind == "situation_initial_review" and model_decision and note.strip():
+            explicit_time = _explicit_wait_target(
+                wait_until=wait_until, wait_minutes=minutes, wait_hours=hours, now=now,
+            )
+            evidence = await self.evidence.for_goal(owner_id, goal.id)
+            supporting = [e for e in evidence if e.provenance.freshness != "stale"
+                          and any(not ref.startswith(("situation:", "goal:", "plan:", "agent:"))
+                                  for ref in e.provenance.source_refs)]
+            promote = explicit_time and total_minutes <= 72 * 60 and real_support(supporting)
+        if promote:
+            from ambient.repository import AmbientRepository
+            await AmbientRepository(self.db).cancel_for(owner_id, source_ref=f"goal:{goal.id}")
+            goal.source_kind = "situation_followup"
+            goal.rationale = note[:300]
         goal.next_run_at = due.isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
 
+        if situation_wait:
+            stopped = await interrupted()
+            if stopped:
+                return stopped
+            # save_goal preserves a concurrent explicit user defer. Its durable
+            # target is stronger than the older model decision in this run.
+            latest = await self.repo.get_goal(owner_id, goal.id)
+            if latest and latest.user_deferred_until and latest.user_deferred_until > _now().isoformat():
+                for field in type(goal).model_fields:
+                    setattr(goal, field, getattr(latest, field))
+                return {"ok": False, "state": "user_deferred", "goal": goal.for_human()}
+
+        scheduled = None
+        schedule_started = _now()
         try:
             from ambient.service import AmbientService
 
-            await AmbientService(self.db).schedule(
+            scheduled = await AmbientService(self.db).schedule(
                 owner_id,
                 reason="opportunity_revisit",
                 when=due,
@@ -1776,6 +1868,67 @@ class AgentService:
             )
         except Exception as e:
             logger.info("agent wake soft-fail: %s", type(e).__name__)
+
+        if situation_wait:
+            schedule_finished = _now()
+            stopped = await interrupted()
+            if stopped:
+                return stopped
+            wake_query = {
+                "owner_id": owner_id, "source_ref": f"goal:{goal.id}",
+                "reason": "opportunity_revisit", "status": {"$in": ["pending", "claimed"]},
+                "scheduled_for": {"$gt": _now().isoformat()},
+            }
+            if scheduled is not None:
+                wake_query["id"] = scheduled.id
+            else:
+                # None can mean either a failed write or minute-bucket dedup.
+                # Match only the bucket(s) Ambient could have scheduled during
+                # this call, so an older assessment wake cannot prove a recheck.
+                from ambient.service import MAX_HOLD_HOURS
+                earliest = max(schedule_started + timedelta(seconds=30),
+                               min(due, schedule_started + timedelta(hours=MAX_HOLD_HOURS)))
+                latest = max(schedule_finished + timedelta(seconds=30),
+                             min(due, schedule_finished + timedelta(hours=MAX_HOLD_HOURS)))
+                wake_query["scheduled_for"].update({
+                    "$gte": earliest.replace(second=0, microsecond=0).isoformat(),
+                    "$lt": (latest.replace(second=0, microsecond=0) + timedelta(minutes=1)).isoformat(),
+                })
+            try:
+                wake = await self.db.ambient_wakes.find_one(wake_query, {"_id": 0}, sort=[("scheduled_for", 1)])
+            except Exception as exc:
+                logger.info("agent wake readback soft-fail: %s", type(exc).__name__)
+                wake = None
+            actual_due = _aware_wait_until((wake or {}).get("scheduled_for"))
+            if actual_due is None:
+                await self.repo.journal(
+                    owner_id, goal.id, kind="waiting_recovery_pending",
+                    note="La richiesta di attesa è salvata; manca la conferma della wake futura.",
+                )
+                return {"ok": False, "state": "recovery_pending", "goal": goal.for_human()}
+
+            # Update only this still-open wait. A concurrent cancellation/defer
+            # must not be undone while adopting Ambient's actual instant.
+            aligned = await self.db.agent_goals.update_one(
+                {"id": goal.id, "owner_id": owner_id,
+                 "status": {"$in": ["proposed", "active", "waiting"]},
+                 "next_run_at": goal.next_run_at,
+                 "source_situation": goal.source_situation},
+                {"$set": {"next_run_at": actual_due.isoformat()}},
+            )
+            stopped = await interrupted()
+            if stopped:
+                return stopped
+            if not aligned.matched_count:
+                latest = await self.repo.get_goal(owner_id, goal.id)
+                if latest:
+                    for field in type(goal).model_fields:
+                        setattr(goal, field, getattr(latest, field))
+                return {"ok": False, "state": "goal_changed", "goal": goal.for_human()}
+            due = actual_due
+            goal.next_run_at = due.isoformat()
+            total_minutes = max(MIN_WAIT_MINUTES, int(math.ceil((due - now).total_seconds() / 60)))
+            for_hours = total_minutes // 60 if total_minutes % 60 == 0 else round(total_minutes / 60, 4)
 
         await self.repo.journal(
             owner_id,
@@ -1790,6 +1943,16 @@ class AgentService:
             },
         )
         await self._note_ambient(owner_id, "agent_waiting", goal)
+        if situation_wait:
+            stopped = await interrupted()
+            if stopped:
+                return stopped
+            # A removed/consumed wake is not a promise of a future checkpoint,
+            # even while this goal's current execution lease still says running.
+            wake_query["id"] = wake["id"]
+            wake_query["scheduled_for"] = due.isoformat()
+            if due <= _now() or not await self.db.ambient_wakes.find_one(wake_query, {"_id": 1}):
+                return {"ok": False, "state": "recovery_pending", "goal": goal.for_human()}
         return {
             "ok": True,
             "state": "waiting",
@@ -1844,7 +2007,7 @@ class AgentService:
         if status == "completed":
             await self._note_ambient(owner_id, "agent_goal_completed", goal)
             await self._resolve_opportunity(owner_id, goal)
-            if goal.source_kind == "situation_followup":
+            if goal.source_kind in ("situation_followup", "situation_initial_review"):
                 try:
                     from situations.followup import settle_completed_followup
                     await settle_completed_followup(self.db, owner_id, goal)

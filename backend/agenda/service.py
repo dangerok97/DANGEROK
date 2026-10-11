@@ -8,9 +8,9 @@ per due domande diverse non risponde bene a nessuna delle due: chi chiede
 l'agenda vuole sapere *quando*, chi chiede la sintesi vuole sapere *come sta
 andando*.
 
-Gli eventi arrivano da dove arrivano già per il riepilogo della giornata — i
-nodi `event` del Life Graph — quindi non c'è una seconda verità sul calendario
-e non c'è niente di finto: se un giorno è vuoto, è vuoto.
+Gli eventi ORA arrivano dai nodi `event` del Life Graph; quelli Google usano
+lo stesso lettore dell'archivio di sincronizzazione della Home. Il mese non
+avvia una sincronizzazione e non crea copie per mostrare gli appuntamenti.
 """
 
 from __future__ import annotations
@@ -20,6 +20,11 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List
 from zoneinfo import ZoneInfo
 from timezone_service import resolve_user_timezone
+from home.calendar_read import (
+    calendar_source_key, calendar_times_in_window, connected_calendar_instances,
+    selected_calendar_source,
+)
+from home.adapters.google_calendar import google_calendar_attributes, google_calendar_records
 
 logger = logging.getLogger("ora.agenda")
 
@@ -62,7 +67,8 @@ class AgendaService:
         inizio = datetime(oggi.year, oggi.month, oggi.day, tzinfo=zone)
         fine = inizio + timedelta(days=quanti)
 
-        eventi = await self._events_between(user_id, inizio, fine)
+        instances = await connected_calendar_instances(self.db, user_id)
+        eventi = await self._events_between(user_id, inizio, fine, instances=instances)
         per_giorno: Dict[str, List[Dict[str, Any]]] = {}
         for e in eventi:
             chiave = str(e.get("starts_at") or "")[:10]
@@ -86,7 +92,7 @@ class AgendaService:
         return {
             "days": giorni,
             "total_events": len(eventi),
-            "calendar_connected": await self._a_calendar_is_connected(user_id),
+            "calendar_connected": bool(await self._connected_sources(user_id, instances)),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -112,18 +118,14 @@ class AgendaService:
             tzinfo=zone,
         )
         today = datetime.now(zone).date()
+        instances = await connected_calendar_instances(self.db, user_id)
         events = await self._events_between(
-            user_id, first, next_month, with_notes=False,
+            user_id, first, next_month, with_notes=False, instances=instances,
         )
         # Old connector mirrors must not appear as an active subscription
         # after the person disconnects the provider. ORA entries are always
         # available, regardless of OAuth/device permissions.
-        connected = await self._connected_sources(user_id)
-        events = [
-            event for event in events
-            if event.get("source_type") == "ora"
-            or event.get("source_type") in connected
-        ]
+        connected = await self._connected_sources(user_id, instances)
         grouped: Dict[str, List[Dict[str, Any]]] = {}
         sources = {"ora": 0, "google": 0, "apple": 0, "other": 0}
         for item in events:
@@ -157,14 +159,9 @@ class AgendaService:
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    async def _connected_sources(self, user_id: str) -> set[str]:
-        try:
-            rows = await self.db.connector_instances.find({
-                "user_id": user_id,
-                "status": {"$in": ["connected", "syncing", "active"]},
-            }, {"_id": 0, "connector_id": 1}).to_list(length=40)
-        except Exception:
-            return set()
+    async def _connected_sources(self, user_id: str, rows=None) -> set[str]:
+        if rows is None:
+            rows = await connected_calendar_instances(self.db, user_id)
         sources: set[str] = set()
         for row in rows:
             connector = str(row.get("connector_id") or "").lower()
@@ -181,12 +178,13 @@ class AgendaService:
     async def _events_between(
         self, user_id: str, inizio: datetime, fine: datetime, *,
         with_notes: bool = True,
+        instances=None,
     ) -> List[Dict[str, Any]]:
         """
-        Gli eventi del periodo, dagli stessi nodi che legge il riepilogo.
+        Gli eventi ORA e le fonti collegate, letti per l'intero periodo.
 
-        Una sola interrogazione per tutto l'arco invece di una al giorno: sono
-        gli stessi dati, e chiederli sette volte non li rende più veri.
+        La cache Google usa il lettore della Home; i nodi proiettati restano
+        un ripiego soltanto quando non esiste già la corrispondente evidenza.
         """
         query = {
             "user_id": user_id,
@@ -197,30 +195,48 @@ class AgendaService:
                 "$lt": (fine + timedelta(days=1)).date().isoformat(),
             },
         }
-        try:
-            docs = await self.db.life_nodes.find(
-                query, {"_id": 0, "id": 1, "label": 1, "attributes": 1},
-            ).sort("attributes.starts_at", 1).to_list(length=1000)
-        except Exception as e:  # pragma: no cover
-            logger.info("agenda senza eventi: %s", type(e).__name__)
-            return []
+        docs = await self.db.life_nodes.find(
+            query, {"_id": 0, "id": 1, "label": 1, "attributes": 1},
+        ).sort("attributes.starts_at", 1).to_list(length=2000)
+        if instances is None:
+            instances = await connected_calendar_instances(self.db, user_id)
+        records = await google_calendar_records(
+            self.db, user_id, inizio, fine, instances=instances,
+            external_ids=list({
+                str((node.get("attributes") or {}).get("external_event_id"))
+                for node in docs if (node.get("attributes") or {}).get("external_event_id")
+                and (node.get("attributes") or {}).get("connector_id") == "calendar_google"
+            }),
+        )
+        represented = [calendar_source_key(google_calendar_attributes(row)) for row in records]
+        native_or_unmirrored = []
+        for node in docs:
+            attrs = node.get("attributes") or {}
+            if not selected_calendar_source(attrs, instances):
+                continue
+            key = calendar_source_key(attrs)
+            if key[0] == "calendar_google" and key[3] and any(
+                candidate[0] == key[0] and candidate[3] == key[3]
+                and (not key[1] or candidate[1] == key[1])
+                and (not key[2] or candidate[2] == key[2])
+                for candidate in represented
+            ):
+                # Provider evidence is newer than its graph projection. This
+                # also hides a stale node when the event moved or was cancelled.
+                continue
+            native_or_unmirrored.append(node)
+        docs = native_or_unmirrored + [{
+            "id": row.get("id"),
+            "label": plain_attrs.get("title") or plain_attrs.get("summary"),
+            "attributes": plain_attrs,
+        } for row in records if (plain_attrs := google_calendar_attributes(row))
+           and str(plain_attrs.get("status") or "").lower() != "cancelled"
+           and row.get("source_status") != "detached"]
 
         fuori: List[Dict[str, Any]] = []
         for d in docs:
-            attrs = d.get("attributes") or {}
-            try:
-                start = datetime.fromisoformat(str(attrs.get("starts_at")).replace("Z", "+00:00"))
-                if start.tzinfo is None:
-                    start = start.replace(tzinfo=ZoneInfo(attrs.get("timezone") or str(inizio.tzinfo)))
-                if not inizio <= start < fine:
-                    continue
-                attrs = {**attrs, "starts_at": start.astimezone(inizio.tzinfo).isoformat()}
-                if attrs.get("ends_at"):
-                    end = datetime.fromisoformat(str(attrs["ends_at"]).replace("Z", "+00:00"))
-                    if end.tzinfo is None:
-                        end = end.replace(tzinfo=start.tzinfo)
-                    attrs["ends_at"] = end.astimezone(inizio.tzinfo).isoformat()
-            except (ValueError, TypeError, KeyError):
+            attrs = calendar_times_in_window(d.get("attributes") or {}, inizio, fine)
+            if attrs is None:
                 continue
             fuori.append({
                 "id": d.get("id"),
@@ -277,15 +293,7 @@ class AgendaService:
         return ""
 
     async def _a_calendar_is_connected(self, user_id: str) -> bool:
-        try:
-            n = await self.db.connector_instances.count_documents({
-                "user_id": user_id,
-                "connector_id": {"$in": ["calendar_google", "calendar_apple"]},
-                "status": {"$in": ["connected", "syncing"]},
-            })
-            return n > 0
-        except Exception:  # pragma: no cover
-            return False
+        return bool(await self._connected_sources(user_id))
 
 
 def _che_ora(attrs: Dict[str, Any]) -> str:

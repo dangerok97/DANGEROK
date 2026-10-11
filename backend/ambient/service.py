@@ -229,6 +229,19 @@ class AmbientService:
         # invent a deadline, notify, or execute external writes.
         if "situation_unattended" in str(wake.source_ref or ""):
             try:
+                # An old active Situation may have NO goal at all, so alarm
+                # repair alone does nothing. Admit the already-governed
+                # attention intent into the ordinary Agent lane, without
+                # choosing a fictitious physical checkpoint or notifying.
+                from situations.admission import recover_unadmitted_attention
+                admitted = await recover_unadmitted_attention(
+                    self.db, wake.owner_id,
+                )
+                if admitted.get("queued"):
+                    logger.info(
+                        "situation initial reviews admitted count=%s",
+                        admitted["queued"],
+                    )
                 from situations.followup import repair_missing_dedicated_wakes
                 await repair_missing_dedicated_wakes(self.db, wake.owner_id)
             except Exception as exc:

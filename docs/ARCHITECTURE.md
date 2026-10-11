@@ -1,3 +1,30 @@
+## 11 ottobre 2026 — v157–v158: continuità e letture canoniche
+
+`situations.admission` ammette l'attenzione persistita nella stessa corsia
+Agent/Ambient con id stabile e lease. `source_situation` conserva revisione
+e ciclo dell'intento: il runtime ricontrolla la Situation prima di lavorare,
+invalida piani/evidenze obsolete e rispetta chiusure/revoche. `review_pending`
+espone `assessment_at`; `next_check_at` appartiene a un checkpoint reale.
+La promozione da `_wait` richiede scelta temporale esplicita ed evidenza
+pertinente registrata per lo stesso owner/goal. Il turno che dichiara una
+revoca verifica la cessazione dei job e delle wake oltre al salvataggio della
+Situation. Il dettaglio usa le memorie temporanee canoniche già disponibili.
+
+Il lettore `home.calendar_read` alimenta sia Home sia mese, applicando account,
+calendari selezionati e revisioni cancellate/sostituite. Gli eventi ORA locali
+restano autonomi. Le azioni calendario vincolano consenso, identità dell'atto
+e archiviazione alla precisa istanza e al calendario dell'evento.
+Lo stato dei collegamenti usa lo stesso insieme di stati
+attivi del backend. La finanza normalizza i riferimenti email legacy,
+mantiene l'identità del fatto conservato e distingue una rilettura invariata
+da una correzione semantica. Gli insight informativi finanziari arrivano al
+feed senza essere ammessi fra i lavori o le priorità.
+
+Nessuna nuova dipendenza runtime, collezione, migrazione distruttiva o autorità
+su servizi esterni. Verifiche e limiti: `QA_ROADMAP_RESUME_2026_10_11.md`.
+
+---
+
 ## 10 ottobre 2026 — v155: vista mensile senza provider obbligatorio
 
 Il servizio `agenda.month_view` proietta `life_nodes` event owner-scoped nella

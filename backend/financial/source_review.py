@@ -9,6 +9,11 @@ from types import SimpleNamespace
 from financial.bridge import read_money_in
 from financial.models import Provenance
 
+# Older reviews could report "already_known" while dropping corrected names
+# or source times. One explicit reread with the corrected store can recover
+# them; subsequent taps remain idempotent. No background mailbox rereading.
+REVIEW_VERSION = 2
+
 
 async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -> dict:
     inspected = read_ok = updated = unchanged = unconfirmed = unavailable = already_reviewed = 0
@@ -38,7 +43,8 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
         # taps. A failed one is retriable after reconnection.
         already = await db.financial_source_reviews.find_one(
             {"owner_id": owner_id, "message_ref": message_ref,
-             "status": "completed"}, {"_id": 0, "message_ref": 1}
+             "status": "completed", "review_version": REVIEW_VERSION},
+            {"_id": 0, "message_ref": 1}
         )
         if already:
             already_reviewed += 1
@@ -99,7 +105,7 @@ async def review_email_financial_sources(db, owner_id: str, *, limit: int = 5) -
                 {"owner_id": owner_id, "message_ref": message_ref},
                 {"$set": {
                     "owner_id": owner_id, "message_ref": message_ref,
-                    "status": "completed",
+                    "status": "completed", "review_version": REVIEW_VERSION,
                 }},
                 upsert=True,
             )

@@ -2,10 +2,10 @@
  * Calendario ORA: first-party, always available.
  * Optional Google/Apple connections only add events to the same view.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { api, type AgendaDay, type AgendaEvent, type AgendaMonthResponse } from '@/src/api/client';
 import { CalendarEventForm } from '@/src/components/calendar/CalendarEventForm';
@@ -39,7 +39,7 @@ export default function Agenda() {
   const [error, setError] = useState('');
   const grid = useMemo(() => monthCells(month), [month]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let live = true;
     setBusy(true);
     api.agendaMonth(month).then((result) => {
@@ -50,7 +50,7 @@ export default function Agenda() {
       if (live) { setData(null); setError(humanizeError(e)); }
     }).finally(() => { if (live) setBusy(false); });
     return () => { live = false; };
-  }, [month, refresh]);
+  }, [month, refresh]));
 
   const days = useMemo(
     () => new Map((data?.days || []).map((day) => [day.date, day])),

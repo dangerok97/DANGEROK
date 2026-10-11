@@ -4,6 +4,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from home.models import ConnectionWarning, HomeItem
+from home.calendar_read import (
+    calendar_source_key, calendar_times_in_window, connected_calendar_instances,
+    selected_calendar_source,
+)
 from ingestion.reading import plain, where
 
 from ._util import now_iso, stable_id
@@ -28,69 +32,10 @@ async def google_connection_state(db, user_id: str) -> Dict[str, Any]:
 async def load_google_calendar_events(
     db, user_id: str,
 ) -> Tuple[List[HomeItem], List[ConnectionWarning]]:
-    state = await google_connection_state(db, user_id)
-    if not state["connected"]:
-        return [], []
-
     now = datetime.now(timezone.utc)
     window_end = now + timedelta(days=14)
-    # I calendari che questa persona ha scelto di far leggere a ORA. Vuoto
-    # significa «quello principale», che e' anche il ripiego del sync: un
-    # calendario tolto dalla selezione smette di essere letto, e le righe che
-    # aveva lasciato non devono continuare a comparire come se niente fosse.
-    chosen = set((state["instance"] or {}).get("selected_resource_ids") or [])
-    # La domanda giusta e' «cosa c'e' in agenda da qui a due settimane», e
-    # questa e' la query che la fa.
-    #
-    #     LA HOME NON DEVE CHIEDERE COSA E' STATO TOCCATO DI RECENTE.
-    #
-    # Prima chiedeva le ottanta righe piu' recentemente aggiornate e solo
-    # dopo le filtrava per data. Sembra equivalente e non lo e', per due
-    # motivi che si sommano.
-    #
-    # Il primo: ogni rilettura di un evento che non e' cambiato lascia una
-    # riga `skipped` — la traccia di «l'ho guardato, e' uguale». Sono righe
-    # oneste, ma non sono impegni: su questo account un solo compleanno
-    # ricorrente ne aveva undici.
-    #
-    # Il secondo: quelle righe hanno `source_updated_at` recentissimo, quindi
-    # occupano loro le ottanta posizioni. Il risultato misurato qui era che
-    # la Home vedeva 2 dei 16 impegni realmente presenti nei quattordici
-    # giorni successivi. Non «in ritardo»: proprio assenti, senza un errore
-    # da nessuna parte — e sopra un calendario pieno la Home diceva che non
-    # c'era niente.
-    #
-    # Quindi: si filtra per quando comincia l'impegno, si ordina per quando
-    # comincia, e le righe che dicono solo «riletto, uguale» restano fuori.
-    since = (now - timedelta(days=1)).isoformat()
-    until = (window_end + timedelta(days=1)).isoformat()
-    cur = db.ingestion_events.find(
-        {
-            "user_id": user_id,
-            "connector_id": "calendar_google",
-            "ingestion_status": {
-                "$nin": ["superseded", "quarantined", "skipped"],
-            },
-            "source_record_type": {"$in": ["event", "calendar_event", "google_event"]},
-            where("starts_at"): {"$gte": since, "$lte": until},
-        },
-        {"_id": 0},
-    ).sort(where("starts_at"), 1).limit(200)
-    docs = await cur.to_list(200)
-
-    # Uno stesso evento puo' comunque avere piu' di una riga viva — una
-    # rilettura che ha davvero visto un cambiamento ne aggiunge una. Vale la
-    # piu' recente: due carte per lo stesso appuntamento sono un secondo
-    # appuntamento, per chi guarda.
-    newest: Dict[str, Dict[str, Any]] = {}
-    for d in docs:
-        key = str(d.get("external_id") or d.get("id") or "")
-        seen_before = newest.get(key)
-        if seen_before is None or str(d.get("ingested_at") or "") > str(
-            seen_before.get("ingested_at") or ""
-        ):
-            newest[key] = d
-    docs = list(newest.values())
+    window_start = now - timedelta(hours=2)
+    docs = await google_calendar_records(db, user_id, window_start, window_end)
 
     items: List[HomeItem] = []
     for d in docs:
@@ -102,9 +47,7 @@ async def load_google_calendar_events(
         # spariva in silenzio. La Home diceva «nessun impegno» sopra un
         # calendario pieno, e nessun errore lo raccontava da nessuna parte.
         payload = plain(d.get("normalized_payload"))
-        if chosen and str(payload.get("calendar_id") or "") not in chosen:
-            continue
-        if str(payload.get("status") or "").lower() == "cancelled":
+        if str(payload.get("status") or "").lower() == "cancelled" or d.get("source_status") == "detached":
             # Cancellato su Google. La riga resta — e' la traccia di una cosa
             # che c'e' stata — ma un impegno annullato non e' un impegno, e
             # mostrarlo lo rende un appuntamento a cui qualcuno si presenta.
@@ -112,15 +55,9 @@ async def load_google_calendar_events(
         start = payload.get("starts_at") or payload.get("start") or payload.get("start_datetime")
         end = payload.get("ends_at") or payload.get("end") or payload.get("end_datetime")
         title = payload.get("title") or payload.get("summary") or "Evento calendario"
-        if not start:
-            continue
-        try:
-            st = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
-            if st.tzinfo is None:
-                st = st.replace(tzinfo=timezone.utc)
-            if st < now - timedelta(hours=2) or st > window_end:
-                continue
-        except Exception:
+        if not calendar_times_in_window(
+            {**payload, "starts_at": start, "ends_at": end}, window_start, window_end,
+        ):
             continue
         loc = payload.get("location")
         eid = d.get("id") or d.get("external_id") or title
@@ -155,3 +92,55 @@ async def load_google_calendar_events(
             },
         ))
     return items, []
+
+
+async def google_calendar_records(
+    db, user_id: str, first: datetime, end: datetime, *,
+    instances: Optional[List[Dict[str, Any]]] = None,
+    external_ids: Optional[List[str]] = None,
+    limit: int = 2000,
+) -> List[Dict[str, Any]]:
+    """Read the same normalized records for Home and the native month.
+
+    Return cancellations and moved records too: callers must not resurrect
+    an older graph mirror when the latest provider evidence moved or removed
+    it. Existing node handles can extend the query beyond the visible month.
+    No provider request and no persistence happens during this projection.
+    """
+    if instances is None:
+        instances = await connected_calendar_instances(db, user_id)
+    if not any(row.get("connector_id") == "calendar_google" for row in instances):
+        return []
+    window = {where("starts_at"): {
+        "$gte": (first - timedelta(days=1)).date().isoformat(),
+        "$lt": (end + timedelta(days=1)).date().isoformat(),
+    }}
+    query = {
+        "user_id": user_id,
+        "connector_id": "calendar_google",
+        "ingestion_status": {"$nin": ["superseded", "quarantined", "skipped"]},
+        "source_record_type": {"$in": ["event", "calendar_event", "google_event"]},
+        "$or": [window, {"external_id": {"$in": external_ids}}] if external_ids else [window],
+    }
+    docs = await db.ingestion_events.find(query, {"_id": 0}).sort(
+        where("starts_at"), 1,
+    ).to_list(length=limit)
+    newest: Dict[tuple, Dict[str, Any]] = {}
+    for row in docs:
+        attrs = google_calendar_attributes(row)
+        if not selected_calendar_source(attrs, instances):
+            continue
+        key = calendar_source_key(attrs)
+        before = newest.get(key)
+        if before is None or str(row.get("ingested_at") or "") > str(before.get("ingested_at") or ""):
+            newest[key] = row
+    return list(newest.values())
+
+
+def google_calendar_attributes(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        **plain(row.get("normalized_payload")),
+        "connector_id": "calendar_google",
+        "connector_instance_id": row.get("connector_instance_id"),
+        "external_event_id": row.get("external_id") or row.get("id"),
+    }

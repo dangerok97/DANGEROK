@@ -670,6 +670,7 @@ const STATE_TONE: Record<ConnectionState, 'ok' | 'warn' | 'off'> = {
   connected: 'ok',
   disconnected: 'warn',
   absent: 'off',
+  unavailable: 'warn',
 };
 
 export function StatusPill({ state }: { state: ConnectionState }) {

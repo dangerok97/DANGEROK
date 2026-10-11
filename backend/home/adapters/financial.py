@@ -18,6 +18,7 @@ E mai «ti rimarranno»: quella frase richiede un saldo che ORA non ha.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
 from home.models import ConnectionWarning, HomeAction, HomeItem
@@ -74,6 +75,22 @@ async def load_financial_context(
         # non «quello che spenderai».
         facts = list(horizon.outgoing) + list(horizon.incoming)
         how_many = len(coming)
+        from financial.source_display import _mail_ref, email_details_for_facts
+
+        # Reading one summary must not hide all future financial notices.
+        # Exact source handles survive a corrected fact UUID; names, amounts
+        # and private source text never become part of the public identifier.
+        sources = {
+            f"mail:{_mail_ref(fact)}" if _mail_ref(fact) else f"fact:{fact.id}"
+            for fact in facts
+        }
+        summary_ref = stable_id("financial_horizon", user_id, *sorted(sources))
+
+        try:
+            source_details = await email_details_for_facts(db, user_id, facts)
+        except Exception as exc:
+            logger.info("financial source metadata soft-fail: %s", type(exc).__name__)
+            source_details = {}
         # A count is not an answer: name the actual item first, before any
         # button can invite the person to "organise" an unidentified payment.
         if how_many == 1 and facts:
@@ -81,16 +98,30 @@ async def load_financial_context(
             title = f"{kind} previsto: {facts[0].what}"[:240]
         else:
             title = f"{how_many} movimenti economici nei prossimi 30 giorni"
-        body = ". ".join(_as_a_person_would_say(line) for line in coming[:4])
+        body = ". ".join(
+            _as_a_person_would_say(line)
+            + (" — importo non noto" if not facts[index].money.is_known else "")
+            for index, line in enumerate(coming[:4])
+        )
         origins = []
+        source_labels = []
         for fact in facts[:4]:
-            where = (
+            source = source_details.get(fact.id) or {}
+            where = source.get("label") or (
                 fact.provenance[0].how_directly
                 or fact.provenance[0].source
                 if fact.provenance else ""
             )
+            received = source.get("received_at")
+            if received:
+                try:
+                    when = datetime.fromisoformat(received.replace("Z", "+00:00"))
+                    where += f" · ricevuta il {when.strftime('%d/%m/%Y')}"
+                except ValueError:
+                    pass
             if where:
                 origins.append(f"{fact.what}: {where}")
+                source_labels.append(where)
         if origins:
             body += ". Origine: " + "; ".join(origins)
         if said["cosa_non_so"]:
@@ -98,20 +129,26 @@ async def load_financial_context(
         observed = [str(f.created_at) for f in facts if f.created_at]
         first_seen_at = min(observed) if observed else now_iso()
         items.append(HomeItem(
-            id=stable_id("fin", user_id, "horizon"),
+            id=stable_id("fin", user_id, summary_ref),
             type="insight",
             subtype="financial_horizon",
             title=title,
             description=body,
             source_type="financial",
-            source_id="horizon",
+            source_id=summary_ref,
             status="open",
             confidence=0.8,
             created_at=first_seen_at,
             updated_at=now_iso(),
             # A financial summary is knowledge, not an agreed task. It must
             # not become the main "Organizza" focus by a generic fallback.
-            meta={"dedupe_key": "fin:horizon", "knowledge_only": True},
+            meta={
+                "dedupe_key": f"fin:{summary_ref}", "knowledge_only": True,
+                "source_label": "; ".join(dict.fromkeys(source_labels)),
+                # A single dated notice has its own expiry. A summary of
+                # several facts has no one deadline, so none is invented.
+                "valid_until": facts[0].due_at if how_many == 1 else None,
+            },
         ))
 
     # Quello che ORA ha letto e non puo' credere da sola. Non e' un errore

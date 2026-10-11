@@ -272,7 +272,31 @@ class SituationService:
         }.get(str(operation or ""))
         if not kind:
             return
-        if operation in ("resolve", "cancel"):
+        if operation in ("create", "update") and (
+            situation.attention_intent or situation.next_check_summary
+        ):
+            # A stored Situation is NOT an executable checkpoint. When the
+            # cognitive decision explicitly asked for future attention, admit
+            # an initial source-reading goal now. Its first recheck time must
+            # still be chosen by the Agent after evidence; never guess one.
+            try:
+                from situations.admission import ensure_initial_review
+                result = await ensure_initial_review(self.db, user_id, situation.id)
+                if result["status"] in ("persistence_failed", "recovery_pending"):
+                    logger.warning("Situation attention admission state=%s", result["status"])
+            except Exception as exc:
+                logger.warning(
+                    "situation attention admission soft-fail: %s", type(exc).__name__
+                )
+        latest_changes = situation.history[-1].changes if situation.history else {}
+        if operation in ("resolve", "cancel") or (
+            operation == "update"
+            and not (situation.attention_intent or situation.next_check_summary)
+            and any(field in latest_changes for field in ("attention_intent", "next_check_summary"))
+        ):
+            # An explicit withdrawal of the attention obligation is just as
+            # binding as closing the Situation. Do not let a stale initial
+            # review wake resurrect the old intent.
             try:
                 from situations.followup import cancel_dedicated_followup
                 await cancel_dedicated_followup(self.db, user_id, situation.id)

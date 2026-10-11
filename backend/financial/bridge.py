@@ -83,6 +83,14 @@ async def read_money_in(
         owner_id, answer, provenance=provenance, source_refs=source_refs or [],
     )
     kept = await store.remember(fact, replaces=str(answer.get("changes_what") or ""))
+    retained_id = str(kept.get("fact_id") or fact.id)
+    if retained_id != fact.id:
+        # A repeated observation may retain the existing record. Governance
+        # and the response must use that actual record, not the unsaved UUID
+        # created for this interpretation (which could create phantom memory).
+        retained = await store.get(owner_id, retained_id)
+        if retained is not None:
+            fact = retained
 
     # E poi la parte che conta: farlo entrare — se merita — in quello che ORA
     # sa davvero. Il registro sopra e' l'osservato; la memoria governata e'
@@ -103,7 +111,7 @@ async def read_money_in(
 
     return {
         "outcome": kept["outcome"],
-        "fact_id": fact.id,
+        "fact_id": retained_id,
         "what": fact.what,
         "disputes": kept.get("disputes") or [],
         "unknowns": list(fact.unknowns),

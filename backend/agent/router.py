@@ -279,6 +279,7 @@ async def situation_alerts(goal_id: str, body: SituationAlertsIn, user=Depends(g
     """
     from deps import db
     from agent.service import AgentService
+    from situations.followup import attention_withdrawal_confirmed
     from situations.models import SituationUpdate
     from situations.repository import SituationRepository
     from situations.service import SituationMutationError, SituationService
@@ -315,12 +316,10 @@ async def situation_alerts(goal_id: str, body: SituationAlertsIn, user=Depends(g
         raise HTTPException(409, detail=exc.code)
     if result.get("status") != "success":
         raise HTTPException(409, detail="situation_not_updated")
-    stopped = await service.cancel(owner, goal_id, reason=(
-        "La persona ha confermato che la situazione è conclusa."
-        if body.decision == "resolved" else
-        "La persona ha chiesto di interrompere gli avvisi sulla situazione."
-    ))
-    if not stopped.get("ok"):
+    # The persisted Situation mutation already cancels its canonical and legacy
+    # monitors. Confirm that work, rather than cancelling a second time (which
+    # could also target a newer cycle admitted while the mutation was finishing).
+    if not await attention_withdrawal_confirmed(db, owner, current.id):
         raise HTTPException(409, detail="monitor_not_stopped")
     return {"ok": True, "decision": body.decision, "monitor_stopped": True}
 
