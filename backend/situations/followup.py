@@ -10,6 +10,8 @@ import hashlib
 import os
 from datetime import datetime, timedelta, timezone
 
+from pydantic import ValidationError
+
 from agent.models import AutonomousGoal
 from agent.repository import AgentRepository
 from ambient.service import AmbientService
@@ -148,6 +150,7 @@ async def _read_followup_snapshot(db, owner, situation_id):
            "timezone": None, "timezone_authority": None,
            "goal_id": None, "purpose": None, "notify_when": None,
            "completion_when": None, "monitoring_goal": None, "ends_when": None,
+           "desired_outcome": None, "outcome": None,
            "attention_saved": None,
            "runtime_enabled": _enabled(), "delivery_channel": "in_app",
            "assessment_at": None, "assessment_label": None,
@@ -158,6 +161,7 @@ async def _read_followup_snapshot(db, owner, situation_id):
         situation = await SituationRepository(db).get(owner, situation_id)
         if situation is None:
             return out
+        out["desired_outcome"] = situation.desired_outcome
         # Report only the intent read from this owner's persisted Situation.
         # An expected outcome or estimate alone does not authorise monitoring.
         out["attention_saved"] = bool(
@@ -199,6 +203,18 @@ async def _read_followup_snapshot(db, owner, situation_id):
             monitoring_goal=str(goal.get("desired_outcome") or "")[:400] or None,
             ends_when=(stop_conditions[-1] if stop_conditions else None),
         )
+        from situations.outcomes import current_outcome
+        out["desired_outcome"] = situation.desired_outcome or str(goal.get("desired_outcome") or "") or None
+        if goal.get("situation_outcome"):
+            # Legacy goal rows can still prove a missing checkpoint without
+            # containing every current model field. An optional result must
+            # not make the independent scheduling diagnosis unavailable.
+            try:
+                typed_goal = AutonomousGoal.model_validate(goal)
+            except ValidationError:
+                pass  # Invalid assessments remain absent, never half-published.
+            else:
+                out["outcome"] = await current_outcome(db, owner, typed_goal, allow_settled=True)
         cycle_start = (goal.get("source_situation") or {}).get("attention_started_at")
         cycle_query = {"at": {"$gte": cycle_start}} if cycle_start else {}
         arranged = await db.agent_journal.find_one(
@@ -324,6 +340,12 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             if goal and goal.source_kind == KIND else None
         )
         due = max(now + timedelta(seconds=60), prior_due or due)
+        if goal:
+            from situations.outcomes import current_outcome
+            assessment = await current_outcome(db, owner, goal, now=now)
+            expiry = _moment(assessment["valid_until"]) if assessment else None
+            if expiry:
+                due = min(due, max(now + timedelta(seconds=30), expiry - timedelta(seconds=30)))
         source_snapshot = {
             **(goal.source_situation if goal else {}),
             "situation_id": situation_id,
@@ -333,12 +355,12 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
         source_snapshot.setdefault("attention_epoch", str(fresh.revision))
         source_snapshot.setdefault("attention_started_at", now.isoformat())
         fallback_outcome = str(
-            fresh.expected_outcome_summary or fresh.temporal_scope
+            fresh.desired_outcome or fresh.expected_outcome_summary
             or "il prossimo momento utile per la persona"
         ).strip()[:300]
         contract = {
-            "objective": f"Capire quando la situazione raggiunge l'esito utile per la persona: {fresh.summary}"[:280],
-            "desired_outcome": (completion_when or fallback_outcome)[:400],
+            "objective": (fresh.desired_outcome or fresh.summary)[:280],
+            "desired_outcome": (fresh.desired_outcome or completion_when or fallback_outcome)[:400],
             "why_now": purpose, "rationale": purpose,
             "source_kind": KIND,
             "source_refs": [f"situation:{situation_id}", *fresh.linked_object_refs][:8],

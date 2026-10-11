@@ -55,16 +55,18 @@ def _review_goal(owner, situation, gid, *, epoch=None, created_at=None):
     now = datetime.now(timezone.utc).isoformat()
     return AutonomousGoal(
         id=gid, owner_id=owner, status="active", origin="agent_initiated",
-        objective=(f"Rivalutare la situazione temporanea: {situation.summary}")[:280],
+        objective=(situation.desired_outcome or situation.summary)[:280],
         desired_outcome=(
-            str(situation.attention_intent or situation.next_check_summary)
-            + "; individuare con fonti verificabili se e quando serve agire"
+            situation.desired_outcome
+            or (str(situation.attention_intent or situation.next_check_summary)
+                + "; individuare con fonti verificabili se e quando serve agire")
         )[:400],
         why_now="La situazione ha un'intenzione di attenzione ancora aperta.",
         success_criteria=[
             "Usare le fonti pertinenti disponibili, senza inventare condizioni o tempi.",
             "Scegliere un controllo successivo solo se ha un'utilità concreta.",
             "Un risultato fisico non si presume dal tempo trascorso.",
+            "Consegnare una stima utile del momento d'azione o l'azione necessaria adesso; leggere una fonte da sola non completa il lavoro.",
         ],
         stop_conditions=[
             "La situazione viene risolta, annullata o l'attenzione revocata.",

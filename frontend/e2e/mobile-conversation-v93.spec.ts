@@ -171,6 +171,9 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   const scroll = modal.getByTestId('ora-map-detail-scroll');
   await expect(card).toBeVisible();
   await expect(card).toContainText('PANNI STESI');
+  await expect(card.getByTestId('ora-cockpit-outcome')).toContainText('Stima non ancora disponibile');
+  await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
+  await card.getByRole('button', { name: 'Dettagli del controllo', exact: true }).click();
   await expect(card).toContainText('Controllo programmato');
   await expect(card).toContainText('Prossimo controllo');
   await expect(card).toContainText('Ultimo controllo eseguito');
@@ -215,6 +218,7 @@ test('mobile follow-up starts unconfirmed and refreshes without a chat message',
   await page.getByTestId('ora-mobile-open-map').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
   const card = modal.getByTestId('ora-cockpit-temporary');
+  await card.getByRole('button', { name: 'Dettagli del controllo', exact: true }).click();
   await expect(card).toContainText('Nessun controllo programmato');
   await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
   controls.followup = {
@@ -232,5 +236,68 @@ test('mobile follow-up starts unconfirmed and refreshes without a chat message',
   await modal.getByRole('button', { name: 'Chiudi dettagli della mappa' }).click();
   await expect(card).toHaveCount(0);
   await modal.getByTestId('ora-mobile-close-map').click();
+  expect(posts).toEqual([]);
+});
+
+test('mobile Situation keeps useful estimates and actions first through risk and watch completion', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  const observedAt = new Date();
+  const controls = { followup: {
+    status: 'scheduled',
+    desired_outcome: 'Sapere quando ritirare i panni — esempio simulato',
+    next_check_at: '2099-01-20T10:30:00+01:00',
+    next_check_label: '20 gen 2099, 10:30',
+    outcome: {
+      status: 'estimated',
+      headline: 'Ritiro stimato tra le 15:00 e le 16:00 — esempio simulato',
+      action_summary: 'La finestra è una stima basata sui dati simulati del collaudo.',
+      window_start: '2099-01-20T15:00:00+01:00',
+      window_end: '2099-01-20T16:00:00+01:00',
+      window_label: '20 gen 2099, 15:00–16:00',
+      assessed_at: observedAt.toISOString(),
+      valid_until: new Date(observedAt.getTime() + 3600000).toISOString(),
+      situation_revision: 1,
+      evidence_ids: ['evidence_offline_ui_fixture'],
+      basis: 'estimate', action_reason: null, timezone: 'Europe/Rome',
+    },
+  } as any };
+  const posts = await fixture(page, controls);
+  await page.getByTestId('ora-mobile-open-map').click();
+  const modal = page.getByTestId('ora-mobile-expanded-map');
+  const card = modal.getByTestId('ora-cockpit-temporary');
+  const result = card.getByTestId('ora-cockpit-outcome');
+  await expect(result).toContainText('Ritiro stimato tra le 15:00 e le 16:00');
+  await expect(result.getByTestId('ora-cockpit-outcome-window')).toContainText('20 gen 2099, 15:00–16:00');
+  await expect(result).toContainText('Valutazione stimata');
+  await expect(result).not.toContainText('10:30');
+  await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
+  const toggle = card.getByRole('button', { name: 'Dettagli del controllo', exact: true });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(card).toContainText('20 gen 2099, 10:30');
+  await toggle.click();
+
+  controls.followup.outcome = {
+    ...controls.followup.outcome,
+    status: 'action_now', action_reason: 'early_risk',
+    headline: 'Ritira adesso: rischio pioggia — esempio simulato',
+    action_summary: 'Il ritiro anticipato evita che i panni si bagnino; l’asciugatura resta stimata.',
+  };
+  await expect(result).toContainText('Ritira adesso: rischio pioggia', { timeout: 25000 });
+  await expect(result.getByTestId('ora-cockpit-outcome-window')).toHaveCount(0);
+  await expect(result).not.toContainText('Ritiro stimato tra le 15:00');
+  await expect(result).not.toContainText('osservazione diretta');
+  // A finished watch can be delivering the action it was asked to identify.
+  // Stopping the watch must not swallow its still-current final result.
+  controls.followup.status = 'stopped';
+  controls.followup.outcome = {
+    ...controls.followup.outcome,
+    action_reason: 'outcome_ready',
+    headline: 'Puoi ritirarli adesso secondo la stima aggiornata — esempio simulato',
+    action_summary: 'La valutazione è conclusa; il ritiro fisico non è stato osservato.',
+  };
+  await expect(result).toContainText('Puoi ritirarli adesso secondo la stima aggiornata', { timeout: 25000 });
+  await expect(result).not.toContainText('Non sono previsti altri controlli');
+  await expect(result).toContainText('Valutazione stimata');
   expect(posts).toEqual([]);
 });

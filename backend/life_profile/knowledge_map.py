@@ -119,6 +119,8 @@ async def knowledge_map(db, user_id: str) -> dict:
             "semantic_kind": 1,
             "temporal_scope": 1,
             "attention_intent": 1,
+            "desired_outcome": 1,
+            "started_at": 1,
             "icon_key": 1,
             "tracking_summary": 1,
             "location_label": 1,
@@ -192,12 +194,11 @@ async def knowledge_map(db, user_id: str) -> dict:
             "semantic_kind": situation.get("semantic_kind"),
             "icon_key": situation.get("icon_key") or "other",
             "tracking_summary": situation.get("tracking_summary"),
+            "desired_outcome": situation.get("desired_outcome"),
+            "started_at": situation.get("started_at"),
             "location_label": location_label or None,
             "current_state_summary": situation.get("current_state_summary"),
-            "expected_outcome_summary": (
-                situation.get("expected_outcome_summary")
-                or situation.get("temporal_scope")
-            ),
+            "expected_outcome_summary": situation.get("expected_outcome_summary"),
             "next_check_summary": (
                 situation.get("next_check_summary")
                 or situation.get("attention_intent")

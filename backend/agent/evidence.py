@@ -115,9 +115,24 @@ class EvidenceStore:
     async def for_goal(
         self, owner_id: str, goal_id: str, *, limit: int = 40
     ) -> List[AgentEvidence]:
+        query = {"owner_id": owner_id, "goal_id": goal_id, "superseded": {"$ne": True}}
         docs = await self.db[EVIDENCE].find(
-            {"owner_id": owner_id, "goal_id": goal_id, "superseded": {"$ne": True}}, {"_id": 0, "expires_at": 0}
-        ).sort("observed_at", 1).to_list(limit)
+            query, {"_id": 0, "expires_at": 0}
+        ).sort("observed_at", -1).limit(limit).to_list(limit)
+        if len(docs) >= limit:
+            # Repeated current reads must not hide newer observations, or evict
+            # the empirical baseline needed to interpret them. Keep at most two
+            # older sourced/computed baselines within the same bounded result.
+            baseline = await self.db[EVIDENCE].find({
+                **query, "$or": [
+                    {"provenance.capability": "web.research"},
+                    {"provenance.source_class": "deterministic_computation"},
+                ],
+            }, {"_id": 0, "expires_at": 0}).sort("observed_at", -1).limit(2).to_list(2)
+            recent_ids = {item.get("id") for item in docs}
+            older = [item for item in baseline if item.get("id") not in recent_ids][:max(0, limit - 1)]
+            docs = [*docs[:limit - len(older)], *older]
+        docs.sort(key=lambda item: str(item.get("observed_at") or ""))
         out: List[AgentEvidence] = []
         for doc in docs:
             try:
@@ -159,9 +174,30 @@ def for_verification(
     actually decides sits in code either way.
     """
     out: List[Dict[str, Any]] = []
-    for item in evidence[:limit]:
+    # The latest read can materially reverse an earlier recommendation. Keep
+    # those recent claims and a small sourced baseline, not always the first
+    # twelve observations accumulated since the goal was created.
+    selected = evidence[-limit:]
+    if len(evidence) > limit and limit > 1:
+        recent_ids = {item.id for item in selected}
+        baseline = [item for item in evidence[:-limit]
+                    if item.provenance.capability == "web.research"
+                    or item.provenance.source_class == "deterministic_computation"][-min(2, max(0, limit - 1)):]
+        baseline = [item for item in baseline if item.id not in recent_ids]
+        selected = [*baseline, *selected[len(baseline):]]
+    for item in selected:
         row = item.for_ai()
-        row["how_old"] = freshness_of(item.observed_at)
+        if item.provenance.capability == "weather.read":
+            # Ingesting a provider's older reading now does not make it fresh.
+            # Preserve the adapter's stricter age/metadata judgement.
+            if row["how_old"] == "fresh":
+                try:
+                    expiry = datetime.fromisoformat(str(item.provenance.weather_valid_until).replace("Z", "+00:00"))
+                    row["how_old"] = "fresh" if expiry.tzinfo and expiry > _now() else "stale"
+                except (TypeError, ValueError):
+                    row["how_old"] = "unknown"
+        else:
+            row["how_old"] = freshness_of(item.provenance.observed_at)
         if not item.is_real:
             row["warning"] = (
                 "Questo non e successo davvero: e una simulazione, e non prova niente "

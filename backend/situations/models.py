@@ -22,6 +22,15 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def aware_instant(value: Optional[str]) -> Optional[str]:
+    if value is None or value == "":
+        return None
+    instant = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if instant.tzinfo is None:
+        raise ValueError("timezone-aware timestamp required")
+    return instant.isoformat()
+
+
 class SituationUpdate(BaseModel):
     operation: SituationOperation = "none"
     situation_id: Optional[str] = None
@@ -30,6 +39,12 @@ class SituationUpdate(BaseModel):
     semantic_kind: Optional[str] = Field(default=None, max_length=80)
     temporal_scope: Optional[str] = Field(default=None, max_length=240)
     attention_intent: Optional[str] = Field(default=None, max_length=300)
+    # The useful end the person wants, independent of process/monitoring and
+    # independent of a forecast which may later change.
+    desired_outcome: Optional[str] = Field(default=None, max_length=400)
+    # Physical start only when explicitly established; created_at registers
+    # the information and must never substitute for this fact.
+    started_at: Optional[str] = None
     # Optional presentation semantics chosen by cognition, never inferred by UI keywords.
     icon_key: Optional[str] = Field(default=None, max_length=40)
     # Human-facing explanation for the temporary-memory creation card.
@@ -47,6 +62,13 @@ class SituationUpdate(BaseModel):
     linked_plan_id: Optional[str] = Field(default=None, max_length=80)
     linked_object_refs: List[str] = Field(default_factory=list, max_length=20)
     source: SituationSource = "user_conversation"
+
+    @field_validator("started_at")
+    @classmethod
+    def _aware_start(cls, value: Optional[str]) -> Optional[str]:
+        # Omission/null preserve a known start on update. An explicit empty
+        # string retracts it, just like the other optional Situation facts.
+        return "" if value == "" else aware_instant(value)
 
     @field_validator(
         "participants",
@@ -86,6 +108,8 @@ class SituationState(BaseModel):
     semantic_kind: Optional[str] = None
     temporal_scope: Optional[str] = None
     attention_intent: Optional[str] = None
+    desired_outcome: Optional[str] = None
+    started_at: Optional[str] = None
     icon_key: Optional[str] = None
     tracking_summary: Optional[str] = None
     location_label: Optional[str] = None
@@ -106,6 +130,8 @@ class SituationState(BaseModel):
     history: List[SituationEvent] = Field(default_factory=list)
     applied_epochs: List[str] = Field(default_factory=list)
 
+    _aware_start = field_validator("started_at")(aware_instant)
+
     def context_preview(self) -> Dict[str, Any]:
         return {
             "id": self.id,
@@ -114,6 +140,9 @@ class SituationState(BaseModel):
             "semantic_kind": self.semantic_kind,
             "temporal_scope": self.temporal_scope,
             "attention_intent": self.attention_intent,
+            "desired_outcome": self.desired_outcome,
+            "started_at": self.started_at,
+            "created_at": self.created_at,
             "icon_key": self.icon_key,
             "tracking_summary": self.tracking_summary,
             "location_label": self.location_label,
@@ -129,3 +158,29 @@ class SituationState(BaseModel):
             "revision": self.revision,
             "updated_at": self.updated_at,
         }
+
+
+class SituationOutcomeAssessment(BaseModel):
+    """A model-authored useful result, bound by code to sources and one revision.
+
+    This is an assessment, never a measurement of the physical object. A
+    checkpoint belongs to the scheduler and is deliberately absent here.
+    """
+
+    id: str
+    situation_id: str
+    situation_revision: int = Field(ge=1)
+    status: Literal["estimated", "action_now", "needs_input"]
+    headline: str = Field(min_length=1, max_length=240)
+    action_summary: str = Field(default="", max_length=300)
+    basis: Literal["estimate", "direct_observation", "missing_information"]
+    action_reason: Optional[Literal["outcome_ready", "early_risk"]] = None
+    window_start: Optional[str] = None
+    window_end: Optional[str] = None
+    assessed_at: str
+    valid_until: str
+    evidence_ids: List[str] = Field(default_factory=list, max_length=6)
+
+    _aware_times = field_validator(
+        "window_start", "window_end", "assessed_at", "valid_until"
+    )(aware_instant)

@@ -6,6 +6,7 @@ import { quandoAggiornamento, type Aggiornamento } from './aggiornamenti';
 import { OraCard } from '@/src/components/ora-ui';
 import { ora, oraType } from '@/src/theme/oraSurface';
 import { humanizeError } from '@/src/utils/errors';
+import { SituationDetails, SituationOutcomeSummary } from '@/src/components/ora/SituationOutcomeSummary';
 
 export function UpdateNextStep({ a }: { a: Aggiornamento }) {
   const router = useRouter();
@@ -72,16 +73,16 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
       <OraCard style={{ padding: 20, gap: 12 }} testID="aggiornamento-solo-informativo">
         <Text style={[oraType.section, { color: ora.ink }]}>Una segnalazione, non un compito</Text>
         <Text style={[oraType.body, { color: ora.ink2 }]}>
-          ORA ti ha riportato un'informazione, ma da questa scheda non risulta
-          un'azione concreta da svolgere né un monitoraggio automatico confermato.
-          Una previsione non è la prova che l'evento si sia verificato.
+          ORA ti ha riportato un’informazione, ma da questa scheda non risulta
+          un’azione concreta da svolgere né un monitoraggio automatico confermato.
+          Una previsione non è la prova che l’evento si sia verificato.
         </Text>
         {a.fonte && <Text style={[oraType.small, { color: ora.ink2 }]}>
           Fonte indicata: {a.fonte}
         </Text>}
         {!!a.scade && <Text style={[oraType.small, { color: ora.ink2 }]}>
           Questa segnalazione resta utile fino a: {quandoAggiornamento(a.scade) || a.scade}.
-          La scadenza dell'avviso non conferma che il fatto sia avvenuto.
+          La scadenza dell’avviso non conferma che il fatto sia avvenuto.
         </Text>}
         {usesWork && !loaded && !error && <Text>Sto recuperando la verifica precedente…</Text>}
         {work?.result?.ora_text && <View style={{ gap: 6 }}>
@@ -89,7 +90,7 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
           <Text style={[oraType.body, { color: ora.ink }]}>{work.result.ora_text}</Text>
         </View>}
         {work?.status === 'failed' && <Text style={[oraType.small, { color: ora.attention }]}>
-          L'ultima verifica non è riuscita: l'informazione non è stata confermata.
+          L’ultima verifica non è riuscita: l’informazione non è stata confermata.
         </Text>}
         {work?.session_id && <Pressable accessibilityRole="link"
           onPress={() => router.push(`/ora/${encodeURIComponent(work.session_id!)}` as never)}>
@@ -111,70 +112,77 @@ export function UpdateNextStep({ a }: { a: Aggiornamento }) {
     const followupConfirmed = ['scheduled', 'due', 'running'].includes(situation.followup_status || '');
     return (
       <OraCard style={{ padding: 20, gap: 12 }} testID="dettaglio-situazione-monitorata">
-        <Text style={[oraType.section, { color: ora.ink }]}>Cosa sta seguendo ORA</Text>
         <Text style={[oraType.body, { color: ora.ink }]}>{situation.summary}</Text>
-        {situation.current_state && <Text style={[oraType.body, { color: ora.ink2 }]}>Ultimo stato noto: {situation.current_state}</Text>}
-        <Text style={[oraType.small, { color: ora.ink2 }]}>
-          Registrata: {quandoAggiornamento(situation.created_at) || 'data non disponibile'}
-        </Text>
-        {(situation.reason || situation.purpose) && <Text style={[oraType.body, { color: ora.ink2 }]}>
-          Perché la controllo: {situation.purpose || situation.reason}
-        </Text>}
-        {situation.expected_outcome && <Text style={[oraType.body, { color: ora.ink2 }]}>
-          Cosa vogliamo sapere: {situation.expected_outcome}
-        </Text>}
-        {situation.notify_when && <Text style={[oraType.body, { color: ora.ink }]}>
-          Quando ti avviso: {situation.notify_when}
-        </Text>}
-        <Text style={[oraType.body, { color: ora.ink2 }]}>
-          {followupConfirmed
-            ? situation.followup_status === 'running'
-              ? 'Il controllo è in corso.'
-              : situation.next_check_label
-                ? `Prossimo controllo: ${situation.next_check_label}.`
-                : 'È registrato un controllo; il suo orario non è disponibile.'
-            : 'Non risulta un prossimo controllo confermato: ORA non promette notifiche automatiche.'}
-        </Text>
-        {situation.monitor_diagnosis &&
-          !['scheduled', 'due', 'running'].includes(situation.followup_status || '') && (
-          <Text style={[oraType.body, { color: ora.ink2 }]} testID="motivo-controllo-non-programmato">
-            Perché il controllo non è attivo: {situation.monitor_diagnosis}
-          </Text>
-        )}
-        {situation.last_checked_at && <Text style={[oraType.small, { color: ora.ink2 }]}>
-          Ultima verifica: {quandoAggiornamento(situation.last_checked_at)}
-          {situation.last_result ? ` · ${situation.last_result}` : ''}
-        </Text>}
+        <SituationOutcomeSummary
+          outcome={situation.outcome}
+          desiredOutcome={situation.desired_outcome}
+          situationRevision={situation.revision}
+          followupStatus={situation.followup_status}
+          testID="aggiornamento-situation-outcome"
+        />
         {a.cosa_serve && <Text style={[oraType.body, { color: ora.ink }]}>Domanda per te: {a.cosa_serve}</Text>}
-        <Text style={[oraType.small, { color: ora.ink2 }]}>
-          ORA può valutare previsioni e segnali disponibili, ma non può osservare direttamente
-          lo stato fisico della situazione. I pulsanti per aggiornarla aprono un messaggio
-          pronto da inviare: puoi modificarlo e confermarlo in chat.
-        </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          <Pressable accessibilityRole="button" testID="situazione-non-ancora"
-            onPress={() => openSituationConversation(
-              `Per la situazione «${situation.summary}»: non è ancora raggiunto il risultato. Ricontrolla le condizioni con dati aggiornati e, se possibile, programma un nuovo controllo utile senza inventare l'esito.`
-            )} style={{ padding: 12, borderRadius: 10, borderWidth: 1, borderColor: ora.ink3 }}>
-            <Text style={{ color: ora.deep }}>Non ancora · Rispondi a ORA</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" testID="situazione-cambiata"
-            onPress={() => openSituationConversation(
-              `La situazione «${situation.summary}» è cambiata: `
-            )} style={{ padding: 12, borderRadius: 10, borderWidth: 1, borderColor: ora.ink3 }}>
-            <Text style={{ color: ora.deep }}>È cambiata · Spiega a ORA</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" testID="situazione-conclusa"
-            disabled={situationBusy} onPress={() => void situationDecision('resolved')}
-            style={{ padding: 12, borderRadius: 10, backgroundColor: ora.cta }}>
-            <Text style={{ color: '#fff', fontWeight: '600' }}>Situazione conclusa</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" testID="situazione-niente-avvisi"
-            disabled={situationBusy} onPress={() => void situationDecision('stop_alerts')}
-            style={{ padding: 12, borderRadius: 10, borderWidth: 1, borderColor: ora.ink3 }}>
-            <Text style={{ color: ora.ink2 }}>Ok grazie · Basta avvisi</Text>
-          </Pressable>
-        </View>
+        <Pressable accessibilityRole="button" testID="situazione-conclusa"
+          disabled={situationBusy} onPress={() => void situationDecision('resolved')}
+          style={{ minHeight: 44, padding: 12, borderRadius: 10, backgroundColor: ora.cta, alignSelf: 'flex-start' }}>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Situazione conclusa</Text>
+        </Pressable>
+        <SituationDetails>
+          {situation.current_state && <Text style={[oraType.body, { color: ora.ink2 }]}>Ultimo stato noto: {situation.current_state}</Text>}
+          <Text style={[oraType.small, { color: ora.ink2 }]}>
+            Registrata: {quandoAggiornamento(situation.created_at) || 'data non disponibile'}
+          </Text>
+          {(situation.reason || situation.purpose) && <Text style={[oraType.body, { color: ora.ink2 }]}>
+            Perché la controllo: {situation.purpose || situation.reason}
+          </Text>}
+          {(situation.desired_outcome || situation.expected_outcome) && <Text style={[oraType.body, { color: ora.ink2 }]}>
+            Esito atteso registrato: {situation.desired_outcome || situation.expected_outcome}
+          </Text>}
+          {situation.notify_when && <Text style={[oraType.body, { color: ora.ink }]}>
+            Quando ti avviso: {situation.notify_when}
+          </Text>}
+          <Text style={[oraType.body, { color: ora.ink2 }]}>
+            {followupConfirmed
+              ? situation.followup_status === 'running'
+                ? 'Il controllo è in corso.'
+                : situation.next_check_label
+                  ? `Prossimo controllo: ${situation.next_check_label}.`
+                  : 'È registrato un controllo; il suo orario non è disponibile.'
+              : 'Non risulta un prossimo controllo confermato: ORA non promette notifiche automatiche.'}
+          </Text>
+          {situation.monitor_diagnosis &&
+            !['scheduled', 'due', 'running'].includes(situation.followup_status || '') && (
+            <Text style={[oraType.body, { color: ora.ink2 }]} testID="motivo-controllo-non-programmato">
+              Perché il controllo non è attivo: {situation.monitor_diagnosis}
+            </Text>
+          )}
+          {situation.last_checked_at && <Text style={[oraType.small, { color: ora.ink2 }]}>
+            Ultima verifica: {quandoAggiornamento(situation.last_checked_at)}
+            {situation.last_result ? ` · ${situation.last_result}` : ''}
+          </Text>}
+          <Text style={[oraType.small, { color: ora.ink2 }]}>
+            I pulsanti per aggiornare lo stato aprono un messaggio
+            pronto da inviare: puoi modificarlo e confermarlo in chat.
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            <Pressable accessibilityRole="button" testID="situazione-non-ancora"
+              onPress={() => openSituationConversation(
+                `Per la situazione «${situation.summary}»: non è ancora raggiunto il risultato. Ricontrolla le condizioni con dati aggiornati e, se possibile, programma un nuovo controllo utile senza inventare l'esito.`
+              )} style={{ padding: 12, borderRadius: 10, borderWidth: 1, borderColor: ora.ink3 }}>
+              <Text style={{ color: ora.deep }}>Non ancora · Rispondi a ORA</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" testID="situazione-cambiata"
+              onPress={() => openSituationConversation(
+                `La situazione «${situation.summary}» è cambiata: `
+              )} style={{ padding: 12, borderRadius: 10, borderWidth: 1, borderColor: ora.ink3 }}>
+              <Text style={{ color: ora.deep }}>È cambiata · Spiega a ORA</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" testID="situazione-niente-avvisi"
+              disabled={situationBusy} onPress={() => void situationDecision('stop_alerts')}
+              style={{ padding: 12, borderRadius: 10, borderWidth: 1, borderColor: ora.ink3 }}>
+              <Text style={{ color: ora.ink2 }}>Ok grazie · Basta avvisi</Text>
+            </Pressable>
+          </View>
+        </SituationDetails>
         {!!situationError && <Text accessibilityRole="alert" style={{ color: ora.attention }}>{situationError}</Text>}
       </OraCard>
     );

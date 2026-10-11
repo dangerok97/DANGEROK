@@ -2107,6 +2107,24 @@ async def run_cognitive_loop(
                 from situations.followup import read_followup
                 followup = await read_followup(db, sess.user_id, persisted["id"])
                 situation_result["follow_up"] = followup
+            if (
+                "tool_without_call" in (gov.errors or [])
+                and decision.message_to_user == "Non riesco a usare lo strumento richiesto."
+                and decision.situation_update is not None
+                and decision.situation_update.operation in ("resolve", "cancel")
+                and (situation_result or {}).get("status") == "success"
+                and persisted.get("id") == decision.situation_update.situation_id
+                and persisted.get("status") in ("resolved", "cancelled")
+            ):
+                # A structured lifecycle mutation is already executable work.
+                # A redundant empty tool envelope must not turn a confirmed
+                # closure into a false failure. Do not mask an actual tool
+                # error, failed mutation, or any other pending user request.
+                decision.message_to_user = "Ho chiuso questa situazione."
+                if (situation_result.get("follow_up") or {}).get("status") == "stopped":
+                    decision.message_to_user += " Non sono previsti altri controlli."
+                decision.question = None
+                add_step(trace, event="SITUATION_CLOSURE_RESULT_CONFIRMED")
             if mode in ("answer", "ask", "finish") and not phone_owns_turn:
                 await followup_gate.refresh(context_facts, st.get("active_situation_ref"), persisted)
                 if not followup_gate.accepts_final(decision, user_message, observations[turn_start:]):

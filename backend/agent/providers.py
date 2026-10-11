@@ -706,9 +706,10 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
 
     An exact owned place:<id> in the step pins the forecast to that Life
     Place. This is important for follow-ups: the user may move while the thing
-    being followed stays put. With no place ref, use current device position
-    under HomeService's existing consent/freshness rules. Raw coordinates are
-    used only for the provider call and never enter durable agent evidence.
+    being followed stays put. A watched Situation requires its fixed place;
+    an unrelated current-weather request may use authorized device position.
+    Provider observation time, forecast dates and retrieval time stay distinct.
+    Raw coordinates never enter durable agent evidence.
     """
     try:
         import weather as weather_service
@@ -733,18 +734,88 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
         ),
         "",
     )
+    situation_refs = [str(ref) for ref in (getattr(goal, "source_refs", None) or [])
+                      if str(ref).startswith("situation:")]
+    situation = None
+    source_refs = []
+    saved = None
+    if situation_refs:
+        from situations.repository import SituationRepository
+
+        def location_failure(code, message):
+            return CapabilityOutcome(
+                status="unavailable", observation=message,
+                provenance=ResultProvenance(
+                    source_class="internal_observation", capability="weather.read",
+                    source_refs=source_refs or situation_refs[:8], freshness="unknown",
+                ),
+                error_type=code, retryable=False,
+            )
+
+        if len(situation_refs) != 1 or getattr(goal, "owner_id", None) != owner_id:
+            return location_failure("situation_location_required", "Il controllo non identifica una sola situazione di questa persona.")
+        situation = await SituationRepository(db).get(owner_id, situation_refs[0].split(":", 1)[1])
+        revision = str((getattr(goal, "source_situation", None) or {}).get("situation_revision") or "")
+        if (situation is None or situation.status not in ("active", "changed")
+                or revision and revision != str(situation.revision)):
+            return location_failure("situation_source_changed", "La situazione è cambiata o non è più attiva: occorre rileggerla.")
+        source_refs = [f"situation:{situation.id}:revision:{situation.revision}"]
+        linked = [ref for ref in situation.linked_object_refs if ref.startswith("place:")]
+        if pinned_ref and pinned_ref not in linked:
+            return location_failure("situation_place_mismatch", "Il luogo proposto non è quello associato alla situazione.")
+        if not pinned_ref and len(linked) == 1:
+            pinned_ref = linked[0]
+        if not pinned_ref and linked:
+            return location_failure("situation_location_required", "La situazione ha più luoghi: manca l'ancora univoca per questo controllo.")
+        if not pinned_ref:
+            # Resolve the named location without inventing a saved Home or
+            # moving the thing to the person's current device position.
+            label = str(situation.location_label or "").strip()
+            location_event = next((event for event in reversed(situation.history)
+                                   if "location_label" in event.changes), None)
+            if (not label or location_event is None or location_event.source == "inferred"
+                    or str(location_event.changes.get("location_label") or "").strip() != label):
+                return location_failure("situation_location_required", "Per il meteo serve il luogo della situazione confermato nella sua fonte.")
+            from places import lookup
+            from places.models import Coordinates
+
+            def normalized(value):
+                return " ".join(str(value or "").casefold().split())
+
+            try:
+                suggestions = await lookup.suggest(label)
+                matches = {
+                    str(item["place_id"]) for item in suggestions.get("suggestions", [])
+                    if isinstance(item, dict) and item.get("place_id")
+                    and normalized(label) in {normalized(item.get("primary")), normalized(item.get("text"))}
+                }
+                if not suggestions.get("available") or len(matches) != 1:
+                    return location_failure("situation_location_unresolved", "Il servizio luoghi non ha risolto in modo univoco la località della situazione.")
+                place_id = next(iter(matches))
+                resolved = await lookup.resolve(place_id)
+                if (not resolved.get("available") or str(resolved.get("place_id") or "") != place_id
+                        or normalized(label) not in {normalized(resolved.get("locality")), normalized(resolved.get("address"))}):
+                    return location_failure("situation_location_unresolved", "La località restituita dal servizio non conferma quella della situazione.")
+                coordinates = Coordinates(latitude=resolved["latitude"], longitude=resolved["longitude"])
+                point = (coordinates.latitude, coordinates.longitude, label)
+                source_refs.append(f"google_place:{place_id}")
+            except Exception as exc:
+                logger.info("weather Situation location soft-fail: %s", type(exc).__name__)
+                return location_failure("situation_location_unresolved", "Il servizio luoghi non ha permesso di verificare la località della situazione.")
     if pinned_ref:
         try:
             from places.service import PlacesService
 
             place_id = pinned_ref.split(":", 1)[1]
             saved = await PlacesService(db).get_place(owner_id, place_id)
-            if saved and saved.coordinates is not None and saved.state != "dismissed":
+            if saved and saved.coordinates is not None and saved.state == "confirmed":
                 point = (
                     float(saved.coordinates.latitude),
                     float(saved.coordinates.longitude),
                     str(saved.locality or saved.label or "").strip(),
                 )
+                if situation:
+                    source_refs.append(f"place_snapshot:{saved.id}:{saved.updated_at}")
         except Exception as exc:
             logger.info("weather pinned-place soft-fail: %s", type(exc).__name__)
         if point is None:
@@ -761,7 +832,7 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
                 error_type="place_unavailable",
                 retryable=False,
             )
-    else:
+    elif point is None:
         try:
             point = await HomeService(db)._where_they_are(owner_id)
         except Exception as exc:
@@ -785,6 +856,7 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
             )
 
     lat, lon, place = point
+    source_refs = ([pinned_ref] if pinned_ref else []) + source_refs
     try:
         data = await weather_service.forecast_at(lat=lat, lon=lon, place=place)
     except Exception as exc:
@@ -801,6 +873,16 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
             retryable=True,
         )
 
+    if situation:
+        latest = await SituationRepository(db).get(owner_id, situation.id)
+        if latest is None or latest.revision != situation.revision or latest.status not in ("active", "changed"):
+            return location_failure("situation_source_changed", "La situazione è cambiata durante la lettura meteo: questa risposta non è più pertinente.")
+        if saved:
+            latest_place = await PlacesService(db).get_place(owner_id, saved.id)
+            if (latest_place is None or latest_place.state != "confirmed"
+                    or latest_place.updated_at != saved.updated_at):
+                return location_failure("situation_source_changed", "Il luogo è cambiato durante la lettura meteo: serve una nuova verifica.")
+
     if not data.get("available"):
         return CapabilityOutcome(
             status="unavailable",
@@ -815,7 +897,76 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
             retryable=True,
         )
 
-    claims: List[Claim] = []
+    # A recent HTTP response is not a recent weather observation. These are
+    # operational reuse limits for time-sensitive advice, not a drying model.
+    from zoneinfo import ZoneInfo
+
+    provider = str(data.get("provider") or weather_service.configured_provider() or "weather")[:60]
+    zone_name = str(data.get("timezone") or "")[:64]
+    raw_offset = data.get("utc_offset_seconds")
+    offset = raw_offset if isinstance(raw_offset, int) and not isinstance(raw_offset, bool) and abs(raw_offset) <= 14 * 3600 else None
+    try:
+        provider_zone = ZoneInfo(zone_name) if zone_name else None
+    except (ValueError, KeyError):
+        provider_zone = None
+
+    def provider_moment(value, *, observation=False):
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
+        if parsed.tzinfo is not None:
+            if provider_zone and parsed.utcoffset() != parsed.astimezone(provider_zone).utcoffset():
+                return None
+            return parsed
+        if provider_zone is None:
+            # A provider offset can anchor its current reading, but is not a
+            # licence to assign that offset across future DST transitions.
+            return parsed.replace(tzinfo=timezone(timedelta(seconds=offset))) if observation and not zone_name and offset is not None else None
+        candidates = []
+        for fold in (0, 1):
+            candidate = parsed.replace(tzinfo=provider_zone, fold=fold)
+            roundtrip = candidate.astimezone(timezone.utc).astimezone(provider_zone)
+            if roundtrip.replace(tzinfo=None) != parsed:
+                continue  # Non-existent local hour during the spring change.
+            if observation and offset is not None and candidate.utcoffset().total_seconds() != offset:
+                continue
+            if all(candidate.utcoffset() != item.utcoffset() for item in candidates):
+                candidates.append(candidate)
+        # An ambiguous hourly forecast stays ambiguous; don't pick a fold.
+        return candidates[0] if len(candidates) == 1 else None
+
+    observed = provider_moment(data.get("observed_at"), observation=True)
+    now = _now()
+    age_seconds = (now - observed).total_seconds() if observed else None
+    freshness = (
+        "unknown" if age_seconds is None or age_seconds < 0
+        else "fresh" if age_seconds <= 90 * 60
+        else "recent" if age_seconds <= 3 * 3600
+        else "stale"
+    )
+    observed_at = observed.isoformat() if observed else ""
+    retrieved_at = str(data.get("retrieved_at") or "")[:64]
+    place_label = str(place or data.get("place") or "").strip()
+    reported_place = str(data.get("place") or "").strip()
+    if place and reported_place and place.casefold().strip() != reported_place.casefold():
+        return CapabilityOutcome(
+            status="unavailable", observation="La risposta meteo indica un luogo diverso da quello richiesto.",
+            provenance=ResultProvenance(
+                source_class="external_research", capability="weather.read", provider=provider,
+                source_refs=source_refs, observed_at=observed_at,
+                freshness="unknown", certainty_note="luogo della risposta non coerente con il luogo richiesto",
+            ),
+            error_type="weather_place_mismatch", retryable=True,
+        )
+    claims: List[Claim] = [Claim(
+        text=(f"Fonte meteo: {provider}; luogo richiesto: {place_label or 'non etichettato'}; "
+              f"osservazione: {observed_at or 'data/fuso non verificabili'}; "
+              f"fuso provider: {zone_name or 'non indicato'}; "
+              f"risposta letta da ORA: {retrieved_at or 'orario non indicato'}. "
+              "L'ora di lettura non aggiorna l'osservazione e la previsione non misura l'esito fisico.")[:600],
+        supports="provenienza, luogo e validità temporale del meteo",
+    )]
     current_bits = []
     if data.get("condition_label"):
         current_bits.append(str(data["condition_label"]))
@@ -827,14 +978,17 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
         current_bits.append(f"vento {data['wind_kmh']} km/h")
     if data.get("precipitation_mm") is not None:
         current_bits.append(f"precipitazioni {data['precipitation_mm']} mm")
-    place_label = str(data.get("place") or place or "").strip()
     if current_bits:
         claims.append(Claim(
-            text=(f"Meteo attuale{f' a {place_label}' if place_label else ''}: " + ", ".join(current_bits))[:500],
-            supports="condizioni meteo attuali",
+            text=(f"Condizioni riportate{f' a {place_label}' if place_label else ''} "
+                  f"all'osservazione {observed_at or 'di orario non verificabile'}: " + ", ".join(current_bits))[:600],
+            supports="condizioni meteo all'orario dell'osservazione",
         ))
 
-    hours = list(data.get("hours") or [])[:12]
+    hours = [hour for hour in list(data.get("hours") or [])[:12] if isinstance(hour, dict)]
+    dated_hours = [(hour, provider_moment(hour.get("datetime"))) for hour in hours]
+    future_hours = [(hour, moment) for hour, moment in dated_hours
+                    if moment is not None and moment.astimezone(timezone.utc) + timedelta(hours=1) > now]
     rain_values = [
         h.get("rain_chance_pct") for h in hours
         if isinstance(h, dict) and isinstance(h.get("rain_chance_pct"), (int, float))
@@ -846,18 +1000,18 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
     if rain_values:
         claims.append(Claim(
             text=(
-                f"Nelle prossime {len(hours)} ore la probabilità massima di pioggia "
+                "Nel profilo orario del provider la probabilità massima di pioggia "
                 f"indicata dal provider è {round(max(rain_values))}%."
             ),
-            supports="rischio di pioggia nelle prossime ore",
+            supports="probabilità di pioggia nel profilo orario, distinta dall'intensità",
         ))
     if temps:
         claims.append(Claim(
             text=(
-                f"Nelle prossime ore la temperatura prevista va circa da "
+                "Nel profilo orario del provider la temperatura prevista va circa da "
                 f"{round(min(temps))} a {round(max(temps))} °C."
             ),
-            supports="temperatura nelle prossime ore",
+            supports="temperatura nel profilo orario del provider",
         ))
 
     # Keep a short chronological profile when the provider supplied it.
@@ -865,10 +1019,9 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
     # any temporary life outcome. No coordinates or raw provider payload are
     # persisted.
     hourly_profile = []
-    for hour in hours[:6]:
-        if not isinstance(hour, dict):
-            continue
-        bits = [str(hour.get("time") or "")[:5]]
+    for hour, moment in dated_hours[:6]:
+        clock = moment.isoformat() if moment else str(hour.get("datetime") or hour.get("time") or "")[:64]
+        bits = [clock + (" (data/fuso non verificabili)" if moment is None else "")]
         if hour.get("temperature_c") is not None:
             bits.append(f"{hour['temperature_c']}°C")
         if hour.get("humidity_pct") is not None:
@@ -879,9 +1032,9 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
             bits.append(f"pioggia {hour['rain_chance_pct']}%")
         if len(bits) > 1:
             hourly_profile.append(", ".join(bits))
-    if hourly_profile:
+    for start in range(0, len(hourly_profile), 3):
         claims.append(Claim(
-            text=("Profilo previsto: " + " | ".join(hourly_profile))[:700],
+            text=("Profilo previsto: " + " | ".join(hourly_profile[start:start + 3]))[:600],
             supports="andamento orario delle condizioni ambientali",
         ))
 
@@ -901,16 +1054,26 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
                 supports="previsione meteo giornaliera",
             ))
 
-    if not claims:
+    valid_until = None
+    if freshness == "fresh" and (current_bits or future_hours):
+        # Re-read current conditions at the checkpoint. A far-future forecast
+        # horizon must not prolong the validity of an old current reading.
+        valid_until = observed.astimezone(timezone.utc) + timedelta(minutes=90)
+        if future_hours:
+            valid_until = min(valid_until, max(moment.astimezone(timezone.utc) + timedelta(hours=1)
+                                                for _, moment in future_hours))
+    provenance = ResultProvenance(
+        source_class="external_research", capability="weather.read", provider=provider,
+        source_refs=source_refs, observed_at=observed_at,
+        freshness=freshness, weather_valid_until=valid_until.isoformat() if valid_until else None,
+        certainty_note=(f"Osservazione del provider; fuso {zone_name or 'non indicato'}. "
+                        "Il recupero della risposta non prova l'attualità dei dati né l'esito fisico.")[:200],
+    )
+    if len(claims) == 1:
         return CapabilityOutcome(
             status="partial",
             observation="Il provider meteo ha risposto, ma senza dati utili per questo passo.",
-            provenance=ResultProvenance(
-                source_class="external_research",
-                capability="weather.read",
-                provider=str(weather_service.configured_provider() or "weather")[:60],
-                freshness="fresh",
-            ),
+            provenance=provenance,
             error_type="weather_insufficient",
             retryable=True,
         )
@@ -918,17 +1081,12 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
     return CapabilityOutcome(
         status="succeeded",
         observation=(
-            f"Ho letto il meteo reale{f' per {place_label}' if place_label else ''}: "
-            f"{len(claims)} elementi utili."
+            f"Ho letto la risposta meteo{f' per {place_label}' if place_label else ''}: "
+            f"{len(claims) - 1} elementi; "
+            + ("osservazione recente del provider." if freshness == "fresh" else
+               "dati non convalidati per una decisione attuale: occorre una lettura aggiornata.")
         ),
-        provenance=ResultProvenance(
-            source_class="external_research",
-            capability="weather.read",
-            provider=str(weather_service.configured_provider() or "weather")[:60],
-            source_refs=([pinned_ref] if pinned_ref else []),
-            freshness="fresh",
-            certainty_note="previsione letta ora dal provider configurato",
-        ),
+        provenance=provenance,
         claims=claims[:MAX_CLAIMS],
         data_ref="weather:forecast",
     )

@@ -1,3 +1,49 @@
+## 12 ottobre 2026 — v160: valutazione dell'esito utile della Situation
+
+`SituationState` conserva `desired_outcome` (scopo umano stabile) e
+`started_at` (inizio fisico solo se stabilito dall'utente o da un'osservazione).
+Creazione, modifica e avvio dell'attenzione restano orari amministrativi
+distinti. Ammissione, aggiornamento delle fonti e programmazione mantengono
+lo scopo anche quando cambia una previsione.
+L'omissione o `null` mantengono l'inizio già noto; una correzione esplicita
+con `started_at=""` rimuove un inizio precedentemente non fondato.
+
+Il ragionamento esistente propone una `SituationOutcomeAssessment` nelle
+fasi choose/reconsider/verify. Il goal già persistito ne conserva stato
+(`estimated`, `action_now`, `needs_input`), testo utile, finestra, scadenza,
+base, motivo e riferimenti alle evidenze. Il codice assegna identità, momento
+di valutazione e revisione; verifica ownership, fonte corrente, date con fuso
+e validità delle evidenze prima di proiettarla in `follow_up.outcome`.
+Non viene introdotto un secondo scheduler o un calcolatore specifico del bucato.
+
+Le osservazioni meteo mantengono luogo, ora del provider, recupero, fuso e date
+orarie. Recuperare adesso un dato vecchio non lo rende attuale. La selezione
+delle evidenze conserva le osservazioni recenti e le basi empiriche pertinenti;
+un timer o un bollettino, da soli, non concludono una previsione fisica.
+
+La consegna rilegge need, goal, Situation e valutazione corrente prima di
+valutare e inviare l'avviso. Solo un `important_outcome` ancora valido può
+restare consegnabile dopo il completamento del watch; le vecchie domande
+non acquisiscono questa eccezione. Una chiusura, revoca o nuova revisione
+impedisce l'avviso anche se un precedente tentativo di cancellare il goal
+non era riuscito. Il completamento interno del watch resta distinto dalla
+risoluzione della Situation fisica.
+
+Il legame con l'esito viene fissato prima di inserire un aggiornamento
+nell'outbox della Home. Recupero dopo riavvio e lettura di una riga già
+pubblicata rivalidano esito, fonte e parole mostrate. Un record storico non
+può riacquistare validità usando una valutazione successiva.
+
+Le superfici frontend condividono un helper e un componente per mostrare
+la finestra o l'azione prima dei dettagli dei controlli, con scadenza verificata
+anche a pagina aperta. `temporal_scope` non alimenta più il campo della stima.
+Il loop di conversazione conferma una chiusura realmente persistita anche
+se il modello l'ha accompagnata con un involucro tool vuoto; non maschera
+errori di tool effettivi o scritture fallite. I nuovi campi sono opzionali:
+nessuna migrazione distruttiva, nuova collezione o dipendenza di produzione.
+
+---
+
 ## 11 ottobre 2026 — v158: differenze finanziarie e prove della ricerca
 
 Le richieste di conferma finanziaria confrontano la proposta attiva con il

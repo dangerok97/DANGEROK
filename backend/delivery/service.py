@@ -130,6 +130,17 @@ class DeliveryService:
 
         kind = source_of(subject)
         subject_id = getattr(subject, "id", "")
+        if kind == "agent_need":
+            current = await self._current_agent_need(user_id, subject_id)
+            if current is None:
+                await self.cancel_for_source(
+                    user_id, subject_id, source_type=kind,
+                    reason="la richiesta o il suo esito non sono più attuali",
+                )
+                return DeliveryResult(blocked_by="agent_need_source_changed")
+            # Re-judgement sees the validated current need, not caller-held
+            # wording or a result from an older Situation attention cycle.
+            subject = current
         # Do not even ask a model to notify about a provably expired event.
         # The exact source is rechecked once more just before send.
         if kind == "opportunity":
@@ -148,23 +159,6 @@ class DeliveryService:
                     reason="l'appuntamento originario è già terminato",
                 )
                 return DeliveryResult(blocked_by="expired_source_event")
-        if kind == "agent_need" and getattr(subject, "goal_id", None):
-            from agent.repository import AgentRepository
-            from agent.service import AgentService, _aware_wait_until
-            goal = await AgentRepository(self.db).get_goal(
-                user_id, subject.goal_id
-            )
-            if goal is not None:
-                deadline = _aware_wait_until(goal.valid_until)
-                if (
-                    (deadline is not None and deadline <= datetime.now(timezone.utc))
-                    or await AgentService(self.db)._legacy_event_alert_expired(user_id, goal)
-                ):
-                    await self.cancel_for_source(
-                        user_id, subject_id, source_type=kind,
-                        reason="la richiesta dipende da un appuntamento terminato",
-                    )
-                    return DeliveryResult(blocked_by="expired_source_event")
         if kind == "opportunity" and getattr(subject, "source_context", "") == "recurring_memo":
             from memos.delivery_guard import memo_opportunity_current
 
@@ -360,6 +354,76 @@ class DeliveryService:
 
     # --- sending, much later ----------------------------------------------
 
+    async def _current_agent_need(self, user_id: str, need_id: str) -> Optional[Any]:
+        """Bind communication to its current owned work and Situation result.
+
+        Completing a watch can leave its useful result to communicate. It
+        cannot leave a question asking for authority/information, or revive
+        an outcome after the person has resolved, revoked or changed it.
+        """
+        from agent.needs import NeedService
+        from agent.repository import AgentRepository
+        from agent.service import AgentService, _aware_wait_until
+
+        need = await NeedService(self.db).get(user_id, need_id)
+        if need is None or not need.is_open:
+            return None
+        goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id)
+        if goal is None:
+            return None
+        now = _now()
+        for raw in (need.valid_until, goal.valid_until):
+            due = _aware_wait_until(raw)
+            if due is not None and due <= now:
+                return None
+        if await AgentService(self.db)._legacy_event_alert_expired(user_id, goal):
+            return None
+
+        watched = goal.source_kind in ("situation_initial_review", "situation_followup")
+        if not goal.is_open and not (
+            watched and goal.status == "completed" and need.kind == "important_outcome"
+        ):
+            return None
+        outcome = None
+        if watched:
+            if need.kind in ("important_outcome", "useful_result"):
+                from situations.outcomes import current_outcome, outcome_refs
+
+                if await self.db.delivery_plans.find_one({
+                    "owner_id": user_id, "source_type": "agent_need",
+                    "source_id": need.id, "status": "delivered",
+                }, {"_id": 0, "id": 1}):
+                    return None  # The same immutable assessment already arrived.
+                outcome = await current_outcome(
+                    self.db, user_id, goal, allow_settled=goal.status == "completed", now=now,
+                )
+                if outcome is None or not set(outcome_refs(outcome)) <= set(need.source_refs):
+                    return None
+                if goal.status == "completed" and outcome["status"] != "action_now":
+                    return None
+            else:
+                from agent.source_refresh import changed
+
+                # A failed best-effort cancellation must not leave an old
+                # question deliverable while its source is already closed.
+                if await changed(self.db, goal):
+                    return None
+        subject = need.as_subject()
+        if outcome:
+            subject["semantic_summary"] = (
+                f"{outcome['headline']} {outcome['action_summary']}"
+            )[:400]
+            if outcome["basis"] == "estimate":
+                subject["why_it_matters"] = (
+                    "È una stima, non una misura diretta dell'esito. " + subject["why_it_matters"]
+                )[:400]
+            if outcome.get("action_reason") == "early_risk":
+                subject["why_now"] = "L'azione evita un rischio; non conferma che l'esito atteso sia già raggiunto."
+            expiry = _aware_wait_until(outcome["valid_until"])
+            original = _aware_wait_until(subject.get("valid_until"))
+            subject["valid_until"] = min(expiry, original).isoformat() if original else expiry.isoformat()
+        return DeliverySubject.model_validate(subject)
+
     async def _current_subject_for_plan(
         self, user_id: str, plan: DeliveryPlan
     ) -> Optional[Any]:
@@ -370,6 +434,8 @@ class DeliveryService:
         needs are not opportunities, so they are reloaded through their own
         repository and adapted to DeliverySubject only at this boundary.
         """
+        if plan.owner_id != user_id:
+            return None
         if plan.source_type == "opportunity":
             from opportunities.repository import OpportunityRepository
 
@@ -400,30 +466,7 @@ class DeliveryService:
             return subject
 
         if plan.source_type == "agent_need":
-            from agent.needs import NeedService
-            from agent.repository import AgentRepository
-
-            needs = NeedService(self.db)
-            need = await needs.get(user_id, plan.source_id)
-            if need is None or not need.is_open:
-                return None
-
-            # A need cannot outlive the work that raised it. Normally the
-            # agent closes needs with the goal; this second check prevents a
-            # stale row or race from ever becoming a notification.
-            goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id)
-            if goal is None or not goal.is_open:
-                return None
-            # Do not deliver yesterday's request to resolve a time conflict
-            # for an event already ended, even if its Need remains open.
-            from agent.service import AgentService, _aware_wait_until
-            due = _aware_wait_until(goal.valid_until)
-            if due is not None and due <= datetime.now(timezone.utc):
-                return None
-            if await AgentService(self.db)._legacy_event_alert_expired(user_id, goal):
-                return None
-
-            return DeliverySubject.model_validate(need.as_subject())
+            return await self._current_agent_need(user_id, plan.source_id)
 
         return None
 
@@ -941,8 +984,68 @@ class DeliveryService:
         saying something anyway is the lie this whole layer is built to avoid.
         """
         latest = await self.repo.latest_ambient(user_id)
-        if latest is None or not latest.summary:
+        if latest is None or latest.owner_id != user_id or not latest.summary:
             return None
+        now = _now()
+        if latest.expires_at:
+            expiry = latest.expires_at
+            if expiry.tzinfo is None:  # Mongo stores UTC datetimes without an offset.
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if expiry <= now:
+                return None
+
+        # An accepted Home handoff is still a historical record. Reload its
+        # Situation before showing the line: TTL cleanup and best-effort goal
+        # cancellation can both happen later than the person's correction.
+        # Also find older activities carrying only the bare goal id, so they
+        # cannot present an unbound recap as a current result after upgrading.
+        refs = set(latest.source_refs)
+        goal_ids = set(refs)
+        if isinstance(latest.cognitive_provenance.get("goal"), str):
+            goal_ids.add(latest.cognitive_provenance["goal"])
+        bindings = {ref for ref in refs if ref.startswith((
+            "situation:", "situation_outcome:", "situation_revision:",
+        ))}
+        rows = await self.db.agent_goals.find({
+            "owner_id": user_id, "id": {"$in": list(goal_ids)},
+            "source_kind": {"$in": ["situation_initial_review", "situation_followup"]},
+        }, {"_id": 0}).to_list(2) if goal_ids else []
+        if not rows:
+            return None if bindings else latest.for_home()
+        if len(rows) != 1:
+            return None
+
+        from agent.models import AutonomousGoal
+        from agent.source_refresh import changed
+        from situations.outcomes import current_outcome, moment, situation_id
+
+        goal = AutonomousGoal.model_validate(rows[0])
+        expiry = moment(goal.valid_until)
+        if goal.valid_until and (expiry is None or expiry <= now):
+            return None
+        assessment = await current_outcome(
+            self.db, user_id, goal, allow_settled=goal.status == "completed", now=now,
+        )
+        if assessment:
+            # Activity refs are bounded more tightly than evidence refs.
+            # These two identifiers and the exact validated headline bind
+            # the visible words without requiring every truncated evidence id.
+            expected = {f"situation:{assessment['situation_id']}",
+                        f"situation_outcome:{assessment['id']}"}
+            if bindings != expected or latest.summary != assessment["headline"][:200]:
+                return None
+        else:
+            # A question can precede an estimate, but it belongs to one
+            # unresolved attention revision, never to a completed old watch.
+            sid = situation_id(goal)
+            revision = goal.source_situation.get("situation_revision")
+            expected = f"situation_revision:{sid}:{revision}"
+            if (not sid or not revision or not goal.is_open
+                    or not (goal.requires_user_input or goal.requires_user_authority)
+                    or expected not in bindings
+                    or not bindings.issubset({expected, f"situation:{sid}"})
+                    or await changed(self.db, goal)):
+                return None
         return latest.for_home()
 
 

@@ -1,3 +1,30 @@
+## 12 ottobre 2026 — v160: il momento utile della Situation
+
+Quando una persona segnala un'attività reale ancora in corso, ORA deve
+seguire il risultato che serve alla persona. Per esempio, dopo aver saputo
+che il bucato è steso, il risultato utile è sapere quando ritirarlo.
+Meteo, ricerca e controlli periodici sono il lavoro necessario per arrivarci.
+La prima informazione visibile è una finestra stimata sostenuta dalle fonti,
+oppure l'azione da compiere adesso con il motivo. Una previsione resta
+riconoscibile come stima; il trascorrere del tempo non misura lo stato fisico.
+
+La stessa valutazione alimenta mappa, Situation, Home e dettaglio. L'orario
+del prossimo controllo è consultabile nei dettagli, separato dal momento
+utile atteso. Una domanda compare soltanto se manca un dato concreto che
+impedisce di procedere. Una stima scaduta o riferita a una versione precedente
+non continua a essere presentata come attuale.
+
+L'azione anticipata per un rischio è distinta dal raggiungimento del risultato:
+ritirare prima della pioggia non equivale a sapere che il bucato è asciutto.
+ORA può terminare il proprio controllo quando ha individuato il momento
+utile e lasciare visibile l'avviso finale. La Situation fisica si chiude
+quando la persona conferma che è finita o la abbandona; a quel punto cessano
+i relativi controlli e gli avvisi precedenti. Un esempio ipotetico non crea
+una nuova attività reale. Nessuna regola per parola chiave o durata fissa
+del bucato viene aggiunta al prodotto.
+
+---
+
 ## 11 ottobre 2026 — v158: domande economiche e contesto delle verifiche
 
 Una domanda su informazioni economiche deve mostrare ciò che cambierebbe:

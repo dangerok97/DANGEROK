@@ -16,6 +16,7 @@ import { ora, oraType } from '@/src/theme/oraSurface';
 import { ContextualCardVisual } from './ContextualCardVisual';
 import { agoLabel, relativeDayLabel } from './homeItemView';
 import { aggiornamentoScaduto, quandoAggiornamento } from './aggiornamenti';
+import { SituationDetails, SituationOutcomeSummary } from '@/src/components/ora/SituationOutcomeSummary';
 
 /* -------------------------------------------------------------------------- */
 /* Shared section chrome                                                       */
@@ -701,6 +702,48 @@ export function AgentWorkRow({
   work: HomeAgentWork;
   onOpen?: () => void;
 }) {
+  const situation = work.situation;
+  if (situation) {
+    return (
+      <View style={styles.updateRow} testID={`home-agent-${work.id}`}>
+        <IconBubble name="time-outline" />
+        <View style={styles.updateBody}>
+          <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>{situation.summary}</Text>
+          <SituationOutcomeSummary compact
+            outcome={situation.outcome}
+            desiredOutcome={situation.desired_outcome}
+            situationRevision={situation.revision}
+            followupStatus={situation.followup_status}
+            testID={`home-situation-outcome-${work.id}`}
+          />
+          {work.needs_you ? <Text style={[oraType.body, { color: ora.attention }]}>
+            Domanda per te: {work.needs_you}
+          </Text> : null}
+          {work.problem ? <Text style={[oraType.small, { color: ora.attention }]}>{work.problem}</Text> : null}
+          <SituationDetails>
+            <Text style={[oraType.small, { color: ora.ink3 }]}>Fonte: {work.source || 'originale non disponibile'}</Text>
+            {situation.created_at ? <Text style={[oraType.small, { color: ora.ink3 }]}>
+              Registrata: {quandoAggiornamento(situation.created_at)}
+            </Text> : null}
+            {situation.monitor_diagnosis ? <Text style={[oraType.small, { color: ora.ink2 }]}>
+              {situation.monitor_diagnosis}
+            </Text> : null}
+            {situation.next_check_label ? <Text style={[oraType.small, { color: ora.ink2 }]}>
+              Prossimo controllo: {situation.next_check_label}
+            </Text> : null}
+            {situation.last_checked_at ? <Text style={[oraType.small, { color: ora.ink2 }]}>
+              Ultima verifica: {quandoAggiornamento(situation.last_checked_at)}
+            </Text> : null}
+            {situation.last_result ? <Text style={[oraType.small, { color: ora.ink2 }]}>{situation.last_result}</Text> : null}
+          </SituationDetails>
+          {onOpen ? <View style={styles.updateActions}>
+            <OraButton label="Apri dettagli" kind="secondary" compact onPress={onOpen}
+              testID={`home-agent-${work.id}-apri`} />
+          </View> : null}
+        </View>
+      </View>
+    );
+  }
   return (
     <View style={styles.updateRow} testID={`home-agent-${work.id}`}>
       <IconBubble name="document-text-outline" />

@@ -74,6 +74,9 @@ jobs:
       - name: Situation v157 initial review admission and checkpoint truth
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
+      - name: Situation useful outcome, weather time, final delivery and closure
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_situation_useful_outcome_v160.py tests/test_situation_weather_clock_v160.py tests/test_situation_outcome_delivery_v160.py tests/test_situation_outcome_visibility_v160.py tests/test_situation_completion_response_v160.py tests/test_situation_outcome_projection_v160.py -x
       - name: ORA native calendar without any external connector
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py -x
@@ -324,6 +327,9 @@ jobs:
       - name: Home calendar excludes task deadlines and review checkpoints
         working-directory: frontend
         run: node --experimental-strip-types --test src/components/home/v3/calendarItems.test.ts
+      - name: Situation useful time and action remain separate from internal checks
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts
       - name: ORA calendar month-grid regression
         working-directory: frontend
         run: node --experimental-strip-types src/components/calendar/nativeMonth.test.ts

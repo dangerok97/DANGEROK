@@ -39,6 +39,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+from situations.models import SituationOutcomeAssessment
+
 # Where a goal came from. Both go through the same engine — there is no
 # separate "autonomous" path, and a test enforces that.
 GoalOrigin = Literal["user_requested", "agent_initiated"]
@@ -208,6 +210,7 @@ class ResultProvenance(BaseModel):
     # Unknown on legacy evidence; this does not certify geographic relevance.
     research_sufficient: Optional[bool] = None
     research_valid_until: Optional[str] = None
+    weather_valid_until: Optional[str] = None
     # In words, when the model needs to know how much to lean on it.
     certainty_note: str = Field(default="", max_length=200)
 
@@ -219,12 +222,14 @@ class ResultProvenance(BaseModel):
     def for_ai(self) -> Dict[str, Any]:
         return {
             "where_this_came_from": self.source_class,
+            "capability": self.capability,
             "source_refs": list(self.source_refs),
             "observed_at": self.observed_at,
             "really_happened": self.is_real,
             "how_old": self.freshness,
             "research_sufficient": self.research_sufficient,
             "research_valid_until": self.research_valid_until,
+            "weather_valid_until": self.weather_valid_until,
             "note": self.certainty_note or None,
         }
 
@@ -259,6 +264,7 @@ class AgentEvidence(BaseModel):
 
     def for_ai(self) -> Dict[str, Any]:
         return {
+            "evidence_id": self.id,
             "what_was_found": self.claim,
             "bears_on": self.supports or None,
             **self.provenance.for_ai(),
@@ -688,6 +694,7 @@ class AutonomousGoal(BaseModel):
     source_review_pending: str = Field(default="", exclude=True)
     prepared_text: str = Field(default="", max_length=4000)
     prepared_sources: List[str] = Field(default_factory=list, max_length=12)
+    situation_outcome: Optional[SituationOutcomeAssessment] = None
 
     def touch(self) -> None:
         self.updated_at = now_iso()
@@ -798,6 +805,7 @@ class AutonomousGoal(BaseModel):
             "success_criteria": self.success_criteria,
             "stop_conditions": self.stop_conditions,
             "status": self.status,
+            "situation_outcome": self.situation_outcome.model_dump() if self.situation_outcome else None,
         }
 
 

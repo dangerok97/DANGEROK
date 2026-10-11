@@ -25,7 +25,7 @@ def concrete_need(need):
 
 
 async def situation_card(db, owner_id, goal):
-    if goal.source_kind != "situation_followup":
+    if goal.source_kind not in ("situation_followup", "situation_initial_review"):
         return None
     refs = [str(ref).split(":", 1)[1] for ref in goal.source_refs
             if str(ref).startswith("situation:")]
@@ -35,6 +35,8 @@ async def situation_card(db, owner_id, goal):
     if not situation or situation.status not in ("active", "changed"):
         return {"inactive": True}
     tracking = await read_followup(db, owner_id, situation.id)
+    if tracking.get("goal_id") and tracking["goal_id"] != goal.id:
+        return {"inactive": True}
     # Read the *stored* tracking purpose/notification rule. A planned check is
     # not proof that it ran or that an expected physical state already occurred.
     return {
@@ -47,6 +49,8 @@ async def situation_card(db, owner_id, goal):
             "created_at": situation.created_at,
             "current_state": situation.current_state_summary or None,
             "expected_outcome": situation.expected_outcome_summary or None,
+            "desired_outcome": tracking.get("desired_outcome"),
+            "outcome": tracking.get("outcome"),
             "reason": situation.attention_intent or None,
             "tracking": situation.tracking_summary or None,
             "next_check_reason": situation.next_check_summary or None,

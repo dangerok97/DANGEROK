@@ -896,7 +896,7 @@ class AgentService:
         budget.cognitive_calls += 1
         run.model_calls = budget.cognitive_calls
         answer = await choose_next_action(
-            goal.for_ai(),
+            await self._reasoning_goal(owner_id, goal),
             plan=plan.for_ai(),
             candidates=[s.for_ai() for s in pending],
             evidence=for_verification(evidence),
@@ -906,6 +906,8 @@ class AgentService:
         )
         if answer is None:
             return ("stalled", None)
+
+        await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
 
         decision = answer["decision"]
         chosen = next((s for s in pending if s.id == str(answer.get("step_id") or "")), None)
@@ -1358,6 +1360,15 @@ class AgentService:
         )
         return plan
 
+    async def _reasoning_goal(self, owner_id, goal):
+        """Carry the current useful outcome and physical start across checkpoints."""
+        payload = goal.for_ai()
+        context, unavailable = await self._planning_source_context(owner_id, goal)
+        if context or unavailable:
+            payload["source_context"] = context
+            payload["source_context_unavailable"] = unavailable
+        return payload
+
     @staticmethod
     def _read_step(raw: Any, ordinal: int) -> Optional[ActionStep]:
         if not isinstance(raw, dict):
@@ -1423,7 +1434,7 @@ class AgentService:
         run.model_calls = budget.cognitive_calls
         run.replans += 1
         answer = await reconsider(
-            goal.for_ai(),
+            await self._reasoning_goal(owner_id, goal),
             plan=plan.for_ai(),
             what_happened=what_happened,
             capabilities=await self.capabilities.available(owner_id),
@@ -1432,6 +1443,8 @@ class AgentService:
         )
         if answer is None:
             return await self._pause(owner_id, goal, plan, run, "il giudizio non era disponibile")
+
+        await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
 
         decision = answer["decision"]
         note = str(answer.get("reasoning") or "")[:300]
@@ -1561,12 +1574,13 @@ class AgentService:
         budget.cognitive_calls += 1
         run.model_calls = budget.cognitive_calls
         answer = await verify_goal(
-            goal.for_ai(),
+            await self._reasoning_goal(owner_id, goal),
             evidence={
                 "what_was_found": for_verification(evidence),
                 "steps": [s.for_ai() for s in plan.steps],
                 "what_was_prepared": intents,
                 "prepared_result": goal.prepared_text or None,
+                "local_clock": await _user_clock_context(self.db, owner_id),
                 # What services said back, and the warning that goes with it.
                 "what_the_services_said": [
                     ExecutionReceipt.model_validate(r).for_ai() for r in receipts
@@ -1576,6 +1590,8 @@ class AgentService:
         )
         if answer is None:
             return await self._pause(owner_id, goal, plan, run, "la verifica non era disponibile")
+
+        await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
 
         verification = GoalVerification(
             goal_id=goal.id,
@@ -1594,6 +1610,20 @@ class AgentService:
         )
 
         if verification.outcome == "achieved":
+            if goal.source_kind in ("situation_initial_review", "situation_followup"):
+                from situations.outcomes import current_outcome, moment
+                assessment = await current_outcome(self.db, owner_id, goal)
+                if (not assessment or assessment["status"] != "action_now"
+                        or moment(assessment["assessed_at"]) < moment(run.at)):
+                    await self.repo.journal(
+                        owner_id, goal.id, kind="completion_refused",
+                        note="La lettura delle fonti non è ancora una valutazione utile del momento d'azione.",
+                        detail={"model_said": "achieved", "reason": "situation_action_assessment_required"},
+                    )
+                    return await self._pause(
+                        owner_id, goal, plan, run,
+                        "Manca ancora una valutazione attuale di quando agire; il solo controllo delle condizioni non conclude il lavoro.",
+                    )
             refusal = _why_not_complete(evidence, intents, receipts)
             if refusal:
                 # The gate. Two ways of not being allowed to finish, and both
@@ -1810,6 +1840,17 @@ class AgentService:
             wait_hours=hours,
             now=now,
         )
+        if situation_wait:
+            from situations.outcomes import current_outcome, moment
+            assessment = await current_outcome(self.db, owner_id, goal)
+            if assessment:
+                # A useful estimate cannot lose its supporting live evidence
+                # while the only next read is hours later. This bounds a
+                # re-evaluation, never the estimated physical completion time.
+                expiry = moment(assessment["valid_until"])
+                if expiry:
+                    due = min(due, max(now + timedelta(seconds=30), expiry - timedelta(seconds=30)))
+                    total_minutes = max(1, math.ceil((due - now).total_seconds() / 60))
         for_hours = (
             total_minutes // 60
             if total_minutes % 60 == 0
@@ -1836,6 +1877,9 @@ class AgentService:
                                    and research_until > now))
                           and any(not ref.startswith(("situation:", "goal:", "plan:", "agent:"))
                                   for ref in e.provenance.source_refs)]
+            from situations.outcomes import weather_evidence_current
+            supporting = [e for e in supporting if e.provenance.capability != "weather.read"
+                          or await weather_evidence_current(self.db, owner_id, goal, [e], now=now)]
             promote = explicit_time and total_minutes <= 72 * 60 and real_support(supporting)
         if promote:
             from ambient.repository import AmbientRepository
@@ -2022,6 +2066,31 @@ class AgentService:
 
     # --- whether to say anything about it ----------------------------------
 
+    async def _record_situation_outcome(self, owner_id, goal, raw, run):
+        """Persist the existing model's judgement only with an intact source binding."""
+        if raw is None or goal.source_kind not in ("situation_initial_review", "situation_followup"):
+            return False
+        from situations.outcomes import validate_assessment, current_outcome
+        assessment = await validate_assessment(
+            self.db, owner_id, goal, raw,
+            evidence=await self.evidence.for_goal(owner_id, goal.id), run_at=run.at,
+        )
+        saved = await self.db.agent_goals.update_one({
+            "id": goal.id, "owner_id": owner_id, "status": {"$in": ["active", "waiting"]},
+            "source_situation.situation_revision": goal.source_situation.get("situation_revision"),
+        }, {"$set": {"situation_outcome": assessment.model_dump() if assessment else None}})
+        if not saved.matched_count:
+            return False
+        goal.situation_outcome = assessment
+        await self.repo.journal(
+            owner_id, goal.id,
+            kind="situation_outcome_assessed" if assessment else "situation_outcome_rejected",
+            note=assessment.headline if assessment else "La proposta non aveva tempi, revisione e fonti sufficienti per essere mostrata.",
+            detail={"outcome_id": assessment.id if assessment else None,
+                    "status": assessment.status if assessment else None},
+        )
+        return assessment is not None and await current_outcome(self.db, owner_id, goal) is not None
+
     async def _consider_visibility(
         self, owner_id: str, goal_id: str, run: AgentRun, budget: AgentBudget,
         *, language: str = "it",
@@ -2103,6 +2172,25 @@ class AgentService:
         if kind is None:
             return None
 
+        outcome = None
+        if goal.source_kind in ("situation_initial_review", "situation_followup"):
+            from situations.outcomes import current_outcome, outcome_refs
+            outcome = await current_outcome(self.db, owner_id, goal, allow_settled=True)
+            if kind in ("important_outcome", "useful_result"):
+                if not outcome:
+                    return None
+                if goal.status == "completed" and outcome["status"] != "action_now":
+                    return None
+                bound = [ref for ref in decision.refs if ref.startswith("situation_outcome:")]
+                if decision.refs and bound != [f"situation_outcome:{outcome['id']}"]:
+                    # A visibility judgement about an older result cannot be
+                    # relabelled with a newer result while being handed off.
+                    return None
+                decision.refs = outcome_refs(outcome)
+                decision.headline = outcome["headline"][:200]
+                if outcome["status"] == "action_now":
+                    kind = "important_outcome"
+
         need = CommunicationNeed(
             owner_id=owner_id,
             goal_id=goal.id,
@@ -2123,7 +2211,8 @@ class AgentService:
                 if row.get("really_happened")
             ][:6],
             what_is_missing=_what_is_missing(goal),
-            valid_until=goal.valid_until,
+            valid_until=outcome["valid_until"] if outcome else goal.valid_until,
+            fingerprint=f"situation_outcome:{outcome['id']}" if outcome else "",
         )
         raised = await self.needs.raise_need(need)
         await self.repo.journal(
@@ -2166,7 +2255,14 @@ class AgentService:
         found = [e.for_ai() for e in evidence if e.is_real][-6:]
         refs.extend(e.id for e in evidence if e.is_real)
 
+        outcome = None
+        if goal.source_kind in ("situation_initial_review", "situation_followup"):
+            from situations.outcomes import current_outcome, outcome_refs
+            outcome = await current_outcome(self.db, owner_id, goal, allow_settled=True)
+            if outcome:
+                refs = [*outcome_refs(outcome), *refs]
         return {
+            "situation_outcome": outcome,
             "what_ora_did_this_time": did[-8:],
             "what_it_found": found,
             "how_it_stands": {
@@ -2737,6 +2833,11 @@ class AgentService:
         }, {"_id": 0}).sort("completed_at", -1).to_list(1)
         for row in completed:
             goal = AutonomousGoal.model_validate(row)
+            if goal.source_kind in ("situation_initial_review", "situation_followup"):
+                card = await self._open_card(owner_id, goal)
+                if not card.get("stale") and (card.get("situation") or {}).get("outcome"):
+                    out.append(card)
+                continue
             # Only verified work with real evidence becomes a completed card.
             evidence = await self.evidence.for_goal(owner_id, goal.id)
             if not real_support(evidence):
@@ -2787,6 +2888,9 @@ class AgentService:
             card = await self._open_card(owner_id, goal)
             return None if card.get("stale") else card
         if goal.status == "completed":
+            if goal.source_kind in ("situation_initial_review", "situation_followup"):
+                card = await self._open_card(owner_id, goal)
+                return card if not card.get("stale") and (card.get("situation") or {}).get("outcome") else None
             evidence = await self.evidence.for_goal(owner_id, goal.id)
             if real_support(evidence):
                 return {**goal.for_human(), "state": "Verifica completata",
@@ -2875,7 +2979,7 @@ class AgentService:
             scheda["what"] = situation["summary"]
             scheda["why_now"] = situation["reason"] or goal.why_now
             scheda["source"] = "Situazione temporanea registrata in ORA"
-            scheda["outcome"] = situation["expected_outcome"] or goal.desired_outcome
+            scheda["outcome"] = situation["desired_outcome"] or goal.desired_outcome
         if not monitored:
             scheda["source"] = await self._where_it_really_came_from(owner_id, goal)
         scheda["unknown"] = scheda.pop("unclear", "") or self._what_is_still_vague(goal)
@@ -2918,7 +3022,8 @@ class AgentService:
             )
             scheda["state"] = scheda["problem"]
 
-        needs = await self.needs.open_for_goal(owner_id, goal.id)
+        needs = [need for need in await self.needs.open_for_goal(owner_id, goal.id)
+                 if need.kind in ("needs_information", "needs_authority")]
         if needs:
             question = concrete_need(needs[0])
             if question:
@@ -2938,15 +3043,20 @@ class AgentService:
             scheda["next_step"] = ""
         if monitored:
             tracking = monitored["situation"]
-            label = tracking.get("next_check_label")
             status = tracking.get("followup_status")
-            if status in ("scheduled", "due") and label:
-                scheda["next_step"] = f"Prossimo controllo programmato: {label}."
-            elif status == "running":
-                scheda["next_step"] = "Sto verificando le condizioni; non presumo che l'esito sia già avvenuto."
-            elif status in ("not_scheduled", "recovery_pending", "runtime_disabled", "unavailable"):
+            outcome = tracking.get("outcome")
+            # Concrete result/window lives only in the expiry-aware DTO. The
+            # surrounding state stays a short category and never duplicates a
+            # recommendation which an already-open page could keep after expiry.
+            scheda["state"] = "Situazione in corso"
+            if outcome:
+                scheda["state"] = {"estimated": "Stima disponibile", "action_now": "Indicazione disponibile",
+                                   "needs_input": "Serve un'informazione"}[outcome["status"]]
+                scheda["next_step"] = outcome["action_summary"] or outcome["headline"]
+            elif not scheda.get("needs_you"):
+                scheda["next_step"] = "La stima del momento utile non è ancora disponibile."
+            if status in ("not_scheduled", "recovery_pending", "runtime_disabled", "unavailable"):
                 scheda["problem"] = "Non risulta un prossimo controllo confermato per questa situazione."
-                scheda["next_step"] = scheda["problem"]
             if goal.requires_user_input and not scheda.get("needs_you"):
                 scheda["next_step"] = "Serve un chiarimento preciso da ORA prima di poter rispondere."
         return scheda
@@ -3160,11 +3270,21 @@ class AgentService:
         try:
             from delivery.service import DeliveryService
 
+            summary = goal.rationale[:200] if finished else ""
+            source_refs = [goal.id]
+            if goal.source_kind in ("situation_initial_review", "situation_followup"):
+                from situations.outcomes import current_outcome, outcome_refs
+                assessment = await current_outcome(self.db, owner_id, goal, allow_settled=True)
+                finished = finished and bool(assessment)
+                summary = assessment["headline"] if finished else ""
+                if assessment:
+                    source_refs.extend(outcome_refs(assessment))
+
             await DeliveryService(self.db).note_activity(
                 owner_id,
                 kind="review_completed",
-                summary=goal.rationale[:200] if finished else "",
-                source_refs=[goal.id],
+                summary=summary,
+                source_refs=source_refs,
                 provenance={"agent": kind, "objective": goal.objective[:120]},
                 visible=finished,
             )
@@ -3422,7 +3542,7 @@ def _human_state(goal) -> str:
     if goal.status == "waiting" and goal.requires_user_input:
         return "Mi manca una cosa che sai solo tu."
     if goal.status == "waiting":
-        return "Sto aspettando una risposta."
+        return "L'esito è ancora in attesa di verifica."
     if goal.status == "completed":
         return "Fatto."
     return "Me ne sto occupando."

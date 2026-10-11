@@ -79,6 +79,7 @@ async def _refresh_situation(service, goal):
     )
     await service.needs.close_for_goal(goal.owner_id, goal.id, why="Situazione aggiornata")
     goal.prepared_text, goal.prepared_sources = "", []
+    goal.situation_outcome = None
     goal.requires_user_input = goal.requires_user_authority = False
     goal.background_runs = 0
     goal.user_deferred_until = None
@@ -94,8 +95,8 @@ async def _refresh_situation(service, goal):
             attention_started_at=now.isoformat(),
             attention_expected="true" if row.get("attention_intent") or row.get("next_check_summary") else "false",
         )
-        goal.objective = f"Rivalutare la situazione temporanea: {row.get('summary') or ''}"[:280]
-        goal.desired_outcome = str(row.get("expected_outcome_summary") or row.get("attention_intent")
+        goal.objective = str(row.get("desired_outcome") or row.get("summary") or goal.objective)[:280]
+        goal.desired_outcome = str(row.get("desired_outcome") or row.get("attention_intent")
                                    or row.get("next_check_summary") or goal.desired_outcome)[:400]
         goal.source_refs = [f"situation:{row['id']}", *list(row.get("linked_object_refs") or [])][:8]
     await service.repo.save_goal(goal)

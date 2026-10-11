@@ -36,6 +36,7 @@ already owns it.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
@@ -133,6 +134,15 @@ class VisibilityService:
         if not decision.is_visible:
             return decision
 
+        if not await self._situation_decision_current(
+            owner_id, goal, decision, bind=True,
+            topic=str(answer.get("about") or ""),
+        ):
+            decision.outcome = "silent"
+            decision.decided_by = "code"
+            decision.quietened_by_code = "la valutazione della situazione non è più attuale"
+            return decision
+
         if not decision.headline:
             # Something to show, and nothing to show. Whatever went wrong,
             # an empty line on a screen is worse than no line.
@@ -164,6 +174,77 @@ class VisibilityService:
             decision.decided_by = "code"
             decision.quietened_by_code = "aggiornamento già registrato o archivio non disponibile"
         return decision
+
+    async def _situation_decision_current(
+        self, owner_id, goal, decision, *, bind=False, topic="",
+    ) -> bool:
+        """The outbox may carry only the exact current Situation judgement.
+
+        Bind before recording, then verify the same result before each Home
+        handoff. An older pending update must never borrow a newer assessment
+        or replay the model's unvalidated weather recap after a restart.
+        """
+        watched = goal.source_kind in ("situation_initial_review", "situation_followup")
+        bound_refs = [ref for ref in decision.refs
+                      if ref.startswith(("situation_outcome:", "situation_revision:"))]
+        if not watched and not bound_refs:
+            return True
+
+        from agent.repository import AgentRepository
+        from agent.source_refresh import changed
+        from situations.outcomes import current_outcome, moment, outcome_refs, situation_id
+
+        current = await AgentRepository(self.db).get_goal(owner_id, goal.id)
+        if (current is None or current.owner_id != owner_id
+                or current.source_kind not in ("situation_initial_review", "situation_followup")
+                or situation_id(current) != situation_id(goal)
+                or current.source_situation.get("situation_revision")
+                != goal.source_situation.get("situation_revision")):
+            return False
+        assessment = await current_outcome(self.db, owner_id, current, allow_settled=True)
+        if assessment:
+            refs = outcome_refs(assessment)
+            # The judgement must concern the assessment it was actually shown.
+            # Replays use an even stronger exact wording/reference match.
+            if f"situation_outcome:{assessment['id']}" not in decision.refs:
+                return False
+            if not bind:
+                return (set(decision.refs) == set(refs)
+                        and decision.headline == assessment["headline"][:200])
+            decision.headline = assessment["headline"][:200]
+            decision.reasoning = assessment["action_summary"] or decision.headline
+            decision.refs = refs
+            # The model still recognises semantic repetition. A changed action
+            # or time window cannot collide with an earlier estimate merely
+            # because it used the same short topic description.
+            structure = {key: assessment.get(key) for key in (
+                "assessment_revision", "status", "basis", "action_reason",
+            )}
+            for key in ("window_start", "window_end"):
+                instant = moment(assessment.get(key))
+                structure[key] = instant.astimezone(timezone.utc).isoformat() if instant else None
+            decision.fingerprint = _fingerprint(
+                goal.id + "|" + json.dumps(structure, sort_keys=True), topic, decision.headline,
+            )
+            return True
+
+        # A concrete unresolved question may be communicated without an
+        # estimate, but it must stop with this exact owned attention revision.
+        if (bound_refs and any(ref.startswith("situation_outcome:") for ref in bound_refs)
+                or not current.is_open
+                or not (current.requires_user_input or current.requires_user_authority)
+                or await changed(self.db, current)):
+            return False
+        sid = situation_id(current)
+        revision = current.source_situation.get("situation_revision")
+        if not sid or not revision:
+            return False
+        ref = f"situation_revision:{sid}:{revision}"
+        if bind:
+            decision.refs = [ref, *[value for value in decision.refs if value != ref]][:8]
+            decision.fingerprint = _fingerprint(goal.id + "|" + ref, topic, decision.headline)
+            return True
+        return ref in decision.refs
 
     async def recent(self, owner_id: str) -> List[Dict[str, Any]]:
         """What they have already been told, so the model can hear itself."""
@@ -222,6 +303,15 @@ class VisibilityService:
             f"{owner_id}|{decision.fingerprint}".encode("utf-8")
         ).hexdigest()[:24]
         try:
+            if not await self._situation_decision_current(owner_id, goal, decision):
+                await self.db[UPDATES].update_one(
+                    {"owner_id": owner_id, "fingerprint": decision.fingerprint,
+                     "home_pending": True},
+                    {"$set": {"home_pending": False,
+                              "home_skipped": "situation_no_longer_current"},
+                     "$unset": {"home_due_at": ""}},
+                )
+                return False
             from delivery.service import DeliveryService
 
             await DeliveryService(self.db).note_activity(
@@ -299,7 +389,11 @@ class VisibilityService:
                 if await self.show(owner, goal, decision):
                     results["shown"] += 1
                 else:
-                    results["deferred"] += 1
+                    skipped = await self.db[UPDATES].find_one(
+                        {"owner_id": owner, "fingerprint": fingerprint,
+                         "home_skipped": "situation_no_longer_current"}, {"_id": 1},
+                    )
+                    results["stale" if skipped else "deferred"] += 1
             except Exception as exc:
                 logger.info("home outbox deferred: %s", type(exc).__name__)
                 results["deferred"] += 1
