@@ -6,6 +6,8 @@ plan are model-owned and the code only enforces evidence/authority boundaries.
 """
 
 from unittest.mock import AsyncMock
+from datetime import datetime, timedelta, time, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 from mongomock_motor import AsyncMongoMockClient
@@ -20,6 +22,25 @@ from opportunities.snapshot import _documents
 
 
 OWNER = "alice"
+_MONTH_NAMES = (
+    "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+    "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre",
+)
+
+
+def _future_renewal_fixture():
+    """Scenario 'before the cancellation deadline' stays true on any CI date.
+
+    The original static cutoff was 10 October 2026. On 11 October the agent
+    correctly abandoned it, while this test still expected a comparison.
+    Never weaken production expiry rules to make a historical fixture pass.
+    """
+    today = datetime.now(ZoneInfo("Europe/Rome")).date()
+    cutoff = today + timedelta(days=4)
+    renewal = today + timedelta(days=14)
+    label = lambda d: f"{d.day} {_MONTH_NAMES[d.month - 1]} {d.year}"
+    expiry = datetime.combine(cutoff, time(23, 59, 59), tzinfo=ZoneInfo("Europe/Rome"))
+    return label(renewal), label(cutoff), expiry.isoformat()
 
 
 def _document(text: str):
@@ -29,19 +50,19 @@ def _document(text: str):
         "filename": "polizza_casa.txt",
         "display_title": "Polizza casa",
         "extracted_text": text,
-        "created_at": "2026-10-05T12:00:00+00:00",
-        "updated_at": "2026-10-05T12:00:00+00:00",
+        "created_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+        "updated_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
         "archived": False,
         "deleted": False,
     }
 
 
 async def _snapshot(db):
-    docs = await _documents(db, OWNER, __import__("datetime").datetime.now(__import__("datetime").timezone.utc))
+    docs = await _documents(db, OWNER, datetime.now(timezone.utc))
     return {
         "documents": docs,
         "unavailable_sources": [],
-        "clock": {"local_date": "2026-10-05", "timezone": "Europe/Rome"},
+        "clock": {"local_date": datetime.now(ZoneInfo("Europe/Rome")).date().isoformat(), "timezone": "Europe/Rome"},
         "what_changed": [{
             "source": "documents",
             "kind": "document.updated",
@@ -65,12 +86,13 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
 
     monkeypatch.setattr(mongomock.collection.Collection, "find_one_and_update", update)
 
+    renewal_label, cutoff_label, cutoff_expires = _future_renewal_fixture()
     db = AsyncMongoMockClient().test
     await db.agent_runs.create_index("goal_id", unique=True)
     await db.documents.insert_one(_document(
         "POLIZZA CASA. Premio annuo 420 euro. "
-        "Scadenza 20 ottobre 2026. Rinnovo automatico attivo. "
-        "Disdetta entro il 10 ottobre 2026. Copertura incendio e responsabilità civile."
+        f"Scadenza {renewal_label}. Rinnovo automatico attivo. "
+        f"Disdetta entro il {cutoff_label}. Copertura incendio e responsabilità civile."
     ))
 
     state = await _snapshot(db)
@@ -78,7 +100,7 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
     async def opportunity_scan(snapshot, **kwargs):
         preview = snapshot["documents"][0]
         assert preview["ref"] == "document:policy_v80"
-        assert "20 ottobre 2026" in preview["unverified_excerpt"]
+        assert renewal_label in preview["unverified_excerpt"]
         assert "Rinnovo automatico attivo" in preview["unverified_excerpt"]
         return {
             "opportunities": [{
@@ -88,7 +110,7 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
                     "Prima della finestra di disdetta è utile verificare condizioni "
                     "e alternative senza cambiare nulla automaticamente."
                 ),
-                "why_now": "La scadenza dichiarata è il 20 ottobre 2026.",
+                "why_now": f"La scadenza dichiarata è il {renewal_label}.",
                 "initiative": "prepare",
                 "what_i_can_do": (
                     "Posso leggere le condizioni, cercare alternative attuali e "
@@ -103,7 +125,7 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
                 "clarifying_question": "",
                 "needs_research": True,
                 "research_question": "Alternative attuali compatibili per una polizza casa",
-                "valid_until": "2026-10-10T23:59:59+02:00",
+                "valid_until": cutoff_expires,
             }]
         }
 
@@ -238,11 +260,11 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
     monkeypatch.setattr(providers, "do_research", research)
 
     prepared_content = (
-        "Polizza attuale: 420 euro annui; rinnovo automatico attivo il 20 ottobre 2026. "
-        "Il documento indica disdetta entro il 10 ottobre 2026. "
+        f"Polizza attuale: 420 euro annui; rinnovo automatico attivo il {renewal_label}. "
+        f"Il documento indica disdetta entro il {cutoff_label}. "
         "Alternativa osservata: circa 360 euro annui con coperture incendio e "
         "responsabilità civile; eleggibilità e preventivo finale vanno confermati. "
-        "Finestra decisionale: confrontare e decidere prima del 10 ottobre; "
+        f"Finestra decisionale: confrontare e decidere prima del {cutoff_label}; "
         "nessuna disdetta o cambio è stato eseguito."
     )
 
@@ -252,7 +274,7 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
         data = json.loads(payload)
         if "Audit this draft" in system:
             ids = [row["id"] for row in data["evidence"]]
-            assert "10 ottobre 2026" in data["draft"]
+            assert cutoff_label in data["draft"]
             return {
                 "verified": True,
                 "content": prepared_content,
@@ -270,7 +292,7 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
         blob = str(evidence)
         assert "420 euro" in blob
         assert "360 euro" in blob
-        assert "10 ottobre 2026" in str(evidence["prepared_result"])
+        assert cutoff_label in str(evidence["prepared_result"])
         return {
             "outcome": "achieved",
             "reasoning": "Condizioni, alternativa e finestra decisionale sono documentate con fonti.",
@@ -292,7 +314,7 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
     assert saved is not None
     assert "420 euro" in saved.prepared_text
     assert "360 euro" in saved.prepared_text
-    assert "10 ottobre 2026" in saved.prepared_text
+    assert cutoff_label in saved.prepared_text
     assert saved.prepared_sources
     assert await db.agent_receipts.count_documents({"owner_id": OWNER}) == 0
 
