@@ -150,7 +150,7 @@ class EligibilityService:
             # missing alarm forever. A lost wake must trigger recovery
             # even if the goal row is still active.
             if (
-                open_goal.get("source_kind") == "situation_followup"
+                open_goal.get("source_kind") in ("situation_followup", "situation_initial_review")
                 and not open_goal.get("requires_user_input")
                 and not open_goal.get("requires_user_authority")
             ):
