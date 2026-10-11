@@ -58,7 +58,15 @@ async def test_saved_attention_is_reconsidered_and_real_tool_schedules_it(monkey
     assert followup['next_check_at'] == due
     assert followup['last_checked_at'] is None
     assert await db.agent_goals.count_documents({'owner_id': session.user_id}) == 1
-    assert await db.ambient_wakes.count_documents({'owner_id': session.user_id}) == 1
+    # The new first-review admission leaves a cancelled historical wake.
+    # Only ONE actual monitoring checkpoint may remain executable.
+    assert await db.ambient_wakes.count_documents({
+        'owner_id': session.user_id,
+        'status': {'$in': ['pending', 'claimed']},
+    }) == 1
+    assert await db.ambient_wakes.count_documents({
+        'owner_id': session.user_id, 'status': 'cancelled',
+    }) == 1
 
 
 @pytest.mark.asyncio
