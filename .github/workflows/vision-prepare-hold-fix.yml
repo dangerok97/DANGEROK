@@ -1,0 +1,45 @@
+name: Prepare Vision hold and close fix
+on:
+  push:
+    branches: [qa/vision-held-close-20261011]
+    paths: ['.github/workflows/vision-prepare-hold-fix.yml', 'scripts/vision_hold_patch.py']
+permissions:
+  contents: write
+concurrency:
+  group: prepare-vision-hold-fix
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply only reviewed Vision source changes on the observed base
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/vision_hold_patch.py "$RUNNER_TEMP/vision_hold_patch.py"
+          git fetch --depth=1 origin 8e9b878a5c1665c41e5e2046ab17e87dc0ad5134
+          git checkout --detach FETCH_HEAD
+          python "$RUNNER_TEMP/vision_hold_patch.py"
+          python -m py_compile backend/vision_catalog.py backend/vision_xray.py backend/vision_tests/test_catalog.py
+          git add -- backend/vision_catalog.py backend/vision_xray.py backend/vision_tests/test_catalog.py frontend/src/vision-xray/LiveExplorer.web.tsx frontend/src/vision-xray/catalogApi.ts frontend/e2e/vision-live.spec.ts docs/VISION_HOLD_SHARED_20261011.md
+          git diff --cached --check
+          test "$(git diff --cached --name-only | wc -l)" -eq 7
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(vision): keep exploded diagram until X and share new generic recipes automatically'
+          git push origin HEAD:refs/heads/fix/vision-held-close-shared-v2
+          mkdir -p "$RUNNER_TEMP/vision-fix-evidence"
+          git rev-parse HEAD | tee "$RUNNER_TEMP/vision-fix-evidence/commit.txt"
+          git show --stat --oneline HEAD | tee "$RUNNER_TEMP/vision-fix-evidence/changed-files.txt"
+          git show --format= HEAD > "$RUNNER_TEMP/vision-fix-evidence/source.patch"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vision-hold-source-change
+          path: ${{ runner.temp }}/vision-fix-evidence/
+          retention-days: 7
