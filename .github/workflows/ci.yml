@@ -71,6 +71,9 @@ jobs:
             tests/test_vita_flow_v3213c.py \
             tests/test_vita_semantics_v3213d.py \
             tests/test_vita_state_semantics_v3213e.py
+      - name: Situation v157 initial review admission and checkpoint truth
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_situation_initial_admission_v157.py tests/test_followup_diagnostics_v149.py -x
       - name: ORA native calendar without any external connector
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py -x
