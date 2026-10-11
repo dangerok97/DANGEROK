@@ -92,3 +92,34 @@ async def ensure_initial_review(db, owner: str, sid: str) -> dict:
         logger.warning("situation initial review wake not confirmed")
         return {"status": "recovery_pending", "goal_id": gid}
     return {"status": "review_queued", "goal_id": gid}
+
+
+async def recover_unadmitted_attention(db, owner: str, *, limit: int = 8) -> dict:
+    """Give existing, unattended Situations the same first admission as new ones.
+
+    The previous system could persist attention_intent but create no Agent
+    goal. Replaying a generic opportunity review was not sufficient: a model
+    may return silence, leaving the Situation indefinitely without any work.
+    This bounded owner-scoped sweep only admits intents already saved by
+    cognition, and creates NO physical checkpoint by itself.
+    """
+    if not _enabled():
+        return {"queued": 0, "reason": "runtime_disabled"}
+    count = max(1, min(8, int(limit)))
+    rows = await db.situations.find(
+        {"user_id": owner, "status": {"$in": ["active", "changed"]},
+         "$or": [
+             {"attention_intent": {"$type": "string", "$gt": ""}},
+             {"next_check_summary": {"$type": "string", "$gt": ""}},
+         ]},
+        {"_id": 0, "id": 1},
+    ).sort("updated_at", -1).to_list(count)
+    queued = 0
+    for row in rows:
+        sid = str(row.get("id") or "")
+        if not sid:
+            continue
+        outcome = await ensure_initial_review(db, owner, sid)
+        if outcome.get("status") == "review_queued":
+            queued += 1
+    return {"queued": queued}
