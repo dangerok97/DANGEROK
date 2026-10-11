@@ -10,7 +10,7 @@ async function virtualCamera(page: Page) {
   await page.addInitScript(() => {
     const state:any={offset:0,blank:false,frames:0,stream:null};
     (window as any).__visionFixture=state;
-    Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>{
+    const getUserMedia=async()=>{
       const c=document.createElement('canvas');c.width=640;c.height=480;
       const ctx=c.getContext('2d')!;
       const draw=()=>{
@@ -22,11 +22,12 @@ async function virtualCamera(page: Page) {
           ctx.fillStyle='#b98764';ctx.beginPath();ctx.arc(x+55,99,12,0,Math.PI*2);ctx.fill();
           for(let r=0;r<8;r++)for(let j=0;j<3;j++){ctx.fillStyle=r%2?'#d1d5ce':'#70858c';ctx.beginPath();ctx.arc(x+24+j*31,137+r*30,7,0,Math.PI*2);ctx.fill();}
         }
-        // This indicator changes on every frame, independently of the object.
         ctx.fillStyle='#495d62';ctx.fillRect(20,440,state.frames%100,9);
       };draw();setInterval(draw,40);
       state.stream=c.captureStream(24);return state.stream;
-    }});
+    };
+    const devices={getUserMedia};
+    Object.defineProperty(navigator,'mediaDevices',{configurable:true,get:()=>devices});
   });
 }
 
@@ -38,7 +39,6 @@ test('catalog model is rendered, every part is selectable and reload reuses the 
   await page.getByTestId('vision-catalog-remote_control').click();
   await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count','8');
   await expect(page.getByTestId('vision-status')).toContainText('Anteprima catalogo');
-  const parts=page.locator('[data-testid^="vision-part-"]').filter({hasNot:page.locator('h2')});
   for(const key of ['front_shell','keypad','pcb','emitter','rear_shell','battery_a','battery_b','cover']){
     await page.getByTestId('vision-part-'+key).click();
     await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-selected-part',key);
@@ -55,7 +55,6 @@ test('catalog model is rendered, every part is selectable and reload reuses the 
 });
 
 test('video remains live during analysis and exploded view, hides on loss, stops on command',async({page,browserName},info)=>{
-  // WebKit's headless canvas capture is not a substitute for testing a real iPhone camera.
   test.skip(browserName==='webkit','Real iPhone camera validation remains a separate device test.');
   await session(page);await virtualCamera(page);await page.goto('/vision-xray');
   await page.getByTestId('vision-open-camera').click();
@@ -82,8 +81,15 @@ test('video remains live during analysis and exploded view, hides on loss, stops
 
 test('denied camera permission is explained without a fake live state',async({page})=>{
   await session(page);
-  await page.addInitScript(()=>{Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>{throw new DOMException('Denied','NotAllowedError');}});});
+  await page.addInitScript(()=>{
+    const devices={getUserMedia:async()=>{
+      (window as any).__deniedCameraInvoked=true;
+      throw new DOMException('Denied','NotAllowedError');
+    }};
+    Object.defineProperty(navigator,'mediaDevices',{configurable:true,get:()=>devices});
+  });
   await page.goto('/vision-xray');await page.getByTestId('vision-open-camera').click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).__deniedCameraInvoked)).toBe(true);
   await expect(page.getByTestId('vision-error')).toContainText('Permesso negato');
   expect(await page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>v.srcObject)).toBeNull();
 });
