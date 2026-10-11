@@ -2120,6 +2120,63 @@ async def run_cognitive_loop(
                     decision = CognitiveDecision(response_mode="answer", message_to_user=followup_gate.failure_text())
                     mode = "answer"
                     add_step(trace, event="SITUATION_FOLLOWUP_UNRESOLVED")
+            # A literal user restriction ('non avviare controlli') is an
+            # actionable withdrawal, not an invitation for the unattended
+            # recovery sweep to recreate monitoring two hours later. Only
+            # apply it to an owner-verified pending Situation and to exact
+            # words present in THIS user message.
+            handling = getattr(decision, "situation_followup", None)
+            if (
+                handling is not None
+                and handling.disposition == "declined"
+                and handling.situation_id
+                and handling.user_words
+                and handling.user_words in user_message
+                and any(
+                    item["situation_id"] == handling.situation_id
+                    for item in followup_gate.pending
+                )
+            ):
+                try:
+                    from situations.repository import SituationRepository
+                    from situations.models import SituationUpdate
+                    from situations.service import SituationService
+                    current = await SituationRepository(db).get(
+                        sess.user_id, handling.situation_id
+                    )
+                    if current and current.status in ("active", "changed"):
+                        withdrawn = await SituationService(db).apply(
+                            user_id=sess.user_id,
+                            session_id=sess.id,
+                            reasoning_epoch=f"{epoch}:attention-withdrawn",
+                            update=SituationUpdate(
+                                operation="update",
+                                situation_id=current.id,
+                                expected_revision=current.revision,
+                                attention_intent="",
+                                next_check_summary="",
+                                source="user_conversation",
+                            ),
+                        )
+                        if withdrawn.get("status") != "success":
+                            raise RuntimeError("attention_withdrawal_unconfirmed")
+                        observations.append(Observation(
+                            kind="tool",
+                            name="situation_attention_withdrawn",
+                            status="ok",
+                            payload={"status": "stopped", "situation_id": current.id},
+                            provenance=[f"situation:{current.id}"],
+                        ).model_dump())
+                        add_step(trace, event="SITUATION_ATTENTION_WITHDRAWN")
+                except Exception as exc:
+                    decision.message_to_user = (
+                        "Ho recepito che non vuoi altri controlli, ma non sono "
+                        "riuscita a confermare l'annullamento del lavoro. "
+                        "Non considero fermato il monitoraggio finché il sistema "
+                        "non ne conferma lo stato."
+                    )
+                    add_step(trace, event="SITUATION_ATTENTION_WITHDRAWAL_FAILED",
+                             code=type(exc).__name__)
             if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
                 first_nudge = not situation_plan_nudge_used
                 situation_plan_nudge_used = True
