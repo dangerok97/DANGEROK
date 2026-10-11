@@ -33,6 +33,12 @@ Le PR #199 e #200 erano aperte, entrambe sulla stessa base; è stata ripresa
    account/calendari. Il target e il consenso vengono ora verificati sulla
    precisa istanza dell'evento; i riferimenti ambigui sono respinti e gli
    aggiornamenti locali restano circoscritti allo stesso target.
+8. Il primo giro CI ha rilevato una doppia cancellazione nella rotta degli
+   avvisi. La mutazione della Situation è ora l'unico percorso di arresto;
+   la rotta rilegge intenzione, goal e wake persistiti prima di confermarlo.
+   Una cancellazione dichiarata ma non salvata, una wake rimasta attiva o
+   un nuovo ciclo concorrente producono un conflitto invece di un falso
+   successo. Interrompere il monitoraggio non dichiara risolta la Situation.
 
 ## Validazione
 
@@ -53,6 +59,20 @@ certificano giudizio di un modello live o recapito sul telefono.
 - Totale delle regressioni backend sopra elencate: 221 test PASS.
 - Scansione dello storico Git disponibile: PASS, zero pattern ad alta
   confidenza di segreti e zero percorsi sensibili rilevati.
+
+Durante il rilascio sono stati verificati anche 262 test con mock dei gruppi
+calendario/departure e destinazione delle azioni: tutti PASS. I due moduli
+che richiedono un Mongo reale restano affidati al servizio dedicato in CI.
+Il gruppo sintetico di autonomia, aggiornamento delle fonti e recovery ha
+superato 230 test su 50 moduli; i due moduli Ambient che richiedono Mongo
+reale e il comando di continuità con Mongo restano verifiche della CI.
+Lo step completo sugli aggiornamenti, dopo la correzione degli avvisi,
+ha superato 74 test, inclusi cinque nuovi casi di persistenza e concorrenza.
+Il primo giro CI ha superato i controlli finanziari, Situation, TypeScript,
+telefonia, audit e UI mobile Chromium/WebKit; il job Backend si è fermato
+sulla regressione degli avvisi descritta al punto 8. Quei risultati non
+vengono presentati come CI finale verde: il nuovo head richiede un giro
+completo successivo alla correzione. Gli esiti conclusivi sono nella PR.
 
 ## Autorizzazione e tracciamento del rilascio
 

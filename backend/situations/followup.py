@@ -521,7 +521,7 @@ async def cancel_dedicated_followup(db, owner, situation_id):
     for row in rows:
         if row.get("status") in OPEN:
             await AgentService(db).cancel(
-                owner, row["id"], reason="La situazione è stata risolta o annullata.",
+                owner, row["id"], reason="Il monitoraggio della situazione è stato interrotto.",
             )
     for gid in ids:
         await AmbientRepository(db).cancel_for(owner, source_ref=f"goal:{gid}")
