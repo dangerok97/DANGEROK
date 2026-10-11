@@ -2,12 +2,13 @@
  * The model remains screen-anchored, never dependent on continued camera tracking.
  * Geometry is built once. No bitmap-generated fake parts, eval or external assets.
  */
-import { geometry, type Manifest, type Part, type Vec3 } from './scene';
+import { geometry, type Manifest, type Part, type Vec3, type Box } from './scene';
+import type { TourStep } from './walkthrough';
 export type Point = [number, number];
 type Mesh = ReturnType<typeof geometry>;
 type Face = { points: Point[]; depth: number; light: number };
 type Projected = { key: string; index: number; points: Point[]; faces: Face[]; mesh: Mesh; depth: number; alpha: number; selected: boolean; bounds: [number,number,number,number]; badge?: Point };
-export type PresentationOptions = { progress: number; yaw: number; pitch: number; selected: string; focus: number; zoom: number };
+export type PresentationOptions = { progress: number; yaw: number; pitch: number; selected: string; focus: number; zoom: number; origin?: {box:Box; mix:number}; tour?: {step:TourStep; phase:number} };
 const lerp = (a: number, b: number, t: number) => a+(b-a)*t;
 function ring(m: Mesh, points: Vec3[]) {
   const start=m.v.length; m.v.push(...points);
@@ -125,6 +126,7 @@ export class VisionPresentation {
     // Leave named controls/title above and hints below. Never draw under the X.
     const top=h<310?65:82,bottom=48,available=Math.max(90,h-top-bottom);
     const cx=w/2,cy=top+available*.48;
+    const highlighted=new Set(opts.tour?.step.parts||[]);
     const rotated=this.meshes.map(m=>m.v.map(v=>rotate(v,opts.yaw,opts.pitch)));
     const positions=this.manifest.parts.map(p=>rotate(p.assembled.map((n,j)=>lerp(n,p.exploded[j],progress)) as Vec3,opts.yaw,opts.pitch));
     // Fit against the entire exploded envelope to avoid a zoom-pump on recomposition.
@@ -137,13 +139,24 @@ export class VisionPresentation {
     const focusScale=selectedIndex<0?s:Math.min(w*.63/Math.max(1,selectedBounds[2]-selectedBounds[0]),available*.63/Math.max(1,selectedBounds[3]-selectedBounds[1]));
     const fcx=(selectedBounds[0]+selectedBounds[2])/2,fcy=(selectedBounds[1]+selectedBounds[3])/2;
     const focusCenterY=top+available*.37;
+    // Map the compact assembled representation to the observed region, then move
+    // smoothly into study space. A bounding box is not an exact object silhouette.
+    const assembledEnvelope:Point[]=[];
+    this.manifest.parts.forEach((p,i)=>{const offset=rotate(p.assembled,opts.yaw,opts.pitch);rotated[i].forEach(v=>assembledEnvelope.push([v[0]+offset[0],v[1]+offset[1]]));});
+    const [al,at,ar,ab]=bounds(assembledEnvelope);
+    const origin=opts.origin;
+    const originScale=origin?Math.min(origin.box[2]*w/Math.max(1,ar-al),origin.box[3]*h/Math.max(1,ab-at)):s;
+    const originMix=origin?Math.max(0,Math.min(1,origin.mix)):1;
     this.projected=this.meshes.map((mesh,i)=>{
       const part=this.manifest.parts[i],active=i===selectedIndex,pos=positions[i];
       const transform=(v:Vec3):Point=>{
         // Mild perspective creates depth without unstable camera clipping.
         const perspective=850/(850-Math.min(350,Math.max(-350,(v[2]+pos[2])*s)));
         const x=(v[0]+pos[0]-midX)*s*perspective,y=-(v[1]+pos[1]-midY)*s*perspective;
-        const base:Point=[cx+x*zoom,cy+y*zoom];
+        const study:Point=[cx+x*zoom,cy+y*zoom];
+        const source:Point=origin?[(origin.box[0]+origin.box[2]/2)*w+(v[0]+pos[0]-(al+ar)/2)*originScale,
+          (origin.box[1]+origin.box[3]/2)*h-(v[1]+pos[1]-(at+ab)/2)*originScale]:study;
+        const base:Point=[lerp(source[0],study[0],originMix),lerp(source[1],study[1],originMix)];
         if(active){
           const k=1000/(1000-Math.min(350,Math.max(-350,v[2]*focusScale)));
           return [lerp(base[0],cx+(v[0]-fcx)*focusScale*zoom*k,focus),lerp(base[1],focusCenterY-(v[1]-fcy)*focusScale*zoom*k,focus)];
@@ -152,7 +165,7 @@ export class VisionPresentation {
       };
       const points=rotated[i].map(transform);
       const faces=mesh.faces.map(face=>({points:face.map(index=>points[index]),depth:face.reduce((total,index)=>total+rotated[i][index][2],0)/face.length,light:illumination(rotated[i],face)})).sort((a,b)=>a.depth-b.depth);
-      return {key:part.key,index:i,points,faces,mesh,depth:pos[2]+(active?focus*2000:0),alpha:active?1:lerp(1,.2,focus),selected:active,bounds:bounds(points)};
+      return {key:part.key,index:i,points,faces,mesh,depth:pos[2]+(active?focus*2000:0),alpha:opts.tour?(highlighted.has(part.key)?1:.33):(active?1:lerp(1,.2,focus)),selected:active||highlighted.has(part.key),bounds:bounds(points)};
     }).sort((a,b)=>a.depth-b.depth);
     ctx.save();ctx.lineJoin='round';ctx.lineCap='round';
     // Static orientation rings. Nothing runs endlessly when the viewer is at rest.
@@ -188,6 +201,23 @@ export class VisionPresentation {
         ctx.beginPath();ctx.moveTo((left+right)/2,lower);ctx.lineTo(x,y-12);ctx.stroke();
         ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fillStyle='#071c24';ctx.fill();ctx.stroke();
         ctx.fillStyle=p.selected?'#ffcc92':'#caf0f5';ctx.font='10px ui-monospace,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(p.index+1).padStart(2,'0'),x,y+.5);
+      }
+    }
+    // Relationships are symbolic, never measured wiring, pressure or electrical flow.
+    if(opts.tour){
+      ctx.globalAlpha=1;ctx.strokeStyle='#ffca91';ctx.fillStyle='#ffe2b9';ctx.lineWidth=1.7;
+      const center=(key:string):Point|null=>{const p=this.projected.find(p=>p.key===key);return p?[(p.bounds[0]+p.bounds[2])/2,(p.bounds[1]+p.bounds[3])/2]:null;};
+      for(const [from,to] of opts.tour.step.links){
+        const a=center(from),b=center(to);if(!a||!b)continue;
+        const control:Point=[(a[0]+b[0])/2,Math.min(a[1],b[1])-Math.min(48,available*.12)];
+        ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(...a);ctx.quadraticCurveTo(...control,...b);ctx.stroke();ctx.setLineDash([]);
+        // Slow single pulse per segment, not flashing lights.
+        const t=opts.tour.phase,u=1-t,x=u*u*a[0]+2*u*t*control[0]+t*t*b[0],y=u*u*a[1]+2*u*t*control[1]+t*t*b[1];
+        ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+      }
+      for(const key of opts.tour.step.parts){const p=this.projected.find(p=>p.key===key);if(!p)continue;
+        const [l,t,r,b]=p.bounds;ctx.strokeStyle='rgba(255,201,137,.48)';ctx.lineWidth=1;
+        ctx.strokeRect(l-5,t-5,r-l+10,b-t+10);
       }
     }
     if(focus>.5){
