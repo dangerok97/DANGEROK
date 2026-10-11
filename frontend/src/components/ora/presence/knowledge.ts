@@ -19,6 +19,10 @@ export type KnowledgeStar = {
     next_check_at?: string | null;
     next_check_at_local?: string | null;
     next_check_label?: string | null;
+    /** Initial AI review is not an externally verified monitoring check. */
+    assessment_at?: string | null;
+    assessment_label?: string | null;
+    diagnosis?: string | null;
     timezone?: string | null;
     timezone_authority?: string | null;
     last_checked_at?: string | null;
