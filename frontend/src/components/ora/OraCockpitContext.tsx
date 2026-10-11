@@ -94,6 +94,7 @@ export function OraCockpitContext({
   const followup = current?.follow_up;
   const followupStatus: Record<string, string> = {
     scheduled: 'Controllo programmato', due: 'Controllo in scadenza', running: 'Controllo in corso',
+    review_pending: 'Valutazione presa in carico: controllo non ancora programmato',
     not_scheduled: 'Nessun controllo programmato', recovery_pending: 'Programmazione da recuperare',
     waiting_for_user: 'In attesa di informazioni o autorizzazione', runtime_disabled: 'Controlli automatici disattivati',
     stopped: 'Controllo terminato', unavailable: 'Stato del controllo non verificabile',
@@ -136,7 +137,7 @@ export function OraCockpitContext({
 
           <Text style={styles.situationStatement}>{current.statement}</Text>
           {readError ? <Text accessibilityRole="alert" style={styles.removeError}>
-            Aggiornamento non riuscito: i dati mostrati sono quelli dell'ultima lettura.
+            Aggiornamento non riuscito: i dati mostrati sono quelli dell’ultima lettura.
           </Text> : null}
 
           <View style={styles.divider} />

@@ -73,6 +73,9 @@ async def load_internal_calendar(
                 "goal_id": attrs.get("goal_id"),
                 "kind": attrs.get("kind"),
                 "calendar_node_id": str(nid),
+                # A derived event can still be knowledge, not a commitment.
+                # Preserve that explicit boundary for Home work admission.
+                "knowledge_only": bool(d.get("knowledge_only") or attrs.get("knowledge_only")),
             },
         ))
     return items, []

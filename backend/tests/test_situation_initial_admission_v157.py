@@ -244,6 +244,110 @@ async def test_old_unadmitted_attention_is_admitted_once_on_fallback_sweep(setup
 
 
 @pytest.mark.asyncio
+async def test_unattended_intent_recovers_after_an_unrelated_recent_fallback(setup, monkeypatch):
+    db = setup
+    await indices(db)
+    from ambient import eligibility
+    from situations.models import SituationState
+    from situations.repository import SituationRepository
+
+    monkeypatch.setattr(eligibility, "PER_USER_INTERVAL_HOURS", 12)
+    monkeypatch.setattr(eligibility, "URGENT_FALLBACK_INTERVAL_HOURS", 0.5)
+    now = datetime.now(timezone.utc)
+    await SituationRepository(db).insert(SituationState(
+        id="sit_unadmitted_after_other_review", user_id=OWNER,
+        summary="Situazione sintetica ancora aperta",
+        attention_intent="Verificare quando serve intervenire",
+    ))
+    await db.ambient_fallback_state.insert_one({
+        "owner_id": OWNER,
+        "last_checked_at": (now - timedelta(hours=3)).isoformat(),
+        "last_reasons": ["delivery_pending"],
+    })
+    service = EligibilityService(db)
+    await service.ensure_indexes()
+    assert await service.reasons_to_look_again(OWNER) == ["situation_unattended"]
+    assert await db.agent_goals.count_documents({}) == 0
+
+    out = await service.sweep(now=now)
+
+    assert out["scheduled"] == 1 and out["skipped"] == 0, out
+    wakes = await db.ambient_wakes.find({"owner_id": OWNER}).to_list(10)
+    assert len(wakes) == 1
+    assert wakes[0]["reason"] == "ambient_review"
+    assert wakes[0]["source_ref"] == "situation_unattended"
+    assert wakes[0]["status"] == "pending"
+    assert await db.agent_goals.count_documents({}) == 0, "the existing review owns admission"
+    assert await service._due_for_fallback(
+        OWNER, now + timedelta(minutes=20), reasons=["situation_unattended"],
+    ) is False, "urgent recovery still has a per-person throttle"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("attention,checkpoint", [(None, None), ("", ""), ("  ", "\n")])
+async def test_expected_outcome_without_attention_does_not_trigger_recovery_sweep(setup, attention, checkpoint):
+    db = setup
+    await indices(db)
+    from situations.admission import ensure_initial_review, recover_unadmitted_attention
+    from situations.models import SituationState
+    from situations.repository import SituationRepository
+
+    now = datetime.now(timezone.utc)
+    await SituationRepository(db).insert(SituationState(
+        id="sit_outcome_without_attention", user_id=OWNER,
+        summary="Stato sintetico senza richiesta di monitoraggio",
+        expected_outcome_summary="Sapere come finisce",
+        attention_intent=attention, next_check_summary=checkpoint,
+    ))
+    await db.ambient_fallback_state.insert_one({
+        "owner_id": OWNER,
+        "last_checked_at": (now - timedelta(hours=3)).isoformat(),
+        "last_reasons": ["delivery_pending"],
+    })
+    service = EligibilityService(db)
+    await service.ensure_indexes()
+    assert await service.reasons_to_look_again(OWNER) == []
+    assert await service._candidates(now, 200) == []
+
+    out = await service.sweep(now=now)
+
+    assert out["scheduled"] == 0 and out["eligible"] == 0, out
+    assert (await ensure_initial_review(db, OWNER, "sit_outcome_without_attention"))["status"] == "no_attention"
+    assert await recover_unadmitted_attention(db, OWNER) == {"queued": 0}
+    assert await db.ambient_wakes.count_documents({}) == 0
+    assert await db.agent_goals.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_ordinary_fallback_keeps_its_twelve_hour_cooldown(setup, monkeypatch):
+    db = setup
+    await indices(db)
+    from ambient import eligibility
+
+    monkeypatch.setattr(eligibility, "PER_USER_INTERVAL_HOURS", 12)
+    now = datetime.now(timezone.utc)
+    previous = now - timedelta(hours=3)
+    await db.delivery_plans.insert_one({"id": "plan_synthetic", "owner_id": OWNER, "status": "pending"})
+    await db.ambient_fallback_state.insert_one({
+        "owner_id": OWNER, "last_checked_at": previous.isoformat(),
+        "last_reasons": ["delivery_pending"],
+    })
+    service = EligibilityService(db)
+    await service.ensure_indexes()
+    assert await service.reasons_to_look_again(OWNER) == ["delivery_pending"]
+
+    recent = await service.sweep(now=now)
+    assert recent["scheduled"] == 0 and recent["skipped"] == 1, recent
+    assert await db.ambient_wakes.count_documents({}) == 0
+
+    due = await service.sweep(now=previous + timedelta(hours=12))
+    assert due["scheduled"] == 1 and due["skipped"] == 0, due
+    wake = await db.ambient_wakes.find_one({"owner_id": OWNER})
+    assert wake["reason"] == "ambient_review"
+    assert wake["source_ref"] == "delivery_pending"
+
+
+@pytest.mark.asyncio
 async def test_withdrawing_attention_stops_initial_goal_and_prevents_recovery(setup):
     db = setup
     await indices(db)

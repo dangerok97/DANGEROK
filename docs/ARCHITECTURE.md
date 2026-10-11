@@ -1,3 +1,24 @@
+## 11 ottobre 2026 — v158: completamento dei contratti tra superfici
+
+`ContextRail` usa `calendarEntries` per selezionare gli eventi del payload
+Home misto: fonte calendario, identità valida e `start_at`; per `life_node`
+serve il `calendar_node_id` corrispondente. Il filtro non altera il payload
+delle altre sezioni. Visite e viaggi provenienti dal calendario restano eventi.
+
+L'adapter `internal_calendar` conserva `knowledge_only` dal nodo o dai suoi
+attributi, lasciando al gate Home esistente l'esclusione dal ranking.
+`situation_unattended` usa l'intervallo urgente già configurato (30 minuti
+di default) anziché il cooldown personale ordinario di 12 ore. La sweep
+mantiene la sua cadenza, il wake `ambient_review` e l'ammissione Agent/Ambient.
+Una stima di esito senza intento non crea lavoro. `read_followup` espone
+`attention_saved` solo dopo aver letto la Situation dell'owner; una lettura
+non disponibile resta distinta dall'assenza verificata di attenzione.
+
+Il cockpit rappresenta `review_pending` senza mostrare `assessment_at` come
+prossimo controllo. Nessun nuovo scheduler, schema persistito o provider.
+
+---
+
 ## 11 ottobre 2026 — v157–v158: continuità e letture canoniche
 
 `situations.admission` ammette l'attenzione persistita nella stessa corsia

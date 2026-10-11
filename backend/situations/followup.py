@@ -107,6 +107,9 @@ def followup_diagnosis(state):
         if state.get("goal_id"):
             return ("La situazione è registrata e il lavoro esiste, ma non "
                     "risulta una prossima esecuzione confermata.")
+        if state.get("attention_saved") is False:
+            return ("È salvata una nota su questa situazione, ma non una richiesta "
+                    "di seguirla nel tempo. Nessun controllo automatico risulta programmato.")
         return ("La situazione è registrata, ma non risulta un controllo "
                 "con data e ora effettivamente salvato. Senza un errore "
                 "registrato non posso attribuire la causa al meteo o ai permessi.")
@@ -145,6 +148,7 @@ async def _read_followup_snapshot(db, owner, situation_id):
            "timezone": None, "timezone_authority": None,
            "goal_id": None, "purpose": None, "notify_when": None,
            "completion_when": None, "monitoring_goal": None, "ends_when": None,
+           "attention_saved": None,
            "runtime_enabled": _enabled(), "delivery_channel": "in_app",
            "assessment_at": None, "assessment_label": None,
            "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita."}
@@ -154,6 +158,12 @@ async def _read_followup_snapshot(db, owner, situation_id):
         situation = await SituationRepository(db).get(owner, situation_id)
         if situation is None:
             return out
+        # Report only the intent read from this owner's persisted Situation.
+        # An expected outcome or estimate alone does not authorise monitoring.
+        out["attention_saved"] = bool(
+            str(situation.attention_intent or "").strip()
+            or str(situation.next_check_summary or "").strip()
+        )
         clock = await user_clock_context(db, owner)
         out.update(timezone=clock["timezone"], timezone_authority=clock["authority"])
         if situation.status not in ("active", "changed"):

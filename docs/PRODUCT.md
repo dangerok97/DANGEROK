@@ -1,3 +1,18 @@
+## 11 ottobre 2026 — v158: coerenza dopo il collaudo autenticato
+
+Il mini calendario della Home e «Prossimi appuntamenti» mostrano eventi di
+calendario. Una scadenza operativa, un promemoria o un checkpoint mantengono
+la loro funzione nelle altre sezioni della Home, senza diventare appuntamenti.
+
+Il cockpit distingue la valutazione presa in carico dal controllo programmato.
+La diagnosi distingue anche una nota senza richiesta di monitoraggio salvata
+da un'intenzione già registrata ma ancora priva di esecuzione. Il recupero
+di quest'ultima usa la priorità infrastrutturale delle altre riparazioni urgenti.
+Un derivato esplicitamente informativo conserva tale natura fino all'ammissione
+delle priorità, anche se è stato memorizzato come nodo con una data.
+
+---
+
 ## 11 ottobre 2026 — v157–v158: chiusura dei difetti del collaudo reale
 
 Una situazione che richiede attenzione viene presa in carico per una prima

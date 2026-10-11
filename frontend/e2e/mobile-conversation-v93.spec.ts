@@ -217,6 +217,15 @@ test('mobile follow-up starts unconfirmed and refreshes without a chat message',
   const card = modal.getByTestId('ora-cockpit-temporary');
   await expect(card).toContainText('Nessun controllo programmato');
   await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
+  controls.followup = {
+    status: 'review_pending',
+    assessment_at: '2099-01-20T14:30:00+01:00',
+    assessment_label: '20 gen 2099, 14:30',
+    next_check_at: null,
+  };
+  await expect(card).toContainText('Valutazione presa in carico: controllo non ancora programmato', { timeout: 25000 });
+  await expect(card).not.toContainText('Stato del controllo non verificabile');
+  await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
   controls.followup = { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', completion_when: 'Quando il risultato utile è raggiunto', notify_when: 'Se prima cambia qualcosa di importante' };
   await expect(card).toContainText('Controllo programmato', { timeout: 25000 });
   await expect(card).toContainText('Prossimo controllo');

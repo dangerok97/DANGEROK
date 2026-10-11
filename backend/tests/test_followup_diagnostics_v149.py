@@ -60,6 +60,7 @@ async def test_no_registered_schedule_explains_not_guesses(monkeypatch):
     db = await setup(monkeypatch)
     state = await read_followup(db, OWNER, SID)
     assert state["status"] == "not_scheduled"
+    assert state["attention_saved"] is True
     assert "non risulta un controllo con data e ora" in state["diagnosis"]
     assert state.get("last_schedule_error") is None
     obs = await get_situation_followup({"situation_id": SID}, {"db": db, "user_id": OWNER})
@@ -69,6 +70,36 @@ async def test_no_registered_schedule_explains_not_guesses(monkeypatch):
     assert readbacks[0]["ref"] == f"situation:{SID}"
     assert "non risulta un controllo" in readbacks[0]["text"]
     assert not any("asciutti" in str(v) for v in readbacks[0].values())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("attention,checkpoint", [("", ""), ("  ", "\n")])
+async def test_note_without_saved_attention_has_a_distinct_read_only_diagnosis(monkeypatch, attention, checkpoint):
+    db = await setup(monkeypatch)
+    await db.situations.update_one(
+        {"user_id": OWNER, "id": SID},
+        {"$set": {
+            "attention_intent": attention,
+            "next_check_summary": checkpoint,
+            "expected_outcome_summary": "Nel corso della giornata",
+            "tracking_summary": "Stato temporaneo annotato",
+        }},
+    )
+    before = await db.situations.find_one({"user_id": OWNER, "id": SID})
+    state = await read_followup(db, OWNER, SID)
+    assert state["status"] == "not_scheduled"
+    assert state["attention_saved"] is False
+    assert "non una richiesta di seguirla nel tempo" in state["diagnosis"]
+    assert state["next_check_at"] is None
+    assert state["last_checked_at"] is None
+    assert state.get("last_schedule_error") is None
+    assert await db.situations.find_one({"user_id": OWNER, "id": SID}) == before
+    assert await db.agent_goals.count_documents({}) == 0
+    assert await db.ambient_wakes.count_documents({}) == 0
+    other = await read_followup(db, "other_owner", SID)
+    assert other["status"] == "unavailable"
+    assert other["attention_saved"] is None
+    assert "non una richiesta" not in other["diagnosis"]
 
 
 @pytest.mark.asyncio

@@ -8,6 +8,7 @@ import { ora, oraShadow, oraType } from '@/src/theme/oraSurface';
 import { OraLink } from '@/src/components/ora-ui';
 import { tokens } from '@/src/theme/tokens';
 import { api, type HomeCurrentSituation, type HomeItem } from '@/src/api/client';
+import { calendarEntries } from './calendarItems';
 
 const WEEKDAYS = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
 
@@ -17,21 +18,13 @@ function localDay(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function itemDate(i: HomeItem): Date | null {
-  const raw = i.start_at || i.due_at || i.goal_target_date;
-  if (!raw) return null;
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
 /**
  * The contextual rail — what is around the decision, not the decision itself.
  *
- * Home supplies its current items; local events are also read for the selected
- * day and month, including dates beyond the Home summary window. The month grid is a real calendar
- * of the user's own items — a day is marked because something of theirs falls
- * on it, never to make the grid look populated. If no items carry dates, the
- * marks simply do not appear.
+ * Calendar events from Home supply upcoming appointments; local events are
+ * also read for the selected day and month beyond the Home summary window.
+ * Only actual calendar events mark the grid. Tasks, reminders and goal dates
+ * remain in the Home sections that describe that work.
  */
 export function ContextRail({
   items,
@@ -110,7 +103,7 @@ export function ContextRail({
   }, [dayKey, reloadDay, items]);
 
   const dated = useMemo(
-    () => items.map((i) => ({ item: i, at: itemDate(i) })).filter((x) => !!x.at) as { item: HomeItem; at: Date }[],
+    () => calendarEntries(items),
     [items],
   );
 
