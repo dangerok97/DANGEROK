@@ -288,7 +288,13 @@ class SituationService:
                 logger.warning(
                     "situation attention admission soft-fail: %s", type(exc).__name__
                 )
-        if operation in ("resolve", "cancel"):
+        if operation in ("resolve", "cancel") or (
+            operation == "update"
+            and not (situation.attention_intent or situation.next_check_summary)
+        ):
+            # An explicit withdrawal of the attention obligation is just as
+            # binding as closing the Situation. Do not let a stale initial
+            # review wake resurrect the old intent.
             try:
                 from situations.followup import cancel_dedicated_followup
                 await cancel_dedicated_followup(self.db, user_id, situation.id)
