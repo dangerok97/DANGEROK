@@ -19,7 +19,7 @@ def public_picture(client, source):
             response = client.get(url, follow_redirects=True, timeout=25,
                 headers={"User-Agent": "Mozilla/5.0 (compatible; ORA-Public-Image-QA/1.0)"})
             if response.status_code != 200:
-                smoke.record("public_photo_transport", name=source["name"], host=urllib.parse.urlparse(url).hostname, status=response.status_code)
+                smoke.record("public_photo_transport", photo_name=source["name"], host=urllib.parse.urlparse(url).hostname, status=response.status_code)
                 continue
             with Image.open(io.BytesIO(response.content)) as image:
                 clean = ImageOps.exif_transpose(image).convert("RGB")
@@ -27,7 +27,7 @@ def public_picture(client, source):
                 out = io.BytesIO(); clean.save(out,"JPEG",quality=80)
             data = out.getvalue()
             (smoke.OUT/(source["name"]+"-source.jpg")).write_bytes(data)
-            smoke.record("public_photo_loaded", name=source["name"], host=urllib.parse.urlparse(url).hostname,
+            smoke.record("public_photo_loaded", photo_name=source["name"], host=urllib.parse.urlparse(url).hostname,
                          width=clean.width, height=clean.height, original_source=source["page"])
             return data
         except (httpx.HTTPError, OSError, ValueError):
