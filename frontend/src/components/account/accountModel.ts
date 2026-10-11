@@ -17,7 +17,7 @@
 /* Inputs                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export type ConnectionState = 'connected' | 'disconnected' | 'absent';
+export type ConnectionState = 'connected' | 'disconnected' | 'absent' | 'unavailable';
 
 export type ServiceModel = {
   id: string;
@@ -99,6 +99,7 @@ const CONNECTION_LABEL: Record<ConnectionState, string> = {
   connected: 'Connesso',
   disconnected: 'Scollegato',
   absent: 'Non connesso',
+  unavailable: 'Non disponibile',
 };
 
 export function connectionLabel(state: ConnectionState): string {
@@ -116,10 +117,29 @@ export function connectionStateOf(
   instance: { status?: string | null } | null | undefined,
 ): ConnectionState {
   if (!instance) return 'absent';
-  const s = String(instance.status || '').trim();
+  const s = String(instance.status || '').trim().toLowerCase();
   if (!s) return 'absent';
-  if (s === 'revoked') return 'disconnected';
-  return 'connected';
+  if (s === 'connected' || s === 'syncing') return 'connected';
+  if (s === 'revoked' || s === 'disabled') return 'disconnected';
+  return 'unavailable';
+}
+
+/** Prefer a usable account over a newer disconnected account for this provider. */
+export function preferredConnectionInstance<T extends { status?: string | null }>(
+  instances: T[] | null | undefined,
+): T | null {
+  const rows = instances || [];
+  return rows.find((row) => connectionStateOf(row) === 'connected')
+    || rows.find((row) => connectionStateOf(row) === 'unavailable')
+    || rows[0] || null;
+}
+
+export function connectionUnavailableReason(instance: { status?: string | null } | null): string {
+  const status = String(instance?.status || '').trim().toLowerCase();
+  if (status === 'reauthorization_required') return 'L’autorizzazione è scaduta: ricollega il servizio per riprendere gli aggiornamenti.';
+  if (status === 'degraded') return 'L’ultimo aggiornamento non è riuscito. ORA riprova automaticamente.';
+  if (status === 'pending') return 'Il collegamento non è ancora stato completato.';
+  return connectionStateOf(instance) === 'unavailable' ? 'Lo stato del collegamento non è verificabile in questo momento.' : '';
 }
 
 const DAY_MS = 86_400_000;

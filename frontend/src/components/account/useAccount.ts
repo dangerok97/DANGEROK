@@ -7,6 +7,7 @@ import { appleConfiguredForPlatform } from '@/src/auth/providersConfig';
 
 import {
   connectionStateOf,
+  preferredConnectionInstance,
   type AccessMethod,
   type AccountSnapshot,
   type LocationMode,
@@ -104,8 +105,8 @@ export function useAccount() {
       attempt('document_preferences', () => api.documentPreferences()),
     ]);
 
-    const googleInstance = (gcal?.items || [])[0] || null;
-    const appleInstance = (appleInst?.items || [])[0] || null;
+    const googleInstance = preferredConnectionInstance(gcal?.items);
+    const appleInstance = preferredConnectionInstance(appleInst?.items);
     const appleEnabled = isIOS && !!(appleCfg as AppleCalendarConfigStatus | null)?.enabled;
 
     const services: ServiceModel[] = [
@@ -113,7 +114,7 @@ export function useAccount() {
         id: 'google_calendar',
         name: 'Google Calendar',
         state: connectionStateOf(googleInstance),
-        account: gwrite?.account_email || googleInstance?.display_label || null,
+        account: googleInstance?.display_label || gwrite?.account_email || null,
         lastSyncAt: googleInstance?.last_sync_at || null,
       },
     ];

@@ -44,22 +44,18 @@ import {
   SubpageShell,
   autoSyncLabel,
   connectionStateOf,
+  connectionUnavailableReason,
+  preferredConnectionInstance,
   type ConnectionState,
 } from '@/src/components/account';
 
 /** Come una sorgente si presenta a chi la guarda: cos'e', se va, da quando. */
 type SourceRow = { id: string; what: string; state: string; last_read_at?: string | null };
 
-/**
- * La sorgente che corrisponde a questa scheda.
- *
- * Si riconosce da come si presenta — «Gmail», «Google Calendar» — perche' e'
- * la stessa parola che la persona vede scritta sulla riga. Un id interno
- * sarebbe piu' preciso e meno vero: quello che la scheda mostra e quello che
- * la scheda cerca devono essere la stessa cosa.
- */
-function sourceOf(sources: SourceRow[], kind: 'calendar' | 'email'): SourceRow | null {
-  const pattern = kind === 'email' ? /gmail|mail|posta/i : /calendar|calendario/i;
+/** Match the selected account's source; retain names for legacy source rows. */
+function sourceOf(sources: SourceRow[], kind: 'calendar' | 'email', instanceId?: string): SourceRow | null {
+  if (instanceId) return sources.find((source) => source.id === instanceId) || null;
+  const pattern = kind === 'email' ? /gmail|mail|posta/i : /google.*calendar|calendar.*google/i;
   return sources.find((s) => pattern.test(s.what)) || null;
 }
 
@@ -112,14 +108,14 @@ export default function ConnessioniScreen() {
       attempt(() => api.gmailInstances()),
       attempt(() => api.getConnectedSources()),
     ]);
-    setInstance((r?.items || [])[0] || null);
+    setInstance(preferredConnectionInstance(r?.items));
     setAppleConfig(aConfig);
-    setAppleInstance((aInstances?.items || [])[0] || null);
+    setAppleInstance(preferredConnectionInstance(aInstances?.items));
     // Una casella scollegata resta un'istanza, con stato `revoked`. Tenerla
     // e' quello che permette alla scheda di dire «Non collegato» invece di
     // sparire: una connessione che scompare quando la togli non conferma
     // mai a nessuno di essere stata tolta.
-    setMailbox((mail?.items || [])[0] || null);
+    setMailbox(preferredConnectionInstance(mail?.items));
     // Quanto e' fresco quello che ORA sa, e se in questo momento ci riesce.
     // Lo sa la sorgente, non l'istanza del connettore: una connessione sana
     // puo' reggere una lettura di due giorni fa, ed e' esattamente la cosa
@@ -255,11 +251,14 @@ export default function ConnessioniScreen() {
               icon="calendar-outline"
               name="Google Calendar"
               state={googleState}
-              account={gcalWrite?.account_email || instance?.display_label || null}
-              source={sourceOf(sources, 'calendar')}
+              account={instance?.display_label || gcalWrite?.account_email || null}
+              source={sourceOf(sources, 'calendar', instance?.id)}
               purpose="ORA legge i tuoi eventi per capire come è fatta la tua giornata."
               testID="settings-connection"
             >
+              {googleState === 'unavailable' ? (
+                <Text style={{ color: colors.textSecondary }}>{connectionUnavailableReason(instance)}</Text>
+              ) : null}
               {googleState === 'connected' ? (
                 <>
                   <View style={styles.actions}>
@@ -313,7 +312,7 @@ export default function ConnessioniScreen() {
                   <ActionBtn
                     primary
                     icon="logo-google"
-                    label={googleState === 'disconnected' ? 'Ricollega' : 'Collega Google Calendar'}
+                    label={googleState === 'absent' ? 'Collega Google Calendar' : 'Ricollega'}
                     onPress={() => void startGoogleOAuth()}
                   />
                 </View>

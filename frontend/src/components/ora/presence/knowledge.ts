@@ -16,6 +16,8 @@ export type KnowledgeStar = {
   tracking_summary?: string | null;
   follow_up?: {
     status: string;
+    goal_id?: string | null;
+    goal_source_kind?: string | null;
     next_check_at?: string | null;
     next_check_at_local?: string | null;
     next_check_label?: string | null;
@@ -26,6 +28,7 @@ export type KnowledgeStar = {
     timezone?: string | null;
     timezone_authority?: string | null;
     last_checked_at?: string | null;
+    last_result?: string | null;
     purpose?: string | null;
     notify_when?: string | null;
     completion_when?: string | null;

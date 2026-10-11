@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 from mongomock_motor import AsyncMongoMockClient
 
-from agent.models import ActionPlan, AgentRun
+from agent.models import ActionPlan, AgentEvidence, AgentRun, ResultProvenance
 from agent.service import AgentService
 from ambient.eligibility import EligibilityService
 from opportunities.discovery import OpportunityDiscovery
@@ -138,9 +138,15 @@ async def test_agent_wait_promotes_only_when_it_has_chosen_recheck(setup, monkey
     plan = ActionPlan(owner_id=OWNER, goal_id=gid, status="active", steps=[])
     run = AgentRun(owner_id=OWNER, goal_id=gid, background=True)
     monkeypatch.setattr(service, "_note_ambient", AsyncMock())
+    await service.evidence.record(AgentEvidence(
+        owner_id=OWNER, goal_id=gid, claim="La fonte di prova indica condizioni da ricontrollare.",
+        provenance=ResultProvenance(source_class="connected_provider", capability="weather.read",
+                                    source_refs=["weather:synthetic-source"], freshness="fresh"),
+    ))
     out = await service._wait(
         OWNER, goal, plan, None, run, minutes=20,
         note="Riesame scelto dopo aver consultato fonti pertinenti",
+        model_decision=True,
     )
     assert out["state"] == "waiting", out
     assert (await service.repo.get_goal(OWNER, gid)).source_kind == KIND

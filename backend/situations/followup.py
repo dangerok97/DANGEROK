@@ -161,6 +161,16 @@ async def _read_followup_snapshot(db, owner, situation_id):
         ref = f"situation:{situation_id}"
         goals = await db.agent_goals.find({"owner_id": owner, "source_refs": ref,
                                            "status": {"$in": list(OPEN)}}, {"_id": 0}).sort("updated_at", -1).to_list(8)
+        terminal = False
+        if not goals and not (situation.attention_intent or situation.next_check_summary):
+            completed = await db.agent_goals.find_one(
+                {"owner_id": owner, "source_refs": ref,
+                 "source_kind": {"$in": [KIND, INITIAL_KIND]},
+                 "status": {"$in": ["completed", "cancelled", "failed", "abandoned"]}},
+                {"_id": 0}, sort=[("updated_at", -1)],
+            )
+            if completed:
+                goals, terminal = [completed], True
         if not goals:
             return {**out, "status": "not_scheduled"}
         # Prefer the dedicated watch, otherwise expose legacy work rather than
@@ -173,22 +183,27 @@ async def _read_followup_snapshot(db, owner, situation_id):
         stop_conditions = [str(x)[:240] for x in (goal.get("stop_conditions") or []) if str(x).strip()]
         out.update(
             goal_id=goal["id"],
+            goal_source_kind=str(goal.get("source_kind") or ""),
             purpose=str(goal.get("rationale") or "")[:300],
             completion_when=str(goal.get("desired_outcome") or "")[:400] or None,
             monitoring_goal=str(goal.get("desired_outcome") or "")[:400] or None,
             ends_when=(stop_conditions[-1] if stop_conditions else None),
         )
+        cycle_start = (goal.get("source_situation") or {}).get("attention_started_at")
+        cycle_query = {"at": {"$gte": cycle_start}} if cycle_start else {}
         arranged = await db.agent_journal.find_one(
-            {"owner_id": owner, "goal_id": goal["id"], "kind": "situation_checkpoint_arranged"},
+            {"owner_id": owner, "goal_id": goal["id"], "kind": "situation_checkpoint_arranged", **cycle_query},
             {"_id": 0, "detail.notify_when": 1}, sort=[("at", -1)])
         if arranged:
             out["notify_when"] = str(((arranged.get("detail") or {}).get("notify_when") or ""))[:400] or None
         checked = await db.agent_journal.find_one(
             {"owner_id": owner, "goal_id": goal["id"], "kind": "step_done",
-             "detail.really_happened": True, "detail.status": "succeeded"},
+             "detail.really_happened": True, "detail.status": "succeeded", **cycle_query},
             {"_id": 0, "at": 1, "note": 1}, sort=[("at", -1)])
         if checked:
             out.update(last_checked_at=checked.get("at"), last_result=str(checked.get("note") or "")[:300])
+        if terminal:
+            return {**out, "status": "stopped"}
         if goal.get("requires_user_input") or goal.get("requires_user_authority"):
             return {**out, "status": "waiting_for_user"}
         now = datetime.now(timezone.utc)
@@ -201,7 +216,8 @@ async def _read_followup_snapshot(db, owner, situation_id):
                 return {**out, "status": "not_scheduled"}
             review = await db.ambient_wakes.find_one(
                 {"owner_id": owner, "source_ref": f"goal:{goal['id']}",
-                 "status": {"$in": ["pending", "claimed"]}},
+                 "status": {"$in": ["pending", "claimed"]},
+                 "scheduled_for": {"$gte": due.isoformat()}},
                 {"_id": 0, "scheduled_for": 1},
                 sort=[("scheduled_for", 1)],
             )
@@ -212,7 +228,7 @@ async def _read_followup_snapshot(db, owner, situation_id):
                 return {**out, "status": "recovery_pending"}
             local = local_check_fields(review_at, clock["timezone"])
             return {
-                **out, "status": "review_pending",
+                **out, "status": "review_pending" if _enabled() else "runtime_disabled",
                 "assessment_at": review_at.isoformat(),
                 "assessment_label": local.get("next_check_label"),
             }
@@ -262,11 +278,21 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
         return {"ok": False, "error": "revision_conflict"}
     before = await read_followup(db, owner, situation_id)
     if before["status"] in ("scheduled", "due", "running", "waiting_for_user"):
+        if before.get("goal_source_kind") not in (KIND, INITIAL_KIND):
+            return {"ok": False, "error": "legacy_goal_pursuing", **before}
+        if before["status"] == "waiting_for_user":
+            return {"ok": False, "error": "goal_not_resumable", **before}
         return {"ok": True, "reused": True, **before}
     if before["status"] == "unavailable":
         return {"ok": False, "error": "followup_state_unavailable"}
     repo = AgentRepository(db)
-    gid = before.get("goal_id") or goal_id_for(owner, situation_id)
+    # A shared Situation reference does not transfer ownership of a generic
+    # opportunity. Only a typed dedicated watch may be resumed here.
+    gid = (
+        before.get("goal_id")
+        if before.get("goal_source_kind") in (KIND, INITIAL_KIND) and before.get("goal_id")
+        else goal_id_for(owner, situation_id)
+    )
     worker = f"schedule:{situation_id}"
     if not await repo.claim(owner, gid, worker_id=worker):
         return {"ok": False, "error": "already_being_arranged", **(await read_followup(db, owner, situation_id))}
@@ -288,32 +314,42 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             if goal and goal.source_kind == KIND else None
         )
         due = max(now + timedelta(seconds=60), prior_due or due)
+        source_snapshot = {
+            **(goal.source_situation if goal else {}),
+            "situation_id": situation_id,
+            "situation_revision": str(fresh.revision),
+            "attention_expected": "true" if fresh.attention_intent or fresh.next_check_summary else "false",
+        }
+        source_snapshot.setdefault("attention_epoch", str(fresh.revision))
+        source_snapshot.setdefault("attention_started_at", now.isoformat())
+        fallback_outcome = str(
+            fresh.expected_outcome_summary or fresh.temporal_scope
+            or "il prossimo momento utile per la persona"
+        ).strip()[:300]
+        contract = {
+            "objective": f"Capire quando la situazione raggiunge l'esito utile per la persona: {fresh.summary}"[:280],
+            "desired_outcome": (completion_when or fallback_outcome)[:400],
+            "why_now": purpose, "rationale": purpose,
+            "source_kind": KIND,
+            "source_refs": [f"situation:{situation_id}", *fresh.linked_object_refs][:8],
+            "source_situation": source_snapshot,
+            "success_criteria": [
+                "Rileggere fonti reali pertinenti prima di decidere.",
+                "Distinguere una condizione di allarme dal momento utile in cui il monitoraggio può concludersi.",
+                "Se il momento utile non è ancora raggiunto, programmare un nuovo controllo giustificato.",
+                "Se il momento utile è raggiunto, comunicarlo e terminare il monitoraggio senza inventare che il mondo fisico sia cambiato.",
+                "Non scambiare il tempo trascorso per un esito osservato.",
+            ],
+            "stop_conditions": [
+                "La situazione originale è risolta, annullata o l'attenzione è revocata.",
+                "Il monitoraggio può terminare quando è stato raggiunto e comunicato un momento utile d'azione o ulteriori controlli non aggiungerebbero valore senza nuovo input della persona.",
+            ],
+        }
         if goal is None:
-            fallback_outcome = str(
-                fresh.expected_outcome_summary
-                or fresh.temporal_scope
-                or "il prossimo momento utile per la persona"
-            ).strip()[:300]
-            user_outcome = (completion_when or fallback_outcome)[:400]
             goal = AutonomousGoal(
                 id=gid, owner_id=owner, status="active", origin="agent_initiated",
-                objective=f"Capire quando la situazione raggiunge l'esito utile per la persona: {fresh.summary}"[:280],
-                desired_outcome=user_outcome,
-                why_now=purpose, rationale=purpose,
-                source_kind=KIND, source_refs=[f"situation:{situation_id}", *fresh.linked_object_refs][:8],
-                next_run_at=due.isoformat(),
-                success_criteria=[
-                    "Rileggere fonti reali pertinenti prima di decidere.",
-                    "Distinguere una condizione di allarme dal momento utile in cui il monitoraggio può concludersi.",
-                    "Se il momento utile non è ancora raggiunto, programmare un nuovo controllo giustificato.",
-                    "Se il momento utile è raggiunto, comunicarlo e terminare il monitoraggio senza inventare che il mondo fisico sia cambiato.",
-                    "Non scambiare il tempo trascorso per un esito osservato.",
-                ],
-                stop_conditions=[
-                    "La situazione originale è risolta o annullata.",
-                    "Il monitoraggio può terminare quando è stato raggiunto e comunicato un momento utile d'azione o ulteriori controlli non aggiungerebbero valore senza nuovo input della persona.",
-                ],
-                decision_provenance="model")
+                next_run_at=due.isoformat(), decision_provenance="model", **contract,
+            )
             if await repo.create_goal(goal) is None:
                 return {"ok": False, "error": "goal_not_persisted"}
         else:
@@ -325,14 +361,34 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
                 await AmbientRepository(db).cancel_for(
                     owner, source_ref=f"goal:{gid}",
                 )
-                goal.source_kind = KIND
+                for field, value in contract.items():
+                    setattr(goal, field, value)
             goal.next_run_at = due.isoformat()
             await repo.save_goal(goal)
+        latest = await SituationRepository(db).get(owner, situation_id)
+        if (not latest or latest.status not in ("active", "changed")
+                or (source_snapshot["attention_expected"] == "true"
+                    and not (latest.attention_intent or latest.next_check_summary))):
+            await cancel_dedicated_followup(db, owner, situation_id)
+            return {"ok": False, "error": "situation_changed"}
+        if latest.revision != expected_revision or not goal.is_open:
+            return {"ok": False, "error": "situation_changed"}
         wake = await AmbientService(db).schedule(owner, reason="opportunity_revisit", when=due,
                                                  source_ref=f"goal:{gid}", provenance="model")
         if wake and wake.scheduled_for != goal.next_run_at:
             goal.next_run_at = wake.scheduled_for
             await repo.save_goal(goal)
+        latest = await SituationRepository(db).get(owner, situation_id)
+        current = await repo.get_goal(owner, gid)
+        if (not latest or latest.status not in ("active", "changed")
+                or (source_snapshot["attention_expected"] == "true"
+                    and not (latest.attention_intent or latest.next_check_summary))):
+            await cancel_dedicated_followup(db, owner, situation_id)
+            return {"ok": False, "error": "situation_changed"}
+        if latest.revision != expected_revision or not current or not current.is_open:
+            # The runner refreshes a changed source before acting; an old
+            # scheduling decision is not a success for the newer revision.
+            return {"ok": False, "error": "situation_changed"}
         await repo.journal(owner, gid, kind="situation_checkpoint_arranged", note=purpose,
                            detail={"situation_id": situation_id, "until": goal.next_run_at,
                                    "notify_when": notify_when, "completion_when": goal.desired_outcome})
@@ -424,12 +480,19 @@ async def settle_completed_followup(db, owner, goal):
     current = await SituationRepository(db).get(owner, sid)
     if current is None or current.status not in ("active", "changed"):
         return False
+    snapshot = getattr(goal, "source_situation", None) or {}
+    source_revision = snapshot.get("situation_revision")
+    if source_revision and str(current.revision) != str(source_revision):
+        # An older completion cannot withdraw attention requested while that
+        # worker was finishing. The newer revision has its own lifecycle.
+        return False
+    cycle = snapshot.get("attention_epoch") or source_revision or str(current.revision)
     from situations.models import SituationUpdate
     from situations.service import SituationService
     result = await SituationService(db).apply(
         user_id=owner,
         session_id=current.session_id or f"agent:{goal.id}",
-        reasoning_epoch=f"followup-complete:{goal.id}",
+        reasoning_epoch=f"followup-complete:{goal.id}:{cycle}",
         update=SituationUpdate(
             operation="update",
             situation_id=sid,
@@ -445,21 +508,58 @@ async def settle_completed_followup(db, owner, goal):
 async def cancel_dedicated_followup(db, owner, situation_id):
     """Close only this Situation's dedicated watch, never unrelated user plans."""
     from agent.service import AgentService
-    gid = goal_id_for(owner, situation_id)
-    found = await db.agent_goals.find_one(
-        {"owner_id": owner, "id": gid,
-         "status": {"$in": list(OPEN)},
+    # Older dedicated watches may predate the canonical id. Their typed,
+    # owner-scoped Situation reference still identifies exactly this work.
+    rows = await db.agent_goals.find(
+        {"owner_id": owner,
+         "$or": [{"id": goal_id_for(owner, situation_id)}, {"source_refs": f"situation:{situation_id}"}],
          "source_kind": {"$in": [KIND, INITIAL_KIND]}},
-        {"_id": 0, "id": 1},
-    )
-    if found:
-        await AgentService(db).cancel(
-            owner, gid, reason="La situazione è stata risolta o annullata.",
-        )
+        {"_id": 0, "id": 1, "status": 1},
+    ).to_list(None)
     from ambient.repository import AmbientRepository
-    await AmbientRepository(db).cancel_for(
-        owner, source_ref=f"goal:{gid}",
-    )
+    ids = {goal_id_for(owner, situation_id), *[row["id"] for row in rows]}
+    for row in rows:
+        if row.get("status") in OPEN:
+            await AgentService(db).cancel(
+                owner, row["id"], reason="La situazione è stata risolta o annullata.",
+            )
+    for gid in ids:
+        await AmbientRepository(db).cancel_for(owner, source_ref=f"goal:{gid}")
+
+
+async def attention_withdrawal_confirmed(db, owner, situation_id) -> bool:
+    """A saved intention is not proof that the executable work was stopped."""
+    if db is None or not owner or not situation_id:
+        return False
+    try:
+        situation = await SituationRepository(db).get(owner, situation_id)
+        if situation is None or (
+            situation.status in ("active", "changed")
+            and (situation.attention_intent or situation.next_check_summary)
+        ):
+            return False
+        rows = await db.agent_goals.find(
+            {"owner_id": owner,
+             "$or": [{"id": goal_id_for(owner, situation_id)}, {"source_refs": f"situation:{situation_id}"}],
+             "source_kind": {"$in": [KIND, INITIAL_KIND]}},
+            {"_id": 0, "id": 1, "status": 1},
+        ).to_list(None)
+        if any(row.get("status") in OPEN for row in rows):
+            return False
+        ids = {goal_id_for(owner, situation_id), *[row["id"] for row in rows]}
+        wake = await db.ambient_wakes.find_one(
+            {"owner_id": owner, "source_ref": {"$in": [f"goal:{gid}" for gid in ids]},
+             "status": {"$in": ["pending", "claimed"]}}, {"_id": 0, "id": 1},
+        )
+        if wake is not None:
+            return False
+        latest = await SituationRepository(db).get(owner, situation_id)
+        return bool(latest and latest.revision == situation.revision and (
+            latest.status not in ("active", "changed")
+            or not (latest.attention_intent or latest.next_check_summary)
+        ))
+    except Exception:
+        return False
 
 
 async def get_situation_followup(args, runtime):

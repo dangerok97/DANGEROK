@@ -288,9 +288,11 @@ class SituationService:
                 logger.warning(
                     "situation attention admission soft-fail: %s", type(exc).__name__
                 )
+        latest_changes = situation.history[-1].changes if situation.history else {}
         if operation in ("resolve", "cancel") or (
             operation == "update"
             and not (situation.attention_intent or situation.next_check_summary)
+            and any(field in latest_changes for field in ("attention_intent", "next_check_summary"))
         ):
             # An explicit withdrawal of the attention obligation is just as
             # binding as closing the Situation. Do not let a stale initial

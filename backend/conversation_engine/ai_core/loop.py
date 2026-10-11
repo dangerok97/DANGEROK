@@ -2132,10 +2132,7 @@ async def run_cognitive_loop(
                 and handling.situation_id
                 and handling.user_words
                 and handling.user_words in user_message
-                and any(
-                    item["situation_id"] == handling.situation_id
-                    for item in followup_gate.pending
-                )
+                and handling.situation_id in followup_gate.active_ids
             ):
                 try:
                     from situations.repository import SituationRepository
@@ -2160,6 +2157,9 @@ async def run_cognitive_loop(
                         )
                         if withdrawn.get("status") != "success":
                             raise RuntimeError("attention_withdrawal_unconfirmed")
+                        from situations.followup import attention_withdrawal_confirmed
+                        if not await attention_withdrawal_confirmed(db, sess.user_id, current.id):
+                            raise RuntimeError("attention_work_still_pending")
                         observations.append(Observation(
                             kind="tool",
                             name="situation_attention_withdrawn",

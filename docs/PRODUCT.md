@@ -1,3 +1,21 @@
+## 11 ottobre 2026 — v157–v158: chiusura dei difetti del collaudo reale
+
+Una situazione che richiede attenzione viene presa in carico per una prima
+valutazione. La scheda distingue questa fase dal controllo effettivamente
+programmato e mostra lo stato registrato, il motivo e l'ultimo risultato.
+Un rinvio tecnico non diventa un controllo verificato. Revocare l'attenzione
+ferma anche il lavoro accodato; una correzione della situazione invalida il
+piano precedente. Un esito del mondo fisico richiede sempre evidenze proprie.
+
+La vista mensile e la Home leggono gli stessi calendari Google selezionati,
+con eventi locali ORA indipendenti. Tornare da un dettaglio aggiorna l'agenda;
+un collegamento che richiede nuovo accesso non viene presentato come attivo.
+Gli avvisi finanziari conservano fonte e data originali, accettano chiarimenti
+di nome e natura dalla stessa email e restano informazioni negli aggiornamenti.
+La qualità del risultato sull'account reale è un collaudo distinto dai test.
+
+---
+
 ## 10 ottobre 2026 — v155: calendario ORA nativo e indipendente
 
 Il calendario ORA è sempre disponibile e non dipende da un login Google o

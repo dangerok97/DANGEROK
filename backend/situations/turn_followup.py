@@ -107,6 +107,7 @@ class FollowupTurnGate:
     def __init__(self, db, owner: str):
         self.db, self.owner = db, owner
         self.pending: list[dict[str, Any]] = []
+        self.active_ids: set[str] = set()
         self.nudged = False
         self._readbacks: list[dict[str, str]] = []
 
@@ -115,6 +116,7 @@ class FollowupTurnGate:
         from situations.followup import read_followup
 
         self.pending = []
+        self.active_ids = set()
         if self.db is None or not self.owner:
             return
         ids = []
@@ -131,6 +133,7 @@ class FollowupTurnGate:
                 item = await SituationRepository(self.db).get(self.owner, sid)
                 if item is None or item.status not in ('active', 'changed'):
                     continue
+                self.active_ids.add(sid)
                 purpose = item.attention_intent or item.next_check_summary
                 if not purpose:
                     continue

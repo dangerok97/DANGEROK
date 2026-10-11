@@ -1,3 +1,25 @@
+## 11 ottobre 2026 — v157–v158: correzioni della verifica reale
+
+- Ripresa la proposta v157 aperta: prima valutazione durevole, deduplica,
+  ripresa delle situazioni precedentemente prive di esecuzione e revoca.
+- Separati retry tecnici e checkpoint scelti su evidenze: lo stato visibile
+  non presenta un rinvio predefinito come controllo reale.
+- Verificata la revisione della fonte durante il lavoro; piani vecchi
+  invalidati e chiusure rispettate prima di altri passi.
+- Conferma di annullamento subordinata alla rilettura di job e wake.
+- Dettaglio delle Situations temporanee con motivazione e risultato.
+- Unificata la fonte calendario Home/mese, account selezionati e stato
+  del collegamento; aggiornamento dell'agenda al ritorno dal dettaglio.
+- Vincolate le azioni Google all'istanza, al consenso e al calendario
+  dell'evento; impedita l'archiviazione di eventi omonimi di altre fonti.
+- Corrette deduplica e identità delle riletture finanziarie, riferimenti
+  legacy email, contesto informativo in Home e provenienza/data degli avvisi.
+- Regressioni significative aggiunte ai gate CI; nessuna dipendenza nuova
+  di produzione né migrazione distruttiva. Evidenze in
+  `QA_ROADMAP_RESUME_2026_10_11.md`.
+
+---
+
 ## 10 ottobre 2026 — v155: calendario ORA autonomo
 
 - Agenda mensile navigabile, scelta del giorno e `Nuovo evento` ORA.

@@ -20,6 +20,7 @@ from home.models import (
     ConnectionWarning,
     CurrentSituation,
     ExplanationBlock,
+    HomeAction,
     HomeItem,
     HomeResponse,
     InsightItem,
@@ -101,6 +102,14 @@ class HomeService:
     async def build_home(self, user_id: str) -> HomeResponse:
         now = datetime.now(timezone.utc)
         raw_items, warnings, gcal = await gather_all(self.db, user_id)
+        # Financial observations belong in Updates even though they do not
+        # justify a task. Preserve them for that surface before work admission
+        # removes informational records from Focus, ranking and priorities.
+        financial_information = [
+            item for item in raw_items
+            if item.source_type == "financial" and item.type == "insight"
+            and (item.meta or {}).get("knowledge_only")
+        ]
         # Knowledge acquisition must not create work by itself.
         #
         # Everything ORA read is already where reading belongs: the profile,
@@ -113,6 +122,7 @@ class HomeService:
         if goals:
             raw_items = attach_goal_context(raw_items, goals, now=now)
         state = await self._load_state_map(user_id)
+        financial_information = self._apply_state(financial_information, state, now)
         filtered = self._apply_state(raw_items, state, now)
         ranked = rank_items(filtered, now=now)
         ranked = dedupe_items(ranked)
@@ -297,7 +307,9 @@ class HomeService:
 
         situation = await self._build_situation(user_id, ranked, now)
         priorities = self._group_priorities(ranked, primary.id if primary else None, primary_goal_id=primary.goal_id if primary else None)
-        insights = await self._build_insights(user_id, ranked, gcal, now, goals=goals)
+        insights = await self._build_insights(
+            user_id, [*ranked, *financial_information], gcal, now, goals=goals,
+        )
 
         # Filter ORA TI CONSIGLIA: drop anything that duplicates primary Goal card
         primary_gid = primary.goal_id if primary else None
@@ -614,6 +626,7 @@ class HomeService:
         goals: Optional[list] = None,
     ) -> List[InsightItem]:
         candidates: List[InsightItem] = []
+        fixed_notice_expiries: set[str] = set()
 
         # Quello che ORA sa dei soldi di questa persona, detto come una frase.
         #
@@ -630,13 +643,22 @@ class HomeService:
             i for i in items
             if i.source_type == "financial" and i.type != "verify"
         ][:1]:
+            source_deadline = (said.meta or {}).get("valid_until")
+            if not source_deadline:
+                fixed_notice_expiries.add(f"financial:{said.source_id}")
             candidates.append(InsightItem(
                 id=f"ins_fin_{said.source_id}",
                 text=f"{said.title}. {said.description or ''}".strip(),
-                source="financial",
+                source=(said.meta or {}).get("source_label") or "Fonte originale non disponibile",
+                action=HomeAction(
+                    id="financial_source_details", label="Vedi conti e denaro",
+                    kind="open", route="/conti-e-denaro",
+                ),
                 status="active",
-                created_at=now.isoformat(),
-                valid_until=(now + timedelta(days=1)).isoformat(),
+                created_at=said.created_at or now.isoformat(),
+                # Without a source deadline this is the existing 24-hour
+                # display lifetime of the notice, not a claimed payment date.
+                valid_until=source_deadline or (now + timedelta(days=1)).isoformat(),
                 dedupe_key=f"financial:{said.source_id}",
             ))
 
@@ -711,6 +733,17 @@ class HomeService:
             else:
                 c.status = existing.get("status") or "active"
                 c.id = existing.get("id") or c.id
+                c.created_at = existing.get("created_at") or c.created_at
+                if c.dedupe_key in fixed_notice_expiries:
+                    # Refreshing Home must not indefinitely renew an old
+                    # undated summary's original display lifetime.
+                    c.valid_until = existing.get("valid_until") or c.valid_until
+            if c.valid_until:
+                from opportunities.source_lifecycle import _instant
+
+                deadline = _instant(c.valid_until, end_of_day=True)
+                if deadline is None or deadline <= now:
+                    continue
             if c.status == "active":
                 out.append(c)
         return out[:2]
