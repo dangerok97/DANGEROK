@@ -1,0 +1,31 @@
+name: Prepare Vision catalog and camera controls
+on:
+  push:
+    branches: [qa/vision-catalog-camera-prepare]
+    paths: ['.github/workflows/prepare-vision-catalog-camera.yml']
+permissions:
+  contents: write
+concurrency:
+  group: prepare-vision-catalog-camera
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply only reviewed feature edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/prepare_vision_catalog_camera.py /tmp/prepare_vision_catalog_camera.py
+          git fetch origin feat/vision-catalog-25
+          test "$(git rev-parse FETCH_HEAD)" = "1b5a6790e5fcfeab6dd4a24b3212b8e816a8185b"
+          git switch -c prepared-vision-catalog-camera FETCH_HEAD
+          python /tmp/prepare_vision_catalog_camera.py
+          git diff --check
+          git add backend/vision_catalog.py backend/vision_xray.py backend/vision_tests/test_catalog.py frontend/src/vision-xray/LiveExplorer.web.tsx frontend/src/vision-xray/catalogApi.ts frontend/src/vision-xray/visualStyle.ts frontend/src/vision-xray/walkthrough.test.mjs frontend/playwright.vision.config.ts frontend/e2e/vision-catalog-camera.spec.ts scripts/vision_test_server.py docs/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(vision): integrate 25-family catalogue and camera flash/digital zoom'
+          git push origin HEAD:refs/heads/feat/vision-catalog-25
