@@ -25,6 +25,7 @@ somebody's calendar is clear when nobody ever plugged one in.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -1381,10 +1382,38 @@ async def do_research(
             "web.research", "nothing_to_ask", "Non c'era una domanda da porre."
         )
 
+    known = [str(c)[:200] for c in (goal.success_criteria or [])][:12]
+    situation_refs = list(dict.fromkeys(
+        str(ref) for ref in (goal.source_refs or [])[:8]
+        if str(ref).startswith("situation:")
+    ))[:4]
+    context_unavailable = False
+    if situation_refs:
+        # Re-read the same owner-scoped context the agent planner sees. Opaque
+        # goal refs and success criteria alone lose the subject of the search.
+        # No profile/current-position fallback: an absent location stays absent.
+        from situations.repository import SituationRepository
+
+        source_context = []
+        for ref in situation_refs:
+            try:
+                state = await SituationRepository(db).get(owner_id, ref.split(":", 1)[1])
+            except Exception as exc:
+                logger.info("research situation context unavailable: %s", type(exc).__name__)
+                state = None
+            if state is None:
+                context_unavailable = True
+                continue
+            source_context.append({"ref": ref, "source": "situation", **state.context_preview()})
+        known = [json.dumps({
+            "source_context": source_context,
+            "source_context_unavailable": context_unavailable,
+        }, ensure_ascii=False), *known[:11]]
+
     need = ResearchNeed(
         question=question[:400],
         purpose=(goal.desired_outcome or "")[:300],
-        already_known=[str(c)[:200] for c in (goal.success_criteria or [])][:12],
+        already_known=known,
     )
 
     try:
@@ -1409,13 +1438,26 @@ async def do_research(
     sufficiency = getattr(assessment, "sufficiency", "insufficient") if assessment else "insufficient"
     conflicts = list(getattr(assessment, "conflicts", None) or []) if assessment else []
 
+    # Research's free-text answer is not a substitute for source-validated
+    # claims, including older cached runs whose claims were never validated.
+    source_ids = {
+        str(source.source_id) for source in (getattr(run, "sources", None) or [])
+        if str(getattr(source, "url", "") or "").strip()
+    }
     claims: List[Claim] = []
-    for claim in (getattr(synthesis, "claims", None) or [])[:MAX_CLAIMS]:
+    rejected_claims = False
+    for claim in (getattr(synthesis, "claims", None) or []):
         text = (getattr(claim, "statement", "") or "").strip()
-        if text:
-            claims.append(Claim(text=text[:600], supports=question[:300]))
-    if not claims and getattr(synthesis, "answer", ""):
-        claims.append(Claim(text=str(synthesis.answer)[:600], supports=question[:300]))
+        cited = set(getattr(claim, "supported_by", None) or []) & source_ids
+        if not text or not cited:
+            rejected_claims = True
+            continue
+        if (getattr(claim, "scope", "") == "person_specific"
+                and not getattr(claim, "person_evidence_used", None)):
+            rejected_claims = True
+            continue
+        claims.append(Claim(text=text[:600], supports=question[:300]))
+    validated_claims = bool(claims)
 
     # A conflict is a finding, not a failure. It goes in as a claim of its own
     # so the planner has to reckon with it rather than read past it.
@@ -1427,41 +1469,53 @@ async def do_research(
                 supports="disaccordo fra le fonti",
             ))
 
+    from agent.evidence import freshness_of
+
     run_id = getattr(run, "id", "")
+    observed_at = str(getattr(run, "completed_at", None) or getattr(run, "started_at", "") or "")
+    freshness = freshness_of(observed_at)
+    try:
+        valid_until = datetime.fromisoformat(str(getattr(run, "valid_until", "") or ""))
+        still_valid = valid_until.tzinfo is not None and valid_until > _now()
+    except (TypeError, ValueError):
+        still_valid = False
+    enough = (
+        getattr(run, "user_id", None) == owner_id
+        and getattr(run, "status", "") == "completed"
+        and sufficiency == "sufficient" and validated_claims and not rejected_claims
+        and not context_unavailable
+        and not getattr(assessment, "missing_evidence", None)
+        and not getattr(synthesis, "unresolved", None)
+        and not any(not getattr(c, "resolved", False) for c in conflicts)
+    )
+    provenance = ResultProvenance(
+        source_class="external_research", capability="web.research", provider="research",
+        source_refs=[run_id] if run_id else [],
+        observed_at=observed_at, freshness=freshness,
+        research_sufficient=bool(enough and run_id and still_valid and freshness in ("fresh", "recent")),
+        research_valid_until=str(getattr(run, "valid_until", "") or "") or None,
+        certainty_note=f"quanto bastano le fonti: {sufficiency}; claim citate verificate: {validated_claims}"[:200],
+    )
     if getattr(run, "status", "") == "failed" or not claims:
         return CapabilityOutcome(
             status="partial" if claims else "failed",
             observation=(
                 getattr(run, "outcome_note", "") or "Non ho trovato niente di utilizzabile."
             )[:600],
-            provenance=ResultProvenance(
-                source_class="external_research",
-                capability="web.research",
-                provider="research",
-                source_refs=[run_id] if run_id else [],
-                freshness="fresh",
-            ),
+            provenance=provenance,
             claims=claims,
             data_ref=run_id,
             error_type="research_insufficient",
             retryable=True,
         )
 
-    enough = sufficiency in ("sufficient", "strong")
     return CapabilityOutcome(
         status="succeeded" if enough else "partial",
         observation=(
             f"Ho cercato: {question[:120]}. "
-            + (getattr(synthesis, "answer", "") or "")[:300]
+            + " ".join(claim.text for claim in claims)[:300]
         ).strip()[:600],
-        provenance=ResultProvenance(
-            source_class="external_research",
-            capability="web.research",
-            provider="research",
-            source_refs=[run_id] if run_id else [],
-            freshness="fresh",
-            certainty_note=f"quanto bastano le fonti: {sufficiency}"[:200],
-        ),
+        provenance=provenance,
         claims=claims[:MAX_CLAIMS],
         data_ref=run_id,
         error_type="" if enough else "not_enough_yet",

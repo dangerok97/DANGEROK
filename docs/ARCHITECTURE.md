@@ -1,3 +1,25 @@
+## 11 ottobre 2026 — v158: differenze finanziarie e prove della ricerca
+
+Le richieste di conferma finanziaria confrontano la proposta attiva con il
+fatto governato corrente. La selezione e la domanda vengono condivise dalle
+superfici di lettura e dal percorso che applica la risposta esplicita. I
+campi omessi dalla proposta non cancellano informazioni già confermate.
+Il confronto non modifica fatti, audit o proposte durante una lettura.
+
+La ricerca del lavoro ORA riceve anche un contesto limitato della Situation,
+riletto attraverso i riferimenti dell'owner, nel contratto `already_known`.
+`ResearchPlan.geographic_scope` viene conservato nella valutazione e nella
+sintesi. La provenienza distingue una ricerca completata e sufficiente da
+un risultato parziale, sconosciuto o privo di claim con fonti valide. Il gate
+della prima verifica non promuove queste ultime condizioni a un checkpoint.
+Il testo libero della sintesi non aggira il controllo delle claim.
+
+Queste garanzie verificano trasporto del contesto e supporto delle prove;
+non equivalgono a una dimostrazione automatica di pertinenza geografica.
+Località e associazione alla Situation richiedono proprie fonti verificabili.
+
+---
+
 ## 11 ottobre 2026 — v158: completamento dei contratti tra superfici
 
 `ContextRail` usa `calendarEntries` per selezionare gli eventi del payload

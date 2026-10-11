@@ -148,7 +148,7 @@ export default function LifeAreaScreen() {
                 Questa parte non è più nella tua Vita.
               </Text>
               <Text style={[styles.body, { color: colors.textSecondary }]}>
-                Può succedere quando qualcosa cambia. Torna indietro per vedere cosa c'è ora.
+                Può succedere quando qualcosa cambia. Torna indietro per vedere cosa c’è ora.
               </Text>
             </View>
           ) : (
@@ -253,7 +253,9 @@ export default function LifeAreaScreen() {
                         key={`chiedo-${row.cosa}`}
                         style={[styles.body, { color: colors.textSecondary }]}
                       >
-                        {row.invece_di
+                        {row.domanda
+                          ? `${row.domanda}${row.perche ? ` ${row.perche}` : ''}`
+                          : row.invece_di
                           ? `Ho trovato ${row.quanto} per «${row.cosa}», ma finora sapevo ${row.invece_di}. Non so ancora quale sia quello attuale.`
                           : `${row.cosa}: ho trovato ${row.quanto}, ma devo ancora confermarlo.`}
                       </Text>

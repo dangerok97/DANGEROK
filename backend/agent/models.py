@@ -204,6 +204,10 @@ class ResultProvenance(BaseModel):
     observed_at: str = Field(default_factory=now_iso)
     source_refs: List[str] = Field(default_factory=list, max_length=8)
     freshness: Freshness = "unknown"
+    # Code attests a completed, sufficient research run with cited claims.
+    # Unknown on legacy evidence; this does not certify geographic relevance.
+    research_sufficient: Optional[bool] = None
+    research_valid_until: Optional[str] = None
     # In words, when the model needs to know how much to lean on it.
     certainty_note: str = Field(default="", max_length=200)
 
@@ -219,6 +223,8 @@ class ResultProvenance(BaseModel):
             "observed_at": self.observed_at,
             "really_happened": self.is_real,
             "how_old": self.freshness,
+            "research_sufficient": self.research_sufficient,
+            "research_valid_until": self.research_valid_until,
             "note": self.certainty_note or None,
         }
 

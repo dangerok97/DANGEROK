@@ -1,3 +1,33 @@
+## 11 ottobre 2026 — v158: secondo rilascio e riscontri dalle fonti reali
+
+La PR #203 è integrata in `42fba0e9`: tutti i gate della PR e dopo il merge
+sono verdi, inclusi Chromium e WebKit. Backend e web Railway sono SUCCESS
+sullo stesso commit, con health HTTP 200. Il confronto autenticato conferma
+zero appuntamenti in Home e Agenda nel giorno precedentemente incoerente.
+La Situation esistente è stata recuperata in autonomia: ultima valutazione
+e prossimo controllo sono ora persistiti, senza ricrearla o rinnovarne
+manualmente l'intenzione. La località citata dalla valutazione rimane da
+verificare rispetto al contesto fisico; il solo checkpoint non chiude il QA.
+
+Una rilettura esplicita delle email economiche già collegate ha verificato
+cinque fonti: una informazione aggiornata, due già corrette e due senza un
+fatto economico confermato. È emersa una domanda presentata come confronto
+fra due importi ignoti. La patch successiva rende visibile la differenza
+effettiva, conserva la memoria confermata e rafforza la provenienza della
+ricerca usata nei controlli. Nessuna conferma economica è stata data nel QA.
+
+Gli esiti conclusivi e le limitazioni del collaudo sono tracciati nella PR
+della patch e in `QA_ROADMAP_RESUME_2026_10_11.md`.
+
+Validazione locale integrata dell'ultima patch: 148 test backend PASS,
+inclusi i nuovi contratti di ricerca e le regressioni di Situation, finanza
+e calendario. La suite finanziaria vicina conta 55 PASS, in parte compresi
+nel giro integrato. TypeScript, esportazione web e lint dei file frontend
+modificati sono PASS; il lint conserva i warning di stile già presenti nel
+client API. Gli esiti con Mongo reale e i browser sono affidati ai gate CI.
+
+---
+
 ## 11 ottobre 2026 — v158: rilascio e verifica autenticata
 
 PR #200 integrata su `staging/cloud` in `8e9b878` dopo tutti i gate verdi;
