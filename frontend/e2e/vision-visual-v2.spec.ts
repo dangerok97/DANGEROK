@@ -53,8 +53,10 @@ test('pinch zoom, buttons and keyboard rotate without selecting during a gesture
   await page.keyboard.press('ArrowRight');await expect(scene).not.toHaveAttribute('data-yaw',initialYaw!);
   await page.getByTestId('vision-zoom-in').click();await expect.poll(async()=>Number(await scene.getAttribute('data-zoom'))).toBeGreaterThan(1);
   await page.getByTestId('vision-zoom-out').click();await expect(scene).toHaveAttribute('data-zoom','1.000');
-  await page.getByTestId('vision-explode-range').fill('45');await expect(page.getByTestId('vision-explode-range')).toHaveValue('45');
-  await page.getByTestId('vision-toggle-explode').click();await expect(page.getByTestId('vision-explode-range')).toHaveValue('100');
+  const range=page.getByTestId('vision-explode-range');
+  await range.focus();await page.keyboard.press('ArrowLeft');await expect(range).toHaveValue('99');
+  await page.getByTestId('vision-toggle-explode').click();await expect(range).toHaveValue('0');
+  await page.getByTestId('vision-toggle-explode').click();await expect(range).toHaveValue('100');
 });
 
 test('all initial families render and remain selectable with reduced motion',async({page},info)=>{
