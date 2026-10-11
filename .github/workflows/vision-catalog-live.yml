@@ -1,0 +1,122 @@
+name: Vision catalog and live camera
+on:
+  push:
+    branches: [feat/ora-vision-xray]
+  pull_request:
+    branches: [staging/cloud]
+    paths:
+      - 'backend/vision*'
+      - 'backend/vision_tests/**'
+      - 'frontend/src/vision-xray/**'
+      - 'frontend/app/vision-xray.tsx'
+      - 'frontend/src/components/ora/OraAttachMenu.tsx'
+      - '.github/workflows/vision-catalog-live.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vision-catalog-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mongo:
+        image: mongo:6
+        ports: ['27017:27017']
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      VISION_TEST_MONGO_URL: mongodb://127.0.0.1:27017
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install focused test dependencies
+        run: python -m pip install 'pydantic>=2.11,<3' 'fastapi>=0.115,<1' 'motor==3.3.1' 'pymongo==4.6.3' httpx pillow pytest pytest-asyncio uvicorn
+      - name: Test real Mongo persistence and guarded API
+        run: |
+          mkdir -p .vision-evidence
+          python -m pytest -c /dev/null backend/vision_tests -q --junitxml=.vision-evidence/catalog-tests.xml | tee .vision-evidence/catalog-tests.txt
+      - name: Archive focused source
+        if: always()
+        run: |
+          mkdir -p .vision-evidence
+          tar -czf .vision-evidence/vision-source.tar.gz backend/vision_catalog.py backend/vision_xray.py backend/vision_tests frontend/src/vision-xray frontend/app/vision-xray.tsx scripts/vision_test_server.py
+          git rev-parse HEAD > .vision-evidence/commit.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vision-catalog-evidence
+          path: .vision-evidence/
+          retention-days: 7
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mongo:
+        image: mongo:6
+        ports: ['27017:27017']
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      VISION_TEST_MONGO_URL: mongodb://127.0.0.1:27017
+      EXPO_PUBLIC_BACKEND_URL: same-origin
+      ORA_SKIP_CMD_GUARD: '1'
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser harness dependencies
+        run: python -m pip install 'pydantic>=2.11,<3' 'fastapi>=0.115,<1' 'motor==3.3.1' 'pymongo==4.6.3' httpx pillow uvicorn
+      - name: Install app
+        working-directory: frontend
+        run: npm ci
+      - name: Export exact procedural seeds for geometry tests
+        run: |
+          mkdir -p .vision-evidence
+          PYTHONPATH=backend python -c 'import json;from vision_catalog import seeds;print(json.dumps([m.model_dump(mode="json") for m in seeds()]))' > .vision-evidence/seeds.json
+      - name: Record complete typecheck and reject regressions in changed surfaces
+        working-directory: frontend
+        run: |
+          npx tsc --noEmit > ../.vision-evidence/typecheck.txt 2>&1 || true
+          cat ../.vision-evidence/typecheck.txt
+          if grep -E '(src/vision-xray/|app/vision-xray.tsx|OraAttachMenu.tsx|vision-live.spec.ts|playwright.vision.config.ts).*error TS' ../.vision-evidence/typecheck.txt; then exit 1; fi
+      - name: Geometry and old attachment-menu regression tests
+        working-directory: frontend
+        run: |
+          node --test src/vision-xray/scene.test.mjs
+          node --experimental-strip-types src/components/ora/attachMenu313.test.ts
+      - name: Build actual Expo web application
+        working-directory: frontend
+        run: npx expo export --platform web --output-dir dist-vision
+      - name: Install browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium webkit
+      - name: Start isolated application harness
+        run: |
+          python scripts/vision_test_server.py > .vision-evidence/harness.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8765/api/health && break; sleep 1; done
+      - name: Verify UI, continuous video and camera lifecycle
+        working-directory: frontend
+        run: npx playwright test -c playwright.vision.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vision-web-evidence
+          path: |
+            .vision-evidence/
+            frontend/test-results/
+          retention-days: 7
