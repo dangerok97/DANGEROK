@@ -282,7 +282,8 @@ class AgentService:
             ref.startswith(("situation:", "place:")) for ref in (source_refs or [])
         ):
             dedicated = await self.db.agent_goals.find_one(
-                {"owner_id": owner_id, "source_kind": "situation_followup",
+                {"owner_id": owner_id,
+                 "source_kind": {"$in": ["situation_followup", "situation_initial_review"]},
                  "source_refs": situation_refs[0], "status": {"$in": ["active", "waiting", "proposed"]}},
                 {"_id": 0})
             if dedicated:
@@ -1760,6 +1761,11 @@ class AgentService:
         plan.status = "waiting"
         goal.status = "waiting"
         goal.background_runs = 0
+        # The AI has now chosen a concrete recheck interval/time through the
+        # ordinary bounded Agent path. Before this point there was only an
+        # initial review pending, not a valid Situation checkpoint.
+        if goal.source_kind == "situation_initial_review":
+            goal.source_kind = "situation_followup"
         goal.next_run_at = due.isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
@@ -1844,7 +1850,7 @@ class AgentService:
         if status == "completed":
             await self._note_ambient(owner_id, "agent_goal_completed", goal)
             await self._resolve_opportunity(owner_id, goal)
-            if goal.source_kind == "situation_followup":
+            if goal.source_kind in ("situation_followup", "situation_initial_review"):
                 try:
                     from situations.followup import settle_completed_followup
                     await settle_completed_followup(self.db, owner_id, goal)
