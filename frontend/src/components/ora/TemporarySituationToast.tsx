@@ -20,6 +20,7 @@ function lifecycleCopy(star: KnowledgeStar): string {
   const tracking = confirmed ? String(star.tracking_summary || '').trim() : '';
   const state = confirmed
     ? (status === 'running' ? 'Controllo in corso.' : 'Un controllo risulta programmato nella scheda.')
+    : status === 'review_pending' ? (star.follow_up?.assessment_label ? `ORA riesaminerà questa situazione ${star.follow_up.assessment_label}, ma il vero controllo non è ancora programmato.` : 'ORA sta preparando il primo riesame: il controllo non è ancora programmato.')
     : status === 'not_scheduled' ? 'Non risulta ancora un controllo automatico programmato.'
     : status === 'runtime_disabled' ? 'I controlli automatici sono disattivati.'
     : status === 'waiting_for_user' ? 'Il controllo attende informazioni o autorizzazione.'
