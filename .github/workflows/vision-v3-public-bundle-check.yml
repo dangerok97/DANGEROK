@@ -1,0 +1,56 @@
+name: Vision V3 public bundle check
+on:
+  push:
+    branches: [qa/vision-guided-v3-prepare]
+    paths: ['.github/workflows/vision-v3-public-bundle-check.yml']
+permissions:
+  contents: read
+jobs:
+  public-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Verify new public assets without signing in or touching user data
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,re,time,urllib.request,urllib.parse
+          from pathlib import Path
+          root='https://ora-web-production-fb67.up.railway.app'
+          out=Path('.vision-v3-published');out.mkdir(exist_ok=True)
+          markers=['guided-v3','vision-how-it-works','vision-tour-play','vision-tour-next']
+          checked={}
+          def get(url):
+            req=urllib.request.Request(url,headers={'User-Agent':'ORA-Vision-Public-Asset-QA/1.0','Cache-Control':'no-cache'})
+            with urllib.request.urlopen(req,timeout=15) as r:
+              raw=r.read(20*1024*1024+1)
+              if len(raw)>20*1024*1024:raise ValueError('Asset exceeds read budget')
+              return raw.decode('utf-8')
+          for attempt in range(36):
+            try:
+              html=get(root+'/vision-xray')
+              paths=re.findall(r'<script[^>]+src=[\"\']([^\"\']+)',html)
+              found=set();assets=[]
+              for path in paths[:5]:
+                url=urllib.parse.urljoin(root,path)
+                if urllib.parse.urlparse(url).netloc!=urllib.parse.urlparse(root).netloc:continue
+                if url not in checked:
+                  data=get(url);checked[url]=[m for m in markers if m in data]
+                found.update(checked[url]);assets.append(url)
+              if set(markers)<=found:
+                report={'public_assets_verified':True,'markers':markers,'assets':assets,'authenticated_runtime_tested':False,'physical_camera_tested':False,'method':'Read-only GET of served HTML and same-origin script assets'}
+                (out/'report.json').write_text(json.dumps(report,indent=2));print(json.dumps(report));break
+            except Exception as e:
+              print(type(e).__name__+' during bounded public read')
+            time.sleep(15)
+          else:
+            (out/'report.json').write_text(json.dumps({'public_assets_verified':False,'authenticated_runtime_tested':False}))
+            raise SystemExit('V3 markers not observed in public assets within the check window')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vision-v3-public-assets
+          path: .vision-v3-published/
+          include-hidden-files: true
+          retention-days: 7
