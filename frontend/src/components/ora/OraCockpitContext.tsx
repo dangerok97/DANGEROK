@@ -9,6 +9,11 @@ import { tokens } from '@/src/theme/tokens';
 import { useTemporaryMemory } from './presence/useTemporaryMemory';
 import type { KnowledgeStar } from './presence/knowledge';
 import { firstSituationState, situationIcon, situationTitle } from './situationVisual';
+import { SituationDetails, SituationOutcomeSummary } from './SituationOutcomeSummary';
+
+const outcomeColors = {
+  text: presenceColors.textPrimary, secondary: presenceColors.textSecondary, attention: '#ff9b9b',
+};
 
 function timeLabel(iso?: string | null): string {
   if (!iso) return 'Poco fa';
@@ -135,67 +140,77 @@ export function OraCockpitContext({
             ) : null}
           </View>
 
-          <Text style={styles.situationStatement}>{current.statement}</Text>
+          <SituationOutcomeSummary
+            outcome={followup?.outcome}
+            desiredOutcome={followup?.desired_outcome || current.desired_outcome}
+            situationRevision={current.situation_revision}
+            followupStatus={followup?.status}
+            colors={outcomeColors}
+            testID="ora-cockpit-outcome"
+          />
           {readError ? <Text accessibilityRole="alert" style={styles.removeError}>
             Aggiornamento non riuscito: i dati mostrati sono quelli dell’ultima lettura.
           </Text> : null}
 
-          <View style={styles.divider} />
-          <DetailRow
-            icon="time-outline"
-            title="Inserita"
-            body={timeLabel(current.created_at || current.updated_at)}
-          />
+          <SituationDetails key={current.id} colors={outcomeColors} testID="ora-cockpit-details">
+            <Text style={styles.situationStatement}>{current.statement}</Text>
+            <View style={styles.divider} />
+            <DetailRow
+              icon="time-outline"
+              title="Inserita"
+              body={timeLabel(current.created_at || current.updated_at)}
+            />
 
-          {current.location_label ? (
-            <>
+            {current.location_label ? (
+              <>
+                <View style={styles.divider} />
+                <DetailRow icon="location-outline" title="Luogo" body={current.location_label} />
+              </>
+            ) : null}
+
+            {currentState ? (
+              <>
+                <View style={styles.divider} />
+                <DetailRow
+                  icon="pulse-outline"
+                  title="Stato attuale"
+                  body={currentState}
+                  danger={/rischio|allert|urgente|pericolo|piogg|ritir|interven/i.test(currentState)}
+                />
+              </>
+            ) : null}
+
+            {current.expected_outcome_summary ? (
+              <>
+                <View style={styles.divider} />
+                <DetailRow
+                  icon="time-outline"
+                  title="Esito atteso registrato"
+                  body={current.expected_outcome_summary}
+                />
+              </>
+            ) : null}
+
+            <View style={styles.divider} />
+            <DetailRow icon="eye-outline" title="Stato del controllo"
+              body={followupStatus[followup?.status || 'unavailable'] || followupStatus.unavailable} />
+            {followup?.next_check_at ? <>
               <View style={styles.divider} />
-              <DetailRow icon="location-outline" title="Luogo" body={current.location_label} />
-            </>
-          ) : null}
-
-          {currentState ? (
-            <>
+              <DetailRow icon="time-outline" title="Prossimo controllo" body={followup.next_check_label || timeLabel(followup.next_check_at)} />
+            </> : null}
+            {followup?.last_checked_at ? <>
               <View style={styles.divider} />
-              <DetailRow
-                icon="pulse-outline"
-                title="Stato attuale"
-                body={currentState}
-                danger={/rischio|allert|urgente|pericolo|piogg|ritir|interven/i.test(currentState)}
-              />
-            </>
-          ) : null}
-
-          {current.expected_outcome_summary ? (
-            <>
+              <DetailRow icon="checkmark-circle-outline" title="Ultimo controllo eseguito" body={timeLabel(followup.last_checked_at)} />
+            </> : null}
+            {followup?.completion_when ? <>
               <View style={styles.divider} />
-              <DetailRow
-                icon="time-outline"
-                title="Stima / esito atteso"
-                body={current.expected_outcome_summary}
-              />
-            </>
-          ) : null}
-
-          <View style={styles.divider} />
-          <DetailRow icon="eye-outline" title="Stato del controllo"
-            body={followupStatus[followup?.status || 'unavailable'] || followupStatus.unavailable} />
-          {followup?.next_check_at ? <>
-            <View style={styles.divider} />
-            <DetailRow icon="time-outline" title="Prossimo controllo" body={followup.next_check_label || timeLabel(followup.next_check_at)} />
-          </> : null}
-          {followup?.last_checked_at ? <>
-            <View style={styles.divider} />
-            <DetailRow icon="checkmark-circle-outline" title="Ultimo controllo eseguito" body={timeLabel(followup.last_checked_at)} />
-          </> : null}
-          {followup?.completion_when ? <>
-            <View style={styles.divider} />
-            <DetailRow icon="checkmark-done-outline" title="Ti avviso quando" body={followup.completion_when} />
-          </> : null}
-          {followup?.notify_when ? <>
-            <View style={styles.divider} />
-            <DetailRow icon="warning-outline" title="Ti avviso prima se" body={followup.notify_when} />
-          </> : null}
+              <DetailRow icon="checkmark-done-outline" title="Ti avviso quando" body={followup.completion_when} />
+            </> : null}
+            {followup?.notify_when ? <>
+              <View style={styles.divider} />
+              <DetailRow icon="warning-outline" title="Ti avviso prima se" body={followup.notify_when} />
+            </> : null}
+          </SituationDetails>
 
           {!standalone ? <Pressable
             onPress={() => router.push('/situazione' as any)}

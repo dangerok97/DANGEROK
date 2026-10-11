@@ -1,4 +1,5 @@
 import type { PresenceArea } from './state';
+import type { SituationOutcome } from '@/src/api/client';
 
 export type KnowledgeStar = {
   id: string; area: PresenceArea; branch_id: string | null; title: string;
@@ -32,12 +33,16 @@ export type KnowledgeStar = {
     purpose?: string | null;
     notify_when?: string | null;
     completion_when?: string | null;
+    desired_outcome?: string | null;
+    outcome?: SituationOutcome | null;
     monitoring_goal?: string | null;
     ends_when?: string | null;
   };
   location_label?: string | null;
   current_state_summary?: string | null;
   expected_outcome_summary?: string | null;
+  desired_outcome?: string | null;
+  started_at?: string | null;
   next_check_summary?: string | null;
   facts?: string[];
   constraints?: string[];
@@ -86,6 +91,8 @@ function visualStarKey(star: KnowledgeStar): string {
     follow_up: star.follow_up || null,
     current_state_summary: star.current_state_summary || null,
     expected_outcome_summary: star.expected_outcome_summary || null,
+    desired_outcome: star.desired_outcome || null,
+    started_at: star.started_at || null,
     next_check_summary: star.next_check_summary || null,
     group_kind: star.group_kind || null,
     group_items: star.group_items || null,

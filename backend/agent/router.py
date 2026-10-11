@@ -287,7 +287,7 @@ async def situation_alerts(goal_id: str, body: SituationAlertsIn, user=Depends(g
     owner = user["user_id"]
     service = AgentService(db)
     goal = await service.repo.get_goal(owner, goal_id)
-    if not goal or goal.source_kind != "situation_followup":
+    if not goal or goal.source_kind not in ("situation_initial_review", "situation_followup"):
         raise HTTPException(404, detail="unknown_situation_monitor")
     refs = [str(ref).split(":", 1)[1] for ref in goal.source_refs
             if str(ref).startswith("situation:")]

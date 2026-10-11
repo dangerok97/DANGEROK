@@ -55,6 +55,49 @@ _DISCIPLINE = (
 )
 
 
+_SITUATION_OUTCOME = (
+    "For a goal with source_kind situation_initial_review or situation_followup, "
+    "the user's desired_outcome is the useful action moment, not the act of reading conditions. "
+    "Keep that outcome distinct from attention_intent (internal work), a forecast estimate, "
+    "and the next checkpoint. A weather read alone does not complete this goal.\n"
+    "When evidence permits a useful result, include situation_outcome in the JSON: "
+    "{\"status\":\"estimated|action_now|needs_input\", "
+    "\"headline\":\"short useful result in the person's language\", "
+    "\"action_summary\":\"what the person should do and when\", "
+    "\"basis\":\"estimate|direct_observation|missing_information\", "
+    "\"action_reason\":null, \"window_start\":null, \"window_end\":null, "
+    "\"valid_until\":\"timezone-aware ISO8601\", \"evidence_ids\":[]}. "
+    "Copy up to six actual evidence_id values supporting the result; never invent IDs. "
+    "Code supplies the assessment time and source revision.\n"
+    "estimated requires a grounded future window_start/window_end (timezone-aware ISO8601), "
+    "a short action expectation and basis=estimate. Use a credible empirical baseline plus "
+    "the relevant current inputs. The empirical baseline must be sufficient sourced research "
+    "or a real computed estimate; raw live weather does not measure physical progress. "
+    "Use started_at only if supplied by the Situation. created_at is registration, "
+    "updated_at is a correction, and attention_started_at is internal scheduling; none "
+    "establishes the physical start. If necessary inputs are unavailable, do not invent "
+    "a window. Broaden an estimate when supported, or needs_input for one indispensable "
+    "fact only the person can supply. Missing location never authorizes a default city. "
+    "If context_truncated is true, some descriptions/history were shortened; omissions "
+    "are not proof that a risk or qualification is absent. Reread a narrower source "
+    "before judging an outcome if a necessary fact is missing.\n"
+    "action_now requires action_reason=outcome_ready or early_risk and no future window. "
+    "For outcome_ready with basis=estimate say it should be ready / is reasonable to "
+    "act now, not that an unmeasured physical state is certain. For early_risk lead with "
+    "the immediate protective action and short current reason; a risk deadline is not "
+    "a predicted completion time. Direct observation requires an actual observation "
+    "channel for the outcome; a weather forecast or research article is not such a channel. "
+    "At a checkpoint read current evidence again before announcing action_now.\n"
+    "needs_input uses basis=missing_information, no window/action_reason, and a concrete "
+    "single missing fact in headline. It must not ask the person to run checks ORA can run. "
+    "For all results choose valid_until within 72 hours and no later than cited source "
+    "validity. Choose the next checkpoint before that validity expires, even when the "
+    "estimated useful window is later. It expires the assessment, not the physical activity. When insufficient, "
+    "continue the relevant reads/research instead of claiming achieved. Otherwise omit "
+    "situation_outcome; do not fill the object with a weather recap or process narration.\n"
+)
+
+
 async def decide_goal(
     situation: Dict[str, Any],
     *,
@@ -268,7 +311,7 @@ async def make_plan(
 
     data = await _ask_model(
         _DISCIPLINE + "\n\n" + instruction,
-        _dump({"goal": goal, "what_ora_can_do": capabilities, "context": context}),
+        _dump({"goal": goal, "context": context, "what_ora_can_do": capabilities}),
     )
     if not isinstance(data, dict) or not isinstance(data.get("steps"), list):
         return None
@@ -451,13 +494,13 @@ async def reconsider(
     )
 
     data = await _ask_model(
-        _DISCIPLINE + "\n\n" + instruction,
+        _DISCIPLINE + "\n\n" + instruction + "\n\n" + _SITUATION_OUTCOME,
         _dump({
             "goal": goal,
             "plan": plan,
             "what_happened": what_happened,
-            "what_ora_can_do": capabilities,
             "local_clock": clock_context or {},
+            "what_ora_can_do": capabilities,
         }),
     )
     if not isinstance(data, dict):
@@ -601,7 +644,7 @@ async def verify_goal(
     )
 
     data = await _ask_model(
-        _DISCIPLINE + "\n\n" + instruction,
+        _DISCIPLINE + "\n\n" + instruction + "\n\n" + _SITUATION_OUTCOME,
         _dump({"goal": goal, "what_was_done": evidence}),
     )
     if not isinstance(data, dict):
@@ -704,14 +747,14 @@ async def choose_next_action(
     )
 
     data = await _ask_model(
-        _DISCIPLINE + "\n\n" + instruction,
+        _DISCIPLINE + "\n\n" + instruction + "\n\n" + _SITUATION_OUTCOME,
         _dump({
             "goal": goal,
             "plan": plan,
+            "local_clock": clock_context or {},
             "still_to_do": candidates,
             "what_has_been_found": evidence,
             "what_ora_can_do": capabilities,
-            "local_clock": clock_context or {},
         }),
     )
     if not isinstance(data, dict):
@@ -775,6 +818,13 @@ async def decide_visibility(
         "outcome, phrase it as an estimate/checkpoint rather than certainty. When evidence supports a "
         "bounded future estimate, include a usable time/window in the visible result when it changes "
         "what the person should expect; a materially changed estimate is also worth surfacing.\n\n"
+        "When what_ora_did.situation_outcome is present it is the source-validated useful result. "
+        "Use its headline/action_summary, preserving estimate uncertainty and the distinction "
+        "between expected readiness and an earlier protective action. Do not replace it with "
+        "a recap of the inputs. Compare it with prior updates: a routine recheck or unchanged "
+        "window is silent; a materially changed useful moment or a new immediate action matters. "
+        "Make `about` distinguish the changed action/window, so a prior estimated window does "
+        "not suppress a later useful readiness notice.\n\n"
         "Your choices:\n"
         "- `silent` — there is nothing useful to say. Often right.\n"
         "- `quiet_update` — real work worth seeing, not worth a moment of "
@@ -831,4 +881,81 @@ def _dump(payload: Dict[str, Any]) -> str:
     can grow without limit is a payload that eventually carries somebody's
     inbox into a prompt.
     """
-    return json.dumps(payload, ensure_ascii=False, default=str)[:9000]
+    encoded = json.dumps(payload, ensure_ascii=False, default=str)
+    goal = payload.get("goal") or {}
+    if goal.get("source_kind") not in ("situation_initial_review", "situation_followup"):
+        return encoded[:9000]
+    if len(encoded) <= 9000:
+        return encoded
+
+    # An ongoing Situation needs its latest source read and physical start on
+    # every pass. Cutting the serialized tail silently removed those facts.
+    # Keep valid, bounded JSON, reducing descriptive text and older material.
+    compact = json.loads(encoded)
+    compact["context_truncated"] = True
+    protected = {"ref", "id", "evidence_id", "situation_id", "url", "offer_url",
+                 "source_refs", "linked_object_refs", "evidence_ids"}
+
+    def encode():
+        return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+
+    encoded = encode()
+    while len(encoded) > 9000:
+        strings, lists = [], []
+
+        def visit(node, key=""):
+            if isinstance(node, dict):
+                for name, value in node.items():
+                    if isinstance(value, str) and len(value) > 240 and name not in protected:
+                        strings.append((len(value), node, name))
+                    else:
+                        visit(value, name)
+            elif isinstance(node, list):
+                removable = []
+                if len(node) > 1 and key not in protected and key != "source_context":
+                    if all(isinstance(row, dict) and row.get("evidence_id") for row in node):
+                        # All claims from the latest live read belong together.
+                        # Keep the empirical basis as well, even if much older.
+                        weather_times = [str(row.get("observed_at") or "") for row in node
+                                         if row.get("capability") == "weather.read"]
+                        latest = weather_times[-1] if weather_times else None
+                        keep = {len(node) - 1}
+                        keep.update(i for i, row in enumerate(node)
+                                    if row.get("capability") == "web.research"
+                                    or row.get("where_this_came_from") == "deterministic_computation"
+                                    or (row.get("capability") == "weather.read"
+                                        and str(row.get("observed_at") or "") == latest))
+                        removable = [i for i in range(len(node)) if i not in keep]
+                    else:
+                        # Drop completed plan history / unavailable vocabulary
+                        # before pending work or the source evidence itself.
+                        old = [i for i, row in enumerate(node) if isinstance(row, dict)
+                               and (row.get("status") in ("succeeded", "skipped", "unavailable")
+                                    or row.get("can_be_used_now") is False)]
+                        removable = old or [len(node) - 1]
+                    if removable:
+                        priority = 0 if key in ("steps", "what_ora_can_do") else 1
+                        lists.append((priority, -len(json.dumps(node, default=str)), node, removable[0]))
+                for index, value in enumerate(node):
+                    if isinstance(value, str) and len(value) > 240 and key not in protected:
+                        strings.append((len(value), node, index))
+                    else:
+                        visit(value, key)
+
+        visit(compact)
+        if strings:
+            length, parent, key = max(strings, key=lambda item: item[0])
+            parent[key] = parent[key][:max(239, length // 2)] + "…"
+        elif lists:
+            _, _, parent, index = min(lists, key=lambda item: item[:2])
+            parent.pop(index)
+        else:
+            # If even the protected source handles cannot fit, make the missing
+            # context explicit. A clipped object must never look complete.
+            return json.dumps({
+                "goal": {key: goal.get(key) for key in ("id", "source_kind", "desired_outcome")},
+                "source_context_unavailable": True, "context_truncated": True,
+                "reason": "The complete current source evidence exceeds the bounded context; reread a narrower source before judging an outcome.",
+            }, ensure_ascii=False, default=str)
+        encoded = encode()
+    return encoded

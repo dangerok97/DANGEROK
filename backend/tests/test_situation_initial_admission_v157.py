@@ -141,7 +141,8 @@ async def test_agent_wait_promotes_only_when_it_has_chosen_recheck(setup, monkey
     await service.evidence.record(AgentEvidence(
         owner_id=OWNER, goal_id=gid, claim="La fonte di prova indica condizioni da ricontrollare.",
         provenance=ResultProvenance(source_class="connected_provider", capability="weather.read",
-                                    source_refs=["weather:synthetic-source"], freshness="fresh"),
+                                    source_refs=["google_place:synthetic-source", f"situation:{sid}:revision:1"], freshness="fresh",
+                                    weather_valid_until=(datetime.now(timezone.utc) + timedelta(minutes=90)).isoformat()),
     ))
     out = await service._wait(
         OWNER, goal, plan, None, run, minutes=20,

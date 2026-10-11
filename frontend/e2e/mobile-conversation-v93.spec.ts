@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 
 // Real exported ORA components; ALL API data is a deterministic offline fixture.
@@ -85,6 +85,19 @@ async function scrollToBottom(page: Page) {
   await page.getByTestId('ora-production-scroll').evaluate(element => { element.scrollTop = element.scrollHeight; });
 }
 
+async function resizeAndScrollSituation(page: Page, detail: Locator, scroll: Locator, size: { width: number; height: number }) {
+  await page.setViewportSize(size);
+  // WebKit can finish resizing the viewport before useWindowDimensions has
+  // switched the detail panel from full mobile width to its 330px wide layout.
+  // Scrolling the previous width leaves the newly wrapped content below view.
+  await expect.poll(async () => Math.round((await detail.boundingBox())?.width || 0))
+    .toBe(size.width < 650 ? size.width - 24 : 330);
+  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect.poll(() => scroll.evaluate(element =>
+    Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop)))
+    .toBeLessThanOrEqual(1);
+}
+
 test('mobile conversation is readable, scrollable, and preserves draft through map expansion', async ({ page }, info) => {
   const errors: string[] = [];
   page.on('pageerror', error => {
@@ -168,9 +181,13 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   await page.getByTestId('ora-mobile-open-map').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
   const card = modal.getByTestId('ora-cockpit-temporary');
+  const detail = modal.getByTestId('ora-map-detail');
   const scroll = modal.getByTestId('ora-map-detail-scroll');
   await expect(card).toBeVisible();
   await expect(card).toContainText('PANNI STESI');
+  await expect(card.getByTestId('ora-cockpit-outcome')).toContainText('Stima non ancora disponibile');
+  await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
+  await card.getByRole('button', { name: 'Dettagli del controllo', exact: true }).click();
   await expect(card).toContainText('Controllo programmato');
   await expect(card).toContainText('Prossimo controllo');
   await expect(card).toContainText('Ultimo controllo eseguito');
@@ -184,18 +201,16 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   mkdirSync('mobile-qa', { recursive: true });
   await page.screenshot({ path: `mobile-qa/${info.project.name}-situation-v99.png` });
   for (const size of [{ width: 320, height: 568 }, { width: 390, height: 740 }, { width: 740, height: 390 }]) {
-    await page.setViewportSize(size);
-    await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await resizeAndScrollSituation(page, detail, scroll, size);
     await expect(card.getByTestId('ora-remove-temporary')).toBeInViewport();
     await expect(modal.getByRole('button', { name: 'Chiudi dettagli della mappa' })).toBeInViewport();
     await expect(modal.getByTestId('ora-mobile-close-map')).toBeInViewport();
-    const box = await modal.getByTestId('ora-map-detail').boundingBox();
+    const box = await detail.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1);
     expect(box!.y + box!.height).toBeLessThanOrEqual(size.height + 1);
   }
-  await page.setViewportSize({ width: 390, height: 740 });
-  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await resizeAndScrollSituation(page, detail, scroll, { width: 390, height: 740 });
   await card.getByTestId('ora-remove-temporary').click();
   await expect(card).toContainText('Non sono riuscita a rimuovere');
   await expect(card).toBeVisible();
@@ -215,6 +230,7 @@ test('mobile follow-up starts unconfirmed and refreshes without a chat message',
   await page.getByTestId('ora-mobile-open-map').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
   const card = modal.getByTestId('ora-cockpit-temporary');
+  await card.getByRole('button', { name: 'Dettagli del controllo', exact: true }).click();
   await expect(card).toContainText('Nessun controllo programmato');
   await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
   controls.followup = {
@@ -232,5 +248,68 @@ test('mobile follow-up starts unconfirmed and refreshes without a chat message',
   await modal.getByRole('button', { name: 'Chiudi dettagli della mappa' }).click();
   await expect(card).toHaveCount(0);
   await modal.getByTestId('ora-mobile-close-map').click();
+  expect(posts).toEqual([]);
+});
+
+test('mobile Situation keeps useful estimates and actions first through risk and watch completion', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  const observedAt = new Date();
+  const controls = { followup: {
+    status: 'scheduled',
+    desired_outcome: 'Sapere quando ritirare i panni — esempio simulato',
+    next_check_at: '2099-01-20T10:30:00+01:00',
+    next_check_label: '20 gen 2099, 10:30',
+    outcome: {
+      status: 'estimated',
+      headline: 'Ritiro stimato tra le 15:00 e le 16:00 — esempio simulato',
+      action_summary: 'La finestra è una stima basata sui dati simulati del collaudo.',
+      window_start: '2099-01-20T15:00:00+01:00',
+      window_end: '2099-01-20T16:00:00+01:00',
+      window_label: '20 gen 2099, 15:00–16:00',
+      assessed_at: observedAt.toISOString(),
+      valid_until: new Date(observedAt.getTime() + 3600000).toISOString(),
+      situation_revision: 1,
+      evidence_ids: ['evidence_offline_ui_fixture'],
+      basis: 'estimate', action_reason: null, timezone: 'Europe/Rome',
+    },
+  } as any };
+  const posts = await fixture(page, controls);
+  await page.getByTestId('ora-mobile-open-map').click();
+  const modal = page.getByTestId('ora-mobile-expanded-map');
+  const card = modal.getByTestId('ora-cockpit-temporary');
+  const result = card.getByTestId('ora-cockpit-outcome');
+  await expect(result).toContainText('Ritiro stimato tra le 15:00 e le 16:00');
+  await expect(result.getByTestId('ora-cockpit-outcome-window')).toContainText('20 gen 2099, 15:00–16:00');
+  await expect(result).toContainText('Valutazione stimata');
+  await expect(result).not.toContainText('10:30');
+  await expect(card.getByText('Prossimo controllo', { exact: true })).toHaveCount(0);
+  const toggle = card.getByRole('button', { name: 'Dettagli del controllo', exact: true });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(card).toContainText('20 gen 2099, 10:30');
+  await toggle.click();
+
+  controls.followup.outcome = {
+    ...controls.followup.outcome,
+    status: 'action_now', action_reason: 'early_risk',
+    headline: 'Ritira adesso: rischio pioggia — esempio simulato',
+    action_summary: 'Il ritiro anticipato evita che i panni si bagnino; l’asciugatura resta stimata.',
+  };
+  await expect(result).toContainText('Ritira adesso: rischio pioggia', { timeout: 25000 });
+  await expect(result.getByTestId('ora-cockpit-outcome-window')).toHaveCount(0);
+  await expect(result).not.toContainText('Ritiro stimato tra le 15:00');
+  await expect(result).not.toContainText('osservazione diretta');
+  // A finished watch can be delivering the action it was asked to identify.
+  // Stopping the watch must not swallow its still-current final result.
+  controls.followup.status = 'stopped';
+  controls.followup.outcome = {
+    ...controls.followup.outcome,
+    action_reason: 'outcome_ready',
+    headline: 'Puoi ritirarli adesso secondo la stima aggiornata — esempio simulato',
+    action_summary: 'La valutazione è conclusa; il ritiro fisico non è stato osservato.',
+  };
+  await expect(result).toContainText('Puoi ritirarli adesso secondo la stima aggiornata', { timeout: 25000 });
+  await expect(result).not.toContainText('Non sono previsti altri controlli');
+  await expect(result).toContainText('Valutazione stimata');
   expect(posts).toEqual([]);
 });

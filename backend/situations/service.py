@@ -75,6 +75,8 @@ class SituationService:
                 semantic_kind=update.semantic_kind,
                 temporal_scope=update.temporal_scope,
                 attention_intent=update.attention_intent,
+                desired_outcome=update.desired_outcome,
+                started_at=update.started_at,
                 icon_key=(update.icon_key or "other"),
                 tracking_summary=update.tracking_summary,
                 location_label=update.location_label,
@@ -138,7 +140,10 @@ class SituationService:
             situation.temporal_scope = update.temporal_scope
         if update.attention_intent is not None:
             situation.attention_intent = update.attention_intent.strip() or None
+        if update.started_at is not None:
+            situation.started_at = update.started_at or None
         for field in (
+            "desired_outcome",
             "icon_key",
             "tracking_summary",
             "location_label",

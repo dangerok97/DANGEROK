@@ -9,6 +9,11 @@ import { api, HomeSituationResponse } from '@/src/api/client';
 import type { KnowledgeStar } from '@/src/components/ora/presence/knowledge';
 import { PrioritaList } from '@/src/components/home/v2/PrioritaList';
 import { SituazioneCard } from '@/src/components/home/v2/SituazioneCard';
+import { SituationDetails, SituationOutcomeSummary } from '@/src/components/ora/SituationOutcomeSummary';
+
+const outcomeColors = {
+  text: tokens.color.onSurface, secondary: tokens.color.onSurfaceMuted, attention: tokens.color.warning,
+};
 
 /** Real full-situation view opened from Home CTA. */
 export default function SituazioneScreen() {
@@ -109,31 +114,41 @@ export default function SituazioneScreen() {
               <View key={star.situation_id || star.id} style={styles.temporaryCard}
                 testID={`situazione-temporary-${star.situation_id || star.id}`}>
                 <Text style={styles.temporaryTitle}>{title}</Text>
-                <Text style={styles.temporaryText}>{star.current_state_summary || star.statement}</Text>
-                {star.location_label ? (
-                  <Text style={styles.temporaryCaption}>Luogo: {star.location_label}</Text>
-                ) : null}
-                {star.expected_outcome_summary ? (
-                  <Text style={styles.temporaryCaption}>Esito atteso: {star.expected_outcome_summary}</Text>
-                ) : null}
-                <Text style={[styles.temporaryStatus, {
-                  color: confirmed || followup?.status === 'review_pending'
-                    ? tokens.color.onSurface : tokens.color.warning,
-                }]}>
-                  {confirmed && followup?.next_check_label
-                    ? `Prossimo controllo: ${followup.next_check_label}`
-                    : followup?.diagnosis || (followup?.status === 'review_pending'
-                      ? 'ORA ha preso in carico la valutazione. Il primo controllo non è ancora programmato.'
-                      : 'Controllo automatico non confermato.')}
-                </Text>
-                {checked && !Number.isNaN(checked.getTime()) ? (
-                  <Text style={styles.temporaryCaption}>
-                    Ultima verifica registrata: {checked.toLocaleString('it-IT', { timeZone: followup?.timezone || undefined })}
+                <SituationOutcomeSummary
+                  outcome={followup?.outcome}
+                  desiredOutcome={followup?.desired_outcome || star.desired_outcome}
+                  situationRevision={star.situation_revision}
+                  followupStatus={followup?.status}
+                  colors={outcomeColors}
+                  testID={`situazione-outcome-${star.situation_id || star.id}`}
+                />
+                <SituationDetails colors={outcomeColors}>
+                  <Text style={styles.temporaryText}>{star.current_state_summary || star.statement}</Text>
+                  {star.location_label ? (
+                    <Text style={styles.temporaryCaption}>Luogo: {star.location_label}</Text>
+                  ) : null}
+                  {star.expected_outcome_summary ? (
+                    <Text style={styles.temporaryCaption}>Esito atteso registrato: {star.expected_outcome_summary}</Text>
+                  ) : null}
+                  <Text style={[styles.temporaryStatus, {
+                    color: confirmed || followup?.status === 'review_pending'
+                      ? tokens.color.onSurface : tokens.color.warning,
+                  }]}>
+                    {confirmed && followup?.next_check_label
+                      ? `Prossimo controllo: ${followup.next_check_label}`
+                      : followup?.diagnosis || (followup?.status === 'review_pending'
+                        ? 'ORA ha preso in carico la valutazione. Il primo controllo non è ancora programmato.'
+                        : 'Controllo automatico non confermato.')}
                   </Text>
-                ) : null}
-                {followup?.last_result ? (
-                  <Text style={styles.temporaryCaption}>Esito dell’ultima verifica: {followup.last_result}</Text>
-                ) : null}
+                  {checked && !Number.isNaN(checked.getTime()) ? (
+                    <Text style={styles.temporaryCaption}>
+                      Ultima verifica registrata: {checked.toLocaleString('it-IT', { timeZone: followup?.timezone || undefined })}
+                    </Text>
+                  ) : null}
+                  {followup?.last_result ? (
+                    <Text style={styles.temporaryCaption}>Esito dell’ultima verifica: {followup.last_result}</Text>
+                  ) : null}
+                </SituationDetails>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Apri ORA per ${title}`}
                   testID={`open-temporary-${star.situation_id || star.id}`}
                   onPress={() => router.push(followup?.goal_id

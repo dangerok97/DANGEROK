@@ -3314,6 +3314,24 @@ export type NotificationPreferences = {
  * no plan status and no capability name: the interface cannot show what it
  * was never given.
  */
+/** A current, evidence-backed assessment; a checkpoint is never an outcome time. */
+export type SituationOutcome = {
+  status: 'estimated' | 'action_now' | 'needs_input';
+  headline: string;
+  action_summary: string;
+  window_start: string | null;
+  window_end: string | null;
+  /** Already projected in the person's timezone by the backend. */
+  window_label: string | null;
+  assessed_at: string;
+  valid_until: string;
+  situation_revision: number;
+  evidence_ids: string[];
+  basis: 'estimate' | 'direct_observation' | 'missing_information';
+  action_reason: 'outcome_ready' | 'early_risk' | null;
+  timezone: string;
+};
+
 export type MonitoredSituation = {
   id: string;
   revision: number;
@@ -3322,6 +3340,8 @@ export type MonitoredSituation = {
   created_at?: string | null;
   current_state?: string | null;
   expected_outcome?: string | null;
+  desired_outcome?: string | null;
+  outcome?: SituationOutcome | null;
   reason?: string | null;
   tracking?: string | null;
   next_check_reason?: string | null;
@@ -3333,6 +3353,7 @@ export type MonitoredSituation = {
   last_checked_at?: string | null;
   last_result?: string | null;
   notify_when?: string | null;
+  completion_when?: string | null;
   purpose?: string | null;
 };
 

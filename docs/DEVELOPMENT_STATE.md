@@ -1,3 +1,42 @@
+## 12 ottobre 2026 — v160: stima utile e avviso finale delle Situation
+
+La richiesta di prodotto è il momento in cui la persona deve intervenire,
+con stima e aggiornamenti fondati sul contesto reale. La patch conserva
+scopo e inizio fisico, rende persistente la valutazione dell'esito e la
+condivide fra le superfici. Le verifiche meteo e i checkpoint restano lavoro
+di supporto; dati scaduti o di un'altra revisione non autorizzano un'azione.
+
+Corretta una frontiera della consegna: l'avviso finale valido deve poter
+sopravvivere al completamento del controllo che lo ha prodotto. Revoca,
+risoluzione della Situation e cambiamento della fonte continuano a fermarlo,
+anche quando la cancellazione del lavoro fallisce o avviene durante il giudizio
+di invio. Corretto anche il messaggio generico di errore in chat che poteva
+seguire una chiusura strutturata effettivamente riuscita.
+
+La base include PR #204 (`135e91f`, rilascio verificato) e il successivo
+aggiornamento Vision #205 (`e15bc7a`), conservato senza modifiche del filone
+Situation. Ripristinato nel repository il rapporto finale della precedente
+verifica, già pubblicato separatamente. Il vecchio caso reale è stato chiuso
+su conferma dell'utente; i nuovi casi di regressione sono sintetici.
+Integrata anche la successiva PR Vision #206 (`424372f`) prima del rilascio,
+conservando le modifiche Vision e le aggiunte nei quattro documenti.
+
+Aggregato locale finale: 319 test backend PASS; 31 test frontend PASS,
+TypeScript ed export web PASS. La verifica mobile locale conta 5 casi
+Chromium PASS; WebKit richiede il gate CI con le dipendenze di sistema.
+Corretta durante l'aggregato la compatibilità della diagnosi dei controlli
+con goal legacy parziali e valutazioni opzionali malformate.
+
+I risultati locali sono registrati in `QA_USEFUL_SITUATION_OUTCOME_V160.md`;
+gli esiti finali dei gate CI e l'esatto commit distribuito vengono registrati
+nella PR associata alla patch. Una previsione verificata
+nel software non è una misura dell'asciugatura fisica; ricezione sul telefono
+e risultato di una nuova attività reale richiedono osservazioni distinte.
+Nessuna dipendenza di produzione o configurazione nuova; campi opzionali
+nelle collezioni esistenti, senza migrazione distruttiva.
+
+---
+
 ## 11 ottobre 2026 — v158: secondo rilascio e riscontri dalle fonti reali
 
 La PR #203 è integrata in `42fba0e9`: tutti i gate della PR e dopo il merge

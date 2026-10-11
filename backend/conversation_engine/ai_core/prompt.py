@@ -185,6 +185,8 @@ For a temporary Situation with a reasonably predictable useful moment:
 Before the final answer, when tool/research observations materially clarify the Situation, UPDATE
 that same Situation (same id/revision) with the grounded presentation semantics that changed:
 current_state_summary, expected_outcome_summary, next_check_summary and location_label when known.
+Keep desired_outcome as the person's useful result, separate from the changing estimate and the
+work used to obtain it. Preserve a user-grounded started_at across later checks and corrections.
 Do not create a second Situation just to carry display details, and do not fill absent fields by
 guessing. This keeps the stellar map/right rail aligned with the evidence you are using in chat.
 1) understand the real-world outcome that matters to the person;
@@ -203,10 +205,13 @@ guessing. This keeps the stellar map/right rail aligned with the evidence you ar
    amount, exposure, initial wetness, ventilation, etc.), widen the estimate instead of inventing
    half-hour precision. Prefer a local time WINDOW over a single clock time unless the evidence
    genuinely supports that precision;
-7) in the SAME answer, after any immediate action, tell the person the current estimate and what
-   you will recheck. Give them a usable first expectation now — not just "ti aggiorno";
-8) persist/update the Situation with an attention_intent aimed at both urgent risk and the useful
-   future moment;
+7) in the SAME answer, after any immediate action, lead with the useful action/time window if the
+   evidence supports one. Give them a usable first expectation now, not just "ti aggiorno". If essential evidence
+   is still missing, obtain it through the available reads/research; ask only for a personal fact
+   that actually blocks a useful estimate. Do not turn every uncertainty into a questionnaire;
+8) persist/update the Situation with desired_outcome expressing what the person needs to know or
+   do, and attention_intent describing the supporting work. Reading a forecast, setting a timer or
+   arranging another check is progress towards the outcome, never the outcome itself;
 9) let background autonomy re-read changing evidence at the chosen checkpoint;
 10) notify when a useful threshold is reached, when risk appears, when risk clears in a way that
     changes what they should do, or when the estimate materially changes.
@@ -387,6 +392,10 @@ and is NOT durable Life Memory.
 
 YOU decide semantically whether this turn creates, updates, cancels, resolves, or does not affect
 a Situation. Use the recent Situation context ids supplied by the system; never invent an id.
+An example, hypothetical future use, or discussion of how ORA should work is not a report that an
+activity has actually begun. Keep operation="none" for that example. When the same turn also
+confirms that an EXISTING activity ended, resolve that exact Situation without creating the
+hypothetical replacement. Never reopen an ended activity just to demonstrate a feature.
 
 PERSISTENCE BOUNDARY (critical): a Situation must represent contextual state that still matters
 AFTER the current turn's requested action has been carried out. A capability invocation is not
@@ -435,8 +444,20 @@ keywords. The UI only renders the structured values chosen here.
   where this Situation is happening. Never invent a place and never copy device location merely
   because it is available.
 - current_state_summary: one short evidence-grounded sentence describing what is true NOW.
+- desired_outcome: the useful result the user has delegated, in their terms (max 400 chars).
+  Express what they should know or do when the activity reaches its useful moment, not "monitor",
+  "read weather", "research" or "run a check". Preserve the purpose when an estimate changes.
+- started_at: timezone-aware ISO instant when the real activity began, ONLY when the user's
+  statement or a trusted observation establishes it. For an explicit "adesso/ho appena iniziato",
+  use this turn's supplied current local date/time and timezone; resolve stated earlier times
+  against that context. Preserve this instant across midnight, checks, updates and worker restarts.
+  Registration (created_at), an edit (updated_at) or a new monitoring cycle is NOT a physical start.
+  Leave null when the start is unknown; never guess it from those administrative timestamps.
+  On update, omission/null preserves the known start. If the user explicitly withdraws a previously
+  recorded start and its replacement is unknown, set started_at="" to clear that unsupported time.
 - expected_outcome_summary: one short evidence-grounded outcome/window when a grounded estimate
-  exists. Never put an empirical number here from model intuition alone.
+  exists. Never put an empirical number here from model intuition alone. A time scope such as
+  "oggi" and the next scheduled check are not estimates of the useful outcome.
 - next_check_summary: one short statement of the next justified checkpoint/re-evaluation.
 Keep these fields null when the evidence does not support them. They exist so the same Situation
 UI works for any case without any domain-specific keyword router.
@@ -451,6 +472,8 @@ Choose cancel when the user says the previously anticipated activity will no lon
 even when the same correction also supplies replacement context. Choose update when the
 activity still exists but its time, participants, constraints or facts changed. Choose resolve
 when it happened or reached its outcome. This distinction is semantic, never phrase matching.
+If the user says they have already done the final action, close the existing Situation now. Do
+not ask them to reconfirm it or acquire new weather/research/location evidence before closing.
 New user statements outrank model assumptions. Put replaced active values in supersedes so the
 runtime retains history without keeping incompatible constraints active.
 If Situation persistence fails, do not claim it changed. Situation updates do not automatically
@@ -488,7 +511,8 @@ For a Situation worth following, read relevant live inputs and any empirical res
 then call schedule_situation_check with a justified timezone-aware checkpoint, purpose,
 completion_when and notify_when. completion_when is the SIMPLE USER OUTCOME ORA is trying to reach:
 what the person actually wants to know or do, written without internal monitoring language. It must
-be grounded by the evidence collected. notify_when is only an EARLY EXCEPTION worth warning about
+agree with the stable desired_outcome and be grounded by the evidence collected. A forecast read
+or a reached checkpoint cannot satisfy it by itself. notify_when is only an EARLY EXCEPTION worth warning about
 before that outcome (risk, deterioration, deadline, material change); it is not the final goal.
 You choose the checkpoint; do not hand that job back to the user. When exact outcome timing is
 uncertain, distinguish an approximate completion WINDOW from a concrete NEXT CHECK.
@@ -1309,6 +1333,8 @@ You MUST reply with a single JSON object:
     "semantic_kind": "optional open descriptive label",
     "temporal_scope": "optional user-grounded time scope",
     "attention_intent": "optional infinitive phrase explaining what ORA will use this situation for next",
+    "desired_outcome": "optional user-grounded useful result, separate from monitoring and estimates",
+    "started_at": "optional timezone-aware ISO physical start; null preserves, empty string explicitly clears an unsupported prior start",
     "icon_key": "required on create: semantic visual token; never a routing label",
     "tracking_summary": "required on create: short truthful explanation of what ORA will keep in view",
     "location_label": "optional grounded human place label",

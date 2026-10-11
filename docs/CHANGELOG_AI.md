@@ -1,3 +1,27 @@
+## 12 ottobre 2026 — v160: dal controllo al momento utile
+
+- Scopo della Situation e inizio fisico separati da stima, registrazione e checkpoint.
+- Valutazioni dell'esito persistite sul goal esistente: finestra stimata,
+  azione immediata per esito o rischio, oppure dato indispensabile mancante.
+- Fonti, revisioni e scadenze controllate prima di presentare e consegnare
+  un'indicazione; il solo timer o il meteo non certificano un esito fisico.
+- Conservati orari, fusi e date delle osservazioni meteo, distinti dall'ora
+  di recupero; selezione delle evidenze recenti con basi empiriche limitate.
+- Avviso finale valido consentito dopo il completamento del watch; domande
+  precedenti, Situation chiuse e cicli superati restano non consegnabili.
+- Legame con l'esito verificato prima dell'outbox e al recupero della Home;
+  anche le righe già mostrate spariscono quando l'indicazione non è più valida.
+- Controlli della Situation disponibili già durante la verifica iniziale;
+  una correzione esplicita può rimuovere un inizio fisico non attendibile.
+- Stesso esito in Home, Situation, dettaglio aggiornamento e mappa, prima
+  dei dettagli dei controlli. Valutazioni scadute rimosse anche a pagina aperta.
+- Chiusura strutturata riuscita confermata senza falso errore di strumento;
+  una spiegazione ipotetica non riapre il caso precedente.
+- Nuove regressioni backend/frontend e caso mobile stima → rischio → azione
+  finale. Nessun provider di notifica reale usato dai test sintetici.
+
+---
+
 ## 11 ottobre 2026 — v158: seguito della rilettura live e della prima verifica
 
 - Le domande finanziarie espongono la differenza reale rispetto al fatto

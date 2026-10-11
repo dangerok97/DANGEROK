@@ -1,0 +1,269 @@
+"""Source-bound useful Situation assessments on the existing autonomous goal.
+
+Models choose meaning and timing. Code verifies ownership, source revision,
+freshness and explicit timestamps; it never supplies a physical completion time.
+"""
+from __future__ import annotations
+
+import hashlib
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from pydantic import ValidationError
+
+from agent.evidence import REAL_SOURCES
+from agent.models import AgentEvidence
+from situations.clock import local_check_fields
+from situations.models import SituationOutcomeAssessment
+from situations.repository import SituationRepository
+
+
+def moment(value):
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def situation_id(goal):
+    if goal.source_kind not in ("situation_initial_review", "situation_followup"):
+        return None
+    refs = [ref.split(":", 1)[1] for ref in goal.source_refs if ref.startswith("situation:")]
+    return refs[0] if len(refs) == 1 else None
+
+
+def _evidence_usable(item, now):
+    provenance = item.provenance
+    observed = moment(provenance.observed_at)
+    if (provenance.source_class not in REAL_SOURCES
+            or provenance.provider == "generated_draft"
+            or provenance.freshness not in ("fresh", "recent")
+            or observed is None or observed > now + timedelta(minutes=1)):
+        return False
+    if provenance.capability == "web.research":
+        expiry = moment(provenance.research_valid_until)
+        return provenance.research_sufficient is True and expiry is not None and expiry > now
+    if provenance.capability == "weather.read":
+        expiry = moment(provenance.weather_valid_until)
+        return provenance.freshness == "fresh" and expiry is not None and expiry > now
+    return now - observed <= timedelta(hours=72)
+
+
+def _settlement_matches(state, goal, assessment):
+    """Only the exact code settlement may follow the assessed source revision."""
+    if goal.status != "completed" or state.revision != assessment.situation_revision + 1:
+        return False
+    if not state.history or state.attention_intent or state.next_check_summary:
+        return False
+    event = state.history[-1]
+    cycle = (goal.source_situation.get("attention_epoch")
+             or goal.source_situation.get("situation_revision")
+             or str(assessment.situation_revision))
+    return bool(
+        event.revision == state.revision and event.operation == "update"
+        and event.source == "inferred"
+        and event.reasoning_epoch == f"followup-complete:{goal.id}:{cycle}"
+        and event.changes.get("attention_intent") == ""
+        and event.changes.get("next_check_summary") == ""
+    )
+
+
+async def _weather_binding_current(db, owner, state, revision, evidence):
+    """A changed Situation or changed saved place invalidates old local inputs."""
+    from places.service import PlacesService
+
+    expected = f"situation:{state.id}:revision:{revision}"
+    linked = {ref for ref in state.linked_object_refs if ref.startswith("place:")}
+    for item in evidence:
+        if item.provenance.capability != "weather.read":
+            continue
+        refs = item.provenance.source_refs
+        if expected not in refs:
+            return False
+        places = [ref for ref in refs if ref.startswith("place:")]
+        if len(places) > 1 or (linked and (not places or not set(places).issubset(linked))):
+            return False
+        for ref in places:
+            try:
+                place = await PlacesService(db).get_place(owner, ref.split(":", 1)[1])
+            except Exception:
+                return False
+            if (place is None or place.state != "confirmed"
+                    or f"place_snapshot:{place.id}:{place.updated_at}" not in refs):
+                return False
+        if not places and not any(ref.startswith("google_place:") for ref in refs):
+            return False
+    return True
+
+
+async def weather_evidence_current(db, owner, goal, evidence, *, now=None):
+    """Whether live weather may support this Situation's next real review."""
+    now = now or datetime.now(timezone.utc)
+    sid = situation_id(goal)
+    if not sid or goal.owner_id != owner:
+        return False
+    state = await SituationRepository(db).get(owner, sid)
+    if (state is None or state.status not in ("active", "changed")
+            or str(state.revision) != goal.source_situation.get("situation_revision")):
+        return False
+    if any(item.provenance.capability != "weather.read" or not _evidence_usable(item, now)
+           for item in evidence):
+        return False
+    return bool(evidence) and await _weather_binding_current(db, owner, state, state.revision, evidence)
+
+
+async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, now=None):
+    """Validate a judgement; invalid or insufficient proposals remain unknown."""
+    now = now or datetime.now(timezone.utc)
+    sid = situation_id(goal)
+    if not sid or goal.owner_id != owner or not isinstance(raw, dict):
+        return None
+    state = await SituationRepository(db).get(owner, sid)
+    if (state is None or state.status not in ("active", "changed")
+            or str(state.revision) != goal.source_situation.get("situation_revision")):
+        return None
+    fields = {
+        key: raw.get(key) for key in (
+            "status", "headline", "action_summary", "basis", "action_reason",
+            "window_start", "window_end", "valid_until", "evidence_ids",
+        ) if key in raw
+    }
+    assessed_at = now.isoformat()
+    identity = hashlib.sha256(f"{goal.id}:{state.revision}:{assessed_at}".encode()).hexdigest()[:20]
+    try:
+        assessment = SituationOutcomeAssessment(
+            id=f"sout_{identity}", situation_id=sid,
+            situation_revision=state.revision, assessed_at=assessed_at, **fields,
+        )
+    except (TypeError, ValueError, ValidationError):
+        return None
+    expiry = moment(assessment.valid_until)
+    if not expiry or not now < expiry <= now + timedelta(hours=72):
+        return None
+    start, end = moment(assessment.window_start), moment(assessment.window_end)
+    if bool(start) != bool(end):
+        return None
+    if start and (end < start or end <= now or end > now + timedelta(hours=72)):
+        return None
+    physical_start = moment(state.started_at)
+    if start and physical_start and start < physical_start:
+        return None
+    if assessment.status == "needs_input":
+        if assessment.basis != "missing_information" or start or assessment.action_reason:
+            return None
+    else:
+        if assessment.basis == "missing_information" or not assessment.action_summary.strip():
+            return None
+        if assessment.status == "action_now" and assessment.action_reason is None:
+            return None
+        if assessment.status == "estimated" and (not start or assessment.action_reason is not None):
+            return None
+        if assessment.status == "action_now" and start:
+            # A future forecast window must never masquerade as action due now.
+            return None
+
+    ids = list(dict.fromkeys(assessment.evidence_ids))
+    by_id = {item.id: item for item in evidence
+             if item.owner_id == owner and item.goal_id == goal.id}
+    if any(ref not in by_id or not _evidence_usable(by_id[ref], now) for ref in ids):
+        return None
+    cited = [by_id[ref] for ref in ids]
+    if not await _weather_binding_current(db, owner, state, state.revision, cited):
+        return None
+    if assessment.status != "needs_input":
+        if not cited:
+            return None
+        # A new useful-action decision must re-read something in this pass.
+        # Reaching a timer alone cannot turn an older estimate into readiness.
+        since = moment(run_at)
+        if since and not any(moment(item.observed_at) and moment(item.observed_at) >= since for item in cited):
+            return None
+        if since and any(item.provenance.capability == "weather.read"
+                         and (moment(item.observed_at) is None or moment(item.observed_at) < since)
+                         for item in cited):
+            return None
+        if assessment.basis == "estimate" and assessment.action_reason != "early_risk":
+            # Live conditions alone do not establish a physical rate/duration.
+            # A sourced empirical baseline or a real computed estimate is needed.
+            if not any(item.provenance.capability == "web.research"
+                       or item.provenance.source_class == "deterministic_computation"
+                       for item in cited):
+                return None
+        if (assessment.basis == "direct_observation"
+                and all(item.provenance.capability in ("weather.read", "web.research") for item in cited)):
+            return None
+    # The result cannot outlive evidence whose provider gives a shorter horizon.
+    expiries = [moment(item.provenance.weather_valid_until or item.provenance.research_valid_until)
+                for item in cited]
+    expiry = min([expiry, *[value for value in expiries if value is not None]])
+    assessment.valid_until = expiry.isoformat()
+    assessment.evidence_ids = ids
+    return assessment
+
+
+async def current_outcome(db, owner, goal, *, allow_settled=False, now=None) -> dict[str, Any] | None:
+    """Read the current persisted result, including its source/evidence fences."""
+    from agent.models import AutonomousGoal
+
+    now = now or datetime.now(timezone.utc)
+    if db is None or goal.owner_id != owner:
+        return None
+    row = await db.agent_goals.find_one({"id": goal.id, "owner_id": owner}, {"_id": 0})
+    if not row:
+        return None
+    try:
+        current = AutonomousGoal.model_validate(row)
+    except ValidationError:
+        return None
+    assessment = current.situation_outcome
+    if (assessment is None or current.status in ("cancelled", "abandoned", "failed")
+            or moment(assessment.valid_until) is None or moment(assessment.valid_until) <= now):
+        return None
+    if current.status == "completed" and assessment.status != "action_now":
+        return None
+    sid = situation_id(current)
+    if sid != assessment.situation_id:
+        return None
+    state = await SituationRepository(db).get(owner, sid)
+    if state is None or state.status not in ("active", "changed"):
+        return None
+    matching = state.revision == assessment.situation_revision
+    if not matching and not (allow_settled and _settlement_matches(state, current, assessment)):
+        return None
+    if matching and current.is_open and not (state.attention_intent or state.next_check_summary):
+        return None
+    ids = assessment.evidence_ids
+    rows = await db.agent_evidence.find({
+        "owner_id": owner, "goal_id": current.id, "id": {"$in": ids},
+        "superseded": {"$ne": True},
+    }, {"_id": 0, "expires_at": 0}).to_list(6)
+    try:
+        evidence = [AgentEvidence.model_validate(item) for item in rows]
+    except ValidationError:
+        return None
+    if set(ids) != {item.id for item in evidence} or any(not _evidence_usable(item, now) for item in evidence):
+        return None
+    if not await _weather_binding_current(db, owner, state, assessment.situation_revision, evidence):
+        return None
+    from timezone_service import user_clock_context
+    clock = await user_clock_context(db, owner)
+    result = assessment.model_dump()
+    result.update(timezone=clock["timezone"], window_label=None,
+                  assessment_revision=assessment.situation_revision,
+                  situation_revision=state.revision)
+    if assessment.window_start and assessment.window_end:
+        first = local_check_fields(assessment.window_start, clock["timezone"])
+        last = local_check_fields(assessment.window_end, clock["timezone"])
+        if first and last:
+            same_day = first["next_check_at_local"][:10] == last["next_check_at_local"][:10]
+            result["window_label"] = (
+                f"{first['next_check_label']}–{last['next_check_time_local']}"
+                if same_day else f"{first['next_check_label']} – {last['next_check_label']}"
+            )
+    return result
+
+
+def outcome_refs(assessment):
+    return [f"situation:{assessment['situation_id']}",
+            f"situation_outcome:{assessment['id']}", *assessment["evidence_ids"]][:8]
