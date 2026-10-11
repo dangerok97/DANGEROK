@@ -5,6 +5,7 @@ export type CatalogEntry = { model_id: string; version_id: string; canonical_key
 export type CatalogResult = {
   status: 'family' | 'building' | 'unknown';
   model_id?: string; version_id?: string; manifest?: Manifest;
+  source_type?: 'seed' | 'generated' | 'source_based';
   cache_hit?: boolean; generation_used?: boolean; shared?: boolean;
   reason?: string; job_id?: string; retry_after_seconds?: number; frame_id?: string;
   identification?: { canonical_key: string; object_name: string; confidence: 'high' | 'medium'; bbox: Box; uncertainty: string };
