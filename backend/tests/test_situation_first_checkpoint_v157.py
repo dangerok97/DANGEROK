@@ -24,19 +24,18 @@ OTHER = "another_owner_v157"
 
 
 @pytest.fixture
-async def world(monkeypatch):
+def world(monkeypatch):
     monkeypatch.setenv("AMBIENT_RUNTIME", "1")
-    db = AsyncMongoMockClient().situation_first_checkpoint_v157
+    return AsyncMongoMockClient().situation_first_checkpoint_v157
+
+
+async def situation(db, *, owner=OWNER, sid="sit_test_watch", attentive=True):
     await db.agent_goals.create_index("id", unique=True)
     await db.agent_runs.create_index("goal_id", unique=True)
     await db.ambient_wakes.create_index(
         "identity", unique=True,
         partialFilterExpression={"status": {"$in": ["pending", "claimed"]}},
     )
-    return db
-
-
-async def situation(db, *, owner=OWNER, sid="sit_test_watch", attentive=True):
     row = SituationState(
         id=sid, user_id=owner, session_id="test-session",
         summary="Ho iniziato un'attività temporanea; serve il prossimo riscontro",
