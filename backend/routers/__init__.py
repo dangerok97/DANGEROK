@@ -227,3 +227,7 @@ try:
     ALL_ROUTERS.append(preparation_router)
 except Exception:
     pass
+
+# ORA Vision X-Ray: user-authorized foreground photos, illustrative parts.
+from vision_xray import router as vision_xray_router
+ALL_ROUTERS.append(vision_xray_router)
