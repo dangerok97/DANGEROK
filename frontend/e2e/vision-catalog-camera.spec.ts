@@ -49,7 +49,7 @@ test('catalogue search finds aliases and filters categories without changing the
  const query=page.getByTestId('vision-catalog-search');await query.fill('telefono');
  await expect(page.getByTestId('vision-catalog-smartphone')).toBeVisible();
  await query.fill('thumb drive');await expect(page.getByTestId('vision-catalog-usb_flash_drive')).toBeVisible();
- await page.getByTestId('vision-catalog-category').selectOption('Casa');await expect(page.getByTestId('vision-catalog-count')).toContainText('0 di 25');
+ await page.getByTestId('vision-catalog-category').selectOption('Casa');await expect(page.getByTestId('vision-catalog-category')).toHaveCSS('appearance','none');await expect(page.getByTestId('vision-catalog-count')).toContainText('0 di 25');
  await query.fill('');await expect(page.getByTestId('vision-catalog-clothespin')).toBeVisible();
  await expect(page.getByTestId('vision-catalog-smartphone')).toHaveCount(0);
  await page.screenshot({path:'../.vision-evidence/catalog25-search-'+info.project.name+'.png',fullPage:true});
@@ -66,7 +66,11 @@ test('supported flash toggles the existing video track, X keeps it and stop turn
  await page.getByTestId('vision-camera-zoom-toggle').click();await page.getByTestId('vision-camera-zoom-2').click();
  await expect(page.getByTestId('vision-camera-video')).toHaveAttribute('data-camera-zoom','2.00');
  await page.getByTestId('vision-camera-zoom-toggle').click();
+ await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-arrival','complete');
  await page.screenshot({path:'../.vision-evidence/camera-flash-zoom-'+info.project.name+'.png',fullPage:true});
+ await page.getByTestId('vision-camera-zoom-toggle').click();
+ await page.screenshot({path:'../.vision-evidence/camera-zoom-panel-'+info.project.name+'.png',fullPage:true});
+ await page.getByTestId('vision-camera-zoom-toggle').click();
  await page.getByTestId('vision-close-model').click();expect(await page.evaluate(()=>(window as any).__cameraControls.opens)).toBe(1);
  await expect(flash).toHaveAttribute('aria-pressed','true');
  await page.getByTestId('vision-stop-camera').click();
