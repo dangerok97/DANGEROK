@@ -1363,6 +1363,9 @@ class AgentService:
     async def _reasoning_goal(self, owner_id, goal):
         """Carry the current useful outcome and physical start across checkpoints."""
         payload = goal.for_ai()
+        if not any(str(ref).startswith("situation:")
+                   for ref in (getattr(goal, "source_refs", None) or [])):
+            return payload
         context, unavailable = await self._planning_source_context(owner_id, goal)
         if context or unavailable:
             payload["source_context"] = context

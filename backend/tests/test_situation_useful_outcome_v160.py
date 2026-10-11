@@ -132,6 +132,18 @@ async def test_admission_and_refresh_preserve_useful_outcome_and_physical_start(
     assert ai["source_context"][0]["started_at"] == old_start
 
 
+@pytest.mark.asyncio
+async def test_reasoning_context_keeps_situation_refs_on_derived_goals(monkeypatch):
+    _, service, state, _, _, _, _, _ = await setup(monkeypatch)
+    goal = SimpleNamespace(id="derived-goal", owner_id=OWNER, source_kind="opportunity",
+                           source_refs=[f"situation:{state.id}"], for_ai=lambda: {"objective": "Controllare l'esito"})
+    payload = await service._reasoning_goal(OWNER, goal)
+    assert payload["objective"] == "Controllare l'esito"
+    assert payload["source_context"][0]["ref"] == f"situation:{state.id}"
+    assert payload["source_context"][0]["started_at"] == state.started_at
+    assert payload["source_context_unavailable"] is False
+
+
 @pytest.mark.parametrize("value", ["2026-10-12T11:00:00", "not-a-time"])
 def test_naive_or_invalid_physical_start_rejected(value):
     with pytest.raises(ValidationError):

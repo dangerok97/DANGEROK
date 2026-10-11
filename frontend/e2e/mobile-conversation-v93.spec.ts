@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 
 // Real exported ORA components; ALL API data is a deterministic offline fixture.
@@ -85,6 +85,19 @@ async function scrollToBottom(page: Page) {
   await page.getByTestId('ora-production-scroll').evaluate(element => { element.scrollTop = element.scrollHeight; });
 }
 
+async function resizeAndScrollSituation(page: Page, detail: Locator, scroll: Locator, size: { width: number; height: number }) {
+  await page.setViewportSize(size);
+  // WebKit can finish resizing the viewport before useWindowDimensions has
+  // switched the detail panel from full mobile width to its 330px wide layout.
+  // Scrolling the previous width leaves the newly wrapped content below view.
+  await expect.poll(async () => Math.round((await detail.boundingBox())?.width || 0))
+    .toBe(size.width < 650 ? size.width - 24 : 330);
+  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect.poll(() => scroll.evaluate(element =>
+    Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop)))
+    .toBeLessThanOrEqual(1);
+}
+
 test('mobile conversation is readable, scrollable, and preserves draft through map expansion', async ({ page }, info) => {
   const errors: string[] = [];
   page.on('pageerror', error => {
@@ -168,6 +181,7 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   await page.getByTestId('ora-mobile-open-map').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
   const card = modal.getByTestId('ora-cockpit-temporary');
+  const detail = modal.getByTestId('ora-map-detail');
   const scroll = modal.getByTestId('ora-map-detail-scroll');
   await expect(card).toBeVisible();
   await expect(card).toContainText('PANNI STESI');
@@ -187,18 +201,16 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   mkdirSync('mobile-qa', { recursive: true });
   await page.screenshot({ path: `mobile-qa/${info.project.name}-situation-v99.png` });
   for (const size of [{ width: 320, height: 568 }, { width: 390, height: 740 }, { width: 740, height: 390 }]) {
-    await page.setViewportSize(size);
-    await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await resizeAndScrollSituation(page, detail, scroll, size);
     await expect(card.getByTestId('ora-remove-temporary')).toBeInViewport();
     await expect(modal.getByRole('button', { name: 'Chiudi dettagli della mappa' })).toBeInViewport();
     await expect(modal.getByTestId('ora-mobile-close-map')).toBeInViewport();
-    const box = await modal.getByTestId('ora-map-detail').boundingBox();
+    const box = await detail.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1);
     expect(box!.y + box!.height).toBeLessThanOrEqual(size.height + 1);
   }
-  await page.setViewportSize({ width: 390, height: 740 });
-  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await resizeAndScrollSituation(page, detail, scroll, { width: 390, height: 740 });
   await card.getByTestId('ora-remove-temporary').click();
   await expect(card).toContainText('Non sono riuscita a rimuovere');
   await expect(card).toBeVisible();

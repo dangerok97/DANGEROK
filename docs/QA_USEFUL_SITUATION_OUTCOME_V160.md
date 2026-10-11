@@ -79,7 +79,8 @@ rimuovono alla scadenza. Modelli e risposte esterne sono fixture sintetiche.
 
 | Area | Evidenza locale |
 |---|---|
-| Backend aggregato finale | 319 PASS in 34 moduli: valutazione, worker, meteo/luogo, consegna, Home/outbox, chiusura, clock, recupero e azione immediata |
+| Backend aggregato finale | 320 PASS in 34 moduli: valutazione, worker, meteo/luogo, consegna, Home/outbox, chiusura, clock, recupero e azione immediata |
+| Autonomia generale | 230 PASS nei 50 moduli del relativo passo CI eseguibili senza Mongo reale, inclusi i due casi storici v55 |
 | Conversazione e proiezione | 19 PASS su chiusura, fallimento reale di persistenza, contesto ipotetico, guard memoria temporanea e mappa |
 | Frontend integrato | 31 PASS, inclusi 16 nuovi casi sull'esito, controlli Home, calendario e presenza |
 | Mobile Chromium | 5 PASS, compreso stima → rischio anticipato → indicazione finale dopo completamento del watch |
@@ -102,6 +103,19 @@ lunghi sono verificati ai confini reali di choose e verify.
 Il gate remoto ha inoltre richiesto di mantenere la formulazione storica
 dell'istruzione sulla prima aspettativa utile: ripristinata con il vincolo
 esplicito delle evidenze disponibili, mantenendo invariati i test v88b.
+La verifica generale ha individuato anche un goal legacy senza `source_refs`:
+il nuovo contesto di ragionamento lascia invariato il payload quando mancano
+riferimenti Situation. I goal derivati che conservano tali riferimenti
+continuano invece a rileggere la fonte; una regressione dedicata lo verifica.
+I test storici v55 restano invariati. I due moduli Ambient v38 e i casi di
+continuità e riavvio con database reale sono affidati alla CI con Mongo attivo.
+
+La trace WebKit ha mostrato un problema di sincronizzazione della prova
+alla rotazione da 390×740 a 740×390: lo scroll veniva effettuato prima che
+React applicasse la larghezza del pannello. La prova attende ora quella
+condizione visibile, scorre una volta e verifica anche il fondo del contenitore.
+Restano tutte le asserzioni sulla raggiungibilità dei pulsanti; nessun retry
+dell'intero test, timeout aggiunto o modifica di layout per aggirare il controllo.
 
 ## Riscontro sul caso reale precedente
 
