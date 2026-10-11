@@ -20,6 +20,7 @@ from timezone_service import user_clock_context
 
 OPEN = ("proposed", "active", "waiting")
 KIND = "situation_followup"
+INITIAL_KIND = "situation_initial_review"
 
 
 def _moment(value):
@@ -81,6 +82,14 @@ def followup_diagnosis(state):
         label = str(state.get("next_check_label") or "").strip()
         return ("Risulta programmato un controllo." +
                 (f" Prossima verifica: {label}." if label else ""))
+    if status == "review_pending":
+        label = str(state.get("assessment_label") or "").strip()
+        return (
+            "ORA ha preso in carico la valutazione di questa situazione, "
+            "ma non ha ancora fissato un controllo verificato con fonti reali. "
+            + (f"Il riesame del caso è previsto per {label}. " if label else "")
+            + "Questo non è un orario di completamento né una notifica."
+        )
     if status == "running":
         return "È in corso una verifica registrata, ma non ne conosco ancora l'esito."
     if status == "waiting_for_user":
@@ -137,6 +146,7 @@ async def _read_followup_snapshot(db, owner, situation_id):
            "goal_id": None, "purpose": None, "notify_when": None,
            "completion_when": None, "monitoring_goal": None, "ends_when": None,
            "runtime_enabled": _enabled(), "delivery_channel": "in_app",
+           "assessment_at": None, "assessment_label": None,
            "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita."}
     if db is None or not owner or not situation_id:
         return out
@@ -179,6 +189,30 @@ async def _read_followup_snapshot(db, owner, situation_id):
         if goal.get("requires_user_input") or goal.get("requires_user_authority"):
             return {**out, "status": "waiting_for_user"}
         now = datetime.now(timezone.utc)
+        if goal.get("source_kind") == INITIAL_KIND:
+            # A newly admitted goal is an intent to investigate, NOT a first
+            # weather/physical check. Show its executable review separately
+            # until cognition has selected and persisted the actual checkpoint.
+            due = _moment(goal.get("next_run_at"))
+            if due is None:
+                return {**out, "status": "not_scheduled"}
+            review = await db.ambient_wakes.find_one(
+                {"owner_id": owner, "source_ref": f"goal:{goal['id']}",
+                 "status": {"$in": ["pending", "claimed"]}},
+                {"_id": 0, "scheduled_for": 1},
+                sort=[("scheduled_for", 1)],
+            )
+            if not review:
+                return {**out, "status": "recovery_pending"}
+            review_at = _moment(review.get("scheduled_for"))
+            if review_at is None:
+                return {**out, "status": "recovery_pending"}
+            local = local_check_fields(review_at, clock["timezone"])
+            return {
+                **out, "status": "review_pending",
+                "assessment_at": review_at.isoformat(),
+                "assessment_label": local.get("next_check_label"),
+            }
         running = await db.agent_runs.find_one(
             {"owner_id": owner, "goal_id": goal["id"], "lease_until": {"$gt": now.isoformat()}}, {"_id": 0, "goal_id": 1})
         # The scheduling lease is not an evidence-reading run.
@@ -273,6 +307,15 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             if await repo.create_goal(goal) is None:
                 return {"ok": False, "error": "goal_not_persisted"}
         else:
+            if goal.source_kind == INITIAL_KIND:
+                # The conversational model explicitly supplied the first
+                # evidence-backed checkpoint. Replace the initial-review
+                # alarm; it must not be shown or run as another check.
+                from ambient.repository import AmbientRepository
+                await AmbientRepository(db).cancel_for(
+                    owner, source_ref=f"goal:{gid}",
+                )
+                goal.source_kind = KIND
             goal.next_run_at = due.isoformat()
             await repo.save_goal(goal)
         wake = await AmbientService(db).schedule(owner, reason="opportunity_revisit", when=due,
@@ -301,7 +344,7 @@ async def repair_missing_dedicated_wakes(db, owner, *, limit=8):
         return {"repaired": 0, "reason": "runtime_disabled" if not _enabled() else "unavailable"}
     repo = AgentRepository(db)
     rows = await db.agent_goals.find(
-        {"owner_id": owner, "source_kind": KIND,
+        {"owner_id": owner, "source_kind": {"$in": [KIND, INITIAL_KIND]},
          "status": {"$in": list(OPEN)}, "next_run_at": {"$ne": None},
          "requires_user_input": {"$ne": True},
          "requires_user_authority": {"$ne": True}},
@@ -347,7 +390,7 @@ async def repair_missing_dedicated_wakes(db, owner, *, limit=8):
             detail={"situation_id": sid},
         )
         after = await read_followup(db, owner, sid)
-        if after["status"] in ("scheduled", "due", "running"):
+        if after["status"] in ("scheduled", "due", "running", "review_pending"):
             repaired += 1
     return {"repaired": repaired}
 
@@ -361,7 +404,7 @@ async def settle_completed_followup(db, owner, goal):
     already-finished watch; the red Situation may remain until user/world evidence
     resolves it separately.
     """
-    if getattr(goal, "source_kind", "") != KIND:
+    if getattr(goal, "source_kind", "") not in (KIND, INITIAL_KIND):
         return False
     refs = [str(ref) for ref in (getattr(goal, "source_refs", None) or [])
             if str(ref).startswith("situation:")]
@@ -393,9 +436,19 @@ async def cancel_dedicated_followup(db, owner, situation_id):
     """Close only this Situation's dedicated watch, never unrelated user plans."""
     from agent.service import AgentService
     gid = goal_id_for(owner, situation_id)
-    found = await db.agent_goals.find_one({"owner_id": owner, "id": gid, "source_kind": KIND}, {"_id": 0, "id": 1})
+    found = await db.agent_goals.find_one(
+        {"owner_id": owner, "id": gid,
+         "source_kind": {"$in": [KIND, INITIAL_KIND]}},
+        {"_id": 0, "id": 1},
+    )
     if found:
-        await AgentService(db).cancel(owner, gid, reason="La situazione è stata risolta o annullata.")
+        await AgentService(db).cancel(
+            owner, gid, reason="La situazione è stata risolta o annullata.",
+        )
+    from ambient.repository import AmbientRepository
+    await AmbientRepository(db).cancel_for(
+        owner, source_ref=f"goal:{gid}",
+    )
 
 
 async def get_situation_followup(args, runtime):
