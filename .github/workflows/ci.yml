@@ -74,6 +74,9 @@ jobs:
       - name: ORA native calendar without any external connector
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py -x
+      - name: First Situation checkpoint admission and owner safety v157
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_situation_first_checkpoint_v157.py -x
       - name: Google browser sign-in redirect and one-use ticket security
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_google_browser_login_v156.py tests/test_social_auth_unit.py -x
