@@ -1,3 +1,17 @@
+## 12 ottobre 2026 — v161: nome e numero del contatto leggibili
+
+- Eliminata la compressione del contatto in una colonna di singoli caratteri:
+  dati e avatar possono andare a capo, mentre lo stato ha una riga propria.
+- Mantenuta la spiegazione della conferma come testo completo sotto il badge
+  «Numero verificato», senza ridurre i caratteri o abbreviare il numero.
+- Recuperato spazio nelle card sul telefono e consentito al pannello laterale
+  di andare sotto la colonna principale quando lo spazio desktop non basta.
+- Regressione sulla schermata reale esportata a 320, 390, 740, 1024 e 1440 px,
+  prima e dopo la conferma, nei progetti Chromium e WebKit del gate mobile.
+  Contatti e risposte sintetici; nessuna telefonata reale.
+
+---
+
 ## 12 ottobre 2026 — v160: dal controllo al momento utile
 
 - Scopo della Situation e inizio fisico separati da stima, registrazione e checkpoint.
