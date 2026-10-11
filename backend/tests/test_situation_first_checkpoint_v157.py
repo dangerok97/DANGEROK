@@ -190,3 +190,34 @@ async def test_uninterested_situations_remain_silent(world, monkeypatch):
     result = await review_unattended(db, OWNER)
     assert result["eligible"] == 0
     assert await db[COLLECTION].count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_first_checkpoint_does_not_claim_generic_agent_goal(world, monkeypatch):
+    from research import reasoning
+    from situations.followup import goal_id_for
+    db = world
+    await situation(db)
+    # Existing generic opportunity work happened to reference this Situation,
+    # but has NO committed checkpoint. Admission may not steal its lease/id.
+    await db.agent_goals.insert_one({
+        "id": "generic_opportunity_goal", "owner_id": OWNER,
+        "source_kind": "opportunity", "status": "active",
+        "source_refs": ["situation:sit_test_watch"],
+        "rationale": "Other autonomous work", "next_run_at": None,
+        "revision": 1,
+    })
+    async def decide(system, user):
+        return model_scheduled(30)
+    monkeypatch.setattr(reasoning, "_ask_model", decide)
+    result = await review_unattended(db, OWNER)
+    assert result["scheduled"] == 1, result
+    state = await read_followup(db, OWNER, "sit_test_watch")
+    assert state["goal_id"] == goal_id_for(OWNER, "sit_test_watch")
+    assert state["goal_source_kind"] == "situation_followup"
+    untouched = await db.agent_goals.find_one(
+        {"owner_id": OWNER, "id": "generic_opportunity_goal"},
+    )
+    assert untouched["next_run_at"] is None
+    assert untouched["source_kind"] == "opportunity"
+    assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 2
