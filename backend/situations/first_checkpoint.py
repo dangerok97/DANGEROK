@@ -109,6 +109,12 @@ async def _claim(db, owner: str, sid: str, revision: int, now: datetime) -> bool
 
 async def _finish(db, owner: str, sid: str, revision: int, *, status: str,
                   reason: str = "", retry_after: datetime | None = None) -> None:
+    if status == "retry":
+        row = await db[COLLECTION].find_one(
+            {"_id": _key(owner, sid, revision)}, {"_id": 0, "attempts": 1},
+        )
+        if int((row or {}).get("attempts") or 0) >= MAX_ATTEMPTS:
+            status, retry_after = "paused", None
     await db[COLLECTION].update_one(
         {"_id": _key(owner, sid, revision),
          "owner_id": owner, "status": "processing"},
@@ -123,7 +129,7 @@ async def _finish(db, owner: str, sid: str, revision: int, *, status: str,
 
 async def decision_for(db, owner: str, sid: str, revision: int) -> dict | None:
     """Read only this person's current-revision admission; never expose a model dump."""
-    if not db or not owner or not sid:
+    if db is None or not owner or not sid:
         return None
     row = await db[COLLECTION].find_one({
         "_id": _key(owner, sid, revision), "owner_id": owner,
