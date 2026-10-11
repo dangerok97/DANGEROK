@@ -69,4 +69,4 @@ jobs:
           node-version: '22'
       - name: Check conversation controls and absence of false active reminders
         working-directory: frontend
-        run: node --experimental-strip-types src/components/ora/ora14.test.ts
+        run: node --experimental-strip-types --test src/components/ora/ora14.test.ts src/components/ora/presence/situationPageV157.test.ts
