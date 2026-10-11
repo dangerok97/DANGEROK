@@ -165,7 +165,10 @@ async def _read_followup_snapshot(db, owner, situation_id):
             return {**out, "status": "not_scheduled"}
         # Prefer the dedicated watch, otherwise expose legacy work rather than
         # pretending old users have no follow-up. Never match titles or keywords.
-        goals.sort(key=lambda g: g.get("source_kind") != KIND)
+        goals.sort(key=lambda g: (
+            g.get("source_kind") not in (KIND, INITIAL_KIND),
+            g.get("source_kind") != KIND,
+        ))
         goal = goals[0]
         stop_conditions = [str(x)[:240] for x in (goal.get("stop_conditions") or []) if str(x).strip()]
         out.update(
@@ -276,7 +279,14 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
         if goal and (not goal.is_open or goal.requires_user_input or goal.requires_user_authority):
             return {"ok": False, "error": "goal_not_resumable"}
         # A retry repairs the existing schedule, not a newly invented time.
-        prior_due = _moment(goal.next_run_at) if goal else None
+        # The initial review's wake is NOT a prior monitoring checkpoint.
+        # Preserve only an already confirmed model-chosen check; otherwise
+        # the initial immediate wake would replace the user's chosen future
+        # checkpoint with an invented 60-second check.
+        prior_due = (
+            _moment(goal.next_run_at)
+            if goal and goal.source_kind == KIND else None
+        )
         due = max(now + timedelta(seconds=60), prior_due or due)
         if goal is None:
             fallback_outcome = str(
@@ -438,6 +448,7 @@ async def cancel_dedicated_followup(db, owner, situation_id):
     gid = goal_id_for(owner, situation_id)
     found = await db.agent_goals.find_one(
         {"owner_id": owner, "id": gid,
+         "status": {"$in": list(OPEN)},
          "source_kind": {"$in": [KIND, INITIAL_KIND]}},
         {"_id": 0, "id": 1},
     )
