@@ -13,7 +13,7 @@ function load(name){
 }
 const {geometry,coverBox}=load('scene.ts');
 const {ObjectTracker}=load('tracking.ts');
-const fixtures=JSON.parse(readFileSync(resolve(here,'../../../../.vision-evidence/seeds.json'),'utf8'));
+const fixtures=JSON.parse(readFileSync(resolve(here,'../../../.vision-evidence/seeds.json'),'utf8'));
 for(const manifest of fixtures)test('separable geometry: '+manifest.canonical_key,()=>{
   for(const part of manifest.parts){
     const m=geometry(part);assert.ok(m.v.length>20);assert.ok(m.e.length>10);
