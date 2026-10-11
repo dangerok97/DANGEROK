@@ -234,6 +234,27 @@ class AmbientService:
             except Exception as exc:
                 logger.info("situation wake repair soft-fail: %s", type(exc).__name__)
 
+        # A Situation with an attention purpose and NO first checkpoint is a
+        # different gap from a LOST checkpoint: the generic opportunity scan
+        # may legitimately choose silence and never create a check. Give the
+        # existing model one bounded owner-scoped decision to schedule, explain
+        # a blocker, or decline pointless monitoring. No extra worker or
+        # guessed physical drying time; only the normal Agent/Ambient watch.
+        if wake.reason in ("ambient_review", "state_changed", "opportunity_revisit"):
+            try:
+                from situations.first_checkpoint import review_unattended
+                result = await review_unattended(self.db, wake.owner_id)
+                if result.get("eligible"):
+                    logger.info(
+                        "first_checkpoint_review eligible=%s scheduled=%s blocked=%s retry=%s",
+                        result["eligible"], result["scheduled"],
+                        result["needs_input"] + result["no_benefit"], result["retry"],
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "first checkpoint review unavailable: %s", type(exc).__name__,
+                )
+
         # A routine wake first refreshes conditional route evidence. This does
         # not assert that the trip will happen; it only equips the ordinary
         # life review with current facts in case the learned pattern repeats.
