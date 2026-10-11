@@ -8,6 +8,8 @@ on:
       - 'backend/vision*'
       - 'backend/vision_tests/**'
       - 'frontend/src/vision-xray/**'
+      - 'frontend/e2e/vision-*.spec.ts'
+      - 'frontend/playwright.vision.config.ts'
       - 'frontend/app/vision-xray.tsx'
       - 'frontend/src/components/ora/OraAttachMenu.tsx'
       - '.github/workflows/vision-catalog-live.yml'
@@ -50,7 +52,7 @@ jobs:
         if: always()
         run: |
           mkdir -p .vision-evidence
-          tar -czf .vision-evidence/vision-source.tar.gz backend/vision_catalog.py backend/vision_xray.py backend/vision_tests frontend/src/vision-xray frontend/app/vision-xray.tsx scripts/vision_test_server.py
+          tar -czf .vision-evidence/vision-source.tar.gz backend/vision_catalog.py backend/vision_xray.py backend/vision_tests frontend/src/vision-xray frontend/app/vision-xray.tsx frontend/e2e/vision-*.spec.ts frontend/playwright.vision.config.ts scripts/vision_test_server.py
           git rev-parse HEAD > .vision-evidence/commit.txt
       - uses: actions/upload-artifact@v4
         if: always()
@@ -98,10 +100,10 @@ jobs:
         run: |
           set -o pipefail
           npx tsc --noEmit 2>&1 | tee ../.vision-evidence/typecheck.txt
-      - name: Geometry and old attachment-menu regression tests
+      - name: Geometry, gestures and attachment-menu regression tests
         working-directory: frontend
         run: |
-          node --test src/vision-xray/scene.test.mjs 2>&1 | tee ../.vision-evidence/geometry-tests.txt
+          node --test src/vision-xray/*.test.mjs 2>&1 | tee ../.vision-evidence/geometry-tests.txt
           node --experimental-strip-types src/components/ora/attachMenu313.test.ts 2>&1 | tee ../.vision-evidence/attachment-tests.txt
       - name: Build actual Expo web application
         working-directory: frontend
@@ -114,7 +116,7 @@ jobs:
           python scripts/vision_test_server.py > .vision-evidence/harness.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8765/api/health && break; sleep 1; done
           curl -fsS http://127.0.0.1:8765/api/health
-      - name: Verify UI, continuous video and camera lifecycle
+      - name: Verify visual V2 and held-camera lifecycle
         working-directory: frontend
         run: npx playwright test -c playwright.vision.config.ts 2>&1 | tee ../.vision-evidence/browser-tests.txt
       - uses: actions/upload-artifact@v4
