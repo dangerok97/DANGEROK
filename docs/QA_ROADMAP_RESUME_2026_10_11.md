@@ -235,3 +235,94 @@ apostrofo JSX nel file Vita elimina l'unico errore lint incontrato.
 Scansione Git disponibile e diff check PASS. Le prove sono sintetiche e
 non sostituiscono i gate con Mongo reale, il collaudo della versione
 distribuita o la verifica della località della Situation.
+
+## Chiusura del rilascio #204 e collaudo della versione finale
+
+La [PR #204](https://github.com/dangerok97/DANGEROK/pull/204) è integrata
+in `135e91f47083a46c8dcbd7135b4b04a729dde23e`. Il commit della PR
+`d390e328ee71e93929ebf3aa62b75ce6d333f797` e il merge distribuito hanno
+tree `55d008e48f5aac312ddfaec4f8178b900d0db46f`, identico al contenuto
+verificato localmente. La base è rimasta `42fba0e9`; le modifiche Vision
+già integrate sono conservate.
+
+Tutti i gate sul commit finale sono SUCCESS:
+
+- [CI della PR](https://github.com/dangerok97/DANGEROK/actions/runs/38167731058)
+  e [CI del push](https://github.com/dangerok97/DANGEROK/actions/runs/38167728086).
+- [Situation della PR](https://github.com/dangerok97/DANGEROK/actions/runs/38167731041)
+  e [Situation del push](https://github.com/dangerok97/DANGEROK/actions/runs/38167728062).
+- [Mobile](https://github.com/dangerok97/DANGEROK/actions/runs/38167731094):
+  otto test effettivamente passati, quattro Chromium e quattro WebKit.
+
+Sul merge `135e91f4` sono SUCCESS anche i cinque job della
+[CI](https://github.com/dangerok97/DANGEROK/actions/runs/38168252008)
+e i due job [Situation](https://github.com/dangerok97/DANGEROK/actions/runs/38168252126).
+I log includono esplicitamente il nuovo modulo v159 da 18 casi: lo step
+Backend conta 83 PASS, quello di integrità Situation 62 PASS, senza test
+saltati o esclusi. Questi totali si sovrappongono ai 148 test locali e non
+devono essere sommati come casi unici. Nessun gate è stato indebolito e
+nessun rerun è stato necessario.
+
+Railway distribuisce lo stesso merge in entrambi i servizi:
+
+| Servizio | Deployment | Esito dell'11 ottobre, UTC |
+|---|---|---|
+| Backend | `929fb065-2203-4e69-a071-646530c7660d` | SUCCESS alle 19:31:07 |
+| Web | `10f7492a-216d-4ffb-b25c-79ca6a0b99a9` | SUCCESS alle 19:31:35 |
+
+Alla verifica del rilascio risultano una replica sana per servizio, zero
+problemi, zero fallimenti recenti e nessun lavoro pendente. Entrambi gli
+endpoint pubblici di salute rispondono HTTP 200; il backend riporta `ok`
+e il web risponde `ok`. Nessuna nuova dipendenza di produzione, nuova
+credenziale o migrazione distruttiva.
+
+### Esiti autenticati dopo il rilascio
+
+**Finanza: PASS della rappresentazione.** La proposta già presente non era
+un confronto fra due importi: conteneva una scadenza prima ignota. Conti e
+Home ora chiedono conferma di quella scadenza, mostrano la fonte e spiegano
+che l'importo manca. Il fatto precedentemente confermato mantiene importo
+ignoto, ricorrenza mensile e provenienza dalla conferma dell'utente. Nessun
+Sì/No inviato e nessuna seconda rilettura delle email per ottenere l'esito.
+Il collaudo non certifica la scadenza proposta come un fatto confermato.
+
+**Calendario: PASS della coerenza delle viste.** Home mostra zero eventi
+per il giorno precedentemente errato; Agenda conferma zero nello stesso
+giorno e zero nel mese. Nessun appuntamento creato, spostato o cancellato.
+Google Calendar resta da ricollegare per autorizzazione scaduta: il
+collaudo reale non certifica la lettura di eventi da quel provider né una
+partenza con percorso e meteo costruita su un suo evento.
+
+**Situation: recupero persistito; correttezza geografica ancora da completare.**
+Il primo controllo e il successivo checkpoint sono stati creati dal worker
+nel rilascio precedente sulla Situation già esistente. Dopo #204 è stato
+chiesto nell'app di riesaminare la provenienza della località citata nel
+risultato. ORA ha chiesto quale località usare e ha aggiornato lo stato
+indicandola non confermata da una dichiarazione esplicita dell'utente.
+Una lettura separata della pagina Situation conferma che questo stato è
+persistito, mantenendo la stessa Situation, l'intenzione di monitoraggio,
+l'ultima verifica e il prossimo controllo. Nessuna città sostitutiva è
+stata dedotta dal profilo o dalla posizione del browser.
+
+Il risultato meteo precedente rimane visibile come ultima verifica
+registrata: la patch non lo convalida retroattivamente e il presente
+rapporto non ne certifica la correttezza locale. Per chiudere questo caso
+serve il luogo effettivo della situazione e una nuova valutazione pertinente.
+La consegna di una notifica su un dispositivo reale rimane non verificata.
+
+### Prossimo intervento tecnico circoscritto
+
+La revisione finale ha confermato sulla base `42fba0e9` un limite già
+esistente: i pulsanti finanziari usano `ask:<nome>` e non la versione esatta
+della proposta mostrata. Se nel frattempo arriva una nuova proposta materiale
+omonima, il resolver può selezionare quella sopraggiunta. #204 riduce gli
+errori di selezione, ma non elimina questa finestra temporale.
+
+Il prossimo intervento è un riferimento di risposta con `fact_id` e
+impronta delle affermazioni e della conoscenza corrente. Una risposta a una
+versione superata dovrà richiedere la rilettura, senza scegliere un'altra
+proposta. Il percorso legacy va mantenuto e dichiarato finché i client non
+sono aggiornati. Questa voce non è stata presentata come già completata.
+
+Questa sezione conclusiva è un aggiornamento del solo rapporto di collaudo;
+il codice applicativo distribuito rimane il merge `135e91f4`.
