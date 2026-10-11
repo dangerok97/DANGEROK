@@ -22,6 +22,11 @@ export type KnowledgeStar = {
     timezone?: string | null;
     timezone_authority?: string | null;
     last_checked_at?: string | null;
+    last_result?: string | null;
+    diagnosis?: string | null;
+    admission_state?: string | null;
+    admission_reason?: string | null;
+    admission_retry_after?: string | null;
     purpose?: string | null;
     notify_when?: string | null;
     completion_when?: string | null;
