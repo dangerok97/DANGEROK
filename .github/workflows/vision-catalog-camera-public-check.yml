@@ -1,0 +1,22 @@
+name: Vision catalog and camera public check
+on:
+  push:
+    branches: [qa/vision-catalog-camera-prepare]
+    paths: ['.github/workflows/vision-catalog-camera-public-check.yml']
+permissions:
+  contents: read
+jobs:
+  public-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check served assets and HTTP health without user credentials
+        run: python scripts/vision_catalog_camera_public_check.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vision-catalog-camera-public-evidence
+          path: .vision-catalog-camera-public/
+          include-hidden-files: true
+          retention-days: 7
