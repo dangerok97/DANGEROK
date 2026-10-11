@@ -15,6 +15,7 @@ from typing import Awaitable, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pymongo import ReturnDocument
+from vision_seed_library import common_recipes, canonical_key, model_metadata
 
 SCHEMA_VERSION = 1
 SHAPES = ("shell", "board", "keypad", "cylinder", "spring", "cone", "bottle", "ring", "box")
@@ -134,7 +135,7 @@ def seeds() -> list[Manifest]:
             part("lens", "Protezione frontale", "Protegge l'ottica.", "È una rappresentazione semplificata dell'elemento anteriore; non ne determina il materiale.", "ring", (25, 4, 25), (0, 61, 0), (78, 24, 0)),
             part("tail", "Chiusura posteriore", "Chiude il corpo della torcia.", "L'interruttore può trovarsi qui oppure sul corpo. Non è deducibile con certezza da questo schema.", "cylinder", (25, 9, 25), (0, -50, 0), (85, -41, 0)),
         ]),
-    ]
+    ] + [Manifest.model_validate(row["manifest"]) for row in common_recipes()]
 
 
 class CatalogLimit(Exception):
@@ -157,7 +158,7 @@ class CatalogService:
             await self.db[QUOTAS].create_index("expires_at", expireAfterSeconds=0)
             await self.db[JOBS].create_index([("scope", 1), ("state", 1)])
             for manifest in seeds():
-                await self._store(manifest, "shared", "seed", insert_only=True)
+                await self.install_seed(manifest)
             self._ready = True
 
     @staticmethod
@@ -196,6 +197,19 @@ class CatalogService:
         }}, upsert=True)
         return await self.read(model_id, scope=scope)
 
+    async def install_seed(self, manifest):
+        """Promote only a generated public head via CAS; keep old versions and tombstones."""
+        stored = await self._store(manifest, "shared", "seed", insert_only=True)
+        if not stored or stored["source_type"] != "generated":
+            return
+        body = manifest.model_dump(mode="json")
+        revision = "vxv_" + digest(stored["model_id"] + json.dumps(body, sort_keys=True, separators=(",", ":")))
+        await self.db[MODELS].update_one({
+            "_id": stored["model_id"], "scope": "shared", "status": "published",
+            "source_type": "generated", "current_version": stored["version_id"],
+        }, {"$set": {"current_version": revision, "source_type": "seed",
+                     "title": manifest.title, "updated_at": now()}})
+
     async def read(self, model_id, *, scope):
         head = await self.db[MODELS].find_one({"_id": model_id, "scope": scope, "status": "published"})
         if not head:
@@ -206,9 +220,11 @@ class CatalogService:
         # Old or corrupt data must still satisfy the current renderer contract.
         manifest = Manifest.model_validate(version["manifest"]).model_dump(mode="json")
         return {"model_id": model_id, "version_id": version["_id"], "manifest": manifest,
-                "source_type": version["source_type"], "shared": scope == "shared"}
+                "source_type": version["source_type"], "shared": scope == "shared",
+                "sources": model_metadata(manifest["canonical_key"])["sources"] if version["source_type"] == "seed" else []}
 
     async def find(self, key, user_id):
+        key = canonical_key(key)
         for scope in (self.private_scope(user_id), "shared"):
             model = await self.read(self.model_id(key, scope), scope=scope)
             if model:
@@ -220,15 +236,17 @@ class CatalogService:
         rows = await self.db[MODELS].find({
             "scope": {"$in": ["shared", self.private_scope(user_id)]}, "status": "published",
         }, {"_id": 1, "title": 1, "canonical_key": 1, "current_version": 1,
-            "source_type": 1, "scope": 1}).sort("canonical_key", 1).limit(100).to_list(100)
+            "source_type": 1, "scope": 1}).sort([("source_type", -1), ("canonical_key", 1)]).limit(500).to_list(500)
         return [{"model_id": r["_id"], "title": r["title"], "canonical_key": r["canonical_key"],
                  "version_id": r["current_version"], "source_type": r["source_type"],
-                 "shared": r["scope"] == "shared"} for r in rows]
+                 "shared": r["scope"] == "shared", "category": model_metadata(r["canonical_key"])["category"],
+                 "aliases": model_metadata(r["canonical_key"])["aliases"]} for r in rows]
 
     async def resolve(self, *, key: str, title: str, user_id: str,
                       generator: Callable[[], Awaitable[dict]] | None = None,
                       contribute=False):
         await self.initialize()
+        key = canonical_key(key)
         if not re.fullmatch(r"[a-z][a-z_]{2,47}", key):
             return {"status": "unknown", "reason": "Identificazione non sufficientemente precisa."}
         found = await self.find(key, user_id)

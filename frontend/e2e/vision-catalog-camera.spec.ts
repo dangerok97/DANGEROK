@@ -105,7 +105,7 @@ test('camera zoom crops outgoing pixels and does not alter 3D zoom after acquisi
  expect(widths[1]/widths[0]).toBeGreaterThan(1.8);expect(widths[1]/widths[0]).toBeLessThan(2.2);
  await page.unroute('**/api/vision-xray/scan');await page.getByTestId('vision-camera-zoom-1').click();
  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count','8');
- await page.getByTestId('vision-zoom-in').click();const modelZoom=await page.getByTestId('vision-scene').getAttribute('data-zoom');
+ await page.getByTestId('vision-zoom-in').click();await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-zoom','1.250');const modelZoom=await page.getByTestId('vision-scene').getAttribute('data-zoom');
  await page.getByTestId('vision-camera-zoom-3').click();await page.waitForTimeout(300);
  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-zoom',modelZoom!);
  await page.getByTestId('vision-stop-camera').click();

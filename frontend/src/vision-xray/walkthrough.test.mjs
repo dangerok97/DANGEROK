@@ -19,7 +19,8 @@ const seeds=JSON.parse(readFileSync(resolve(here,'../../../.vision-evidence/seed
 const remote=seeds.find(s=>s.canonical_key==='remote_control');
 const ctx=()=>new Proxy({},{get:(obj,key)=>obj[key]??(()=>{}),set:(obj,key,value)=>(obj[key]=value,true)});
 const opts={progress:1,yaw:.46,pitch:-.22,selected:'',focus:0,zoom:1};
-for(const manifest of seeds)test('reviewed tour has real parts, valid sources and finite drawing: '+manifest.canonical_key,()=>{
+const reviewed=new Set(['remote_control','click_pen','water_bottle','computer_mouse','flashlight']);
+for(const manifest of seeds.filter(s=>reviewed.has(s.canonical_key)))test('reviewed tour has real parts, valid sources and finite drawing: '+manifest.canonical_key,()=>{
  const original=JSON.stringify(manifest),tour=walkthroughFor(manifest,'seed');assert.equal(tour.steps.length,3);
  assert.ok(tour.sources.length>0);assert.ok(tour.sources.every(s=>new URL(s.url).protocol==='https:'));
  const scene=new VisionPresentation(manifest);
@@ -74,3 +75,5 @@ test('assembled model starts in detected region and finishes exactly in study sp
  scene.draw(c,390,500,{...opts,origin:{box:[.1,.35,.16,.45],mix:1}});const atEnd=scene.partBounds('pcb');
  scene.draw(c,390,500,opts);assert.ok(scene.partBounds('pcb').every((v,i)=>Math.abs(v-atEnd[i])<1e-8));
 });
+
+for(const manifest of seeds.filter(s=>!reviewed.has(s.canonical_key)))test('new catalog family has no invented tour: '+manifest.canonical_key,()=>{assert.equal(walkthroughFor(manifest,'seed'),null);});

@@ -8,6 +8,8 @@ import { visualStyle } from './visualStyle';
 import {walkthroughFor,TourClock,type Walkthrough} from './walkthrough';
 import {arrivalAt,currentBox,originInView} from './arrival';
 import type {Box} from './scene';
+import {CameraTorch, type TorchState, TORCH_UNAVAILABLE, cameraCrop, sameCrop, drawCameraCrop, clampCameraZoom} from './cameraControls';
+import {filterCatalog} from './catalogSearch';
 
 type Mode = 'idle' | 'opening' | 'live' | 'photo' | 'catalog';
 const sleep = (ms:number) => new Promise<void>(resolve=>setTimeout(resolve,ms));
@@ -32,6 +34,14 @@ export default function LiveExplorer(){
   const [opening,setOpening]=useState(100);
   const [entries,setEntries]=useState<CatalogEntry[]>([]);
   const [libraryOpen,setLibraryOpen]=useState(false);
+  const [catalogQuery,setCatalogQuery]=useState('');
+  const [catalogCategory,setCatalogCategory]=useState('Tutti');
+  const [cameraZoom,setCameraZoomUI]=useState(1);
+  const [cameraPanel,setCameraPanel]=useState(false);
+  const [torchUI,setTorchUI]=useState<TorchState>({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});
+  const cameraZoomRef=useRef(1);
+  const torch=useRef<CameraTorch|null>(null);
+  const stageElement=useRef<HTMLElement|null>(null);
   const [infoOpen,setInfoOpen]=useState(false);
   const [photoURL,setPhotoURL]=useState<string|null>(null);
   const [tourUI,setTourUI]=useState<{index:number;playing:boolean;done:boolean}|null>(null);
@@ -81,13 +91,14 @@ export default function LiveExplorer(){
   },[endTour,finishArrival]);
   const stop=useCallback(()=>{
     epoch.current++;request.current?.abort();request.current=null;
+    torch.current?.dispose();torch.current=null;cameraZoomRef.current=1;
     stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;
     if(video.current)video.current.srcObject=null;
     if(photoObjectURL.current)URL.revokeObjectURL(photoObjectURL.current);
     photoObjectURL.current=null;photo.current=null;modeRef.current='idle';
     busyRef.current=false;nextScan.current=Infinity;scene.current=null;heldResult.current=null;scanReference.current=null;
     resetView();
-    if(alive.current){setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);}
+    if(alive.current){setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
   },[resetView]);
   const apply=useCallback((value:CatalogResult,origin?:{box:Box;sw:number;sh:number}|null)=>{
     if(!value.manifest||!value.version_id)return;
@@ -103,15 +114,33 @@ export default function LiveExplorer(){
     void catalogApi.list().then(data=>{if(alive.current&&epoch.current===ticket)setEntries(data.models);}).catch(()=>{});
   },[resetView]);
 
+  const changeCameraZoom=useCallback((requested:number)=>{
+    if(modeRef.current!=='live')return;
+    const zoom=clampCameraZoom(requested);
+    if(Math.abs(zoom-cameraZoomRef.current)<.002)return;
+    cameraZoomRef.current=zoom;setCameraZoomUI(zoom);
+    // Old replies cannot describe the new crop. Held models never trigger new AI.
+    if(!scene.current){
+      epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
+      scanReference.current=null;setBusy(false);setError(null);
+      setStage('Inquadra con lo zoom: analizzo la zona visibile.');
+      nextScan.current=performance.now()+700;
+    }
+  },[]);
+
   const captureScan=useCallback(async()=>{
     if(busyRef.current||scene.current||!['live','photo'].includes(modeRef.current))return;
     const source=modeRef.current==='live'?video.current:photo.current;if(!source)return;
-    const sw=source instanceof HTMLVideoElement?source.videoWidth:source.naturalWidth;
-    const sh=source instanceof HTMLVideoElement?source.videoHeight:source.naturalHeight;if(!sw||!sh)return;
+    const rawWidth=source instanceof HTMLVideoElement?source.videoWidth:source.naturalWidth;
+    const rawHeight=source instanceof HTMLVideoElement?source.videoHeight:source.naturalHeight;if(!rawWidth||!rawHeight)return;
+    const liveCapture=modeRef.current==='live';
+    const rect=stageElement.current?.getBoundingClientRect();
+    const crop=liveCapture?cameraCrop(rawWidth,rawHeight,rect?.width||rawWidth,rect?.height||rawHeight,cameraZoomRef.current):{x:0,y:0,width:rawWidth,height:rawHeight};
+    const sw=crop.width,sh=crop.height;
     const snapshot=document.createElement('canvas'),scale=Math.min(1,960/Math.max(sw,sh));
     snapshot.width=Math.round(sw*scale);snapshot.height=Math.round(sh*scale);
     const context=snapshot.getContext('2d');if(!context)return;
-    context.drawImage(source,0,0,snapshot.width,snapshot.height);
+    drawCameraCrop(context,source,crop,snapshot.width,snapshot.height);
     const small=document.createElement('canvas');small.width=160;small.height=Math.round(160*sh/sw);
     const sc=small.getContext('2d',{willReadFrequently:true});if(!sc)return;
     sc.drawImage(snapshot,0,0,small.width,small.height);scanReference.current=grayFrame(sc.getImageData(0,0,small.width,small.height));
@@ -135,8 +164,12 @@ export default function LiveExplorer(){
         if(value.identification?.bbox){
           if(modeRef.current==='photo')box=value.identification.bbox;
           else if(video.current?.videoWidth&&sc){
-            sc.drawImage(video.current,0,0,small.width,small.height);
-            box=currentBox(scanReference.current,grayFrame(sc.getImageData(0,0,small.width,small.height)),value.identification.bbox);
+            const currentRect=stageElement.current?.getBoundingClientRect();
+            const fresh=cameraCrop(video.current.videoWidth,video.current.videoHeight,currentRect?.width||rawWidth,currentRect?.height||rawHeight,cameraZoomRef.current);
+            if(sameCrop(crop,fresh)){
+              drawCameraCrop(sc,video.current,fresh,small.width,small.height);
+              box=currentBox(scanReference.current,grayFrame(sc.getImageData(0,0,small.width,small.height)),value.identification.bbox);
+            }
           }
         }
         apply(value,box?{box,sw,sh}:null);
@@ -159,6 +192,12 @@ export default function LiveExplorer(){
       stream.current=media;if(!video.current){media.getTracks().forEach(t=>t.stop());return;}
       video.current.srcObject=media;await video.current.play();
       if(epoch.current!==ticket||!alive.current)return;
+      const track=media.getVideoTracks()[0];
+      if(track){
+        const control=new CameraTorch(track,state=>{if(alive.current&&torch.current===control)setTorchUI(state);});
+        torch.current=control;setTorchUI(control.snapshot());
+        track.addEventListener('ended',()=>{if(alive.current&&stream.current===media){stop();setError('La fotocamera è stata disconnessa. Riaprila per continuare.');}},{once:true});
+      }
       changeMode('live');setStage('Tieni l’oggetto al centro: lo riconosco automaticamente.');nextScan.current=performance.now()+1500;
     }catch(e:any){
       if(epoch.current!==ticket||!alive.current)return;
@@ -170,7 +209,7 @@ export default function LiveExplorer(){
     // Dismiss only the model. Keep the stream and invalidate every old AI reply.
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     scene.current=null;heldResult.current=null;scanReference.current=null;resetView();
-    setResult(null);setBusy(false);setError(null);setInfoOpen(false);setLibraryOpen(false);
+    setResult(null);setBusy(false);setError(null);setInfoOpen(false);setLibraryOpen(false);setCameraPanel(false);
     setStage('Inquadra il nuovo oggetto: lo riconosco automaticamente.');nextScan.current=performance.now()+300;
   };
   const pickPhoto=async(event:React.ChangeEvent<HTMLInputElement>)=>{
@@ -201,7 +240,7 @@ export default function LiveExplorer(){
   },[stop]);
   useEffect(()=>{
     const node=canvas.current;if(!node)return;
-    const wheel=(e:WheelEvent)=>{if(!scene.current)return;e.preventDefault();view.current.zoom=clampZoom(view.current.zoom*Math.exp(-e.deltaY*.0015));};
+    const wheel=(e:WheelEvent)=>{if(!scene.current&&modeRef.current!=='live')return;e.preventDefault();if(scene.current)view.current.zoom=clampZoom(view.current.zoom*Math.exp(-e.deltaY*.0015));else changeCameraZoom(cameraZoomRef.current*Math.exp(-e.deltaY*.0015));};
     node.addEventListener('wheel',wheel,{passive:false});return()=>node.removeEventListener('wheel',wheel);
   },[]);
   useEffect(()=>{
@@ -215,8 +254,10 @@ export default function LiveExplorer(){
       const w=node.clientWidth,h=node.clientHeight,dpr=Math.min(2,window.devicePixelRatio||1);if(!w||!h)return;
       const live=modeRef.current==='live',v=video.current;
       if(live&&!scene.current&&v?.videoWidth&&pixels&&time-lastSample>120){
-        lastSample=time;small.width=160;small.height=Math.round(160*v.videoHeight/v.videoWidth);
-        pixels.drawImage(v,0,0,small.width,small.height);
+        const rect=stageElement.current?.getBoundingClientRect();
+        const crop=cameraCrop(v.videoWidth,v.videoHeight,rect?.width||w,rect?.height||h,cameraZoomRef.current);
+        lastSample=time;small.width=160;small.height=Math.round(160*crop.height/crop.width);
+        drawCameraCrop(pixels,v,crop,small.width,small.height);
         if(!busyRef.current&&time>=nextScan.current){
           const changed=difference(scanReference.current,grayFrame(pixels.getImageData(0,0,small.width,small.height)))>.13;
           if(!scanReference.current||changed){nextScan.current=time+6000;void captureScan();}
@@ -265,12 +306,13 @@ export default function LiveExplorer(){
   const setExplosion=(percent:number)=>{endTour();finishArrival();const value=Math.max(0,Math.min(100,percent));view.current.target=value/100;setOpening(value);setExpanded(value>50);};
   const toggleExpansion=()=>setExplosion(view.current.target>.5?0:100);
   const onDown=(e:React.PointerEvent<HTMLCanvasElement>)=>{
-    if(!scene.current)return;finishArrival();gestures.current.down(e.pointerId,e.clientX,e.clientY);
+    if(!scene.current&&modeRef.current!=='live')return;finishArrival();gestures.current.down(e.pointerId,e.clientX,e.clientY);
     try{e.currentTarget.setPointerCapture(e.pointerId);}catch{/* Synthetic pointer tests do not create native capture. */}
   };
   const onMove=(e:React.PointerEvent<HTMLCanvasElement>)=>{
-    if(!scene.current)return;
+    if(!scene.current&&modeRef.current!=='live')return;
     const d=gestures.current.move(e.pointerId,e.clientX,e.clientY);
+    if(!scene.current){changeCameraZoom(cameraZoomRef.current*d.zoomFactor);return;}
     view.current.yaw+=d.yaw;view.current.pitch=Math.max(-1.1,Math.min(1.1,view.current.pitch+d.pitch));view.current.zoom=clampZoom(view.current.zoom*d.zoomFactor);
   };
   const onUp=(e:React.PointerEvent<HTMLCanvasElement>,cancelled=false)=>{
@@ -301,6 +343,8 @@ export default function LiveExplorer(){
   const syncTour=()=>{const c=tour.current?.clock;if(c)setTourUI({index:c.index,playing:c.playing,done:c.done});};
   const step=tourUI&&definition?definition.steps[tourUI.index]:null;
   const currentPart=result?.manifest?.parts.find(p=>p.key===selected),live=mode==='live';
+  const visibleEntries=filterCatalog(entries,catalogQuery,catalogCategory);
+  const categories=['Tutti',...Array.from(new Set(entries.map(e=>e.category||'Altri oggetti'))).sort()];
 
   return <div className={'vx-root'+(result?' has-model':'')} data-testid="vision-live-explorer" data-version="visual-v2" data-experience="guided-v3">
     <style>{visualStyle}</style>
@@ -309,19 +353,25 @@ export default function LiveExplorer(){
       <div className="vx-brand">ORA <span>VISION</span><small className="vx-version">ESPLORA L’ESSENZIALE</small></div>
       <button className="vx-catalog" data-testid="vision-catalog-toggle" aria-expanded={libraryOpen} onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setInfoOpen(false);setLibraryOpen(v=>!v);}}>Catalogo <span>{entries.length}</span></button>
     </header>
-    <section className="vx-stage" aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
-      <video ref={video} autoPlay playsInline muted data-testid="vision-camera-video" aria-label="Video live della fotocamera" style={{opacity:live?1:0}}/>
+    <section ref={stageElement} className="vx-stage" aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
+      <video ref={video} autoPlay playsInline muted data-testid="vision-camera-video" aria-label="Video live della fotocamera" style={{opacity:live?1:0,transform:`scale(${cameraZoom})`,transformOrigin:"center"}} data-camera-zoom={cameraZoom.toFixed(2)}/>
       {photoURL&&<img src={photoURL} alt="Foto scelta per l’analisi" className="vx-photo"/>}
       <div className={'vx-shade '+(result?'vx-shade-result':'')}/>
-      <canvas ref={canvas} className="vx-canvas" data-testid="vision-scene" tabIndex={result?0:-1} aria-label="Scena 3D. Trascina per ruotare, due dita per lo zoom. Con tastiera: frecce per ruotare, più e meno per zoomare. I componenti sono disponibili anche nei pulsanti sotto." onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={e=>onUp(e,true)} onLostPointerCapture={e=>{gestures.current.up(e.pointerId,e.clientX,e.clientY,true);}} onKeyDown={keyboard}/>
+      <canvas ref={canvas} className="vx-canvas" data-testid="vision-scene" tabIndex={result||live?0:-1} aria-label={result?"Scena 3D: trascina per ruotare, due dita per ingrandire i componenti.":"Fotocamera: due dita per lo zoom digitale. I comandi sono disponibili anche nei pulsanti."} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={e=>onUp(e,true)} onLostPointerCapture={e=>{gestures.current.up(e.pointerId,e.clientX,e.clientY,true);}} onKeyDown={keyboard}/>
       <div className="vx-topline"><span className={'vx-tag '+(live?'vx-tag-live':'')}>{live?'● LIVE':mode==='photo'?'FOTO':mode==='catalog'?'CATALOGO':'VISION X-RAY'}</span><button className="vx-evidence" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}} aria-label="Informazioni sullo schema indicativo">Schema indicativo ⓘ</button></div>
       {(mode==='idle'||mode==='opening')&&!result&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
       {result?.manifest&&<><button className="vx-close-model" data-testid="vision-close-model" aria-label="Chiudi la scomposizione e scansiona un altro oggetto" title="Scansiona un altro oggetto" onClick={newObject}>×</button><div className={'vx-object-title'+(focused&&!tourUI?' is-focus':'')}><strong>{focused&&!tourUI&&currentPart?currentPart.name:result.manifest.title}</strong><small>{tourUI?'PERCORSO DIDATTICO':focused?'COMPONENTE TIPICO':result.manifest.parts.length+' parti'}</small></div><div className="vx-zoom" aria-label="Zoom della scomposizione"><button aria-label="Riduci lo zoom" data-testid="vision-zoom-out" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom/1.25);}}>−</button><button aria-label="Aumenta lo zoom" data-testid="vision-zoom-in" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom*1.25);}}>+</button></div></>}
       {focused&&!tourUI&&<button className="vx-whole" data-testid="vision-overview" onClick={overview}>← Vista d’insieme</button>}
+      {live&&<div className="vx-camera-tools" data-testid="vision-camera-controls">
+        <button className={torchUI.on?'is-on':''} data-testid="vision-torch" aria-label={torchUI.supported?(torchUI.on?'Spegni il flash':'Accendi il flash'):TORCH_UNAVAILABLE} aria-pressed={torchUI.on} disabled={!torchUI.supported||torchUI.busy} title={torchUI.message||'Luce continua della fotocamera'} onClick={()=>void torch.current?.toggle()}>{torchUI.busy?'…':torchUI.supported?(torchUI.on?'⚡ On':'⚡ Off'):'Flash n/d'}</button>
+        <button data-testid="vision-camera-zoom-toggle" aria-label="Zoom della fotocamera" aria-expanded={cameraPanel} onClick={()=>setCameraPanel(v=>!v)}>◉ {cameraZoom.toFixed(1)}×</button>
+        {cameraPanel&&<div className="vx-camera-zoom-panel" data-testid="vision-camera-zoom-panel"><small>ZOOM FOTOCAMERA · DIGITALE</small><div>{[1,2,3].map(z=><button key={z} data-testid={'vision-camera-zoom-'+z} aria-pressed={Math.abs(cameraZoom-z)<.05} onClick={()=>changeCameraZoom(z)}>{z}×</button>)}</div><input data-testid="vision-camera-zoom-range" aria-label="Ingrandimento della fotocamera" type="range" min="1" max="3" step="0.1" value={cameraZoom} onChange={e=>changeCameraZoom(Number(e.target.value))}/><span>{result?'Non modifica lo zoom dello schema 3D.':'ORA analizza la stessa area ingrandita.'}</span></div>}
+        {torchUI.message&&torchUI.supported&&<p role="status" className="vx-camera-message">{torchUI.message}</p>}
+      </div>}
       {busy&&<div className="vx-scanning" aria-hidden="true"/>}
       <div className={'vx-status'+(result?' vx-status-held':'')} role="status" data-testid="vision-status"><span className={busy?'vx-pulse':''}>{busy?'◌':'◇'}</span>{stage}</div>
-      {libraryOpen&&<aside className="vx-library" data-testid="vision-catalog" aria-label="Catalogo delle scomposizioni"><h2>Esplora il catalogo</h2><p>Modelli indicativi salvati, non riconoscimenti della fotocamera.</p>{entries.map(entry=><button key={entry.model_id} data-testid={'vision-catalog-'+entry.canonical_key} onClick={()=>void loadModel(entry)}><span>{entry.title}</span><small>{entry.shared?'Condiviso':'Privato'} · schema indicativo</small></button>)}<button onClick={()=>setLibraryOpen(false)}>Chiudi catalogo</button></aside>}
-      {infoOpen&&<aside className="vx-info" data-testid="vision-information" aria-label="Informazioni su Vision"><h2>Uno schema, non una radiografia</h2><p>{result?.manifest?.limitations||'Le forme e le parti interne sono indicative della famiglia di oggetti, non verificate sul tuo esemplare.'}</p><p>Per riconoscere l’oggetto invio fotogrammi all’AI. Dopo l’acquisizione l’analisi si ferma. Non registro il video e non salvo le foto nel catalogo.</p><p>I nuovi schemi generici validati vengono salvati automaticamente nel catalogo comune. Le precedenti voci private restano private.</p><button onClick={()=>setInfoOpen(false)}>Torna all’oggetto</button></aside>}
+      {libraryOpen&&<aside className="vx-library" data-testid="vision-catalog" aria-label="Catalogo delle scomposizioni"><h2>Esplora il catalogo</h2><p>Modelli indicativi salvati, non riconoscimenti della fotocamera.</p><input className="vx-catalog-search" data-testid="vision-catalog-search" type="search" aria-label="Cerca un oggetto nel catalogo" placeholder="Cerca: telefono, penna, USB…" value={catalogQuery} onChange={e=>setCatalogQuery(e.target.value)}/><select className="vx-catalog-category" data-testid="vision-catalog-category" aria-label="Categoria del catalogo" value={catalogCategory} onChange={e=>setCatalogCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><small role="status" data-testid="vision-catalog-count">{visibleEntries.length} di {entries.length} modelli</small>{visibleEntries.map(entry=><button key={entry.model_id} data-testid={'vision-catalog-'+entry.canonical_key} onClick={()=>void loadModel(entry)}><span>{entry.title}</span><small>{entry.category||'Altri oggetti'} · {entry.shared?'Condiviso':'Privato'}</small></button>)}{!visibleEntries.length&&<p>Nessun modello corrispondente. Prova un altro nome o inquadra l’oggetto.</p>}<button onClick={()=>setLibraryOpen(false)}>Chiudi catalogo</button></aside>}
+      {infoOpen&&<aside className="vx-info" data-testid="vision-information" aria-label="Informazioni su Vision"><h2>Uno schema, non una radiografia</h2><p>{result?.manifest?.limitations||'Le forme e le parti interne sono indicative della famiglia di oggetti, non verificate sul tuo esemplare.'}</p><p>Per riconoscere l’oggetto invio fotogrammi all’AI. Dopo l’acquisizione l’analisi si ferma. Non registro il video e non salvo le foto nel catalogo.</p>{Boolean(result?.sources?.length)&&<div className="vx-seed-sources">Riferimenti generali, non verifica del tuo esemplare.{result!.sources!.map(s=><a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.title} ↗</a>)}</div>}<p>I nuovi schemi generici validati vengono salvati automaticamente nel catalogo comune. Le precedenti voci private restano private.</p><button onClick={()=>setInfoOpen(false)}>Torna all’oggetto</button></aside>}
     </section>
     {error&&<div className="vx-error" role="alert" data-testid="vision-error">{error}</div>}
     {result?.manifest&&<section className={'vx-details'+(tourUI?' is-tour':'')} aria-label="Componenti dell’oggetto">

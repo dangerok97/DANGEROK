@@ -2,6 +2,8 @@
 Not imported by server.py or deployed as a service. No external provider calls.
 """
 import asyncio
+import io
+from PIL import Image
 import importlib.util
 import os
 from pathlib import Path
@@ -38,9 +40,18 @@ vision_xray.can_see = lambda: True
 async def fixture_recognition(system, prompt, image=None):
     if image is None:
         raise RuntimeError("The browser suite does not exercise real generation")
+    box = [146,406,854,578]
+    with Image.open(io.BytesIO(image)) as frame:
+        frame = frame.convert("RGB"); frame.thumbnail((160,160))
+        points = [(x,y) for y in range(frame.height) for x in range(frame.width)
+                  if (lambda rgb: rgb[0]<85 and rgb[1]<110 and rgb[2]<125)(frame.getpixel((x,y)))]
+        if points:
+            x0=min(x for x,y in points); y0=min(y for x,y in points)
+            x1=max(x for x,y in points)+1; y1=max(y for x,y in points)+1
+            box=[y0/frame.height*1000,x0/frame.width*1000,y1/frame.height*1000,x1/frame.width*1000]
     await asyncio.sleep(1.1)
     return {"recognized":True,"canonical_key":"remote_control","object_name":"Telecomando (riconoscimento simulato nel test)",
-            "confidence":"high","bbox":[146,406,854,578],"safe_to_generate":True,"uncertainty":""}
+            "confidence":"high","bbox":box,"safe_to_generate":True,"uncertainty":""}
 vision_xray.ask_json = fixture_recognition
 
 app = FastAPI()
