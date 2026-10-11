@@ -1,3 +1,16 @@
+## 12 ottobre 2026 — v161: contatto leggibile prima della telefonata
+
+La scheda «Contatto trovato» mantiene nome, numero completo, provenienza e
+stato di conferma leggibili anche sugli schermi stretti. Il numero non viene
+abbreviato e il testo conserva la dimensione prevista dal design. Lo stato
+«Da confermare» o «Numero verificato» ha il proprio spazio; la spiegazione
+di una conferma precedente rimane visibile sotto lo stato.
+
+I passaggi e i pulsanti si adattano alla larghezza disponibile. La persona
+può verificare il destinatario prima di autorizzare la telefonata.
+
+---
+
 ## 12 ottobre 2026 — v160: il momento utile della Situation
 
 Quando una persona segnala un'attività reale ancora in corso, ORA deve

@@ -1,3 +1,23 @@
+## 12 ottobre 2026 — v161: disposizione adattabile del contatto
+
+`prepara-chiamata.tsx` consente ai dati del contatto di andare sotto l'avatar
+quando la larghezza interna non basta. Lo stato occupa una riga propria;
+`number_note` resta testo completo separato dal badge breve. La stessa
+separazione evita che il badge del passo comprima il titolo.
+
+Sul telefono il numero del passo entra nell'intestazione della card,
+recuperando lo spazio della colonna laterale. Le colonne della pagina possono
+andare a capo anche al primo breakpoint desktop, dove shell e pannello
+laterale riducono lo spazio effettivo. Le modifiche restano locali alla pagina:
+componenti condivisi, API e stato della preparazione sono invariati.
+
+Il gate mobile esegue la schermata esportata in Chromium e WebKit su cinque
+larghezze, prima e dopo la conferma sintetica del numero. Verifica righe,
+dimensione e contenimento del testo, cifre complete, badge e pulsanti.
+Le API sono intercettate; una richiesta di telefonata farebbe fallire il test.
+
+---
+
 ## 12 ottobre 2026 — v160: valutazione dell'esito utile della Situation
 
 `SituationState` conserva `desired_outcome` (scopo umano stabile) e

@@ -38,7 +38,9 @@ export default function PreparaChiamata() {
   const [chiamata, setChiamata] = useState('');
   const [inLinea, setInLinea] = useState(false);
   const [statoChiamata, setStatoChiamata] = useState('');
-  const wide = useBreakpoint() === 'desktop';
+  const breakpoint = useBreakpoint();
+  const phone = breakpoint === 'phone';
+  const wide = breakpoint === 'desktop';
   const router = useRouter();
 
   const fai = useCallback(
@@ -181,7 +183,7 @@ export default function PreparaChiamata() {
   const corpo = (
     <ScrollView
       style={{ backgroundColor: ora.canvas }}
-      contentContainerStyle={[styles.page, wide && styles.pageWide]}
+      contentContainerStyle={[styles.page, phone && styles.pagePhone, wide && styles.pageWide]}
       testID="prepara-chiamata"
     >
       <View style={styles.colonne}>
@@ -230,7 +232,7 @@ export default function PreparaChiamata() {
                 {prep.contact ? (
                   <View style={styles.contattoRiga} testID="prep-contact">
                     <Avatar name={nome} size={56} />
-                    <View style={{ flex: 1 }}>
+                    <View style={styles.contattoDati}>
                       <Text style={[oraType.title, { color: ora.ink }]}>{nome}</Text>
                       <Text style={[oraType.body, { color: ora.ink }]} testID="prep-number">
                         {prep.contact.number}
@@ -240,15 +242,16 @@ export default function PreparaChiamata() {
                         {prep.contact.source_detail ? ` — ${prep.contact.source_detail}` : ''}
                       </Text>
                     </View>
-                    {prep.number_confirmed ? (
-                      <OraBadge
-                        label={prep.number_note || 'Numero verificato'}
-                        tone="success"
-                        icon="checkmark-circle"
-                      />
-                    ) : (
-                      <OraBadge label="Da confermare" tone="attention" icon="alert-circle-outline" />
-                    )}
+                    <View style={styles.contattoStato}>
+                      {prep.number_confirmed ? (
+                        <OraBadge label="Numero verificato" tone="success" icon="checkmark-circle" />
+                      ) : (
+                        <OraBadge label="Da confermare" tone="attention" icon="alert-circle-outline" />
+                      )}
+                      {prep.number_confirmed && prep.number_note ? (
+                        <Text style={[oraType.small, { color: ora.ink2 }]}>{prep.number_note}</Text>
+                      ) : null}
+                    </View>
                   </View>
                 ) : null}
 
@@ -608,21 +611,26 @@ function Passo({
   badge?: string;
   children: React.ReactNode;
 }) {
+  const phone = useBreakpoint() === 'phone';
+  const numeroPasso = (
+    <View style={[styles.passoNum, phone && styles.passoNumPhone]}>
+      <Text style={styles.passoNumText}>{numero}</Text>
+    </View>
+  );
   return (
     <View style={styles.passo}>
-      <View style={styles.passoNum}>
-        <Text style={styles.passoNumText}>{numero}</Text>
-      </View>
+      {!phone ? numeroPasso : null}
       <OraCard style={styles.passoCard}>
         <View style={styles.passoHead}>
-          <View style={{ flex: 1 }}>
+          {phone ? numeroPasso : null}
+          <View style={styles.passoTitoli}>
             <Text style={[oraType.section, { color: ora.ink }]}>{titolo}</Text>
             {sottotitolo ? (
               <Text style={[oraType.small, { color: ora.ink2, marginTop: 3 }]}>{sottotitolo}</Text>
             ) : null}
           </View>
-          {badge ? <OraBadge label={badge} tone="success" icon="checkmark-circle" /> : null}
         </View>
+        {badge ? <OraBadge label={badge} tone="success" icon="checkmark-circle" /> : null}
         {children}
       </OraCard>
     </View>
@@ -664,10 +672,11 @@ function Spunta({ testo }: { testo: string }) {
 
 const styles = StyleSheet.create({
   page: { padding: 24, paddingBottom: 64 },
+  pagePhone: { paddingHorizontal: 16 },
   pageWide: { padding: 32 },
-  colonne: { flexDirection: 'row', gap: 24, alignItems: 'flex-start' },
-  principale: { flex: 1, minWidth: 0, gap: 18 },
-  lato: { width: 360, gap: 16, paddingTop: 4 },
+  colonne: { flexDirection: 'row', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' },
+  principale: { flexGrow: 1, flexShrink: 1, flexBasis: 420, minWidth: 0, gap: 18 },
+  lato: { width: 360, maxWidth: '100%', gap: 16, paddingTop: 4 },
   latoCard: { gap: 14, padding: 20 },
   latoHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   bolla: {
@@ -680,15 +689,19 @@ const styles = StyleSheet.create({
   passo: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
   passoNum: {
     width: 30, height: 30, borderRadius: 15, backgroundColor: ora.cta,
-    alignItems: 'center', justifyContent: 'center', marginTop: 16,
+    alignItems: 'center', justifyContent: 'center', marginTop: 16, flexShrink: 0,
   },
+  passoNumPhone: { marginTop: 0 },
   passoNumText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
-  passoCard: { flex: 1, gap: 16 },
+  passoCard: { flex: 1, minWidth: 0, gap: 16 },
   passoHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  passoTitoli: { flex: 1, minWidth: 0 },
   contattoRiga: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
+    flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 16,
     backgroundColor: ora.surfaceTint, borderRadius: ora.radius.inner, padding: 16,
   },
+  contattoDati: { flexGrow: 1, flexShrink: 1, flexBasis: 220, minWidth: 0, gap: 2 },
+  contattoStato: { width: '100%', gap: 6 },
   regola: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
   riassunto: {
     flexDirection: 'row', gap: 14, alignItems: 'center',

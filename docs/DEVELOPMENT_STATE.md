@@ -1,3 +1,28 @@
+## 12 ottobre 2026 — v161: correzione della scheda «Contatto trovato»
+
+Riprodotto il difetto segnalato: avatar e badge sottraevano quasi tutta la
+larghezza al nome e al numero. Sull'export precedente il nome sintetico
+occupava 25 righe a 320, 390 e 1024 px. Corretto il layout della pagina,
+con stato separato dai dati, recupero dello spazio sul telefono e colonne
+adattabili anche alla larghezza effettiva del contenuto desktop.
+
+Il collaudo usa solo contatti sintetici e intercetta tutte le API, prima e
+dopo la conferma. Non prepara né avvia telefonate reali. I risultati locali
+conclusivi e gli esiti del rilascio sono registrati nella PR della correzione.
+TypeScript, lint dei file modificati, export web e contratto del ciclo chiamata
+sono superati. Il gate locale Chromium conta 10 casi PASS; i cinque nuovi
+casi sono PASS anche dopo il rafforzamento del blocco delle API telefoniche.
+Le schermate sintetiche a 320 e 1024 px sono state controllate visivamente.
+WebKit viene verificato nel gate CI, che dispone delle librerie necessarie.
+Due vecchi contratti della navigazione (`calls314` e
+`mobileHardening`) falliscono anche sulla base `a1e0d847`: attendono sei
+destinazioni e non includono «Luoghi». Il loro risultato preesistente è
+documentato, senza modificare la navigazione in questa correzione.
+Nessuna dipendenza nuova, modifica di configurazione, migrazione o variazione
+alle autorizzazioni della telefonata; l'intervento riguarda il frontend.
+
+---
+
 ## 12 ottobre 2026 — v160: stima utile e avviso finale delle Situation
 
 La richiesta di prodotto è il momento in cui la persona deve intervenire,
