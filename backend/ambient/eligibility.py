@@ -61,7 +61,7 @@ TEMPORAL_FALLBACK_INTERVAL_HOURS = float(
 def fallback_interval_hours(reasons: List[str]) -> float:
     """How soon the safety net may try this person again, from facts only."""
     found = set(reasons or [])
-    if found.intersection({"wake_overdue", "changes_unprocessed", "revisit_due"}):
+    if found.intersection({"wake_overdue", "changes_unprocessed", "revisit_due", "situation_unattended"}):
         return URGENT_FALLBACK_INTERVAL_HOURS
     if "temporal_window" in found:
         return TEMPORAL_FALLBACK_INTERVAL_HOURS
@@ -145,6 +145,33 @@ class EligibilityService:
                 logger.info("eligibility situation goal soft-fail: %s", type(exc).__name__)
                 return False
             if open_goal is None:
+                # No goal yet does not mean "ask the model indefinitely".
+                # A source-scoped model assessment may have already found a
+                # genuine blocker or concluded that no useful check exists.
+                # Only retry while the bounded admission says it is due.
+                try:
+                    from situations.first_checkpoint import decision_for
+                    current = await self.db.situations.find_one(
+                        {"user_id": owner_id, "id": sid},
+                        {"_id": 0, "revision": 1},
+                    )
+                    if current:
+                        admission = await decision_for(
+                            self.db, owner_id, sid, int(current.get("revision") or 1)
+                        )
+                        if admission:
+                            status = admission.get("status")
+                            if status in ("needs_input", "no_benefit", "paused"):
+                                continue
+                            if status in ("processing", "retry"):
+                                when = admission.get("retry_after")
+                                try:
+                                    if when and datetime.fromisoformat(str(when)) > _now():
+                                        continue
+                                except (ValueError, TypeError):
+                                    pass
+                except Exception as exc:
+                    logger.info("first checkpoint eligibility unavailable: %s", type(exc).__name__)
                 return True
             # Previously, the mere existence of an agent goal masked a
             # missing alarm forever. A lost wake must trigger recovery
