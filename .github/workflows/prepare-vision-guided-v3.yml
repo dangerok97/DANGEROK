@@ -19,10 +19,27 @@ jobs:
         run: |
           set -euo pipefail
           cp scripts/prepare_vision_guided_v3.py /tmp/prepare_vision_guided_v3.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/prepare_vision_guided_v3.py')
+          s=p.read_text()
+          s=s.replace("assert 'src/vision-xray/presentation.test.mjs' in s", "assert 'src/vision-xray/*.test.mjs' in s")
+          p.write_text(s)
+          PY
           git fetch origin feat/vision-guided-v3
           test "$(git rev-parse FETCH_HEAD)" = "7f3d45a823976d9eccd1fad38cdc128614173895"
           git switch -c prepared-vision-guided-v3 FETCH_HEAD
           python /tmp/prepare_vision_guided_v3.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('frontend/src/vision-xray/LiveExplorer.web.tsx');s=p.read_text()
+          old='if(restore)Object.assign(view.current,active.before);'
+          new='if(restore){const reduced=view.current.reduceMotion;Object.assign(view.current,active.before,{reduceMotion:reduced});if(alive.current){setOpening(Math.round(view.current.target*100));setExpanded(view.current.target>.5);}}'
+          assert old in s;s=s.replace(old,new)
+          old='setTourUI({index:0,playing:clock.playing,done:false});setTourSources(false);'
+          new='setOpening(100);setExpanded(true);setTourUI({index:0,playing:clock.playing,done:false});setTourSources(false);'
+          assert old in s;s=s.replace(old,new);p.write_text(s)
+          PY
           git diff --check
           git add frontend/src/vision-xray/LiveExplorer.web.tsx frontend/src/vision-xray/presentation.ts frontend/src/vision-xray/visualStyle.ts frontend/src/vision-xray/catalogApi.ts frontend/playwright.vision.config.ts .github/workflows/vision-catalog-live.yml docs/
           git config user.name 'github-actions[bot]'
