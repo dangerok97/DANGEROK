@@ -1,6 +1,6 @@
 """A source correction must reach the saved fact and the actual Home response."""
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from mongomock_motor import AsyncMongoMockClient
@@ -271,4 +271,60 @@ async def test_undated_summary_expiry_is_fixed_and_date_only_notices_last_the_da
     dated = await service._build_insights("owner", [item], {}, now)
     assert len(dated) == 1 and dated[0].valid_until == "2026-10-11"
     assert await service._build_insights("owner", [item], {}, now + timedelta(days=1)) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("knowledge_location", ["node", "attributes"])
+async def test_informational_calendar_node_never_enters_ranking_but_manual_event_does(
+    monkeypatch, knowledge_location,
+):
+    from home import manual_event
+    from home import service as home_module
+    from home.adapters.internal_calendar import load_internal_calendar
+    from home.models import CurrentSituation
+
+    db = AsyncMongoMockClient().financial_v158_calendar_knowledge
+    now = datetime.now(timezone.utc)
+    node = {
+        "id": "synthetic_information", "user_id": "owner", "type": "event",
+        "status": "active", "label": "Informazione amministrativa sintetica",
+        "origin": "action_engine", "knowledge_only": knowledge_location == "node",
+        "attributes": {
+            "kind": "admin_deadline", "starts_at": (now + timedelta(hours=1)).isoformat(),
+            "knowledge_only": knowledge_location == "attributes",
+        },
+    }
+    await db.life_nodes.insert_one(node)
+    items, _ = await load_internal_calendar(db, "owner")
+    assert items[0].meta["knowledge_only"] is True
+
+    async def gather_synthetic_items(database, owner):
+        items, warnings = await load_internal_calendar(database, owner)
+        return items, warnings, {"connected": False}
+
+    monkeypatch.setattr(home_module, "gather_all", gather_synthetic_items)
+    monkeypatch.setattr(home_module, "load_active_goals", AsyncMock(return_value=[]))
+    ranking = Mock(wraps=home_module.rank_items)
+    monkeypatch.setattr(home_module, "rank_items", ranking)
+    service = home_module.HomeService(db)
+    monkeypatch.setattr(service, "_build_situation", AsyncMock(return_value=CurrentSituation()))
+    monkeypatch.setattr(service, "_weather_now", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_load_ora_ti_consiglia", AsyncMock(return_value=[]))
+
+    home = await service.build_home("owner")
+    assert home.primary_focus is None
+    assert home.priorities == []
+    assert ranking.call_args.args[0] == []
+
+    monkeypatch.setattr(manual_event, "_wake", AsyncMock())
+    manual = await manual_event.create_manual_event(
+        db, "owner", title="Impegno manuale sintetico",
+        start=(now + timedelta(days=1)).isoformat(),
+        end=(now + timedelta(days=1, hours=1)).isoformat(),
+        tz_name="UTC", request_id="synthetic_manual_request",
+    )
+    home = await service.build_home("owner")
+    assert home.primary_focus["source_id"] == manual["id"]
+    assert home.primary_focus["start_at"] == manual["starts_at"]
+    assert [item.source_id for item in ranking.call_args.args[0]] == [manual["id"]]
 

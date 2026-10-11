@@ -61,7 +61,9 @@ TEMPORAL_FALLBACK_INTERVAL_HOURS = float(
 def fallback_interval_hours(reasons: List[str]) -> float:
     """How soon the safety net may try this person again, from facts only."""
     found = set(reasons or [])
-    if found.intersection({"wake_overdue", "changes_unprocessed", "revisit_due"}):
+    # Missing Situation admission or its wake is recovery work, even after
+    # a recent fallback looked at the person for an unrelated reason.
+    if found.intersection({"wake_overdue", "changes_unprocessed", "revisit_due", "situation_unattended"}):
         return URGENT_FALLBACK_INTERVAL_HOURS
     if "temporal_window" in found:
         return TEMPORAL_FALLBACK_INTERVAL_HOURS
@@ -117,8 +119,8 @@ class EligibilityService:
                     "user_id": owner_id,
                     "status": {"$in": ["active", "changed"]},
                     "$or": [
-                        {"attention_intent": {"$type": "string", "$gt": ""}},
-                        {"next_check_summary": {"$type": "string", "$gt": ""}},
+                        {"attention_intent": {"$type": "string", "$regex": r"\S"}},
+                        {"next_check_summary": {"$type": "string", "$regex": r"\S"}},
                     ],
                 },
                 {"_id": 0, "id": 1},
@@ -333,8 +335,8 @@ class EligibilityService:
                     {
                         "status": {"$in": ["active", "changed"]},
                         "$or": [
-                            {"attention_intent": {"$type": "string", "$gt": ""}},
-                            {"next_check_summary": {"$type": "string", "$gt": ""}},
+                            {"attention_intent": {"$type": "string", "$regex": r"\S"}},
+                            {"next_check_summary": {"$type": "string", "$regex": r"\S"}},
                         ],
                     },
                 )

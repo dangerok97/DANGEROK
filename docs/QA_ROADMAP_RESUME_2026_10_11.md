@@ -93,13 +93,67 @@ verdi sull'ultimo commit e conferma SUCCESS del nuovo codice per entrambi
 i servizi. La proposta alternativa #199 viene chiusa dopo il merge.
 Il collaudo autenticato resta distinto da queste verifiche tecniche.
 
-## Collaudo personale ancora richiesto
+## Rilascio #200 verificato
 
-La sessione browser corrente mostra la pagina di login. Dopo autenticazione,
-verificare la situazione temporanea e il suo stato persistito, gli eventi
-Home/mese e la provenienza leggibile delle card. L'assenza di accesso non
-viene compensata creando token, leggendo credenziali o modificando dati a
-mano. Nessuna chiamata, email o transazione viene inviata per questo test.
+Il commit finale della PR è `6d18380090b68a64353fd509ac1846e10bb5cb8c`:
+tutti i nove job della PR e le due workflow di push sono passati.
+Squash merge in `8e9b878a5c1665c41e5e2046ab17e87dc0ad5134`.
+Anche i run dopo il merge [CI 38162123121](https://github.com/dangerok97/DANGEROK/actions/runs/38162123121)
+e [Situation 38162123023](https://github.com/dangerok97/DANGEROK/actions/runs/38162123023)
+sono SUCCESS. La proposta #199 è stata chiusa dopo l'integrazione.
+
+Entrambi i servizi Railway hanno raggiunto SUCCESS sullo stesso SHA:
+backend `af83d72a-43b1-4369-a401-a04601c22d19`,
+web `a323dc45-b95a-4571-8d7a-dc22c1a375b9`.
+Health backend e web HTTP 200, database raggiungibile e catalogo Vision
+HTTP 401 senza autenticazione. Il successivo deploy Vision `bb1a6a2`
+conserva il rilascio come antenato e non modifica i file della PR #200.
+
+## Collaudo autenticato e correzioni successive
+
+L'accesso Google è riuscito; profilo e dati dell'account erano visibili.
+La verifica è rimasta in lettura, con una domanda diagnostica a ORA che
+ha richiesto di leggere lo stato esistente senza riattivare il monitoraggio.
+Nessun token creato, credenziale letta, chiamata, email, pagamento o evento
+esterno prodotto dal collaudo.
+
+- La card finanziaria osservata dichiara origine da conferma dell'utente,
+  importo non noto e periodicità senza inventare il giorno. Creazione e
+  termine di visibilità sono leggibili: il termine a 24 ore riguarda la
+  permanenza dell'avviso, non una scadenza di pagamento. Nessun lavoro era
+  avviato da quella segnalazione. Non è una prova di rilettura email live.
+- Il calendario Home contava un'attività che apriva una guida operativa,
+  mentre Agenda mostrava zero eventi. `ContextRail` usava anche `due_at` e
+  `goal_target_date`: il nuovo selettore ammette soltanto fonti calendario
+  con identità e inizio validi, lasciando le attività nelle altre sezioni.
+- La Situation temporanea è conservata, ma prima della patch aggiuntiva
+  non mostra un goal, un checkpoint o un'ultima verifica. La risposta di
+  ORA conferma la diagnosi senza attribuire la causa al meteo o ai permessi.
+- Riprodotto il ritardo di un intento persistito: una revisione per altro
+  motivo tre ore prima bloccava `situation_unattended` nel cooldown di 12
+  ore. Ora usa l'intervallo urgente esistente di 30 minuti, entro la sweep
+  già prevista. Una Situation con il solo esito atteso rimane una nota;
+  campi d'intento composti solo da spazi non entrano nemmeno nel batch.
+- Distinta la diagnosi di nota senza intento salvato, con readback
+  `attention_saved` sconosciuto se la lettura dell'owner non è disponibile.
+  Il cockpit descrive ora anche il riesame senza chiamarlo controllo.
+- Riprodotta e corretta la perdita del flag `knowledge_only` nel passaggio
+  da nodo a HomeItem. Il gate esclude il nodo informativo prima del ranking,
+  mentre un evento manuale valido continua a essere ammesso.
+
+Verifica della patch `ora/v158-live-qa-consistency`: 106 test backend
+integrati PASS, quattro regressioni frontend PASS, TypeScript PASS,
+compileall e diff check PASS. ESLint senza errori, tre warning preesistenti
+nel cockpit. Build web completa PASS (1.745 moduli); scenario mobile
+Chromium PASS per la sequenza non programmato → riesame → controllo.
+WebKit locale non eseguibile per librerie OS assenti: deve superare il gate
+CI mobile. La fixture ha impedito richieste esterne durante il test locale.
+Gli esiti conclusivi della CI e della ripetizione sul sito sono registrati
+nella PR della patch, senza contenuti personali dell'account.
+
+Resta da dimostrare sul caso reale il ciclo completo di controllo con fonti,
+checkpoint persistito, esito e consegna al dispositivo. I test sintetici,
+il worker acceso e il login riuscito non sono prove equivalenti.
 
 ## Limiti residui osservati nel codice
 

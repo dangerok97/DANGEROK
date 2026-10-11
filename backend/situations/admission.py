@@ -24,7 +24,10 @@ logger = logging.getLogger("ora.situations.admission")
 def _attentive(situation) -> bool:
     return bool(
         situation and situation.status in ("active", "changed")
-        and (situation.attention_intent or situation.next_check_summary)
+        and (
+            str(situation.attention_intent or "").strip()
+            or str(situation.next_check_summary or "").strip()
+        )
     )
 
 
@@ -220,8 +223,8 @@ async def recover_unadmitted_attention(db, owner: str, *, limit: int = 8) -> dic
     rows = await db.situations.find(
         {"user_id": owner, "status": {"$in": ["active", "changed"]},
          "$or": [
-             {"attention_intent": {"$type": "string", "$gt": ""}},
-             {"next_check_summary": {"$type": "string", "$gt": ""}},
+             {"attention_intent": {"$type": "string", "$regex": r"\S"}},
+             {"next_check_summary": {"$type": "string", "$regex": r"\S"}},
          ]},
         {"_id": 0, "id": 1},
     ).sort("updated_at", -1).to_list(count)

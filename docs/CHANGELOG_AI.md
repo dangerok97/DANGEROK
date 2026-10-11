@@ -1,3 +1,21 @@
+## 11 ottobre 2026 — v158: correzioni dopo il rilascio autenticato
+
+- Il calendario della Home esclude scadenze di task, promemoria e checkpoint;
+  conserva eventi reali, comprese visite e viaggi con fonte calendario.
+- Il cockpit descrive `review_pending` come valutazione in attesa di controllo.
+- Il recupero di una Situation con attenzione salvata usa il limite urgente
+  esistente; una revisione precedente per altro motivo non lo rinvia di 12 ore.
+- La diagnosi di sola lettura distingue una nota priva di intento persistito
+  da una richiesta di monitoraggio senza esecuzione; nessun intento inferito.
+- I nodi informativi conservano `knowledge_only` fino al gate del Focus.
+- Intenzioni vuote o composte soltanto da spazi non entrano nell'ammissione
+  o nei batch di recupero e restano distinte dalla lettura non disponibile.
+- Regressioni integrate: 106 backend, 4 frontend, TypeScript e build web PASS;
+  scenario Chromium PASS, WebKit affidato alla CI. Nessuna nuova dipendenza
+  di produzione, migrazione o modifica ai dati reali del collaudo.
+
+---
+
 ## 11 ottobre 2026 — v157–v158: correzioni della verifica reale
 
 - Ripresa la proposta v157 aperta: prima valutazione durevole, deduplica,

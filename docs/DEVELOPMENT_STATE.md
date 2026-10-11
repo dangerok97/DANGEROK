@@ -1,3 +1,27 @@
+## 11 ottobre 2026 — v158: rilascio e verifica autenticata
+
+PR #200 integrata su `staging/cloud` in `8e9b878` dopo tutti i gate verdi;
+backend e web Railway distribuiti con successo. PR #199 chiusa perché
+superata. La successiva revisione Vision `bb1a6a2` contiene quel rilascio
+e viene conservata come base della patch `ora/v158-live-qa-consistency`.
+
+L'accesso Google è riuscito. Il collaudo reale ha verificato le informazioni
+di origine, importo ignoto e durata dell'avviso finanziario, ma ha rilevato
+una discrepanza Home/agenda e una Situation ancora senza controllo salvato.
+Una richiesta diagnostica a ORA ha confermato lo stato senza riattivarla.
+La patch successiva corregge il filtro del calendario Home, il cooldown del
+recupero, la rappresentazione del riesame e la perdita del flag informativo.
+La diagnosi ora distingue esplicitamente nota e intenzione persistita.
+
+106 regressioni backend integrate e 4 frontend PASS; TypeScript, build web
+e scenario mobile Chromium PASS. WebKit richiede il gate CI: il runtime
+locale non dispone delle sue librerie di sistema. La conferma sul sito dopo
+questa patch e gli esiti del rilascio restano tracciati nella PR corrispondente.
+Il ciclo reale Situation → fonte → checkpoint → esito non viene dichiarato
+completato dalla sola compilazione o dalla presenza di un worker acceso.
+
+---
+
 ## 11 ottobre 2026 — ripresa della verifica roadmap finale, v157–v158
 
 Recuperata base `295c464` (v156, distribuita il 10 ottobre) e le proposte
@@ -10,9 +34,9 @@ dei difetti osservati nel precedente collaudo autenticato.
 
 Verificati localmente ciclo Situation, programmazione, revoca e calendario;
 risultati conclusivi, CI e distribuzione sono registrati nel documento
-`QA_ROADMAP_RESUME_2026_10_11.md`. La nuova sessione browser mostra il login:
-nessuna nuova prova autenticata viene dichiarata compiuta senza accesso e
-riscontro effettivo. Nessuna telefonata, email, pagamento o evento esterno
+`QA_ROADMAP_RESUME_2026_10_11.md`. All'inizio della ripresa la sessione browser
+mostrava il login; l'accesso è stato poi completato per il collaudo sopra
+descritto. Nessuna telefonata, email, pagamento o evento esterno
 è stato eseguito dai test. Il filone Vision resta separato da questo lavoro.
 
 ---
