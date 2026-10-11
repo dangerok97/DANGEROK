@@ -211,3 +211,58 @@ async def test_initial_wake_lost_is_recovered_without_inventing_a_new_time(setup
     goal = await db.agent_goals.find_one({"id": gid})
     assert goal["source_kind"] == INITIAL_KIND
     assert goal["next_run_at"] == original["next_run_at"] or goal["next_run_at"]
+
+
+@pytest.mark.asyncio
+async def test_old_unadmitted_attention_is_admitted_once_on_fallback_sweep(setup):
+    db = setup
+    await indices(db)
+    from situations.models import SituationState
+    from situations.repository import SituationRepository
+    from situations.admission import recover_unadmitted_attention
+
+    sid = "sit_old_active_unattended"
+    await SituationRepository(db).insert(SituationState(
+        id=sid, user_id=OWNER, summary="Stato aperto già conosciuto",
+        attention_intent="Verificare se serve intervenire più tardi",
+        next_check_summary="Rileggere una fonte pertinente",
+    ))
+    assert await db.agent_goals.count_documents({}) == 0
+    out = await recover_unadmitted_attention(db, OWNER)
+    assert out["queued"] == 1
+    second = await recover_unadmitted_attention(db, OWNER)
+    assert second["queued"] == 0
+    assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
+    assert (await read_followup(db, OWNER, sid))["status"] == "review_pending"
+    assert await db.agent_goals.count_documents({"owner_id": "other_owner"}) == 0
+
+
+@pytest.mark.asyncio
+async def test_withdrawing_attention_stops_initial_goal_and_prevents_recovery(setup):
+    db = setup
+    await indices(db)
+    sid = await create(db)
+    gid = goal_id_for(OWNER, sid)
+    result = await SituationService(db).apply(
+        user_id=OWNER, session_id="ces_fixture", reasoning_epoch="explicit-no-monitor",
+        update=SituationUpdate(
+            operation="update", situation_id=sid, expected_revision=1,
+            attention_intent="", next_check_summary="",
+            source="user_conversation",
+        ),
+    )
+    assert result["status"] == "success"
+    situation = await db.situations.find_one({"id": sid, "user_id": OWNER})
+    assert situation.get("attention_intent") is None
+    assert situation.get("next_check_summary") is None
+    goal = await db.agent_goals.find_one({"id": gid, "owner_id": OWNER})
+    assert goal["status"] == "cancelled"
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{gid}",
+        "status": {"$in": ["pending", "claimed"]},
+    }) == 0
+    assert "situation_unattended" not in (
+        await EligibilityService(db).reasons_to_look_again(OWNER)
+    )
+    from situations.admission import recover_unadmitted_attention
+    assert (await recover_unadmitted_attention(db, OWNER))["queued"] == 0
