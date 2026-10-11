@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/vision-production-smoke.yml'
       - 'scripts/vision_production_smoke.py'
+      - 'scripts/vision_public_photo_smoke.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,7 +26,7 @@ jobs:
       - name: Install isolated browser
         run: python -m playwright install --with-deps chromium
       - name: Test authorized deployment with real API and provider
-        run: python scripts/vision_production_smoke.py
+        run: python scripts/vision_public_photo_smoke.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
