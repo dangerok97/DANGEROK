@@ -6177,3 +6177,9 @@ Tre regressioni aggiunte, 68 test mirati PASS. Il primo deployment P1
 Corretto anche il contesto temporale consegnato al modello: orari locali,
 secondi residui e perdita di margine per mezzo sono fatti calcolati, evitando
 il confronto tra ore nude in fusi diversi. Suite mirata: 70 PASS.
+
+
+## Vision guided V3 — implementation
+Camera acquisition can animate a generic assembly from a once-revalidated detection box into the held study view. If position is stale or unclear it falls back to the centre. This is not segmentation, exact silhouette extraction or world-anchored AR.
+Authored three-step tours for five seed families show functional links and consulted sources, with pause/manual steps/replay and explicit final stop. No fabricated guided tour for generated or incompatible models. No additional AI requests during exploration; held diagram, focus/zoom and X-to-rescan on the same MediaStream remain. New tutorial tests cover these contracts.
+No backend, database, runtime dependency or provider-credential changes. Full CI and deployed status must be checked before reporting a release; physical iPhone camera is not tested by the synthetic browser suite.

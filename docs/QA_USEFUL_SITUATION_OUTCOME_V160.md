@@ -13,6 +13,11 @@ il rilascio Situation/finanza #204 e la successiva PR Vision #205. Le modifiche
 Vision sono conservate. Il rapporto conclusivo del precedente rilascio è
 in `QA_ROADMAP_RESUME_2026_10_11.md`.
 
+Durante i gate è arrivata la PR Vision #206 sulla base
+`424372f10a512847cdecb736ba53460ce5c48eb7`: integrata conservandone tutti i
+14 file, incluse le aggiunte in coda ai quattro documenti condivisi. Il
+commit candidato viene quindi verificato con entrambe le lavorazioni.
+
 ## Comportamento richiesto
 
 1. Una segnalazione reale ancora attiva conserva il proprio scopo utile,
@@ -78,8 +83,8 @@ rimuovono alla scadenza. Modelli e risposte esterne sono fixture sintetiche.
 | Conversazione e proiezione | 19 PASS su chiusura, fallimento reale di persistenza, contesto ipotetico, guard memoria temporanea e mappa |
 | Frontend integrato | 31 PASS, inclusi 16 nuovi casi sull'esito, controlli Home, calendario e presenza |
 | Mobile Chromium | 5 PASS, compreso stima → rischio anticipato → indicazione finale dopo completamento del watch |
-| TypeScript | PASS sulla base integrata con Vision #205 |
-| Export web | PASS, 1750 moduli sulla base integrata |
+| TypeScript | PASS sulla base integrata con Vision #205 e #206 |
+| Export web | PASS, 1752 moduli sulla base integrata con Vision #206 |
 | Compilazione Python e diff | PASS; nessun errore di sintassi o whitespace |
 | WebKit locale | Non avviato per dipendenze di sistema mancanti; copertura affidata al gate CI con installazione delle dipendenze |
 
