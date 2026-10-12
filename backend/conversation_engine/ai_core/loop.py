@@ -4030,6 +4030,58 @@ async def run_cognitive_loop(
                             "reason": "Refresh foreground location for this turn.",
                             "refresh": True,
                         }
+                if (
+                    channel_platform == "whatsapp"
+                    and isinstance(ca, dict)
+                    and ca.get("type") in (
+                        "request_foreground_location", "request_location_permission",
+                    )
+                    and _navigation_destination(user_message)
+                ):
+                    # The user requested navigation, not permission to operate
+                    # ORA's GPS. On WhatsApp the provider app can get its own
+                    # live fix when tapped. A verified Maps link is still
+                    # useful even when ORA cannot measure its route ETA.
+                    # Route through the SAME owned open_navigation capability,
+                    # never a manually invented public destination.
+                    handoff_text = await _ensure_navigation(
+                        observations, turn_start, user_message,
+                        db, sess.user_id, platform="whatsapp",
+                    )
+                    handoff_options = _safe_navigation_options(
+                        _navigation_options(observations[turn_start:])
+                    )
+                    if handoff_text and handoff_options:
+                        observations.append(obs.model_dump())
+                        state_mod.clear_pending_turn(st, status="completed")
+                        st["observations"] = observations[-12:]
+                        _remember_pending_navigation(
+                            st, observations[turn_start:],
+                        )
+                        state_mod.append_turn(
+                            st, role="ora", text=handoff_text, kind="answer",
+                        )
+                        state_mod.save_ai_state(sess, st)
+                        trace["tool_calls"] = tool_calls + 2
+                        add_step(
+                            trace, event="WHATSAPP_NAVIGATION_NO_APP_GPS",
+                            options=len(handoff_options),
+                        )
+                        return CognitiveTurnResult(
+                            ok=True, mode="answer", ora_text=handoff_text,
+                            session_id=sess.id,
+                            active_goal=ActiveGoal.model_validate(
+                                st.get("active_goal") or {}
+                            ),
+                            trace=public_trace({
+                                **trace, "phases_ms": dict(fasi),
+                            }),
+                            ai_calls=ai_calls, tool_calls=tool_calls + 2,
+                            context_calls=int(trace.get("context_calls") or 0),
+                            external_queries=external_queries,
+                            elapsed_ms=int((time.perf_counter() - t0) * 1000),
+                            navigation=handoff_options, client_actions=[],
+                        )
                 if isinstance(ca, dict) and ca.get("type"):
                     observations.append(obs.model_dump())
                     attempted_skill_caps = _record_skill_attempt(
