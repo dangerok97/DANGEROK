@@ -3,11 +3,37 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any, List
 
 from conversation_engine.ai_core.tools.providers.base import ProviderResult, RawHit
 
 logger = logging.getLogger("ora.ai_core.tools.gemini_search")
+
+# A shared search API key can be exhausted across many user requests. Do not
+# re-send the same known-unavailable request on every conversation turn. This
+# is a short, process-local retry interval, not a durable quota assumption or
+# evidence that another provider returned any facts.
+_QUOTA_RETRY_SECONDS = 300.0
+_quota_retry_after = 0.0
+_clock = time.monotonic
+
+
+def _failure_code(exc: Exception) -> str:
+    """Normalize technical failures without logging provider bodies or keys."""
+    message = str(exc).lower()
+    if "timeout" in message or "timed out" in message:
+        return "TIMEOUT"
+    if any(value in message for value in (
+        "quota", "resource_exhausted", "402", "payment required",
+        "billing", "insufficient credit", "credit balance",
+    )):
+        return "QUOTA_EXHAUSTED"
+    if "429" in message or "rate limit" in message or "too many requests" in message:
+        return "RATE_LIMITED"
+    if any(value in message for value in ("auth", "permission", "401", "403")):
+        return "AUTH"
+    return "PROVIDER_ERROR"
 
 
 def configured() -> bool:
@@ -18,8 +44,11 @@ def configured() -> bool:
 
 
 async def search(query: str, *, max_results: int = 5) -> ProviderResult:
+    global _quota_retry_after
     if not configured():
         return ProviderResult(ok=False, provider="gemini_search", failure_code="NOT_CONFIGURED")
+    if _clock() < _quota_retry_after:
+        return ProviderResult(ok=False, provider="gemini_search", failure_code="QUOTA_EXHAUSTED")
     try:
         from google import genai
         from google.genai import types
@@ -63,18 +92,10 @@ async def search(query: str, *, max_results: int = 5) -> ProviderResult:
             )
         return ProviderResult(ok=True, provider="gemini_search", hits=hits)
     except Exception as e:
-        name = type(e).__name__.lower()
-        msg = str(e).lower()
-        if "timeout" in msg:
-            code = "TIMEOUT"
-        elif "quota" in msg or "resource_exhausted" in msg:
-            code = "QUOTA_EXHAUSTED"
-        elif "429" in msg or "rate" in msg:
-            code = "RATE_LIMITED"
-        elif "auth" in msg or "permission" in msg or "401" in msg:
-            code = "AUTH"
-        else:
-            code = "PROVIDER_ERROR"
+        code = _failure_code(e)
+        if code == "QUOTA_EXHAUSTED":
+            _quota_retry_after = max(_quota_retry_after, _clock() + _QUOTA_RETRY_SECONDS)
+        # Log the class, never a provider error body that may contain a key.
         logger.info("gemini_search soft-fail: %s", type(e).__name__)
         return ProviderResult(ok=False, provider="gemini_search", failure_code=code)
 
