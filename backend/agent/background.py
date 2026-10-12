@@ -183,6 +183,7 @@ async def advance_wake(db, wake):
     if goal is None or not goal.is_open:
         outcome.result = "goal_closed"
         return outcome
+    source_was_revised = False
     if goal.source_kind == "situation_followup":
         from situations.repository import SituationRepository
         refs = [ref for ref in goal.source_refs if ref.startswith("situation:")]
@@ -191,11 +192,25 @@ async def advance_wake(db, wake):
             await service.cancel(wake.owner_id, goal.id, reason="La situazione non è più attiva.")
             outcome.result = "situation_closed"
             return outcome
+        previous_revision = str(
+            (goal.source_situation or {}).get("situation_revision") or ""
+        )
+        source_was_revised = bool(
+            previous_revision and str(source.revision) != previous_revision
+        )
     if (goal.requires_user_input or goal.requires_user_authority) and not goal.source_review_pending:
         outcome.result = "waiting_for_person"
         return outcome
     now = datetime.now(timezone.utc)
-    if goal.next_run_at and goal.next_run_at > now.isoformat():
+    # An owner-verified revision correction may arrive before the previous
+    # physical checkpoint. Dispatch that *review* now; the Agent re-reads and
+    # invalidates old evidence under its own execution lease. A user-requested
+    # defer still wins and must not be bypassed by the correction.
+    user_deferred = bool(
+        goal.user_deferred_until and goal.user_deferred_until > now.isoformat()
+    )
+    if (goal.next_run_at and goal.next_run_at > now.isoformat()
+            and (not source_was_revised or user_deferred)):
         outcome.result = "goal_not_due"
         return outcome
     result = await service.advance(wake.owner_id, goal_id, worker_id=f"ambient:{wake.id}")

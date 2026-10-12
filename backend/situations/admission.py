@@ -7,7 +7,7 @@ after its source reads. No default drying/wait time and no domain classifier.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from agent.models import AutonomousGoal
 from agent.repository import AgentRepository
@@ -134,6 +134,41 @@ async def ensure_initial_review(db, owner: str, sid: str) -> dict:
             return {"status": "already_stopped", "goal_id": gid}
 
         if existing and existing.is_open:
+            # A corrected Situation is newer than the model-chosen checkpoint.
+            # Revisit the SOURCE soon, not the physical outcome. A separate,
+            # owner-scoped alarm leaves the original deadline untouched until
+            # the leased Agent validates this revision and chooses anew.
+            previous_revision = str(
+                (existing.source_situation or {}).get("situation_revision") or ""
+            )
+            previous_due = _moment(existing.next_run_at)
+            now = datetime.now(timezone.utc)
+            explicit_defer = _moment(existing.user_deferred_until)
+            if (
+                existing.source_kind == KIND
+                and previous_revision and previous_revision != str(situation.revision)
+                and previous_due is not None
+                and previous_due > now + timedelta(minutes=2)
+                and not (explicit_defer and explicit_defer > now)
+                and not existing.requires_user_input
+                and not existing.requires_user_authority
+            ):
+                source_ref = f"goal:{gid}"
+                early = await db.ambient_wakes.find_one(
+                    {"owner_id": owner, "source_ref": source_ref,
+                     "status": {"$in": ["pending", "claimed"]},
+                     "scheduled_for": {"$lte": (now + timedelta(minutes=2)).isoformat()}},
+                    {"_id": 0, "id": 1},
+                )
+                if early:
+                    return {"status": "source_recheck_pending", "goal_id": gid}
+                wake = await AmbientService(db).schedule(
+                    owner, reason="opportunity_revisit", when=now,
+                    source_ref=source_ref, provenance="code_schedule",
+                )
+                if wake:
+                    return {"status": "source_recheck_queued", "goal_id": gid}
+                return {"status": "source_recheck_unconfirmed", "goal_id": gid}
             state = await read_followup(db, owner, sid)
             if state["status"] in ("scheduled", "due", "running", "waiting_for_user", "review_pending"):
                 return {"status": "already_admitted", "goal_id": gid}
