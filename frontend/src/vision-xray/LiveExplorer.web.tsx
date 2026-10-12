@@ -5,6 +5,7 @@ import { grayFrame, type GrayFrame } from './tracking';
 import { VisionPresentation } from './presentation';
 import { VisionGestures, clampZoom, approach } from './gestures';
 import { visualStyle } from './visualStyle';
+import { recognitionHelpStyle } from './recognitionHelpStyle';
 import {walkthroughFor,sourcesForStep,TourClock,type Walkthrough} from './walkthrough';
 import {arrivalAt,currentBox,originInView} from './arrival';
 import type {Box} from './scene';
@@ -25,6 +26,9 @@ export default function LiveExplorer(){
   const [stage,setStage]=useState('Inquadra. Esplora. Capisci.');
   const [error,setError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
+  const [canHint,setCanHint]=useState(false);
+  const [objectHint,setObjectHint]=useState('');
+  const objectHintRef=useRef('');
   const [result,setResult]=useState<CatalogResult|null>(null);
   const [selected,setSelected]=useState('');
   const [focused,setFocused]=useState(false);
@@ -97,8 +101,8 @@ export default function LiveExplorer(){
     if(photoObjectURL.current)URL.revokeObjectURL(photoObjectURL.current);
     photoObjectURL.current=null;photo.current=null;modeRef.current='idle';
     busyRef.current=false;nextScan.current=Infinity;scene.current=null;heldResult.current=null;scanReference.current=null;
-    resetView();
-    if(alive.current){setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
+    resetView();objectHintRef.current='';
+    if(alive.current){setCanHint(false);setObjectHint('');setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
   },[resetView]);
   const apply=useCallback((value:CatalogResult,origin?:{box:Box;sw:number;sh:number}|null)=>{
     if(!value.manifest||!value.version_id)return;
@@ -107,7 +111,7 @@ export default function LiveExplorer(){
       view.current.progress=view.current.reduceMotion?1:0;
     }
     if(modeRef.current!=='catalog')arrival.current={elapsed:0,box:origin?.box||null,sw:origin?.sw||1,sh:origin?.sh||1};
-    heldResult.current=value;setResult(value);
+    heldResult.current=value;setResult(value);setCanHint(false);
     setStage(modeRef.current==='catalog'?'Anteprima catalogo · non è un riconoscimento':'Schema fissato · tocca una parte');
     nextScan.current=Infinity;
     const ticket=epoch.current;
@@ -128,7 +132,7 @@ export default function LiveExplorer(){
     }
   },[]);
 
-  const captureScan=useCallback(async()=>{
+  const captureScan=useCallback(async(hintOverride?:string)=>{
     if(busyRef.current||scene.current||!['live','photo'].includes(modeRef.current))return;
     const source=modeRef.current==='live'?video.current:photo.current;if(!source)return;
     const rawWidth=source instanceof HTMLVideoElement?source.videoWidth:source.naturalWidth;
@@ -148,7 +152,7 @@ export default function LiveExplorer(){
     const controller=new AbortController();request.current=controller;
     busyRef.current=true;setBusy(true);setError(null);setStage('Riconosco e cerco nel catalogo…');
     try{
-      let value=await catalogApi.scan(dataURI,String(ticket)+'-'+Date.now(),controller.signal);
+      let value=await catalogApi.scan(dataURI,String(ticket)+'-'+Date.now(),controller.signal,hintOverride??objectHintRef.current);
       const identification=value.identification;
       for(let attempt=0;value.status==='building'&&attempt<12;attempt++){
         if(epoch.current!==ticket||controller.signal.aborted)return;
@@ -158,8 +162,7 @@ export default function LiveExplorer(){
       }
       if(epoch.current!==ticket||!alive.current)return;
       if(value.status==='family'&&value.manifest){
-        // The AI replied about an earlier capture. Check position once, never
-        // make the held model depend on tracking after acquisition.
+        // Check the earlier capture once; never tie a held model to tracking.
         let box:Box|null=null;
         if(value.identification?.bbox){
           if(modeRef.current==='photo')box=value.identification.bbox;
@@ -174,11 +177,11 @@ export default function LiveExplorer(){
         }
         apply(value,box?{box,sw,sh}:null);
       }
-      else{scene.current=null;heldResult.current=null;setResult(null);setStage(value.reason||'Ricostruzione in corso. Premi Riprova per verificarla.');nextScan.current=performance.now()+6000;}
+      else{scene.current=null;heldResult.current=null;setResult(null);setCanHint(value.can_hint===true||value.error_code==='object_uncertain');setStage(value.reason||'Ricostruzione in corso. Premi Riprova per verificarla.');nextScan.current=performance.now()+6000;}
     }catch(e:any){
       if(epoch.current!==ticket||!alive.current)return;
       setError(e?.name==='AbortError'?'Analisi scaduta. Il video non è stato interrotto.':String(e?.message||'Analisi non disponibile.'));
-      setStage('La fotocamera resta aperta. Puoi riprovare.');nextScan.current=performance.now()+30000;
+      setCanHint(false);setStage('Analisi non completata · il catalogo e la fotocamera restano disponibili.');nextScan.current=performance.now()+30000;
     }finally{if(epoch.current===ticket){busyRef.current=false;request.current=null;if(alive.current)setBusy(false);}}
   },[apply]);
 
@@ -209,6 +212,7 @@ export default function LiveExplorer(){
     // Dismiss only the model. Keep the stream and invalidate every old AI reply.
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     scene.current=null;heldResult.current=null;scanReference.current=null;resetView();
+    objectHintRef.current='';setObjectHint('');setCanHint(false);
     setResult(null);setBusy(false);setError(null);setInfoOpen(false);setLibraryOpen(false);setCameraPanel(false);
     setStage('Inquadra il nuovo oggetto: lo riconosco automaticamente.');nextScan.current=performance.now()+300;
   };
@@ -346,8 +350,8 @@ export default function LiveExplorer(){
   const visibleEntries=filterCatalog(entries,catalogQuery,catalogCategory);
   const categories=['Tutti',...Array.from(new Set(entries.map(e=>e.category||'Altri oggetti'))).sort()];
 
-  return <div className={'vx-root'+(result?' has-model':'')} data-testid="vision-live-explorer" data-version="visual-v2" data-experience="guided-v3">
-    <style>{visualStyle}</style>
+  return <div className={'vx-root'+(result?' has-model':'')} data-testid="vision-live-explorer" data-version="visual-v2" data-experience="guided-v3" data-recognition="open-vocabulary-v2">
+    <style>{visualStyle+recognitionHelpStyle}</style>
     <header className="vx-header">
       <button aria-label="Torna a ORA" className="vx-back" onClick={()=>{stop();if(router.canGoBack())router.back();else router.replace('/ora');}}>←</button>
       <div className="vx-brand">ORA <span>VISION</span><small className="vx-version">ESPLORA L’ESSENZIALE</small></div>
@@ -387,9 +391,14 @@ export default function LiveExplorer(){
       {!tourUI&&focused&&currentPart&&(detailOpen?<div className="vx-part-info" data-testid="vision-part-detail"><button className="vx-collapse" data-testid="vision-collapse-detail" aria-label="Riduci la spiegazione" onClick={()=>setDetailOpen(false)}>⌄</button><small>COMPONENTE TIPICO</small><h2>{currentPart.name}</h2><p><b>A cosa serve.</b> {currentPart.function}</p>{moreDetail?<p><b>Come funziona.</b> {currentPart.how_it_works}</p>:<button className="vx-detail-more" data-testid="vision-more-detail" onClick={()=>setMoreDetail(true)}>Come funziona →</button>}</div>:<div className="vx-mini-detail" data-testid="vision-detail-collapsed">{currentPart.name}<button data-testid="vision-expand-detail" onClick={()=>setDetailOpen(true)}>Spiegazione ↑</button></div>)}
     </section>}
     <footer className="vx-footer">
+      {canHint&&!result&&<form className="vx-recognition-help" data-testid="vision-recognition-help" onSubmit={e=>{e.preventDefault();void captureScan(objectHintRef.current);}}>
+        <label htmlFor="vision-object-hint">Come si chiama l’oggetto? <span>Il nome aiuta: ORA lo confronterà con l’immagine.</span></label>
+        <div><input id="vision-object-hint" data-testid="vision-object-hint" value={objectHint} maxLength={80} autoComplete="off" placeholder="Es. pattumiera con coperchio" disabled={busy} onChange={e=>{const value=e.target.value.slice(0,80);objectHintRef.current=value;setObjectHint(value);nextScan.current=Infinity;}}/>
+          <button type="submit" data-testid="vision-hint-submit" disabled={busy||!objectHint.trim()}>{busy?'Analizzo…':'Analizza'}</button></div>
+      </form>}
       <div className="vx-controls">
         {result?.manifest&&<><button onClick={toggleExpansion} data-testid="vision-toggle-explode">{expanded?'Ricomponi':'Scomponi'}</button><label className="vx-opening"><span>APERTURA</span><input aria-label="Apertura della scomposizione" data-testid="vision-explode-range" type="range" min="0" max="100" value={opening} onChange={e=>setExplosion(Number(e.target.value))}/></label></>}
-        {!result&&live&&<><button onClick={()=>void captureScan()} disabled={busy} data-testid="vision-retry">{busy?'Analizzo…':'Riprova'}</button><button onClick={()=>picker.current?.click()} disabled={busy}>Scegli foto</button></>}
+        {!result&&(live||mode==='photo')&&<><button onClick={()=>void captureScan()} disabled={busy} data-testid="vision-retry">{busy?'Analizzo…':'Riprova'}</button><button onClick={()=>picker.current?.click()} disabled={busy}>Scegli foto</button></>}
         {!live&&result&&<button onClick={newObject} data-testid="vision-new-object">Fotocamera</button>}
         {(live||mode==='opening')&&<button className="vx-off" onClick={()=>{stop();setStage('Fotocamera spenta.');}} data-testid="vision-stop-camera">Spegni</button>}
       </div>
