@@ -136,7 +136,7 @@ def render_core_answer_for_whatsapp(answer: dict) -> str:
     # Links are only handoffs; no WhatsApp webhook may silently perform a
     # client permission, device GPS acquisition or irreversible confirmation.
     if not text:
-        if any(_safe_navigation(part.rsplit("\\n", 1)[-1]) for part in rendered):
+        if any(_safe_navigation(part.splitlines()[-1]) for part in rendered):
             text = (
                 "Ho preparato il collegamento per la navigazione. "
                 "L'app mappe userà la posizione del telefono quando la apri "
