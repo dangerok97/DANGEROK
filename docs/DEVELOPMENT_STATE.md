@@ -1,3 +1,9 @@
+## 12 ottobre 2026 — Vision: percorsi per tutte le 25 famiglie
+
+Aggiunti 20 percorsi alle cinque famiglie esistenti, con testi originali e fonti primarie dei principi generali. Esecuzione locale dei controlli geometrici, gesti e percorsi: 129/129 passati. Test browser aggiunti per tutte le nuove famiglie, fonti per passaggio, compatibilita e schermi compatti. Gate remoti, ispezione visiva e rilascio vanno verificati prima di dichiarare la pubblicazione. Non e un collaudo di fotocamera/flash fisici iPhone.
+
+---
+
 ## 12 ottobre 2026 — v161: correzione della scheda «Contatto trovato»
 
 Riprodotto il difetto segnalato: avatar e badge sottraevano quasi tutta la

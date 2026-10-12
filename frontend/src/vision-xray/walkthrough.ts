@@ -3,14 +3,17 @@
  * Sources support the general principle, not the internals of the user's unit.
  */
 import type { Manifest } from './scene';
+import { EXTRA_TOURS, EXTRA_TOUR_SHAPES } from './walkthroughLibrary';
 export type TourSource = { title:string; url:string };
 export type TourStep = {
   title:string; text:string; parts:readonly string[];
   links:readonly (readonly [string,string])[];
-  effect:'energy'|'press'|'signal'|'spring'|'seal'|'sense'|'light';
+  effect:'energy'|'press'|'signal'|'spring'|'seal'|'sense'|'light'|'flow'|'rotation'|'material'|'sound'|'heat';
+  sourceIndexes?:readonly number[];
 };
-export type Walkthrough = { key:string; title:string; sources:readonly TourSource[]; steps:readonly TourStep[] };
+export type Walkthrough = { key:string; title:string; sources:readonly TourSource[]; steps:readonly TourStep[]; note?:string };
 const tours:Record<string,Walkthrough>={
+  ...EXTRA_TOURS,
   remote_control:{key:'remote_control',title:'Da un tasto al segnale',sources:[
     {title:'Adafruit — segnali di un telecomando IR',url:'https://learn.adafruit.com/ir-sensor/using-an-ir-sensor'},
     {title:'Adafruit — comando di un emettitore IR',url:'https://learn.adafruit.com/internet-of-things-infrared-remote/wiring'},
@@ -51,12 +54,35 @@ const tours:Record<string,Walkthrough>={
   ]},
 };
 
-/** Only seed models with the expected relationships, never a generated look-alike. */
+/** Sources belong to a step, not to an unrelated panel or a physical-unit claim. */
+export function sourcesForStep(tour:Walkthrough,index:number):readonly TourSource[]{
+  if(!Number.isInteger(index)||index<0||index>=tour.steps.length)return [];
+  const ids=tour.steps[index].sourceIndexes??tour.sources.map((_,i)=>i);
+  if(ids.length===0||ids.some(i=>!Number.isInteger(i)||i<0||i>=tour.sources.length))return [];
+  return [...new Set(ids)].map(i=>tour.sources[i]);
+}
+
+/** Only the authored seed family and part contract can unlock a walkthrough.
+ * This is structural compatibility, not proof of the user's hidden hardware.
+ */
 export function walkthroughFor(manifest:Manifest,sourceType?:string):Walkthrough|null{
-  if(sourceType!=='seed')return null;
-  const tour=tours[manifest.canonical_key];if(!tour)return null;
+  if(sourceType!=='seed'||manifest.schema_version!==1||manifest.evidence_level!=='illustrative'
+    ||manifest.match_scope!=='family'||manifest.units!=='illustrative')return null;
+  if(!Object.prototype.hasOwnProperty.call(tours,manifest.canonical_key))return null;
+  const tour=tours[manifest.canonical_key];
   const keys=new Set(manifest.parts.map(p=>p.key));
-  return tour.steps.every(s=>s.parts.every(k=>keys.has(k))&&s.links.every(l=>l.every(k=>keys.has(k))))?tour:null;
+  if(keys.size!==manifest.parts.length)return null;
+  const expected=EXTRA_TOUR_SHAPES[manifest.canonical_key];
+  if(expected&&(manifest.parts.length!==Object.keys(expected).length
+    ||manifest.parts.some(p=>expected[p.key]!==p.shape||p.evidence!=='typical')))return null;
+  if(!tour.sources.length||tour.sources.some(s=>!s.title.trim()||!/^https:\/\/[^\s/]+\//.test(s.url)))return null;
+  return tour.steps.every((step,index)=>{
+    const highlighted=new Set(step.parts);
+    return step.parts.length>0&&highlighted.size===step.parts.length
+      &&step.parts.every(k=>keys.has(k))
+      &&step.links.every(([from,to])=>from!==to&&highlighted.has(from)&&highlighted.has(to))
+      &&sourcesForStep(tour,index).length>0;
+  })?tour:null;
 }
 
 /** Bounded single run; pause/resume is stable and the last step never loops. */

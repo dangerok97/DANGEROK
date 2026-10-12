@@ -5,7 +5,7 @@ import { grayFrame, type GrayFrame } from './tracking';
 import { VisionPresentation } from './presentation';
 import { VisionGestures, clampZoom, approach } from './gestures';
 import { visualStyle } from './visualStyle';
-import {walkthroughFor,TourClock,type Walkthrough} from './walkthrough';
+import {walkthroughFor,sourcesForStep,TourClock,type Walkthrough} from './walkthrough';
 import {arrivalAt,currentBox,originInView} from './arrival';
 import type {Box} from './scene';
 import {CameraTorch, type TorchState, TORCH_UNAVAILABLE, cameraCrop, sameCrop, drawCameraCrop, clampCameraZoom} from './cameraControls';
@@ -375,13 +375,13 @@ export default function LiveExplorer(){
     </section>
     {error&&<div className="vx-error" role="alert" data-testid="vision-error">{error}</div>}
     {result?.manifest&&<section className={'vx-details'+(tourUI?' is-tour':'')} aria-label="Componenti dell’oggetto">
-      {definition&&!tourUI&&<button className="vx-how" data-testid="vision-how-it-works" onClick={startTour}>▷ Mostrami come funziona <span>3 passaggi</span></button>}
+      {definition&&!tourUI&&<button className="vx-how" data-testid="vision-how-it-works" onClick={startTour}>▷ Mostrami come funziona <span>{definition.steps.length} passaggi</span></button>}
       {tourUI&&step&&definition&&<div className="vx-tour" data-testid="vision-tour">
         <div className="vx-tour-heading"><small>PERCORSO DIDATTICO · {tourUI.index+1}/{definition.steps.length}</small><button aria-label="Chiudi il percorso e torna all’esplorazione" data-testid="vision-tour-close" onClick={()=>endTour()}>×</button></div>
         <div role="status" aria-live="polite" aria-atomic="true" className="vx-tour-copy"><h2>{step.title}</h2><p>{step.text}</p></div>
         <div className="vx-tour-controls"><button aria-label="Passaggio precedente" data-testid="vision-tour-prev" disabled={tourUI.index===0} onClick={()=>{tour.current?.clock.seek(tourUI.index-1);syncTour();}}>←</button><button data-testid="vision-tour-play" onClick={()=>{tour.current?.clock.toggle();syncTour();}}>{tourUI.done?'Rivedi':tourUI.playing?'Pausa':'Riprendi'}</button><button aria-label="Passaggio successivo" data-testid="vision-tour-next" disabled={tourUI.index===definition.steps.length-1} onClick={()=>{tour.current?.clock.seek(tourUI.index+1);syncTour();}}>→</button><button className="vx-tour-source-button" aria-expanded={tourSources} data-testid="vision-tour-sources" onClick={()=>{tour.current?.clock.stop();syncTour();setTourSources(v=>!v);}}>Fonti</button></div>
-        {tourSources&&<div className="vx-tour-sources">Principi generali, non verifica del tuo esemplare.{definition.sources.map(s=><a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.title} ↗</a>)}</div>}
-        <small className="vx-tour-note">Collegamenti illustrativi, non un circuito misurato.</small>
+        {tourSources&&<div className="vx-tour-sources"><span data-testid="vision-tour-source-context">Fonti di questo passaggio · principi generali, non verifica del tuo esemplare.</span>{sourcesForStep(definition,tourUI.index).map(s=><a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.title} ↗</a>)}</div>}
+        <small className="vx-tour-note">{definition.note||'Collegamenti illustrativi, non un circuito misurato.'}</small>
       </div>}
       <div ref={tabs} className={'vx-part-tabs'+(tourUI?' vx-tour-tabs':'')} aria-label="Seleziona un componente">{result.manifest.parts.map((p,i)=><button key={p.key} data-testid={'vision-part-'+p.key} aria-pressed={p.key===selected&&focused} onClick={()=>choose(p.key)}>{String(i+1).padStart(2,'0')} {p.name}</button>)}</div>
       {!tourUI&&focused&&currentPart&&(detailOpen?<div className="vx-part-info" data-testid="vision-part-detail"><button className="vx-collapse" data-testid="vision-collapse-detail" aria-label="Riduci la spiegazione" onClick={()=>setDetailOpen(false)}>⌄</button><small>COMPONENTE TIPICO</small><h2>{currentPart.name}</h2><p><b>A cosa serve.</b> {currentPart.function}</p>{moreDetail?<p><b>Come funziona.</b> {currentPart.how_it_works}</p>:<button className="vx-detail-more" data-testid="vision-more-detail" onClick={()=>setMoreDetail(true)}>Come funziona →</button>}</div>:<div className="vx-mini-detail" data-testid="vision-detail-collapsed">{currentPart.name}<button data-testid="vision-expand-detail" onClick={()=>setDetailOpen(true)}>Spiegazione ↑</button></div>)}

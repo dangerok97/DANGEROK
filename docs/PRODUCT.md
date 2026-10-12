@@ -1,3 +1,9 @@
+## 12 ottobre 2026 — Vision: percorsi per tutte le 25 famiglie
+
+Tutte le 25 famiglie del pacchetto iniziale hanno ora un percorso didattico scritto: 75 passaggi complessivi. Selezione dei gruppi coinvolti, relazioni simboliche, pausa/frecce/ripetizione e fonti del passaggio. Non si inventa un percorso per un modello generato o incompatibile.
+
+---
+
 ## 12 ottobre 2026 — v161: contatto leggibile prima della telefonata
 
 La scheda «Contatto trovato» mantiene nome, numero completo, provenienza e
