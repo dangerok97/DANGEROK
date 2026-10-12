@@ -450,8 +450,12 @@ const medicalExtensions:Record<string,Gloss>={
  alveolus:{it:"alveolo"},
 };
 Object.assign(word,medicalExtensions);
+for(const key of ['matter','sclera','iris','musculature'])if(word[key])word[key].g='f';
 const direct:Record<string,string>={
  'heart':'Cuore','brain':'Encefalo','cerebellum':'Cervelletto','liver':'Fegato',
+ 'external ear':'Orecchio esterno','internal ear':'Orecchio interno','middle ear':'Orecchio medio',
+ 'white matter':'Sostanza bianca','gray matter':'Sostanza grigia',
+ 'lacrimal sac':'Sacco lacrimale','lacrimal lake':'Lago lacrimale',
  'mandible':'Mandibola','skull':'Cranio','frontal bone':'Osso frontale',
  'hyoid bone':'Osso ioide','thyroid cartilage':'Cartilagine tiroidea',
  'gingiva of upper jaw':'Gengiva della mascella superiore',
@@ -482,7 +486,7 @@ function agree(s:string,gender:Gender):string{
  return s;
 }
 const normal=(name:string)=>name.toLowerCase().replace(/[\u2010-\u2015-]/g,' ').replace(/\bsupra orbital\b/g,'supraorbital').replace(/\s+/g,' ').trim();
-const headNames=['phalanx','cartilage','ligament','artery','vein','nerve','muscle','tendon','tooth','bone','gyrus','sulcus','ganglion','plexus','bronchus','vertebra','rib','trunk','branch','head','wall','cavity','duct','lobe','fossa','chamber','gland','ventricle','atrium','part','body','root','process','foramen','arch','canal','disk','ring','segment','division','subdivision','valve','tree','set'];
+const headNames=['ear','matter','hemisphere','sac','lake','lens','sclera','iris','musculature','wrist','thigh','hip','leg','pelvis','intestine','penis','trachea','forebrain','midbrain','phalanx','cartilage','ligament','artery','vein','nerve','muscle','tendon','tooth','bone','gyrus','sulcus','ganglion','plexus','bronchus','vertebra','rib','trunk','branch','head','wall','cavity','duct','lobe','fossa','chamber','gland','ventricle','atrium','part','body','root','process','foramen','arch','canal','disk','ring','segment','division','subdivision','valve','tree','set'];
 const sortedHeads=[...headNames].sort((a,b)=>b.length-a.length);
 /** Generic anatomical explanations are more honest than inventing physiology. */
 export function systemExplanation(system:string,label:string):string{
@@ -506,7 +510,7 @@ const connector=(text:string):string=>{
  if(/^arteria\b|^aorta\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^osso\b|^organo\b|^occhio\b|^arco\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^(?:vena|rete|ghiandola|cartilagine|parete|cavità|falange|trachea|mandibola)\b/.test(text.toLowerCase()))return 'della '+text.charAt(0).toLowerCase()+text.slice(1);
- if(/^(?:cuore|bulbo|nervo|bronco|giro|cranio|polmone|ventricolo|capo|pene|ginocchio|polso|sacco|miocardio|fegato|rene)\b/.test(text.toLowerCase()))return 'del '+text.charAt(0).toLowerCase()+text.slice(1);
+ if(/^(?:cuore|bulbo|nervo|bronco|giro|cranio|polmone|ventricolo|capo|pene|ginocchio|polso|sacco|miocardio|fegato|rene|emisfero|occhio|orecchio)\b/.test(text.toLowerCase()))return 'del '+text.charAt(0).toLowerCase()+text.slice(1);
  return 'di '+text.charAt(0).toLowerCase()+text.slice(1);
 };
 function manualDental(s:string):string|null{
