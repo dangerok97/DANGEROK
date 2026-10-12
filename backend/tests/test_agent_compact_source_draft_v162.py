@@ -38,6 +38,10 @@ async def test_short_source_draft_and_audit_keep_compact_attributed_comparison(m
     audit_prompt, audit_payload = messages[1]
     assert "aim for a complete draft under 1800 characters" in draft_prompt
     assert "does not allow omission of the useful calculation" in draft_prompt
+    assert "A refund or cancellation" in draft_prompt
+    assert "the source explicitly states that both share it" in draft_prompt
+    assert "A term quoted for only option A cannot establish" in audit_prompt
+    assert "state its terms are unknown" in audit_prompt
     assert "comparison specifically requested from figures recorded by the user" in audit_prompt
     assert "unless the goal actually requires external verification" in audit_prompt
     assert draft_payload["evidence"][0]["claim"] == evidence.claim
