@@ -61,6 +61,14 @@ def _person_explicit_in_birthday_statement(statement: str) -> str:
     )
     if not found:
         return ""
+    # An anonymous placeholder cannot become a proper name just because
+    # a cached model-generated string starts with "Nome" or "Persona".
+    if re.search(
+        r"(?:nome|persona)\s+non\s+specificat|nome\s+sconosciut|"
+        r"\[\s*(?:nome|persona)|\bunknown\s+person\b",
+        str(statement or ""), flags=re.IGNORECASE,
+    ):
+        return ""
     candidate = re.sub(r"^(?:mia|mio)\s+", "", found.group(1), flags=re.IGNORECASE).strip()
     if any(fragment in candidate.lower() for fragment in (
         "nome non specificato", "persona non specificata", "sconosciuto"
