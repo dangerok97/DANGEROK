@@ -238,7 +238,7 @@ def _literal_quote_examples(rows, *, max_characters=720):
         if not isinstance(claim, str) or not isinstance(evidence_id, str):
             continue
         parts = []
-        for piece in re.split(r"(?<=[.!?;])\\s+|\\n+", claim):
+        for piece in re.split(r"(?<=[.!?;])\s+|\n+", claim):
             rest = piece.strip()
             while len(rest) > 240:
                 cut = rest.rfind(" ", 0, 241)
