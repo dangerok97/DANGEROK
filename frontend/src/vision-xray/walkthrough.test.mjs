@@ -80,8 +80,8 @@ test('assembled model starts in detected region and finishes exactly in study sp
 
 
 const extra=authored.filter(s=>!['remote_control','click_pen','water_bottle','computer_mouse','flashlight'].includes(s.canonical_key));
-test('all 25 authored families expose exactly 75 bounded steps',()=>{
- assert.equal(seeds.length,75);assert.equal(authored.length,25);assert.equal(authored.reduce((n,m)=>n+walkthroughFor(m,'seed').steps.length,0),75);
+test('all 25 authored families expose exactly 126 bounded steps',()=>{
+ assert.equal(seeds.length,126);assert.equal(authored.length,25);assert.equal(authored.reduce((n,m)=>n+walkthroughFor(m,'seed').steps.length,0),126);
 });
 for(const manifest of extra)test('new authored template cannot be inherited by changed parts or AI output: '+manifest.canonical_key,()=>{
  assert.equal(walkthroughFor(manifest,'generated'),null);
@@ -131,6 +131,6 @@ test('mechanics, flow and materials do not masquerade as measured circuits',()=>
 });
 
 test('fifty additional seed families never inherit an unauthored tour',()=>{
- const added=seeds.filter(m=>!reviewed.has(m.canonical_key));assert.equal(added.length,50);
+ const added=seeds.filter(m=>!reviewed.has(m.canonical_key));assert.equal(added.length,101);
  for(const m of added){assert.equal(walkthroughFor(m,'seed'),null);assert.equal(walkthroughFor(m,'generated'),null);}
 });
