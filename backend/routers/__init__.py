@@ -231,3 +231,8 @@ except Exception:
 # ORA Vision X-Ray: user-authorized foreground photos, illustrative parts.
 from vision_xray import router as vision_xray_router
 ALL_ROUTERS.append(vision_xray_router)
+
+# Official WhatsApp Cloud API: provider-signed ingress + authenticated linking.
+# Import errors must not mask a broken integration in staging.
+from whatsapp.router import router as whatsapp_router
+ALL_ROUTERS.append(whatsapp_router)
