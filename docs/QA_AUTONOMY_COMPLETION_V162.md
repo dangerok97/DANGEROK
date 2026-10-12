@@ -1,3 +1,120 @@
+# QA v162 — review persistita e consegna della preparazione corrente
+
+## Verifica congelata del candidato successivo a d5
+
+**757 PASS, 1 SKIP, 43 moduli, 28.27 s**; CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni.
+
+Nuovi moduli: snapshot/review/CAS, consegna, diagnostica delle catene LLM
+e classificazione Gemini/RetryInfo. Il gruppo include anche v55, i tre
+controlli statici di visibilità corretti e le regressioni del Provider Manager.
+Lo skip è solo `test_real_gemini_enrichment`, opzionale e privo di chiave locale;
+le prove live sul servizio isolato hanno un esito separato.
+I risultati mirati sono inclusi nel totale. La UI ha 7 nuove prove Node più
+UpdateActions (8/8), 4 prove Chromium sui due giudizi, approvazione e dati
+malformati, tsc ed export riusciti. I due screenshot sono stati ispezionati:
+avviso e mancanza leggibili sopra il testo. WebKit resta alla CI del candidato.
+
+## Gate reale d5 originale
+
+Il gate reale d5b5e1e è **4/9 PASS**, con **80 chiamate logiche e 106 HTTP**.
+La precedente CI d5 è **10 PASS / 2 FAIL / 2 SKIPPED**: i due Backend si sono
+fermati sulla firma obsoleta del fake v55 (1 failed / 282 passed), prima dei gate
+v162 e Mongo. Questa compatibilità è corretta nel candidato successivo; non
+si attribuisce a d5 una CI verde. Il [report originale](evidence/autonomy_v162_live_2026-10-12_d5b5e1e.json)
+rimane integralmente disponibile. L'autonomia dell'app non è ancora dimostrata.
+
+
+| Caso | Esito | Chiamate logiche / HTTP | Evidenza |
+|---|---|---:|---|
+| completed_result | FAIL | 11 / 20 | Goal chiuso, ma manca la differenza numerica utile. |
+| planning_outage | FAIL | 23 / 33 | Bozza salvata; il verifier rimanda a una verifica formale e il riesame ripete complete. |
+| home_write_retry | FAIL | 5 / 6 | prepare con information.read non esegue la lettura; il guasto Home non viene raggiunto. |
+| source_revoked | PASS | 5 / 5 | Revoca rispettata. |
+| memory_revoked | PASS | 5 / 7 | Revoca rispettata. |
+| memory_corrected | FAIL | 27 / 29 | Fonte corretta a 150; secondo document.create execute e ciclo di verifica. Testo con flessibilità non sostenuta. |
+| source_change_crash | FAIL | 2 / 4 | L'audit crede alla proposta «già preparato»; nessun goal recuperato. |
+| already_resolved | PASS | 1 / 1 | Non riapre il lavoro chiuso. |
+| irrelevant | PASS | 1 / 1 | Non crea lavoro non pertinente. |
+
+La verifica manuale non accetta le clausole non sostenute anche quando i
+numeri passano. Il nuovo codice non riscrive i testi del report.
+
+## Letture pubbliche separate, codice d5
+
+[Report originale](evidence/public_read_v162_live_2026-10-12_d5b5e1e.json).
+Deployment `f59f67dc-a65f-492e-b0aa-e2ad4271e1de`, pin d5 verificato.
+Roma Termini → Colosseo, account/stato sintetici. **2 letture provider reali**
+(Mapbox e Open-Meteo), **4 chiamate LLM**, 40.482 ms di loop.
+Gate tecnico PASS; gate semantico FAIL: UNVERIFIED_FORECAST_INTENSITY e
+MODEL_CLAIM_REWRITTEN. La risposta finale riscritta dalla protezione distingue
+probabilità e intensità; questo non cancella l'errore del modello. Nessuna
+operazione bloccata o effetto esterno. Nessuna verifica di luoghi privati.
+
+Un primo redeploy tecnico `17ce8308-0579-4d03-845a-2bad831dd8bf` aveva
+riutilizzato il comando completo precedente, non il comando pubblico aggiornato.
+È stato sostituito collegando di nuovo il pin: il solo progresso registrato
+è completed_result FAIL, 18 chiamate / 26 HTTP. Esecuzione incompleta,
+non utilizzabile come gate e non aggiunta ai risultati completi.
+
+## Smoke isolato del profilo Gemini 3.8, codice d5
+
+[Report originale](evidence/autonomy_v162_gemini38_smoke_2026-10-12_d5b5e1e.json).
+Deployment `eae276c4-8ce7-485c-8734-d0e3dc9a07f0`. Override temporanei
+GEMINI_MODEL/GEMINI2_MODEL=gemini-3.8-flash e
+GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite; nessuna modifica ai servizi app.
+Solo completed_result: **FAIL**, 11 chiamate / 19 HTTP.
+8 risposte Mistral, una OpenAI, una Groq e soltanto l'ultima Gemini 3.8
+(visibilità). Non è un confronto affidabile della qualità tra modelli:
+la bozza e la verifica non sono state svolte dal profilo atteso. Il testo
+omette attribuzione e limiti, estende indebitamente il vincolo di rimborso
+ed è stato erroneamente chiuso. I dati vengono conservati senza correzione.
+
+## Correzioni e confini
+
+Una verifica parziale o incerta di un risultato interno viene conservata sul
+preciso artefatto che il verificatore ha letto. Una nuova preparazione riceve
+una nuova identità anche se il testo è identico. Testo, citazioni e contesto
+vincolano il giudizio; una risposta tardiva non può sovrascrivere una nuova
+bozza. Una successiva verifica positiva dello stesso artefatto ritira la
+critica insieme alla chiusura autorizzata, prima del cleanup.
+
+Home, comunicazioni in coda e apertura di un vecchio avviso rispettano la
+preparazione corrente e il suo giudizio. Le domande su informazioni o autorità
+rimangono possibili quando il goal corrente ne ha davvero bisogno. Un errore
+di lettura conserva la possibilità di riprovare. Il dettaglio mostra
+«Bozza da rivedere» oppure «Verifica ancora incerta», con ciò che manca sopra
+il testo, senza nascondere le bozze da approvare.
+
+Le istruzioni distinguono ora esplicitamente lettura, preparazione salvata
+e azione esterna: nominare una capacità di lettura su un passo prepare non
+esegue la lettura. La verifica finale deve valutare il contenuto adesso; un
+passo di verifica ancora pendente non è da solo una mancanza sostanziale.
+Il confronto deve esplicitare le differenze utili e i calcoli sostenuti dalle
+premesse. Discovery non può usare una propria proposta al passato come
+prova che un lavoro sia stato svolto. Queste correzioni sono generali;
+fixture, oracolo, budget e decisioni negative del modello restano invariati.
+
+Il report osserva al massimo 40 esiti di chiamate logiche e 8 fallback per esito. Esporta soltanto sequence, outcome, provider e failure_kind da allowlist, elapsed_ms e la catena limitata. Sul successo usa usage.failover_errors della risposta corrente; sul fallimento, attempts dell'eccezione corrente. Non legge _last_attempts. Lo scope è manager_reported_final_chain: non pretende di ricostruire gli skip per cooldown, le precedenti catene di pacing o ogni retry interno del SDK. elapsed_ms comprende l'intera chiamata logica, inclusi fallback e pacing. Payload, prompt, URL, credenziali e messaggi d'errore restano esclusi; contatori, budget, gate ed eccezioni non cambiano.
+
+La classificazione Gemini dei 429 usa QuotaFailure tipizzata: solo un periodo giornaliero esplicito in quotaId/quotaMetric attiva quota, con precedenza nelle violazioni miste. Gli altri 429 restano rate_limit. RetryInfo richiede il tipo RPC esatto e una durata JSON finita e non negativa; il massimo degli hint validi HTTP/RPC resta entro il cap di 300 secondi, senza cambiare la politica del Manager. Il nuovo modulo ha riprodotto 27 FAIL / 31 PASS prima della correzione e 58/58 PASS dopo, inclusi SDK reale con HTTP sintetico e recupero del Manager con orologio finto. Questi casi sono inclusi nell'aggregato, non si sommano.
+
+Il default alternativo passa da gemini-2.0-flash a gemini-3.6-flash, sostituto indicato nella [tabella ufficiale Gemini](https://ai.google.dev/gemini-api/docs/deprecations). Principale, override, priorità, timeout e budget rimangono invariati. La correzione di un endpoint ritirato non prova disponibilità o qualità sul progetto reale, e non viene attribuita retroattivamente ai fallback d5. Configurazione e fonti del protocollo sono nel [riferimento del Provider Manager](AI_PROVIDER_MANAGER.md).
+La compatibilità v55 aggiorna soltanto la firma del fake e verifica None/[]
+sul percorso senza bozza. Il guard statico conserva un pass quando rimuove
+docstring da un corpo vuoto e riconosce vere scritture dell'outcome; non confonde
+ActionStep.step_type con visibilità. Campioni leciti e illeciti provano il matcher.
+
+La patch di rilascio dei servizi app rimane preparata ma non applicata:
+il controllo automatico Railway ha rifiutato l'azione e non viene aggirato.
+Il servizio di valutazione isolato non equivale all'app rilasciata.
+Build nativa firmata e ricezione su un dispositivo rimangono prove distinte.
+Il precedente bucato di Tarquinia resta chiuso; per un nuovo bucato il risultato
+atteso è il momento utile per ritirarlo, con stima e rischio anticipato distinti.
+
+
+---
+
+
 # QA v162 — recupero fino alla correzione e consegna corrente
 
 ## Candidato successivo a e3a: verifica locale

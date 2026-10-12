@@ -231,7 +231,11 @@ jobs:
             tests/test_agent_admission_contract_v162.py \
             tests/test_agent_verification_context_v162.py \
             tests/test_verification_recovery_v162.py \
+            tests/test_prepared_review_v162.py \
+            tests/test_prepared_review_delivery_v162.py \
             tests/test_autonomy_eval_recovery_diagnostics_v162.py \
+            tests/test_autonomy_model_diagnostics_v162.py \
+            tests/test_gemini_quota_retry_v162.py \
             tests/test_agent_action_context_v162.py \
             tests/test_completed_result_context_v162.py \
             tests/test_preparation_recovery_v162.py \
@@ -248,6 +252,10 @@ jobs:
             tests/test_autonomy_completion_eval_v162.py -x
           python -m scripts.autonomy_completion_eval_v162 --mode scripted \
             --output /tmp/ora-autonomy-v162-scripted.json
+          python -m pytest -q -n 0 \
+            tests/test_agent_visibility_v39.py::test_visibility_guard_detects_real_outcome_promotions \
+            tests/test_agent_visibility_v39.py::test_visibility_guard_does_not_confuse_an_action_step_or_need_with_a_visibility \
+            tests/test_agent_visibility_v39.py::test_no_branch_turns_a_goal_status_into_a_visibility -x
       - name: v162 planning, source read and Home outbox across exited Python workers
         working-directory: backend
         env:
@@ -385,6 +393,9 @@ jobs:
       - name: Home calendar excludes task deadlines and review checkpoints
         working-directory: frontend
         run: node --experimental-strip-types --test src/components/home/v3/calendarItems.test.ts
+      - name: Prepared result review remains explicit in the update detail
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/components/home/v3/preparedReview.test.ts
       - name: Situation useful time and action remain separate from internal checks
         working-directory: frontend
         run: node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts

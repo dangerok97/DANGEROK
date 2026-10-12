@@ -301,6 +301,12 @@ async def audit_proposals(snapshot, proposed):
     """Check a nonempty proposal against its sources before it can be surfaced."""
     review = await _ask_model(
         _DISCIPLINE + "\nAudit these proposed opportunities against the supplied snapshot. "
+        "The proposed object is another model's suggestion, not an observation, a saved "
+        "artifact or evidence that any work happened. Judge completion only from the source "
+        "snapshot. If a proposal says a missing result has already been prepared, correct "
+        "that unsupported claim; it is not a reason to conclude the person's need is closed. "
+        "Keep useful unfinished internal work when the sources support it. In particular, "
+        "first-person past tense in what or what_i_can_do supplies no completion evidence. "
         'Return exactly {"outcome_assessment": {"desired_outcome": null, '
         '"outcome_state": "open|resolved|not_established", "remaining_internal_work": null, '
         '"supporting_refs": [], "completion_refs": []}, '

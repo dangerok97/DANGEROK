@@ -1,3 +1,51 @@
+## 12 ottobre 2026 — v162, giudizio del risultato e consegna della preparazione corrente
+
+Una verifica parziale o incerta di un risultato interno viene conservata sul
+preciso artefatto che il verificatore ha letto. Una nuova preparazione riceve
+una nuova identità anche se il testo è identico. Testo, citazioni e contesto
+vincolano il giudizio; una risposta tardiva non può sovrascrivere una nuova
+bozza. Una successiva verifica positiva dello stesso artefatto ritira la
+critica insieme alla chiusura autorizzata, prima del cleanup.
+
+Home, comunicazioni in coda e apertura di un vecchio avviso rispettano la
+preparazione corrente e il suo giudizio. Le domande su informazioni o autorità
+rimangono possibili quando il goal corrente ne ha davvero bisogno. Un errore
+di lettura conserva la possibilità di riprovare. Il dettaglio mostra
+«Bozza da rivedere» oppure «Verifica ancora incerta», con ciò che manca sopra
+il testo, senza nascondere le bozze da approvare.
+
+`prepared_result_id` viene generato solo al salvataggio riuscito.
+`prepared_review` espone soltanto outcome partial/uncertain, what_is_missing,
+reasoning e reviewed_at. Il legame interno confronta owner, goal, identità,
+testo, citazioni ordinate e contesto di requisiti/fonti. Il CAS negativo evita
+critiche a bozze sostituite; il CAS terminale positivo precede modifiche a piani,
+Need e Opportunity. Il payload per chooser/verifier non cresce.
+
+Il riferimento catturato dalla visibilità passa alla Need e all'outbox.
+None legacy, stringa vuota (nessuna bozza osservata) e riferimento esplicito
+restano distinti. Il fingerprint di un nuovo artefatto non aggiorna la vecchia
+Need. Il controllo viene ripetuto dopo il modello, ai confini di Home, al replay,
+in ambient_line, aprendo un link e prima del provider. L'outbox già saltata
+non torna attuale. Le domande richiedono il blocker corrente del tipo corretto;
+l'assenza di una critica non costituisce verifica positiva.
+
+Le istruzioni distinguono ora esplicitamente lettura, preparazione salvata
+e azione esterna: nominare una capacità di lettura su un passo prepare non
+esegue la lettura. La verifica finale deve valutare il contenuto adesso; un
+passo di verifica ancora pendente non è da solo una mancanza sostanziale.
+Il confronto deve esplicitare le differenze utili e i calcoli sostenuti dalle
+premesse. Discovery non può usare una propria proposta al passato come
+prova che un lavoro sia stato svolto. Queste correzioni sono generali;
+fixture, oracolo, budget e decisioni negative del modello restano invariati.
+
+Il report osserva al massimo 40 esiti di chiamate logiche e 8 fallback per esito. Esporta soltanto sequence, outcome, provider e failure_kind da allowlist, elapsed_ms e la catena limitata. Sul successo usa usage.failover_errors della risposta corrente; sul fallimento, attempts dell'eccezione corrente. Non legge _last_attempts. Lo scope è manager_reported_final_chain: non pretende di ricostruire gli skip per cooldown, le precedenti catene di pacing o ogni retry interno del SDK. elapsed_ms comprende l'intera chiamata logica, inclusi fallback e pacing. Payload, prompt, URL, credenziali e messaggi d'errore restano esclusi; contatori, budget, gate ed eccezioni non cambiano.
+
+La classificazione Gemini dei 429 usa QuotaFailure tipizzata: solo un periodo giornaliero esplicito in quotaId/quotaMetric attiva quota, con precedenza nelle violazioni miste. Gli altri 429 restano rate_limit. RetryInfo richiede il tipo RPC esatto e una durata JSON finita e non negativa; il massimo degli hint validi HTTP/RPC resta entro il cap di 300 secondi, senza cambiare la politica del Manager. Il nuovo modulo ha riprodotto 27 FAIL / 31 PASS prima della correzione e 58/58 PASS dopo, inclusi SDK reale con HTTP sintetico e recupero del Manager con orologio finto. Questi casi sono inclusi nell'aggregato, non si sommano.
+
+Il default alternativo passa da gemini-2.0-flash a gemini-3.6-flash, sostituto indicato nella [tabella ufficiale Gemini](https://ai.google.dev/gemini-api/docs/deprecations). Principale, override, priorità, timeout e budget rimangono invariati. La correzione di un endpoint ritirato non prova disponibilità o qualità sul progetto reale, e non viene attribuita retroattivamente ai fallback d5. Configurazione e fonti del protocollo sono nel [riferimento del Provider Manager](AI_PROVIDER_MANAGER.md).
+Verifica locale: **757 PASS, 1 SKIP, 43 moduli, 28.27 s**; CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Review indipendenti del core CAS, dei controlli di
+consegna e delle istruzioni: nessun blocker confermato al freeze.
+
 ## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
 
 Il recupero conserva il checkpoint già persistito prima di un risveglio,

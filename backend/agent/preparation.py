@@ -5,6 +5,7 @@ import hashlib
 import json
 from agent.evidence import EvidenceStore, REAL_SOURCES
 from agent.models import ResultProvenance
+from agent.prepared_review import new_prepared_result_id
 
 
 _FEEDBACK_FIELD = "preparation_feedback_non_authoritative"
@@ -200,13 +201,16 @@ async def prepare(db, owner_id, goal, step):
         return unavailable("preparation_source_check_unavailable", True)
     if overlap:
         content, refs = overlap
+        prepared_id = new_prepared_result_id()
         saved = await db.agent_goals.update_one(
             {"id": goal.id, "owner_id": owner_id, "status": {"$in": ["active", "waiting"]}},
-            {"$set": {"prepared_text": content, "prepared_sources": refs}},
+            {"$set": {"prepared_text": content, "prepared_sources": refs,
+                      "prepared_result_id": prepared_id, "prepared_review": None}},
         )
         if saved.matched_count != 1:
             return unavailable("preparation_goal_unavailable")
         goal.prepared_text, goal.prepared_sources = content, refs
+        goal.prepared_result_id, goal.prepared_review = prepared_id, None
         provenance.provider, provenance.source_refs = "calendar_overlap_draft", refs
         return CapabilityOutcome(status="succeeded", observation="Proposta basata sugli orari attuali; nessuna azione esterna eseguita.",
             provenance=provenance, data_ref=f"goal:{goal.id}:preparation",
@@ -342,13 +346,16 @@ async def prepare(db, owner_id, goal, step):
             or any(not isinstance(ref, str) or ref not in allowed for ref in refs)):
         return unavailable("preparation_review_invalid")
     content, refs = content.strip(), list(dict.fromkeys(refs))
+    prepared_id = new_prepared_result_id()
     saved = await db.agent_goals.update_one(
         {"id": goal.id, "owner_id": owner_id, "status": {"$in": ["active", "waiting"]}},
-        {"$set": {"prepared_text": content, "prepared_sources": refs}},
+        {"$set": {"prepared_text": content, "prepared_sources": refs,
+                  "prepared_result_id": prepared_id, "prepared_review": None}},
     )
     if saved.matched_count != 1:
         return unavailable("preparation_goal_unavailable")
     goal.prepared_text, goal.prepared_sources = content, refs
+    goal.prepared_result_id, goal.prepared_review = prepared_id, None
     provenance.source_refs = refs
     if previous_feedback:
         await _remember_feedback(db, owner_id, goal.id, scope, None)

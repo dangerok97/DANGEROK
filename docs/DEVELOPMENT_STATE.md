@@ -1,3 +1,44 @@
+## 12 ottobre 2026 — v162, giudizio del risultato e consegna della preparazione corrente
+
+Il gate reale d5b5e1e è **4/9 PASS**, con **80 chiamate logiche e 106 HTTP**.
+La precedente CI d5 è **10 PASS / 2 FAIL / 2 SKIPPED**: i due Backend si sono
+fermati sulla firma obsoleta del fake v55 (1 failed / 282 passed), prima dei gate
+v162 e Mongo. Questa compatibilità è corretta nel candidato successivo; non
+si attribuisce a d5 una CI verde. Il [report originale](evidence/autonomy_v162_live_2026-10-12_d5b5e1e.json)
+rimane integralmente disponibile. L'autonomia dell'app non è ancora dimostrata.
+
+Una verifica parziale o incerta di un risultato interno viene conservata sul
+preciso artefatto che il verificatore ha letto. Una nuova preparazione riceve
+una nuova identità anche se il testo è identico. Testo, citazioni e contesto
+vincolano il giudizio; una risposta tardiva non può sovrascrivere una nuova
+bozza. Una successiva verifica positiva dello stesso artefatto ritira la
+critica insieme alla chiusura autorizzata, prima del cleanup.
+
+Home, comunicazioni in coda e apertura di un vecchio avviso rispettano la
+preparazione corrente e il suo giudizio. Le domande su informazioni o autorità
+rimangono possibili quando il goal corrente ne ha davvero bisogno. Un errore
+di lettura conserva la possibilità di riprovare. Il dettaglio mostra
+«Bozza da rivedere» oppure «Verifica ancora incerta», con ciò che manca sopra
+il testo, senza nascondere le bozze da approvare.
+
+Verifica congelata del nuovo candidato: **757 PASS, 1 SKIP, 43 moduli, 28.27 s**; CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni.
+Frontend: **8/8 Node**, **4/4 Chromium mobile** nuovi casi, TypeScript ed export
+riusciti, zero errori lint (47 warning preesistenti nel client). WebKit e CI
+di integrazione devono verificare la nuova revisione. Non sommare questi
+conteggi ai gruppi mirati, inclusi nell'aggregato.
+La classificazione Gemini dei 429 usa QuotaFailure tipizzata: solo un periodo giornaliero esplicito in quotaId/quotaMetric attiva quota, con precedenza nelle violazioni miste. Gli altri 429 restano rate_limit. RetryInfo richiede il tipo RPC esatto e una durata JSON finita e non negativa; il massimo degli hint validi HTTP/RPC resta entro il cap di 300 secondi, senza cambiare la politica del Manager. Il nuovo modulo ha riprodotto 27 FAIL / 31 PASS prima della correzione e 58/58 PASS dopo, inclusi SDK reale con HTTP sintetico e recupero del Manager con orologio finto. Questi casi sono inclusi nell'aggregato, non si sommano.
+
+Il default alternativo passa da gemini-2.0-flash a gemini-3.6-flash, sostituto indicato nella [tabella ufficiale Gemini](https://ai.google.dev/gemini-api/docs/deprecations). Principale, override, priorità, timeout e budget rimangono invariati. La correzione di un endpoint ritirato non prova disponibilità o qualità sul progetto reale, e non viene attribuita retroattivamente ai fallback d5. Configurazione e fonti del protocollo sono nel [riferimento del Provider Manager](AI_PROVIDER_MANAGER.md).
+Dettagli e prove negative nel [QA](QA_AUTONOMY_COMPLETION_V162.md).
+
+La patch di rilascio dei servizi app rimane preparata ma non applicata:
+il controllo automatico Railway ha rifiutato l'azione e non viene aggirato.
+Il servizio di valutazione isolato non equivale all'app rilasciata.
+Build nativa firmata e ricezione su un dispositivo rimangono prove distinte.
+Il precedente bucato di Tarquinia resta chiuso; per un nuovo bucato il risultato
+atteso è il momento utile per ritirarlo, con stima e rischio anticipato distinti.
+
+
 ## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
 
 Il collaudo reale della revisione `e3a843c2730d4a35708777f81e403b8b5f89868a`

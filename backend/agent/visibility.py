@@ -78,6 +78,39 @@ def _fingerprint(goal_id: str, about: str, headline: str) -> str:
     return hashlib.sha256(f"{goal_id}|{basis}".encode("utf-8")).hexdigest()[:32]
 
 
+async def prepared_communication_current(
+    db, owner_id: str, goal_id: str, reference: Optional[str], *,
+    question: bool = False, response_kind: Optional[str] = None,
+) -> bool:
+    """An announcement belongs to one artifact and its current review.
+
+    Legacy records remain legacy, never acquiring a later preparation's
+    identity. A real unresolved question can still ask for knowledge or
+    authority while a result needs more work; review copy is not a classifier.
+    Storage failures propagate so an existing outbox can retry its check.
+    """
+    from agent.prepared_review import current_prepared_result
+
+    state = await current_prepared_result(db, owner_id, goal_id)
+    if state is None:
+        return False
+    if state.goal.status in ("cancelled", "abandoned"):
+        return False
+    if reference is None:
+        if state.goal.prepared_result_id:
+            return False  # An unbound record cannot inherit a new artifact.
+    elif reference != state.ref:
+        return False
+    if state.review is None:
+        return True
+    if not question or not state.goal.is_open:
+        return False
+    return bool(
+        (response_kind in (None, "information") and state.goal.requires_user_input)
+        or (response_kind in (None, "authority") and state.goal.requires_user_authority)
+    )
+
+
 class VisibilityService:
     def __init__(self, db):
         self.db = db
@@ -106,8 +139,10 @@ class VisibilityService:
         """
         from agent.reasoning import decide_visibility
         from agent.memory_fence import memory_result_current
+        from agent.prepared_review import prepared_result_ref
 
         memory_snapshot = str(what_happened.get("_memory_source_snapshot") or "")
+        prepared_reference = what_happened.get("_prepared_result_ref", prepared_result_ref(goal))
         if not await memory_result_current(self.db, owner_id, goal, memory_snapshot):
             return VisibilityDecision(goal_id=goal.id, outcome="silent", decided_by="code",
                                       quietened_by_code="le memorie di partenza non sono più attuali")
@@ -115,7 +150,7 @@ class VisibilityService:
         answer = await decide_visibility(
             goal.for_ai(),
             what_happened={key: value for key, value in what_happened.items()
-                           if key != "_memory_source_snapshot"},
+                           if key not in ("_memory_source_snapshot", "_prepared_result_ref")},
             already_said=await self.recent(owner_id),
             language=language,
         )
@@ -134,6 +169,7 @@ class VisibilityService:
             reasoning=str(answer.get("reasoning") or "")[:400],
             refs=[str(r)[:120] for r in (what_happened.get("refs") or [])][:8],
             memory_source_snapshot=memory_snapshot,
+            prepared_result_ref=prepared_reference,
             fingerprint=_fingerprint(
                 goal.id, str(answer.get("about") or ""),
                 str(answer.get("headline") or ""),
@@ -141,6 +177,11 @@ class VisibilityService:
         )
 
         if not decision.is_visible:
+            return decision
+
+        if not await self._prepared_decision_current(owner_id, decision):
+            decision.outcome, decision.decided_by = "silent", "code"
+            decision.quietened_by_code = "la preparazione è cambiata o richiede ancora una verifica"
             return decision
 
         if not await memory_result_current(self.db, owner_id, goal, decision.memory_source_snapshot):
@@ -165,10 +206,11 @@ class VisibilityService:
             decision.quietened_by_code = "non c'era niente da dire"
             return decision
 
-        if memory_snapshot:
+        if memory_snapshot or prepared_reference:
             # A corrected fact may yield useful news about the same topic.
             decision.fingerprint = _fingerprint(
-                goal.id + "|" + memory_snapshot, str(answer.get("about") or ""), decision.headline,
+                goal.id + "|" + memory_snapshot + "|" + (prepared_reference or ""),
+                str(answer.get("about") or ""), decision.headline,
             )
 
         if not decision.refs:
@@ -186,6 +228,11 @@ class VisibilityService:
             decision.quietened_by_code = "questa cosa era già stata detta"
             return decision
 
+        if not await self._prepared_decision_current(owner_id, decision):
+            decision.outcome, decision.decided_by = "silent", "code"
+            decision.quietened_by_code = "la preparazione è cambiata o richiede ancora una verifica"
+            return decision
+
         # The preliminary read is only an optimisation. Two workers may both
         # pass it before either one records the update. Only the successful
         # atomic insert owns the right to surface and offer this news.
@@ -194,6 +241,12 @@ class VisibilityService:
             decision.decided_by = "code"
             decision.quietened_by_code = "aggiornamento già registrato o archivio non disponibile"
         return decision
+
+    async def _prepared_decision_current(self, owner_id, decision) -> bool:
+        return await prepared_communication_current(
+            self.db, owner_id, decision.goal_id, decision.prepared_result_ref,
+            question=decision.wants_a_person,
+        )
 
     async def _situation_decision_current(
         self, owner_id, goal, decision, *, bind=False, topic="",
@@ -271,10 +324,11 @@ class VisibilityService:
         docs = await self.db[UPDATES].find(
             {"owner_id": owner_id},
             {"_id": 0, "headline": 1, "outcome": 1, "at": 1,
-             "goal_id": 1, "memory_source_snapshot": 1},
+             "goal_id": 1, "memory_source_snapshot": 1, "prepared_result_ref": 1},
         ).sort("at", -1).to_list(RECENT_SHOWN)
         from agent.memory_fence import memory_result_current, MemorySourcesUnavailable
         from agent.repository import AgentRepository
+        from agent.prepared_review import PreparedReviewUnavailable
 
         rows = []
         for doc in docs:
@@ -286,7 +340,12 @@ class VisibilityService:
                     self.db, owner_id, goal, doc.get("memory_source_snapshot", ""),
                 ):
                     continue
-            except MemorySourcesUnavailable:
+                if not await prepared_communication_current(
+                    self.db, owner_id, goal.id, doc.get("prepared_result_ref"),
+                    question=doc.get("outcome") in ("ask_user", "requires_attention"),
+                ):
+                    continue
+            except (MemorySourcesUnavailable, PreparedReviewUnavailable):
                 continue
             rows.append({"said": doc.get("headline"), "kind": doc.get("outcome"), "when": doc.get("at")})
         return rows
@@ -354,6 +413,8 @@ class VisibilityService:
                 return False
             if not await self._opportunity_current_for_home(owner_id, goal, decision):
                 return False
+            if not await self._prepared_current_for_home(owner_id, decision):
+                return False
             if not await self._situation_decision_current(owner_id, goal, decision):
                 await self.db[UPDATES].update_one(
                     {"owner_id": owner_id, "fingerprint": decision.fingerprint,
@@ -375,6 +436,7 @@ class VisibilityService:
                     "visibility": decision.outcome,
                     "goal": goal.id,
                     "memory_source_snapshot": decision.memory_source_snapshot,
+                    "prepared_result_ref": decision.prepared_result_ref,
                     "home_outbox_fingerprint": decision.fingerprint,
                 },
                 visible=True,
@@ -384,6 +446,8 @@ class VisibilityService:
             # storage. Keep its historical proof, but never acknowledge or
             # expose that handoff as a current result after the withdrawal.
             if not await self._opportunity_current_for_home(owner_id, goal, decision):
+                return False
+            if not await self._prepared_current_for_home(owner_id, decision):
                 return False
             # This may fail after the Activity insert. Pending stays durable;
             # a future pass repeats the same idempotent write.
@@ -413,6 +477,17 @@ class VisibilityService:
             except Exception:
                 pass  # DB outage: the original pending outbox entry remains.
             return False
+
+    async def _prepared_current_for_home(self, owner_id, decision) -> bool:
+        if await self._prepared_decision_current(owner_id, decision):
+            return True
+        await self.db[UPDATES].update_one(
+            {"owner_id": owner_id, "goal_id": decision.goal_id,
+             "fingerprint": decision.fingerprint, "home_pending": True},
+            {"$set": {"home_pending": False, "home_skipped": "preparation_no_longer_current"},
+             "$unset": {"home_due_at": ""}},
+        )
+        return False
 
     async def _opportunity_current_for_home(self, owner_id, goal, decision) -> bool:
         if await opportunity_result_current(self.db, owner_id, goal, now=_now()):
@@ -468,7 +543,8 @@ class VisibilityService:
                     skipped = await self.db[UPDATES].find_one(
                         {"owner_id": owner, "fingerprint": fingerprint,
                          "home_skipped": {"$in": ["situation_no_longer_current", "memory_sources_changed",
-                                                  "opportunity_no_longer_current"]}}, {"_id": 1},
+                                                  "opportunity_no_longer_current",
+                                                  "preparation_no_longer_current"]}}, {"_id": 1},
                     )
                     results["stale" if skipped else "deferred"] += 1
             except Exception as exc:

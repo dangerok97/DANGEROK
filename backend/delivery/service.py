@@ -390,11 +390,16 @@ class DeliveryService:
         from agent.repository import AgentRepository
         from agent.service import AgentService, _aware_wait_until
 
-        need = await NeedService(self.db).get(user_id, need_id)
+        try:
+            need = await NeedService(self.db).get(user_id, need_id)
+            goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id) if need else None
+        except Exception as exc:
+            raise MemorySourcesUnavailable("agent_need_check_unavailable") from exc
         if need is None or not need.is_open:
             return None
-        goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id)
         if goal is None:
+            return None
+        if not await self._prepared_need_current(user_id, need):
             return None
         if not await memory_result_current(self.db, user_id, goal, need.memory_source_snapshot):
             return None
@@ -465,7 +470,29 @@ class DeliveryService:
             expiry = _aware_wait_until(outcome["valid_until"])
             original = _aware_wait_until(subject.get("valid_until"))
             subject["valid_until"] = min(expiry, original).isoformat() if original else expiry.isoformat()
+        # The review or preparation can change during source/evidence reads.
+        # This is also the final awaited source check before an agent send.
+        if not await self._prepared_need_current(user_id, need):
+            return None
         return DeliverySubject.model_validate(subject)
+
+    async def _prepared_need_current(self, user_id, need) -> bool:
+        from agent.prepared_review import PreparedReviewUnavailable
+        from agent.visibility import prepared_communication_current
+
+        question = bool(
+            need.requires_response and (
+                (need.kind == "needs_information" and need.response_kind == "information")
+                or (need.kind == "needs_authority" and need.response_kind == "authority")
+            )
+        )
+        try:
+            return await prepared_communication_current(
+                self.db, user_id, need.goal_id, need.prepared_result_ref,
+                question=question, response_kind=need.response_kind,
+            )
+        except PreparedReviewUnavailable as exc:
+            raise MemorySourcesUnavailable("prepared_result_check_unavailable") from exc
 
     async def _completed_result_current(self, user_id: str, goal, need) -> bool:
         """A final result survives closure; an old update cannot inherit it."""
@@ -1134,17 +1161,23 @@ class DeliveryService:
         bindings = {ref for ref in refs if ref.startswith((
             "situation:", "situation_outcome:", "situation_revision:",
         ))}
-        rows = await self.db.agent_goals.find({
-            "owner_id": user_id, "id": {"$in": list(goal_ids)},
-        }, {"_id": 0}).to_list(2) if goal_ids else []
+        try:
+            rows = await self.db.agent_goals.find({
+                "owner_id": user_id, "id": {"$in": list(goal_ids)},
+            }, {"_id": 0}).to_list(2) if goal_ids else []
+        except Exception:
+            return None
         if not rows:
-            return None if bindings or latest.cognitive_provenance.get("goal") else latest.for_home()
+            return None if (bindings or latest.cognitive_provenance.get("goal")
+                            or latest.cognitive_provenance.get("prepared_result_ref")) else latest.for_home()
         if len(rows) != 1:
             return None
 
         from agent.models import AutonomousGoal
         from agent.source_refresh import changed
         from situations.outcomes import current_outcome, moment, situation_id
+        from agent.prepared_review import PreparedReviewUnavailable
+        from agent.visibility import prepared_communication_current
 
         goal = AutonomousGoal.model_validate(rows[0])
         try:
@@ -1168,7 +1201,15 @@ class DeliveryService:
             # Memory checks: the person may have dismissed it during those.
             if not await opportunity_result_current(self.db, user_id, goal, now=now):
                 return None
-        except MemorySourcesUnavailable:
+            if not await prepared_communication_current(
+                self.db, user_id, goal.id,
+                latest.cognitive_provenance.get("prepared_result_ref"),
+                question=latest.cognitive_provenance.get("visibility") in (
+                    "ask_user", "requires_attention",
+                ),
+            ):
+                return None
+        except (MemorySourcesUnavailable, PreparedReviewUnavailable):
             return None
         if goal.source_kind not in ("situation_initial_review", "situation_followup"):
             return latest.for_home() if goal.status not in ("cancelled", "abandoned") else None

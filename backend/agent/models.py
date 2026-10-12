@@ -655,6 +655,27 @@ def how_we_say_the_source(kind: str, created_at: str = "") -> str:
     return f"{da} del {quando}" if quando else da
 
 
+class PreparedResultReview(BaseModel):
+    """An explicit incomplete verdict about one exact internal preparation.
+
+    Its absence is not a positive verification. Identity and digest are
+    code-owned binding fields and never part of the public diagnosis.
+    """
+
+    prepared_result_id: str = Field(default="", max_length=64)
+    artifact_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    outcome: Literal["partial", "uncertain"]
+    what_is_missing: str = Field(default="", max_length=300)
+    reasoning: str = Field(default="", max_length=400)
+    reviewed_at: str = Field(default_factory=now_iso)
+
+    @model_validator(mode="after")
+    def _aware_review_time(self):
+        if datetime.fromisoformat(self.reviewed_at.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("prepared review time must have a timezone")
+        return self
+
+
 class AutonomousGoal(BaseModel):
     """
     An outcome ORA is trying to bring about.
@@ -721,6 +742,10 @@ class AutonomousGoal(BaseModel):
     source_review_pending: str = Field(default="", exclude=True)
     prepared_text: str = Field(default="", max_length=4000)
     prepared_sources: List[str] = Field(default_factory=list, max_length=12)
+    # Minted only when a preparation is actually saved, never while reading a
+    # legacy goal. Even an identical new draft is a new review target.
+    prepared_result_id: str = Field(default="", max_length=64)
+    prepared_review: Optional[PreparedResultReview] = None
     situation_outcome: Optional[SituationOutcomeAssessment] = None
 
     def touch(self) -> None:
@@ -746,6 +771,8 @@ class AutonomousGoal(BaseModel):
         anche `source` (da dove nasce, in italiano) e `needs_you` (che cosa
         serve alla persona adesso, o niente).
         """
+        from agent.prepared_review import current_prepared_review
+
         cosa, quale = self._as_definite_as_i_really_am(self.objective)
         return {
             "id": self.id,
@@ -757,6 +784,7 @@ class AutonomousGoal(BaseModel):
             "planning_unavailable": self.planning_unavailable,
             "source": self.where_it_came_from(),
             "prepared_text": self.prepared_text or None,
+            "prepared_review": current_prepared_review(self),
             "needs_you": self.what_it_needs_from_you(),
             #     E SE NON SO QUALE, LO DICO.
             "unclear": (
@@ -1371,6 +1399,9 @@ class VisibilityDecision(BaseModel):
     # Handles back to what actually happened. Never content.
     refs: List[str] = Field(default_factory=list, max_length=8)
     memory_source_snapshot: str = Field(default="", max_length=64)
+    # None denotes older, unbound records; "" explicitly means that this
+    # judgement concerned work with no prepared artifact yet.
+    prepared_result_ref: Optional[str] = Field(default=None, max_length=160)
     # What this update is *about*, so the same thing said twice is recognised
     # as the same thing rather than as news.
     fingerprint: str = Field(default="", max_length=64)
@@ -1460,6 +1491,8 @@ class CommunicationNeed(BaseModel):
     # Handles back to the work: goal, journal, evidence. Never content.
     source_refs: List[str] = Field(default_factory=list, max_length=8)
     memory_source_snapshot: str = Field(default="", max_length=64)
+    # Immutable identity and digest of the preparation judged worth saying.
+    prepared_result_ref: Optional[str] = Field(default=None, max_length=160)
     # Captured from the goal whose final visibility was judged. A delayed
     # intermediate update cannot borrow a later completion at delivery time.
     goal_completed_at: Optional[str] = Field(default=None, max_length=64)

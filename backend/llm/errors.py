@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+import math
+import re
 from typing import Any, Iterable, Mapping, Optional
 
 
@@ -95,8 +97,23 @@ def is_failoverable(error: BaseException) -> bool:
     return isinstance(error, LLMError) and error.failoverable
 
 
-def retry_after_seconds(error: BaseException, *, maximum: float = 300.0) -> Optional[float]:
-    """Read a numeric Retry-After without retaining headers or raw payloads."""
+def google_rpc_error_details(error: BaseException) -> Iterable[Mapping[str, Any]]:
+    """Read structured SDK error details, without retaining the provider body."""
+    payload = getattr(error, "details", None)
+    if not isinstance(payload, Mapping):
+        return
+    # google-genai preserves either the error object or its {"error": ...}
+    # envelope in .details; the SDK itself unwraps singleton-list responses.
+    body = payload.get("error", payload)
+    if not isinstance(body, Mapping):
+        return
+    details = body.get("details")
+    if isinstance(details, list):
+        yield from (item for item in details if isinstance(item, Mapping))
+
+
+def _header_retry_after_seconds(error: BaseException, *, maximum: float) -> Optional[float]:
+    """Preserve numeric and HTTP-date Retry-After handling for every adapter."""
 
     response = getattr(error, "response", None)
     headers = getattr(response, "headers", None) or getattr(error, "headers", None)
@@ -115,3 +132,21 @@ def retry_after_seconds(error: BaseException, *, maximum: float = 300.0) -> Opti
             return min(maximum, max(0.0, delay))
         except (TypeError, ValueError, OverflowError):
             return None
+
+
+def retry_after_seconds(error: BaseException, *, maximum: float = 300.0) -> Optional[float]:
+    """Honor the longest valid HTTP/RPC hint, bounded and without raw payloads."""
+    delay = _header_retry_after_seconds(error, maximum=maximum)
+    for detail in google_rpc_error_details(error):
+        if detail.get("@type") != "type.googleapis.com/google.rpc.RetryInfo":
+            continue
+        value = detail.get("retryDelay")
+        # Protobuf Duration's JSON form is a seconds string, at most nanoscale.
+        # Do not interpret untyped fields, text, negative or non-finite values.
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]{1,9})?s", value):
+            continue
+        seconds = float(value[:-1])
+        if math.isfinite(seconds):
+            bounded = min(maximum, seconds)
+            delay = bounded if delay is None else max(delay, bounded)
+    return delay

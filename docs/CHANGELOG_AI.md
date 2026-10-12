@@ -1,3 +1,25 @@
+## 12 ottobre 2026 — v162, giudizio del risultato e consegna della preparazione corrente
+
+- Review negativa tipizzata legata alla preparazione e conservata dopo reload.
+- Nuova identità per ogni bozza riuscita, anche a testo invariato; CAS contro
+  giudizi tardivi e clearance atomica quando la stessa bozza supera la verifica.
+- Riferimento immutabile in VisibilityDecision/CommunicationNeed, fingerprint
+  per artefatto e controlli su Home, Delivery e link di vecchie comunicazioni.
+- Domande valide preservate, compresi i costruttori diretti dei conflitti calendario.
+- Avviso esplicito nel dettaglio, con normalizzazione dei dati e test mobile.
+- Chiarita la semantica di lettura/preparazione/verifica e l'assenza di valore
+  probatorio delle proposte di Discovery.
+- Diagnostica osservativa dei fallback senza contenuti, credenziali o nuove call.
+- Compatibilità fake v55 e guard statico di visibilità corretti senza
+  eliminare le asserzioni sul lavoro, l'autorità o l'assenza di annunci da codice.
+- Gate d5 originale 4/9, letture pubbliche tecniche riuscite ma semantica fallita,
+  smoke del profilo Gemini 3.8 fallito: tutti conservati come esiti negativi.
+- Verifica congelata: **757 PASS, 1 SKIP, 43 moduli, 28.27 s**; CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Frontend 8/8 Node, 4/4 Chromium; native non attestato.
+
+La classificazione Gemini dei 429 usa QuotaFailure tipizzata: solo un periodo giornaliero esplicito in quotaId/quotaMetric attiva quota, con precedenza nelle violazioni miste. Gli altri 429 restano rate_limit. RetryInfo richiede il tipo RPC esatto e una durata JSON finita e non negativa; il massimo degli hint validi HTTP/RPC resta entro il cap di 300 secondi, senza cambiare la politica del Manager. Il nuovo modulo ha riprodotto 27 FAIL / 31 PASS prima della correzione e 58/58 PASS dopo, inclusi SDK reale con HTTP sintetico e recupero del Manager con orologio finto. Questi casi sono inclusi nell'aggregato, non si sommano.
+
+Il default alternativo passa da gemini-2.0-flash a gemini-3.6-flash, sostituto indicato nella [tabella ufficiale Gemini](https://ai.google.dev/gemini-api/docs/deprecations). Principale, override, priorità, timeout e budget rimangono invariati. La correzione di un endpoint ritirato non prova disponibilità o qualità sul progetto reale, e non viene attribuita retroattivamente ai fallback d5. Configurazione e fonti del protocollo sono nel [riferimento del Provider Manager](AI_PROVIDER_MANAGER.md).
+
 ## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
 
 - Conservato il checkpoint tecnico nel risveglio anche con giudizio assente

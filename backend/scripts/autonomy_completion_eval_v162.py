@@ -20,9 +20,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import json
 import logging
+import math
 import os
 from pathlib import Path
 import re
+import time
 from typing import Any
 from unittest.mock import patch
 
@@ -41,6 +43,11 @@ LLM_KEYS = ("GEMINI_API_KEY", "GEMINI2_API_KEY", "GEMINI_API_KEY_2", "OPENAI_API
 ALLOWED = frozenset(baseline.EXPECTED.values())
 MAX_MODEL_CALLS = 40
 MAX_MODEL_HTTP_REQUESTS = 80
+MAX_MODEL_FAILURES_REPORTED = 8
+MODEL_PROVIDER_NAMES = frozenset({"gemini", "gemini2", "groq", "mistral", "openai", "ollama", "emergent"})
+MODEL_FAILURE_KINDS = frozenset({"llm_error", "not_configured", "provider_unavailable", "quota",
+    "rate_limit", "timeout", "network", "authentication", "configuration", "model_unavailable",
+    "invalid_response", "internal", "cooldown"})
 CASE_TIMEOUT_SECONDS = 240
 MAX_DECISION_OBSERVATIONS = 12
 DECISION_TEXT_LIMIT = 400
@@ -80,6 +87,7 @@ def require(condition, code):
 @dataclass
 class Probe:
     model_calls: list[dict[str, Any]] = field(default_factory=list)
+    model_call_outcomes: list[dict[str, Any]] = field(default_factory=list)
     model_attempts: int = 0
     model_http_requests: int = 0
     structured_decisions: list[dict[str, Any]] = field(default_factory=list)
@@ -98,6 +106,9 @@ class Probe:
 def model_observations(probe):
     return {"real_model_executed": bool(probe.model_calls),
             "model_calls": probe.model_calls,
+            "model_call_outcomes": probe.model_call_outcomes,
+            "model_call_outcomes_scope": "manager_reported_final_chain",
+            "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
             "model_attempts": probe.model_attempts,
             "model_http_requests": probe.model_http_requests,
             "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
@@ -111,6 +122,43 @@ def model_observations(probe):
             "executed_capabilities_omitted": max(0, len(probe.steps) - MAX_DECISION_OBSERVATIONS),
             # Failed calls may still be billable without returning usage.
             "token_usage_scope": "successful_responses_with_provider_usage_only"}
+
+
+def _model_call_outcome(sequence, result, error, elapsed_ms):
+    """Only fixed metadata from this response/exception, never error messages.
+
+    Successful usage does not include cooldown skips or earlier pacing chains.
+    The manager's process-level last-attempt list can belong to an older call
+    and must not be borrowed to fill those observational gaps.
+    """
+    def allowed(value, choices):
+        return value if type(value) is str and value in choices else "unknown"
+
+    usage = getattr(result, "usage", None)
+    failures = (getattr(error, "attempts", ()) if error is not None
+                else usage.get("failover_errors", ()) if isinstance(usage, dict) else ())
+    fallbacks = []
+    if isinstance(failures, (list, tuple)):
+        for item in failures[:MAX_MODEL_FAILURES_REPORTED]:
+            if error is None and type(item) is str:
+                parts = item.split(":")
+                if len(parts) != 2:
+                    continue
+                provider, kind = parts
+            elif error is not None and isinstance(item, dict):
+                provider, kind = item.get("provider"), item.get("failure_kind")
+            else:
+                continue
+            fallbacks.append({"provider": allowed(provider, MODEL_PROVIDER_NAMES),
+                              "failure_kind": allowed(kind, MODEL_FAILURE_KINDS)})
+    return {
+        "sequence": sequence,
+        "outcome": "cancelled" if isinstance(error, asyncio.CancelledError) else "failed" if error else "succeeded",
+        "provider": allowed(getattr(result, "provider", None), MODEL_PROVIDER_NAMES),
+        "failure_kind": allowed(getattr(error, "kind", None), MODEL_FAILURE_KINDS) if error else None,
+        "elapsed_ms": round(elapsed_ms, 1) if math.isfinite(elapsed_ms) and elapsed_ms >= 0 else None,
+        "fallbacks": fallbacks,
+    }
 
 
 def _response_kind(value):
@@ -498,6 +546,8 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
             boundary.blocked.append("MODEL_CALL_BOUND_EXCEEDED")
             raise EvaluationFailure("MODEL_CALL_BOUND_EXCEEDED")
         http_before = probe.model_http_requests
+        sequence, started = probe.model_attempts, time.perf_counter()
+        result, error = None, None
         token = boundary.scope.set("model")
         try:
             result = await original_chat(self, *args, **kwargs)
@@ -513,8 +563,15 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
                 boundary.blocked.append("MODEL_HTTP_NOT_OBSERVED")
                 raise EvaluationFailure("MODEL_HTTP_NOT_OBSERVED")
             return result
+        except BaseException as exc:
+            error = exc
+            raise
         finally:
             boundary.scope.reset(token)
+            if len(probe.model_call_outcomes) < MAX_MODEL_CALLS:
+                probe.model_call_outcomes.append(_model_call_outcome(
+                    sequence, result, error, (time.perf_counter() - started) * 1000,
+                ))
 
     async def observed_decision(stage, call, *args, **kwargs):
         input_key = ("situation" if stage == "decide_goal" else "snapshot"
@@ -1232,6 +1289,8 @@ async def main(*, mode="scripted", scenario="all", output=""):
                    "started_at": started_at, "finished_at": datetime.now(timezone.utc).isoformat(),
                    "limits": {"cases": len(selected), "case_timeout_seconds": CASE_TIMEOUT_SECONDS,
                               "model_calls_per_case": MAX_MODEL_CALLS,
+                              "model_call_outcomes_per_case": MAX_MODEL_CALLS,
+                              "model_failures_reported_per_call": MAX_MODEL_FAILURES_REPORTED,
                               "model_http_requests_per_case": MAX_MODEL_HTTP_REQUESTS,
                               "structured_decisions_per_case": MAX_DECISION_OBSERVATIONS,
                               "admission_observations_per_case": MAX_DIAGNOSTIC_ADMISSIONS,

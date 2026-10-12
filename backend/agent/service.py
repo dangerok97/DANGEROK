@@ -580,6 +580,11 @@ class AgentService:
                 goal.status, goal.next_run_at = "waiting", None
                 goal.requires_user_input = True
                 await self.repo.save_goal(goal)
+                import hashlib
+                from agent.needs import fingerprint as need_fingerprint
+                from agent.prepared_review import prepared_result_ref
+                prepared_reference = prepared_result_ref(goal)
+                question_fingerprint = need_fingerprint(goal.id, "needs_information", question)
                 need = await self.needs.raise_need(CommunicationNeed(
                     owner_id=owner_id,
                     goal_id=goal.id,
@@ -590,6 +595,10 @@ class AgentService:
                         "prossimo passo; serve la tua scelta prima di cambiare qualcosa."
                     ),
                     source_refs=list(dict.fromkeys(goal.source_refs))[:8],
+                    prepared_result_ref=prepared_reference,
+                    fingerprint=hashlib.sha256(
+                        f"{question_fingerprint}|{prepared_reference}".encode("utf-8")
+                    ).hexdigest(),
                     requires_response=True,
                     response_kind="information",
                     work_already_done=[
@@ -1837,14 +1846,16 @@ class AgentService:
 
         budget.cognitive_calls += 1
         run.model_calls = budget.cognitive_calls
+        from agent.prepared_review import capture_prepared_result
+        prepared_snapshot = capture_prepared_result(goal)
         answer = await verify_goal(
             await self._reasoning_goal(owner_id, goal),
             evidence={
-                "what_was_found": for_verification(evidence, required_refs=goal.prepared_sources),
+                "what_was_found": for_verification(evidence, required_refs=list(prepared_snapshot.sources) if prepared_snapshot else []),
                 "steps": [s.for_ai() for s in plan.steps],
                 "what_was_prepared": intents,
-                "prepared_result": goal.prepared_text or None,
-                "prepared_source_refs": list(goal.prepared_sources),
+                "prepared_result": prepared_snapshot.text if prepared_snapshot else None,
+                "prepared_source_refs": list(prepared_snapshot.sources) if prepared_snapshot else [],
                 "local_clock": await _user_clock_context(self.db, owner_id),
                 # What services said back, and the warning that goes with it.
                 "what_the_services_said": [
@@ -1869,6 +1880,25 @@ class AgentService:
             what_is_missing=str(answer.get("what_is_missing") or "")[:300],
             revisit_in_hours=answer.get("revisit_in_hours"),
         )
+        if (verification.outcome in ("partially_achieved", "uncertain")
+                and prepared_snapshot is not None and not intents and not receipts):
+            from agent.prepared_review import (
+                current_prepared_result, persist_prepared_review, PreparedReviewUnavailable,
+            )
+            if not await persist_prepared_review(
+                self.db, owner_id, goal, prepared_snapshot, verification,
+            ):
+                # The verifier saw a prior artifact. Do not attach its critique
+                # or replan against it, and do not let advance save that older
+                # in-memory draft over a newer preparation or user control.
+                current = await current_prepared_result(self.db, owner_id, goal.id)
+                if current is None:
+                    raise PreparedReviewUnavailable("prepared_goal_missing")
+                for field in type(current.goal).model_fields:
+                    setattr(goal, field, getattr(current.goal, field))
+                run.stopped_because = "prepared_result_changed"
+                return {"ok": True, "state": "in_progress" if goal.is_open else goal.status,
+                        "goal": goal.for_human()}
         await self.repo.journal(
             owner_id, goal.id, kind="verified", note=verification.reasoning,
             detail={
@@ -1913,11 +1943,14 @@ class AgentService:
                     "quello che è stato fatto non prova che sia davvero risolto",
                 )
 
-            await self.executor.mark_verified(owner_id, goal.id)
+            internal_preparation = prepared_snapshot if not intents and not receipts else None
+            if internal_preparation is None:
+                await self.executor.mark_verified(owner_id, goal.id)
             result = await self._close(
-                owner_id, goal, plan, run, "completed", verification.reasoning
+                owner_id, goal, plan, run, "completed", verification.reasoning,
+                **({"prepared_snapshot": internal_preparation} if internal_preparation else {}),
             )
-            if result.get("state") == "completed":
+            if result.get("state") == "completed" and not result.get("verification_superseded"):
                 await self._observe_life_change(owner_id, goal, verification, evidence)
             return result
 
@@ -2327,7 +2360,8 @@ class AgentService:
         return {"ok": False, "state": "failed", "reason": note}
 
     async def _close(
-        self, owner_id, goal, plan: ActionPlan, run: AgentRun, status: str, note: str
+        self, owner_id, goal, plan: ActionPlan, run: AgentRun, status: str, note: str,
+        *, prepared_snapshot=None,
     ) -> Dict[str, Any]:
         from agent.source_refresh import changed, refresh
         if await changed(self.db, goal):
@@ -2341,10 +2375,25 @@ class AgentService:
         goal.status = status  # type: ignore[assignment]
         goal.rationale = note[:300]
         goal.completed_at = _now().isoformat()
-        plan.status = "completed" if status == "completed" else "cancelled"
-        await self.repo.save_goal(goal)
+        if status == "completed" and prepared_snapshot is not None:
+            from agent.prepared_review import (
+                complete_prepared_result, current_prepared_result, PreparedReviewUnavailable,
+            )
+            goal.touch()
+            if not await complete_prepared_result(self.db, owner_id, goal, prepared_snapshot):
+                current = await current_prepared_result(self.db, owner_id, goal.id)
+                if current is None:
+                    raise PreparedReviewUnavailable("prepared_goal_missing")
+                for field in type(current.goal).model_fields:
+                    setattr(goal, field, getattr(current.goal, field))
+                run.stopped_because = "prepared_result_changed"
+                return {"ok": True, "state": "in_progress" if goal.is_open else goal.status,
+                        "goal": goal.for_human(), "verification_superseded": True}
+        else:
+            await self.repo.save_goal(goal)
         if goal.status != status:
             return {"ok": True, "state": goal.status}
+        plan.status = "completed" if status == "completed" else "cancelled"
         if status == "completed":
             # Verification can establish the outcome before every planned
             # step is needed. Retire only unfinished work after the goal's
@@ -2478,12 +2527,29 @@ class AgentService:
         one existed, somebody would write `if requires_attention: push()`
         underneath it.
         """
+        if goal.owner_id != owner_id or decision.goal_id != goal.id:
+            return None
         kind = _need_kind(decision.outcome, goal)
         if kind is None:
             return None
         from agent.memory_fence import memory_result_current
         memory_snapshot = getattr(decision, "memory_source_snapshot", "")
         if not await memory_result_current(self.db, owner_id, goal, memory_snapshot):
+            return None
+        from agent.visibility import prepared_communication_current
+        prepared_reference = getattr(decision, "prepared_result_ref", None)
+        if prepared_reference is None and "_prepared_result_ref" in what_happened:
+            # This reference was captured with the facts judged by Visibility.
+            # Never bind a delayed judgement to a preparation loaded later.
+            prepared_reference = what_happened["_prepared_result_ref"]
+        response_kind = (
+            "authority" if kind == "needs_authority"
+            else "information" if kind == "needs_information" else None
+        )
+        if not await prepared_communication_current(
+            self.db, owner_id, goal.id, prepared_reference,
+            question=response_kind is not None, response_kind=response_kind,
+        ):
             return None
 
         outcome = None
@@ -2518,6 +2584,15 @@ class AgentService:
             fingerprint = hashlib.sha256(
                 f"completed:{owner_id}:{goal.id}:{completed_at}".encode("utf-8")
             ).hexdigest()
+        if prepared_reference:
+            import hashlib
+            from agent.needs import fingerprint as need_fingerprint
+            base = fingerprint or need_fingerprint(
+                goal.id, kind, _what_is_missing(goal) or decision.headline,
+            )
+            fingerprint = hashlib.sha256(
+                f"{base}|{prepared_reference}".encode("utf-8")
+            ).hexdigest()
 
         need = CommunicationNeed(
             owner_id=owner_id,
@@ -2527,14 +2602,11 @@ class AgentService:
             reason=decision.reasoning[:400] or decision.headline[:400],
             source_refs=list(decision.refs)[:8],
             memory_source_snapshot=memory_snapshot,
+            prepared_result_ref=prepared_reference,
             goal_completed_at=completed_at,
             visibility=decision.outcome,
             requires_response=kind in ("needs_information", "needs_authority"),
-            response_kind=(
-                "authority" if kind == "needs_authority"
-                else "information" if kind == "needs_information"
-                else None
-            ),
+            response_kind=response_kind,
             work_already_done=[
                 str(row.get("what") or "")[:200]
                 for row in (what_happened.get("what_ora_did_this_time") or [])
@@ -2544,6 +2616,11 @@ class AgentService:
             valid_until=outcome["valid_until"] if outcome else goal.valid_until,
             fingerprint=fingerprint,
         )
+        if not await prepared_communication_current(
+            self.db, owner_id, goal.id, prepared_reference,
+            question=need.requires_response, response_kind=need.response_kind,
+        ):
+            return None
         raised = await self.needs.raise_need(need)
         await self.repo.journal(
             owner_id, goal.id, kind="need_raised", note=raised.summary,
@@ -2565,6 +2642,7 @@ class AgentService:
         here weighs any of it — weighing is what is being bought.
         """
         from agent.memory_fence import inspect_memory_sources
+        from agent.prepared_review import prepared_result_ref, current_prepared_review
         memory = await inspect_memory_sources(self.db, owner_id, goal)
         if memory.status != "current":
             return {"refs": []}
@@ -2599,6 +2677,8 @@ class AgentService:
             # Stripped before the model call; the outbox must bind the same
             # Memory versions as these already-assembled facts.
             "_memory_source_snapshot": memory.snapshot,
+            "_prepared_result_ref": prepared_result_ref(goal),
+            "prepared_review": current_prepared_review(goal),
             "situation_outcome": outcome,
             "what_ora_did_this_time": did[-8:],
             "what_it_found": found,
@@ -2962,6 +3042,13 @@ class AgentService:
             plan.status = "waiting"
             await self.repo.save_goal(goal)
             await self.repo.save_plan(plan)
+            import hashlib
+            from agent.needs import fingerprint as need_fingerprint
+            from agent.prepared_review import prepared_result_ref
+            prepared_reference = prepared_result_ref(goal)
+            question_fingerprint = need_fingerprint(
+                goal_id, "needs_information", continuation.asks or continuation.intent,
+            )
             raised = await self.needs.raise_need(CommunicationNeed(
                 owner_id=owner_id,
                 goal_id=goal_id,
@@ -2969,6 +3056,10 @@ class AgentService:
                 summary=continuation.asks or continuation.intent,
                 reason="Serve un dettaglio in più prima di cambiare il calendario.",
                 source_refs=list(dict.fromkeys(goal.source_refs))[:8],
+                prepared_result_ref=prepared_reference,
+                fingerprint=hashlib.sha256(
+                    f"{question_fingerprint}|{prepared_reference}".encode("utf-8")
+                ).hexdigest(),
                 requires_response=True,
                 response_kind="information",
                 what_is_missing=continuation.asks or continuation.intent,
