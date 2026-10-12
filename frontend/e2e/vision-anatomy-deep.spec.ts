@@ -65,6 +65,12 @@ test('3D isolation, keyboard rotation and compact controls work on narrow screen
  await expect.poll(async()=>volume.getAttribute('data-yaw')).not.toBe(before);
  await page.getByTestId('vision-anatomy-isolate').click();
  await expect.poll(async()=>Number(await volume.getAttribute('data-face-count'))).toBeGreaterThan(1);
+ const orbit=await page.locator('.vx-anatomy-volume-controls').boundingBox();
+ const zoomControls=await page.locator('.vx-anatomy-zoom').boundingBox();
+ if(page.viewportSize()!.width<=650){
+  expect(orbit).not.toBeNull();expect(zoomControls).not.toBeNull();
+  expect(orbit!.y+orbit!.height).toBeLessThanOrEqual(zoomControls!.y);
+ }
  const close=await page.getByTestId('vision-anatomy-close').boundingBox();
  const viewport=page.viewportSize()!;
  expect(close).not.toBeNull();
