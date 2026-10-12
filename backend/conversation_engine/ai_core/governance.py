@@ -94,6 +94,13 @@ def validate_decision(
 
     question = data.get("question")
     message = data.get("message_to_user")
+    # These fields are prose. Coercing an object/list to str would turn a
+    # rejected declaration into user-visible serialized data, bypassing the
+    # existing malformed-response recovery before any side effect runs.
+    copy_errors = [f"{field}_must_be_string" for field in ("message_to_user", "question")
+                   if data.get(field) is not None and not isinstance(data[field], str)]
+    if copy_errors:
+        return GovernanceResult(False, errors=errors + copy_errors)
     tool_call_raw = data.get("tool_call")
     comparison_need = None
     raw_comparison = data.get("comparison_need")

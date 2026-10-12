@@ -1,3 +1,21 @@
+# 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
+
+**Recupero dell’operazione dovuta e fedeltà delle fonti, con i limiti esistenti.** La base `6e619cf` è integrata preservando le modifiche concorrenti; la configurazione delle prove browser combina i due insiemi. Le sole pulizie dei file in ingresso riguardano sette righe di spaziatura.
+
+- La governance rifiuta `message_to_user` e `question` di tipo errato prima della conversione in testo e del dispatch. Il ciclo espone la diagnosi al modello nel retry già previsto; una sola richiesta di correzione può usare un passaggio residuo prima del fallback finale. La diagnosi non avvia una nuova lettura né costruisce la risposta al posto del modello.
+- La creazione di una Situation richiede un `summary` non vuoto; il feedback su `SUMMARY_REQUIRED` consente la correzione senza riempimento automatico. La pianificazione usa l’identità e la revisione della Situation confermata, conservando i controlli su proprietario, fonte attiva e luogo.
+- `ActionPlan.prepared_review_reconsidered` lega il riesame all’esatto artefatto e alla sua verifica negativa. Dopo un esaurimento del budget cognitivo, il risveglio esistente riprende prima il riesame ancora dovuto; non si limita a verificare nuovamente la stessa bozza. L’acknowledgement richiede una decisione utilizzabile e controlli della fonte e dell’artefatto prima e dopo il modello.
+- Nell’audit della preparazione, `premises` identifica ciò che i passaggi stabiliscono; `inference_or_gap` e `compatible_counterexample` separano derivazione o premessa mancante e controesempio a dati di partenza fissi. Il protocollo nativo ne verifica presenza e tipo; il formato precedente con citazioni letterali resta supportato esplicitamente. I valori non modificano il verdetto `verified` e non diventano Evidence. Restano due chiamate, input massimo 9.000 caratteri, bozza 4.000 e controlli delle citazioni, del proprietario e delle revisioni.
+- La diagnostica pubblica conserva il tipo e il testo parsato prima della normalizzazione, con limiti e redazione. Una richiesta di correzione resta distinta da una riscrittura effettiva.
+
+Il planner riceve anche `context.executed_evidence`: un inventario circoscritto delle Evidence già registrate per lo stesso proprietario e goal. Esamina al massimo 40 record selezionati e include fino a quattro righe intere di metadati entro 2.400 caratteri, separando i record generati e dichiarando le omissioni. I conteggi non misurano letture uniche; un errore DB non diventa una lettura vuota riuscita. L’inventario conserva qualifiche, cursori e versioni, ma non sceglie né inserisce passi nel piano.
+
+Il contesto Memory troppo grande resta un limite aperto: la ricostruzione equivalente misura 14.158 caratteri e ne richiede ancora 9.562 con il reducer corrente; il prototipo reversibile arriva a 9.391. Nessuna patch o riduzione del materiale è dichiarata. Il payload storico completo da 20.338 caratteri non è disponibile.
+
+**Verifica locale:** Codice locale `a11b2e36`: **1.831 PASS / 1 SKIP**, 149 moduli e 151 selezioni in 70,52 s. **CLI scripted 9/9**, con zero tentativi del modello, richieste HTTP al modello ed effetti esterni. I gruppi mirati e le review sono registrati separatamente, senza sommarne i conteggi. [Indice delle evidenze e delle verifiche locali](evidence/autonomy_v162_recovery_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
 
 La ricostruzione del caso Tarquinia distingue il contratto di produzione dal
@@ -4991,3 +5009,9 @@ Riferimenti API: https://www.w3.org/TR/image-capture/ e
 https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
 Lo zoom qui è digitale, non un comando hardware o zoom ottico. Le sorgenti
 generali per i seed sono elencate nel modulo; nessun CAD o immagine è copiato.
+
+
+
+## WhatsApp Cloud API transport (2026-10-12)
+
+backend/whatsapp/ is an optional signed webhook adapter, durable encrypted Mongo inbox, account phone pairing, and async sender worker. The provider-signed phone maps to an authenticated ORA user only after a short-lived pairing code. All cognition routes to conversation_engine.ai_core.orchestrator.AICoreOrchestrator, sharing the normal account's life graph and memory. Webhook delivery is acknowledged after persistence. No WhatsApp-specific LLM or permissions bypass is introduced. See docs/WHATSAPP_CLOUD_API_V1.md.

@@ -9,8 +9,9 @@ import re
 import unicodedata
 from vision_catalog_extended import extended_recipes
 from vision_catalog_extended.more_everyday import recipes as newest_everyday_recipes
+from vision_catalog_extended.new160 import recipes as newly_added_recipes
 
-PACK_VERSION = "common-126-v1"
+PACK_VERSION = "common-160-v1"
 LIMIT = ("Schema di famiglia: forme, proporzioni e disposizione indicative. Mostra gruppi "
          "principali, anche saldati o incollati nell'oggetto reale; non certifica il modello "
          "fotografato e non è una guida allo smontaggio.")
@@ -209,7 +210,7 @@ def normalize_key(value):
 
 def all_recipes():
     """Original twenty recipes plus the additive fifty-family pack."""
-    return common_recipes() + extended_recipes(recipe, p) + newest_everyday_recipes(recipe, p)
+    return common_recipes() + extended_recipes(recipe, p) + newest_everyday_recipes(recipe, p) + newly_added_recipes(recipe, p)
 
 
 def metadata():

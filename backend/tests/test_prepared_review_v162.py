@@ -293,6 +293,14 @@ async def test_late_achieved_cannot_clear_new_drafts_review_or_close_it():
     await review_current(db, goal)
     old_snapshot = capture_prepared_result(goal)
     service = AgentService(db)
+    # The current criticism has already been reconsidered: the model chose
+    # to keep this route and verify again. A still-owed review resumes that
+    # judgement first, rather than entering the verifier in this race test.
+    with patch.object(reasoning, "reconsider", AsyncMock(return_value={"decision": "continue"})):
+        await service._reconsider_prepared_result(
+            OWNER, goal, plan, AgentRun(owner_id=OWNER, goal_id=goal.id),
+            AgentBudget(), language="it",
+        )
     latest = None
 
     async def verifier(_goal, *, evidence, language):

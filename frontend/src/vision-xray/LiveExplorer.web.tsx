@@ -11,6 +11,7 @@ import {arrivalAt,currentBox,originInView} from './arrival';
 import type {Box} from './scene';
 import {CameraTorch, type TorchState, TORCH_UNAVAILABLE, cameraCrop, sameCrop, drawCameraCrop, clampCameraZoom} from './cameraControls';
 import {filterCatalog} from './catalogSearch';
+import {AnatomyExplorer} from './AnatomyExplorer.web';
 
 type Mode = 'idle' | 'opening' | 'live' | 'photo' | 'catalog';
 const sleep = (ms:number) => new Promise<void>(resolve=>setTimeout(resolve,ms));
@@ -23,6 +24,8 @@ function difference(a:GrayFrame|null,b:GrayFrame|null){
 export default function LiveExplorer(){
   const router=useRouter();
   const [mode,setMode]=useState<Mode>('idle');
+  const [anatomyActive,setAnatomyActive]=useState(false);
+  const anatomyActiveRef=useRef(false);
   const [stage,setStage]=useState('Inquadra. Esplora. Capisci.');
   const [error,setError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
@@ -102,7 +105,8 @@ export default function LiveExplorer(){
     photoObjectURL.current=null;photo.current=null;modeRef.current='idle';
     busyRef.current=false;nextScan.current=Infinity;scene.current=null;heldResult.current=null;scanReference.current=null;
     resetView();objectHintRef.current='';
-    if(alive.current){setCanHint(false);setObjectHint('');setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
+    anatomyActiveRef.current=false;
+    if(alive.current){setAnatomyActive(false);setCanHint(false);setObjectHint('');setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
   },[resetView]);
   const apply=useCallback((value:CatalogResult,origin?:{box:Box;sw:number;sh:number}|null)=>{
     if(!value.manifest||!value.version_id)return;
@@ -133,7 +137,7 @@ export default function LiveExplorer(){
   },[]);
 
   const captureScan=useCallback(async(hintOverride?:string)=>{
-    if(busyRef.current||scene.current||!['live','photo'].includes(modeRef.current))return;
+    if(busyRef.current||scene.current||anatomyActiveRef.current||!['live','photo'].includes(modeRef.current))return;
     const source=modeRef.current==='live'?video.current:photo.current;if(!source)return;
     const rawWidth=source instanceof HTMLVideoElement?source.videoWidth:source.naturalWidth;
     const rawHeight=source instanceof HTMLVideoElement?source.videoHeight:source.naturalHeight;if(!rawWidth||!rawHeight)return;
@@ -154,6 +158,10 @@ export default function LiveExplorer(){
     try{
       let value=await catalogApi.scan(dataURI,String(ticket)+'-'+Date.now(),controller.signal,hintOverride??objectHintRef.current);
       const identification=value.identification;
+      if(value.status==='anatomy'){
+        if(epoch.current===ticket&&alive.current) activateAtlas();
+        return;
+      }
       for(let attempt=0;value.status==='building'&&attempt<12;attempt++){
         if(epoch.current!==ticket||controller.signal.aborted)return;
         setStage('Un nuovo schema è in preparazione…');await sleep(4000);
@@ -207,11 +215,31 @@ export default function LiveExplorer(){
       stop();setError(e?.name==='NotAllowedError'?'Permesso negato. Abilita la fotocamera nelle impostazioni del sito.':String(e?.message||'Fotocamera non disponibile.'));
     }
   },[stop]);
+  const activateAtlas=()=>{
+    epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
+    anatomyActiveRef.current=true;setAnatomyActive(true);scene.current=null;
+    heldResult.current=null;scanReference.current=null;resetView();setResult(null);
+    setBusy(false);setError(null);setCanHint(false);setLibraryOpen(false);setInfoOpen(false);
+    setStage('Atlante anatomico didattico · scegli un livello e tocca una parte.');
+    nextScan.current=Infinity;
+  };
+  const openAtlasFromNavigation=()=>{
+    if(modeRef.current==='idle'||modeRef.current==='opening'){
+      // The atlas is reached from the first screen. Open camera once, then
+      // enter the educational model without sending frames for AI analysis.
+      void openCamera().then(()=>{
+        if(modeRef.current==='live'&&alive.current)activateAtlas();
+      });
+      return;
+    }
+    activateAtlas();
+  };
   const newObject=()=>{
     if(modeRef.current!=='live'){void openCamera();return;}
     // Dismiss only the model. Keep the stream and invalidate every old AI reply.
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     scene.current=null;heldResult.current=null;scanReference.current=null;resetView();
+    anatomyActiveRef.current=false;setAnatomyActive(false);
     objectHintRef.current='';setObjectHint('');setCanHint(false);
     setResult(null);setBusy(false);setError(null);setInfoOpen(false);setLibraryOpen(false);setCameraPanel(false);
     setStage('Inquadra il nuovo oggetto: lo riconosco automaticamente.');nextScan.current=performance.now()+300;
@@ -257,7 +285,7 @@ export default function LiveExplorer(){
       const node=canvas.current;if(!node)return;const ctx=node.getContext('2d');if(!ctx)return;
       const w=node.clientWidth,h=node.clientHeight,dpr=Math.min(2,window.devicePixelRatio||1);if(!w||!h)return;
       const live=modeRef.current==='live',v=video.current;
-      if(live&&!scene.current&&v?.videoWidth&&pixels&&time-lastSample>120){
+      if(live&&!scene.current&&!anatomyActiveRef.current&&v?.videoWidth&&pixels&&time-lastSample>120){
         const rect=stageElement.current?.getBoundingClientRect();
         const crop=cameraCrop(v.videoWidth,v.videoHeight,rect?.width||w,rect?.height||h,cameraZoomRef.current);
         lastSample=time;small.width=160;small.height=Math.round(160*crop.height/crop.width);
@@ -291,7 +319,7 @@ export default function LiveExplorer(){
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
       node.dataset.arrival=arrival.current?(origin?'from-object':'centred'):'complete';
       node.dataset.tourStep=activeTour?String(activeTour.clock.index):'';node.dataset.tourPhase=activeTour?activeTour.clock.phase.toFixed(3):'';
-      node.dataset.sceneState=scene.current?'held':'acquiring';node.dataset.focusedPart=settings.focusTarget?selectedRef.current:'';
+      node.dataset.sceneState=anatomyActiveRef.current?'anatomy':scene.current?'held':'acquiring';node.dataset.focusedPart=settings.focusTarget?selectedRef.current:'';
       node.dataset.zoom=settings.zoom.toFixed(3);node.dataset.yaw=settings.yaw.toFixed(3);
       if(scene.current){
         scene.current.draw(ctx,w,h,{progress:settings.progress,yaw:settings.yaw,pitch:settings.pitch,selected:activeTour?'':selectedRef.current,focus:activeTour?0:settings.focus,zoom:settings.zoom,origin,tour:activeTour?{step:activeTour.definition.steps[activeTour.clock.index],phase:settings.reduceMotion?1:activeTour.clock.phase}:undefined});
@@ -355,15 +383,17 @@ export default function LiveExplorer(){
     <header className="vx-header">
       <button aria-label="Torna a ORA" className="vx-back" onClick={()=>{stop();if(router.canGoBack())router.back();else router.replace('/ora');}}>←</button>
       <div className="vx-brand">ORA <span>VISION</span><small className="vx-version">ESPLORA L’ESSENZIALE</small></div>
+      <button className="vx-anatomy-nav" type="button" data-testid="vision-anatomy-nav" aria-label="Apri Atlante anatomico" aria-pressed={anatomyActive} onClick={openAtlasFromNavigation}>Anatomia</button>
       <button className="vx-catalog" data-testid="vision-catalog-toggle" aria-expanded={libraryOpen} onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setInfoOpen(false);setLibraryOpen(v=>!v);}}>Catalogo <span>{entries.length}</span></button>
     </header>
     <section ref={stageElement} className="vx-stage" aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
       <video ref={video} autoPlay playsInline muted data-testid="vision-camera-video" aria-label="Video live della fotocamera" style={{opacity:live?1:0,transform:`scale(${cameraZoom})`,transformOrigin:"center"}} data-camera-zoom={cameraZoom.toFixed(2)}/>
       {photoURL&&<img src={photoURL} alt="Foto scelta per l’analisi" className="vx-photo"/>}
-      <div className={'vx-shade '+(result?'vx-shade-result':'')}/>
+      <div className={'vx-shade '+(result||anatomyActive?'vx-shade-result':'')}/>
       <canvas ref={canvas} className="vx-canvas" data-testid="vision-scene" tabIndex={result||live?0:-1} aria-label={result?"Scena 3D: trascina per ruotare, due dita per ingrandire i componenti.":"Fotocamera: due dita per lo zoom digitale. I comandi sono disponibili anche nei pulsanti."} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={e=>onUp(e,true)} onLostPointerCapture={e=>{gestures.current.up(e.pointerId,e.clientX,e.clientY,true);}} onKeyDown={keyboard}/>
+      {anatomyActive&&<AnatomyExplorer onClose={newObject}/>}
       <div className="vx-topline"><span className={'vx-tag '+(live?'vx-tag-live':'')}>{live?'● LIVE':mode==='photo'?'FOTO':mode==='catalog'?'CATALOGO':'VISION X-RAY'}</span><button className="vx-evidence" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}} aria-label="Informazioni sullo schema indicativo">Schema indicativo ⓘ</button></div>
-      {(mode==='idle'||mode==='opening')&&!result&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
+      {(mode==='idle'||mode==='opening')&&!result&&!anatomyActive&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" type="button" data-testid="vision-anatomy-welcome" onClick={openAtlasFromNavigation}>Esplora il corpo umano</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
       {result?.manifest&&<><button className="vx-close-model" data-testid="vision-close-model" aria-label="Chiudi la scomposizione e scansiona un altro oggetto" title="Scansiona un altro oggetto" onClick={newObject}>×</button><div className={'vx-object-title'+(focused&&!tourUI?' is-focus':'')}><strong>{focused&&!tourUI&&currentPart?currentPart.name:result.manifest.title}</strong><small>{tourUI?'PERCORSO DIDATTICO':focused?'COMPONENTE TIPICO':result.manifest.parts.length+' parti'}</small></div><div className="vx-zoom" aria-label="Zoom della scomposizione"><button aria-label="Riduci lo zoom" data-testid="vision-zoom-out" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom/1.25);}}>−</button><button aria-label="Aumenta lo zoom" data-testid="vision-zoom-in" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom*1.25);}}>+</button></div></>}
       {focused&&!tourUI&&<button className="vx-whole" data-testid="vision-overview" onClick={overview}>← Vista d’insieme</button>}
       {live&&<div className="vx-camera-tools" data-testid="vision-camera-controls">
@@ -398,13 +428,13 @@ export default function LiveExplorer(){
       </form>}
       <div className="vx-controls">
         {result?.manifest&&<><button onClick={toggleExpansion} data-testid="vision-toggle-explode">{expanded?'Ricomponi':'Scomponi'}</button><label className="vx-opening"><span>APERTURA</span><input aria-label="Apertura della scomposizione" data-testid="vision-explode-range" type="range" min="0" max="100" value={opening} onChange={e=>setExplosion(Number(e.target.value))}/></label></>}
-        {!result&&(live||mode==='photo')&&<><button onClick={()=>void captureScan()} disabled={busy} data-testid="vision-retry">{busy?'Analizzo…':'Riprova'}</button><button onClick={()=>picker.current?.click()} disabled={busy}>Scegli foto</button></>}
+        {!result&&!anatomyActive&&(live||mode==='photo')&&<><button type="button" data-testid="vision-open-anatomy" onClick={activateAtlas}>Atlante anatomico</button><button onClick={()=>void captureScan()} disabled={busy} data-testid="vision-retry">{busy?'Analizzo…':'Riprova'}</button><button onClick={()=>picker.current?.click()} disabled={busy}>Scegli foto</button></>}
         {!live&&result&&<button onClick={newObject} data-testid="vision-new-object">Fotocamera</button>}
         {(live||mode==='opening')&&<button className="vx-off" onClick={()=>{stop();setStage('Fotocamera spenta.');}} data-testid="vision-stop-camera">Spegni</button>}
       </div>
       <input ref={picker} type="file" accept="image/jpeg,image/png,image/webp" style={{display:'none'}} onChange={e=>void pickPhoto(e)}/>
       <p className="vx-catalog-note" data-testid="vision-catalog-policy">Schemi generici salvati automaticamente. <button className="vx-policy-info" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}}>Info</button></p>
-      {!result&&<p className="vx-privacy-start">Invio fotogrammi all’AI solo durante l’analisi. Non registro il video e non salvo le foto nel catalogo.</p>}
+      {!result&&!anatomyActive&&<p className="vx-privacy-start">Invio fotogrammi all’AI solo durante l’analisi. Non registro il video e non salvo le foto nel catalogo.</p>}
     </footer>
   </div>;
 }

@@ -3,7 +3,7 @@ import type { Box, Manifest } from './scene';
 
 export type CatalogEntry = { model_id: string; version_id: string; canonical_key: string; title: string; source_type: 'seed' | 'generated'; shared: boolean; category?: string; aliases?: string[] };
 export type CatalogResult = {
-  status: 'family' | 'building' | 'unknown';
+  status: 'family' | 'building' | 'unknown' | 'anatomy';
   error_code?: string; can_hint?: boolean;
   sources?: {title:string;url:string}[];
   model_id?: string; version_id?: string; manifest?: Manifest;

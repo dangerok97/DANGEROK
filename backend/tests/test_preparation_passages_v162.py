@@ -23,6 +23,11 @@ def selected_answer(h, payload):
     for check in answer["claim_review"]:
         check.pop("source_quotes")
         check["source_passage_ids"] = [p for ref in check["evidence_ids"] for p in by_evidence[ref]]
+        check["compatible_counterexample"] = ""
+    answer["claim_review"][0].update(
+        premises="A costa 42 su sei periodi; B costa 9 per periodo, secondo la nota.",
+        inference_or_gap="Sul medesimo orizzonte: 9 × 6 = 54; 54 − 42 = 12.")
+    answer["claim_review"][1]["inference_or_gap"] = "Condizione riportata per A, senza estenderla a B."
     return answer
 
 

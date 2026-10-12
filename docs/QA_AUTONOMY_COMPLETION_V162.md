@@ -1,3 +1,33 @@
+# 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
+
+**636 resta fallito come accettazione reale; le correzioni seguenti sono verificate separatamente.** Gli originali e la review semantica sono conservati senza modificare risposte o verdetti. Revisione esatta: `636c0f72b374bff95039ad2b3e017ed2974c77db`, tree `1c7653987a805f34d75269495b3d86c5b1b5e796`.
+
+| Prova su 636 | Risultato osservato | Limite |
+|---|---|---|
+| CI push | 2 workflow, 7/7 job PASS; v162 1.173 PASS, Vision 157 PASS, Mongo 6 PASS e scansione completa della storia | CI PR e Mobile non eseguite; nessun PASS trasferito da altri SHA |
+| Autonomia reale | 5/9 PASS automatici; 82 chiamate logiche, 96 HTTP al modello | Accettazione semantica complessiva rifiutata |
+| Tarquinia | `EXACTLY_ONE_NEW_SITUATION_REQUIRED`, 7 chiamate logiche, 14 HTTP modello, una lettura meteo reale | Nessuna nuova Situation valida; worker, monitoraggio, controllo futuro e ritiro `not_run` |
+| Letture pubbliche | 2 letture reali e 4 decisioni; tecnica PASS, semantica FAIL | Falso positivo lessicale sull’intensità distinto da `MODEL_CLAIM_REWRITTEN`, con una riscrittura registrata |
+
+La review manuale conserva questi rilievi:
+
+- `completed_result`: totali 180/120 e differenza 60 corretti, ma condizioni di disdetta e rimborso mensili non presenti nella nota sono accettate dall’audit con citazioni irrilevanti. Il difetto non deriva soltanto da mancata copertura delle affermazioni.
+- `planning_outage`: il testo finale di 1.824 caratteri non riporta 60 e chiama 120 euro risparmio totale; il rifiuto `MISSING_COMPARISON_VALUE_60` è fondato. Home e replay passano sul piano tecnico, senza rendere il testo corretto.
+- `home_write_retry`: il testo salvato di 2.272 caratteri dichiara la disdetta mensile senza penalità come **ipotesi da confermare**, ma vi fonda la raccomandazione; manca inoltre il differenziale. Goal ancora attivo, verifiche Home/replay `not_run`.
+- `memory_corrected`: il testo corrente usa correttamente 180/150/30, ma introduce una comparazione di flessibilità non sostenuta. Il payload storico completo del chooser da 20.338 caratteri non è conservato; la ricostruzione equivalente non prova la causa esatta e resta oltre il limite, senza patch.
+
+I testi effettivi forniti agli audit sono osservati integri nei report trattenuti. Per la verifica finale non è conservato il corpo HTTP storico completo: la lettura del percorso di serializzazione non dimostra una cattura che non esiste. Nessun nuovo campo di ragionamento certifica da solo la qualità semantica.
+
+**Correzioni locali mirate, conteggi non sommabili:** risposta conversazionale 20 PASS (il gruppo 114 precede l’ultimo caso); dichiarazione Situation 9 PASS, con un’asserzione legacy già fallita sulla base e lasciata invariata; riesame differito 75 PASS su 5 moduli; audit e compatibilità 157 PASS su 8 moduli; diagnostica pubblica 86 PASS su 7 moduli. Inventario della pianificazione: 13 nuove prove PASS e gruppo di quattro moduli **58 PASS**, senza dimostrare la scelta del prossimo passo da parte di un modello reale. Le review indipendenti sono letture senza nuove esecuzioni.
+
+**Aggregato integrato:** codice locale `a11b2e36ad9ba193dd6805f306937bc908fddf65`, tree `10e536f4213b087133c6f8ee28ba04c4077bd1c8`; **1.831 PASS / 1 SKIP**, 149 moduli e 151 selezioni in 70,52 s, esito 0 e hash del codice immutati durante la prova. L’unico SKIP riguarda il test opzionale con Gemini reale, senza credenziale fornita nell’ambiente sintetico di questa esecuzione. **CLI scripted 9/9**, con zero tentativi del modello, richieste HTTP al modello ed effetti esterni, `real_model_executed=false`. Il report conserva `code_revision=null`; il collegamento al codice locale è documentato separatamente nel manifest di esecuzione. TypeScript/export web PASS; Chromium **20/20 PASS**. Le 20 prove WebKit hanno errori di avvio per librerie OS mancanti, senza esecuzione applicativa; il tentativo standard di installazione è fallito con `EPERM`. CI remota e prove reali del nuovo candidato restano pendenti. Dopo l’aggregato è stato aggiunto soltanto il selettore CI `vision_tests/test_anatomy_atlas.py`, da eseguire con Mongo reale; nessun esito locale è attribuito a questa prova.
+
+La pubblicazione del nuovo candidato, la sua CI completa e un nuovo collaudo reale restano da verificare. L’aggiornamento delle due app Railway resta subordinato all’approvazione della patch `eb9c3870-6835-4c5a-bcbb-24d34b6dd627`, precedentemente respinta dalla revisione automatica; l’integrazione Git non aggira quel limite. Firma, installazione e ricezione su un telefono ad app chiusa non sono attestate.
+
+[Indice delle evidenze e delle verifiche locali](evidence/autonomy_v162_recovery_2026-10-12.json) riporta hash degli originali, della review da 154.342 byte, dei manifest, dei log e dei suffissi storici. I gruppi sovrapposti non sono sommati al totale dell’aggregato.
+
+---
+
 # 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
 
 ## Identità e CI osservata

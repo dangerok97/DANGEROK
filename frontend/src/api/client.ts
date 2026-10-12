@@ -665,7 +665,28 @@ export type EnergyOfferSupply = {
 
 export type EnergyOfferMonitoring = { enabled: boolean; supplies: EnergyOfferSupply[] };
 
+export type WhatsAppLinkStatus = {
+  configured: boolean;
+  linked: boolean;
+  phone_last4: string | null;
+  display_number: string | null;
+  notifications_enabled: boolean;
+};
+export type WhatsAppPairing = {
+  code: string;
+  expires_at: string;
+  display_number: string | null;
+  instruction: string;
+};
+
 export const api = {
+  // --- WhatsApp: verified Cloud API transport for this same ORA account ---
+  whatsappStatus: () =>
+    request<WhatsAppLinkStatus>('/whatsapp/status'),
+  whatsappStartLink: () =>
+    request<WhatsAppPairing>('/whatsapp/link/start', { method: 'POST' }),
+  whatsappDisconnect: () =>
+    request<{ ok: boolean; linked: boolean }>('/whatsapp/link', { method: 'DELETE' }),
   // --- Rubrica dispositivo -------------------------------------------------
   contactsDeviceStatus: () =>
     request<{ ok: boolean; status: string; synced_at: string; contact_count: number }>(

@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import { Avatar, titleCase } from '@/src/shell';
+import { Avatar, DesktopShell, titleCase } from '@/src/shell';
 import { haptic } from '@/src/utils/haptic';
 
 import {
@@ -421,46 +421,48 @@ export function SubpageShell({
   const { colors } = useTheme();
   const router = useRouter();
   return (
-    <SafeAreaView
-      edges={['top']}
-      style={[styles.subpageRoot, { backgroundColor: colors.backgroundPrimary }]}
-      testID={testID}
-    >
-      <ScrollView
-        contentContainerStyle={styles.subpageScroll}
-        showsVerticalScrollIndicator={false}
+    <DesktopShell active="profilo">
+      <SafeAreaView
+        edges={['top']}
+        style={[styles.subpageRoot, { backgroundColor: colors.backgroundPrimary }]}
+        testID={testID}
       >
-        <View style={styles.subpageColumn}>
-          <Pressable
-            onPress={() => {
-              haptic('tap');
-              if (router.canGoBack()) router.back();
-              else router.replace('/(tabs)/profilo' as any);
-            }}
-            style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Torna al profilo"
-            testID="subpage-back"
-          >
-            <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
-            <Text style={[styles.backLabel, { color: colors.textSecondary }]}>Profilo</Text>
-          </Pressable>
+        <ScrollView
+          contentContainerStyle={styles.subpageScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.subpageColumn}>
+            <Pressable
+              onPress={() => {
+                haptic('tap');
+                if (router.canGoBack()) router.back();
+                else router.replace('/(tabs)/profilo' as any);
+              }}
+              style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Torna al profilo"
+              testID="subpage-back"
+            >
+              <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
+              <Text style={[styles.backLabel, { color: colors.textSecondary }]}>Profilo</Text>
+            </Pressable>
 
-          <Text
-            style={[styles.subpageTitle, { color: colors.textPrimary }]}
-            accessibilityRole="header"
-            aria-level={1}
-          >
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={[styles.subpageSub, { color: colors.textSecondary }]}>{subtitle}</Text>
-          ) : null}
+            <Text
+              style={[styles.subpageTitle, { color: colors.textPrimary }]}
+              accessibilityRole="header"
+              aria-level={1}
+            >
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text style={[styles.subpageSub, { color: colors.textSecondary }]}>{subtitle}</Text>
+            ) : null}
 
-          <View style={styles.subpageBody}>{children}</View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            <View style={styles.subpageBody}>{children}</View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </DesktopShell>
   );
 }
 

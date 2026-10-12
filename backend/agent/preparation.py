@@ -13,6 +13,8 @@ from agent.preparation_passages import build_audit_passages, materialize_audit_p
 _FEEDBACK_FIELD = "preparation_feedback_non_authoritative"
 _FEEDBACK_PREFIX = "Diagnosi fallibile della revisione, non una prova: "
 _FEEDBACK_KIND = "preparation_review_feedback"
+_ENTAILMENT_FIELDS = ("inference_or_gap", "compatible_counterexample")
+_REVIEW_TEXT_FIELDS = ("claim", "premises", *_ENTAILMENT_FIELDS, "correction")
 
 
 def _json(value):
@@ -31,7 +33,7 @@ def _fit_feedback(feedback, limit):
             checks[0].pop("evidence_ids")
         else:
             fields = [(result, "reason")] + [(row, key) for row in checks
-                for key in ("claim", "premises", "correction")]
+                for key in _REVIEW_TEXT_FIELDS]
             parent, key = max(fields, key=lambda item: len(item[0].get(item[1], "")))
             value = parent.get(key, "")
             parent[key] = value[:len(value) // 2] + "…"
@@ -60,7 +62,7 @@ def _review_feedback(checked, allowed, *, origin="preparation_audit"):
         for row in checks[:12]:
             if not isinstance(row, dict):
                 continue
-            item = {key: text for key in ("claim", "premises", "correction")
+            item = {key: text for key in _REVIEW_TEXT_FIELDS
                     if (text := excerpt(row.get(key), 180))}
             if not item:
                 continue
@@ -127,11 +129,14 @@ def _draft_validation_errors(answer, allowed):
     return errors
 
 
-def _audit_review_errors(answer, rows):
+def _audit_review_errors(answer, rows, *, require_separated_review=True):
     """Authenticate quoted passages, not the model's semantic conclusions.
 
     Only the rows actually sent to this audit are eligible. An authentic
     passage can still fail to entail a claim; no text inference happens here.
+    Legacy literal quotations may omit the separated reasoning fields, but
+    an attempted new-form review must supply both as text. Their contents
+    never change the model's verdict or establish a fact in code.
     """
     def invalid(field, value, issue):
         return [{"field": field, "issue": issue,
@@ -156,6 +161,12 @@ def _audit_review_errors(answer, rows):
                 return invalid("claim_review." + field, check[field], "wrong_type")
         if not check["claim"].strip():
             return invalid("claim_review.claim", check["claim"], "empty")
+        if require_separated_review or any(field in check for field in _ENTAILMENT_FIELDS):
+            for field in _ENTAILMENT_FIELDS:
+                if field not in check:
+                    return invalid("claim_review." + field, None, "missing")
+                if not isinstance(check[field], str):
+                    return invalid("claim_review." + field, check[field], "wrong_type")
         if check["support"] not in ("stated", "derived", "conditional", "unsupported"):
             return invalid("claim_review.support", check["support"], "not_supported")
         refs = check["evidence_ids"]
@@ -203,6 +214,7 @@ def _protocol_feedback(stage, errors):
             continue
         if (row.get("field") in ("content", "evidence_ids", "claim_review", "claim_review.claim",
                 "claim_review.premises", "claim_review.correction", "claim_review.support",
+                "claim_review.inference_or_gap", "claim_review.compatible_counterexample",
                 "claim_review.evidence_ids", "claim_review.source_quotes",
                 "claim_review.source_passage_ids",
                 "claim_review.source_quotes.evidence_id", "claim_review.source_quotes.quote")
@@ -224,6 +236,11 @@ def _protocol_feedback(stage, errors):
                   "La precedente forma source_quotes resta soggetta al limite di 3 segmenti contigui di 1–280 "
                   "caratteri esatti, senza ellissi o ricomposizione; non mescolare le due forme. "
                   "Autenticità non significa supporto semantico.")
+    if any(row["field"] in {"claim_review." + field for field in _ENTAILMENT_FIELDS} for row in kept):
+        reason = ("La revisione con source_passage_ids richiede inference_or_gap e compatible_counterexample "
+                  "come testi, anche vuoti quando non applicabili. Se uno dei nuovi campi è presente nella "
+                  "forma legacy source_quotes, servono entrambi. Questa diagnosi attesta solo il formato: "
+                  "i campi restano ragionamento fallibile, non nuove fonti o prova della conclusione.")
     return {"origin": "preparation_protocol", "stage": stage, "validation_errors": kept, "reason": reason}
 
 
@@ -469,29 +486,29 @@ async def prepare(db, owner_id, goal, step):
         "Add such a missing finding to the corrected content and review its premises and "
         "selected source passages too. If a necessary premise is absent, identify that specific gap; "
         "do not invent it from request or the model's success criteria. "
-        "Before the verdict, return claim_review covering the actual material clauses, including "
-        "calculations, qualitative consequences and every material clause you add, change or remove. "
-        "Account for those changes against the intended result. In premises, identify the short source passages that establish "
-        "each factual premise and distinguish any unstated assumption or category default. "
+        "Before the verdict, review the actual material clauses, including calculations, qualitative "
+        "consequences and every material change or deletion. Account for changes against request. "
         "Each evidence row's claim_passages contains its complete original claim in order, "
         "with no missing characters. Read the whole source and its limits, including conditions "
         "across adjacent passages. For each stated or derived check, source_passage_ids must "
         "select 1–3 supplied passage IDs belonging to that check's evidence_ids. The code copies "
         "those exact passages; do not retype quotes or invent passage IDs. "
-        "For a derived calculation, select the recorded operands and necessary conditions, "
-        "then state the operation and result in premises. The calculated result need not "
-        "occur literally in a source. Preserve the supported calculation in content with "
-        "its baseline, horizon and limits; quoting the inputs does not replace the calculation. "
-        "Authentic quotations do not by themselves establish that the conclusion follows. "
-        "An evidence ID or a category label alone does not establish the premise. Before assigning "
-        "stated or derived, test EVERY material clause against a counterexample compatible with "
-        "the complete sources. Compare its subject, scope, time period and conditions with what "
-        "those passages actually establish, including qualitative clauses. If such a counterexample "
-        "remains possible, record the missing premise and make it explicitly conditional or remove "
-        "the claim; do not label it established or derived. A caveat cannot turn an assumed premise "
-        "into a sourced one. Make minimal corrections against request: retain supported findings, "
-        "calculations, comparison differences, time horizons and limitations. Check the corrected "
-        "wording too; no material clause may escape review by being grouped with supported numbers. "
+        "Separate the implication check into three brief texts. In premises, state only what those "
+        "passages establish, preserving their subject, scope, period and conditions; do not copy the "
+        "conclusion there as if it were sourced. In inference_or_gap, explain the operation or "
+        "consequence and identify every necessary premise not supplied. A category default is an "
+        "assumption, not a source. For calculations select operands and conditions, then give the "
+        "operation and result here; the result need not occur literally in a source. "
+        "In compatible_counterexample, describe a concrete case that satisfies the recorded premises "
+        "yet defeats the claim, or use empty text if none was found. For a conclusion explicitly "
+        "conditional on attributed inputs, keep those inputs and its horizon fixed: hypothetical "
+        "disagreement with the source does not refute that conditional conclusion. Vary only a "
+        "necessary condition the sources actually leave open. These texts are reasoning, not "
+        "independent evidence. An authentic passage or disclaimer alone cannot establish implication. "
+        "If a necessary premise remains unknown, qualify that specific consequence or remove it; "
+        "do not label it stated or derived. Correct only what needs correction, preserving supported "
+        "findings, explicit differences, horizons and limits in the complete returned content. "
+        "Review that corrected wording too; grouping it with correct numbers cannot exempt a clause. "
         "Review proposed options too: do not relax a stated minimum requirement, invent extra "
         "resources, turn unavailable time into available time, or invent a restriction. "
         "A proposal requiring a changed condition must explicitly say so; it is not feasible "
@@ -505,7 +522,9 @@ async def prepare(db, owner_id, goal, step):
         "{\"claim_review\": [{\"claim\": \"actual material clause, short\", "
         "\"evidence_ids\": [\"supplied supporting IDs\"], "
         "\"source_passage_ids\": [\"supplied literal passage IDs\"], "
-        "\"premises\": \"source passages, missing premises and any compatible counterexample, short\", "
+        "\"premises\": \"what the selected source passages establish, short\", "
+        "\"inference_or_gap\": \"operation or consequence and any missing necessary premise, short\", "
+        "\"compatible_counterexample\": \"case compatible with those premises that defeats the claim, or empty\", "
         "\"support\": \"stated|derived|conditional|unsupported\", "
         "\"correction\": \"needed correction or limitation, empty if none\"}], "
         "\"verified\": true, \"content\": \"corrected complete draft, max 4000 characters\", "
@@ -536,10 +555,17 @@ async def prepare(db, owner_id, goal, step):
         return unavailable("preparation_not_supported", True, feedback=feedback)
     content, refs = checked.get("content"), checked.get("evidence_ids")
     errors = _draft_validation_errors(checked, allowed)
+    # The native passage protocol requires separated reasoning. Keep the
+    # explicitly supported older literal-quote form honest: do not invent
+    # missing fields, and validate both whenever either is supplied.
+    checks = checked.get("claim_review")
+    require_separated_review = isinstance(checks, list) and any(
+        isinstance(check, dict) and "source_passage_ids" in check for check in checks)
     if not errors:
         checked, errors = materialize_audit_passages(checked, passage_index)
     if not errors:
-        errors = _audit_review_errors(checked, audit_rows)
+        errors = _audit_review_errors(checked, audit_rows,
+                                     require_separated_review=require_separated_review)
     if errors:
         feedback = _protocol_feedback("audit", errors)
         await _remember_feedback(db, owner_id, goal.id, scope, feedback)

@@ -1,3 +1,19 @@
+# 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
+
+**Stato: correzioni locali verificate; accettazione reale ancora aperta.** Il candidato storico `636c0f72b374bff95039ad2b3e017ed2974c77db` ha **2 workflow push e 7 job PASS**. La CI su pull request e Mobile di quel candidato non è stata eseguita; il ricalcolo della PR ha esposto la base avanzata `6e619cf`. I risultati di altri SHA non sono trasferiti a `636c0f7` né alla nuova integrazione.
+
+Il collaudo reale isolato del deployment `36307263-cdff-441e-9980-30d5ab755e43` conserva **5/9 PASS automatici, 82 chiamate logiche e 96 richieste HTTP al modello**. La revisione manuale rifiuta l’accettazione complessiva, incluso `completed_result`: citazioni autentiche sono state usate per attribuire condizioni che non stabiliscono. In `planning_outage` il differenziale di 60 euro manca davvero dal testo finale; il relativo errore non è un falso negativo lessicale. Home e Memory corretta non raggiungono le verifiche di consegna. La prova Tarquinia fallisce in conversazione; worker, monitoraggio e ritiro restano `not_run`. Nella prova pubblica l’errore lessicale sull’intensità è distinto dalla riscrittura registrata: `MODEL_CLAIM_REWRITTEN` resta un motivo di rifiuto.
+
+La nuova versione integra la base `6e619cf` e corregge recupero della risposta, dichiarazione Situation, riesame differito della bozza e contratto dell’audit. La pianificazione riceve un inventario limitato delle Evidence eseguite, con record generati e omissioni distinti, senza imporre una lettura o una scelta al modello. Modelli, budget e criteri dei collaudi restano invariati.
+
+**Verifica integrata locale:** codice locale `a11b2e36ad9ba193dd6805f306937bc908fddf65`, tree `10e536f4213b087133c6f8ee28ba04c4077bd1c8`; **1.831 PASS / 1 SKIP**, 149 moduli e 151 selezioni in 70,52 s, esito 0 e hash del codice immutati durante la prova. L’unico SKIP riguarda il test opzionale con Gemini reale, senza credenziale fornita nell’ambiente sintetico di questa esecuzione. **CLI scripted 9/9**, con zero tentativi del modello, richieste HTTP al modello ed effetti esterni, `real_model_executed=false`. Il report conserva `code_revision=null`; il collegamento al codice locale è documentato separatamente nel manifest di esecuzione. TypeScript ed export web PASS; Chromium **20/20 PASS**. WebKit **20/20 errori di avvio** per librerie OS mancanti, senza verdetto applicativo; il tentativo standard di installazione è fallito con `EPERM`. Il contesto Memory equivalente resta oltre 9.000 caratteri, senza correzione runtime dichiarata. Dopo l’aggregato è stato aggiunto soltanto il selettore CI `vision_tests/test_anatomy_atlas.py`, che richiede Mongo reale e non è stato eseguito localmente.
+
+La pubblicazione del nuovo candidato, la sua CI completa e un nuovo collaudo reale restano da verificare. L’aggiornamento delle due app Railway resta subordinato all’approvazione della patch `eb9c3870-6835-4c5a-bcbb-24d34b6dd627`, precedentemente respinta dalla revisione automatica; l’integrazione Git non aggira quel limite. Firma, installazione e ricezione su un telefono ad app chiusa non sono attestate.
+
+[Indice delle evidenze e delle verifiche locali](evidence/autonomy_v162_recovery_2026-10-12.json) contiene originali, review, comandi, log e limiti. Nessun nuovo esito reale è dedotto dai test con risposte controllate.
+
+---
+
 # 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
 
 Il candidato `630020147223ada63430a11870209494dc35cc22`, tree
@@ -5897,3 +5913,9 @@ Riferimenti API: https://www.w3.org/TR/image-capture/ e
 https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
 Lo zoom qui è digitale, non un comando hardware o zoom ottico. Le sorgenti
 generali per i seed sono elencate nel modulo; nessun CAD o immagine è copiato.
+
+
+
+## ORA WhatsApp transport V1 (2026-10-12)
+
+Bridge and settings link UI implemented in feat/ora-whatsapp-cloud-20261012: Meta webhook GET challenge / POST HMAC verification, 10-minute one-time user pairing, encrypted/deduplicated inbox with worker and retry, owner-scoped AI Core. Runtime DISABLED until Meta variables/phone are provisioned; production WhatsApp live testing remains blocked. Test suite: backend/tests/test_whatsapp_cloud_bridge_v1.py. Open items: Meta business number and token, real end-to-end test, media/voice ingestion, user-opt-in/template-driven proactive notifications.

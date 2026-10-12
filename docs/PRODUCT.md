@@ -1,3 +1,19 @@
+# 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
+
+**Il risultato richiesto resta un avviso utile al ritiro.** Per una nuova dichiarazione «ho steso i panni» a Tarquinia, ORA deve seguire le condizioni, conservare il controllo futuro e distinguere un’asciugatura stimata dall’esigenza di ritirare prima per il meteo. La precedente stesa è chiusa e non viene riaperta.
+
+Il collaudo reale di `636c0f7` non soddisfa ancora l’obiettivo: **5/9 casi superano i controlli automatici, ma la revisione semantica non accetta il risultato complessivo**. Anche `completed_result` contiene condizioni mensili non sostenute dalla nota. Nel testo Home di 2.272 caratteri una condizione mensile è dichiarata come ipotesi da confermare, ma la raccomandazione ne dipende; non è un risultato affidabile già consegnato. A Tarquinia la creazione della Situation fallisce prima del worker perché manca il riepilogo obbligatorio; una lettura meteo riuscita non prova il monitoraggio.
+
+Le correzioni successive permettono al modello di riparare una risposta malformata o non fedele alle letture entro i passaggi già disponibili, rendono esplicito il contratto per creare la Situation e conservano l’operazione di revisione ancora dovuta dopo una verifica incompleta. L’audit della bozza separa le premesse presenti nelle fonti dalle conseguenze, dalle ipotesi e dai controesempi. I nuovi campi sono ragionamento fallibile: non certificano la correttezza del contenuto.
+
+**Verifica locale della versione integrata:** Codice locale `a11b2e36`: **1.831 PASS / 1 SKIP**, 149 moduli e 151 selezioni in 70,52 s. **CLI scripted 9/9**, con zero tentativi del modello, richieste HTTP al modello ed effetti esterni. TypeScript ed export web PASS; Chromium **20/20 PASS**. Le 20 prove WebKit non sono partite per librerie del sistema mancanti: la CI remota deve verificarle.
+
+La pubblicazione del nuovo candidato, la sua CI completa e un nuovo collaudo reale restano da verificare. L’aggiornamento delle due app Railway resta subordinato all’approvazione della patch `eb9c3870-6835-4c5a-bcbb-24d34b6dd627`, precedentemente respinta dalla revisione automatica; l’integrazione Git non aggira quel limite. Firma, installazione e ricezione su un telefono ad app chiusa non sono attestate.
+
+[Indice delle evidenze e delle verifiche locali](evidence/autonomy_v162_recovery_2026-10-12.json). Gli originali `636c0f7` e i loro verdetti restano immutati; il seguito conserva integralmente la documentazione storica.
+
+---
+
 # 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
 
 L'obiettivo resta quello indicato dalla persona: a Tarquinia, dopo una **nuova**
@@ -2697,3 +2713,9 @@ Riferimenti API: https://www.w3.org/TR/image-capture/ e
 https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
 Lo zoom qui è digitale, non un comando hardware o zoom ottico. Le sorgenti
 generali per i seed sono elencate nel modulo; nessun CAD o immagine è copiato.
+
+
+
+## ORA su WhatsApp (V1, 2026-10-12)
+
+La stessa intelligenza ORA puo ricevere e rispondere a messaggi di testo via WhatsApp Cloud API ufficiale, dopo associazione esplicita numero-account mediante codice temporaneo in Connessioni e servizi. Memoria e permessi rimangono quelli dell'account ORA. Fino alla configurazione Meta mostra un chiaro stato non disponibile. Vocali, foto e notifiche proattive WhatsApp non fanno parte della V1. Dettagli: docs/WHATSAPP_CLOUD_API_V1.md.

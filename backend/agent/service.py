@@ -35,6 +35,7 @@ prompt.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -93,6 +94,18 @@ class _InvalidNextSelection(Exception):
     def __init__(self, context):
         super().__init__("action_selection_invalid")
         self.context = context
+
+
+def _prepared_review_key(goal) -> str:
+    """Identify one persisted negative review of one unchanged preparation."""
+    from agent.prepared_review import current_prepared_review, prepared_result_ref
+
+    review = current_prepared_review(goal)
+    if review is None:
+        return ""
+    payload = json.dumps([prepared_result_ref(goal), review], ensure_ascii=False,
+                         sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _step_declaration(raw: Any):
@@ -984,6 +997,14 @@ class AgentService:
                 return await self._continue_later(owner_id, goal, plan, run, "iterations")
 
             run.iterations += 1
+            review_key = _prepared_review_key(goal)
+            if review_key and review_key != plan.prepared_review_reconsidered:
+                outcome = await self._reconsider_prepared_result(
+                    owner_id, goal, plan, run, budget, language=language,
+                )
+                if outcome is not None:
+                    return outcome
+                continue
             invalid_selection = None
             try:
                 decision, step = await self._next(
@@ -1578,6 +1599,59 @@ class AgentService:
             "goal_origin": str(getattr(goal, "origin", "") or "")[:40],
         }
 
+    async def _planning_evidence_inventory(self, owner_id, goal):
+        """Describe recorded work in the existing bounded owner/goal window.
+
+        Distinguish recorded results from planning previews without certifying
+        source truth or substituting for a claim. Keep whole provenance/cursor
+        records; omitting metadata never changes the attested read coverage.
+        """
+        scope = {
+            "owner_goal_only": True, "non_superseded_only": True,
+            "selection_limit": 40, "not_complete": True,
+            "may_omit": ["outside_selected_window", "invalid_documents"],
+            "metadata_only": True,
+        }
+        if getattr(goal, "owner_id", None) != owner_id:
+            return {"available": False, "scope": scope, "reason": "owner_mismatch"}
+        try:
+            selected = await self.evidence.for_goal(owner_id, goal.id, limit=40)
+            rows = for_verification(selected, limit=max(1, len(selected)))
+        except Exception as exc:
+            logger.info("planning evidence inventory unavailable error=%s", type(exc).__name__)
+            return {"available": False, "scope": scope, "reason": "store_unavailable"}
+
+        generated = sum(bool(row.get("generated_artifact")) for row in rows)
+        ages = {"fresh": 0, "recent": 1, "stale": 2}
+        records = []
+        # Preserve the newest whole metadata rows, up to four / 2400 chars.
+        # for_goal has already selected its bounded recent/baseline window.
+        for item, row in reversed(list(zip(selected, rows))):
+            if row.get("generated_artifact"):
+                continue
+            metadata = {key: value for key, value in row.items() if key != "what_was_found"}
+            # Age may weaken a recorded assessment; a recent retrieval time
+            # cannot upgrade the provider's unknown/stale qualifications.
+            recorded_age, current_age = item.provenance.freshness, row["how_old"]
+            metadata["how_old"] = (
+                "unknown" if "unknown" in (recorded_age, current_age)
+                else max((recorded_age, current_age), key=ages.__getitem__)
+            )
+            metadata.update({"step_id": item.step_id, "kind": item.kind})
+            candidate = [metadata, *records]
+            if len(candidate) <= 4 and len(json.dumps(
+                candidate, ensure_ascii=False, separators=(",", ":"),
+            )) <= 2400:
+                records = candidate
+        source_count = len(selected) - generated
+        return {
+            "available": True, "scope": scope,
+            "selected_evidence_count": len(selected), "generated_record_count": generated,
+            "non_generated_record_count": source_count, "records": records,
+            "omitted_record_count": source_count - len(records),
+            "metadata_record_limit": 4, "metadata_char_limit": 2400,
+        }
+
     async def _build_plan(
         self, owner_id, goal, run: AgentRun, budget: AgentBudget, *, language: str
     ) -> Optional[ActionPlan]:
@@ -1595,6 +1669,7 @@ class AgentService:
             goal.background_runs = max(0, goal.background_runs - 1)
         await self.repo.save_goal(goal)
         planning_context = await _user_clock_context(self.db, owner_id)
+        planning_context["executed_evidence"] = await self._planning_evidence_inventory(owner_id, goal)
         source_context, source_context_unavailable = await self._planning_source_context(
             owner_id, goal
         )
@@ -1864,7 +1939,7 @@ class AgentService:
 
     async def _reconsider(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, budget: AgentBudget,
-        *, what_happened: Dict[str, Any], language: str,
+        *, what_happened: Dict[str, Any], language: str, review_key: str = "",
     ) -> Optional[Dict[str, Any]]:
         """
         Something happened. Change as little of the plan as accounts for it.
@@ -1873,6 +1948,10 @@ class AgentService:
         source_change = await self._source_change_result(owner_id, goal, run)
         if source_change is not None:
             return source_change
+        if review_key:
+            changed_review = await self._prepared_review_changed(owner_id, goal, run, review_key)
+            if changed_review is not None:
+                return changed_review
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             # Nothing left to think with. Stopping here is honest; carrying
@@ -1892,12 +1971,15 @@ class AgentService:
             clock_context=await _user_clock_context(self.db, owner_id),
             language=language,
         )
-        if answer is None:
-            return await self._pause(owner_id, goal, plan, run, "il giudizio non era disponibile")
-
         source_change = await self._source_change_result(owner_id, goal, run)
         if source_change is not None:
             return source_change
+        if review_key:
+            changed_review = await self._prepared_review_changed(owner_id, goal, run, review_key)
+            if changed_review is not None:
+                return changed_review
+        if answer is None:
+            return await self._pause(owner_id, goal, plan, run, "il giudizio non era disponibile")
 
         decision = answer["decision"]
         fresh = []
@@ -1946,6 +2028,10 @@ class AgentService:
         await self.repo.journal(
             owner_id, goal.id, kind="replanned", note=note, detail={"decision": decision}
         )
+        if review_key:
+            # Saved atomically with the chosen plan below. None/invalid
+            # replies and exhausted budgets leave the review still owed.
+            plan.prepared_review_reconsidered = review_key
 
         if decision == "continue":
             await self.repo.save_plan(plan)
@@ -2005,6 +2091,51 @@ class AgentService:
             return await self._close(owner_id, goal, plan, run, "abandoned", note)
 
         return await self._finish(owner_id, goal, plan, run, budget, language=language)
+
+    async def _prepared_review_changed(self, owner_id, goal, run, review_key):
+        """An old review cannot replan a newer artifact or override a person."""
+        from agent.prepared_review import current_prepared_result, PreparedReviewUnavailable
+
+        current = await current_prepared_result(self.db, owner_id, goal.id)
+        if current is None:
+            raise PreparedReviewUnavailable("prepared_goal_missing")
+        deferred = (current.goal.user_deferred_until or "") > _now().isoformat()
+        if (current.goal.is_open and not current.goal.requires_user_input
+                and not current.goal.requires_user_authority and not deferred
+                and _prepared_review_key(current.goal) == review_key):
+            return None
+        for field in type(current.goal).model_fields:
+            setattr(goal, field, getattr(current.goal, field))
+        run.stopped_because = "prepared_result_changed"
+        state = ("waiting_for_person" if goal.requires_user_input or goal.requires_user_authority
+                 else "waiting" if deferred else "in_progress" if goal.is_open else goal.status)
+        return {"ok": True, "state": state, "goal": goal.for_human()}
+
+    async def _reconsider_prepared_result(self, owner_id, goal, plan, run, budget, *, language):
+        from agent.prepared_review import current_prepared_review
+        from agent.preparation import remember_preparation_feedback
+
+        review = current_prepared_review(goal)
+        if review is None:
+            return None
+        observation = await remember_preparation_feedback(
+            self.db, owner_id, goal,
+            reason="\n".join(value for value in (
+                review["what_is_missing"], review["reasoning"],
+            ) if value), origin="goal_verification",
+        )
+        return await self._reconsider(
+            owner_id, goal, plan, run, budget, review_key=_prepared_review_key(goal),
+            what_happened={"result": {
+                "status": "partial" if review["outcome"] == "partial" else "unavailable",
+                "verification_outcome": "partially_achieved" if review["outcome"] == "partial" else "uncertain",
+                "what_is_missing": review["what_is_missing"],
+                "reasoning": review["reasoning"],
+                "what_happened": observation or "La verifica non ha confermato la bozza; il giudizio resta da valutare contro le fonti.",
+                "problem": "prepared_result_verification_incomplete",
+                "worth_retrying": True,
+            }}, language=language,
+        )
 
     # --- ends --------------------------------------------------------------
 
@@ -2232,26 +2363,8 @@ class AgentService:
         # can choose a repair, and only a real preparation may change the draft.
         if (verification.outcome in ("partially_achieved", "uncertain")
                 and goal.prepared_text and not intents and not receipts):
-            from agent.preparation import remember_preparation_feedback
-
-            observation = await remember_preparation_feedback(
-                self.db, owner_id, goal,
-                reason="\n".join(value for value in (
-                    verification.what_is_missing, verification.reasoning,
-                ) if value),
-                origin="goal_verification",
-            )
-            outcome = await self._reconsider(
-                owner_id, goal, plan, run, budget,
-                what_happened={"result": {
-                    "status": "partial" if verification.outcome == "partially_achieved" else "unavailable",
-                    "verification_outcome": verification.outcome,
-                    "what_is_missing": verification.what_is_missing,
-                    "reasoning": verification.reasoning,
-                    "what_happened": observation or "La verifica non ha confermato la bozza; il giudizio resta da valutare contro le fonti.",
-                    "problem": "prepared_result_verification_incomplete",
-                    "worth_retrying": True,
-                }}, language=language,
+            outcome = await self._reconsider_prepared_result(
+                owner_id, goal, plan, run, budget, language=language,
             )
             if outcome is not None:
                 return outcome

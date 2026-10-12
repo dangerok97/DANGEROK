@@ -1559,6 +1559,9 @@ def _dump(payload: Dict[str, Any]) -> str:
     # Keep valid, bounded JSON, reducing descriptive text and older material.
     compact = json.loads(encoded)
     compact["context_truncated"] = True
+    planning_context = compact.get("context")
+    inventory = planning_context.get("executed_evidence") if isinstance(planning_context, dict) else None
+    inventory = inventory if isinstance(inventory, dict) else None
     protected = {"ref", "id", "evidence_id", "situation_id", "url", "offer_url",
                  "source_refs", "linked_object_refs", "evidence_ids",
                  "memory_reads", "version", "memory_version"}
@@ -1577,6 +1580,10 @@ def _dump(payload: Dict[str, Any]) -> str:
         strings, lists = [], []
 
         def visit(node, key=""):
+            # This view already selects whole bounded metadata rows. Reducing
+            # it again could detach its counts, provenance or reader cursors.
+            if node is inventory:
+                return
             if isinstance(node, dict):
                 for name, value in node.items():
                     if isinstance(value, str) and len(value) > 240 and name not in protected:
@@ -1627,13 +1634,24 @@ def _dump(payload: Dict[str, Any]) -> str:
         else:
             # If even the protected source handles cannot fit, make the missing
             # context explicit. A clipped object must never look complete.
-            return json.dumps({
+            fallback = {
                 "goal": {key: str(goal.get(key) or "")[:400]
                          for key in ("id", "source_kind", "desired_outcome")},
                 "source_context_unavailable": True, "context_truncated": True,
                 **({"preparation_feedback_truncated": True}
                    if compact.get("preparation_feedback_truncated") else {}),
                 "reason": "The complete current source evidence exceeds the bounded context; reread a narrower source before judging an outcome.",
-            }, ensure_ascii=False, default=str)
+            }
+            if inventory is not None:
+                fallback["context"] = {"executed_evidence": inventory}
+            reduced = json.dumps(fallback, ensure_ascii=False, default=str)
+            if len(reduced) > 9000 and inventory is not None:
+                # Defensive for direct/legacy callers beyond the service's
+                # bound: unavailable metadata must not become healthy zero.
+                fallback["context"]["executed_evidence"] = {
+                    "available": False, "reason": "metadata_exceeds_context",
+                }
+                reduced = json.dumps(fallback, ensure_ascii=False, default=str)
+            return reduced
         encoded = encode()
     return encoded

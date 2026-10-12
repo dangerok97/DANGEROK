@@ -60,7 +60,7 @@ async def test_alias_reuses_persisted_seed_without_generation(database):
 @pytest.mark.asyncio
 async def test_catalog_has_categories_and_new_counts(database):
     rows = await CatalogService(database).list_models('alice')
-    assert len(rows) == 126
+    assert len(rows) == 160
     phone = next(r for r in rows if r['canonical_key'] == 'smartphone')
     assert phone['category'] == 'Elettronica' and phone['shared']
     assert 'telefono_cellulare' in phone['aliases']

@@ -24,6 +24,7 @@ import asyncio
 from contextlib import ExitStack
 from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import logging
 import math
@@ -80,13 +81,77 @@ def _dated(value: Any, timezone_name: str | None = None) -> datetime | None:
         return None
 
 
-def _safe_text(value: Any, limit: int) -> str:
+def _redact_text(value: Any) -> str:
     text = str(value or "")
     for name in (*LLM_KEYS, "GEMINI_API_KEY_2", "ROUTING_API_KEY", "WEATHER_API_KEY"):
         secret = os.environ.get(name) or ""
         if len(secret) >= 8:
             text = text.replace(secret, "[credential redacted]")
-    return text[:limit]
+    return text
+
+
+def _safe_text(value: Any, limit: int) -> str:
+    return _redact_text(value)[:limit]
+
+
+def _model_message_observation(raw: dict, *, decision_index: int) -> dict:
+    """Parsed message field before governance/copy normalization, never a prompt.
+
+    Non-string values retain their JSON type. Their JSON representation is not
+    the original HTTP response. Hashes cover full representations before/after
+    redaction; only the redacted text can enter this synthetic runner's report.
+    """
+    observation = {"decision_index": decision_index,
+                   "field_present": "message_to_user" in raw}
+    if "message_to_user" not in raw:
+        return {**observation, "value_type": "missing"}
+    value = raw["message_to_user"]
+    kinds = {str: "string", dict: "object", list: "array", type(None): "null",
+             bool: "boolean", int: "number", float: "number"}
+    kind = kinds.get(type(value))
+    if kind is None:
+        raise TypeError("unsupported parsed message type")
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, allow_nan=False)
+    redacted = _redact_text(text)
+    return {**observation, "value_type": kind,
+            "representation": "literal_string" if isinstance(value, str) else "parsed_json_value",
+            "characters": len(text), "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "redacted_characters": len(redacted),
+            "redacted_sha256": hashlib.sha256(redacted.encode("utf-8")).hexdigest(),
+            "redacted": redacted != text, "text": redacted[:FINAL_ANSWER_LIMIT],
+            "text_truncated": len(redacted) > FINAL_ANSWER_LIMIT}
+
+
+def _grounding_event_observations(steps: list) -> tuple[list, int]:
+    """Record actual code-owned events without changing the quality counter."""
+    allowed_events = {
+        "GROUNDING_ADVICE_REWRITTEN", "GROUNDING_ADVICE_REWRITTEN_BOUND",
+        "GROUNDING_MESSAGE_RENDERED", "GROUNDING_MESSAGE_RENDERED_BOUND",
+        "GROUNDING_WEATHER_REWRITTEN", "GROUNDING_WEATHER_REWRITTEN_BOUND",
+        "GROUNDING_REPLY_REPAIR_REQUESTED", "AI_DECISION_RETRY",
+    }
+    allowed_findings = {"UNSUPPORTED_TRAFFIC_COMPARISON", "STRUCTURED_MESSAGE_UNUSABLE",
+                        "STRUCTURED_MESSAGE_RENDERED_FROM_EVIDENCE", "UNVERIFIED_FORECAST_INTENSITY"}
+    observed, omitted = [], 0
+    for index, row in enumerate(steps):
+        if not isinstance(row, dict):
+            continue
+        event = row.get("event")
+        if not isinstance(event, str) or event not in allowed_events:
+            continue
+        if len(observed) >= 12:
+            omitted += 1
+            continue
+        findings = row.get("findings")
+        item = {"trace_step": index, "event": event, "findings": [
+            value for value in findings if isinstance(value, str) and value in allowed_findings
+        ][:12] if isinstance(findings, list) else []}
+        if event == "AI_DECISION_RETRY" and row.get("mode") in (
+            "answer", "ask", "tool", "act", "context", "research", "compare", "finish",
+        ):
+            item["mode"] = row["mode"]
+        observed.append(item)
+    return observed, omitted
 
 
 def _scenario_message(now: datetime) -> str:
@@ -514,6 +579,7 @@ async def run_case(*, mode: str = "scripted", decide: Callable | None = None,
     if not model_live and decide is None:
         decide = await _scripted_model_factory()
     decisions: list[dict] = []
+    model_message_observations: list[dict] = []
     observations: list[dict] = []
     originals: list[dict] = []
     llm_calls: list[dict] = []
@@ -583,6 +649,13 @@ async def run_case(*, mode: str = "scripted", decide: Callable | None = None,
             if not isinstance(raw, dict):
                 raise ValueError("INVALID_MODEL_JSON")
             decisions.append(_model_signal(raw))
+            if len(model_message_observations) < 12:
+                try:
+                    observed_message = _model_message_observation(raw, decision_index=len(decisions))
+                except Exception as exc:
+                    observed_message = {"decision_index": len(decisions),
+                                        "diagnostic_error_type": type(exc).__name__[:70]}
+                model_message_observations.append(observed_message)
             return raw
         except Exception as exc:
             error_types.append(type(exc).__name__[:70])
@@ -630,6 +703,12 @@ async def run_case(*, mode: str = "scripted", decide: Callable | None = None,
         )
         for row in trace_steps if isinstance(row, dict)
     )
+    try:
+        grounding_events, grounding_events_omitted = _grounding_event_observations(trace_steps)
+        grounding_event_error = None
+    except Exception as exc:
+        grounding_events, grounding_events_omitted = [], None
+        grounding_event_error = type(exc).__name__[:70]
     semantic_review = review_trip_answer(
         final, observations, grounding_rewrites=grounding_rewrites,
     )
@@ -649,6 +728,16 @@ async def run_case(*, mode: str = "scripted", decide: Callable | None = None,
         "scenario_time": now.astimezone(ZoneInfo(TIMEZONE)).isoformat(),
         "scenario_message": _scenario_message(now), "verdict": verdict,
         "decisions": decisions[:12], "model_calls": llm_calls[:12],
+        "model_message_observations": model_message_observations,
+        "model_message_observations_omitted": max(0, len(decisions) - len(model_message_observations)),
+        "model_message_observations_scope": (
+            "Parsed message_to_user in this isolated run before governance/normalization; "
+            "at most 12 records, each redacted before the existing 5000-character limit. "
+            "No prompt or original model HTTP response is retained."
+        ),
+        "grounding_events": grounding_events,
+        "grounding_events_omitted": grounding_events_omitted,
+        "grounding_event_diagnostic_error_type": grounding_event_error,
         "observations": observations[:20], "http_reads": boundary.reads[:12],
         "blocked_operations": boundary.blocked[:12], "error_types": error_types[:12],
         "final_answer": _safe_text(final, FINAL_ANSWER_LIMIT),

@@ -71,6 +71,9 @@ jobs:
             tests/test_vita_flow_v3213c.py \
             tests/test_vita_semantics_v3213d.py \
             tests/test_vita_state_semantics_v3213e.py
+      - name: WhatsApp official Cloud API identity and webhook regression
+        working-directory: backend
+        run: python -m pytest -q tests/test_whatsapp_cloud_bridge_v1.py -x
       - name: Situation v157 initial review admission and checkpoint truth
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
@@ -87,7 +90,7 @@ jobs:
         env:
           VISION_TEST_MONGO_URL: mongodb://127.0.0.1:27017
           PYTHONPATH: backend
-        run: python -m pytest -c /dev/null -q backend/vision_tests/test_catalog75.py backend/vision_tests/test_seed_pack.py -x
+        run: python -m pytest -c /dev/null -q backend/vision_tests/test_catalog75.py backend/vision_tests/test_seed_pack.py backend/vision_tests/test_anatomy_atlas.py -x
       - name: Google browser sign-in redirect and one-use ticket security
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_google_browser_login_v156.py tests/test_social_auth_unit.py -x
@@ -241,6 +244,7 @@ jobs:
             tests/test_verification_recovery_v162.py \
             tests/test_prepared_review_v162.py \
             tests/test_prepared_review_delivery_v162.py \
+            tests/test_deferred_prepared_reconsideration_v162.py \
             tests/test_autonomy_eval_recovery_diagnostics_v162.py \
             tests/test_autonomy_model_diagnostics_v162.py \
             tests/test_autonomy_declaration_diagnostics_v162.py \
@@ -258,6 +262,7 @@ jobs:
             tests/test_completed_result_context_v162.py \
             tests/test_preparation_recovery_v162.py \
             tests/test_preparation_feedback_v162.py \
+            tests/test_preparation_entailment_v162.py \
             tests/test_autonomy_preparation_diagnostics_v162.py \
             tests/test_autonomy_result_diagnostics_v162.py \
             tests/test_autonomy_case_progress_v162.py \
@@ -267,6 +272,7 @@ jobs:
             tests/test_agent_connector_readiness_v162.py \
             tests/test_agent_planning_recovery_v162.py \
             tests/test_agent_planner_source_prerequisite_v162.py \
+            tests/test_agent_planning_inventory_v162.py \
             tests/test_agent_reconsider_read_coverage_v162.py \
             tests/test_agent_bounded_comparison_verification_v162.py \
             tests/test_agent_compact_source_draft_v162.py \
@@ -274,6 +280,9 @@ jobs:
             tests/test_planning_protocol_history_v162.py \
             tests/test_situation_live_eval_v162.py \
             tests/test_situation_estimate_schedule_truth_v162.py \
+            tests/test_situation_creation_protocol_v162.py \
+            tests/test_pre_reply_grounding_recovery_v162.py \
+            tests/test_public_answer_diagnostics_v162.py \
             tests/test_current_fact_provenance_v162.py \
             tests/test_public_temperature_ranges_v162.py \
             tests/test_gemini_search_grounding_v162.py \

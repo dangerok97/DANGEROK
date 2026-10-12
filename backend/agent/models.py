@@ -985,6 +985,12 @@ class ActionPlan(BaseModel):
     # a plan that keeps being rewritten is a plan that is not working.
     revisions: int = 0
 
+    # A negative prepared-result review already persists the owed judgement.
+    # Acknowledge its exact artifact/review only with a usable plan decision;
+    # technical deferral must resume reconsideration, not reverify that draft.
+    # Internal bookkeeping, deliberately absent from for_ai().
+    prepared_review_reconsidered: str = Field(default="", max_length=64)
+
     created_at: str = Field(default_factory=now_iso)
     updated_at: str = Field(default_factory=now_iso)
 

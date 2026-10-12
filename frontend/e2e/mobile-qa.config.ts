@@ -4,7 +4,7 @@ import path from 'node:path';
 const frontendRoot = path.resolve(__dirname, '..');
 export default defineConfig({
   testDir: '.',
-  testMatch: ['mobile-conversation-v93.spec.ts', 'prepara-chiamata-responsive.spec.ts', 'agent-retry-v162.spec.ts', 'auth-session-v162.spec.ts', 'prepared-review-v162.spec.ts'],
+  testMatch: ['mobile-conversation-v93.spec.ts', 'prepara-chiamata-responsive.spec.ts', 'agent-retry-v162.spec.ts', 'auth-session-v162.spec.ts', 'prepared-review-v162.spec.ts', 'desktop-account-rail.spec.ts'],
   outputDir: path.join(frontendRoot, 'test-results'),
   timeout: 90000,
   expect: { timeout: 15000 },

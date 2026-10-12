@@ -363,7 +363,8 @@ def _preparation_claim_review(value, *, supplied_payload=None):
                     "claim_review_omitted": max(0, len(rows) - MAX_PREPARATION_CLAIMS),
                     "claim_review": []})
         for item in rows[:MAX_PREPARATION_CLAIMS]:
-            observed = _decision_fields(item, ("claim", "premises", "support", "correction"),
+            observed = _decision_fields(item, ("claim", "premises", "inference_or_gap",
+                                               "compatible_counterexample", "support", "correction"),
                                         limit=PREPARATION_CLAIM_TEXT_LIMIT)
             if isinstance(item, dict):
                 observed.update(_diagnostic_refs(item, "evidence_ids"))

@@ -52,7 +52,12 @@ def audit_schema(evidence_ids: Iterable[str], passage_ids: Iterable[str] | None 
                              "evidence_ids": _refs(ids),
                              **citation,
                              "premises": {"type": "string", "description":
-                                 "Short supporting premises and missing assumptions; for a calculation state its operation and result."},
+                                 "Only what the selected source passages establish: subject, scope, period and conditions."},
+                             "inference_or_gap": {"type": "string", "description":
+                                 "Brief operation or consequence and every necessary premise not supplied; empty if none is needed."},
+                             "compatible_counterexample": {"type": "string", "description":
+                                 "Brief case satisfying the recorded premises but defeating the claim, or empty if none was found. "
+                                 "Keep attributed inputs fixed for an explicitly conditional conclusion."},
                              "support": {"type": "string", "enum": ["stated", "derived", "conditional", "unsupported"]},
                              "correction": {"type": "string"},
                          })},

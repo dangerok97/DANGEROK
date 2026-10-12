@@ -16,6 +16,8 @@ from test_autonomy_preparation_diagnostics_v162 import (
 
 def check(ids):
     return {"claim": "Clausola sintetica da verificare.", "premises": "Premesse del controllo sintetico.",
+            "inference_or_gap": "Il test osserva la selezione, senza certificare il supporto semantico.",
+            "compatible_counterexample": "",
             "support": "stated", "correction": "", "evidence_ids": ["ev_input"],
             "source_passage_ids": ids}
 

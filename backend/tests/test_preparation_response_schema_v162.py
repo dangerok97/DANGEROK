@@ -46,6 +46,8 @@ def reply(payload, *, content=TEXT, verified=True):
     result = {"content": content if verified else "", "evidence_ids": refs}
     if "draft" in payload:
         review = [{"claim": "La nota dichiara sette unità.", "premises": "Dato riportato nella nota.",
+                   "inference_or_gap": "Si attribuisce il valore alla nota, senza conferma esterna.",
+                   "compatible_counterexample": "",
                    "support": "stated", "correction": "", "evidence_ids": list(refs),
                    "source_passage_ids": [payload["evidence"][-1]["claim_passages"][0]["id"]]}] if verified else []
         result.update({"claim_review": review, "verified": verified,

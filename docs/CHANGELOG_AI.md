@@ -1,3 +1,22 @@
+# 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
+
+**Correzioni dopo `636c0f7`, con gli esiti storici conservati.** Il collaudo reale resta **5/9 automatico e non accettato semanticamente**; anche un risultato automaticamente completato include condizioni non sostenute. La precedente CI attesta soltanto i due workflow push, **7/7 job**, mentre PR e Mobile su quel candidato non sono state eseguite.
+
+- **Risposta conversazionale:** tipi della copia verificati prima di conversione e dispatch; feedback specifico e una richiesta di correzione nel ciclo esistente, prima dell’eventuale fallback finale. Nessuna lettura o autorità aggiunta dal codice.
+- **Situation:** contratto esplicito per il riepilogo della nuova Situation e feedback mirato sul campo mancante. L’orario scelto e il riferimento canonico restano responsabilità della decisione del modello e dei controlli esistenti.
+- **Verifica della bozza:** riesame differito persistito per artefatto e review correnti, ripreso al risveglio già previsto senza spendere la prosecuzione in una verifica identica. Fonte cambiata, artefatto nuovo e revoca non ereditano l’acknowledgement precedente.
+- **Audit:** testo ripetitivo sostituito con premesse, derivazione o lacuna e controesempio distinti. Due campi nativi obbligatori, compatibilità esplicita delle vecchie citazioni e diagnostica limitata; nessun nuovo giudizio semantico affidato al codice, nessuna chiamata aggiunta.
+- **Osservabilità pubblica:** correzione del falso riconoscimento lessicale dell’intensità e conservazione della risposta parsata prima delle normalizzazioni; il verdetto originale e la riscrittura già registrata restano invariati.
+- **Integrazione:** base `6e619cf` conservata, insieme delle prove mobile unito e sette righe di soli spazi pulite nei file in ingresso.
+
+La pianificazione riceve un inventario limitato delle Evidence eseguite, con record generati e omissioni distinti, senza imporre una lettura o una scelta al modello.
+
+**Verifica locale integrata:** Codice locale `a11b2e36`: **1.831 PASS / 1 SKIP**, 149 moduli e 151 selezioni in 70,52 s. **CLI scripted 9/9**, con zero tentativi del modello, richieste HTTP al modello ed effetti esterni. TypeScript/export web PASS e Chromium **20/20 PASS**; WebKit richiede la CI perché non avviabile nell’ambiente locale. I precedenti gruppi mirati e le review senza esecuzione sono distinti nell’[indice delle evidenze](evidence/autonomy_v162_recovery_2026-10-12.json).
+
+La ricostruzione del contesto Memory non produce una patch e resta oltre il limite. Pubblicazione, CI completa, nuovo collaudo reale e ricezione su telefono non sono attestati da questa voce; l’approvazione del rollout APP resta separata.
+
+---
+
 # 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
 
 Conservati integralmente i tre report reali 630, la raccolta dei log, i
@@ -6917,3 +6936,12 @@ Riferimenti API: https://www.w3.org/TR/image-capture/ e
 https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
 Lo zoom qui è digitale, non un comando hardware o zoom ottico. Le sorgenti
 generali per i seed sono elencate nel modulo; nessun CAD o immagine è copiato.
+
+
+
+### 2026-10-12 — ORA on WhatsApp V1 (Meta Cloud API)
+
+- Added verified Cloud API callbacks and durable per-sender inbox; no sender is trusted as an ORA account before challenge pairing.
+- Reused AI Core, user-scoped memory and permission gates; encrypted phone/message storage, duplicate filtering, and disconnect.
+- Added WhatsApp connection card in Settings; fail-closed if Meta credentials absent.
+- Added CI tests and deployment/activation guide docs/WHATSAPP_CLOUD_API_V1.md. Live Meta integration requires external credentials.

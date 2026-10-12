@@ -1465,6 +1465,7 @@ async def run_cognitive_loop(
     calendar_absence_nudge_used = False
     bare_ack_nudge_used = False
     ready_act_nudge_used = False
+    reply_grounding_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
     skill_outcomes: List[Dict[str, Any]] = []
@@ -1594,10 +1595,17 @@ async def run_cognitive_loop(
         )
         validated_raw: Any = raw
         if not gov.ok or not gov.decision:
+            copy_errors = [code for code in gov.errors if code in (
+                "message_to_user_must_be_string", "question_must_be_string",
+            )]
             raw2 = await _call_ai(
                 decision_fn=decision_fn,
                 system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction()
-                + "\nPrevious output was invalid. Return valid JSON only.",
+                + "\nPrevious output was invalid. Return valid JSON only."
+                + ("\nDeclaration errors: " + ", ".join(copy_errors)
+                   + ". Use ordinary prose in these string fields, or null when optional; "
+                   "do not nest or stringify a summary/details object. Preserve the supported "
+                   "answer and the observed tool results." if copy_errors else ""),
                 user=payload,
                 user_preference=user_llm_preference,
             )
@@ -1939,15 +1947,31 @@ async def run_cognitive_loop(
                     linked_plan_pending_id = str(linked_plan)
             except Exception as e:
                 code = str(getattr(e, "code", "PERSISTENCE_ERROR"))[:80]
+                failure = {
+                    "failure_code": code,
+                    "reason": "Situation state was not persisted. Do not claim it was updated. Recover from context or explain honestly.",
+                }
+                if code == "SUMMARY_REQUIRED" and decision.situation_update.operation == "create":
+                    # Describe the rejected declaration, never fill its missing
+                    # semantic value or manufacture an identity for later tools.
+                    failure["protocol_error"] = {
+                        "field": "situation_update.summary",
+                        "issue": "required_non_empty_string",
+                        "max_length": 400,
+                    }
+                    failure["reason"] = (
+                        "No Situation was created. Provide a non-empty summary grounded in the available "
+                        "user context, then resubmit create without situation_id. Other summary/outcome "
+                        "fields do not replace this field. Use the canonical id and revision only from "
+                        "a successful Situation observation or owner-scoped context; never use a place ref. "
+                        "This is a declaration error, not a request for the user to choose a checkpoint."
+                    )
                 observations.append(
                     Observation(
                         kind="error",
                         name="situation_mutation",
                         status="error",
-                        payload={
-                            "failure_code": code,
-                            "reason": "Situation state was not persisted. Do not claim it was updated. Recover from context or explain honestly.",
-                        },
+                        payload=failure,
                     ).model_dump()
                 )
                 add_step(trace, event="SITUATION_MUTATION_FAIL", code=code)
@@ -2254,6 +2278,35 @@ async def run_cognitive_loop(
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
             ora = _compose_user_text(decision, observations[turn_start:])
+            if (mode in ("answer", "finish", "act") and not reply_grounding_nudge_used
+                    and step + 1 < max_steps):
+                # The existing guards identify a defect, not a replacement
+                # answer for cognition. Let the model repair it once using
+                # the observations already acquired, within the same bound.
+                # Final guards below remain the fallback when repair fails.
+                reply_findings = []
+                for check in (normalize_route_weather_reply, guard_route_advice, guard_weather_intensity):
+                    _, found = check(ora, observations[turn_start:])
+                    reply_findings.extend(found)
+                if reply_findings:
+                    reply_grounding_nudge_used = True
+                    findings = list(dict.fromkeys(reply_findings))
+                    observations.append(Observation(
+                        kind="system", name="reply_grounding_rejected", status="nudge",
+                        payload={
+                            "findings": findings,
+                            "reason": (
+                                "Revise message_to_user from the current observations. Return one prose "
+                                "string, not a serialized object. Preserve the supported findings and "
+                                "their limits. A current route estimate does not compare departure times; "
+                                "forecast probability does not establish future rainfall intensity. "
+                                "Do not repeat successful reads or introduce another action to repair "
+                                "the wording. The code has not supplied a replacement answer."
+                            ),
+                        },
+                    ).model_dump())
+                    add_step(trace, event="GROUNDING_REPLY_REPAIR_REQUESTED", findings=findings)
+                    continue
             skill_plan_waits_for_user = bool(
                 mode == "ask"
                 or _observations_wait_for_user(observations[turn_start:])

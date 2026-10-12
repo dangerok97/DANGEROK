@@ -1,3 +1,17 @@
+# 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
+
+**L’autonomia resta un obiettivo da dimostrare nel risultato consegnato.** La nuova versione integra la base `6e619cf` e i recuperi verificati localmente, ma i risultati reali di `636c0f7` restano immutati: **5/9 automatici, nessuna accettazione semantica complessiva**, Tarquinia fallita prima del monitoraggio e risposta pubblica riscritta dal controllo finale.
+
+1. **Verificare il nuovo candidato esatto in CI.** La precedente prova remota copre solo due workflow push e sette job. Dopo l’integrazione servono la CI completa, le prove con Mongo reale e WebKit; localmente TypeScript/export e Chromium **20/20** sono passati, mentre WebKit non ha potuto avviarsi.
+2. **Ripetere i nove casi reali e leggere tutti i risultati.** Il confronto deve conservare orizzonte, valori, differenze e limiti delle fonti; nessuna ipotesi contrattuale può diventare il fondamento non verificato di una raccomandazione. Il nuovo audit ne separa il ragionamento, ma uno schema valido non certifica l’implicazione. Il recupero deve riprendere il riesame dovuto senza perdere la fonte corrente. Il contesto Memory ancora troppo grande resta una limitazione esplicita.
+3. **Provare la nuova stesa sintetica a Tarquinia.** Dalla dichiarazione deve nascere la Situation corretta, seguita dalla lettura utile, da una stima qualificata e da un controllo futuro persistito. Un controllo pianificato ma non osservato resta in attesa; non vale come prova che i panni siano asciutti o che l’avviso sia arrivato. La vecchia stesa resta chiusa.
+4. **Verificare la risposta pubblica prima delle correzioni finali del codice.** Il falso positivo del parser sull’intensità non sana `MODEL_CLAIM_REWRITTEN`; il modello deve produrre una risposta fedele a natura, tempo e limiti delle letture, entro lo stesso ciclo.
+5. **Concludere il rilascio e la prova sul telefono sul candidato accettato.** L’approvazione del rollout APP precedentemente respinta resta necessaria; firma, installazione e ricezione ad app chiusa devono avere una propria prova. Un merge o un test browser non la sostituiscono.
+
+**Base locale della prossima prova:** Codice locale `a11b2e36`: **1.831 PASS / 1 SKIP**, 149 moduli e 151 selezioni in 70,52 s. **CLI scripted 9/9**, con zero tentativi del modello, richieste HTTP al modello ed effetti esterni. Nessun conteggio locale promuove i verdetti reali precedenti. [Indice delle evidenze e delle verifiche locali](evidence/autonomy_v162_recovery_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
 
 La chiusura dell'autonomia resta aperta. Il candidato 630 supera la CI
