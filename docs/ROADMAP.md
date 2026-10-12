@@ -18,6 +18,14 @@ La prova con modello reale è distinta da quella a risposte controllate;
 le letture di provider pubblici sono distinte da un'integrazione personale.
 Evidenze e gate in [QA_AUTONOMY_COMPLETION_V162.md](QA_AUTONOMY_COMPLETION_V162.md).
 
+**Stato del riscontro:** PR #211 integrata e CI verde, ma il primo collaudo
+con modello reale ha superato solo 2/8 casi. Il seguito corregge il contesto
+delle Memory prima di decisione e ripianificazione, la lettura delle parti
+successive delle note e la chiusura dei passi ormai inutili. I 232 test
+locali del seguito sono PASS; la nuova prova live resta da superare. Il
+rilascio app è preparato e sospeso dopo il rifiuto effettivo del controllo
+di approvazione Railway; non è considerato eseguito.
+
 **Gate di prodotto ancora distinti:** build nativa firmata e installata,
 ricezione effettiva dell'avviso, background del dispositivo e osservazione
 longitudinale. Il config corrente non dimostra un progetto EAS o un canale

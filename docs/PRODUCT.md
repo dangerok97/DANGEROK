@@ -1,3 +1,22 @@
+## 12 ottobre 2026 — v162, verifica live: leggere prima di decidere
+
+Prima di decidere se un lavoro è utile, ORA deve leggere le memorie citate
+con il loro contenuto e i loro limiti. Il breve segnale che una nota è cambiata
+non sostituisce la nota. La presenza di una fonte non obbliga a creare attività:
+un'informazione già sufficiente o priva di un bisogno concreto può restare tale.
+
+Una nota lunga richiede una lettura riconoscibile come parziale e la possibilità
+di proseguire dalla parte mancante, sulla stessa versione. Il risultato deve
+conservare le condizioni che cambiano il significato del confronto. Quando
+l'esito è verificato, i passaggi divenuti superflui vengono chiusi come saltati;
+una verifica incerta conserva il lavoro aperto.
+
+La prova con il modello reale ha trovato limiti che i test scripted non
+mostravano. Il suo esito resta una condizione distinta dalla CI e dalla
+distribuzione dell'app; non viene dedotto da una schermata o da un processo avviato.
+
+---
+
 ## 12 ottobre 2026 — v162: autonomia che conserva il lavoro e verifica le fonti
 
 Una richiesta autorizzata deve continuare senza essere riscritta dopo un errore

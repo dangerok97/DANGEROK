@@ -91,6 +91,29 @@ async def build(
             snapshot[name] = []
             snapshot["unavailable_sources"].append(name)
 
+    # A change envelope names a source; its short before/after text is not
+    # the source itself. Read only the Memory handles in this review, keeping
+    # the same ownership and current-status boundary as goal admission.
+    from agent.memory_sources import memory_source_id, read_memory_previews
+    memory_refs = list(dict.fromkeys(
+        str(change["ref"]).strip() for change in (changes or [])
+        if isinstance(change, dict) and memory_source_id(change.get("ref"))
+    ))
+    snapshot["memories"] = []
+    snapshot["unavailable_memory_refs"] = []
+    if memory_refs:
+        try:
+            snapshot["memories"] = await read_memory_previews(db, user_id, memory_refs)
+            observed = {memory_source_id(row["ref"]) for row in snapshot["memories"]}
+            snapshot["unavailable_memory_refs"] = [
+                ref for ref in memory_refs if memory_source_id(ref) not in observed
+            ][:8]
+        except Exception as e:
+            logger.info("snapshot source memories unavailable: %s", type(e).__name__)
+            snapshot["unavailable_memory_refs"] = memory_refs[:8]
+        if snapshot["unavailable_memory_refs"]:
+            snapshot["unavailable_sources"].append("memories")
+
     # Calendar routes depend on the current calendar, so collect them after
     # that source. A failed calendar read must never cancel its arranged wake.
     snapshot["departures"] = []
@@ -892,6 +915,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
             )
     take("existing_work", snapshot.get("existing_work"))
     take("document", snapshot.get("documents"))
+    take("memory", snapshot.get("memories"))
     take("market_offer", snapshot.get("market_offers"))
     take("profile_fact", snapshot.get("life_profile"))
 

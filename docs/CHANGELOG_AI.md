@@ -1,3 +1,24 @@
+## 12 ottobre 2026 — v162, correzioni emerse dal collaudo live
+
+- Contesto Memory citato condiviso fra ammissione e scoperta, con proprietà,
+  stato, provenienza, limiti della lettura e indisponibilità espliciti.
+- Fingerprint della scoperta aggiornata quando cambia il contenuto delle
+  memorie lette, senza cambiare lease o introdurre un nuovo scheduler.
+- Fonti Memory aggiornate nel contesto del nuovo piano e della verifica;
+  riconciliazione delle ipotesi AI obsolete distinta dai requisiti umani.
+- Lettura paginata e versionata delle memorie lunghe, con intervalli conservati
+  nelle evidenze e nei payload limitati di generazione e audit.
+- Chiusura dei soli passaggi ancora aperti quando l'esito è verificato;
+  cronologia delle esecuzioni e verifiche incerte conservate.
+- Diagnostica limitata delle decisioni effettive nel collaudo, con ritorni e
+  criteri invariati; rimossa dalla fixture una scadenza priva di fonte.
+- Runner Gemini sul trasporto pubblico HTTPX dell'SDK, così allowlist e
+  conteggio HTTP comprendono anche il modello configurato; diagnostica
+  esplicita del perimetro, senza dichiarare un sandbox socket globale.
+- Esiti della prima prova live registrati come falliti anche con CI verde.
+
+---
+
 ## 12 ottobre 2026 — v162: recupero dell'autonomia e verità delle fonti
 
 - Lettura delle Memory governate tramite schema corrente, riferimenti esatti,

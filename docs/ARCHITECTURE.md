@@ -1,3 +1,41 @@
+## 12 ottobre 2026 — v162, verifica live: contesto citato e conclusione del piano
+
+L'ammissione e lo snapshot della scoperta condividono `read_memory_previews`:
+solo riferimenti Memory citati, owner corretto e stato corrente, fino a otto
+anteprime di 600 caratteri. Qualificazioni, provenienza, data e troncamento
+restano nel contesto. Una memoria mancante o un errore del database sono
+copertura indisponibile, senza ripiego su note estranee. Le anteprime non
+creano evidenze e non sostituiscono l'esecuzione di `information.read`.
+
+La scoperta rilegge i riferimenti del batch di cambiamenti. `memories` entra
+nella fingerprint, così una correzione sostanziale non viene saltata come
+`same_facts` solo perché l'involucro del cambiamento è rimasto identico.
+La scelta del modello di non aprire un lavoro rimane valida.
+
+Planning e ragionamento successivo ricevono `current_source_context` con le
+anteprime Memory correnti e l'eventuale motivo persistito del refresh. Il
+modello deve riconciliare le proprie ipotesi derivate con i fatti aggiornati,
+conservando obiettivi, requisiti e autorità della persona. Le anteprime restano
+distinte dalle evidenze prodotte dal reader; non aggiungono un nuovo passaggio LLM.
+
+`information.read` conserva nella provenienza `memory_reads`, con riferimento,
+versione, intervallo osservato, lunghezza e prossimo offset. La continuazione
+richiede una singola fonte e la versione letta. Il testo resta limitato a otto
+claim di 600 caratteri; una pagina finale non certifica da sola il prefisso
+non letto. I cursori passano alla verifica e all'audit attraverso le evidenze
+persistite. I payload restano JSON valido entro 9000 caratteri e dichiarano
+le riduzioni. L'audit rimuove soltanto righe non citate; se le fonti citate
+eccedono il limite, restituisce `preparation_context_too_large` senza salvare
+la bozza o chiedere un retry temporaneo per un problema di dimensione.
+
+La conclusione verificata di un goal ritira i passaggi ancora eseguibili come
+`skipped`, conservando risultati, tentativi ed esiti terminali già registrati.
+La verifica incerta e le barriere di proprietà, revoca e aggiornamento della
+fonte precedono questa chiusura. Il collaudo non richiede di eseguire un passo
+che il risultato verificato ha reso superfluo.
+
+---
+
 ## 12 ottobre 2026 — v162: recupero, fonti correnti e consegna autonoma
 
 Il recupero della pianificazione usa il goal e la wake già esistenti. Errori,

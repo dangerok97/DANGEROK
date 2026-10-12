@@ -26,7 +26,7 @@ from typing import Any
 from unittest.mock import patch
 
 from scripts import phase2_goal_outcome_eval_v140 as baseline
-from scripts.phase1_read_provider_eval import _ReadBoundary
+from scripts.phase1_read_provider_eval import _ReadBoundary, _safe_text
 
 VERSION = "autonomy-completion-v162"
 OWNER = "ora-synthetic-autonomy-owner-v162"
@@ -39,6 +39,11 @@ ALLOWED = frozenset(baseline.EXPECTED.values())
 MAX_MODEL_CALLS = 40
 MAX_MODEL_HTTP_REQUESTS = 80
 CASE_TIMEOUT_SECONDS = 240
+MAX_DECISION_OBSERVATIONS = 12
+DECISION_TEXT_LIMIT = 400
+MAX_DIAGNOSTIC_PROPOSALS = 3
+MAX_DIAGNOSTIC_PLAN_STEPS = 6
+WHY_NOW = "La nota è disponibile per un confronto interno; non è documentata una scadenza."
 
 
 class EvaluationFailure(RuntimeError):
@@ -55,12 +60,15 @@ class Probe:
     model_calls: list[dict[str, Any]] = field(default_factory=list)
     model_attempts: int = 0
     model_http_requests: int = 0
+    structured_decisions: list[dict[str, Any]] = field(default_factory=list)
+    structured_decisions_omitted: int = 0
     steps: list[dict[str, str]] = field(default_factory=list)
     ticks: list[dict[str, int]] = field(default_factory=list)
     faults: list[str] = field(default_factory=list)
     blocked_effects: int = 0
     push_attempts: int = 0
     network: Any = None
+    database: Any = None  # Evaluator-created DB only; never serialized.
 
 
 def model_observations(probe):
@@ -68,8 +76,148 @@ def model_observations(probe):
             "model_calls": probe.model_calls,
             "model_attempts": probe.model_attempts,
             "model_http_requests": probe.model_http_requests,
+            "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+            "global_socket_dns_sandbox": False,
+            "structured_decisions": probe.structured_decisions,
+            "structured_decisions_omitted": probe.structured_decisions_omitted,
             # Failed calls may still be billable without returning usage.
             "token_usage_scope": "successful_responses_with_provider_usage_only"}
+
+
+def _response_kind(value):
+    return ("object" if isinstance(value, dict) else "array" if isinstance(value, list)
+            else "none" if value is None else "text" if isinstance(value, str) else "other")
+
+
+def _decision_fields(value, fields, *, limit=DECISION_TEXT_LIMIT):
+    """Allowlisted synthetic decision fields, never raw model/provider payloads."""
+    if not isinstance(value, dict):
+        return {"response_kind": _response_kind(value)}
+    out = {key: _safe_text(value[key], limit) for key in fields
+           if type(value.get(key)) is str}
+    shortened = [key for key in fields if type(value.get(key)) is str
+                 and len(value[key]) > limit]
+    if shortened:
+        out["truncated_fields"] = shortened
+    return out
+
+
+def _decision_result(stage, value):
+    out = {"response_kind": _response_kind(value)}
+    if not isinstance(value, dict):
+        return out
+    out.update(_decision_fields(value, (
+        "outcome", "reasoning", "objective", "desired_outcome", "question", "reason_for_silence",
+        "planning_outcome", "plan_summary", "expected_outcome", "what_is_missing", "decision", "step_id",
+    )))
+    if stage == "make_plan":
+        steps = value.get("steps")
+        out["steps_kind"] = _response_kind(steps)
+        if isinstance(steps, list):
+            out["steps_count"] = len(steps)
+            out["steps"] = [_decision_fields(item, (
+                "step_type", "capability_needed", "intent", "expected_result",
+            ), limit=160) for item in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]]
+            out["steps_omitted"] = max(0, len(steps) - MAX_DIAGNOSTIC_PLAN_STEPS)
+    if stage == "opportunity_scan":
+        proposals = value.get("opportunities")
+        out["opportunities_kind"] = _response_kind(proposals)
+        if isinstance(proposals, list):
+            out["opportunities_count"] = len(proposals)
+            out["opportunities"] = [_decision_fields(item, (
+                "identity_key", "what", "initiative", "why_it_matters", "what_i_can_do",
+            )) for item in proposals[:MAX_DIAGNOSTIC_PROPOSALS]]
+            out["opportunities_omitted"] = max(0, len(proposals) - MAX_DIAGNOSTIC_PROPOSALS)
+    return out
+
+
+def _decision_input(stage, value, kwargs):
+    """Shapes and lengths explain missing context without exporting source text."""
+    if not isinstance(value, dict):
+        return {"input_kind": _response_kind(value)}
+    if stage == "decide_goal":
+        context = value.get("source_context")
+        return {"source_context_count": len(context) if isinstance(context, list) else None,
+                "source_context_unavailable": value.get("source_context_unavailable")
+                if type(value.get("source_context_unavailable")) is bool else None}
+    if stage != "opportunity_scan":
+        out = _decision_fields(value, ("status",), limit=60)
+        evidence = kwargs.get("evidence")
+        out["evidence_kind"] = _response_kind(evidence)
+        if isinstance(evidence, (list, dict)):
+            out["evidence_entries"] = len(evidence)
+        plan = kwargs.get("plan")
+        if isinstance(plan, dict):
+            out["plan"] = _decision_fields(plan, ("status",), limit=60)
+            steps = plan.get("steps")
+            if isinstance(steps, list):
+                out["plan"]["steps_count"] = len(steps)
+                out["plan"]["steps"] = [_decision_fields(item, (
+                    "id", "step_type", "type", "capability_needed", "status",
+                ), limit=100) for item in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]]
+                out["plan"]["steps_omitted"] = max(0, len(steps) - MAX_DIAGNOSTIC_PLAN_STEPS)
+        return out
+    counts = {key: len(value[key]) for key in (
+        "memories", "documents", "calendar", "money", "life_profile", "what_changed",
+        "unavailable_sources", "unavailable_memory_refs",
+    ) if isinstance(value.get(key), (list, dict))}
+    changes = value.get("what_changed")
+    return {"collection_counts": counts,
+            "change_after_lengths": [len(item["from_to"]["after"]) for item in
+                (changes[:MAX_DIAGNOSTIC_PROPOSALS] if isinstance(changes, list) else [])
+                if isinstance(item, dict) and isinstance(item.get("from_to"), dict)
+                and type(item["from_to"].get("after")) is str]}
+
+
+async def failure_state(probe):
+    """Read bounded synthetic state after a gate fails; never change that state."""
+    db = probe.database
+    if db is None:
+        return {"available": False, "reason": "NO_EVALUATOR_DATABASE"}
+    try:
+        if not await db.eval_guards.find_one({"_id": VERSION, "owner": OWNER}):
+            return {"available": False, "reason": "SYNTHETIC_DIAGNOSTIC_GUARD_MISSING"}
+        query = {"owner_id": OWNER}
+        goals = await db.agent_goals.find(query, {"_id": 0}).to_list(2)
+        rows = []
+        for goal in goals:
+            goal_query = {"owner_id": OWNER, "goal_id": goal["id"]}
+            row = _decision_fields(goal, ("status", "rationale"))
+            row.update({
+                "requires_user_input": goal.get("requires_user_input") is True,
+                "requires_user_authority": goal.get("requires_user_authority") is True,
+                "has_next_run_at": bool(goal.get("next_run_at")),
+                "planning_unavailable": goal.get("planning_unavailable") is True,
+                "prepared_text_characters": len(goal.get("prepared_text") or ""),
+                "source_refs_count": len(goal.get("source_refs") or []),
+                "prepared_sources_count": len(goal.get("prepared_sources") or []),
+                "evidence_count": await db.agent_evidence.count_documents(goal_query),
+                "current_evidence_count": await db.agent_evidence.count_documents(
+                    {**goal_query, "superseded": {"$ne": True}}),
+            })
+            plans = await db.agent_plans.find(goal_query, {"_id": 0}).sort("updated_at", -1).to_list(2)
+            row["plans"] = []
+            for plan in plans:
+                item = _decision_fields(plan, ("status", "plan_summary"))
+                steps = plan.get("steps") or []
+                counts = {}
+                for step in steps:
+                    status = step.get("status")
+                    if status in ("pending", "running", "waiting", "succeeded", "failed", "skipped", "blocked", "cancelled"):
+                        counts[status] = counts.get(status, 0) + 1
+                item.update({
+                    "steps_count": len(steps), "step_status_counts": counts,
+                    "steps": [_decision_fields(step, (
+                        "step_type", "capability_needed", "status", "note",
+                    ), limit=160) for step in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]],
+                    "steps_omitted": max(0, len(steps) - MAX_DIAGNOSTIC_PLAN_STEPS),
+                })
+                row["plans"].append(item)
+            row["plans_count"] = await db.agent_plans.count_documents(goal_query)
+            rows.append(row)
+        return {"available": True, "goals_count": await db.agent_goals.count_documents(query), "goals": rows}
+    except Exception as exc:
+        return {"available": False, "reason": type(exc).__name__[:80]}
 
 
 class BlockedPush:
@@ -110,7 +258,10 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
     original_chat, original_step = ProviderManager.chat, StepExecutor.run
     original_advance, original_note = AgentService.advance, DeliveryService.note_activity
     original_scan = OpportunityService.scan
+    original_decide_goal, original_discover = reasoning.decide_goal, opportunity_reasoning.scan
     base_plan = baseline.scripted_make_plan if mode == "scripted" else reasoning.make_plan
+    base_verify = baseline.scripted_verify if mode == "scripted" else reasoning.verify_goal
+    base_choose = baseline.scripted_choose if mode == "scripted" else reasoning.choose_next_action
 
     async def observed_chat(self, *args, **kwargs):
         probe.model_attempts += 1
@@ -118,6 +269,7 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         if probe.model_attempts > MAX_MODEL_CALLS:
             boundary.blocked.append("MODEL_CALL_BOUND_EXCEEDED")
             raise EvaluationFailure("MODEL_CALL_BOUND_EXCEEDED")
+        http_before = probe.model_http_requests
         token = boundary.scope.set("model")
         try:
             result = await original_chat(self, *args, **kwargs)
@@ -127,9 +279,38 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
                 "usage": {key: value for key in ("prompt_tokens", "completion_tokens", "total_tokens")
                           if type(value := usage.get(key)) is int and value >= 0},
             })
+            if probe.model_http_requests <= http_before:
+                # A pre-existing SDK client or another transport must not
+                # produce green evidence with an unobserved request budget.
+                boundary.blocked.append("MODEL_HTTP_NOT_OBSERVED")
+                raise EvaluationFailure("MODEL_HTTP_NOT_OBSERVED")
             return result
         finally:
             boundary.scope.reset(token)
+
+    async def observed_decision(stage, call, *args, **kwargs):
+        input_key = "situation" if stage == "decide_goal" else "snapshot" if stage == "opportunity_scan" else "goal"
+        payload = args[0] if args else kwargs.get(input_key)
+        observation = {"stage": stage, "model_attempts_before": probe.model_attempts,
+                       "input": _decision_input(stage, payload, kwargs)}
+        try:
+            result = await call(*args, **kwargs)
+        except BaseException as exc:
+            # Keep cancellation/error identity; never export an exception message.
+            observation.update({"response_kind": "raised", "exception_type": type(exc).__name__[:80]})
+            raise
+        else:
+            observation.update(_decision_result(stage, result))
+            return result
+        finally:
+            observation["model_attempts_after"] = probe.model_attempts
+            observation["sequence"] = len(probe.structured_decisions) + probe.structured_decisions_omitted + 1
+            if len(probe.structured_decisions) >= MAX_DECISION_OBSERVATIONS:
+                # Preserve admission/discovery plus the latest decisions that
+                # explain a late failure, with an explicit count and sequence gap.
+                probe.structured_decisions.pop(min(2, MAX_DECISION_OBSERVATIONS - 1))
+                probe.structured_decisions_omitted += 1
+            probe.structured_decisions.append(observation)
 
     async def available(self, owner_id):
         require(self.db is db and owner_id == OWNER, "CAPABILITY_OWNER_BOUNDARY")
@@ -155,7 +336,7 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
             kwargs["budget"] = AgentBudget(max_steps=1)
         return await original_advance(self, owner_id, goal_id, **kwargs)
 
-    async def plan(*args, **kwargs):
+    async def plan_result(*args, **kwargs):
         if scenario == "planning_outage" and "planning_unavailable_once" not in probe.faults:
             probe.faults.append("planning_unavailable_once")
             return None
@@ -165,6 +346,15 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
                 item["expected_result"] = item.get("expected_result", "").replace(
                     "120 euro", "150 euro").replace("60 euro", "30 euro")
         return result
+
+    async def plan(*args, **kwargs):
+        return await observed_decision("make_plan", plan_result, *args, **kwargs)
+
+    async def verify(*args, **kwargs):
+        return await observed_decision("verify_goal", base_verify, *args, **kwargs)
+
+    async def choose(*args, **kwargs):
+        return await observed_decision("choose_next_action", base_choose, *args, **kwargs)
 
     async def note(self, *args, **kwargs):
         provenance = kwargs.get("provenance") or {}
@@ -177,10 +367,13 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
             raise ConnectionError("synthetic_home_write_failure")
         return await original_note(self, *args, **kwargs)
 
-    async def decide_goal(*args, **kwargs):
+    async def scripted_goal_decision(*args, **kwargs):
         if scenario == "irrelevant":
             return {"outcome": "no_goal", "reasoning": "Nessun bisogno documentato."}
-        return baseline.scripted_goal()
+        answer = baseline.scripted_goal()
+        answer["why_now"] = WHY_NOW
+        answer["stop_conditions"] = ["La nota viene ritirata o revocata", "Il confronto non è più utile"]
+        return answer
 
     async def scan(self, *args, **kwargs):
         if scenario == "source_change_crash" and "source_scan_cancelled_once" not in probe.faults:
@@ -194,12 +387,20 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         require(len(refs) == 1, "DISCOVERY_LOST_CANONICAL_SOURCE")
         return {"opportunities": [{
             "identity_key": "v162:fictional-archive-cost-review",
-            "what": "Il rinnovo dell'archivio è prossimo e la nota permette un confronto di dodici mesi.",
+            "what": "La nota salvata riporta due opzioni per l'archivio da confrontare su dodici mesi.",
             "why_it_matters": "Preparare un confronto interno utile dei costi e dei limiti.",
-            "why_now": "Il rinnovo è prossimo nello scenario sintetico.",
+            "why_now": WHY_NOW,
             "initiative": "prepare", "evidence_refs": refs,
             "what_i_can_do": "Leggere la nota e preparare un confronto, senza modificare il contratto.",
         }]}
+
+    async def decide_goal(*args, **kwargs):
+        call = scripted_goal_decision if mode == "scripted" else original_decide_goal
+        return await observed_decision("decide_goal", call, *args, **kwargs)
+
+    async def discover_decision(*args, **kwargs):
+        call = discover if mode == "scripted" else original_discover
+        return await observed_decision("opportunity_scan", call, *args, **kwargs)
 
     async def visible(goal, **kwargs):
         if goal.get("status") != "completed":
@@ -254,18 +455,18 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         stack.enter_context(patch.object(DeliveryService, "note_activity", note))
         stack.enter_context(patch.object(provider, "get_provider", lambda: BlockedPush(probe)))
         stack.enter_context(patch.object(reasoning, "make_plan", plan))
+        stack.enter_context(patch.object(reasoning, "verify_goal", verify))
+        stack.enter_context(patch.object(reasoning, "choose_next_action", choose))
         stack.enter_context(patch.object(OpportunityService, "scan", scan))
+        stack.enter_context(patch.object(reasoning, "decide_goal", decide_goal))
+        stack.enter_context(patch.object(opportunity_reasoning, "scan", discover_decision))
         if mode == "scripted":
             if scenario == "memory_corrected":
                 stack.enter_context(patch.object(baseline, "DRAFT", baseline.DRAFT.replace(
                     "120 euro", "150 euro").replace("60 euro", "30 euro")))
-            stack.enter_context(patch.object(reasoning, "decide_goal", decide_goal))
-            stack.enter_context(patch.object(reasoning, "choose_next_action", baseline.scripted_choose))
-            stack.enter_context(patch.object(reasoning, "verify_goal", baseline.scripted_verify))
             stack.enter_context(patch.object(reasoning, "_ask_model", baseline.scripted_draft))
             stack.enter_context(patch.object(reasoning, "decide_visibility", visible))
             stack.enter_context(patch.object(delivery_reasoning, "decide_delivery", in_app))
-            stack.enter_context(patch.object(opportunity_reasoning, "scan", discover))
         yield probe
 
 
@@ -296,7 +497,7 @@ async def seed_case(db, scenario):
             identity_key="v162:fictional-archive-note", confidence=0.95,
             authority="user_stated", epistemic_status="confirmed",
             provenance=["user_conversation"], permanence="indefinite",
-            reason_for_future_utility="Confrontare le condizioni interne prima del rinnovo.",
+            reason_for_future_utility="Confrontare i costi e i vincoli indicati nella nota interna.",
             user_authorized=True,
         ),
     )
@@ -313,10 +514,11 @@ async def seed_case(db, scenario):
         return ""
     opportunity = Opportunity(
         owner_id=OWNER, identity_key="v162:fictional-archive-cost-review", status="active",
-        semantic_summary=("Una nota interna descrive due costi per un archivio digitale con rinnovo "
-                          "prossimo. Serve un confronto informativo di dodici mesi, senza cambiare contratto."),
+        semantic_summary=("Una nota interna descrive due opzioni per un archivio digitale. "
+                          "Un confronto informativo di dodici mesi può chiarire costi e vincoli, "
+                          "senza cambiare contratto."),
         why_it_matters="Evitare una possibile spesa maggiore e rendere visibili i limiti.",
-        why_now="Il rinnovo è prossimo nello scenario sintetico.",
+        why_now=WHY_NOW,
         what_ora_can_do=("Leggere la nota salvata e preparare un confronto dei costi per dodici mesi "
                          "con i vincoli e i dati ancora da verificare. Nessun pagamento, invio o modifica."),
         initiative="prepare", evidence=[EvidenceRef(kind="memory", ref=memory.memory_id,
@@ -505,7 +707,7 @@ async def change_memory(db, goal_id, *, correction=False):
             kind="service_contract_note", identity_key="v162:fictional-archive-note",
             authority="user_stated", epistemic_status="confirmed", confidence=0.95,
             permanence="indefinite", provenance=["user_conversation"],
-            reason_for_future_utility="Confrontare le condizioni interne prima del rinnovo."),
+            reason_for_future_utility="Confrontare i costi e i vincoli indicati nella nota interna."),
     )
     require(changed.persisted, "MEMORY_CHANGE_NOT_PERSISTED")
     return {"old": refs[0], "current": changed.memory_id}
@@ -517,6 +719,8 @@ async def run_case(scenario, *, mode="scripted", probe=None):
     from agent.service import AgentService
     require(scenario in SCENARIOS, "UNKNOWN_SCENARIO")
     db = AsyncMongoMockClient()["autonomy_v162_" + scenario]
+    probe = probe or Probe()
+    probe.database = db
     with isolated_engine(db, mode=mode, scenario=scenario, probe=probe) as probe:
         source_id = await seed_case(db, scenario)
         if scenario == "source_change_crash":
@@ -610,6 +814,7 @@ async def main(*, mode="scripted", scenario="all", output=""):
             except Exception as exc:
                 case = {"scenario": name, "mode": mode, "passed": False,
                         **model_observations(probe),
+                        "failure_state": await failure_state(probe),
                         "reason": str(exc) if isinstance(exc, EvaluationFailure) else type(exc).__name__}
             cases.append(case)
         passed = all(case["passed"] for case in cases)
@@ -622,6 +827,10 @@ async def main(*, mode="scripted", scenario="all", output=""):
                    "limits": {"cases": len(selected), "case_timeout_seconds": CASE_TIMEOUT_SECONDS,
                               "model_calls_per_case": MAX_MODEL_CALLS,
                               "model_http_requests_per_case": MAX_MODEL_HTTP_REQUESTS,
+                              "structured_decisions_per_case": MAX_DECISION_OBSERVATIONS,
+                              "decision_text_characters": DECISION_TEXT_LIMIT,
+                              "proposals_per_decision": MAX_DIAGNOSTIC_PROPOSALS,
+                              "plan_steps_per_decision": MAX_DIAGNOSTIC_PLAN_STEPS,
                               "model_calls_total": len(selected) * MAX_MODEL_CALLS,
                               "model_http_requests_total": len(selected) * MAX_MODEL_HTTP_REQUESTS},
                    "code_revision": revision if re.fullmatch(r"[0-9a-fA-F]{40}", revision) else None,

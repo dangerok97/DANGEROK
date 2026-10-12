@@ -189,6 +189,17 @@ IntentStatus = Literal[
 ]
 
 
+class MemoryReadRange(BaseModel):
+    """A bounded reader cursor, not a claim that the whole Memory was read."""
+
+    ref: str = Field(min_length=1, max_length=160)
+    offset: int = Field(ge=0)
+    end: int = Field(ge=0)
+    total: int = Field(ge=0)
+    version: str = Field(min_length=64, max_length=64)
+    next_offset: Optional[int] = Field(default=None, ge=0)
+
+
 class ResultProvenance(BaseModel):
     """
     Where a result came from, attached to the result itself.
@@ -211,6 +222,10 @@ class ResultProvenance(BaseModel):
     # Only the Memory reader attests a genuinely empty bounded selection.
     # Legacy unreferenced claims cannot be certified from today's database.
     memory_read_scope: Literal["", "empty", "versioned"] = ""
+    # Unlike the internal source-version fence, these code-issued cursors are
+    # reasoning input. Persist them with the evidence so a restarted worker
+    # can continue an excerpt without inventing a previously read position.
+    memory_reads: List[MemoryReadRange] = Field(default_factory=list, max_length=8)
     freshness: Freshness = "unknown"
     # Code attests a completed, sufficient research run with cited claims.
     # Unknown on legacy evidence; this does not certify geographic relevance.
@@ -237,6 +252,8 @@ class ResultProvenance(BaseModel):
             "research_valid_until": self.research_valid_until,
             "weather_valid_until": self.weather_valid_until,
             "note": self.certainty_note or None,
+            **({"memory_reads": [read.model_dump() for read in self.memory_reads]}
+               if self.memory_reads else {}),
         }
 
 
@@ -896,6 +913,8 @@ class ActionStep(BaseModel):
             "input_refs": list(self.input_refs),
             "document_offset": self.parameters.get("document_offset") if self.capability_needed == "document.read" else None,
             "document_version": self.parameters.get("document_version") if self.capability_needed == "document.read" else None,
+            "memory_offset": self.parameters.get("memory_offset") if self.capability_needed == "information.read" else None,
+            "memory_version": self.parameters.get("memory_version") if self.capability_needed == "information.read" else None,
             "wait_until": self.parameters.get("wait_until") if self.step_type == "wait" else None,
             "wait_minutes": self.parameters.get("wait_minutes") if self.step_type == "wait" else None,
             # Legacy v60 plans remain readable while new plans use minute/absolute timing.

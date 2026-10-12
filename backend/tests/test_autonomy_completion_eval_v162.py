@@ -23,6 +23,10 @@ async def test_connected_autonomy_contract(scenario):
     assert report["external_effects"] == 0
     assert report["storage"] == "in_memory"
     assert report["process_restart_tested"] is False
+    decisions = report["structured_decisions"]
+    assert report["structured_decisions_omitted"] == 0
+    assert any(row["stage"] == "decide_goal" for row in decisions)
+    assert all(row["model_attempts_before"] == row["model_attempts_after"] == 0 for row in decisions)
     if scenario == "irrelevant":
         assert report["worker_ticks"] == []
         assert report["executed_capabilities"] == []
@@ -53,6 +57,29 @@ async def test_canonical_governed_memory_reaches_the_real_worker_reader():
         assert evidence and evidence["claim"] == gate.baseline.FACT
         assert memory["id"] in evidence["provenance"]["source_refs"]
         assert evidence["provenance"]["source_versions"].get(memory["id"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scenario", ["completed_result", "source_change_crash", "memory_corrected"])
+async def test_fixture_does_not_invent_renewal_urgency_outside_the_canonical_note(scenario):
+    db = AsyncMongoMockClient().v162_no_invented_deadline
+    with gate.isolated_engine(db, scenario=scenario) as probe:
+        await gate.seed_case(db, scenario)
+        if scenario == "source_change_crash":
+            await gate.discover_after_crash(db, probe)
+        goal_id = await gate.admit(db, scenario)
+        memory = await db.memories.find_one({"user_id": gate.OWNER})
+        source = await db.opportunities.find_one({"owner_id": gate.OWNER})
+        goal = await db.agent_goals.find_one({"owner_id": gate.OWNER, "id": goal_id})
+        assert memory["statement"] == memory["content"] == gate.baseline.FACT
+        assert all("rinnovo" not in text.lower() for text in (
+            source["semantic_summary"], source["why_now"], goal["why_now"],
+        ))
+        assert "non è documentata una scadenza" in source["why_now"]
+        if scenario == "memory_corrected":
+            assert "La nota viene corretta o ritirata" not in goal["stop_conditions"]
+            assert all("corretta" not in condition.lower() for condition in goal["stop_conditions"])
+            assert any("ritirata" in condition for condition in goal["stop_conditions"])
 
 
 @pytest.mark.asyncio
@@ -162,6 +189,210 @@ async def test_failed_case_has_a_nonzero_verdict_and_sanitized_exception(monkeyp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["no_goal", "wait", "clarify", None])
+async def test_nonadmission_decision_survives_failed_report_without_forcing_goal(
+    monkeypatch, tmp_path, capsys, outcome,
+):
+    from agent import reasoning
+
+    monkeypatch.setenv("GEMINI_API_KEY", "synthetic-diagnostic-placeholder")
+    response = {"outcome": outcome, "reasoning": "La nota non contiene ancora le condizioni utili.",
+                "question": "Quale risultato è necessario?"} if outcome else None
+    inputs = []
+
+    async def decision(situation, **kwargs):
+        inputs.append(situation)
+        return response
+
+    monkeypatch.setattr(reasoning, "decide_goal", decision)
+    output = tmp_path / "nonadmission.json"
+    assert await gate.main(mode="live", scenario="completed_result", output=str(output)) == 1
+    report = json.loads(output.read_text())
+    case = report["cases"][0]
+    assert not case["passed"] and not case["real_model_executed"]
+    assert case["model_attempts"] == 0  # Structured stub; no real model claimed.
+    assert len(inputs) == len(case["structured_decisions"]) == 1
+    observed = case["structured_decisions"][0]
+    assert observed["stage"] == "decide_goal"
+    assert observed["input"]["source_context_count"] == len(inputs[0]["source_context"])
+    if response is None:
+        assert observed["response_kind"] == "none"
+        assert "outcome" not in observed
+    else:
+        assert case["reason"] == "ONE_ACTIVE_GOAL_REQUIRED"
+        assert observed["outcome"] == response["outcome"]
+        assert observed["reasoning"] == response["reasoning"]
+    assert "structured_decisions" in capsys.readouterr().out
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unavailable", [False, True])
+async def test_discovery_silence_or_unavailability_is_explained_without_inventing_opportunity(
+    monkeypatch, tmp_path, unavailable,
+):
+    from opportunities import reasoning
+
+    monkeypatch.setenv("GEMINI_API_KEY", "synthetic-diagnostic-placeholder")
+    response = None if unavailable else {
+        "opportunities": [], "reason_for_silence": "Non vedo una differenza concreta da confrontare.",
+    }
+    inputs = []
+
+    async def decision(snapshot, **kwargs):
+        inputs.append(snapshot)
+        return response
+
+    monkeypatch.setattr(reasoning, "scan", decision)
+    output = tmp_path / "discovery.json"
+    assert await gate.main(mode="live", scenario="source_change_crash", output=str(output)) == 1
+    case = json.loads(output.read_text())["cases"][0]
+    assert not case["passed"] and case["reason"] == "SOURCE_DISCOVERY_DID_NOT_RECOVER"
+    assert case["model_attempts"] == 0 and not case["real_model_executed"]
+    assert len(case["structured_decisions"]) == 1
+    observed = case["structured_decisions"][0]
+    assert observed["stage"] == "opportunity_scan"
+    assert observed["input"]["collection_counts"]["what_changed"] == 1
+    after = inputs[0]["what_changed"][0]["from_to"]["after"]
+    assert len(after) > 0 and observed["input"]["change_after_lengths"] == [len(after)]
+    if unavailable:
+        assert observed["response_kind"] == "none" and "reason_for_silence" not in observed
+    else:
+        assert observed["opportunities_count"] == 0
+        assert observed["reason_for_silence"] == response["reason_for_silence"]
+    assert gate.baseline.FACT not in output.read_text()
+
+
+@pytest.mark.asyncio
+async def test_decision_observation_is_bounded_redacted_and_preserves_return_identity(monkeypatch):
+    from agent import reasoning
+
+    credential = "synthetic-diagnostic-placeholder"
+    monkeypatch.setenv("GEMINI_API_KEY", credential)
+    monkeypatch.setattr(gate, "MAX_DECISION_OBSERVATIONS", 2)
+    response = {"outcome": "no_goal", "reasoning": credential + " " + "x" * 600,
+                "raw_provider_error": "DO_NOT_EXPORT_PROVIDER_BODY", "headers": {"secret": credential}}
+
+    async def decision(*args, **kwargs):
+        return response
+
+    monkeypatch.setattr(reasoning, "decide_goal", decision)
+    db = AsyncMongoMockClient().v162_decision_diagnostics
+    with gate.isolated_engine(db, mode="live") as probe:
+        for _ in range(5):
+            assert await reasoning.decide_goal({"source_context": [], "raw_input": credential}) is response
+        assert len(probe.structured_decisions) == 2
+        assert probe.structured_decisions_omitted == 3
+        assert [row["sequence"] for row in probe.structured_decisions] == [1, 5]
+        assert response["reasoning"].startswith(credential)  # No rewriting the model's answer.
+        observed = probe.structured_decisions[0]
+        assert len(observed["reasoning"]) <= gate.DECISION_TEXT_LIMIT
+        assert observed["truncated_fields"] == ["reasoning"]
+        diagnostic = json.dumps(gate.model_observations(probe))
+        assert credential not in diagnostic and "DO_NOT_EXPORT_PROVIDER_BODY" not in diagnostic
+        assert "raw_provider_error" not in diagnostic and "raw_input" not in diagnostic
+        assert probe.model_attempts == probe.model_http_requests == 0
+
+
+@pytest.mark.asyncio
+async def test_decision_exception_observation_keeps_original_error_without_its_message(monkeypatch):
+    from agent import reasoning
+
+    error = RuntimeError("DO_NOT_EXPORT_PROVIDER_FAILURE_DETAIL")
+
+    async def decision(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(reasoning, "decide_goal", decision)
+    db = AsyncMongoMockClient().v162_decision_error
+    with gate.isolated_engine(db, mode="live") as probe:
+        with pytest.raises(RuntimeError) as caught:
+            await reasoning.decide_goal({})
+        assert caught.value is error
+        observed = probe.structured_decisions[0]
+        assert observed["response_kind"] == "raised" and observed["exception_type"] == "RuntimeError"
+        assert str(error) not in json.dumps(gate.model_observations(probe))
+
+
+def test_discovery_proposal_diagnostics_do_not_export_unbounded_arrays_or_unknown_fields():
+    response = {"opportunities": [{"what": "x" * 900, "initiative": "prepare",
+                                  "raw_provider_error": "DO_NOT_EXPORT_PROVIDER_BODY"}] * 9}
+    observed = gate._decision_result("opportunity_scan", response)
+    assert observed["opportunities_count"] == 9
+    assert len(observed["opportunities"]) == gate.MAX_DIAGNOSTIC_PROPOSALS
+    assert observed["opportunities_omitted"] == 9 - gate.MAX_DIAGNOSTIC_PROPOSALS
+    assert len(observed["opportunities"][0]["what"]) == gate.DECISION_TEXT_LIMIT
+    assert "DO_NOT_EXPORT_PROVIDER_BODY" not in json.dumps(observed)
+    assert len(response["opportunities"]) == 9 and len(response["opportunities"][0]["what"]) == 900
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage,response", [
+    ("make_plan", {"planning_outcome": "not_possible", "steps": [], "reasoning": "Manca una capacità utile."}),
+    ("verify_goal", {"outcome": "not_achieved", "reasoning": "La bozza non soddisfa ancora i criteri.",
+                     "what_is_missing": "Il limite della fonte."}),
+    ("choose_next_action", {"decision": "replan", "reasoning": "Restano passaggi non eseguiti."}),
+])
+async def test_planning_and_verification_diagnostics_preserve_the_actual_decision(monkeypatch, stage, response):
+    from agent import reasoning
+
+    async def decision(*args, **kwargs):
+        return response
+
+    monkeypatch.setattr(reasoning, stage, decision)
+    db = AsyncMongoMockClient().v162_later_decision
+    plan = {"status": "active", "steps": [{"id": "synthetic-step", "step_type": "prepare",
+             "capability_needed": "document.create", "status": "pending", "raw_source": "DO_NOT_EXPORT"}]}
+    with gate.isolated_engine(db, mode="live") as probe:
+        returned = await getattr(reasoning, stage)({"status": "active"}, plan=plan, evidence=[])
+        assert returned is response
+        observed = probe.structured_decisions[0]
+        assert observed["stage"] == stage and observed["reasoning"] == response["reasoning"]
+        assert observed["input"]["plan"]["steps"][0]["status"] == "pending"
+        assert "DO_NOT_EXPORT" not in json.dumps(gate.model_observations(probe))
+        assert probe.model_attempts == probe.model_http_requests == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unfinished_status", ["pending", "waiting"])
+async def test_failed_completion_report_preserves_pending_steps_and_source_counts(
+    monkeypatch, tmp_path, unfinished_status,
+):
+    from agent.models import ActionStep
+
+    original_run = gate.run_case
+    captured = {}
+
+    async def completion_with_pending_step(scenario, *, mode, probe):
+        await original_run(scenario, mode=mode, probe=probe)
+        db = probe.database
+        goal = await db.agent_goals.find_one({"owner_id": gate.OWNER})
+        pending = ActionStep(intent="Verifica superflua rimasta nel piano", step_type="verify",
+                             status=unfinished_status, note="Non eseguito: stato da diagnosticare.")
+        query = {"owner_id": gate.OWNER, "goal_id": goal["id"]}
+        await db.agent_plans.update_one(query, {"$push": {"steps": pending.model_dump()}})
+        captured.update({"db": db, "query": query})
+        await gate.verify_result(db, goal["id"], probe, recover=False)
+
+    monkeypatch.setattr(gate, "run_case", completion_with_pending_step)
+    output = tmp_path / "unfinished-plan.json"
+    assert await gate.main(scenario="completed_result", output=str(output)) == 1
+    case = json.loads(output.read_text())["cases"][0]
+    assert not case["passed"] and case["reason"] == "UNFINISHED_PLAN_STEPS"
+    state = case["failure_state"]
+    assert state["available"] and state["goals_count"] == 1
+    goal = state["goals"][0]
+    assert goal["status"] == "completed" and goal["prepared_text_characters"] > 0
+    assert goal["source_refs_count"] > 0 and goal["prepared_sources_count"] > 0
+    assert goal["current_evidence_count"] > 0
+    plan = goal["plans"][0]
+    assert plan["status"] == "completed" and plan["step_status_counts"][unfinished_status] == 1
+    assert plan["steps"][-1]["status"] == unfinished_status
+    persisted = await captured["db"].agent_plans.find_one(captured["query"])
+    assert persisted["steps"][-1]["status"] == unfinished_status  # Observation cannot repair the gate.
+    assert gate.baseline.FACT not in output.read_text() and gate.baseline.DRAFT not in output.read_text()
+
+
+@pytest.mark.asyncio
 async def test_world_action_is_blocked_before_the_executor_can_act():
     from agent.execution import StepExecutor
     from agent.models import ActionStep, AutonomousGoal
@@ -215,6 +446,29 @@ async def test_model_fallbacks_share_a_transport_budget_before_network_spending(
         assert probe.model_http_requests == 2 and probe.model_attempts == 1
         assert probe.network.blocked == ["MODEL_HTTP_BOUND_EXCEEDED"]
         assert probe.network.scope.get() == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_successful_model_response_without_observed_http_cannot_pass(monkeypatch):
+    from llm.base import LLMResult
+    from llm.manager import ProviderManager
+
+    async def unobserved_response(*args, **kwargs):
+        return LLMResult(text="Synthetic cached response", provider="gemini",
+                         model="synthetic-evaluation-model", usage={"total_tokens": 6})
+
+    monkeypatch.setattr(ProviderManager, "chat", unobserved_response)
+    db = AsyncMongoMockClient().v162_unobserved_model_transport
+    with gate.isolated_engine(db, mode="live") as probe:
+        with pytest.raises(gate.EvaluationFailure, match="^MODEL_HTTP_NOT_OBSERVED$"):
+            await ProviderManager.chat(object())
+        assert probe.model_attempts == 1 and probe.model_http_requests == 0
+        assert probe.network.blocked == ["MODEL_HTTP_NOT_OBSERVED"]
+        assert probe.network.scope.get() == "blocked"
+        # Preserve the response evidence without accepting the transport claim.
+        report = gate.model_observations(probe)
+        assert report["model_calls"][0]["usage"]["total_tokens"] == 6
+        assert report["global_socket_dns_sandbox"] is False
 
 
 @pytest.mark.asyncio

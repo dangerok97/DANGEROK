@@ -217,6 +217,11 @@ jobs:
         run: |
           python -m pytest -q -n 0 \
             tests/test_agent_memory_read_v162.py \
+            tests/test_memory_source_context_v162.py \
+            tests/test_agent_memory_replanning_context_v162.py \
+            tests/test_agent_memory_continuation_v162.py \
+            tests/test_agent_terminal_plan_v162.py \
+            tests/test_eval_gemini_transport_v162.py \
             tests/test_agent_connector_readiness_v162.py \
             tests/test_agent_planning_recovery_v162.py \
             tests/test_opportunity_discovery_recovery_v162.py \

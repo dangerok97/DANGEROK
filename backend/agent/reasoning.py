@@ -33,8 +33,20 @@ _DISCIPLINE = (
         "User clarifications are facts, never consent. When current_source_situation "
         "is present, reconcile the goal with those latest facts and discard obsolete "
         "assumptions before planning or acting.\n"
-        "A partial read is not the whole document. Use a returned continuation "
-        "offset and document version when further content is needed.\n\n"
+        "current_source_context contains current owned-source previews, not execution evidence "
+        "or new authority. If previous_interpretation_may_be_obsolete is true, reconcile the "
+        "earlier AI interpretation, factual assumptions and derived calculations with these sources "
+        "before planning or verification. Preserve the person's requested outcome, explicit "
+        "requirements and authority limits. A corrected source calls for a current read and a "
+        "revised plan when the outcome is still useful; correction alone does not prove the "
+        "person cancelled the work. Withdrawal, cancellation and genuinely obsolete outcomes "
+        "remain reasons to stop. Do not preserve a stale calculated target as though it were "
+        "an independent requirement from the person.\n"
+        "A partial read is not the whole source. Use the returned continuation "
+        "offset and source version when further content is needed. "
+        "context_truncated, evidence_truncated or excerpt_truncated means some supplied content is missing; "
+        "an omitted condition is not an absent condition. Read the needed source "
+        "content before a conclusion that depends on it.\n\n"
         "You are deciding what to do about somebody's life, on their behalf.\n\n"
         "You are not a chatbot waiting for instructions and you are not a "
         "task list. What you produce is an outcome: the thing that needs to "
@@ -235,7 +247,13 @@ async def make_plan(
         "into input_refs when a specific fact matters. Otherwise it reads only a bounded selection of recent "
         "memories, not the full profile or all internal sources. An empty selection never proves the "
         "information does not exist elsewhere. Preserve the stored authority and temporal qualifications; "
-        "a fresh database read does not turn an old belief into a current measurement.\n\n"
+        "a fresh database read does not turn an old belief into a current measurement. "
+        "Each memory_reads entry records the exact ref, version, offset, end, total and next_offset "
+        "of a bounded excerpt, not a complete memory. To continue needed text, copy exactly one returned "
+        "ref into input_refs and its next_offset/version into parameters.memory_offset/memory_version. "
+        "A preview is not a reader cursor: start the first actual read at memory_offset=0. "
+        "A changed version requires a new read at 0; never join pages of different versions. "
+        "next_offset=null means the end was reached, not that this call read the omitted prefix.\n\n"
         "For mail.metadata, read the bounded synced message metadata first. "
         "Use mail.read only when the body is genuinely needed to decide the mission. "
         "For mail.read, copy exactly one mail:<id> reference that ORA already observed "
@@ -903,18 +921,18 @@ def _dump(payload: Dict[str, Any]) -> str:
     """
     encoded = json.dumps(payload, ensure_ascii=False, default=str)
     goal = payload.get("goal") or {}
-    if goal.get("source_kind") not in ("situation_initial_review", "situation_followup"):
-        return encoded[:9000]
+    goal = goal if isinstance(goal, dict) else {}
     if len(encoded) <= 9000:
         return encoded
 
-    # An ongoing Situation needs its latest source read and physical start on
-    # every pass. Cutting the serialized tail silently removed those facts.
+    # Source reads and their limits must survive every reasoning boundary.
+    # Cutting the serialized tail silently removed facts and reader cursors.
     # Keep valid, bounded JSON, reducing descriptive text and older material.
     compact = json.loads(encoded)
     compact["context_truncated"] = True
     protected = {"ref", "id", "evidence_id", "situation_id", "url", "offer_url",
-                 "source_refs", "linked_object_refs", "evidence_ids"}
+                 "source_refs", "linked_object_refs", "evidence_ids",
+                 "memory_reads", "version", "memory_version"}
 
     def encode():
         return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
@@ -966,6 +984,8 @@ def _dump(payload: Dict[str, Any]) -> str:
         if strings:
             length, parent, key = max(strings, key=lambda item: item[0])
             parent[key] = parent[key][:max(239, length // 2)] + "…"
+            if isinstance(parent, dict) and key in ("statement", "claim", "what_was_found", "text"):
+                parent["excerpt_truncated"] = True
         elif lists:
             _, _, parent, index = min(lists, key=lambda item: item[:2])
             parent.pop(index)
@@ -973,7 +993,8 @@ def _dump(payload: Dict[str, Any]) -> str:
             # If even the protected source handles cannot fit, make the missing
             # context explicit. A clipped object must never look complete.
             return json.dumps({
-                "goal": {key: goal.get(key) for key in ("id", "source_kind", "desired_outcome")},
+                "goal": {key: str(goal.get(key) or "")[:400]
+                         for key in ("id", "source_kind", "desired_outcome")},
                 "source_context_unavailable": True, "context_truncated": True,
                 "reason": "The complete current source evidence exceeds the bounded context; reread a narrower source before judging an outcome.",
             }, ensure_ascii=False, default=str)

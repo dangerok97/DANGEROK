@@ -54,7 +54,9 @@ async def prepare(db, owner_id, goal, step):
         return unavailable("preparation_calendar_changed", True)
     rows = [{"id": e.id, "claim": e.claim, "source_class": e.provenance.source_class,
              "source_refs": e.provenance.source_refs[:4], "observed_at": e.observed_at,
-             "limits": e.provenance.certainty_note[:180]} for e in evidence]
+             "limits": e.provenance.certainty_note[:180],
+             **({"memory_reads": e.provenance.for_ai()["memory_reads"]}
+                if e.provenance.memory_reads else {})} for e in evidence]
     payload = {"goal": goal.for_ai(), "step": step.for_ai(), "evidence": rows, "evidence_truncated": False}
     while len(json.dumps(payload, ensure_ascii=False, default=str)) > 9000 and len(rows) > 1:
         rows.pop(0)
@@ -87,6 +89,19 @@ async def prepare(db, owner_id, goal, step):
         return unavailable("preparation_ungrounded")
     content = content.strip()
     refs = list(dict.fromkeys(refs))
+    audit_rows = list(rows)
+    audit_payload = {"draft": content, "evidence": audit_rows,
+                     "evidence_truncated": payload["evidence_truncated"]}
+    while len(json.dumps(audit_payload, ensure_ascii=False, default=str)) > 9000:
+        unused = next((index for index, row in enumerate(audit_rows) if row["id"] not in refs), None)
+        if unused is None:
+            # A source-consistency audit may not silently lose the draft's
+            # cited claims or their read limits. This is a bounded-context
+            # problem for reconsideration, not a transient retry request.
+            return unavailable("preparation_context_too_large")
+        audit_rows.pop(unused)
+        audit_payload["evidence_truncated"] = True
+    allowed = {row["id"] for row in audit_rows}
     checked = await _ask_model(_DISCIPLINE + "\nAudit this draft against the supplied evidence only. "
         "Check every factual claim, calculation, comparison and obligation. A person's intention "
         "or preference is NOT a contractual requirement. Verify ratios and percentage descriptions from the supplied numbers. "
@@ -104,7 +119,7 @@ async def prepare(db, owner_id, goal, step):
         "\"evidence_ids\": [\"supplied IDs supporting it\"]}. "
         "If you cannot support a useful corrected draft, return verified=false. "
         "This checks consistency with sources, not whether sources are independently true.",
-        json.dumps({"draft": content, "evidence": rows}, ensure_ascii=False, default=str))
+        json.dumps(audit_payload, ensure_ascii=False, default=str))
     if await memory_changed():
         return unavailable("preparation_memory_changed", True)
     if not isinstance(checked, dict) or checked.get("verified") is not True:

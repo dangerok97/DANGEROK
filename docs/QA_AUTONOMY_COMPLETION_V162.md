@@ -1,5 +1,89 @@
 # QA v162 — iniziativa, prosecuzione e risultato
 
+## Riscontro live dopo l'integrazione iniziale
+
+La [PR #211](https://github.com/dangerok97/DANGEROK/pull/211) è integrata nel commit
+`da6c7456efebe5f21f4bd9ea55491236a0d9512a`, con albero
+`e06d41c9a6bce2961a34add05a1608d3fccf165d`. La CI della PR e quella del merge
+sono verdi: [CI del merge](https://github.com/dangerok97/DANGEROK/actions/runs/38191301620)
+e [Situation](https://github.com/dangerok97/DANGEROK/actions/runs/38191301639).
+Il gate mobile della PR ha eseguito 28 casi in Chromium e WebKit. La CI
+backend ha verificato 128 casi v162, il collaudo scripted 8/8, sei casi con
+Mongo reale senza skip e i tre casi v39 di consenso e provenienza.
+
+Il modello reale **non ha superato il gate sulla stessa revisione**:
+
+| Esecuzione Railway | Esito effettivo | Osservazioni |
+|---|---|---|
+| `0705c9f1-f841-4626-86b6-a67f984410de` | 2/8 PASS | Passano revoca Memory e caso irrilevante; cinque ammissioni non creano una goal e la scoperta non produce l'Opportunity attesa |
+| `57cb647d-b38a-44ab-88b0-6fc1231220ea` | 2/8 PASS | Passano revoca Opportunity e caso irrilevante; emergono anche `UNFINISHED_PLAN_STEPS` e `CORRECTED_SOURCE_DID_NOT_CONTINUE` |
+
+Il secondo avvio intendeva applicare un osservatore a due casi; il redeploy
+ha invece riutilizzato il comando dell'immagine precedente ed eseguito gli
+otto casi originali. È registrato come ulteriore esecuzione fallita della
+stessa versione, senza attribuirgli osservazioni diagnostiche che non contiene.
+La prova pubblica concatenata non è partita perché il gate precedente è fallito.
+
+Il report di `57cb647d-b38a-44ab-88b0-6fc1231220ea` ha inoltre mostrato
+risposte riuscite di Gemini 2 con `model_http_requests=0`. Il limite di 80
+intercettava `httpx.AsyncClient.send`, mentre `google-genai==2.15.0`, con
+`aiohttp==3.14.3` installato, sceglieva aiohttp. I trasporti HTTPX dei fallback
+erano contati, quelli Gemini no. **Il vecchio contatore non provava quindi
+un limite complessivo di 80 richieste HTTP per caso.** Restavano distinti i
+limiti sulle chiamate logiche e sul tempo; nessuno di questi esiti viene
+reinterpretato come prova riuscita dopo la correzione del runner.
+
+La riproduzione locale dei payload ha confermato due perdite di informazioni:
+l'ammissione non includeva le Memory citate in `source_context`, e lo snapshot
+di scoperta riceveva soltanto il segnale di cambiamento troncato a 160 caratteri.
+Il reader canonico corretto in v162 si trova più avanti nella catena e non
+può compensare una fonte assente prima della creazione della goal. La nota
+sintetica non documenta una scadenza: la frase sul rinnovo prossimo della
+fixture viene rimossa, senza aggiungere una nuova urgenza alla fonte.
+
+Questi esiti non autorizzano una dichiarazione di autonomia completa.
+La correzione successiva deve conservare i rifiuti legittimi, rendere leggibili
+le fonti citate e superare nuovamente i casi con le decisioni reali osservabili.
+
+La diagnostica osservativa effettiva è stata eseguita nel deployment
+`76f6fc34-f8a7-418f-ad1f-d66eae8487ee`, ancora sul medesimo commit, limitata a
+`completed_result` e `source_change_crash`. Ha confermato l'assenza delle Memory
+nel contesto di ammissione e della seconda opzione nello snapshot di scoperta.
+Non costituisce un nuovo gate completo. La riproduzione locale del piano
+pendente ha poi verificato un risultato semanticamente corretto: il difetto
+era il vecchio passo `prepare` ancora pending dopo la conclusione verificata.
+La correzione ritira quel passo senza eseguirlo e senza cambiare il gate.
+
+Il reporter successivo registra, entro limiti espliciti, le risposte di
+ammissione, scoperta, planning, scelta del passo e verifica. Sui fallimenti
+legge lo stato del solo database sintetico: goal, piano, stati dei passi e
+conteggi delle evidenze. Non cambia decisioni, eccezioni o stato. La fixture
+scripted non indica più la correzione della nota come motivo automatico di
+abbandono: ciò contraddiceva il caso che richiede di proseguire con i dati nuovi.
+
+## Verifica locale della correzione successiva
+
+Il 12 ottobre 2026, sull'albero locale congelato successivo a `da6c7456`,
+l'aggregato finale ha prodotto **232 PASS in 3,34 secondi su 15 moduli**:
+contesto e lettura delle fonti, ripianificazione, continuazione della Memory,
+chiusura dei piani, trasporto SDK, recovery, invalidazione delle fonti, OAuth,
+push, collaudo autonomo e letture Phase 1. Il comando CLI scripted finale ha
+superato **8/8 casi**, con zero tentativi di modello reale, zero HTTP del
+modello e zero effetti esterni.
+
+Il controllo mirato dei quattro moduli SDK, autonomia, restart e provider
+Phase 1 ha prodotto **70 PASS e 1 SKIP**. Lo skip è soltanto il test con Mongo
+reale, disattivato localmente; resta obbligatorio nella CI del nuovo commit.
+Questi conteggi si sovrappongono all'aggregato e non vanno sommati. Le
+[otto prove del trasporto Gemini](../backend/tests/test_eval_gemini_transport_v162.py)
+usano l'SDK e l'adapter di produzione con HTTP simulato: verificano il
+confine di trasporto, senza chiamare un modello o un account reale.
+
+**Il live della versione corretta è ancora da eseguire.** I risultati verdi
+locali non sostituiscono i fallimenti registrati sopra. Anche la CI del nuovo
+commit, il gate Mongo e la successiva lettura pubblica devono essere verificati
+sulla revisione pubblicata; il verde della PR #211 riguarda la versione iniziale.
+
 ## Cosa dimostra il gate
 
 Il nuovo [harness](../backend/scripts/autonomy_completion_eval_v162.py) mantiene collegati i servizi di produzione: admission, goal, wake persistita, claim del worker Ambient, piano, lettura della fonte, preparazione, verifica, completion, visibility, outbox e lettura della Home. Il caso `source_change_crash` parte prima dell’admission, da un cambiamento registrato: passa dallo snapshot reale e da OpportunityDiscovery prima di arrivare al risultato.
@@ -44,6 +128,11 @@ Il mock Mongo richiede un adattatore per `find_one_and_update`: senza `_id`, mon
 | Primo piano indisponibile | Una sola indisponibilità chiudeva definitivamente la goal; le wake successive vedevano lavoro chiuso | [Planning recovery](../backend/tests/test_agent_planning_recovery_v162.py) e `planning_outage` |
 | Scan interrotto | Il batch di cambiamenti era consumato prima che la review fosse persistita; dopo una cancellazione il retry concludeva che nulla era cambiato | [Discovery recovery](../backend/tests/test_opportunity_discovery_recovery_v162.py) e `source_change_crash` |
 | Schema della memoria | La governance scriveva `statement`/`content`, mentre la lettura automatica dipendeva dal campo legacy `summary` | [Memory reader](../backend/tests/test_agent_memory_read_v162.py) e seed canonico nel nuovo harness |
+| Fonte prima dell'ammissione e della scoperta | La Memory citata mancava dal contesto di ammissione; il solo delta di 160 caratteri non conteneva entrambe le opzioni | [Memory source context](../backend/tests/test_memory_source_context_v162.py) |
+| Ripianificazione dopo correzione | I riferimenti aggiornati non garantivano che il contenuto corrente arrivasse al nuovo planner e al verifier | [Memory replanning context](../backend/tests/test_agent_memory_replanning_context_v162.py) |
+| Lettura parziale della Memory | Il taglio a 600 caratteri non esplicitava una continuazione; cursori e limiti potevano perdersi nel contesto ridotto | [Memory continuation](../backend/tests/test_agent_memory_continuation_v162.py) |
+| Piano dopo completion | Il risultato poteva essere valido mentre un passo ormai superfluo rimaneva pending nel piano concluso | [Terminal plan](../backend/tests/test_agent_terminal_plan_v162.py) |
+| Conteggio HTTP di Gemini | Il trasporto aiohttp dell'SDK evitava il controllo HTTPX e il relativo budget, pur producendo risposte reali | [Gemini SDK transport](../backend/tests/test_eval_gemini_transport_v162.py) e guard `MODEL_HTTP_NOT_OBSERVED` nel collaudo |
 | Riuso dopo revoca/correzione | Dopo una lettura valida, una memoria forgotten poteva ancora alimentare una preparazione e una card Home al tick seguente; anche una card già completata rimaneva visibile dopo la revoca | [Memory source fence](../backend/tests/test_agent_memory_source_fence_v162.py), `memory_revoked`, `memory_corrected` e due regressioni Home già visibile/outbox pendente |
 | Disponibilità dei connector | Sincronizzazione, account multipli, grant mancanti e provider non disponibili potevano essere presentati come lettura disponibile o indisponibile in modo incoerente | [Connector readiness](../backend/tests/test_agent_connector_readiness_v162.py) |
 | Registrazione nativa | La chiave dell’identificativo del dispositivo usava un carattere rifiutato dal validatore effettivo di SecureStore | [Adapter push](../frontend/src/ambient/pushRegistration.test.cjs) |
@@ -86,7 +175,7 @@ python -m scripts.phase1_read_provider_eval --mode live --max-steps 7 \
 
 Il secondo comando richiede il provider route compatibile configurato (`google_routes` o `mapbox`) e la sua chiave, oltre al modello; il meteo usa `open_meteo`. Nel workflow il provider viene da `vars.ORA_EVAL_ROUTING_PROVIDER`, poi da `vars.ROUTING_PROVIDER`, infine da `google_routes`. La chiave corrispondente viene dal secret `ORA_EVAL_ROUTING_API_KEY`, oppure `ROUTING_API_KEY`. Per usare Mapbox va impostata una delle due variabili provider a `mapbox`: la presenza di una chiave non ne determina il tipo. Nel runner Railway si conserva il provider già configurato, senza forzarlo a Google. I punti sono i luoghi pubblici fissi Roma Termini e Colosseo. Non sono posizioni della persona né dati estratti dai suoi account.
 
-Le credenziali si usano tramite il runtime predisposto; non vanno stampate, esportate nel report o copiate nella documentazione. Nell’harness autonomo solo `ProviderManager.chat` apre la rete agli endpoint HTTPS del modello già consentiti dal boundary del collaudo pubblico. Restano utilizzabili soltanto `information.read` e `document.create`; un tentativo di effetto esterno, invio push, altro owner o endpoint non consentito fa fallire il gate.
+Le credenziali si usano tramite il runtime predisposto; non vanno stampate, esportate nel report o copiate nella documentazione. Nell’harness autonomo solo `ProviderManager.chat` abilita gli endpoint HTTPS del modello nel controllo di `httpx.AsyncClient.send`. Nel runner corretto anche l'SDK Gemini usa questo trasporto. Restano utilizzabili soltanto `information.read` e `document.create`; un tentativo di effetto esterno, invio push, altro owner o endpoint HTTPX non consentito fa fallire il gate. Questo controllo non è un sandbox globale delle connessioni del processo.
 
 Esiti CLI del nuovo harness:
 
@@ -102,17 +191,42 @@ Il workflow non contiene un ramo “credenziali assenti → salta e passa”. I 
 
 | Passaggio | Numero di casi | Limiti applicati |
 |---|---|---|
-| Autonomia completa | 8: cinque completamenti utili e tre negativi | 40 chiamate `ProviderManager.chat` e 80 richieste HTTP del modello per caso; 240 secondi per caso |
-| Totale autonomia | 8 | 320 chiamate logiche, 640 richieste HTTP del modello, 32 minuti massimi di esecuzione dei casi |
+| Autonomia completa | 8: cinque completamenti utili e tre negativi | 40 chiamate `ProviderManager.chat` e 80 tentativi HTTPX async del modello per caso, incluso Gemini selezionato dal runner corretto; 240 secondi per caso |
+| Totale autonomia | 8 | 320 chiamate logiche, 640 tentativi HTTPX async del modello nel confine controllato, 32 minuti massimi di esecuzione dei casi |
 | Lettura pubblica successiva | 1, `trip_today` | 7 passaggi cognitivi, fino a 14 chiamate logiche con il retry di JSON invalido; 12 HTTP route/weather complessivi; timeout 210 secondi |
 
-Il limite HTTP autonomo comprende retry e fallback all’interno del manager; il tentativo eccedente viene bloccato prima del trasporto e rende il gate non superato. Il collaudo pubblico preesistente mantiene i propri fallback: il limite di 640 riguarda soltanto le otto catene autonome, non le chiamate del modello nella prova pubblica. Il job concatenato consente quindi fino a 334 chiamate logiche al manager e 35 minuti e 30 secondi per i casi, oltre all’installazione. Sono tetti di arresto, non un numero di richieste che il runner cerca di consumare.
+Nel runner corretto il limite comprende retry e fallback che attraversano quel confine HTTPX; il tentativo eccedente viene bloccato prima del trasporto e rende il gate non superato. Il collaudo pubblico preesistente mantiene i propri fallback: il limite di 640 riguarda soltanto le otto catene autonome, non le chiamate del modello nella prova pubblica. Il job concatenato consente quindi fino a 334 chiamate logiche al manager e 35 minuti e 30 secondi per i casi, oltre all’installazione. Sono tetti di arresto, non un numero di richieste che il runner cerca di consumare. La copertura Gemini di questi limiti è provata localmente con l'SDK reale e HTTP simulato; i live storici precedenti alla correzione non la possedevano.
+
+### Trasporto Gemini controllato nel runner
+
+Il [boundary condiviso](../backend/scripts/phase1_read_provider_eval.py) copia
+le opzioni pubbliche `HttpOptions` e seleziona HTTPX attraverso
+`async_client_args.transport`, senza modificare l'adapter di produzione.
+Timeout, header e altre opzioni restano conservati. Il wrapper di
+`genai.Client` esiste soltanto durante il collaudo: il provider crea quel client
+in ogni `chat`, anche quando `ProviderManager` è già in cache. All'uscita il
+wrapper viene ripristinato e l'SDK chiude il trasporto.
+
+Le prove verificano la scelta effettiva con aiohttp installato, il blocco
+prima del trasporto per host e contesti non ammessi, i redirect non seguiti,
+il contatore nel vero adapter Gemini e l'arresto del tentativo eccedente.
+Una risposta riuscita senza incremento HTTP nella stessa chiamata fa fallire
+il runner autonomo con `MODEL_HTTP_NOT_OBSERVED`: un client preesistente o
+un altro trasporto non possono produrre un PASS con quel contatore a zero.
+La diagnostica conserva la risposta osservata e non azzera cache o retry.
+
+Il report dichiara lo scope
+`httpx_async_send_attempts_including_runner_selected_gemini_sdk` e
+`global_socket_dns_sandbox=false`. **Non viene dichiarato un blocco globale
+di socket, DNS o trasporti diversi da quelli controllati.** La verifica locale
+del budget non attesta qualità delle risposte reali o spesa effettiva.
 
 Non viene indicato un importo monetario preventivo: il provider effettivo può cambiare con il fallback e il costo dipende dai token e dal piano configurato. Per le risposte riuscite, il report autonomo registra soltanto provider, modello e i contatori numerici disponibili `prompt_tokens`, `completion_tokens`, `total_tokens`. Non copia il resto del campo `usage`, che può contenere messaggi di errore del fallback. La dicitura `successful_responses_with_provider_usage_only` rende esplicito che eventuali richieste fallite ma fatturabili non sono incluse nei token restituiti. Il report consente di confrontare l’uso osservato con la fatturazione del provider; non certifica da solo la spesa totale.
 
-## Runner Railway esistente: configurazione pronta da revisionare
+## Runner Railway esistente: configurazione e comando
 
-Audit limitato a metadata e log del servizio tecnico, senza deploy o cambi di variabili:
+Metadata dell'audit iniziale del servizio tecnico, precedente alla PR #211.
+I successivi avvii v162 e i relativi fallimenti sono riportati all'inizio:
 
 | Campo | Valore osservato |
 |---|---|
@@ -124,7 +238,7 @@ Audit limitato a metadata e log del servizio tecnico, senza deploy o cambi di va
 | Sorgente osservata | branch `staging/cloud`, commit `74dd1d2acc91cbb718f83913152b92dc143a8842` |
 | Ultimo risultato osservato | 8 ottobre 2026, `phase2-autonomous-outcome-v140`, `mode=live`, `passed=true` |
 
-Il risultato storico riguarda v140 su quel commit. Non prova v162 e non attraversava la nuova catena worker/outbox. Prima di un rerun occorre allineare la sorgente del servizio all’esatto commit v162 integrato e verificato; un redeploy del vecchio commit ripeterebbe il vecchio codice. La valutazione deve restare un job manuale legato a quel commit, senza eseguirsi a ogni futuro push del branch applicativo.
+Il risultato storico riguarda v140 su quel commit. Non prova v162 e non attraversava la nuova catena worker/outbox. Per il prossimo rerun occorre allineare la sorgente del servizio all’esatto commit della correzione v162 integrato e verificato; un redeploy della vecchia immagine può ripetere anche il vecchio comando, come osservato sopra. La valutazione deve restare un job manuale legato a quel commit, senza eseguirsi a ogni futuro push del branch applicativo.
 
 Comando proposto per il runner tecnico, dopo integrazione del commit corrente:
 
@@ -137,7 +251,7 @@ env PYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 \
 
 Il prefisso `env` vale soltanto per il processo di valutazione: il Mongo applicativo ereditato non viene usato e non si modificano le variabili persistenti del servizio. Entrambi gli harness creano un database in memoria. Si conservano le credenziali modello e la configurazione route già predisposte nel servizio. Il secondo comando parte solo se il primo supera tutti i casi: altrimenti il job resta fallito e la prova pubblica è non eseguita, senza un PASS implicito. I riepiloghi restano distinti (`ORA_AUTONOMY_COMPLETION_SUMMARY` e `ORA_PHASE1_READ_EVAL`). Non è necessario un nuovo servizio. Questa sezione prepara il comando; non attesta che sia già stato distribuito o eseguito.
 
-## Verifica locale di questa revisione
+## Verifiche locali precedenti all'integrazione della PR #211
 
 Il 12 ottobre 2026, il collaudo autonomo scripted ha completato **8 casi su 8**, con zero chiamate al modello, zero HTTP esterni e zero effetti. La suite dedicata (`test_autonomy_completion_eval_v162.py` e `test_autonomy_completion_restart_v162.py`) ha prodotto **27 PASS e 1 SKIP**: lo skip è esclusivamente il caso Mongo reale con quattro processi, non disponibile nel runtime locale e obbligatorio nella CI. I due casi di revoca della memoria dopo completion sono PASS, sia con Home già visibile sia con consegna ancora pendente. Le prove live sul commit v162 e la ricezione su dispositivo non sono incluse in questi risultati.
 
@@ -153,7 +267,7 @@ Prima dell'integrazione sono stati eseguiti anche i 50 moduli locali del gate di
 2. Gate Mongo obbligatorio verde: quattro processi terminati, lettura non ripetuta, outbox recuperata e replay senza duplicati.
 3. Job live autonomo verde sullo stesso commit, con chiamate reali osservate in ogni caso richiesto; missing credentials o provider outage sono risultati non superati.
 4. Job pubblico verde con HTTP effettivi, fonte, orari e date coerenti; il modello deve rispettare ciò che quelle letture sostengono.
-5. Revisione del testo sintetico prodotto: correttezza del confronto e dei vincoli, fonte corrente, utilità, nessuna richiesta superflua o azione inventata. Il controllo automatico è limitato a questa fixture; `human_review_still_required=true` resta esplicito.
+5. Revisione del testo sintetico prodotto: correttezza del confronto e dei vincoli, fonte corrente, utilità, nessuna richiesta superflua o azione inventata. Il controllo automatico è limitato a questa fixture; `human_review_still_required=true` resta esplicito. Il gate lessicale può accettare anche un'inversione dell'attribuzione dei costi alle due opzioni: per ogni caso riuscito va letto `prepared_text`, verificando importi, opzioni, differenza e vincoli, prima di accettare il risultato.
 6. Per dichiarare anche il canale telefono verificato, serve una prova distinta di registrazione e ricezione su un dispositivo autorizzato. Le fixture SDK e i transport fake non bastano a dimostrarla.
 
 Per il caso panni, le regressioni Situation v160 restano parte della CI: località fissata alla Situation, meteo datato, stima distinta da certezza fisica, esito corrente, pioggia anticipata, scadenza e chiusura esplicita. Il precedente caso personale di Tarquinia è già concluso e non viene ricreato dal collaudo. Un’eventuale fixture Tarquinia usa soltanto un owner sintetico, senza dispositivo, attività personale o formula fisica inventata.

@@ -1,3 +1,34 @@
+## 12 ottobre 2026 — v162, riscontro del modello reale e correzione successiva
+
+La PR #211 è integrata in `da6c7456efebe5f21f4bd9ea55491236a0d9512a`.
+CI della PR e del merge verdi, inclusi Mongo reale e 28 casi browser mobile.
+Il modello reale sulla stessa revisione ha però fallito sei degli otto casi.
+Il dettaglio e i deployment della prova sono conservati in
+`QA_AUTONOMY_COMPLETION_V162.md`: il successo scripted non vale come autonomia
+dimostrata con il modello configurato.
+
+La correzione successiva recupera le memorie citate prima dell'ammissione e
+della scoperta, mantiene il rifiuto legittimo di attività inutili ed elimina
+dalla fixture una scadenza non documentata. Un caso ulteriore ha riprodotto
+un risultato semanticamente valido con un vecchio passo ancora pending:
+la chiusura deve conservarne la cronologia e ritirare solo il lavoro superfluo.
+La diagnostica del collaudo registra decisioni strutturate con campi e
+dimensioni limitati; non cambia risposte, eccezioni o criteri di accettazione.
+
+L'aggregato finale della correzione comprende 232 test locali PASS in 15
+moduli, inclusi lettura paginata, contesto delle fonti corrette, chiusura del
+piano e trasporto HTTP effettivo dell'SDK Gemini nel runner. La prova
+scripted e quella con modello reale restano gate distinti; il nuovo esito
+live verrà registrato sul commit esatto pubblicato.
+
+Il rilascio dei servizi backend e web è preparato nell'ambiente esistente;
+l'applicazione della patch Railway ha restituito «azione non approvata».
+Non viene aggirata usando un altro percorso di deploy. Le versioni servite
+rimangono quelle precedenti finché il rilascio non è applicato e verificato.
+L'esecuzione tecnica isolata con dati sintetici resta distinta dai servizi app.
+
+---
+
 ## 12 ottobre 2026 — v162: completamento e verifica dell'autonomia
 
 Ripresa autorizzata dell'autonomia sul commit `9e1a2f0`, che conserva le

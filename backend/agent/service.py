@@ -333,6 +333,7 @@ class AgentService:
         # boundary as discovery; never infer completeness from a summary.
         source_context = []
         context_unavailable = False
+        unavailable_memory_refs = []
         doc_ids = [ref[9:] for ref in (source_refs or []) if ref.startswith("document:")][:8]
         if doc_ids:
             try:
@@ -341,6 +342,20 @@ class AgentService:
                 context_unavailable = len(source_context) < len(set(doc_ids))
             except Exception:
                 context_unavailable = True
+        from agent.memory_sources import memory_source_id, read_memory_previews
+        memory_refs = list(dict.fromkeys(
+            str(ref).strip() for ref in (source_refs or []) if memory_source_id(ref)
+        ))[:8]
+        if memory_refs:
+            try:
+                memories = await read_memory_previews(self.db, owner_id, memory_refs)
+                source_context.extend(memories)
+                observed = {memory_source_id(row["ref"]) for row in memories}
+                unavailable_memory_refs = [ref for ref in memory_refs if memory_source_id(ref) not in observed]
+            except Exception as exc:
+                logger.info("admission memory preview unavailable: %s", type(exc).__name__)
+                unavailable_memory_refs = memory_refs
+            context_unavailable = context_unavailable or bool(unavailable_memory_refs)
         profile_refs = {ref for ref in (source_refs or []) if ref.startswith("life_profile:")}
         if profile_refs:
             try:
@@ -430,7 +445,9 @@ class AgentService:
         else:
             answer = await decide_goal(
                 {**situation, "who_asked": origin, "source_context": source_context,
-                 "source_context_unavailable": context_unavailable}, language=language
+                 "source_context_unavailable": context_unavailable,
+                 **({"unavailable_memory_refs": unavailable_memory_refs} if unavailable_memory_refs else {})},
+                language=language
             )
         if answer is None:
             # No judgement was available. Nothing is created and nothing is
@@ -1297,49 +1314,68 @@ class AgentService:
         """Re-read bounded governed context behind opaque goal refs.
 
         Goals deliberately persist handles, not copies of somebody's private
-        life. Planning still needs to know what those handles mean. For
-        conversational Situations we can safely re-read the current
-        owner-scoped preview: no transcript/history, no cross-user fallback,
-        and no semantic routing by keywords. Missing refs are reported as
-        unavailable rather than guessed around.
-
-        Other source kinds keep their existing goal/opportunity summaries and
-        capability reads; this bridge exists because a Situation's meaning is
-        otherwise lost between goal admission and planning.
+        life. Planning still needs to know what those handles mean, including
+        after a source correction. Previews preserve ownership, current status
+        and limitations; they never replace capability reads as evidence.
         """
+        from agent.memory_sources import memory_source_id, read_memory_previews
+
+        source_refs = list(getattr(goal, "source_refs", None) or [])[:8]
         refs = [
             str(ref)
-            for ref in list(goal.source_refs or [])[:8]
+            for ref in source_refs
             if str(ref).startswith("situation:") and ":" in str(ref)
         ]
-        if not refs:
-            return [], False
+        out: List[Dict[str, Any]] = []
+        unavailable = False
+        if refs:
+            try:
+                from situations.repository import SituationRepository
 
-        try:
-            from situations.repository import SituationRepository
+                repository = SituationRepository(self.db)
+                matched = 0
+                for ref in refs:
+                    sid = ref.split(":", 1)[1]
+                    state = await repository.get(owner_id, sid)
+                    if state is None:
+                        continue
+                    out.append({
+                        "ref": ref,
+                        "source": "situation",
+                        **state.context_preview(),
+                    })
+                    matched += 1
+                out = out[:4]
+                unavailable = matched < len(refs)
+            except Exception as exc:
+                logger.info("planning situation context soft-fail goal=%s error=%s", goal.id, type(exc).__name__)
+                out, unavailable = [], True
+        memory_refs = [ref for ref in source_refs if memory_source_id(ref)]
+        if memory_refs:
+            try:
+                memories = await read_memory_previews(self.db, owner_id, memory_refs)
+                out.extend(memories)
+                observed = {memory_source_id(row["ref"]) for row in memories}
+                unavailable = unavailable or any(memory_source_id(ref) not in observed for ref in memory_refs)
+            except Exception as exc:
+                logger.info("planning memory context soft-fail goal=%s error=%s", goal.id, type(exc).__name__)
+                unavailable = True
+        return out, unavailable
 
-            repository = SituationRepository(self.db)
-            out: List[Dict[str, Any]] = []
-            matched = 0
-            for ref in refs:
-                sid = ref.split(":", 1)[1]
-                state = await repository.get(owner_id, sid)
-                if state is None:
-                    continue
-                out.append({
-                    "ref": ref,
-                    "source": "situation",
-                    **state.context_preview(),
-                })
-                matched += 1
-            return out[:4], matched < len(refs)
-        except Exception as exc:
-            logger.info(
-                "planning situation context soft-fail goal=%s error=%s",
-                goal.id,
-                type(exc).__name__,
-            )
-            return [], True
+    @staticmethod
+    def _current_memory_context(goal, source_context, unavailable):
+        from agent.memory_sources import memory_source_id
+
+        if not any(memory_source_id(ref) for ref in (getattr(goal, "source_refs", None) or [])):
+            return None
+        reason = str((getattr(goal, "source_situation", None) or {}).get("memory_refresh_reason") or "")[:300]
+        return {
+            "sources": [row for row in source_context if row.get("source") == "memory"],
+            "unavailable": unavailable,
+            "source_update_reason": reason or None,
+            "previous_interpretation_may_be_obsolete": bool(reason),
+            "goal_origin": str(getattr(goal, "origin", "") or "")[:40],
+        }
 
     async def _build_plan(
         self, owner_id, goal, run: AgentRun, budget: AgentBudget, *, language: str
@@ -1361,10 +1397,14 @@ class AgentService:
         source_context, source_context_unavailable = await self._planning_source_context(
             owner_id, goal
         )
-        if source_context:
-            planning_context["source_context"] = source_context
-        if source_context_unavailable:
+        situation_context = [row for row in source_context if row.get("source") == "situation"]
+        if situation_context:
+            planning_context["source_context"] = situation_context
+        if source_context_unavailable and any(str(ref).startswith("situation:") for ref in goal.source_refs):
             planning_context["source_context_unavailable"] = True
+        memory_context = self._current_memory_context(goal, source_context, source_context_unavailable)
+        if memory_context is not None:
+            planning_context["current_source_context"] = memory_context
 
         available = await self.capabilities.available(owner_id)
         error_kind = "invalid_response"
@@ -1515,15 +1555,21 @@ class AgentService:
             await AmbientRepository(self.db).cancel_for(owner_id, source_ref=f"goal:{goal.id}")
 
     async def _reasoning_goal(self, owner_id, goal):
-        """Carry the current useful outcome and physical start across checkpoints."""
+        """Carry current source context across planning, decisions and verification."""
+        from agent.memory_sources import memory_source_id
+
         payload = goal.for_ai()
-        if not any(str(ref).startswith("situation:")
-                   for ref in (getattr(goal, "source_refs", None) or [])):
+        refs = getattr(goal, "source_refs", None) or []
+        situation_refs = any(str(ref).startswith("situation:") for ref in refs)
+        if not situation_refs and not any(memory_source_id(ref) for ref in refs):
             return payload
         context, unavailable = await self._planning_source_context(owner_id, goal)
-        if context or unavailable:
-            payload["source_context"] = context
+        if situation_refs and (context or unavailable):
+            payload["source_context"] = [row for row in context if row.get("source") == "situation"]
             payload["source_context_unavailable"] = unavailable
+        memory_context = self._current_memory_context(goal, context, unavailable)
+        if memory_context is not None:
+            payload["current_source_context"] = memory_context
         return payload
 
     @staticmethod
@@ -2231,6 +2277,14 @@ class AgentService:
         await self.repo.save_goal(goal)
         if goal.status != status:
             return {"ok": True, "state": goal.status}
+        if status == "completed":
+            # Verification can establish the outcome before every planned
+            # step is needed. Retire only unfinished work after the goal's
+            # closure was accepted; past attempts and results remain history.
+            for step in plan.steps:
+                if step.status in ("pending", "running", "blocked", "waiting"):
+                    step.status = "skipped"
+                    step.note = "L'esito è stato verificato; questo passo non è più necessario."
         await self.repo.save_plan(plan)
         await self.repo.journal(owner_id, goal.id, kind=f"goal_{status}", note=note)
         # A goal that ended has no use for the question it was going to ask.
