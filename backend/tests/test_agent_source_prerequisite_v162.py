@@ -1,5 +1,5 @@
 """A source-grounded draft cannot be the first action without evidence."""
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -14,6 +14,10 @@ def fixture(*steps):
     service = SimpleNamespace(
         evidence=SimpleNamespace(for_goal=read),
         repo=SimpleNamespace(journal=journal),
+    )
+    # _next invokes the bound prerequisite method on the real service.
+    service._owned_memory_prerequisite = MethodType(
+        AgentService._owned_memory_prerequisite, service
     )
     goal = SimpleNamespace(id="synthetic-owned-goal")
     plan = SimpleNamespace(steps=list(steps))
