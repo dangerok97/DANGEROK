@@ -121,10 +121,10 @@ async def test_expansion_adds_fifty_to_preexisting_twentyfive_without_replacing_
     for model in ALL:
         if model.canonical_key in BASELINE:
             await previous.install_seed(model)
-    old = {m['canonical_key']: m['current_version'] for m in await database[MODELS].find({}).to_list(100)}
+    old = {m['canonical_key']: m['current_version'] for m in await database[MODELS].find({}).to_list(250)}
     assert len(old) == 25
     await CatalogService(database).initialize()
-    current = {m['canonical_key']:m['current_version'] for m in await database[MODELS].find({}).to_list(100)}
+    current = {m['canonical_key']:m['current_version'] for m in await database[MODELS].find({}).to_list(250)}
     assert len(current) == 126 and {key: current[key] for key in old} == old
 
 
