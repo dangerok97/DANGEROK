@@ -172,3 +172,64 @@ def test_unknown_device_action_still_requires_authenticated_ora_app():
     })
     assert "/ora/ces_0123456789abcd" in rendered
     assert "www.google.com/maps" not in rendered
+
+
+@pytest.mark.asyncio
+async def test_ai_core_whatsapp_recovers_if_model_asks_device_gps_first(monkeypatch):
+    """A WhatsApp route request must not end at the app-only location bridge."""
+    from mongomock_motor import AsyncMongoMockClient
+    from conversation_engine.models import ConversationSession
+    from conversation_engine.ai_core.models import Observation
+    from conversation_engine.ai_core.state import get_ai_state
+    from conversation_engine.ai_core.tools.registry import ToolRegistry
+
+    db = AsyncMongoMockClient().whatsapp_location_rescue
+    monkeypatch.setattr(caps, "_service", lambda runtime: PublicPlaces())
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    monkeypatch.setattr(
+        caps, "_fresh_origin_or_location_bridge",
+        AsyncMock(side_effect=AssertionError("No WhatsApp GPS request")),
+    )
+
+    async def fake_execute(self, name, arguments, *, runtime=None):
+        assert runtime["platform"] == "whatsapp"
+        assert name == "get_current_location"
+        return Observation(
+            kind="tool",
+            name="get_current_location",
+            status="needs_client",
+            payload={
+                "needs_client": True,
+                "client_action": {
+                    "type": "request_foreground_location", "refresh": True,
+                },
+            },
+        )
+
+    async def gps_first_decision(_system, _payload):
+        return {
+            "response_mode": "tool",
+            "display_area": "places",
+            "reasoning_status": "needs_tool",
+            "user_intent_summary": "Navigare al Colosseo",
+            "tool_call": {
+                "capability": "get_current_location",
+                "arguments": {},
+            },
+        }
+
+    monkeypatch.setattr(ToolRegistry, "execute", fake_execute)
+    sess = ConversationSession(
+        user_id="owner", origin="whatsapp",
+        meta={"entry_point": "whatsapp", "ai_core": {}},
+    )
+    result = await loop.run_cognitive_loop(
+        sess=sess, user_message="Portami al Colosseo",
+        db=db, decision_fn=gps_first_decision, max_steps=3,
+    )
+    assert result.ok
+    assert result.client_actions == []
+    assert result.navigation and result.navigation[0]["label"] == "Google Maps"
+    assert "destination=Colosseo" in result.navigation[0]["url"]
+    assert "Colosseo" in result.ora_text
+    assert "awaiting_client" != get_ai_state(sess).get("pending_turn", {}).get("status")
