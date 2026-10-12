@@ -121,3 +121,35 @@ test('denied camera permission is explained without a fake live state',async({pa
   await expect(page.getByTestId('vision-error')).toContainText('Permesso negato');
   expect(await page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>v.srcObject)).toBeNull();
 });
+
+
+test('anatomy atlas uses same live camera, switchable levels and a same-stream X',async({page,browserName})=>{
+  test.skip(browserName==='webkit','Physical-device camera controls are checked separately');
+  await session(page);await virtualCamera(page);await page.goto('/vision-xray');
+  await page.getByTestId('vision-open-camera').click();
+  await expect(page.getByTestId('vision-open-anatomy')).toBeVisible();
+  const initialTime=await page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>v.currentTime);
+  await page.getByTestId('vision-open-anatomy').click();
+  await expect(page.getByTestId('vision-anatomy')).toBeVisible();
+  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-scene-state','anatomy');
+  await page.getByTestId('vision-anatomy-layer-muscles').click();
+  await page.getByTestId('vision-anatomy-select-pectorals').click();
+  await expect(page.getByTestId('vision-anatomy-description')).toContainText('movimenti delle braccia');
+  await page.getByTestId('vision-anatomy-layer-organs').click();
+  await page.getByTestId('vision-anatomy-part-heart').click();
+  await expect(page.getByTestId('vision-anatomy-description')).toContainText('Pompa il sangue');
+  await page.getByTestId('vision-anatomy-layer-reproductive').click();
+  await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(0);
+  await page.getByTestId('vision-anatomy-variant-female').click();
+  await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(1);
+  await page.getByTestId('vision-anatomy-variant-male').click();
+  await expect(page.getByTestId('vision-anatomy-part-prostate')).toHaveCount(1);
+  await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(0);
+  const afterTime=await page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>v.currentTime);
+  expect(afterTime).toBeGreaterThan(initialTime);
+  await expect(page.getByTestId('vision-anatomy')).toContainText('non vede sotto la pelle');
+  await page.getByTestId('vision-anatomy-close').click();
+  await expect(page.getByTestId('vision-anatomy')).toHaveCount(0);
+  await expect(page.getByTestId('vision-camera-video')).toBeVisible();
+  expect(await page.evaluate(()=>(window as any).__visionFixture.openings)).toBe(1);
+});
