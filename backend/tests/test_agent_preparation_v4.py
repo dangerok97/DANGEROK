@@ -24,7 +24,7 @@ async def fixture(with_evidence=True):
 async def test_preparation_saves_actual_content_and_sources_before_success(monkeypatch):
     db, goal, evidence, step = await fixture()
     content = "Costo dichiarato: 120 euro annui. I mesi inutilizzati non sono rimborsati."
-    async def model(system, payload):
+    async def model(system, payload, *, response_schema=None):
         assert json.loads(payload)["evidence"][0]["id"] == evidence.id
         return {"verified": True, "content": content, "evidence_ids": [evidence.id]}
     monkeypatch.setattr(reasoning, "_ask_model", model)
@@ -225,7 +225,10 @@ async def test_calendar_conflict_choice_becomes_one_authorised_verified_local_mo
     monkeypatch.setattr(reasoning, "interpret_calendar_coordination", AsyncMock(
         return_value={"mode": "direct", "reasoning": "È un impegno personale."}))
     monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
-        return_value={"decision": "execute", "step_id": "", "reasoning": "La scelta è completa."}))
+        side_effect=lambda _goal, *, candidates, **_: {
+            "decision": "execute", "step_id": candidates[0]["id"],
+            "reasoning": "La scelta è completa.",
+        }))
     monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
         "outcome": "prepare_then_confirm", "reasoning": "È una modifica personale reversibile.",
         "reversibility": "easily", "financial_effect": False,
@@ -362,7 +365,9 @@ async def test_calendar_conflict_authorisation_survives_service_restart(monkeypa
     monkeypatch.setattr(reasoning, "interpret_calendar_coordination", AsyncMock(
         return_value={"mode": "direct", "reasoning": "È un impegno personale."}))
     monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
-        return_value={"decision": "execute", "step_id": "", "reasoning": "procedi"}))
+        side_effect=lambda _goal, *, candidates, **_: {
+            "decision": "execute", "step_id": candidates[0]["id"], "reasoning": "procedi",
+        }))
     monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
         "outcome": "prepare_then_confirm", "reasoning": "modifica personale",
         "reversibility": "easily", "financial_effect": False,
@@ -441,7 +446,9 @@ async def test_calendar_conflict_concurrent_change_wins_over_old_approval(monkey
     monkeypatch.setattr(reasoning, "interpret_calendar_coordination", AsyncMock(
         return_value={"mode": "direct", "reasoning": "È un impegno personale."}))
     monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
-        return_value={"decision": "execute", "step_id": "", "reasoning": "procedi"}))
+        side_effect=lambda _goal, *, candidates, **_: {
+            "decision": "execute", "step_id": candidates[0]["id"], "reasoning": "procedi",
+        }))
     monkeypatch.setattr(reasoning, "assess_authority", AsyncMock(return_value={
         "outcome": "prepare_then_confirm", "reasoning": "modifica personale",
         "reversibility": "easily", "financial_effect": False,

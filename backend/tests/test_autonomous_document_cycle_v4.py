@@ -62,7 +62,7 @@ async def test_background_document_goal_reads_and_verifies_without_home(monkeypa
         assert "document:d1" in found
         return {"outcome":"achieved", "reasoning":"Il documento dichiara 120 euro annui; non è un confronto di mercato."}
     monkeypatch.setattr(reasoning,"verify_goal",AsyncMock(side_effect=verify))
-    async def draft(system, payload):
+    async def draft(system, payload, *, response_schema=None):
         import json
         rows = json.loads(payload)["evidence"]
         assert "120 euro" in str(rows)

@@ -1,3 +1,35 @@
+# 12 ottobre 2026 — v162, avanzamento verificato e prossimi gate
+
+Implementati nel candidato corrente: contratto comune dei passi, conservazione
+dei parametri negli alias della vista AI, accettazione atomica dei piani rivisti,
+schemi nativi per generazione/audit e conservazione delle ultime osservazioni
+di preparazione. Verifica locale **1.088 PASS, 1 SKIP**, scripted **9/9**.
+
+Il padre `3b7c4d7` ha completato la prova reale con **4/9**, tutti controlli
+negativi; nessun caso positivo è accettato. CI: 11 job riusciti, due backend
+falliti per fixture corrette nel candidato, due gate prodotto non eseguiti.
+I risultati del padre sono archiviati, senza modificare il verdetto originale.
+
+Sequenza successiva autorizzata:
+
+1. Pubblicare il candidato su PR #212 e attestare il tree identico al codice
+   verificato localmente.
+2. Completare i gate CI, incluso MongoDB reale, sul nuovo head.
+3. Eseguire la prova tecnica isolata con la catena modelli configurata, budget
+   esistenti e review manuale delle fonti; verificare anche Roma Termini → Colosseo.
+4. Correggere soltanto cause dimostrate dai nuovi esiti. Il rispetto dello schema
+   non prova la qualità semantica e non autorizza ad allentare i criteri.
+5. Valutare il merge soltanto con gate accettabili; affrontare poi il rilascio
+   dell'app e la prova nativa ad app chiusa.
+
+Il rilascio Railway dell'app è fermo per il rifiuto del controllo automatico di
+approvazione. Mancano ancora firma/configurazione EAS e prova visibile su
+dispositivo. Questi limiti non vengono conteggiati come autonomia raggiunta.
+Tarquinia rimane la località confermata per un eventuale nuovo caso di bucato;
+quello precedente resta chiuso.
+
+---
+
 # 12 ottobre 2026 — v162, decisioni valide e contesto conservato
 
 Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.

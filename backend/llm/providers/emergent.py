@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from llm.base import BaseLLMProvider, LLMResult
 from llm.errors import (
@@ -37,10 +37,15 @@ class EmergentProvider(BaseLLMProvider):
         user: str,
         session_id: Optional[str] = None,
         json_mode: bool = False,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         api_key = (os.environ.get("EMERGENT_LLM_KEY") or "").strip()
         if not api_key:
             raise LLMNotConfigured("EMERGENT_LLM_KEY mancante")
+        if response_schema is not None:
+            # This integration exposes no native schema parameter. Do not
+            # silently weaken a requested contract to a JSON-only prompt.
+            raise LLMConfigurationError("response_schema_unsupported")
         try:
             from emergentintegrations.llm.chat import LlmChat, UserMessage
         except ImportError as e:

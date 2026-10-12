@@ -142,7 +142,7 @@ async def test_real_executor_error_and_preparation_decisions_are_preserved(
 ):
     calls, responses = [], []
 
-    async def answer(system, user):
+    async def answer(system, user, *, response_schema=None):
         payload = json.loads(user)
         calls.append((system, user, payload))
         if outcome == "generation_unavailable":
@@ -203,7 +203,7 @@ async def test_real_preparation_exports_separate_redacted_generation_and_audit_w
     draft, audited = "Provisional clause " + secret, gate.baseline.DRAFT + " " + secret
     calls, responses = [], []
 
-    async def answer(system, user):
+    async def answer(system, user, *, response_schema=None):
         payload = json.loads(user)
         calls.append((system, user, payload))
         value = {"content": audited if "draft" in payload else draft,
@@ -262,7 +262,7 @@ async def test_preparation_trace_does_not_export_unmarked_or_foreign_model_paylo
     response = {"content": "foreign-generated-content", "evidence_ids": ["foreign-source-id"]}
     calls = []
 
-    async def answer(system, forwarded):
+    async def answer(system, forwarded, *, response_schema=None):
         calls.append((system, forwarded))
         return response
 
@@ -302,7 +302,7 @@ async def test_preparation_observations_are_bounded_redacted_and_return_identity
     original = deepcopy(response)
     calls = []
 
-    async def answer(system, forwarded):
+    async def answer(system, forwarded, *, response_schema=None):
         calls.append((system, forwarded))
         return response
 
@@ -337,12 +337,96 @@ async def test_preparation_observations_are_bounded_redacted_and_return_identity
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("limit", [5, 12])
+async def test_late_reconsideration_keeps_latest_preparation_stages_without_pairing_them(monkeypatch, limit):
+    """Real scoped wrappers with fake replies; retention never changes execution."""
+    monkeypatch.setattr(gate, "MAX_DECISION_OBSERVATIONS", limit)
+    secret = "synthetic-retention-api-key"
+    monkeypatch.setenv("GEMINI_API_KEY_2", secret)
+    generated = {"content": "Provisional draft " + secret, "evidence_ids": ["ev_synthetic"]}
+    audited = {"content": "Corrected draft " + secret, "evidence_ids": ["ev_synthetic"],
+               "verified": True, "reason": "Synthetic correction " + secret}
+    verified = {"outcome": "partially_achieved", "reasoning": "A supplied premise remains unclear."}
+    reconsidered = {"decision": "modify", "reasoning": "Revisit the unsupported clause.", "revised_steps": []}
+    originals = deepcopy((generated, audited, verified, reconsidered))
+    calls = []
+    first_step, later_step = prepare_step(), prepare_step()
+
+    async def answer(system, user, **kwargs):
+        payload = json.loads(user)
+        stage = "audit" if "draft" in payload else "generation"
+        calls.append(stage)
+        assert system == "opaque synthetic instruction"
+        assert payload["evidence"] == [{"id": "ev_synthetic"}]
+        return audited if stage == "audit" else generated
+
+    async def original_prepare(db, owner, goal, item):
+        payload = {"goal": goal.for_ai(), "step": item.for_ai(), "evidence": [{"id": "ev_synthetic"}]}
+        result = await reasoning._ask_model("opaque synthetic instruction", json.dumps(payload))
+        assert result is generated
+        if item.id == first_step.id:
+            return await reasoning._ask_model("opaque synthetic instruction", json.dumps({
+                "draft": result["content"], "evidence": payload["evidence"],
+            }))
+        return result  # A newer generation does not imply that a newer audit exists.
+
+    async def original_verify(*args, **kwargs):
+        calls.append("verify")
+        return verified
+
+    async def original_reconsider(*args, **kwargs):
+        calls.append("reconsider")
+        return reconsidered
+
+    async def original_service(self, owner, goal):
+        return await reasoning.reconsider(goal.for_ai(), plan={}, what_happened={}, capabilities=[])
+
+    monkeypatch.setattr(gate.baseline, "scripted_draft", answer)
+    monkeypatch.setattr(gate.baseline, "scripted_verify", original_verify)
+    monkeypatch.setattr(preparation, "prepare", original_prepare)
+    monkeypatch.setattr(reasoning, "reconsider", original_reconsider)
+    monkeypatch.setattr(AgentService, "_reconsider", original_service)
+    db = AsyncMongoMockClient().preparation_trace_retention
+    goal = await seed(db)
+    with gate.isolated_engine(db) as probe:
+        for _ in range(2):
+            assert await reasoning.verify_goal(goal.for_ai(), evidence={}) is verified
+        assert await preparation.prepare(db, gate.OWNER, goal, first_step) is audited
+        for _ in range(7):
+            assert await reasoning.verify_goal(goal.for_ai(), evidence={}) is verified
+            assert await AgentService(db)._reconsider(gate.OWNER, goal) is reconsidered
+        assert len(probe.structured_decisions) == limit
+        assert probe.structured_decisions_omitted == 18 - limit
+        assert [row["sequence"] for row in probe.structured_decisions] == [1, 2, 3, 4] + list(range(23 - limit, 19))
+
+        assert await preparation.prepare(db, gate.OWNER, goal, later_step) is generated
+        for _ in range(7):
+            assert await reasoning.verify_goal(goal.for_ai(), evidence={}) is verified
+            assert await AgentService(db)._reconsider(gate.OWNER, goal) is reconsidered
+    assert calls == ["verify", "verify", "generation", "audit"] + ["verify", "reconsider"] * 7 + [
+        "generation"] + ["verify", "reconsider"] * 7
+    assert (generated, audited, verified, reconsidered) == originals
+    assert len(probe.structured_decisions) == limit and probe.structured_decisions_omitted == 33 - limit
+    assert [row["sequence"] for row in probe.structured_decisions] == [1, 2, 4, 19] + list(range(38 - limit, 34))
+    latest_generation, = [row for row in probe.structured_decisions if row["stage"] == "preparation_generation"]
+    latest_audit, = [row for row in probe.structured_decisions if row["stage"] == "preparation_audit"]
+    assert latest_generation["input"]["step_id"] == later_step.id
+    assert latest_audit["input"]["step_id"] == first_step.id
+    assert latest_generation["input"]["goal_id"] == latest_audit["input"]["goal_id"] == goal.id
+    assert probe.structured_decisions[-1]["stage"] == "reconsider"
+    assert secret not in json.dumps(gate.model_observations(probe))
+    assert all(row["model_attempts_before"] == row["model_attempts_after"] == 0 for row in probe.structured_decisions)
+    assert probe.model_attempts == probe.model_http_requests == probe.blocked_effects == probe.push_attempts == 0
+    assert not probe.network.blocked and await db.agent_action_attempts.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("exception", [RuntimeError("private-provider-error"), asyncio.CancelledError("private-cancel")])
 async def test_preparation_rethrows_same_exception_and_clears_context(monkeypatch, exception):
     user = json.dumps({"draft": "synthetic draft", "evidence": []})
     calls = []
 
-    async def answer(system, payload):
+    async def answer(system, payload, *, response_schema=None):
         calls.append((system, payload))
         if len(calls) == 1:
             raise exception
@@ -396,7 +480,7 @@ async def test_local_prepare_keeps_http_blocked_before_transport(monkeypatch):
 async def test_failed_cli_report_retains_executor_error_and_rejected_audit(monkeypatch, tmp_path, capsys):
     original = gate.baseline.scripted_draft
 
-    async def reject_audit(system, user):
+    async def reject_audit(system, user, *, response_schema=None):
         payload = json.loads(user)
         if "draft" in payload:
             return {"verified": False, "content": "Synthetic unsupported clause was rejected.",
@@ -448,7 +532,7 @@ async def test_rejected_real_audit_records_the_actual_reconsidered_wait(monkeypa
                 "requires_user_input": False, "requires_user_authority": False}
     original_decision = deepcopy(decision)
 
-    async def answer(system, user):
+    async def answer(system, user, *, response_schema=None):
         payload = json.loads(user)
         calls.append(payload)
         if "what_happened" in payload:

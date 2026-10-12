@@ -6,6 +6,7 @@ import json
 from agent.evidence import EvidenceStore, REAL_SOURCES
 from agent.models import ResultProvenance
 from agent.prepared_review import new_prepared_result_id
+from agent.preparation_schema import audit_schema, draft_schema
 
 
 _FEEDBACK_FIELD = "preparation_feedback_non_authoritative"
@@ -304,7 +305,8 @@ async def prepare(db, owner_id, goal, step):
         "Return JSON {\"content\": \"the complete draft in Italian, maximum 4000 characters\", "
         "\"evidence_ids\": [\"IDs of supplied evidence actually used\"]}. "
         "If the evidence cannot support a useful draft return empty content.",
-        _with_feedback(payload, previous_feedback))
+        _with_feedback(payload, previous_feedback),
+        response_schema=draft_schema(row["id"] for row in rows))
     if await memory_changed():
         return unavailable("preparation_memory_changed", True)
     if not isinstance(answer, dict):
@@ -393,7 +395,8 @@ async def prepare(db, owner_id, goal, step):
         "specific missing support in claim_review and reason. Missing support for one optional "
         "claim can be handled by removing or qualifying that claim, without withholding supported work. "
         "This checks consistency with sources, not whether sources are independently true.",
-        _with_feedback(audit_payload, previous_feedback))
+        _with_feedback(audit_payload, previous_feedback),
+        response_schema=audit_schema(row["id"] for row in audit_rows))
     if await memory_changed():
         return unavailable("preparation_memory_changed", True)
     if not isinstance(checked, dict) or checked.get("verified") is not True:

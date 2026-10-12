@@ -160,6 +160,7 @@ class GeminiProvider(BaseLLMProvider):
         user: str,
         session_id: Optional[str] = None,
         json_mode: bool = False,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         api_key = _api_key(self.key_env)
         if not api_key:
@@ -188,8 +189,10 @@ class GeminiProvider(BaseLLMProvider):
             "temperature": 0.2 if json_mode else 0.4,
             "http_options": types.HttpOptions(timeout=int(timeout_s * 1000)),
         }
-        if json_mode:
+        if json_mode or response_schema is not None:
             config_kwargs["response_mime_type"] = "application/json"
+        if response_schema is not None:
+            config_kwargs["response_json_schema"] = response_schema
         config = types.GenerateContentConfig(**config_kwargs)
 
         models_tried: list[str] = []

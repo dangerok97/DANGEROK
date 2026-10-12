@@ -1,3 +1,40 @@
+# 12 ottobre 2026 — v162, schema delle risposte e rivalutazione integra
+
+## Correzioni
+
+- Unificato il contratto dei passi tra pianificazione e rivalutazione; normalizzati
+  in modo rigoroso gli alias della vista AI, preservando parametri, cursori,
+  revisioni e dichiarazioni effettivamente presenti.
+- Resa atomica l'accettazione di `revised_steps`: un gruppo invalido non ritira
+  passi pendenti, non registra una revisione riuscita e non perde parte del piano.
+  La diagnosi usa la continuazione durevole esistente.
+- Aggiunto `response_schema` opzionale dalla chiamata condivisa del modello agli
+  adapter Gemini, Groq, Mistral, OpenAI e Ollama; Emergent rifiuta esplicitamente la
+  funzionalità non supportata. Percorsi legacy e criteri di failover conservati.
+- Generazione e audit ricevono contratti distinti con gli ID delle sole evidenze
+  presenti nel rispettivo payload. Restano necessari i controlli locali e la
+  revisione della correttezza delle affermazioni.
+- Il runner mantiene le ultime osservazioni di generazione e audit senza
+  aumentare il limite diagnostico o modificare budget, risposte e verdetti.
+- Adeguate le firme delle fixture al parametro opzionale e tre selezioni positive
+  del passo al contratto già vigente. Aggiunti alla CI i tre nuovi moduli di test.
+
+## Verifica e limiti
+
+**1.088 PASS, 1 SKIP, 95 moduli, 33,49 s**, più **9/9 scripted** senza modelli
+reali o effetti esterni. I nuovi test sono 27 protocollo, 30 trasporto, 9
+preparazione e 2 conservazione diagnostica. Compilazione e `git diff --check`
+sono verificate prima del commit. Nessuna dipendenza, variabile, indice MongoDB,
+modello predefinito o servizio a pagamento aggiunto.
+
+Conservate le evidenze originali del padre `3b7c4d7`: live **4/9** con soli
+controlli negativi riusciti, review manuale non accettata, CI **11/2/2** e mobile
+**36/36**. La suite MongoDB reale e i gate CI/live del nuovo candidato restano da
+eseguire. La disponibilità del nuovo codice nella PR non equivale al rilascio
+dell'app o a una prova nativa su dispositivo.
+
+---
+
 # 12 ottobre 2026 — v162, decisioni valide e contesto conservato
 
 Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.

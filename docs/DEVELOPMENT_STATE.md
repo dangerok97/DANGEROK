@@ -1,3 +1,51 @@
+# 12 ottobre 2026 — v162, candidato con schema nativo e recupero atomico
+
+## Stato verificato prima della pubblicazione del candidato
+
+- Backend locale: **1.088 PASS, 1 SKIP, 95 moduli, 97 selettori, 33,49 s**.
+- CLI autonomia scripted: **9/9**, zero chiamate logiche/HTTP del modello e zero
+  effetti esterni. Lo skip è il test Gemini opzionale senza chiave locale.
+- Nuovi casi: **27** sul protocollo di rivalutazione, **30** sul trasporto degli
+  schemi, **9** sull'integrazione nella preparazione e **2** sulla conservazione
+  delle osservazioni. Le prime esecuzioni hanno riprodotto i difetti prima dei fix.
+- Corrette tre fixture positive preesistenti che selezionavano un ID vuoto; ora
+  scelgono il passo realmente proposto, mantenendo le asserzioni su autorità,
+  ripartenza e cambiamenti concorrenti. Le fixture modello accettano il nuovo
+  argomento opzionale. Nessun oracolo di esito è stato indebolito.
+- CI, container e prova reale del commit che contiene questa nota sono ancora
+  da verificare. La suite che richiede MongoDB reale resta un gate della CI.
+
+## Evidenze definitive del precedente commit 3b7c4d7
+
+CI: **11 job riusciti, 2 backend falliti, 2 gate prodotto saltati**, su cinque
+workflow e 15 job. Entrambi i fallimenti derivano dalle fixture con ID vuoto
+corrette in questo candidato. I gate successivi v141/v142/v162 e MongoDB reale non
+erano stati raggiunti. Mobile CI: **36/36**, 18 Chromium e 18 WebKit; nessuna
+modifica frontend viene introdotta in questo candidato.
+
+Autonomia reale: **4/9**, **86 chiamate logiche, 94 HTTP**. I quattro successi sono
+soltanto controlli negativi; nessun completamento positivo è accettato. La
+revisione manuale rileva anche clausole non presenti nella fonte sintetica.
+Il report completo è stato recuperato dopo un ritardo dei log: lo stato Railway
+CRASHED non autorizza ad attribuire il risultato a OOM o a un guasto del servizio.
+Il runner restituisce un codice non zero quando il gate fallisce. Il successivo
+test pubblico Roma Termini → Colosseo non è partito nel comando concatenato.
+
+Report originali, review manuale e CI sono in `docs/evidence/*_3b7c4d7.json`.
+La prova pubblica precedente su `2e848b6` resta tecnicamente riuscita ma
+semanticamente fallita e non viene attribuita a questo candidato.
+
+## Rilascio e autonomia residua
+
+PR **#212** ancora aperta: merge subordinato a CI e prove reali accettabili.
+L'app effettiva resta sui precedenti commit backend `9e1a2f0` e web `9dc0d65`.
+L'applicazione della patch Railway dell'app è stata rifiutata dal controllo di
+approvazione; la modifica del servizio tecnico isolato non la applica né aggira.
+Nessuna prova nativa firmata o di avviso visibile ad app chiusa è disponibile.
+Il vecchio bucato di Tarquinia resta chiuso. Autonomia completa non dimostrata.
+
+---
+
 # 12 ottobre 2026 — v162, decisioni valide e contesto conservato
 
 Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.

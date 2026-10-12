@@ -133,7 +133,7 @@ async def scripted_verify(*args, **kwargs):
     }
 
 
-async def scripted_draft(system, user):
+async def scripted_draft(system, user, *, response_schema=None):
     try:
         payload = json.loads(user)
         ids = [

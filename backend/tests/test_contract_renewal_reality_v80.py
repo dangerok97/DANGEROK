@@ -257,7 +257,7 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
         "nessuna disdetta o cambio è stato eseguito."
     )
 
-    async def preparation_model(system, payload):
+    async def preparation_model(system, payload, *, response_schema=None):
         import json
 
         data = json.loads(payload)

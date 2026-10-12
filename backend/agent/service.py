@@ -35,6 +35,7 @@ prompt.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import uuid
@@ -92,6 +93,123 @@ class _InvalidNextSelection(Exception):
     def __init__(self, context):
         super().__init__("action_selection_invalid")
         self.context = context
+
+
+def _step_declaration(raw: Any):
+    """Normalize only supplied, unambiguous aliases from ActionStep.for_ai.
+
+    The display view is partial, not a serialized ActionStep. Its history
+    cannot confer a new id, completion, evidence or authority. Missing values
+    are never recovered from a capability name or an older step.
+    """
+    def reject(field, issue):
+        return None, {"field": field, "issue": issue}
+
+    def same(left, right):
+        return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+
+    def json_types(value):
+        if value is None or type(value) in (str, bool, int, float):
+            return True
+        if type(value) is list:
+            return all(json_types(item) for item in value)
+        if type(value) is dict:
+            return all(type(key) is str and json_types(item) for key, item in value.items())
+        return False
+
+    if not isinstance(raw, dict):
+        return reject("step", "wrong_type")
+    canonical = {
+        "intent", "step_type", "capability_needed", "input_refs", "expected_result",
+        "external_effect", "effect_type", "effect_target", "reaches_somebody_else",
+        "parameters", "reversibility", "asks", "ask_kind",
+    }
+    aliases = {"type": "step_type", "what_kind_of_change": "effect_type"}
+    parameter_aliases = (
+        "document_offset", "document_version", "memory_offset", "memory_version",
+        "wait_until", "wait_minutes", "wait_hours",
+    )
+    history = {"id", "ordinal", "status", "note"}
+    if set(raw) - canonical - set(aliases) - set(parameter_aliases) - history - {"execution_parameters"}:
+        return reject("step", "unsupported_field")
+    data = {key: value for key, value in raw.items() if key in canonical}
+    try:
+        for alias, field in aliases.items():
+            if alias in raw:
+                if field in data and not same(data[field], raw[alias]):
+                    return reject(field, "conflicting_alias")
+                data[field] = raw[alias]
+
+        parameters = data.get("parameters", {})
+        if not isinstance(parameters, dict):
+            return reject("parameters", "wrong_type")
+        parameters = dict(parameters)
+        displayed = raw.get("execution_parameters")
+        if displayed is not None:
+            if not isinstance(displayed, dict):
+                return reject("parameters", "wrong_type")
+            for key, value in displayed.items():
+                if key in parameters and not same(parameters[key], value):
+                    return reject("parameters", "conflicting_alias")
+                parameters[key] = value
+        for key in parameter_aliases:
+            if key in raw:
+                if key in parameters and not same(parameters[key], raw[key]):
+                    return reject("parameters", "conflicting_alias")
+                # Null in for_ai is a display placeholder for an absent value.
+                if raw[key] is not None:
+                    parameters[key] = raw[key]
+        # Check finiteness/cycles before the recursive JSON type check.
+        json.dumps(parameters, allow_nan=False)
+        if not json_types(parameters):
+            return reject("parameters", "wrong_type")
+    except (TypeError, ValueError, RecursionError):
+        return reject("parameters", "wrong_type")
+    data["parameters"] = parameters
+
+    enums = {
+        "step_type": ("inspect", "research", "compare", "prepare", "ask_user", "execute", "verify", "wait"),
+        "effect_type": ("create", "modify", "cancel", "send", "transfer", "publish", "remove"),
+        "reversibility": ("easily", "with_effort", "hardly", "irreversible"),
+    }
+    for field, values in enums.items():
+        if field not in data:
+            if field == "step_type":
+                return reject(field, "missing")
+            continue
+        value = data[field]
+        if type(value) is not str:
+            return reject(field, "wrong_type")
+        if value.strip() not in values:
+            return reject(field, "unsupported_value")
+        data[field] = value.strip()
+    if type(data.get("intent")) is not str:
+        return reject("intent", "wrong_type" if "intent" in data else "missing")
+    if not data["intent"].strip():
+        return reject("intent", "empty")
+    for field in ("capability_needed", "expected_result", "effect_target", "asks"):
+        if data.get(field) is not None and type(data[field]) is not str:
+            return reject(field, "wrong_type")
+    for field in ("external_effect", "reaches_somebody_else"):
+        if field in data and type(data[field]) is not bool:
+            return reject(field, "wrong_type")
+    if "input_refs" in data and (not isinstance(data["input_refs"], list)
+            or any(type(ref) is not str for ref in data["input_refs"])):
+        return reject("input_refs", "wrong_type")
+    if data.get("ask_kind") is not None and data["ask_kind"] not in ("knowledge", "authority"):
+        return reject("ask_kind", "unsupported_value")
+    if "step_type" not in raw:
+        # for_ai omits these values. Accepting its type alias must not invent
+        # a person's question/authority or the parameters of an unseen write.
+        if data["step_type"] == "ask_user" and (not data.get("asks") or not data.get("ask_kind")):
+            return reject("asks", "missing")
+        if data["step_type"] == "execute":
+            if "parameters" not in raw and displayed is None:
+                return reject("parameters", "missing")
+            for field in ("effect_type", "effect_target", "external_effect", "reaches_somebody_else", "reversibility"):
+                if field not in data:
+                    return reject(field, "missing")
+    return data, None
 
 # A model may choose a clock minute now. Keep one hard lower/upper bound so
 # precision cannot turn into polling and a typo cannot schedule a year away.
@@ -1625,18 +1743,14 @@ class AgentService:
         return payload
 
     @staticmethod
-    def _read_step(raw: Any, ordinal: int) -> Optional[ActionStep]:
-        if not isinstance(raw, dict):
+    def _read_step(raw: Any, ordinal: int, *, validation_errors=None) -> Optional[ActionStep]:
+        raw, error = _step_declaration(raw)
+        if error:
+            if validation_errors is not None:
+                validation_errors.append(error)
             return None
-        step_type = str(raw.get("step_type") or "").strip()
-        if step_type not in (
-            "inspect", "research", "compare", "prepare", "ask_user", "execute",
-            "verify", "wait",
-        ):
-            return None
-        intent = str(raw.get("intent") or "").strip()
-        if not intent:
-            return None
+        step_type = raw["step_type"]
+        intent = raw["intent"].strip()
         ask_kind = raw.get("ask_kind")
         return ActionStep(
             ordinal=ordinal,
@@ -1706,9 +1820,47 @@ class AgentService:
         if source_change is not None:
             return source_change
 
+        decision = answer["decision"]
+        fresh = []
+        if decision == "modify":
+            errors = []
+            raw_steps = answer.get("revised_steps")
+            if not isinstance(raw_steps, list):
+                errors.append({"field": "revised_steps", "issue": "wrong_type"})
+            elif not raw_steps:
+                errors.append({"field": "revised_steps", "issue": "empty"})
+            elif len(raw_steps) > MAX_PLAN_STEPS - len(plan.steps):
+                errors.append({"field": "revised_steps", "issue": "step_limit"})
+            else:
+                for index, raw in enumerate(raw_steps):
+                    step_errors = []
+                    try:
+                        step = self._read_step(raw, len(plan.steps) + index, validation_errors=step_errors)
+                    except (TypeError, ValueError):
+                        step = None
+                    if step is None:
+                        errors.append({"index": index, **(step_errors[0] if step_errors else {
+                            "field": "step", "issue": "invalid_shape",
+                        })})
+                    else:
+                        fresh.append(step)
+            replace = answer.get("replace_step_ids", [])
+            if not isinstance(replace, list) or any(type(ref) is not str for ref in replace):
+                errors.append({"field": "replace_step_ids", "issue": "wrong_type"})
+            if errors:
+                # A partial route is not the model's proposed route. Validate
+                # the whole modification before retiring history, publishing
+                # an assessment or calling this a successfully revised plan.
+                run.stopped_because = "replan_protocol_invalid"
+                note = "La revisione proposta non rispettava il formato atteso; nessun passo è stato modificato."
+                await self.repo.journal(owner_id, goal.id, kind="replan_protocol_invalid", note=note,
+                    detail={"validation_errors": errors[:MAX_PLAN_STEPS + 1]})
+                result = await self._pause(owner_id, goal, plan, run, note)
+                result["reason"] = "replan_protocol_invalid"
+                return result
+
         await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
 
-        decision = answer["decision"]
         note = str(answer.get("reasoning") or "")[:300]
         plan.revisions += 1
         await self.repo.journal(
@@ -1720,14 +1872,6 @@ class AgentService:
             return None
 
         if decision == "modify":
-            revised = [
-                self._read_step(raw, len(plan.steps) + n)
-                for n, raw in enumerate(answer.get("revised_steps") or [])
-            ]
-            fresh = [s for s in revised if s is not None][: MAX_PLAN_STEPS - len(plan.steps)]
-            if not fresh:
-                return await self._pause(owner_id, goal, plan, run, note or "senza altra strada")
-
             # A replan is not an append-only log. If the model explicitly says
             # a pending step has been replaced, retire exactly that step so the
             # obsolete route cannot wake up again after the revised one succeeds.

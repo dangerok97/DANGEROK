@@ -38,6 +38,7 @@ class OpenAIProvider(BaseLLMProvider):
         user: str,
         session_id: Optional[str] = None,
         json_mode: bool = False,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         api_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
         if not api_key:
@@ -70,7 +71,11 @@ class OpenAIProvider(BaseLLMProvider):
             ],
             "temperature": 0.2 if json_mode else 0.4,
         }
-        if json_mode:
+        if response_schema is not None:
+            kwargs["response_format"] = {"type": "json_schema", "json_schema": {
+                "name": "ora_response", "strict": True, "schema": response_schema,
+            }}
+        elif json_mode:
             kwargs["response_format"] = {"type": "json_object"}
         try:
             resp = await client.chat.completions.create(**kwargs)

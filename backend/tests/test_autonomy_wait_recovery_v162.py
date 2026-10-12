@@ -69,7 +69,7 @@ async def test_due_wait_keeps_retry_after_missing_or_invalid_judgement(monkeypat
     failed_history = deepcopy(plan.steps[1].model_dump())
     calls = []
 
-    async def answer(_system, encoded):
+    async def answer(_system, encoded, *, response_schema=None):
         payload = json.loads(encoded)
         calls.append(payload)
         if "what_happened" in payload:
@@ -111,7 +111,7 @@ async def test_due_wait_keeps_retry_after_missing_or_invalid_judgement(monkeypat
 async def test_new_decision_replaces_or_clears_the_preserved_retry(monkeypatch, clock, decision):
     db, goal, _plan, source = await waiting_after_rejected_preparation(clock)
 
-    async def answer(_system, encoded):
+    async def answer(_system, encoded, *, response_schema=None):
         payload = json.loads(encoded)
         if "what_happened" not in payload:
             return successful_reply(payload, source)
@@ -197,7 +197,7 @@ async def test_user_defer_arriving_during_unavailable_judgement_wins_over_retry(
     db, goal, _plan, _source = await waiting_after_rejected_preparation(clock)
     chosen_due = (clock[0] + timedelta(minutes=45)).isoformat()
 
-    async def unavailable_after_defer(_system, _encoded):
+    async def unavailable_after_defer(_system, _encoded, *, response_schema=None):
         assert await AgentService(db).repo.defer_goal(OWNER, goal.id, until=chosen_due)
         return None
 
@@ -215,7 +215,7 @@ async def test_source_withdrawal_during_reconsideration_prevents_completion_and_
     db, goal, _plan, _source = await waiting_after_rejected_preparation(clock)
     calls = []
 
-    async def withdraw_before_complete(_system, encoded):
+    async def withdraw_before_complete(_system, encoded, *, response_schema=None):
         calls.append(json.loads(encoded))
         await db.memories.delete_one({"user_id": OWNER, "id": goal.source_refs[0]})
         return {"decision": "complete", "reasoning": "Obsolete decision returned after withdrawal."}

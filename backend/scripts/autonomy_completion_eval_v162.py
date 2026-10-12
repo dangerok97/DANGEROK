@@ -603,9 +603,20 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
             observation["model_attempts_after"] = probe.model_attempts
             observation["sequence"] = len(probe.structured_decisions) + probe.structured_decisions_omitted + 1
             if len(probe.structured_decisions) >= MAX_DECISION_OBSERVATIONS:
-                # Preserve admission/discovery plus the latest decisions that
-                # explain a late failure, with an explicit count and sequence gap.
-                probe.structured_decisions.pop(min(2, MAX_DECISION_OBSERVATIONS - 1))
+                # Keep the initial context and latest preparation stages as
+                # separate observations, not an assumed generation/audit pair.
+                evict = min(2, MAX_DECISION_OBSERVATIONS - 1)
+                if MAX_DECISION_OBSERVATIONS >= 5:
+                    protected = {0, 1}
+                    for saved_stage in ("preparation_generation", "preparation_audit"):
+                        if stage == saved_stage:
+                            continue  # The incoming observation supersedes it.
+                        for index in range(len(probe.structured_decisions) - 1, -1, -1):
+                            if probe.structured_decisions[index].get("stage") == saved_stage:
+                                protected.add(index)
+                                break
+                    evict = next(index for index in range(len(probe.structured_decisions)) if index not in protected)
+                probe.structured_decisions.pop(evict)
                 probe.structured_decisions_omitted += 1
             probe.structured_decisions.append(observation)
 
@@ -655,10 +666,11 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         finally:
             preparation_context.reset(token)
 
-    async def prepare_model(system, user):
+    async def prepare_model(system, user, *, response_schema=None):
+        schema_kwargs = {"response_schema": response_schema} if response_schema is not None else {}
         context = preparation_context.get()
         if context is None or not await _synthetic_diagnostics_allowed(db, OWNER):
-            return await original_prepare_model(system, user)
+            return await original_prepare_model(system, user, **schema_kwargs)
         try:
             payload = json.loads(user)
         except (TypeError, ValueError):
@@ -668,7 +680,7 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
                  and all(key in payload for key in ("goal", "step", "evidence")) else "preparation_call")
 
         async def call(_payload, **_kwargs):
-            return await original_prepare_model(system, user)
+            return await original_prepare_model(system, user, **schema_kwargs)
 
         return await observed_decision(stage, call, payload, execution=context)
 

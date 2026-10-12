@@ -109,7 +109,7 @@ async def test_source_qualifications_reach_draft_audit_and_verifier(
         conditional += " La lettura è incompleta: resta il seguito della nota."
     captured = []
 
-    async def model(system, encoded):
+    async def model(system, encoded, *, response_schema=None):
         payload = json.loads(encoded)
         captured.append((system, payload))
         assert len(encoded) <= 9000
@@ -161,7 +161,7 @@ async def test_audit_corrects_individual_claims_before_any_text_or_evidence_is_s
     db, goal, source, _, budget, _ = await seed_read()
     observed = []
 
-    async def model(system, encoded):
+    async def model(system, encoded, *, response_schema=None):
         payload = json.loads(encoded)
         observed.append((system, payload))
         if "draft" not in payload:

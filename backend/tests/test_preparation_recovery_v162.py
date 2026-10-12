@@ -76,7 +76,7 @@ async def test_finish_preserves_actual_failure_for_reconsider_and_resumes_from_c
     reconsidered, stages = [], []
     recovered = False
 
-    async def reply(_system, encoded):
+    async def reply(_system, encoded, *, response_schema=None):
         payload = json.loads(encoded)
         if "what_happened" in payload:
             reconsidered.append(payload)
@@ -258,7 +258,7 @@ async def test_finish_propagates_reconsidered_wait_with_exact_failure_and_within
     db, goal, plan, source, text = await seed_recovery()
     model_calls = []
 
-    async def reply(_system, encoded):
+    async def reply(_system, encoded, *, response_schema=None):
         payload = json.loads(encoded)
         model_calls.append(payload)
         if "what_happened" not in payload:

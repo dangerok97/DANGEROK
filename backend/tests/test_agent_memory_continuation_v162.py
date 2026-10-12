@@ -278,7 +278,7 @@ async def test_audit_budget_only_drops_uncited_rows_or_stops_without_saving(monk
     draft = ("Testo sintetico con limiti espliciti. " * 130)[:4000].strip()
     cited = []
 
-    async def model(_instruction, encoded):
+    async def model(_instruction, encoded, *, response_schema=None):
         assert len(encoded) <= 9000
         payload = json.loads(encoded)
         captured.append(payload)

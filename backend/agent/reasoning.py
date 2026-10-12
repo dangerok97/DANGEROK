@@ -142,6 +142,28 @@ _SITUATION_OUTCOME = (
 )
 
 
+_STEP_DECLARATION_JSON = (
+    "{\"intent\": \"what this step is for\", "
+    "\"step_type\": \"inspect|research|compare|prepare|ask_user|execute|verify|wait\", "
+    "\"capability_needed\": \"\", \"input_refs\": [], \"parameters\": {}, "
+    "\"expected_result\": \"\", \"external_effect\": false, "
+    "\"effect_type\": \"create|modify|cancel|send|transfer|publish|remove\", "
+    "\"effect_target\": \"\", \"reaches_somebody_else\": false, "
+    "\"reversibility\": \"easily\", \"asks\": \"\", \"ask_kind\": null}"
+)
+_STEP_DECLARATION_PROTOCOL = (
+    "Use this same canonical declaration for steps and revised_steps: step_type, "
+    "effect_type and parameters. The supplied plan.steps is a partial display, not "
+    "the output schema: its type means step_type, what_kind_of_change means effect_type, "
+    "and execution_parameters and flat memory/document cursor or wait fields belong "
+    "inside parameters. Copy only supplied values exactly; do not reconstruct omitted "
+    "parameters, a question, authority or source facts from a capability name or an old "
+    "step. Declared effects are proposals, never permission. id, ordinal, status and note "
+    "describe stored history; code assigns a new pending identity to each new step. "
+    "An ambiguous or incomplete revision cannot be applied only in part.\n\n"
+)
+
+
 GOAL_DECISION_FIELDS = (
     "decision", "outcome", "objective", "desired_outcome", "question",
     "success_criteria", "stop_conditions", "why_now", "reasoning", "decision_provenance",
@@ -479,16 +501,8 @@ async def make_plan(
         "Return JSON: {\"planning_outcome\": \"plan|not_possible\", "
         "\"reasoning\": \"\", \"plan_summary\": \"one sentence\", "
         "\"expected_outcome\": \"...\", \"assumptions\": [], "
-        "\"known_constraints\": [], \"steps\": ["
-        "{\"intent\": \"what this step is for\", "
-        "\"step_type\": \"inspect|research|compare|prepare|ask_user|"
-        "execute|verify|wait\", \"capability_needed\": \"\", "
-        "\"input_refs\": [], \"parameters\": {}, "
-        "\"expected_result\": \"\", \"external_effect\": false, "
-        "\"effect_type\": \"create|modify|cancel|send|transfer|publish|remove\", "
-        "\"effect_target\": \"\", \"reaches_somebody_else\": false, "
-        "\"reversibility\": \"easily\", \"asks\": \"\", "
-        "\"ask_kind\": null}]}\n\n"
+        "\"known_constraints\": [], \"steps\": [" + _STEP_DECLARATION_JSON + "]}\n\n"
+        + _STEP_DECLARATION_PROTOCOL +
         "`asks` only on `ask_user` steps, with `ask_kind` set to "
         "\"knowledge\" when only they know the answer, or \"authority\""
         " when you know what to do and may not do it. Ask the smallest "
@@ -699,7 +713,7 @@ async def reconsider(
         "Never manufacture a missing time.\n\n"
         "Return JSON: {\"decision\": \"continue|modify|wait|ask|"
         "abandon|complete\", \"reasoning\": \"one short sentence\", "
-        "\"replace_step_ids\": [], \"revised_steps\": [], "
+        "\"replace_step_ids\": [], \"revised_steps\": [" + _STEP_DECLARATION_JSON + "], "
         "\"wait_until\": null, \"wait_minutes\": null, \"wait_hours\": null, "
         "\"asks\": \"\", \"ask_kind\": null}\n\n"
         "For decision=wait, prefer wait_until (timezone-aware ISO 8601) when the "
@@ -709,7 +723,8 @@ async def reconsider(
         "For `modify`, `replace_step_ids` must contain only ids of still-pending "
         "steps that the revised steps make obsolete. Do not name completed steps, "
         "and do not replace a step merely because another one is being added. "
-        "`revised_steps` uses the same shape as a plan step."
+        "Supply at least one complete revised step for modify; use an empty revised_steps "
+        "list for the other decisions.\n\n" + _STEP_DECLARATION_PROTOCOL
     )
 
     payload = {

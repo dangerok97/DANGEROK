@@ -1,3 +1,26 @@
+# 12 ottobre 2026 — v162, recupero del piano e preparazione verificabile
+
+Il candidato che contiene questa nota corregge due ostacoli al completamento: i
+passi restituiti durante una rivalutazione conservano tutti i parametri dichiarati,
+e generazione e audit della bozza richiedono al provider una risposta strutturata.
+Una risposta formalmente valida resta soggetta ai controlli locali sulle fonti e
+alla revisione del contenuto; lo schema non dimostra la verità delle affermazioni.
+
+La verifica locale è **1.088 PASS, 1 SKIP, 95 moduli**, con **9/9 scenari scripted**
+e zero chiamate al modello o effetti esterni. La prova reale del precedente commit
+`3b7c4d7` è **4/9**: passano soltanto i quattro controlli che devono interrompere o
+non avviare il lavoro. Nessun caso positivo di completamento è accettabile.
+CI e prova reale del nuovo candidato restano da eseguire sul suo commit esatto.
+
+Il risultato richiesto continua a guidare il prodotto: dopo “ho steso i panni” ORA
+deve seguire il bisogno fino a un avviso utile di ritiro. Il vecchio caso di
+Tarquinia è chiuso; una stima di asciugatura non diventa una misurazione e un
+avviso per pioggia non dichiara i panni asciutti. Nessuna nuova prova usa dati o
+notifiche di utenti reali. Il rilascio dell'app e la consegna su dispositivo
+rimangono non dimostrati. Dettagli e limiti: `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
 # 12 ottobre 2026 — v162, decisioni valide e contesto conservato
 
 Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.

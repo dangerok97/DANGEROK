@@ -1,3 +1,105 @@
+# 12 ottobre 2026 — v162, schema nativo e piano di recupero: gate ancora aperto
+
+## Candidato che contiene questa nota
+
+La verifica locale finale è **1.088 PASS, 1 SKIP, 95 moduli, 97 selettori, 33,49 s**.
+Il CLI scripted esegue tutti i nove casi con **9/9 PASS, zero chiamate logiche o
+HTTP del modello e zero effetti esterni**. Il file
+`evidence/autonomy_v162_local_native_protocol_2026-10-12.json` conserva comando,
+hash del codice verificato, conteggi e limiti del controllo. CI e live del nuovo
+commit sono pendenti: i conteggi locali non li sostituiscono.
+
+La selezione comprende il gate v162 aggiornato, tre controlli di visibilità v39,
+i moduli di recupero/provider e 50 moduli del nucleo di autonomia della CI.
+Lo skip è l'arricchimento Gemini opzionale senza chiave locale. Un tentativo
+aggiuntivo sull'intero `test_research_v34.py` ha raggiunto un caso che richiede
+MongoDB reale, assente localmente. Quel modulo extra non fa parte del conteggio
+finale; non sono stati disabilitati test del repository o gate CI. Il gate
+previsto con database reale resta da eseguire nella CI del nuovo head.
+
+## Difetti riprodotti e copertura
+
+| Area | Difetto e correzione | Nuovi casi |
+| --- | --- | ---: |
+| Rivalutazione | La vista usa `type`, il lettore richiedeva `step_type`; gli alias includono anche parametri/cursori/effetti. Normalizzazione rigorosa e validazione atomica dell'intera modifica. | 27 |
+| Trasporto | Contratto opzionale inoltrato fino alle richieste SDK/HTTP native, conservato al failover e non aggiunto alle chiamate legacy. Nessun downgrade silenzioso. | 30 |
+| Preparazione | Schemi distinti per generazione e audit, ID limitati al payload dopo ogni riduzione; risposte negative consentite e guardie locali mantenute. | 9 |
+| Diagnostica | Le decisioni recenti potevano espellere generazione e audit dalla finestra. Conservazione entro lo stesso limite, con identificativi di esecuzione. | 2 |
+
+Le tre fixture positive di `test_agent_preparation_v4.py` ora restituiscono l'ID
+del candidato reale invece di una stringa vuota. Le asserzioni su consenso,
+ripartenza e fonte cambiata non sono state modificate. Le altre fixture toccate
+accettano soltanto l'argomento opzionale `response_schema`.
+
+Gli schemi controllano la forma della risposta, non l'implicazione logica tra
+fonte e conclusione. Il limite di 4.000 caratteri resta applicato localmente.
+Una dichiarazione del modello `verified=true` non basta a superare la review
+manuale; nessun recupero inventa la fonte mancante o esegue un passo diverso.
+
+## Prova reale definitiva del padre 3b7c4d7
+
+Deployment tecnico `de19da6a-4ad6-4594-b342-7a15726d1fc7`, dal
+12 ottobre 2026 **06:30:56.964433 UTC** alle **06:38:33.868307 UTC**.
+Report completo recuperato dopo il ritardo dei log: **4/9**, **86 chiamate logiche,
+94 HTTP**. Risposte: 84 Mistral `ministral-8b-2512`, una Groq
+`qwen/qwen3.8-27b`, una OpenAI `gpt-4o-mini`, entro la catena già configurata.
+Nessun passaggio a un nuovo modello predefinito o attivazione di fatturazione.
+
+| Caso | Esito macchina | Osservazione rilevante |
+| --- | --- | --- |
+| completed_result | FAIL — OWNED_SOURCE_NOT_READ_ONCE | Piano iniziale e proposta modificata preparano/verificano senza leggere la fonte. |
+| planning_outage | FAIL — COMPLETION_BUDGET_EXHAUSTED | Recupera il guasto di pianificazione e salva una bozza, ma resta in verifiche parziali; la bozza include clausole non fondate. |
+| home_write_retry | FAIL — COMPLETION_BUDGET_EXHAUSTED | Generazione di 4.394 caratteri, rifiutata prima dell'audit; il guasto Home non viene raggiunto. |
+| source_revoked | PASS | Revoca dopo la lettura: lavoro interrotto, senza nuova attivazione. |
+| memory_revoked | PASS | Revoca Memory dopo la lettura: goal abbandonato, senza nuova preparazione. |
+| memory_corrected | FAIL — COMPLETION_BUDGET_EXHAUSTED | Rilegge la correzione 150/30; l'audit restituisce un oggetto come contenuto, correttamente rifiutato. |
+| source_change_crash | FAIL — COMPLETION_BUDGET_EXHAUSTED | Recupera scansione e goal; l'audit restituisce ancora contenuto oggetto, rifiutato. |
+| already_resolved | PASS | Nessun goal per un bisogno già risolto. |
+| irrelevant | PASS | Nessun goal per un elemento irrilevante. |
+
+I quattro PASS sono tutti controlli negativi. **Zero completamenti positivi
+accettati manualmente.** In nove decisioni `modify`, tutti i 13 passi rivisti
+visibili nella diagnosi usano `type` e nessuno dichiara `step_type`; il replay
+diagnostico non ne accetta alcuno. Le righe diagnostiche sono parziali e non
+sostituiscono i payload integrali: i nuovi test verificano anche oggetti completi
+e parametri realmente esposti.
+
+La bozza di `planning_outage` inventa flessibilità, condizioni di disdetta e
+possibili rimborsi del mensile. Cinque osservazioni iniziali, comprese generazione
+e audit, non erano più conservate; non è possibile attribuire l'origine delle
+singole frasi a uno dei due passaggi. Nel caso `source_change_crash` l'audit
+attribuisce invece alla Memory una citazione su assenza di vincoli e rimborso
+proporzionale che la fonte non contiene. I prezzi corretti non rendono valido
+questo contenuto aggiuntivo.
+
+File immutati nei verdetti:
+- `evidence/autonomy_v162_live_2026-10-12_3b7c4d7.json`
+- `evidence/autonomy_v162_manual_review_2026-10-12_3b7c4d7.json`
+- `evidence/ci_v162_2026-10-12_3b7c4d7.json`
+
+SHA-256 del report originale:
+`3193ae4777d1285e86a8f7557ee3f2abca8fc2551d4f7fd0b5cfa6b4bf268513`.
+Il processo del runner restituisce 1 quando almeno un caso fallisce; lo stato
+Railway CRASHED è compatibile con questo gate non superato. Non è una diagnosi
+di OOM o di indisponibilità del servizio. Il test pubblico Roma Termini → Colosseo
+non è partito, perché concatenato con `&&` dopo il gate fallito.
+
+## CI del padre e criteri per proseguire
+
+Cinque workflow, 15 job: **11 SUCCESS, 2 FAILURE, 2 SKIPPED**. Le due failure
+backend sono le fixture con ID vuoto corrette nel candidato. I successivi gate
+v141/v142/v162 e MongoDB reale non erano stati raggiunti. Mobile **36/36**:
+18 Chromium e 18 WebKit. Non attribuire questi risultati a un commit successivo.
+
+Prima del merge servono CI verde del commit esatto, prova reale bounded con
+risultati corretti e review manuale di tutte le fonti/bozze disponibili, incluso
+il controllo pubblico indipendente. Restano fuori da questa prova sintetica
+account utente reali, invii effettivi, calendario reale e consegna su dispositivo.
+L'app non è stata rilasciata: il controllo automatico ha rifiutato l'approvazione
+della patch Railway. Nessuna nuova prova riapre il vecchio bucato di Tarquinia.
+
+---
+
 # 12 ottobre 2026 — v162, decisioni valide e contesto conservato
 
 Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.

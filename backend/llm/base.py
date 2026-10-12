@@ -2,6 +2,9 @@
 
 App code talks only to this Protocol / BaseLLMProvider. Concrete adapters
 implement `chat`; higher-level helpers share the same contract.
+An optional response_schema is transported as native JSON Schema. An adapter
+without that capability must fail explicitly, not fall back to JSON-only mode.
+Callers still validate the returned content and its application constraints.
 """
 from __future__ import annotations
 
@@ -33,6 +36,7 @@ class LLMProvider(Protocol):
         user: str,
         session_id: Optional[str] = None,
         json_mode: bool = False,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult: ...
 
     async def analyze_document(self, *, text: str, context: dict[str, Any]) -> LLMResult: ...
@@ -69,6 +73,7 @@ class BaseLLMProvider(ABC):
         user: str,
         session_id: Optional[str] = None,
         json_mode: bool = False,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult: ...
 
     async def analyze_document(self, *, text: str, context: dict[str, Any]) -> LLMResult:

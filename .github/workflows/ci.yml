@@ -227,6 +227,7 @@ jobs:
             tests/test_pending_outcome_contract_v162.py \
             tests/test_discovery_outcome_contract_v162.py \
             tests/test_agent_preparation_grounding_v162.py \
+            tests/test_preparation_response_schema_v162.py \
             tests/test_agent_preparation_dependency_v162.py \
             tests/test_agent_admission_contract_v162.py \
             tests/test_agent_verification_context_v162.py \
@@ -236,7 +237,9 @@ jobs:
             tests/test_autonomy_eval_recovery_diagnostics_v162.py \
             tests/test_autonomy_model_diagnostics_v162.py \
             tests/test_gemini_quota_retry_v162.py \
+            tests/test_llm_response_schema_v162.py \
             tests/test_agent_protocol_recovery_v162.py \
+            tests/test_agent_replan_protocol_v162.py \
             tests/test_opportunity_assessment_context_v162.py \
             tests/test_agent_action_context_v162.py \
             tests/test_completed_result_context_v162.py \

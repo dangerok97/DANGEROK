@@ -1,3 +1,51 @@
+# 12 ottobre 2026 — v162, contratto dei passi e schema della preparazione
+
+## Rivalutazione del piano
+
+`agent/reasoning.py` condivide tra pianificazione e rivalutazione un unico
+contratto dichiarativo del passo. `agent/service.py` normalizza soltanto alias
+effettivamente esposti da `ActionStep.for_ai()`: `type`, `what_kind_of_change`,
+`execution_parameters` e cursori/versioni o tempi di attesa appiattiti. Non
+ricostruisce parametri nascosti da una vista parziale, non assegna autorità e non
+riutilizza identità o stati forniti dal modello. Campi in conflitto, tipi non JSON,
+valori non finiti e dichiarazioni parziali di effetti o domande sono rifiutati.
+
+Una decisione `modify` valida tutti i nuovi passi prima di registrare una
+revisione riuscita, ritirare passi pendenti o salvare una valutazione dell'esito.
+La lista deve essere non vuota e rientrare nello spazio residuo del piano. Un
+errore rifiuta l'intero gruppo, registra `replan_protocol_invalid` con diagnosi
+limitata e usa la sospensione/continuazione durevole esistente. Le protezioni
+sulle fonti, la storia conclusa, i budget e la scelta del modello restano attivi.
+
+## Generazione e audit
+
+Il parametro opzionale `response_schema` attraversa `research._ask_model`,
+`LLMManager` e gli adapter senza modificare le chiamate che non lo richiedono.
+Gemini usa `response_json_schema`; Groq, Mistral e OpenAI usano
+`response_format.json_schema`; Ollama usa `format`. Emergent segnala la
+funzionalità non supportata e segue il recupero di configurazione già esistente.
+Un rifiuto del provider non causa un secondo tentativo senza schema.
+
+`agent/preparation_schema.py` costruisce due contratti nuovi per ciascuna
+invocazione: generazione e audit. Gli ID ammessi provengono esclusivamente dalle
+evidenze rimaste nel payload di quella chiamata, dopo la rispettiva riduzione del
+contesto. L'audit può rispondere `verified=false`; il contratto non gli impone di
+approvare. I controlli locali continuano a rifiutare contenuti non testuali,
+citazioni estranee, booleani errati e testi oltre il limite di 4.000 caratteri.
+La lunghezza descritta al provider non sostituisce tale limite locale.
+
+Il runner conserva entro il medesimo limite di 12 osservazioni i contesti iniziali,
+l'ultima generazione, l'ultimo audit e l'attività recente. Generazione e audit
+conservati possono riferirsi a esecuzioni diverse: gli identificativi restano
+necessari per attribuire una risposta. Nessun nuovo scheduler, modello predefinito,
+configurazione, dipendenza o schema persistito è introdotto da questa modifica.
+
+La verifica locale del candidato è **1.088 PASS, 1 SKIP**, più **9/9 scripted**.
+La prova con i provider reali e la correttezza semantica restano gate aperti;
+vedere `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
 # 12 ottobre 2026 — v162, decisioni valide e contesto conservato
 
 Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.
