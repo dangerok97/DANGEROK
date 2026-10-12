@@ -310,8 +310,15 @@ class WhatsAppService:
 
 async def disconnect_account(db, user_id: str) -> None:
     """Revocation always works, even when Meta credentials are no longer set."""
+    linked = await db.whatsapp_links.find_one({"user_id": user_id}, {"_id": 0})
     await db.whatsapp_link_codes.delete_many({"user_id": user_id})
     await db.whatsapp_links.delete_many({"user_id": user_id})
+    # Also discard messages received but not yet assigned a user_id.
+    if linked:
+        await db.whatsapp_inbox.update_many(
+            {"phone_hash": linked["phone_hash"], "status": {"$in": ["received", "ready", "processing"]}},
+            {"$set": {"status": "discarded", "phone_enc": None, "text_enc": None, "reply_enc": None}},
+        )
     await db.whatsapp_inbox.update_many(
         {"reply_user_id": user_id, "status": {"$ne": "delivered"}},
         {"$set": {"status": "discarded", "phone_enc": None, "text_enc": None, "reply_enc": None}},
