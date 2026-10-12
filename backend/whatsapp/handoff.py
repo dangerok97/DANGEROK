@@ -100,6 +100,11 @@ def render_core_answer_for_whatsapp(answer: dict) -> str:
             # A clickable URL needs to stand on its own line in WhatsApp.
             rendered.append(f"{label}:\n{url}")
 
+    # Client-only actions must never disappear behind three map alternatives.
+    # Put the authenticated handoff first when the device is actually needed.
+    if answer.get("client_actions"):
+        add("Per completare sul dispositivo, apri ORA", _app_conversation_url(answer))
+
     for item in (answer.get("navigation") or [])[:3]:
         if isinstance(item, dict):
             link = _safe_navigation(item.get("url"))
@@ -117,12 +122,8 @@ def render_core_answer_for_whatsapp(answer: dict) -> str:
             if _SAFE_PLAN.fullmatch(plan):
                 add("Apri il piano in ORA", f"{_app_origin()}/goal-workspace/{quote(plan, safe='')}")
 
-    # These are client-device capabilities (GPS, app-specific permissions),
-    # not authorization to silently execute them from a WhatsApp webhook.
-    # Never imply the tool has completed because a link was created.
-    if answer.get("client_actions"):
-        add("Per completare sul dispositivo, apri ORA", _app_conversation_url(answer))
-
+    # Links are only handoffs; no WhatsApp webhook may silently perform a
+    # client permission, device GPS acquisition or irreversible confirmation.
     if not text:
         text = "Ho ricevuto il messaggio, ma non ho ancora una risposta verificata."
     # Do not add a URL already supplied naturally by the model's text.
