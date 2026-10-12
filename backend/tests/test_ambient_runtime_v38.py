@@ -1225,6 +1225,17 @@ def test_the_web_does_not_pretend_to_have_native_push():
     )
     assert "capability()" in registration
     assert "'unsupported'" in registration
-    # And the token is never persisted on the device by us.
-    for stored in ("AsyncStorage", "secureSet", "localStorage"):
-        assert stored not in registration, f"il token finisce in {stored}"
+    assert "native: capability() === 'native'" in registration
+    lifecycle = (frontend / "src" / "ambient" / "pushLifecycle.ts").read_text(encoding="utf-8")
+    assert "if (!deps.native) return Promise.resolve({ ok: false, state: 'unsupported' });" in lifecycle
+
+    # The native token extraction and registration handoff must not persist
+    # the Expo token. A separate logout queue now intentionally persists the
+    # old session credential so its revocation can finish after an outage.
+    # The SDK adapter suite additionally records every storage write and
+    # verifies this distinction on iOS/Android, plus zero native effects on web.
+    transport = registration.split("export const pushLifecycle = createPushLifecycle({", 1)[1].split(
+        "export const sessionCleanup = createSessionCleanup({", 1
+    )[0]
+    for stored in ("AsyncStorage", "secureSet", "localStorage", "SecureStore.setItemAsync"):
+        assert stored not in transport, f"il token Expo viene persistito nel trasporto: {stored}"

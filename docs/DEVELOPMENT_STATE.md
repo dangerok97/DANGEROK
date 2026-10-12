@@ -23,7 +23,7 @@ ripristinare l'account precedente o revocare il dispositivo di quello nuovo.
 
 L'aggregato locale finale comprende 322 test backend PASS e un solo SKIP,
 relativo alla prova Mongo reale in quattro processi, obbligatoria in CI.
-Il frontend conta 87 PASS su sessione, storage, push, auth e OAuth.
+Il frontend conta 90 PASS su sessione, storage, push, auth e OAuth.
 TypeScript è PASS; il lint dei file modificati non presenta errori e conserva
 warning preesistenti. I tre casi v39 sulla provenienza e l'assenza di letture
 sono affidati alla CI con Mongo e non vengono conteggiati fra i PASS locali.
