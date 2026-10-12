@@ -8,10 +8,10 @@ mkdirSync('../.vision-evidence',{recursive:true});
 for(const [start,end] of [[0,13],[13,26],[26,39],[39,50]])test(`new catalog batch ${start+1}–${end}: render, focus and preserve old tours`,async({page},info)=>{
  await page.addInitScript(()=>localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice')));
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/vision-xray');
- await expect(page.getByTestId('vision-catalog-toggle')).toContainText('75');
+ await expect(page.getByTestId('vision-catalog-toggle')).toContainText('126');
  const list=await(await page.request.get('/api/vision-xray/catalog',{headers})).json();
- expect(list.models).toHaveLength(75);
- const added=list.models.filter((m:any)=>!baseline.has(m.canonical_key));expect(added).toHaveLength(50);
+ expect(list.models).toHaveLength(126);
+ const added=list.models.filter((m:any)=>!baseline.has(m.canonical_key)).slice(0,50);expect(added).toHaveLength(50);
  const errors:string[]=[],scans:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));
  page.on('request',r=>{if(r.url().endsWith('/api/vision-xray/scan'))scans.push(r.url());});
@@ -49,6 +49,6 @@ test('new Italian aliases and categories are searchable without duplicate record
  await expect(page.getByTestId('vision-catalog-smartphone')).toHaveCount(0);
  await page.screenshot({path:`../.vision-evidence/catalog75-search-${info.project.name}.png`,fullPage:true});
  await category.selectOption('Tempo libero');await expect(page.getByTestId('vision-catalog-spinning_reel')).toBeVisible();
- await search.fill('nessunoggettozz');await expect(page.getByTestId('vision-catalog-count')).toContainText('0 di 75');
- const listed=await(await page.request.get('/api/vision-xray/catalog',{headers})).json();expect(listed.models).toHaveLength(75);
+ await search.fill('nessunoggettozz');await expect(page.getByTestId('vision-catalog-count')).toContainText('0 di 126');
+ const listed=await(await page.request.get('/api/vision-xray/catalog',{headers})).json();expect(listed.models).toHaveLength(126);
 });
