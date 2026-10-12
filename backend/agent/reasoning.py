@@ -1406,17 +1406,21 @@ def _fit_prepared_context(
     if len(encoded := encode()) <= 9000:
         return encoded
 
-    # First share identical fields inside plan.steps, keeping the pending
-    # candidates fully readable. A bigger goal context must not silently
-    # replace a live candidate with a pointer when a lossless plan table fits.
-    # All source rows, result limits and clock values remain unchanged.
+    # Prefer complete executable candidates. First pack the already
+    # losslessly shared plan entries, which refer to byte-for-byte matching
+    # candidates by details_in=still_to_do. This normally costs less than
+    # restoring duplicate long pending-step descriptions.
     if action:
         candidates = compact.get("still_to_do") or []
-        steps_holder["steps"] = _record_table(original_steps)
         compact["what_ora_can_do"] = _record_table(compact.get("what_ora_can_do"))
-        # Each plan-row reference is self-describing (details_in=still_to_do).
-        # The extra list of repeated ids is redundant once a table fits.
         omitted.pop("repeated_step_details", None)
+        steps_holder["steps"] = _record_table(steps)
+        if len(encoded := encode()) <= 9000:
+            return encoded
+
+        # If common fields in the original step declarations pack better,
+        # retain the same full candidates and try that reversible table too.
+        steps_holder["steps"] = _record_table(original_steps)
         if len(encoded := encode()) <= 9000:
             return encoded
 
