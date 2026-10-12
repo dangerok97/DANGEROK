@@ -122,6 +122,13 @@ def render_core_answer_for_whatsapp(answer: dict) -> str:
         text = "Ho ricevuto il messaggio, ma non ho ancora una risposta verificata."
     # Do not add a URL already supplied naturally by the model's text.
     rendered = [item for item in rendered if item.split("\n")[-1] not in text]
-    if rendered:
-        return (text + "\n\n" + "\n\n".join(rendered)).strip()
-    return text
+    output = (text + "\n\n" + "\n\n".join(rendered)).strip() if rendered else text
+    if len(output) > 3900:
+        # Long AI replies should remain accessible in full, not be silently
+        # truncated before their action URLs by the Cloud API text limit.
+        return (
+            output[:3600].rstrip()
+            + "\n\n[Messaggio abbreviato. Leggi la risposta completa in ORA:]\n"
+            + _app_conversation_url(answer)
+        )
+    return output
