@@ -166,6 +166,7 @@ const connector=(text:string):string=>{
  if(/^arteria\b|^aorta\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^osso\b|^organo\b|^occhio\b|^arco\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^(?:vena|rete|ghiandola|cartilagine|parete|cavità|falange|trachea|mandibola)\b/.test(text.toLowerCase()))return 'della '+text.charAt(0).toLowerCase()+text.slice(1);
+ if(/^(?:cuore|bulbo|nervo|bronco|giro|cranio|polmone|ventricolo|capo)\b/.test(text.toLowerCase()))return 'del '+text.charAt(0).toLowerCase()+text.slice(1);
  return 'di '+text.charAt(0).toLowerCase()+text.slice(1);
 };
 function manualDental(s:string):string|null{
@@ -203,7 +204,13 @@ function translateCore(s:string,depth:number):{name:string;translated:boolean}{
  const headIndex=names.findIndex((v,i)=>sortedHeads.includes(v)&&i===names.length-1);
  const head=headIndex>=0?names[headIndex]:null;
  const gender:Gender=head?(word[head]?.g||'m'):word[names[0]]?.g||'m';
- const body=head?[head,...names.slice(0,headIndex)]:names;
+ // Italian anatomical nomenclature puts the structure descriptor before
+ // orientation: "arteria temporale anteriore", never "arteria anteriore temporale".
+ const orientation=new Set(['anterior','posterior','superior','inferior','middle','lateral','medial',
+  'central','internal','external','upper','lower','proximal','distal','common','superficial','deep']);
+ const descriptors=head?names.slice(0,headIndex):[];
+ const ordered=[...descriptors.filter(t=>!orientation.has(t)),...descriptors.filter(t=>orientation.has(t))];
+ const body=head?[head,...ordered]:names;
  let translated=true;
  const translatedWords=body.map(token=>{
   if(originals.has(token)){translated=false;return token;}
