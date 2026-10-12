@@ -1416,6 +1416,49 @@ async def run_case(scenario, *, mode="scripted", probe=None):
                 "injected_faults": probe.faults, "external_effects": 0, "result": result}
 
 
+def _case_progress_record(case, probe):
+    """Short, type-limited progress evidence when Railway truncates the full report.
+
+    Never include a prepared draft, user text, source claims or model messages.
+    Goal status/flags describe the *observed* synthetic state, not a diagnosis
+    supplied by an LLM and not evidence that the result was delivered.
+    """
+    failed = case.get("passed") is not True
+    snapshot = case.get("failure_state")
+    goals = snapshot.get("goals") if isinstance(snapshot, dict) else None
+    goal = goals[0] if isinstance(goals, list) and goals and isinstance(goals[0], dict) else {}
+    allowed_goal = {"active", "waiting", "completed", "cancelled", "abandoned"}
+    goal_status = goal.get("status")
+    checks = case.get("result_checks", getattr(probe, "result_checks", None))
+    checks = checks if isinstance(checks, dict) else {}
+    checked = {}
+    for name in RESULT_CHECK_NAMES:
+        item = checks.get(name)
+        status = item.get("status") if isinstance(item, dict) else None
+        checked[name] = status if status in ("not_run", "passed", "failed", "interrupted") else "unknown"
+    text_length = goal.get("prepared_text_characters")
+    return {
+        "scenario": case.get("scenario"),
+        "mode": case.get("mode"),
+        "passed": not failed,
+        "model_attempts": probe.model_attempts,
+        "model_http_requests": probe.model_http_requests,
+        "failure_code": (
+            re.sub(r"[^A-Z0-9_:,]", "_", str(case.get("reason") or "").upper())[:160]
+            if failed else None
+        ),
+        "goal_status": goal_status if failed and goal_status in allowed_goal else None,
+        "requires_user_input": bool(goal.get("requires_user_input") is True) if failed else None,
+        "requires_user_authority": bool(goal.get("requires_user_authority") is True) if failed else None,
+        "has_next_run_at": bool(goal.get("has_next_run_at") is True) if failed else None,
+        "planning_unavailable": bool(goal.get("planning_unavailable") is True) if failed else None,
+        "prepared_text_characters": (
+            text_length if failed and type(text_length) is int and 0 <= text_length <= 6000 else None
+        ),
+        "result_checks": checked if failed else None,
+    }
+
+
 async def main(*, mode="scripted", scenario="all", output=""):
     started_at = datetime.now(timezone.utc).isoformat()
     selected = SCENARIOS if scenario == "all" else (scenario,)
@@ -1438,17 +1481,8 @@ async def main(*, mode="scripted", scenario="all", output=""):
             cases.append(case)
             # Emit only fixed case identity/outcome and bounded counters while
             # the remaining real-model cases run. No source text or prompts.
-            print("ORA_AUTONOMY_COMPLETION_CASE " + json.dumps({
-                "scenario": name, "mode": mode, "passed": case["passed"],
-                "model_attempts": probe.model_attempts,
-                "model_http_requests": probe.model_http_requests,
-                # Only a short machine-readable diagnostic: never a raw prompt,
-                # provider exception body or source text in the live log.
-                "failure_code": (
-                    re.sub(r"[^A-Z0-9_:,]", "_", str(case.get("reason") or "").upper())[:160]
-                    if not case["passed"] else None
-                ),
-            }, ensure_ascii=False), flush=True)
+            print("ORA_AUTONOMY_COMPLETION_CASE " + json.dumps(
+                _case_progress_record(case, probe), ensure_ascii=False), flush=True)
         passed = all(case["passed"] for case in cases)
         report = {"version": VERSION, "mode": mode, "status": "passed" if passed else "failed",
                   "passed": passed, "real_model_executed": mode == "live" and all(
