@@ -252,6 +252,7 @@ jobs:
             tests/test_autonomy_case_progress_v162.py \
             tests/test_agent_optional_effect_protocol_v162.py \
             tests/test_agent_source_prerequisite_v162.py \
+            tests/test_agent_internal_result_verification_v162.py \
             tests/test_agent_planner_source_prerequisite_v162.py \
             tests/test_agent_reconsider_read_coverage_v162.py \
             tests/test_agent_bounded_comparison_verification_v162.py \
