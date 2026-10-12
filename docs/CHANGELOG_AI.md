@@ -1,6 +1,497 @@
+# 12 ottobre 2026 — v162, integrazione del ramo concorrente verificata
+
+La cronologia conserva il ramo concorrente fino a `06d2d9e`. Restano i suoi
+log diagnostici compatti e il relativo test, integrati con i controlli separati
+di risultato, Home, replay, owner e isolamento del candidato locale `e624015`.
+
+La trasformazione automatica introdotta da `7c28019` viene ritirata dopo due
+review indipendenti e controprove sul suo blob esatto. Associava tutti gli importi
+a tutti i periodi della frase: due durate diverse diventavano falsamente comuni.
+Un canone mensile precedente all'importo veniva trattato come totale; separatori
+delle migliaia, componenti del costo e attribuzioni fra fonti producevano altri
+errori. Quattro controprove sono state riprodotte anche dal root, senza modello,
+HTTP, esecuzione dell'app o dati dell'utente. L'audit successivo era presente:
+non si afferma che ogni aggiunta errata sia stata salvata. Il risultato utile
+resta responsabilità dei contratti di preparazione, audit e verifica sulle fonti.
+
+Verifica dell'integrazione: **1.416 PASS, 1 SKIP, 115 moduli, 37,60 s**;
+scripted **9/9**, zero chiamate modello, HTTP modello ed effetti esterni.
+La produzione coincide con il candidato già verificato: il solo nuovo codice
+mantenuto è il diagnostico nel runner, con il suo test. Configurazione nativa e
+TypeScript sono invariati rispetto alle verifiche precedenti. Il test del log
+attesta formato e limite, non una troncatura reale o un redattore di dati arbitrari.
+CI e prove reali devono ancora attestare l'head integrato dopo la pubblicazione.
+
+Evidenze: `docs/evidence/autonomy_v162_concurrent_math_review_2026-10-12_7c28019.json`
+e `docs/evidence/autonomy_v162_local_integration_2026-10-12.json`.
+Tarquinia e l'obiettivo del ritiro restano confermati; la vecchia stesura è chiusa.
+Il limite già documentato sul deploy dell'app e sulla verifica nativa resta aperto.
+
+---
+
+# 12 ottobre 2026 — v162, completezza del risultato e collegamento nativo
+
+L'audit della preparazione controlla ora anche i risultati sostanziali mancanti
+rispetto al bisogno attestato. Deve integrare le conclusioni sostenute dalle fonti
+correnti e verificarne premesse e citazioni. Il verifier confronta il contenuto con
+l'esito personale: un criterio generato che dice soltanto «documento disponibile»
+non sostituisce il confronto richiesto. Requisiti derivati e richiesta non sono
+promossi a prove; non si inventano premesse o condizioni.
+
+Il promemoria accanto alle osservazioni degli strumenti conserva natura, precisione,
+tempo e limiti dei dati. Una lettura riuscita non sostiene qualsiasi conclusione,
+una stima non è certezza fisica e un aggregato non dimostra assenza di criticità.
+La sezione di sistema precedente era già inoltrata: non è stata trovata una perdita
+del prompt. Questa è una precisazione delle istruzioni, da collaudare sul modello.
+
+Il runner registra separatamente i controlli di risultato, Home, replay, owner e
+isolamento anche quando il testo non supera il matcher. Il controllo semantico
+originale e il suo FAIL restano obbligatori; un controllo non eseguito resta tale.
+Non è una modifica al percorso di consegna dell'app o alle fonti sintetiche.
+
+La configurazione Expo usa `EXPO_PUBLIC_EAS_PROJECT_ID` quando non è già presente
+`extra.eas.projectId`, preservando gli altri campi. Sei verifiche sul resolver
+effettivo passano; nessun ID, account o credenziale è stato inventato. Occorrono
+l'UUID del progetto reale e un backend raggiungibile dal telefono per la build.
+
+La prova reale del padre `5b4efd5` termina **5/9 macchina**, con **84 chiamate
+logiche e 90 HTTP**. La revisione indipendente considera completi e fedeli quattro
+dei cinque testi salvati. Tre di essi sono respinti da un matcher che non riconosce
+attribuzioni italiane effettive; i loro controlli successivi Home/replay non sono
+stati eseguiti e non vengono promossi. Nel quinto testo manca la differenza utile
+già nell'ultima generation: l'audit e il verifier accettano il confronto incompleto.
+La correzione Memory a 150 euro, differenza 30, supera anche Home e replay.
+
+La prova pubblica dello stesso padre supera il controllo automatico con due HTTP
+reali e quattro chiamate Gemini. La review la respinge per certezza attribuita alla
+stima e assenza di rallentamenti non sostenuta dai dati. La CI del padre è **15/15
+job** su cinque workflow: **927 PASS v162**, **6 PASS Mongo reale**, **36 PASS browser**.
+Queste evidenze riguardano il padre e il suo merge tecnico originario, non questo candidato.
+
+Verifica locale del candidato: **1.415 PASS, 1 SKIP, 115 moduli, 38,78 s**; scripted **9/9**, zero chiamate modello, HTTP modello ed effetti esterni.
+
+---
+
+# 12 ottobre 2026 — v162, calcoli conservati e qualificazione delle fonti
+
+Il candidato chiarisce che un calcolo derivato cita gli operandi e le
+condizioni della fonte: il risultato non deve essere già scritto nella fonte.
+L'audit deve conservare i calcoli sostenuti e rendere conto delle eliminazioni
+materiali. La diagnosi `preparation_protocol` descrive il precedente difetto di
+formato, distinto dal supporto fattuale e dal contenuto della nuova bozza.
+La richiesta di concisione evita ripetizioni senza troncare il testo nel codice.
+
+La provenienza viene espressa in italiano comprensibile e le istruzioni della
+conversazione conservano tipo, precisione, tempo e limiti del dato anche se il
+provider è autorevole. Una lettura effettiva attesta la risposta ricevuta;
+non trasforma una stima in osservazione fisica o il clock ORA nel tempo del provider.
+
+La prova reale del padre `96e8513` termina **6/9 macchina**, con **74 chiamate
+logiche e 84 HTTP**. Dei quattro testi salvati come completati, due confronti
+sono utili e sostenuti e due perdono una differenza necessaria durante l'audit.
+La correzione Memory non produce un nuovo risultato: una clausola senza supporto
+viene respinta, poi due bozze superano il limite locale. La CI dello stesso padre
+è **15/15 job**, su cinque workflow, con **927 PASS v162**, **6 PASS Mongo reale**
+e **36 PASS nei browser mobili**. Questi esiti non attestano il nuovo candidato.
+
+Verifica locale del candidato: **1.407 PASS, 1 SKIP, 114 moduli, 36,59 s**; scripted **9/9**, zero LLM/HTTP/effetti.
+
+Conservati originali e review indipendenti, compreso il falso segnale numerico
+del parser sul range `23-24°C`; il verdetto automatico originale resta FAIL.
+Allineato il solo campo del fake del test clock al contratto corrente, con assert invariati.
+Nessuna modifica alle fonti dei collaudi o agli oracoli, nessun push o messaggio reale.
+
+---
+
+# 12 ottobre 2026 — v162, citazioni autentiche e recupero osservabile
+
+- Aggiunto `source_quotes` all'audit nativo e controllo locale dei passaggi
+  letterali sul payload effettivo. Rifiuto prima della nuova persistenza;
+  nessuna citazione inventata promossa a fatto. L'implicazione logica resta da
+  valutare separatamente.
+- Conservata nel journal la diagnosi strutturale del piano invalido, legata al
+  run esistente. Il report non attribuisce un vecchio errore a un nuovo ciclo.
+- Il runner segue i retry tecnici di pianificazione già durevoli anche negli
+  altri scenari, mantenendo budget, worker, una lettura della fonte e oracoli.
+- Qualificate le durate di percorso come stime e distinto il clock ORA dal tempo
+  dei dati del provider, conservando i metadati fino al modello e alla verifica
+  del lavoro autonomo. Nessun nuovo criterio testuale nel verdetto pubblico.
+- Estesa la regressione Situation ai guasti nella decisione iniziale di consegna
+  e nella rilettura temporanea del luogo, senza notifiche reali.
+- Conservato prima della chiusura l'handoff del risultato alla comunicazione.
+  Ripresa nella stessa lane, con candidato legato al risultato e registrazione
+  del Need senza aggiungere un giudizio Delivery al medesimo slot.
+- Allineati i fake positivi alle citazioni delle rispettive fonti sintetiche e
+  ai metadati ora emessi dal routing. Preservati asserzioni e casi semanticamente
+  errati intenzionali. Nuovi moduli inclusi nel gate CI v162.
+
+Verifica locale **1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**; scripted **9/9**, nessun modello/HTTP/effetto esterno.
+La CI del padre `6e6e5b7` è **13/13**, con MongoDB reale e mobile browser; non vale
+come attestazione di questo candidato. Conservati originali e review di `01ef500`:
+autonomia **7/9 macchina**, due testi positivi accettati e uno respinto; letture
+pubbliche tecnicamente riuscite, testo non accettato per la qualificazione del
+traffico. Il successivo collaudo reale resta necessario.
+
+Integrati i due file della successiva Vision PR #214 (`389f38a`) senza conflitti.
+Aggiornato lo stato effettivo dell'app con una lettura primaria: backend a
+`389f38a`, web a `b159d8c`, patch Railway ancora in attesa. Nel perimetro autonomia
+nessuna nuova dipendenza, variabile o attivazione di fatturazione; l'indice
+operativo del recupero è additivo. L'export non attesta una prova nativa.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Aggiunte 50 ricette di oggetti quotidiani e rispettivi sinonimi/categorie. Preservati manifest e percorsi dei 25 oggetti precedenti. Aggiunti test di migrazione da 25 a 75, riuso senza generazione, isolamento delle vecchie voci private, mancata riattivazione dei ritirati e apertura/selezione delle 50 nuove famiglie su mobile e desktop.
+
+---
+
+# 12 ottobre 2026 — v162, schema delle risposte e rivalutazione integra
+
+## Correzioni
+
+- Unificato il contratto dei passi tra pianificazione e rivalutazione; normalizzati
+  in modo rigoroso gli alias della vista AI, preservando parametri, cursori,
+  revisioni e dichiarazioni effettivamente presenti.
+- Resa atomica l'accettazione di `revised_steps`: un gruppo invalido non ritira
+  passi pendenti, non registra una revisione riuscita e non perde parte del piano.
+  La diagnosi usa la continuazione durevole esistente.
+- Aggiunto `response_schema` opzionale dalla chiamata condivisa del modello agli
+  adapter Gemini, Groq, Mistral, OpenAI e Ollama; Emergent rifiuta esplicitamente la
+  funzionalità non supportata. Percorsi legacy e criteri di failover conservati.
+- Generazione e audit ricevono contratti distinti con gli ID delle sole evidenze
+  presenti nel rispettivo payload. Restano necessari i controlli locali e la
+  revisione della correttezza delle affermazioni.
+- Il runner mantiene le ultime osservazioni di generazione e audit senza
+  aumentare il limite diagnostico o modificare budget, risposte e verdetti.
+- Adeguate le firme delle fixture al parametro opzionale e tre selezioni positive
+  del passo al contratto già vigente. Aggiunti alla CI i tre nuovi moduli di test.
+
+## Verifica e limiti
+
+**1.088 PASS, 1 SKIP, 95 moduli, 33,49 s**, più **9/9 scripted** senza modelli
+reali o effetti esterni. I nuovi test sono 27 protocollo, 30 trasporto, 9
+preparazione e 2 conservazione diagnostica. Compilazione e `git diff --check`
+sono verificate prima del commit. Nessuna dipendenza, variabile, indice MongoDB,
+modello predefinito o servizio a pagamento aggiunto.
+
+Conservate le evidenze originali del padre `3b7c4d7`: live **4/9** con soli
+controlli negativi riusciti, review manuale non accettata, CI **11/2/2** e mobile
+**36/36**. La suite MongoDB reale e i gate CI/live del nuovo candidato restano da
+eseguire. La disponibilità del nuovo codice nella PR non equivale al rilascio
+dell'app o a una prova nativa su dispositivo.
+
+---
+
+# 12 ottobre 2026 — v162, decisioni valide e contesto conservato
+
+Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.
+
+Le scelte execute/skip riferite a passi mancanti o non più eseguibili non possono
+eseguire o saltare un altro passo per fallback. La decisione invalida ritorna alla
+rivalutazione ordinaria con una diagnosi bounded, entro gli stessi budget.
+Il modello mantiene la scelta di continuare, modificare, chiedere o attendere.
+
+Le risposte di preparazione con tipi/citazioni non validi continuano a essere
+rifiutate. Il recupero conserva una diagnosi strutturale specifica al contesto,
+senza convertire oggetti in testo, inventare una bozza o trattare feedback come
+fonte. La valutazione precedente dell'esito di un'opportunità resta disponibile
+all'ammissione come contesto del modello non autorevole: è separata dalle fonti
+correnti e non impone la creazione del goal né annulla un no_goal valido.
+Il binding riguarda la revisione della proposta, owner e riferimenti citati;
+non introduce un nuovo digest delle Memory. AgentService.consider continua
+a rileggere le fonti correnti e a mostrarle separatamente al modello.
+
+La scelta successiva tenta ora la condivisione esatta di testo e tabelle
+ricostruibili anche quando non esiste ancora una preparazione corrente.
+In quel percorso non sono consentite omissioni di storia generata o descrizioni
+dei passi conclusi; fonti, cursori, limiti, criteri e orologio restano integrali.
+Un contesto materiale ancora troppo grande resta indisponibile. Il confronto
+di copie distingue anche booleani e numeri, che Python considera altrimenti uguali.
+
+Il rapporto 14B mostra tre scelte senza risposta e senza una nuova chiamata al
+modello dopo la lettura riuscita nel caso source_change_crash. Non conserva
+il payload integrale. La riproduzione locale è quindi dichiaratamente sintetica,
+costruita da repository e reader reali: dimostra che il solo dedup dei candidati
+può eccedere 9.000 caratteri mentre la condivisione esatta consente di consegnare
+le medesime informazioni allo SDK. Non viene presentata come cattura HTTP storica.
+
+Il calendario Home normalizza la risposta dei giorni prima di usarla come array.
+Un payload oggetto non crea eventi né provoca il crash del dettaglio. La prova
+browser attende ora il callback Home effettivo prima della navigazione; la fixture
+malformata e l'asserzione sugli errori restano intatte. I vecchi 4/4 locali avevano
+lasciato sfuggire questo problema di tempi. Le fixture v141 persistono il goal
+prima del controllo della concorrenza o dell'assenza di prove, mantenendo gli assert.
+Il vecchio test unitario v4 che prescriveva il fallback su un altro passo viene
+aggiornato a verificare il rifiuto della scelta invalida e gli stati immutati.
+Il vecchio test di contesto con stesso id e definizioni diverse non richiede
+più indisponibilità quando le informazioni entrano senza perdite: richiede
+il ripristino integrale e tipizzato di entrambe le definizioni e la decisione
+invariata. L'overflow materiale distinto continua a impedire la chiamata.
+
+## Esiti conservati e limiti della prova
+
+Il candidato `2e848b6` ha **5/9 PASS automatici**, 69 chiamate logiche e 88 HTTP;
+**non è accettato alla lettura manuale**. Il testo di completed_result contiene
+calcoli 180/120/60 corretti, ma inventa condizioni mensili di disdetta, rimborso
+e assenza di vincoli. La generazione introduce parte dell'errore e l'audit lo
+conferma/aggrava. Il PASS bounded non copre queste clausole. I tre casi
+planning_outage/home_write_retry/memory_corrected esauriscono il budget;
+source_change_crash recupera Discovery ma riceve un no_goal non sostenuto.
+Le 69 risposte riuscite sono 59 Mistral e 10 Groq, nessuna Gemini: disponibilità
+della risposta e completamento utile sono misure distinte.
+
+La CI `2e848b6` è **10 PASS / 3 FAIL / 2 SKIP**, cinque workflow. I Backend si
+fermano sulla fixture v141 prima dei gate v162/Mongo successivi. Mobile è
+34/36 (17/18 per motore); i due fallimenti malformati nascono dal calendario
+Home. Questi sono esiti della revisione precedente, non CI verde del candidato.
+
+Le letture pubbliche separate sullo stesso `2e848b6` eseguono due HTTP reali
+(Mapbox/Open-Meteo), cinque chiamate LLM e 68.520 ms di loop. Tecnico PASS,
+semantico FAIL per MODEL_CLAIM_REWRITTEN. Il rapporto non conserva il messaggio
+originale prima della riscrittura: la sola risposta finale non permette di
+ricostruire quella frase. Il primo avvio separato aveva omesso la dipendenza
+mongomock-motor dal comando e si è fermato con ModuleNotFoundError; il comando
+corretto installa la medesima versione 0.0.36 già usata nella prova completa.
+
+**Rettifica dell'interpretazione del vecchio rapporto pubblico d5:** il pattern
+`intensi` intercetta l'inizio di «intensità» nella corretta negazione «non è una
+misura dell'intensità». UNVERIFIED_FORECAST_INTENSITY è un falso positivo su
+quel testo. MODEL_CLAIM_REWRITTEN include anche il rendering di messaggi
+strutturati e il rapporto non conserva l'originale: non dimostra da solo una
+specifica affermazione meteo falsa del modello. Il vecchio report resta FAIL;
+fixture, oracle e risultati originali non vengono riscritti.
+
+Il confronto diagnostico con LLM_PROVIDER=mistral e
+MISTRAL_MODEL=ministral-14b-2512 usa sempre il codice `2e848b6`, gli stessi
+nove scenari, budget e confini: **5/9 PASS automatici,
+53 chiamate logiche / 65 HTTP**. È una configurazione del
+solo servizio di collaudo: la catena ha usato anche fallback Groq e OpenAI,
+quindi non tutte le risposte sono del modello 14B. Non dimostra da sola
+il comportamento dei servizi app né sostituisce la lettura delle risposte
+o il collaudo del codice successivo. Le preferenze free-first restano valide:
+nessun default dell'app, account, fatturazione o servizio a pagamento viene
+attivato o cambiato da questa prova.
+
+Anche i due risultati positivi di questa diagnostica non sono accettati
+alla revisione manuale. completed_result conserva flessibilità e costi
+proporzionali non documentati, oltre a soglie temporali incoerenti: generazione
+14B, audit GPT-4o-mini. memory_corrected usa correttamente la nuova cifra
+150 e la differenza 30, ma confronta il rischio sulla base di vincoli mensili
+assenti dalla fonte: generazione Groq/Qwen, audit GPT-4o-mini.
+La correzione della fonte e il salvataggio funzionano; la fedeltà semantica
+non è dimostrata e non viene certificata dai controlli di formato o citazioni.
+
+Nei tre casi planning_outage/home_write_retry/memory_revoked della diagnostica
+14B, il fallback propone una preparazione senza lettura. Nei casi Home e
+revoca il gate si ferma prima di quelle iniezioni; il guasto di pianificazione
+è già stato iniettato nel suo caso. I goal conservano una scadenza di recupero. Il vecchio report non esporta revised_steps e non consente
+di dedurre perché modify non abbia aggiunto passi. La diagnostica del prossimo
+collaudo registra separatamente formato e passi di rivalutazione, entro gli
+stessi limiti e guard del solo owner sintetico, senza cambiare il verdetto.
+
+Report e annotazione separata:
+
+- [Collaudo originale 2e](evidence/autonomy_v162_live_2026-10-12_2e848b6.json)
+- [Revisione manuale 2e](evidence/autonomy_v162_manual_review_2026-10-12_2e848b6.json)
+- [Letture pubbliche 2e](evidence/public_read_v162_live_2026-10-12_2e848b6.json)
+- [Diagnostica Ministral 14B](evidence/autonomy_v162_ministral14b_live_2026-10-12_2e848b6.json)
+- [Revisione manuale della diagnostica 14B](evidence/autonomy_v162_ministral14b_manual_review_2026-10-12_2e848b6.json)
+
+## Confine del rilascio
+
+Merge soltanto con CI verde e risultati reali accettabili sul candidato.
+Nessun dominio/keyword router, nuovo scheduler, reset dei budget o azione esterna
+reale nel collaudo. Il bucato precedente di Tarquinia resta chiuso. Un nuovo
+bucato deve condurre all'avviso utile di ritiro, distinguendo stima di asciugatura
+e ritiro anticipato per rischio.
+
+I servizi app non sono stati aggiornati: la patch Railway è preparata ma
+l'applicazione è stata rifiutata dal controllo automatico. Il servizio isolato
+di valutazione non applica quella patch. Backend resta al commit 9e1a2f0,
+web a 9dc0d65. Configurazione/prebuild/export iOS in CI non sono firma,
+installazione o ricezione su dispositivo. Mancano accesso al progetto EAS e
+credenziali native; registrazione, app chiusa, avviso visibile e apertura del
+risultato sul dispositivo restano da verificare. Nessun push reale inviato.
+
+---
+
+## 12 ottobre 2026 — v162, giudizio del risultato e consegna della preparazione corrente
+
+- Review negativa tipizzata legata alla preparazione e conservata dopo reload.
+- Nuova identità per ogni bozza riuscita, anche a testo invariato; CAS contro
+  giudizi tardivi e clearance atomica quando la stessa bozza supera la verifica.
+- Riferimento immutabile in VisibilityDecision/CommunicationNeed, fingerprint
+  per artefatto e controlli su Home, Delivery e link di vecchie comunicazioni.
+- Domande valide preservate, compresi i costruttori diretti dei conflitti calendario.
+- Avviso esplicito nel dettaglio, con normalizzazione dei dati e test mobile.
+- Chiarita la semantica di lettura/preparazione/verifica e l'assenza di valore
+  probatorio delle proposte di Discovery.
+- Diagnostica osservativa dei fallback senza contenuti, credenziali o nuove call.
+- Compatibilità fake v55 e guard statico di visibilità corretti senza
+  eliminare le asserzioni sul lavoro, l'autorità o l'assenza di annunci da codice.
+- Gate d5 originale 4/9, letture pubbliche tecniche riuscite ma semantica fallita,
+  smoke del profilo Gemini 3.8 fallito: tutti conservati come esiti negativi.
+- Verifica congelata: **757 PASS, 1 SKIP, 43 moduli, 28.27 s**; CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Frontend 8/8 Node, 4/4 Chromium; native non attestato.
+
+La classificazione Gemini dei 429 usa QuotaFailure tipizzata: solo un periodo giornaliero esplicito in quotaId/quotaMetric attiva quota, con precedenza nelle violazioni miste. Gli altri 429 restano rate_limit. RetryInfo richiede il tipo RPC esatto e una durata JSON finita e non negativa; il massimo degli hint validi HTTP/RPC resta entro il cap di 300 secondi, senza cambiare la politica del Manager. Il nuovo modulo ha riprodotto 27 FAIL / 31 PASS prima della correzione e 58/58 PASS dopo, inclusi SDK reale con HTTP sintetico e recupero del Manager con orologio finto. Questi casi sono inclusi nell'aggregato, non si sommano.
+
+Il default alternativo passa da gemini-2.0-flash a gemini-3.6-flash, sostituto indicato nella [tabella ufficiale Gemini](https://ai.google.dev/gemini-api/docs/deprecations). Principale, override, priorità, timeout e budget rimangono invariati. La correzione di un endpoint ritirato non prova disponibilità o qualità sul progetto reale, e non viene attribuita retroattivamente ai fallback d5. Configurazione e fonti del protocollo sono nel [riferimento del Provider Manager](AI_PROVIDER_MANAGER.md).
+
+## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
+
+- Conservato il checkpoint tecnico nel risveglio anche con giudizio assente
+  o JSON non valido; ripresa verificata con un nuovo worker.
+- Critiche bounded di preparazione/verifica riutilizzabili dal tentativo
+  successivo, con scope corrente e senza trasformarle in evidenze.
+- Rivalutazione della verifica incompleta per un risultato interno già
+  preparato, entro budget e con le decisioni del modello conservate.
+- Contesto della decisione e della verifica capace di conservare il
+  risultato e le fonti mediante riduzioni esplicite delle ripetizioni.
+- Controllo Opportunity condiviso fra Home e Delivery, compresi revoca
+  durante la consegna, lettura successiva e worker concorrente.
+- Progresso tecnico per singolo scenario, senza contenuti personali.
+- Archiviato il gate e3a originale: 4/9, 67 chiamate logiche, 98 HTTP;
+  CI della stessa revisione 14/14 job PASS.
+- Verifica locale del nuovo candidato: **569 PASS su 34 moduli in 7,68 secondi**, più CLI scripted **9/9**, con zero chiamate LLM reali, HTTP del modello ed effetti esterni.
+
+## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
+
+- Richiesta e criteri del risultato aggiunti all'audit, con limite e fonti
+  citate protetti; vecchie interpretazioni distinte dai dati correnti.
+- Revisione delle premesse collegata ai passaggi di fonte e ai controesempi
+  compatibili; correzioni circoscritte che preservano derivazioni sostenute.
+- Osservazioni limitate della rivalutazione dopo un fallimento, senza
+  alterare decisioni, ritorni, cancellazioni o clock.
+- Corretto il riconoscimento di “note salvate” con prove positive e negative;
+  i testi storici con affermazioni non sostenute restano respinti manualmente.
+- Due test del clock ora confrontano il JSON decodificato; data, fuso,
+  autorità, ore e minuti attesi restano controllati.
+- Archiviato il report reale f188, 6/9 limitati e rifiuto manuale aggiuntivo.
+- Verifica locale: **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni.
+
+## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
+
+- Chooser senza perdita di fonti: deduplica solo delle definizioni identiche
+  dei passi; nessuna riduzione di goal, prove, qualifiche o cursori.
+- Audit con revisione esplicita delle premesse e del testo corretto, nella
+  chiamata già esistente. Parser, citazioni e verdetto booleano invariati.
+- Fallimento della preparazione finale passato alla rivalutazione normale,
+  con diagnosi e cronologia persistite, nello stesso budget.
+- Collaudo del recupero sul successivo checkpoint già salvato, senza reset
+  dei tentativi o accelerazione di attese/decisioni riservate all'utente.
+- Corretto il guard che bloccava erroneamente il `prepare` locale senza
+  capability; effetti, owner, database e marker restano controllati.
+- Diagnostica limitata della generazione, audit, premesse e fallimento del
+  passo, con redazione prima del taglio e ritorni invariati.
+- Archiviato il gate e4b originale 6/9, con rifiuto manuale aggiuntivo del
+  confronto corretto e separazione fra errore runtime ed errore del runner.
+- Verifica locale: **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni. Quattro nuovi moduli, 60 casi inclusi nel totale.
+
+## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
+
+- Esempi JSON completi per ciascun ramo dell'ammissione e validazione prima
+  dei cast; nessun completamento semantico inventato dal codice.
+- Diagnostica durevole `invalid_goal_decision` con nomi di campo ammessi e
+  pulizia al successivo esito valido. Retry e limiti applicativi invariati.
+- Protezione del testo preparato, dei criteri e delle fonti citate nella
+  verifica, senza aumentare il limite di contesto o tagliare prove essenziali.
+- Evaluator del recupero ammesso soltanto sul database sintetico e sul retry
+  persistito; osservazioni separate di proposta, audit e scarti Discovery.
+- Corretto il falso negativo sulle negazioni equivalenti della verifica
+  esterna. Dieci esempi positivi/negativi aggiunti; requisiti sostanziali e
+  fixture restano invariati.
+- Archiviato il gate reale c38b originale 2/9 e documentate diagnosi e limiti.
+- Verifica locale: **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+
+---
+
+## 12 ottobre 2026 — v162, prerequisito leggibile e recupero persistito
+
+- Chiarita la dipendenza della preparazione dalle evidenze effettivamente
+  acquisite, anche quando l'anteprima contiene già tutti i fatti.
+- Riutilizzo delle letture correnti e continuazione degli estratti con i
+  riferimenti restituiti; recupero da `preparation_sources_required` nel
+  riesame già esistente. Nessuna chiamata o regola di dominio aggiunta.
+- Dieci nuove prove, 336 PASS locali su 19 moduli e scripted 9/9 senza
+  modello reale o effetti esterni. Il gate reale completo segue la pubblicazione.
+- Conservato il report originale della diagnostica aa6bef, compreso il caso
+  fallito e il testo manualmente valido del caso completato.
+
+---
+
+## 12 ottobre 2026 — v162, diagnostica aa6bef con risultato manualmente valido
+
+- Archiviati i quattro report originali della diagnostica `aa6bef`: 3/4,
+  18 chiamate logiche e 21 HTTP, fixture invariata ed esito complessivo fallito.
+- `completed_result` produce un testo integrale di 1031 caratteri, attribuito
+  alla fonte e valido alla revisione manuale; Home, replay e isolamento PASS.
+- Già risolto e irrilevante restano `no_goal`, con risposte dei fallback
+  osservati e senza lavoro o effetti esterni aggiunti.
+- Discovery apre ora la fonte pertinente, ma il piano salta la lettura e
+  tenta soltanto preparazione: `OWNED_SOURCE_NOT_READ_ONCE`, nessuna bozza
+  salvata. Correzione del contratto del planner ancora in verifica.
+- Confermati 326 test locali su 18 moduli e scripted 9/9; CI aa6bef
+  **14/14 job PASS** fra PR e push, con 309 casi v162, scripted 9/9,
+  sei Mongo senza skip e tre v39 in ciascun backend. Gate completo a
+  nove casi e successiva lettura pubblica ancora aperti.
+
+Dettaglio e riferimenti in [QA_AUTONOMY_COMPLETION_V162.md](QA_AUTONOMY_COMPLETION_V162.md).
+
+---
+
+## 12 ottobre 2026 — v162, verifica delle deduzioni e schema coerente
+
+- Riepilogo dell'esito incluso nel vero JSON di Discovery e audit, con
+  criteri locali accorpati sul contributo utile ancora mancante.
+- Qualifiche `supports`/`bears_on` conservate nella preparazione; contratto
+  comune su fatti attribuiti, deduzioni e condizioni non note.
+- Archiviata la diagnostica 1292788, 2/4: ammissione avviata, testo ancora
+  semanticamente difettoso e Discovery in silenzio. CI 14/14 distinta.
+- Aggregato locale della correzione: 326 PASS su 18 moduli e scripted 9/9;
+  modello reale ancora da verificare con la fixture invariata.
+
+---
+
+## 12 ottobre 2026 — v162, esito personale distinto dai materiali disponibili
+
+- Contratto generale di ammissione e Discovery: stato personale aperto,
+  lavoro interno residuo e prove che il risultato sia già stato ricevuto.
+- Riepilogo limitato della decisione nello stesso JSON, senza coercizione
+  del risultato, nuova chiamata o autorizzazioni implicite.
+- Verifica del contenuto fino al corpo HTTP del vero SDK con trasporto
+  simulato; osservazione limitata del riepilogo nel collaudo.
+- Conservati i sette job CI verdi e il live 2/9 fallito di `e2bc1322`:
+  il successo tecnico non sostituisce la prova cognitiva ancora aperta.
+- Testo sintetico preparato conservato anche nei report di errore tardivo,
+  con redazione prima del limite e guard owner invariata; report storici
+  archiviati. Aggregato finale 311 PASS su 16 moduli e scripted 9/9.
+
+---
+
+## 12 ottobre 2026 — v162, correzioni emerse dal collaudo live
+
+- Contesto Memory citato condiviso fra ammissione e scoperta, con proprietà,
+  stato, provenienza, limiti della lettura e indisponibilità espliciti.
+- Fingerprint della scoperta aggiornata quando cambia il contenuto delle
+  memorie lette, senza cambiare lease o introdurre un nuovo scheduler.
+- Fonti Memory aggiornate nel contesto del nuovo piano e della verifica;
+  riconciliazione delle ipotesi AI obsolete distinta dai requisiti umani.
+- Lettura paginata e versionata delle memorie lunghe, con intervalli conservati
+  nelle evidenze e nei payload limitati di generazione e audit.
+- Chiusura dei soli passaggi ancora aperti quando l'esito è verificato;
+  cronologia delle esecuzioni e verifiche incerte conservate.
+- Diagnostica limitata delle decisioni effettive nel collaudo, con ritorni e
+  criteri invariati; rimossa dalla fixture una scadenza priva di fonte.
+- Runner Gemini sul trasporto pubblico HTTPX dell'SDK, così allowlist e
+  conteggio HTTP comprendono anche il modello configurato; diagnostica
+  esplicita del perimetro, senza dichiarare un sandbox socket globale.
+- Comunicazione del risultato completato legata alla chiusura corrente,
+  con esclusione di aggiornamenti intermedi, vecchie domande e fonti mutate;
+  destinazione del risultato costruita dal codice sul dettaglio esistente.
+- Fixture canonica del confronto con scelta personale ancora aperta e
+  negativo già risolto, preservando il rifiuto legittimo e gli esiti precedenti.
+- Esiti della prima prova live registrati come falliti anche con CI verde.
 
 ---
 

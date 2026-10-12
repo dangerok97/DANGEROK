@@ -579,7 +579,61 @@ def _code_only(source: str) -> str:
                 if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant)
                         and isinstance(n.value.value, str))
             ]
+            if not node.body:
+                node.body = [ast.Pass()]
     return ast.unparse(tree)
+
+
+def _visibility_outcome_literals(statements):
+    """Inspect outcome writes, not unrelated strings such as step_type."""
+    def pairs(target, value):
+        if isinstance(target, (ast.Tuple, ast.List)) and isinstance(value, (ast.Tuple, ast.List)):
+            for child, item in zip(target.elts, value.elts):
+                yield from pairs(child, item)
+        else:
+            yield target, value
+
+    def outcome_target(target):
+        return (
+            isinstance(target, ast.Attribute) and target.attr == "outcome"
+            or isinstance(target, ast.Name) and target.id in ("outcome", "visibility")
+            or isinstance(target, ast.Subscript) and isinstance(target.slice, ast.Constant)
+            and target.slice.value == "outcome"
+        )
+
+    values = []
+    for node in ast.walk(ast.Module(body=statements, type_ignores=[])):
+        if isinstance(node, ast.Call):
+            name = getattr(node.func, "id", getattr(node.func, "attr", ""))
+            if name == "VisibilityDecision":
+                values.extend(item.value for item in node.keywords if item.arg == "outcome")
+        elif isinstance(node, ast.Dict):
+            values.extend(value for key, value in zip(node.keys, node.values)
+                          if isinstance(key, ast.Constant) and key.value == "outcome")
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                values.extend(value for child, value in pairs(target, node.value) if outcome_target(child))
+    return {value.value for value in values if isinstance(value, ast.Constant) and isinstance(value.value, str)}
+
+
+def test_visibility_guard_detects_real_outcome_promotions():
+    for statement, expected in (
+        ("decision = VisibilityDecision(outcome='inform_user')", "inform_user"),
+        ("decision.outcome = 'requires_attention'", "requires_attention"),
+        ("decision.outcome, decision.decided_by = 'quiet_update', 'code'", "quiet_update"),
+        ("result = {'outcome': 'ask_user'}", "ask_user"),
+        ("result['outcome'] = 'ask_user'", "ask_user"),
+    ):
+        assert expected in _visibility_outcome_literals(ast.parse(statement).body)
+
+
+def test_visibility_guard_does_not_confuse_an_action_step_or_need_with_a_visibility():
+    statements = ast.parse(
+        "step = ActionStep(step_type='ask_user', status='blocked')\n"
+        "need = CommunicationNeed(kind='needs_information', visibility='ask_user')\n"
+    ).body
+    assert _visibility_outcome_literals(statements) == set()
 
 
 def test_no_branch_turns_a_goal_status_into_a_visibility():
@@ -604,15 +658,15 @@ def test_no_branch_turns_a_goal_status_into_a_visibility():
             if not isinstance(node, ast.If):
                 continue
             test = ast.unparse(node.test)
-            body = ast.unparse(node.body)
             looks_at_status = any(
                 word in test for word in
                 ("status", "is_open", "requires_user_input", "requires_user_authority")
             )
             if not looks_at_status:
                 continue
+            assigned_outcomes = _visibility_outcome_literals(node.body)
             for verdict in verdicts - {"silent"}:
-                assert f'"{verdict}"' not in body and f"'{verdict}'" not in body, (
+                assert verdict not in assigned_outcomes, (
                     f"{module}:{node.lineno} mappa uno stato su «{verdict}»"
                 )
 

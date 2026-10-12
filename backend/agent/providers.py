@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import List
 
-from agent.models import ResultProvenance
+from agent.models import MemoryReadRange, ResultProvenance
 from agent.memory_sources import MEMORY_READ_PROJECTION, memory_source_id, memory_source_version
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,7 @@ MAX_FACTS = 12
 MAX_DOCUMENTS = 10
 MAX_EVENTS = 10
 MAX_CLAIMS = 8
+MEMORY_EXCERPT_CHARACTERS = 600
 
 
 def _now() -> datetime:
@@ -141,6 +142,24 @@ async def read_internal_state(db, owner_id: str, goal, *, step=None) -> Capabili
             "information.read", "memory_reference_required",
             "Per rileggere una memoria serve il suo riferimento già osservato.",
         )
+    parameters = getattr(step, "parameters", None) or {}
+    offset = parameters.get("memory_offset", 0)
+    expected_version = parameters.get("memory_version")
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+        return _unavailable(
+            "information.read", "invalid_memory_offset",
+            "La posizione di lettura della memoria non è valida.",
+        )
+    if offset and (len(step_refs) != 1 or len(requested) != 1):
+        return _unavailable(
+            "information.read", "memory_reference_required",
+            "Per continuare serve il riferimento esplicito a una sola memoria già letta.",
+        )
+    restarted = bool(offset and expected_version is None)
+    if restarted:
+        # An admission preview is not an information.read cursor. A guessed
+        # offset must never make the unread prefix disappear from the work.
+        offset = 0
     query = {
         "user_id": owner_id,
         "status": {"$in": ["active", "known", "likely", "ambiguous", None]},
@@ -168,15 +187,37 @@ async def read_internal_state(db, owner_id: str, goal, *, step=None) -> Capabili
     refs: List[str] = []
     versions: dict[str, str] = {}
     observed_ids: List[str] = []
+    read_ranges: List[MemoryReadRange] = []
+    excerpt_incomplete = False
     for doc in docs[:MAX_FACTS]:
         value = next((doc.get(key) for key in ("statement", "content", "summary", "fact_summary")
                       if isinstance(doc.get(key), str) and doc[key].strip()), "")
         if value.strip():
-            facts.append(Claim(text=value.strip()[:600], supports=_memory_support(doc)))
+            value = value.strip()
+            version = memory_source_version(doc)
+            if offset and expected_version != version:
+                return _unavailable(
+                    "information.read", "memory_version_changed",
+                    "La memoria è cambiata: rileggere dall'inizio con memory_offset=0; il seguito della versione precedente non è stato letto.",
+                )
+            if offset >= len(value):
+                return _unavailable(
+                    "information.read", "invalid_memory_offset",
+                    "La posizione richiesta è oltre il testo della memoria disponibile.",
+                )
+            end = min(offset + MEMORY_EXCERPT_CHARACTERS, len(value))
+            partial = offset > 0 or end < len(value)
+            excerpt_incomplete = excerpt_incomplete or partial
+            coverage = f"Estratto incompleto, caratteri {offset}–{end} di {len(value)}; " if partial else ""
+            facts.append(Claim(text=value[offset:end], supports=(coverage + _memory_support(doc))[:300]))
             ref = _memory_reference(doc)
             if ref:
                 refs.append(ref)
-                versions[ref] = memory_source_version(doc)
+                versions[ref] = version
+                read_ranges.append(MemoryReadRange(
+                    ref=ref, offset=offset, end=end, total=len(value), version=version,
+                    next_offset=end if end < len(value) else None,
+                ))
             observed_ids.append(str(doc.get("id") or ""))
             if len(facts) == MAX_CLAIMS:
                 break
@@ -186,12 +227,15 @@ async def read_internal_state(db, owner_id: str, goal, *, step=None) -> Capabili
         if requested else
         "Lettura limitata alle memorie recenti; non è una ricerca completa e non copre profilo, documenti o altre fonti."
     )
+    if excerpt_incomplete:
+        scope = "Testo incompleto: un estratto non copre la memoria intera. " + scope
     provenance = ResultProvenance(
         source_class="internal_observation", capability="information.read",
         provider="life_memory", source_refs=refs, source_versions=versions,
         memory_read_scope=("empty" if not facts else
                            "versioned" if len(versions) == len(facts) else ""),
-        freshness="fresh", certainty_note=scope,
+        memory_reads=read_ranges,
+        freshness="fresh", certainty_note=scope[:200],
     )
 
     if not facts:
@@ -212,10 +256,22 @@ async def read_internal_state(db, owner_id: str, goal, *, step=None) -> Capabili
         )
 
     incomplete = bool(requested and set(requested) - set(observed_ids))
+    if len(read_ranges) == 1:
+        read = read_ranges[0]
+        coverage = f"Letti caratteri {read.offset}–{read.end} di {read.total}. "
+        coverage += (
+            f"Continua sul ref {read.ref} con memory_offset={read.next_offset}, memory_version={read.version}. "
+            if read.next_offset is not None else "Fine del testo della memoria. "
+        )
+    elif excerpt_incomplete:
+        coverage = "Continua ogni estratto necessario con un solo ref e il cursore corrispondente in memory_reads. "
+    else:
+        coverage = ""
     return CapabilityOutcome(
-        status="partial" if incomplete else "succeeded",
-        observation=(f"Ho riletto {len(facts)} memorie nella selezione. "
-                     + ("Alcuni riferimenti non sono più disponibili." if incomplete else scope)),
+        status="partial" if incomplete or excerpt_incomplete else "succeeded",
+        observation=(("Lettura ripartita da zero: cursore senza versione. " if restarted else "")
+                     + coverage + f"Ho riletto {len(facts)} memorie nella selezione. "
+                     + ("Alcuni riferimenti non sono più disponibili." if incomplete else scope))[:600],
         provenance=provenance, claims=facts,
         error_type="memory_selection_incomplete" if incomplete else "",
         data_ref=f"internal:{len(facts)}",
@@ -1331,6 +1387,42 @@ async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome
             retryable=True,
         )
 
+    from agent.evidence import freshness_of
+
+    def aware_time(value) -> str:
+        if type(value) is not str or len(value) > 80:
+            return ""
+        try:
+            instant = datetime.fromisoformat(value)
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                return ""
+            return instant.astimezone(timezone.utc).isoformat()
+        except (TypeError, ValueError, OverflowError):
+            return ""
+
+    # Age the returned estimate, without treating its retrieval time as the
+    # observation time of the provider's underlying traffic measurements.
+    observed_at = (
+        aware_time(route.get("retrieved_at"))
+        if route.get("retrieval_time_source") == "ora_clock_not_provider_observation_time"
+        else ""
+    )
+    freshness = freshness_of(observed_at) if observed_at else "unknown"
+    provider_as_of = aware_time(route.get("provider_as_of"))
+    traffic = bool(route.get("reflects_current_traffic"))
+    timing_note = (
+        "Orario associato: lettura ORA, non istante dei dati del provider. "
+        if observed_at
+        else "Orario della lettura non disponibile. "
+    )
+    timing_note += (
+        f"Istante dichiarato dal provider: {provider_as_of}."
+        if provider_as_of
+        else "Il provider non dichiara l'istante delle misure del traffico."
+        if traffic
+        else "Il provider non dichiara l'istante dei dati del percorso."
+    )
+
     duration = route.get("duration_seconds")
     distance = route.get("distance_meters")
     if not isinstance(duration, (int, float)) or duration < 0:
@@ -1342,23 +1434,24 @@ async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome
                 capability="route.read",
                 provider=str(route.get("provider") or capabilities.get("provider") or "routing")[:60],
                 source_refs=source_refs,
-                freshness="fresh",
+                observed_at=observed_at,
+                freshness=freshness,
+                certainty_note=timing_note,
             ),
             error_type="route_duration_missing",
             retryable=True,
         )
 
     minutes = max(1, round(float(duration) / 60.0))
-    bits = [f"circa {minutes} min"]
+    bits = [f"durata stimata circa {minutes} min"]
     if isinstance(distance, (int, float)) and distance >= 0:
         km = float(distance) / 1000.0
         bits.append(f"{km:.1f} km")
 
-    traffic = bool(route.get("reflects_current_traffic"))
     claim = (
         f"Percorso {origin_label} → {destination_label}: "
         + ", ".join(bits)
-        + ("; tiene conto del traffico attuale." if traffic else "; traffico live non dichiarato dal provider.")
+        + ("; include il traffico secondo il provider." if traffic else "; traffico non dichiarato dal provider.")
     )
 
     extra_claims: List[Claim] = []
@@ -1371,7 +1464,7 @@ async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome
     ):
         delay = max(0, round((float(duration) - float(without_traffic)) / 60.0))
         extra_claims.append(Claim(
-            text=f"Il traffico aggiunge circa {delay} min rispetto alla durata senza traffico indicata dal provider.",
+            text=f"Secondo la stima del provider, il traffico aggiunge circa {delay} min rispetto alla durata senza traffico indicata dal provider.",
             supports="impatto del traffico sul tempo di percorrenza",
         ))
 
@@ -1386,12 +1479,9 @@ async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome
             capability="route.read",
             provider=str(route.get("provider") or capabilities.get("provider") or "routing")[:60],
             source_refs=source_refs,
-            freshness="fresh",
-            certainty_note=(
-                "percorso live con traffico"
-                if traffic
-                else "percorso live; il provider non dichiara traffico corrente"
-            ),
+            observed_at=observed_at,
+            freshness=freshness,
+            certainty_note="Durata stimata. " + timing_note,
         ),
         claims=[
             Claim(

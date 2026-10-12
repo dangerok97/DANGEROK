@@ -406,6 +406,7 @@ class ProviderManager:
         json_mode: bool = False,
         user_preference: Optional[str] = None,
         latency_budget_s: Optional[float] = None,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         """
         `latency_budget_s` dice quanto si è disposti ad aspettare il **primo**
@@ -416,10 +417,12 @@ class ProviderManager:
         configured = [name for name in self.ordered_names(user_preference) if self._providers[name].is_configured()]
         if not configured:
             raise LLMNotConfigured("No LLM provider is configured")
+        schema_kwargs = {"response_schema": response_schema} if response_schema is not None else {}
         result = await self._attempt_chain(
             system=system, user=user, session_id=session_id,
             json_mode=json_mode, user_preference=user_preference,
             latency_budget_s=latency_budget_s,
+            **schema_kwargs,
         )
         if result is not None:
             return result
@@ -435,6 +438,7 @@ class ProviderManager:
             system=system, user=user, session_id=session_id,
             json_mode=json_mode, user_preference=user_preference,
             latency_budget_s=latency_budget_s,
+            **schema_kwargs,
         )
         if result is not None:
             return result
@@ -449,11 +453,13 @@ class ProviderManager:
         json_mode: bool,
         user_preference: Optional[str],
         latency_budget_s: Optional[float] = None,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> Optional[LLMResult]:
         """One pass down the chain. `None` when nobody could answer."""
         errors: list[str] = []
         attempts: list[dict[str, Any]] = []
         names = self.ordered_names(user_preference)
+        schema_kwargs = {"response_schema": response_schema} if response_schema is not None else {}
         primo_tentativo = True
         for i, name in enumerate(names):
             if not await self._available(name):
@@ -487,6 +493,7 @@ class ProviderManager:
                     user=user,
                     session_id=session_id,
                     json_mode=json_mode,
+                    **schema_kwargs,
                 ), quanto)
                 result.usage = {
                     **(result.usage or {}),

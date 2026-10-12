@@ -162,7 +162,8 @@ class EvidenceStore:
 
 
 def for_verification(
-    evidence: List[AgentEvidence], *, limit: int = 12
+    evidence: List[AgentEvidence], *, limit: int = 12,
+    required_refs: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     What the verifier is shown, with the simulated part clearly marked.
@@ -185,8 +186,23 @@ def for_verification(
                     or item.provenance.source_class == "deterministic_computation"][-min(2, max(0, limit - 1)):]
         baseline = [item for item in baseline if item.id not in recent_ids]
         selected = [*baseline, *selected[len(baseline):]]
+    if required_refs:
+        # A current result's citations outrank recency. Never substitute a
+        # newer draft for the source it cites; absent/currently superseded
+        # references remain missing and the verification boundary detects it.
+        required = {ref for ref in required_refs if isinstance(ref, str)}
+        cited = [item for item in evidence if item.id in required][:limit]
+        remaining = [item for item in selected if item.id not in required]
+        remaining = remaining[-(limit - len(cited)):] if len(cited) < limit else []
+        selected_ids = {item.id for item in [*cited, *remaining]}
+        selected = [item for item in evidence if item.id in selected_ids]
     for item in selected:
         row = item.for_ai()
+        if item.provenance.provider in ("generated_draft", "calendar_overlap_draft"):
+            # Only executing code labels generated history. Its text can be
+            # omitted beside the actual current result, never treated as an
+            # independent source or inferred from the wording of a claim.
+            row["generated_artifact"] = True
         if item.provenance.capability == "weather.read":
             # Ingesting a provider's older reading now does not make it fresh.
             # Preserve the adapter's stricter age/metadata judgement.

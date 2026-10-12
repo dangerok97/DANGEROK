@@ -144,10 +144,11 @@ async def run_case(name: str, *, mode: str = "scripted") -> dict:
     model_answered = False
     original = reasoning._ask_model
 
-    async def observed_model(system, user):
+    async def observed_model(system, user, *, response_schema=None):
         nonlocal model_requests, model_answered
         model_requests += 1
-        result = await original(system, user)
+        schema_kwargs = {"response_schema": response_schema} if response_schema is not None else {}
+        result = await original(system, user, **schema_kwargs)
         model_answered = isinstance(result, dict)
         return result
 

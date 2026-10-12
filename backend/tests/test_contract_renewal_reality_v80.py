@@ -257,17 +257,37 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
         "nessuna disdetta o cambio è stato eseguito."
     )
 
-    async def preparation_model(system, payload):
+    async def preparation_model(system, payload, *, response_schema=None):
         import json
 
         data = json.loads(payload)
         if "Audit this draft" in system:
             ids = [row["id"] for row in data["evidence"]]
             assert CUTOFF_LABEL in data["draft"]
+            policy_quotes = ["Premio annuo 420 euro.",
+                f"Scadenza {RENEWAL_LABEL}. Rinnovo automatico attivo.",
+                f"Disdetta entro il {CUTOFF_LABEL}. Copertura incendio e responsabilità civile."]
+            alternative_quote = (
+                "Alternativa osservata: premio indicativo 360 euro annui, "
+                "coperture incendio e responsabilità civile; eleggibilità "
+                "e preventivo finale da confermare."
+            )
+            policy = next(row for row in data["evidence"] if policy_quotes[0] in row["claim"])
+            alternative = next(row for row in data["evidence"] if alternative_quote in row["claim"])
             return {
                 "verified": True,
                 "content": prepared_content,
                 "evidence_ids": ids,
+                "claim_review": [
+                    {"claim": "Premio attuale, rinnovo e finestra di disdetta sono indicati nel documento.",
+                     "premises": "Le date e le condizioni si riferiscono alla polizza letta.",
+                     "support": "stated", "correction": "", "evidence_ids": [policy["id"]],
+                     "source_quotes": [{"evidence_id": policy["id"], "quote": quote} for quote in policy_quotes]},
+                    {"claim": "L'alternativa osservata è indicativa e richiede conferma di eleggibilità e prezzo finale.",
+                     "premises": "La ricerca non è un preventivo personale confermato.",
+                     "support": "stated", "correction": "", "evidence_ids": [alternative["id"]],
+                     "source_quotes": [{"evidence_id": alternative["id"], "quote": alternative_quote}]},
+                ],
             }
         ids = [row["id"] for row in data["evidence"]]
         blob = str(data["evidence"])

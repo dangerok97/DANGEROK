@@ -272,7 +272,11 @@ async def test_reality_gate_change_becomes_autonomous_work_then_exact_authority(
 
     choose_calls = []
 
-    async def choose_next(goal, *, plan, candidates, evidence, capabilities, clock_context=None, language="it"):
+    async def choose_next(goal, *, plan, candidates, evidence, capabilities, clock_context=None,
+                          prepared_result=None, prepared_source_refs=None, language="it"):
+        # The concrete calendar change is carried by its step parameters;
+        # this workflow has no separately saved document draft or citations.
+        assert prepared_result is None and prepared_source_refs == []
         choose_calls.append([c.get("capability_needed") for c in candidates])
         mail_steps = [c for c in candidates if c.get("capability_needed") == "mail.read"]
         if mail_steps:

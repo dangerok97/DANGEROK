@@ -1,0 +1,100 @@
+{
+  "version": "ora-app-deployment-observation-v1",
+  "observed_at": "2026-10-12T07:38:00Z",
+  "source": "Railway list-deployments and describe-service read-only calls",
+  "services": [
+    {
+      "service_id": "c408cff6-d695-4ea9-bb57-7bd753241781",
+      "name": "ora-backend",
+      "state": "live-with-staged-changes",
+      "latest_actual_deployment": {
+        "id": "1f8e8671-8abb-4292-84f0-242ab192da8c",
+        "status": "SUCCESS",
+        "created_at": "2026-10-12T06:38:34.376Z",
+        "updated_at": "2026-10-12T06:39:20.253Z",
+        "commit": "b159d8c37fa6bf245eb0d7f01025c7a5ae068a17",
+        "branch": "staging/cloud"
+      },
+      "staged": {
+        "patchId": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+        "status": "STAGED",
+        "changeCount": 5,
+        "message": null,
+        "createdAt": "2026-10-12T01:27:28.213Z",
+        "updatedAt": "2026-10-12T01:27:33.675Z"
+      },
+      "staged_changes": [
+        {
+          "path": "services.c408cff6-d695-4ea9-bb57-7bd753241781.source.branch",
+          "displayName": "Branch",
+          "type": "added",
+          "from": "",
+          "to": "staging/cloud",
+          "destructive": false
+        }
+      ]
+    },
+    {
+      "service_id": "0db9c41c-8a01-42db-a87d-b4083821610d",
+      "name": "ora-web",
+      "state": "live-with-staged-changes",
+      "latest_actual_deployment": {
+        "id": "9fe7187b-7d81-494a-9ccc-f433a463a926",
+        "status": "SUCCESS",
+        "created_at": "2026-10-12T06:38:37.047Z",
+        "updated_at": "2026-10-12T06:39:51.277Z",
+        "commit": "b159d8c37fa6bf245eb0d7f01025c7a5ae068a17",
+        "branch": "staging/cloud"
+      },
+      "staged": {
+        "patchId": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+        "status": "STAGED",
+        "changeCount": 5,
+        "message": null,
+        "createdAt": "2026-10-12T01:27:28.213Z",
+        "updatedAt": "2026-10-12T01:27:33.675Z"
+      },
+      "staged_changes": [
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.branch",
+          "displayName": "Branch",
+          "type": "added",
+          "from": "",
+          "to": "staging/cloud",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.commitSha",
+          "displayName": "Commit Sha",
+          "type": "removed",
+          "from": "",
+          "to": "",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.image",
+          "displayName": "Image",
+          "type": "removed",
+          "from": "",
+          "to": "",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.repo",
+          "displayName": "Repo",
+          "type": "updated",
+          "from": "dangerok97/DANGEROK",
+          "to": "dangerok97/DANGEROK",
+          "destructive": false
+        }
+      ]
+    }
+  ],
+  "interpretation": [
+    "Both running app services now use the separately deployed Vision base b159d8c; earlier 9e1a2f0/9dc0d65 observations are historical, not current deployment heads.",
+    "The staged patch eb9c3870 remains STAGED with five changes. describe-service overlays these changes and is not proof of the source configuration actually applied.",
+    "The autonomy PR head 6e6e5b7 and the local corrections have not been deployed to either app service.",
+    "No app deployment, restart, source update or staged patch acceptance was performed by this observation.",
+    "A future merge to staging/cloud must account for the existing deployment trigger; a different deployment path must not be used to evade the prior approval rejection."
+  ]
+}

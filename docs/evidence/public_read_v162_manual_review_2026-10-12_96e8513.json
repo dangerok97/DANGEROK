@@ -1,0 +1,570 @@
+{
+  "review_kind": "independent_manual_review_of_public_read_result",
+  "review_created_at": "2026-10-12T08:51:43.107688+00:00",
+  "reviewer": "outcome_qa",
+  "original_report": {
+    "path": "/workspace/scratch/abe5c63b5e73/ora/docs/evidence/public_read_v162_live_2026-10-12_96e8513.json",
+    "relative_path": "docs/evidence/public_read_v162_live_2026-10-12_96e8513.json",
+    "sha256": "c8adb3312eff810dccd4c24f9981175937375da9f15958cc2f9e8327bf0ae55f",
+    "bytes": 11035,
+    "original_preserved": true,
+    "version": "phase1-read-provider-v126",
+    "case": "trip_today",
+    "scenario_time": "2026-10-12T10:42:24.405898+02:00",
+    "code_revision_in_original": null
+  },
+  "candidate_association": {
+    "head": "96e85137743657fda62ed317cb5644dd9497b3d8",
+    "source": "Parent supplied the report as the public evaluation of this candidate; the public JSON itself has no code_revision field.",
+    "local_counterpart": "1505e5f15e78816a4c5135c38cd3b55f258ecb94",
+    "local_counterpart_tree": "9f98d79dd5183edef9b823d9aa799b07f19efdda"
+  },
+  "machine_verdict_unchanged": {
+    "technical_passed": true,
+    "semantic_gate_passed": false,
+    "passed": false,
+    "reasons": [
+      "semantic:TEMPERATURE_MISMATCH"
+    ],
+    "verified_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "required_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "model_decisions": 6,
+    "ai_calls": 6,
+    "tool_calls": 2,
+    "elapsed_ms": 16270,
+    "final_mode": "answer",
+    "semantic_acceptance": "pending_human_review"
+  },
+  "original_semantic_review_unchanged": {
+    "status": "failed",
+    "passed": false,
+    "reasons": [
+      "TEMPERATURE_MISMATCH"
+    ],
+    "automatically_accepted": false,
+    "human_review_still_required": true,
+    "grounding_rewrites": 0,
+    "time_metadata_limit": "Weather dates/timezone reach the model; routing HTTP retrieval time is not a provider as-of timestamp."
+  },
+  "overall_accepted": false,
+  "manual_verdict": "NOT_ACCEPTED_BECAUSE_OF_UNSUPPORTED_TRAFFIC_CERTAINTY; REPORTED_TEMPERATURE_MISMATCH_IS_A_RANGE_PARSING_FALSE_POSITIVE",
+  "conclusion": "La risposta riporta correttamente 19°C attuali e 23–24°C previsti nel pomeriggio. Il matcher tratta il trattino del range come un segno negativo, producendo -24 e il TEMPERATURE_MISMATCH originale: questo è un difetto del controllo numerico sul testo, non una temperatura inventata. L’oracolo originale non viene modificato o riclassificato. Il risultato rimane comunque non accettato nella revisione manuale per «certezza da osservazione live» sul traffico: la lettura HTTP è reale, ma durata e traffico sono una stima del provider, e provider_as_of è sconosciuto.",
+  "actual_execution": {
+    "owner": "synthetic_isolated_no_real_account",
+    "fixture_source": "synthetic_public_landmark_fixture",
+    "synthetic_state": [
+      "account",
+      "consent",
+      "current_location",
+      "saved_public_places",
+      "memory_database"
+    ],
+    "public_points": [
+      {
+        "id": "eval-roma-termini",
+        "label": "Roma Termini",
+        "latitude": 41.901,
+        "longitude": 12.5018
+      },
+      {
+        "id": "eval-colosseo",
+        "label": "Colosseo",
+        "latitude": 41.8902,
+        "longitude": 12.4922
+      }
+    ],
+    "provider_reads": 2,
+    "verified_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "required_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "logical_model_calls": 6,
+    "model_calls": [
+      {
+        "provider": "gemini2",
+        "model": "gemini-flash-lite-latest"
+      },
+      {
+        "provider": "gemini2",
+        "model": "gemini-flash-lite-latest"
+      },
+      {
+        "provider": "gemini2",
+        "model": "gemini-flash-lite-latest"
+      },
+      {
+        "provider": "gemini2",
+        "model": "gemini-flash-lite-latest"
+      },
+      {
+        "provider": "gemini2",
+        "model": "gemini-flash-lite-latest"
+      },
+      {
+        "provider": "gemini2",
+        "model": "gemini-flash-lite-latest"
+      }
+    ],
+    "elapsed_ms": 16270,
+    "grounding_rewrites": 0,
+    "model_http_count_exported": false,
+    "blocked_operations": [],
+    "error_types": [],
+    "technical_passed": true,
+    "decision_sequence": [
+      {
+        "mode": "tool",
+        "reasoning_status": "needs_tool",
+        "capability": "get_route",
+        "required": [
+          "get_route",
+          "get_weather_forecast"
+        ],
+        "resume": false,
+        "situation_op": "",
+        "memory_proposals": 0
+      },
+      {
+        "mode": "research",
+        "reasoning_status": "needs_research",
+        "capability": "",
+        "required": [],
+        "resume": false,
+        "situation_op": "",
+        "memory_proposals": 0
+      },
+      {
+        "mode": "research",
+        "reasoning_status": "needs_research",
+        "capability": "",
+        "required": [],
+        "resume": false,
+        "situation_op": "",
+        "memory_proposals": 0
+      },
+      {
+        "mode": "answer",
+        "reasoning_status": "enough_information",
+        "capability": "",
+        "required": [],
+        "resume": false,
+        "situation_op": "",
+        "memory_proposals": 0
+      },
+      {
+        "mode": "tool",
+        "reasoning_status": "needs_tool",
+        "capability": "get_weather_forecast",
+        "required": [
+          "get_route",
+          "get_weather_forecast"
+        ],
+        "resume": false,
+        "situation_op": "",
+        "memory_proposals": 0
+      },
+      {
+        "mode": "answer",
+        "reasoning_status": "enough_information",
+        "capability": "",
+        "required": [],
+        "resume": false,
+        "situation_op": "",
+        "memory_proposals": 0
+      }
+    ]
+  },
+  "final_answer": {
+    "text": "Ho verificato i dati richiesti per lo spostamento da Roma Termini al Colosseo:\n\n- **Tragitto e traffico (certezza da osservazione live):** La durata stimata del viaggio in auto con il traffico attuale (rilevato tramite Mapbox) è di circa 11 minuti (687 secondi) per una distanza di 2,7 km.\n- **Meteo al Colosseo (previsione del provider Open-Meteo per le prossime ore):** Al momento la temperatura è di 19°C con cielo poco nuvoloso. Nelle prossime ore (dalle 11:00 in poi) le temperature saliranno progressivamente fino a circa 23-24°C nel pomeriggio, con condizioni stabili e probabilità di pioggia quasi azzerate (1-2% o inferiore).\n\n**Suggerimento:** Le condizioni stradali e meteorologiche sono favorevoli per lo spostamento odierno.",
+    "truncated": false,
+    "characters": 737,
+    "sha256": "e47e8ffd1b8c6adf4253f05085fa4c3490ee2d219bccd7e3b34e32f8de599ad0"
+  },
+  "source_observations_unchanged": [
+    {
+      "capability": "get_route",
+      "source": "live_provider_http",
+      "side_effect": "READ_ONLY",
+      "outer_status": "ok",
+      "production_handler_used": true,
+      "handler": "places.caps.get_route",
+      "payload": {
+        "status": "ok",
+        "available": true,
+        "provider": "mapbox",
+        "destination": "Colosseo",
+        "travel_mode": "drive",
+        "duration_seconds": 687,
+        "distance_meters": 2765,
+        "reflects_current_traffic": true,
+        "duration_kind": "estimate",
+        "retrieval_time_source": "ora_clock_not_provider_observation_time",
+        "provider_as_of": null,
+        "retrieved_at": "2026-10-12T08:42:28.907098+00:00"
+      },
+      "provenance": [
+        "places:eval-pub"
+      ],
+      "http_refs": [
+        "http:1"
+      ],
+      "session_readback_verified": true
+    },
+    {
+      "capability": "get_weather_forecast",
+      "source": "live_provider_http",
+      "side_effect": "READ_ONLY",
+      "outer_status": "ok",
+      "production_handler_used": true,
+      "handler": "conversation_engine.ai_core.tools.weather_caps.get_weather_forecast",
+      "payload": {
+        "status": "ok",
+        "provider": "open_meteo",
+        "place": "Roma",
+        "current": {
+          "condition": "Poco nuvoloso",
+          "temperature_c": 19,
+          "humidity_pct": 74,
+          "wind_kmh": 7,
+          "precipitation_mm": 0
+        },
+        "hours": [
+          {
+            "time": "11:00",
+            "datetime": "2026-10-12T11:00",
+            "temperature_c": 20,
+            "humidity_pct": 69,
+            "wind_kmh": 8,
+            "rain_chance_pct": 2
+          },
+          {
+            "time": "12:00",
+            "datetime": "2026-10-12T12:00",
+            "temperature_c": 22,
+            "humidity_pct": 64,
+            "wind_kmh": 10,
+            "rain_chance_pct": 1
+          },
+          {
+            "time": "13:00",
+            "datetime": "2026-10-12T13:00",
+            "temperature_c": 23,
+            "humidity_pct": 58,
+            "wind_kmh": 9,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "14:00",
+            "datetime": "2026-10-12T14:00",
+            "temperature_c": 23,
+            "humidity_pct": 56,
+            "wind_kmh": 9,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "15:00",
+            "datetime": "2026-10-12T15:00",
+            "temperature_c": 24,
+            "humidity_pct": 53,
+            "wind_kmh": 11,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "16:00",
+            "datetime": "2026-10-12T16:00",
+            "temperature_c": 24,
+            "humidity_pct": 52,
+            "wind_kmh": 11,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "17:00",
+            "datetime": "2026-10-12T17:00",
+            "temperature_c": 24,
+            "humidity_pct": 52,
+            "wind_kmh": 13,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "18:00",
+            "datetime": "2026-10-12T18:00",
+            "temperature_c": 23,
+            "humidity_pct": 53,
+            "wind_kmh": 13,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "19:00",
+            "datetime": "2026-10-12T19:00",
+            "temperature_c": 22,
+            "humidity_pct": 53,
+            "wind_kmh": 10,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "20:00",
+            "datetime": "2026-10-12T20:00",
+            "temperature_c": 20,
+            "humidity_pct": 56,
+            "wind_kmh": 10,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "21:00",
+            "datetime": "2026-10-12T21:00",
+            "temperature_c": 19,
+            "humidity_pct": 61,
+            "wind_kmh": 8,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "22:00",
+            "datetime": "2026-10-12T22:00",
+            "temperature_c": 18,
+            "humidity_pct": 64,
+            "wind_kmh": 8,
+            "rain_chance_pct": 0
+          }
+        ],
+        "sunrise": "07:18",
+        "sunset": "18:33",
+        "observed_at": "2026-10-12T10:30",
+        "retrieved_at": "2026-10-12T08:42:38.982806+00:00",
+        "timezone": "Europe/Rome",
+        "utc_offset_seconds": 7200
+      },
+      "provenance": [
+        "place:eval-colosseo"
+      ],
+      "http_refs": [
+        "http:2"
+      ],
+      "session_readback_verified": true
+    }
+  ],
+  "http_metadata_unchanged": [
+    {
+      "id": "http:1",
+      "capability": "get_route",
+      "source": "live_provider_http",
+      "provider": "mapbox",
+      "http_status": 200,
+      "request_started_at": "2026-10-12T08:42:28.784850+00:00",
+      "received_at": "2026-10-12T08:42:28.906708+00:00",
+      "retrieval_time_source": "evaluation_clock_not_provider_observation_time",
+      "metadata_added_to_model_observation": false
+    },
+    {
+      "id": "http:2",
+      "capability": "get_weather_forecast",
+      "source": "live_provider_http",
+      "provider": "open_meteo",
+      "http_status": 200,
+      "request_started_at": "2026-10-12T08:42:38.338881+00:00",
+      "received_at": "2026-10-12T08:42:38.980778+00:00",
+      "retrieval_time_source": "evaluation_clock_not_provider_observation_time",
+      "metadata_added_to_model_observation": false,
+      "provider_timezone": "Europe/Rome",
+      "provider_current_time": "2026-10-12T10:30",
+      "provider_utc_offset_seconds": 7200,
+      "provider_hour_times": [
+        "2026-10-12T11:00",
+        "2026-10-12T12:00",
+        "2026-10-12T13:00",
+        "2026-10-12T14:00",
+        "2026-10-12T15:00",
+        "2026-10-12T16:00",
+        "2026-10-12T17:00",
+        "2026-10-12T18:00",
+        "2026-10-12T19:00",
+        "2026-10-12T20:00",
+        "2026-10-12T21:00",
+        "2026-10-12T22:00"
+      ]
+    }
+  ],
+  "manual_checks": [
+    {
+      "check": "current_temperature",
+      "verdict": "SUPPORTED",
+      "answer_excerpt": "Al momento la temperatura è di 19°C con cielo poco nuvoloso.",
+      "source_pointer": "/observations/1/payload/current",
+      "source_values": {
+        "temperature_c": 19,
+        "condition": "Poco nuvoloso"
+      },
+      "clock_qualification": {
+        "provider_current_time": "2026-10-12T10:30",
+        "timezone": "Europe/Rome",
+        "utc_offset_seconds": 7200,
+        "retrieved_at": "2026-10-12T08:42:38.982806+00:00"
+      },
+      "analysis": "Il valore coincide con current. Il tempo provider è10:30 Europe/Rome, mentre ORA conclude la lettura alle10:42:38 circa: si tratta del dato corrente pubblicato dal provider, non di una misurazione effettuata dall’assistente nello stesso istante."
+    },
+    {
+      "check": "future_temperature_range",
+      "verdict": "SUPPORTED",
+      "answer_excerpt": "Nelle prossime ore (dalle 11:00 in poi) le temperature saliranno progressivamente fino a circa 23-24°C nel pomeriggio",
+      "source_pointer": "/observations/1/payload/hours",
+      "supporting_hours": [
+        {
+          "datetime": "2026-10-12T11:00",
+          "temperature_c": 20
+        },
+        {
+          "datetime": "2026-10-12T12:00",
+          "temperature_c": 22
+        },
+        {
+          "datetime": "2026-10-12T13:00",
+          "temperature_c": 23
+        },
+        {
+          "datetime": "2026-10-12T14:00",
+          "temperature_c": 23
+        },
+        {
+          "datetime": "2026-10-12T15:00",
+          "temperature_c": 24
+        },
+        {
+          "datetime": "2026-10-12T16:00",
+          "temperature_c": 24
+        },
+        {
+          "datetime": "2026-10-12T17:00",
+          "temperature_c": 24
+        }
+      ],
+      "analysis": "La previsione passa da20 alle11 a22 alle12,23 alle13–14 e24 alle15–17. Il range23–24 è futuro, esplicitamente indicato come previsione, ed è sostenuto; non è una seconda temperatura attuale contraddittoria."
+    },
+    {
+      "check": "temperature_gate_failure_cause",
+      "verdict": "FALSE_POSITIVE_IN_EXISTING_NUMERIC_MATCHER",
+      "original_reason": "TEMPERATURE_MISMATCH",
+      "code_path": "backend/scripts/phase1_semantic_numeric.py",
+      "code_function": "discrepancies",
+      "candidate_code_reference": "1505e5f15e78816a4c5135c38cd3b55f258ecb94",
+      "exact_regex": "(-?\\d+(?:[.,]\\d+)?)\\s*°\\s*C?",
+      "read_only_regex_extraction": [
+        "19",
+        "-24"
+      ],
+      "triggering_answer_excerpt": "23-24°C",
+      "analysis": "Il gruppo opzionale -? assorbe il trattino che introduce il limite alto del range e restituisce -24. La lista dei valori provider è positiva (18–24), quindi il controllo segnala mismatch. Nessun valore -24 è effettivamente affermato dal testo come temperatura negativa. È stata eseguita solo l’estrazione read-only della stringa, senza rilanciare o cambiare il gate."
+    },
+    {
+      "check": "rain_probability",
+      "verdict": "SUPPORTED_AS_PROVIDER_FORECAST",
+      "answer_excerpt": "probabilità di pioggia quasi azzerate (1-2% o inferiore).",
+      "source_values": [
+        {
+          "datetime": "2026-10-12T11:00",
+          "rain_chance_pct": 2
+        },
+        {
+          "datetime": "2026-10-12T12:00",
+          "rain_chance_pct": 1
+        },
+        {
+          "datetime": "2026-10-12T13:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T14:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T15:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T16:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T17:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T18:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T19:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T20:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T21:00",
+          "rain_chance_pct": 0
+        },
+        {
+          "datetime": "2026-10-12T22:00",
+          "rain_chance_pct": 0
+        }
+      ],
+      "analysis": "Le probabilità sono2%,1%,poi0% negli intervalli mostrati. Il testo le presenta nel blocco previsione, senza promettere assenza certa di pioggia."
+    },
+    {
+      "check": "route_numbers",
+      "verdict": "SUPPORTED_PROVIDER_ESTIMATE",
+      "answer_excerpt": "circa 11 minuti (687 secondi) per una distanza di 2,7 km.",
+      "source_pointer": "/observations/0/payload",
+      "source_values": {
+        "duration_seconds": 687,
+        "distance_meters": 2765,
+        "duration_kind": "estimate"
+      },
+      "arithmetic": {
+        "duration_minutes": 11.45,
+        "distance_km": 2.765
+      },
+      "analysis": "687secondi sono11minuti27secondi; l’indicazione circa11minuti è coerente. 2765metri sono2,765km:2,7km è un’approssimazione/troncamento vicino al dato, senza discrepanza materiale. Questi numeri restano stime di itinerario, non tempi realmente percorsi."
+    },
+    {
+      "check": "traffic_certainty_and_timestamp",
+      "verdict": "OVERSTATED_CERTAINTY",
+      "answer_excerpt": "Tragitto e traffico (certezza da osservazione live)",
+      "additional_excerpt": "con il traffico attuale (rilevato tramite Mapbox)",
+      "source_values": {
+        "provider": "mapbox",
+        "reflects_current_traffic": true,
+        "duration_kind": "estimate",
+        "retrieved_at": "2026-10-12T08:42:28.907098+00:00",
+        "retrieval_time_source": "ora_clock_not_provider_observation_time",
+        "provider_as_of": null
+      },
+      "analysis": "La richiesta/risposta Mapbox è realmente avvenuta e il risultato dichiara traffico considerato. Questo sostiene una stima aggiornata ricevuta dal provider; non sostiene un tempo di viaggio certo o un’osservazione di traffico riferita a un istante provider autenticato. Il titolo di certezza rimane troppo forte anche se la frase seguente usa correttamente durata stimata. retrieved_at è esplicitamente clockORA, non il tempo di osservazione del traffico; provider_as_of=null. Non è un problema di metadati mancanti dal payload: i qualificatori sono già presenti nella produzione/sessione e nel rapporto."
+    },
+    {
+      "check": "travel_suggestion",
+      "verdict": "REASONABLE_ONLY_AS_QUALIFIED_ADVICE",
+      "answer_excerpt": "Le condizioni stradali e meteorologiche sono favorevoli per lo spostamento odierno.",
+      "analysis": "Il tragitto è breve nella stima e la pioggia prevista è scarsa, quindi un suggerimento favorevole è comprensibile. Il report non verifica ogni condizione stradale, accesso, parcheggio o evento lungo il tragitto. Non uso questa frase come prova aggiuntiva di osservazione certa del traffico e non aggiungo nuovi criteri al gate."
+    }
+  ],
+  "quote_and_entailment_boundary": "Le citazioni in questa annotazione sono estratti esatti della risposta e dei dati del rapporto originale. La loro autenticità non rende vera ogni inferenza: una risposta HTTP200 con un timestamp di recupero reale non implica osservazione istantanea del traffico né certezza sul tempo di viaggio.",
+  "scope_limits": [
+    "Solo revisione del rapporto salvato e del matcher nel tree del candidato; nessuna chiamata LLM/provider, nuova lettura meteo/traffico, test o modifica di policy/oracoli.",
+    "Le due fonti reali sono Mapbox e Open-Meteo su monumenti pubblici; account, consensi, posizione autorizzata e stato persistito sono sintetici.",
+    "Sei ritorni modello Gemini2 sono registrati; il JSON pubblico non esporta un contatore totale di trasporti HTTP dei modelli. Non li equiparo a sei HTTP.",
+    "Il gate tecnico passa e non registra operazioni bloccate. Non è prova di esecuzione nativa, spostamento fisico o notifica a dispositivo.",
+    "Nessuna riscrittura di grounding è dichiarata (0). Il report contiene la risposta finale integra, ma non ogni prompt o ogni risposta intermedia.",
+    "L’associazione al candidato è fornita dalla sessione: non viene inventato un campo code_revision nel rapporto originale.",
+    "Il FAIL automatico TEMPERATURE_MISMATCH resta conservato; la revisione manuale lo distingue dal difetto semantico indipendente sul traffico e non promuove il risultato a PASS."
+  ]
+}

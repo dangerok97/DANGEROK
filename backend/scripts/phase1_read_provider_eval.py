@@ -82,7 +82,7 @@ def _dated(value: Any, timezone_name: str | None = None) -> datetime | None:
 
 def _safe_text(value: Any, limit: int) -> str:
     text = str(value or "")
-    for name in (*LLM_KEYS, "ROUTING_API_KEY", "WEATHER_API_KEY"):
+    for name in (*LLM_KEYS, "GEMINI_API_KEY_2", "ROUTING_API_KEY", "WEATHER_API_KEY"):
         secret = os.environ.get(name) or ""
         if len(secret) >= 8:
             text = text.replace(secret, "[credential redacted]")
@@ -246,6 +246,27 @@ def _http_evidence(provider: str, response, started: datetime, received: datetim
     return evidence
 
 
+def _gemini_httpx_options(http_options=None):
+    """Select the SDK's public HTTPX transport option inside this runner only.
+
+    google-genai otherwise prefers installed aiohttp, which bypasses this
+    runner's AsyncClient.send allowlist and the autonomy HTTP request budget.
+    Preserve supplied options; the SDK owns and closes the transport it creates
+    a client around. This is not a process-wide socket or DNS sandbox.
+    """
+    import httpx
+    from google.genai import types
+
+    options = (http_options.model_copy() if isinstance(http_options, types.HttpOptions)
+               else types.HttpOptions.model_validate(http_options or {}))
+    if options.httpx_async_client is None:
+        async_args = dict(options.async_client_args or {})
+        if async_args.get("transport") is None:
+            async_args["transport"] = httpx.AsyncHTTPTransport()
+        options.async_client_args = async_args
+    return options
+
+
 class _ReadBoundary:
     def __init__(self, *, model_live: bool, provider_reply: Callable | None):
         self.model_live = model_live
@@ -300,6 +321,22 @@ class _ReadBoundary:
 
         stack.enter_context(patch.object(httpx.AsyncClient, "send", checked_send))
         stack.enter_context(patch.object(httpx.AsyncClient, "__init__", checked_init))
+        try:
+            from google import genai
+        except ImportError:
+            # Other configured adapters still work without this optional SDK;
+            # a Gemini attempt retains its production missing-package failure.
+            pass
+        else:
+            original_gemini = genai.Client
+
+            def checked_gemini(*args, **kwargs):
+                # GeminiProvider constructs this client per chat, including
+                # when ProviderManager itself was cached before the boundary.
+                kwargs["http_options"] = _gemini_httpx_options(kwargs.get("http_options"))
+                return original_gemini(*args, **kwargs)
+
+            stack.enter_context(patch.object(genai, "Client", checked_gemini))
 
 
 def _time_valid(evidence: dict, capability: str, evaluation_now: datetime) -> bool:
@@ -327,6 +364,7 @@ def _time_valid(evidence: dict, capability: str, evaluation_now: datetime) -> bo
 def _payload_view(capability: str, payload: dict) -> dict:
     keys = ("status", "available", "provider", "destination", "travel_mode",
             "duration_seconds", "distance_meters", "reflects_current_traffic",
+            "duration_kind", "retrieval_time_source", "provider_as_of",
             "duration_without_traffic_seconds", "failure_code", "retryable",
             "why_unavailable", "error", "place", "current", "hours", "sunrise", "sunset",
             "observed_at", "retrieved_at", "timezone", "utc_offset_seconds")

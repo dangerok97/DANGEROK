@@ -1,0 +1,611 @@
+{
+  "scope": "diagnostic_subset_of_full_nine_case_gate",
+  "deployment_id": "2d8281e8-1b70-4f21-9ebc-696b7f25352d",
+  "code_revision": "12927881483d4102b657625ea4c8a36a26f9f551",
+  "scenarios": [
+    "completed_result",
+    "source_change_crash",
+    "already_resolved",
+    "irrelevant"
+  ],
+  "passed_cases": 2,
+  "source_reports": [
+    {
+      "version": "autonomy-completion-v162",
+      "mode": "live",
+      "status": "failed",
+      "passed": false,
+      "real_model_executed": true,
+      "cases": [
+        {
+          "scenario": "completed_result",
+          "mode": "live",
+          "passed": false,
+          "real_model_executed": true,
+          "model_calls": [
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2105,
+                "completion_tokens": 383,
+                "total_tokens": 2488
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 3565,
+                "completion_tokens": 595,
+                "total_tokens": 4160
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 4352,
+                "completion_tokens": 243,
+                "total_tokens": 4595
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2423,
+                "completion_tokens": 43,
+                "total_tokens": 2466
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 4352,
+                "completion_tokens": 273,
+                "total_tokens": 4625
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 1676,
+                "completion_tokens": 377,
+                "total_tokens": 2053
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 1498,
+                "completion_tokens": 397,
+                "total_tokens": 1895
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 4282,
+                "completion_tokens": 454,
+                "total_tokens": 4736
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 3661,
+                "completion_tokens": 71,
+                "total_tokens": 3732
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2091,
+                "completion_tokens": 185,
+                "total_tokens": 2276
+              }
+            }
+          ],
+          "model_attempts": 10,
+          "model_http_requests": 11,
+          "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+          "global_socket_dns_sandbox": false,
+          "structured_decisions": [
+            {
+              "stage": "decide_goal",
+              "model_attempts_before": 0,
+              "input": {
+                "source_context_count": 1,
+                "source_context_unavailable": false
+              },
+              "response_kind": "object",
+              "outcome": "create_goal",
+              "reasoning": "Il confronto scritto dei costi e dei vincoli per la scelta delle due formule di archiviazione è ancora mancante.",
+              "objective": "Predisporre il confronto scritto di costi e vincoli per la scelta tra le due formule di archiviazione.",
+              "desired_outcome": "Il prospetto comparativo dei costi a dodici mesi e dei relativi vincoli è pronto per la consultazione.",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "desired_outcome": "Un confronto scritto di costi e vincoli per dodici mesi tra le due formule di archiviazione digitale.",
+                "outcome_state": "open",
+                "remaining_internal_work": "Analizzare i dati salvati e preparare il prospetto comparativo dei costi e dei vincoli contrattuali.",
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "model_attempts_after": 1,
+              "sequence": 1
+            },
+            {
+              "stage": "make_plan",
+              "model_attempts_before": 1,
+              "input": {
+                "status": "active",
+                "evidence_kind": "none"
+              },
+              "response_kind": "object",
+              "reasoning": "I dati necessari per il confronto (costi mensili, annuali e vincoli come il rimborso) sono già presenti nella nota salvata in memoria (mem_43262246ed92296b9353). Possiamo preparare direttamente il prospetto comparativo in un documento senza bisogno di ulteriori ricerche.",
+              "planning_outcome": "plan",
+              "plan_summary": "Preparazione del prospetto comparativo scritto tra le due formule di archiviazione basato sui dati della memoria.",
+              "expected_outcome": "Il prospetto comparativo dei costi a dodici mesi e dei relativi vincoli è pronto per la consultazione.",
+              "steps_kind": "array",
+              "steps_count": 2,
+              "steps": [
+                {
+                  "step_type": "inspect",
+                  "capability_needed": "information.read",
+                  "intent": "Leggere la nota salvata con i dettagli delle formule di archiviazione",
+                  "expected_result": "Recupero dei dati di costo e dei vincoli relativi alle due opzioni."
+                },
+                {
+                  "step_type": "prepare",
+                  "capability_needed": "document.create",
+                  "intent": "Creare il documento di confronto scritto con i costi a dodici mesi e i relativi vincoli",
+                  "expected_result": "Il prospetto comparativo è pronto e disponibile per la consultazione."
+                }
+              ],
+              "steps_omitted": 0,
+              "model_attempts_after": 2,
+              "sequence": 2
+            },
+            {
+              "stage": "choose_next_action",
+              "model_attempts_before": 2,
+              "input": {
+                "status": "active",
+                "evidence_kind": "array",
+                "evidence_entries": 1,
+                "plan": {
+                  "steps_count": 2,
+                  "steps": [
+                    {
+                      "id": "stp_6cdc3bbf034a4903",
+                      "type": "inspect",
+                      "capability_needed": "information.read",
+                      "status": "succeeded"
+                    },
+                    {
+                      "id": "stp_2eb87b17e109490a",
+                      "type": "prepare",
+                      "capability_needed": "document.create",
+                      "status": "pending"
+                    }
+                  ],
+                  "steps_omitted": 0
+                }
+              },
+              "response_kind": "object",
+              "reasoning": "Creo il prospetto comparativo scritto con i costi a dodici mesi e i relativi vincoli basato sui dati della memoria.",
+              "decision": "execute",
+              "step_id": "stp_2eb87b17e109490a",
+              "model_attempts_after": 3,
+              "sequence": 3
+            },
+            {
+              "stage": "choose_next_action",
+              "model_attempts_before": 4,
+              "input": {
+                "status": "active",
+                "evidence_kind": "array",
+                "evidence_entries": 1,
+                "plan": {
+                  "steps_count": 2,
+                  "steps": [
+                    {
+                      "id": "stp_6cdc3bbf034a4903",
+                      "type": "inspect",
+                      "capability_needed": "information.read",
+                      "status": "succeeded"
+                    },
+                    {
+                      "id": "stp_2eb87b17e109490a",
+                      "type": "prepare",
+                      "capability_needed": "document.create",
+                      "status": "pending"
+                    }
+                  ],
+                  "steps_omitted": 0
+                }
+              },
+              "response_kind": "object",
+              "reasoning": "La lettura della nota è completata e ora posso procedere alla creazione del documento di confronto scritto tra le due formule.",
+              "decision": "execute",
+              "step_id": "stp_2eb87b17e109490a",
+              "model_attempts_after": 5,
+              "sequence": 4
+            },
+            {
+              "stage": "verify_goal",
+              "model_attempts_before": 7,
+              "input": {
+                "status": "active",
+                "evidence_kind": "object",
+                "evidence_entries": 6
+              },
+              "response_kind": "object",
+              "outcome": "achieved",
+              "reasoning": "Il prospetto comparativo dei costi a dodici mesi e dei relativi vincoli è stato predisposto e reso disponibile per la consultazione.",
+              "what_is_missing": "",
+              "model_attempts_after": 8,
+              "sequence": 5
+            }
+          ],
+          "structured_decisions_omitted": 0,
+          "token_usage_scope": "successful_responses_with_provider_usage_only",
+          "failure_state": {
+            "available": true,
+            "goals_count": 1,
+            "goals": [
+              {
+                "status": "completed",
+                "rationale": "Il prospetto comparativo dei costi a dodici mesi e dei relativi vincoli è stato predisposto e reso disponibile per la consultazione.",
+                "requires_user_input": false,
+                "requires_user_authority": false,
+                "has_next_run_at": false,
+                "planning_unavailable": false,
+                "prepared_text": "Confronto formule di archiviazione digitale (orizzonte temporale: 12 mesi)\n\nIn base alle informazioni registrate, ecco il prospetto comparativo per una conservazione prevista di dodici mesi.\n\nOpzione A (Mensile):\n- Costo mensile: 15 €\n- Costo totale stimato a 12 mesi: 180 €\n- Spese iniziali: nulle\n- Spazio e servizi: 100 GB e assistenza identica all'altra opzione\n- Vincoli e condizioni: nessuna particolare rigidità di durata a lungo termine legata a un pagamento anticipato unico.\n\nOpzione B (Annuale):\n- Costo totale anticipato: 120 € per 12 mesi\n- Spese iniziali: nulle\n- Spazio e servizi: 100 GB e assistenza identica\n- Vincoli e condizioni: pagamento anticipato. L'opzione non prevede alcun rimborso in caso di disdetta anticipata.\n\nDifferenza di costo:\n- Risparmio teorico con l'opzione annuale rispetto a quella mensile: 60 € sui dodici mesi (180 € contro 120 €).\n- Fattore di rischio/vincolo: l'assenza di rimborso sull'annuale vincola l'intera spesa fin dal primo giorno, azzerando il risparmio in caso di interruzione anticipata del servizio.\n\nDati da verificare direttamente con il fornitore prima di procedere a qualsiasi scelta o pagamento.",
+                "prepared_text_truncated": false,
+                "prepared_text_characters": 1156,
+                "source_refs_count": 1,
+                "prepared_sources_count": 1,
+                "evidence_count": 4,
+                "current_evidence_count": 4,
+                "plans": [
+                  {
+                    "status": "completed",
+                    "plan_summary": "Preparazione del prospetto comparativo scritto tra le due formule di archiviazione basato sui dati della memoria.",
+                    "steps_count": 2,
+                    "step_status_counts": {
+                      "succeeded": 2
+                    },
+                    "steps": [
+                      {
+                        "step_type": "inspect",
+                        "capability_needed": "information.read",
+                        "status": "succeeded",
+                        "note": "Letti caratteri 0–565 di 565. Fine del testo della memoria. Ho riletto 1 memorie nella selezione. Lettura limitata alle memorie citate; non verifica da sola la ",
+                        "truncated_fields": [
+                          "note"
+                        ]
+                      },
+                      {
+                        "step_type": "prepare",
+                        "capability_needed": "document.create",
+                        "status": "succeeded",
+                        "note": "Bozza prodotta e salvata; nessuna azione esterna eseguita."
+                      }
+                    ],
+                    "steps_omitted": 0
+                  }
+                ],
+                "plans_count": 1
+              }
+            ]
+          },
+          "reason": "SEMANTIC_RESULT_REJECTED:INTERNAL_SOURCE_NOT_ATTRIBUTED"
+        }
+      ],
+      "fixture_revision": "personal_outcome_v1",
+      "started_at": "2026-10-12T02:37:15.909322+00:00",
+      "finished_at": "2026-10-12T02:37:30.339823+00:00",
+      "limits": {
+        "cases": 1,
+        "case_timeout_seconds": 240,
+        "model_calls_per_case": 40,
+        "model_http_requests_per_case": 80,
+        "structured_decisions_per_case": 12,
+        "decision_text_characters": 400,
+        "proposals_per_decision": 3,
+        "plan_steps_per_decision": 6,
+        "outcome_assessment_text_characters": 280,
+        "outcome_assessment_refs_per_field": 8,
+        "model_calls_total": 40,
+        "model_http_requests_total": 80
+      },
+      "code_revision": "12927881483d4102b657625ea4c8a36a26f9f551",
+      "revision_source": "deployment_or_ci_metadata"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "mode": "live",
+      "status": "failed",
+      "passed": false,
+      "real_model_executed": true,
+      "cases": [
+        {
+          "scenario": "source_change_crash",
+          "mode": "live",
+          "passed": false,
+          "real_model_executed": true,
+          "model_calls": [
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 3994,
+                "completion_tokens": 54,
+                "total_tokens": 4048
+              }
+            }
+          ],
+          "model_attempts": 1,
+          "model_http_requests": 1,
+          "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+          "global_socket_dns_sandbox": false,
+          "structured_decisions": [
+            {
+              "stage": "opportunity_scan",
+              "model_attempts_before": 0,
+              "input": {
+                "collection_counts": {
+                  "memories": 1,
+                  "documents": 0,
+                  "calendar": 0,
+                  "money": 5,
+                  "life_profile": 0,
+                  "what_changed": 1,
+                  "unavailable_sources": 0,
+                  "unavailable_memory_refs": 0
+                },
+                "change_after_lengths": [
+                  160
+                ]
+              },
+              "response_kind": "object",
+              "reason_for_silence": "Ho esaminato la nota sull'archivio digitale e i costi confrontati; l'utente ha già il quadro completo dei dati e non ci sono scadenze o nuovi documenti da leggere.",
+              "opportunities_kind": "array",
+              "opportunities_count": 0,
+              "opportunities": [],
+              "opportunities_omitted": 0,
+              "model_attempts_after": 1,
+              "sequence": 1
+            }
+          ],
+          "structured_decisions_omitted": 0,
+          "token_usage_scope": "successful_responses_with_provider_usage_only",
+          "failure_state": {
+            "available": true,
+            "goals_count": 0,
+            "goals": []
+          },
+          "reason": "SOURCE_DISCOVERY_DID_NOT_RECOVER"
+        }
+      ],
+      "fixture_revision": "personal_outcome_v1",
+      "started_at": "2026-10-12T02:37:30.340794+00:00",
+      "finished_at": "2026-10-12T02:37:31.255207+00:00",
+      "limits": {
+        "cases": 1,
+        "case_timeout_seconds": 240,
+        "model_calls_per_case": 40,
+        "model_http_requests_per_case": 80,
+        "structured_decisions_per_case": 12,
+        "decision_text_characters": 400,
+        "proposals_per_decision": 3,
+        "plan_steps_per_decision": 6,
+        "outcome_assessment_text_characters": 280,
+        "outcome_assessment_refs_per_field": 8,
+        "model_calls_total": 40,
+        "model_http_requests_total": 80
+      },
+      "code_revision": "12927881483d4102b657625ea4c8a36a26f9f551",
+      "revision_source": "deployment_or_ci_metadata"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "mode": "live",
+      "status": "passed",
+      "passed": true,
+      "real_model_executed": true,
+      "cases": [
+        {
+          "version": "autonomy-completion-v162",
+          "fixture_revision": "personal_outcome_v1",
+          "scenario": "already_resolved",
+          "mode": "live",
+          "passed": true,
+          "scope": "synthetic_internal_note_to_home_no_external_effects",
+          "model_mode": "real_llm",
+          "source_mode": "synthetic_owned_record_real_reader",
+          "live_provider_reads": 0,
+          "storage": "in_memory",
+          "process_restart_tested": false,
+          "synthetic_checkpoints_expedited": true,
+          "real_model_executed": true,
+          "model_calls": [
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2068,
+                "completion_tokens": 156,
+                "total_tokens": 2224
+              }
+            }
+          ],
+          "model_attempts": 1,
+          "model_http_requests": 1,
+          "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+          "global_socket_dns_sandbox": false,
+          "structured_decisions": [
+            {
+              "stage": "decide_goal",
+              "model_attempts_before": 0,
+              "input": {
+                "source_context_count": 1,
+                "source_context_unavailable": false
+              },
+              "response_kind": "object",
+              "outcome": "no_goal",
+              "reasoning": "La scelta della formula mensile è già conclusa e documentata, senza ulteriori verifiche o azioni aperte.",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "outcome_state": "resolved",
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "completion_refs_omitted": 0
+              },
+              "model_attempts_after": 1,
+              "sequence": 1
+            }
+          ],
+          "structured_decisions_omitted": 0,
+          "token_usage_scope": "successful_responses_with_provider_usage_only",
+          "worker_ticks": [],
+          "executed_capabilities": [],
+          "source_change_discovery_tested": false,
+          "injected_faults": [],
+          "external_effects": 0,
+          "result": {
+            "state": "no_goal"
+          }
+        }
+      ],
+      "fixture_revision": "personal_outcome_v1",
+      "started_at": "2026-10-12T02:37:31.255721+00:00",
+      "finished_at": "2026-10-12T02:37:32.201443+00:00",
+      "limits": {
+        "cases": 1,
+        "case_timeout_seconds": 240,
+        "model_calls_per_case": 40,
+        "model_http_requests_per_case": 80,
+        "structured_decisions_per_case": 12,
+        "decision_text_characters": 400,
+        "proposals_per_decision": 3,
+        "plan_steps_per_decision": 6,
+        "outcome_assessment_text_characters": 280,
+        "outcome_assessment_refs_per_field": 8,
+        "model_calls_total": 40,
+        "model_http_requests_total": 80
+      },
+      "code_revision": "12927881483d4102b657625ea4c8a36a26f9f551",
+      "revision_source": "deployment_or_ci_metadata"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "mode": "live",
+      "status": "passed",
+      "passed": true,
+      "real_model_executed": true,
+      "cases": [
+        {
+          "version": "autonomy-completion-v162",
+          "fixture_revision": "personal_outcome_v1",
+          "scenario": "irrelevant",
+          "mode": "live",
+          "passed": true,
+          "scope": "synthetic_internal_note_to_home_no_external_effects",
+          "model_mode": "real_llm",
+          "source_mode": "synthetic_owned_record_real_reader",
+          "live_provider_reads": 0,
+          "storage": "in_memory",
+          "process_restart_tested": false,
+          "synthetic_checkpoints_expedited": true,
+          "real_model_executed": true,
+          "model_calls": [
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 1743,
+                "completion_tokens": 98,
+                "total_tokens": 1841
+              }
+            }
+          ],
+          "model_attempts": 1,
+          "model_http_requests": 1,
+          "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+          "global_socket_dns_sandbox": false,
+          "structured_decisions": [
+            {
+              "stage": "decide_goal",
+              "model_attempts_before": 0,
+              "input": {
+                "source_context_count": 0,
+                "source_context_unavailable": false
+              },
+              "response_kind": "object",
+              "outcome": "no_goal",
+              "reasoning": "Si tratta di una newsletter pubblicitaria non richiesta e priva di qualsiasi interesse o bisogno personale.",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "outcome_state": "not_established",
+                "supporting_refs": [],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "model_attempts_after": 1,
+              "sequence": 1
+            }
+          ],
+          "structured_decisions_omitted": 0,
+          "token_usage_scope": "successful_responses_with_provider_usage_only",
+          "worker_ticks": [],
+          "executed_capabilities": [],
+          "source_change_discovery_tested": false,
+          "injected_faults": [],
+          "external_effects": 0,
+          "result": {
+            "state": "no_goal"
+          }
+        }
+      ],
+      "fixture_revision": "personal_outcome_v1",
+      "started_at": "2026-10-12T02:37:32.201819+00:00",
+      "finished_at": "2026-10-12T02:37:32.808125+00:00",
+      "limits": {
+        "cases": 1,
+        "case_timeout_seconds": 240,
+        "model_calls_per_case": 40,
+        "model_http_requests_per_case": 80,
+        "structured_decisions_per_case": 12,
+        "decision_text_characters": 400,
+        "proposals_per_decision": 3,
+        "plan_steps_per_decision": 6,
+        "outcome_assessment_text_characters": 280,
+        "outcome_assessment_refs_per_field": 8,
+        "model_calls_total": 40,
+        "model_http_requests_total": 80
+      },
+      "code_revision": "12927881483d4102b657625ea4c8a36a26f9f551",
+      "revision_source": "deployment_or_ci_metadata"
+    }
+  ]
+}

@@ -1,0 +1,971 @@
+{
+  "review_schema": "ora_autonomy_v162_manual_review_v1",
+  "reviewed_at": "2026-10-12T06:50:13.363310+00:00",
+  "review_method": "Independent read-only examination of the sanitized synthetic-account report, canonical fixture and executed runner/validation paths. No new model or provider call; no code, fixture, oracle or budget change.",
+  "original_report": {
+    "path": "docs/evidence/autonomy_v162_live_2026-10-12_3b7c4d7.json",
+    "sha256": "3193ae4777d1285e86a8f7557ee3f2abca8fc2551d4f7fd0b5cfa6b4bf268513",
+    "bytes": 203796,
+    "code_revision": "3b7c4d773e61f10d9b5031bf056edd456bae0ffd",
+    "fixture_revision": "personal_outcome_v1",
+    "started_at": "2026-10-12T06:30:56.964433+00:00",
+    "finished_at": "2026-10-12T06:38:33.868307+00:00"
+  },
+  "machine_result_preserved": {
+    "passed": false,
+    "status": "failed",
+    "passed_cases": 4,
+    "total_cases": 9,
+    "model_attempts": 86,
+    "model_http_requests": 94,
+    "model_call_outcomes_succeeded": 86,
+    "provider_response_counts": {
+      "groq": 1,
+      "mistral": 84,
+      "openai": 1
+    },
+    "fallback_events": [
+      {
+        "provider": "gemini",
+        "failure_kind": "quota",
+        "count": 3
+      },
+      {
+        "provider": "gemini2",
+        "failure_kind": "quota",
+        "count": 2
+      },
+      {
+        "provider": "groq",
+        "failure_kind": "quota",
+        "count": 2
+      },
+      {
+        "provider": "mistral",
+        "failure_kind": "timeout",
+        "count": 1
+      }
+    ]
+  },
+  "overall_accepted": false,
+  "completion_positive_manually_accepted": [],
+  "negative_controls_passed": [
+    "source_revoked",
+    "memory_revoked",
+    "already_resolved",
+    "irrelevant"
+  ],
+  "source_reference": {
+    "fixture_files": [
+      "backend/scripts/autonomy_completion_eval_v162.py",
+      "backend/scripts/phase2_goal_outcome_eval_v140.py"
+    ],
+    "note": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento autorizzato.",
+    "characters": 565,
+    "sha256": "5bf7ffcd0bcdf67e81ce8132b77ab92fbf3ecc49152492312b78378e3df2fef6",
+    "corrected_note": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento autorizzato.",
+    "corrected_sha256": "1d0093f1c39ef650220e9d0f471ce26393d3435fdb28f763e85e1ac67e8911f9",
+    "authority": "Synthetic user-reported saved note, explicitly not confirmed by a supplier.",
+    "permitted_arithmetic": {
+      "12_month_monthly_total": 180,
+      "annual_original": 120,
+      "difference_original": 60,
+      "annual_corrected": 150,
+      "difference_corrected": 30
+    },
+    "not_established": [
+      "Monthly cancellation rights or penalties",
+      "Monthly refund or pro-rata rights",
+      "Monthly freedom from contractual duration constraints",
+      "Premium-service exclusion",
+      "Independent provider confirmation"
+    ]
+  },
+  "evidence_scope": [
+    "86 successful logical model calls describe transport/manager completion, not valid structured replies or correct semantic decisions. Models in this run: 84 Mistral 8B, 1 Groq/Qwen, 1 OpenAI GPT-4o-mini.",
+    "Synthetic internal Memory, real internal reader and services, isolated in-memory storage, existing code-owned fault injection and checkpoint expedition. No real customer/source account or live contract facts are represented.",
+    "This report does not demonstrate a process restart, mobile-device receipt or successful result delivery. The four automatic passes are negative controls.",
+    "The 12-decision cap removes five central observations only in planning_outage. The three visible generation/audit execution groups elsewhere carry matching goal/step and supplied Evidence IDs; matching identities are not assumed for omitted observations.",
+    "The audit content objects are deliberately not exported as text. Their exact proposed contents and any corrections inside them cannot be manually accepted from this report.",
+    "Failed cases do not include the successful-return fields injected_faults, worker_ticks or external_effects. Injection reachability above is tied to observed transitions and the exact guarded runner branch, not inferred from the scenario name alone.",
+    "Four failed completion probes exhaust the persisted continuation budget while still below the 40-model-call and 80-HTTP per-case ceilings. The completed_result probe stops earlier at the required first source-read boundary."
+  ],
+  "cases": [
+    {
+      "scenario": "completed_result",
+      "machine_passed": false,
+      "machine_failure_reason": "OWNED_SOURCE_NOT_READ_ONCE",
+      "model_attempts": 5,
+      "model_http_requests": 8,
+      "admission": [
+        {
+          "id": "opp_591940c29828dca8",
+          "agent_review_revision": "5a0d55922f6547fd9bf758062c643aa7",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [
+        {
+          "capability": "document.create",
+          "step_id": "stp_4a2ea5574e914b71",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_sources_required",
+          "retryable": false
+        }
+      ],
+      "structured_decisions_retained": 3,
+      "structured_decisions_omitted": 0,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "no_prepared_result_to_accept",
+      "causal_chain": [
+        "Ammissione create_goal al primo tentativo; il modello vede una Memory corrente, source_context_unavailable=false.",
+        "make_plan propone prepare/document.create seguito da verify/information.read, senza una lettura preliminare. Il preview della Memory non è Evidence registrata.",
+        "Il primo executor respinge la preparazione con preparation_sources_required; Evidence e prepared_text restano vuoti.",
+        "reconsider restituisce modify con due righe type=prepare e type=verify. Non propone una lettura inspect prima della bozza; ritiene sufficiente correggere input_refs.",
+        "Il piano persistito conserva prepare failed e verify pending. Il runner si ferma alla precondizione OWNED_SOURCE_NOT_READ_ONCE, mentre il goal resta active con un checkpoint futuro."
+      ],
+      "source_scope": {
+        "source_refs": [
+          "mem_43262246ed92296b9353"
+        ],
+        "current_evidence_count": 0
+      },
+      "preparation_observed": false,
+      "reconsider_evidence": {
+        "sequence": 3,
+        "reasoning": "The source data is available but not yet linked as input_refs for the preparation step.",
+        "revised_steps": [
+          {
+            "type": "prepare",
+            "capability_needed": "document.create",
+            "intent": "Extract and organize the user-reported data from the saved note for the comparison draft.",
+            "expected_result": "Un documento strutturato che elenca i costi annuali, le caratteristiche condivise e i vincoli, con una dichiarazione esplicita che i dati sono forniti dall'uten",
+            "truncated_fields": [
+              "expected_result"
+            ]
+          },
+          {
+            "type": "verify",
+            "capability_needed": "information.read",
+            "intent": "Verify the draft includes all required elements (costs, constraints, disclaimer) before finalizing.",
+            "expected_result": "Conferma che la bozza soddisfa i criteri di successo: costi annuali, caratteristiche condivise, vincolo di cancellazione non rimborsabile e disclaimer."
+          }
+        ]
+      },
+      "injection_coverage": {
+        "first_real_read_boundary": "not_reached",
+        "other_fault_injections": "not_applicable"
+      },
+      "limit": "Il fallimento del collaudo non equivale a un goal terminale failed. Nessuna ripresa ulteriore è osservata per questo caso; correggere il solo alias type non fornirebbe la Evidence mancante."
+    },
+    {
+      "scenario": "planning_outage",
+      "machine_passed": false,
+      "machine_failure_reason": "COMPLETION_BUDGET_EXHAUSTED",
+      "model_attempts": 20,
+      "model_http_requests": 22,
+      "admission": [
+        {
+          "id": "opp_a5d7b9846ab98497",
+          "agent_review_revision": "29d10ba1f13d44679a67a03a79c7516a",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_30182d2f8a75460a",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_bc3d698115384639",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "structured_decisions_retained": 12,
+      "structured_decisions_omitted": 5,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "manual_fail_saved_draft_not_completed",
+      "causal_chain": [
+        "Il guasto sintetico del primo make_plan è raggiunto: risposta None con model_attempts_before=after=1. Una successiva lettura e una preparazione riuscita provano la ripresa oltre quel guasto.",
+        "Un solo information.read e un prepare/document.create risultano succeeded. Viene salvata una bozza di 1661 caratteri, riferita alla Evidence della nota.",
+        "Quattro verify_goal visibili (sequenze 9,11,14,16) restituiscono partially_achieved richiamando una verifica formale ancora da fare. Tre reconsider successivi scelgono complete; quello finale sceglie modify con type=verify.",
+        "Non appare una seconda esecuzione di preparazione. Il piano resta active con verify pending, il goal active e senza next_run_at. Il runner rileva COMPLETION_BUDGET_EXHAUSTED, non il limite globale di 40 chiamate al modello."
+      ],
+      "source_scope": {
+        "source_refs": [
+          "mem_43262246ed92296b9353"
+        ],
+        "prepared_sources": [
+          "evd_8884701c5d104748"
+        ],
+        "evidence_count": 5,
+        "current_evidence_count": 5
+      },
+      "saved_draft": {
+        "characters": 1661,
+        "truncated": false,
+        "sha256": "c54a57aff5a104fdf2180abf7a6038460376ed661e542392bc0d26f16b88b6f2",
+        "location": "cases[1].failure_state.goals[0].prepared_text"
+      },
+      "semantic_findings": [
+        {
+          "finding": "Il confronto presenta condizioni del mensile non contenute nella nota.",
+          "quotes": [
+            "Possibile (condizioni fornitore)",
+            "Pagamento mensile, disdetta facile",
+            "maggiore flessibilità e possibilità di rimborso in caso di disdetta anticipata."
+          ],
+          "source_contrast": "La nota dichiara solo prezzo mensile, costo su 12 mesi, caratteristiche comuni e non rimborsabilità dell’annuale. Non dichiara diritto al rimborso, recesso facile o assenza di vincoli per il mensile."
+        },
+        {
+          "finding": "Costi 180/120, periodo, caratteristiche comuni e limite di fonte utente sono presenti; non sanano le condizioni mensili inventate.",
+          "quote": "I dati sono riferiti dall'utente e non confermati dal fornitore."
+        }
+      ],
+      "stage_attribution_limit": "Le cinque decisioni omesse sono le sequenze 3–7. Generation e audit non sono più nel rapporto. Non è dimostrabile quale stadio o provider abbia introdotto o mantenuto ciascuna clausola della bozza salvata; non li si ricostruisce dall’ordine presunto delle chiamate.",
+      "verification_evidence": [
+        {
+          "sequence": 9,
+          "outcome": "partially_achieved",
+          "reasoning": "Il documento preparato soddisfa i criteri di costo totale, caratteristiche uguali e vincoli (assenza di rimborso per l'annuale, flessibilità), ma la verifica formale della coerenza logica e completezza non è stata ancora completata.",
+          "what_is_missing": "Verifica formale del documento preparato per confermare che tutti i criteri di successo siano soddisfatti e che sia trasparente per la scelta dell'utente (criterio: *success_criteria* 1–4)."
+        },
+        {
+          "sequence": 11,
+          "outcome": "partially_achieved",
+          "reasoning": "Il documento comparativo è stato preparato e soddisfa i criteri di costo totale, caratteristiche uguali e vincoli (assenza di rimborso per l'annuale, flessibilità). Tuttavia, la verifica formale della coerenza logica e completezza rispetto ai criteri di successo non è stata ancora completata."
+        },
+        {
+          "sequence": 14,
+          "outcome": "partially_achieved",
+          "reasoning": "Il documento comparativo è stato preparato e contiene i costi totali, i vincoli e le caratteristiche uguali richieste, ma la verifica formale della coerenza logica e completezza non è stata ancora completata.",
+          "what_is_missing": "Verifica formale del documento preparato per confermare che tutti i criteri di successo siano soddisfatti (costi, vincoli, caratteristiche) e che sia trasparente per la scelta dell'utente."
+        },
+        {
+          "sequence": 16,
+          "outcome": "partially_achieved",
+          "reasoning": "Il documento preparato soddisfa i criteri di costo totale (180€ vs 120€), caratteristiche uguali (100 GB, assistenza) e spese iniziali nulle, ma non è stata ancora verificata la coerenza logica e la completezza dei vincoli (assenza di rimborso per l'annuale, flessibilità) rispetto ai dati forniti dall'utente e alle esigenze di trasparenza."
+        }
+      ],
+      "injection_coverage": {
+        "planning_unavailable_once": "reached_and_followed_by_real_read_and_preparation",
+        "completion_home_handoff": "not_demonstrated"
+      },
+      "limit": "Bozza internamente salvata ma semanticamente non accettabile e obiettivo non completato. I motivi dei verifier non individuano chiaramente tutte le affermazioni mensili infondate."
+    },
+    {
+      "scenario": "home_write_retry",
+      "machine_passed": false,
+      "machine_failure_reason": "COMPLETION_BUDGET_EXHAUSTED",
+      "model_attempts": 13,
+      "model_http_requests": 13,
+      "admission": [
+        {
+          "id": "opp_033828f1d25031ae",
+          "agent_review_revision": "8939d09d21f7439cb4aecefd6a7c0f27",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_be1e541673e24fe6",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_362ea1e6a4cd4941",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_ungrounded",
+          "retryable": false
+        }
+      ],
+      "structured_decisions_retained": 8,
+      "structured_decisions_omitted": 0,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "manual_fail_visible_rejected_generation_prefix_no_saved_result",
+      "causal_chain": [
+        "Ammissione e lettura della fonte riescono; il generatore riceve una Evidence fornita e non troncata.",
+        "Generation restituisce content di tipo stringa, contenente testo in forma JSON, lungo 4394 caratteri. Il rapporto ne conserva i primi 4000 e segnala il taglio.",
+        "La validazione di produzione richiede content non vuoto e massimo 4000 caratteri; il rifiuto preparation_ungrounded riguarda content too_long, non una fonte assente né evidence_ids non validi.",
+        "Non viene chiamato preparation_audit. Due reconsider modify propongono ancora type=prepare; il secondo chooser torna sul vecchio passo fallito. Non si osserva una nuova esecuzione di prepare.",
+        "Il goal resta active senza bozza e senza next_run_at; il piano conserva anche ask_user pending. Si esaurisce il budget di completamento prima della consegna Home."
+      ],
+      "generation": {
+        "sequence": 5,
+        "stage": "preparation_generation",
+        "model_attempts_before": 6,
+        "model_attempts_after": 7,
+        "response_kind": "object",
+        "content_kind": "text",
+        "content_characters": 4394,
+        "content_truncated": true,
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_cfa347ca3e22460b"
+        ],
+        "evidence_ids_count": 1,
+        "verified_kind": "none",
+        "input": {
+          "evidence_kind": "array",
+          "evidence_count": 1,
+          "evidence_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_cfa347ca3e22460b"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "goal_id": "gol_95938e99d32f49ea",
+          "step_id": "stp_362ea1e6a4cd4941"
+        },
+        "reported_model_call": {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2467,
+            "completion_tokens": 1345
+          }
+        }
+      },
+      "semantic_findings": [
+        {
+          "finding": "La parte visibile inventa condizioni contrattuali del mensile e le usa per la raccomandazione.",
+          "quotes": [
+            "senza penalità (pagamento pro-rata per mesi residui)",
+            "permette di interrompere il servizio in qualsiasi momento senza penalità",
+            "Scegliere l'annuale è vantaggioso solo se l'utente è certo di mantenere il servizio per l'intero periodo."
+          ],
+          "source_contrast": "La fonte non stabilisce cancellazione senza penalità, pro rata o una condizione necessaria di certezza sull’intero periodo. I costi sul periodo di 12 mesi possono essere confrontati senza queste aggiunte."
+        }
+      ],
+      "injection_coverage": {
+        "home_write_failed_once": "not_reached",
+        "evidence": "Il guasto Home è iniettato solo su materializzazione di visibility per un goal completed; qui il goal non viene completato e prepared_text è vuoto."
+      },
+      "limit": "La coda finale di 394 caratteri della generation non è esportata. Il rifiuto per lunghezza è legittimo; rendere il JSON sintatticamente corretto o più corto non proverebbe fedeltà alla fonte."
+    },
+    {
+      "scenario": "source_revoked",
+      "machine_passed": true,
+      "machine_failure_reason": null,
+      "model_attempts": 5,
+      "model_http_requests": 5,
+      "admission": [
+        {
+          "id": "opp_9401691afdd419df",
+          "agent_review_revision": "6271a9698d4a42638a63882439977e5b",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_74ceefa6deed4ee5",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "structured_decisions_retained": 3,
+      "structured_decisions_omitted": 0,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "negative_control_only_no_completion_claim",
+      "causal_chain": [
+        "Ammissione create_goal e una lettura reale della nota nel DB sintetico riescono.",
+        "Il runner ritira l’Opportunity dopo la lettura. Il goal diventa cancelled, senza nuovi passi o bozza.",
+        "Il controllo passa solo dopo assenza di wake pending, tick inattivo e replay senza cambiamenti nei conteggi persistiti."
+      ],
+      "result": {
+        "state": "cancelled",
+        "stopped_on_source_revocation": true,
+        "replay_idempotent": true
+      },
+      "injection_coverage": {
+        "opportunity_revocation_after_read": "reached",
+        "revocation_and_replay_assertions": "passed"
+      },
+      "limit": "Dimostra il comportamento negativo isolato di cancellazione e replay. Non dimostra preparazione, completamento o consegna di un risultato utile."
+    },
+    {
+      "scenario": "memory_revoked",
+      "machine_passed": true,
+      "machine_failure_reason": null,
+      "model_attempts": 5,
+      "model_http_requests": 5,
+      "admission": [
+        {
+          "id": "opp_88468f843346ef7e",
+          "agent_review_revision": "ab4aecd2e0d74bc28db26d2e1b6a9040",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_fc4752f0cf8247fc",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "structured_decisions_retained": 3,
+      "structured_decisions_omitted": 0,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "negative_control_only_no_completion_claim",
+      "causal_chain": [
+        "Ammissione e prima lettura riescono.",
+        "Il runner revoca la Memory tramite governance; un successivo wake porta il goal ad abandoned.",
+        "La prova verifica assenza di prepared_text e di nuova preparazione riuscita dalle evidenze revocate."
+      ],
+      "result": {
+        "state": "abandoned",
+        "stopped_on_memory_revocation": true
+      },
+      "injection_coverage": {
+        "memory_revocation_after_read": "reached",
+        "memory_revocation_assertions": "passed"
+      },
+      "limit": "È una prova negativa di invalidazione della fonte, non un esito positivo del confronto."
+    },
+    {
+      "scenario": "memory_corrected",
+      "machine_passed": false,
+      "machine_failure_reason": "COMPLETION_BUDGET_EXHAUSTED",
+      "model_attempts": 20,
+      "model_http_requests": 23,
+      "admission": [
+        {
+          "id": "opp_102f24e2822eae2b",
+          "agent_review_revision": "a6551853298e442887e8555edf146fb6",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_e0ac7313e0db49a3",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "information.read",
+          "step_id": "stp_e74f13b3e9e94acf",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_39d79e3ac63b44c8",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_review_invalid",
+          "retryable": false
+        }
+      ],
+      "structured_decisions_retained": 12,
+      "structured_decisions_omitted": 0,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "manual_fail_visible_generation_audit_output_unreviewable_and_rejected",
+      "causal_chain": [
+        "Ammissione e prima lettura riescono. La correzione canonica sostituisce la Memory: old mem_43262246ed92296b9353, current mem_c5c5ea6cfaf8263a489b.",
+        "Il nuovo make_plan cita la Memory sostitutiva e 150 euro; un secondo information.read riesce. Il rapporto finale ha due Evidence totali, una corrente.",
+        "Generation riceve una Evidence corrente e restituisce 2581 caratteri, costo annuale 150 e differenza 30 corretti, con riferimenti forniti.",
+        "L’audit restituisce verified=true e una lista corretta di evidence_ids ma content di tipo object. La validazione lo respinge come preparation_review_invalid; prepared_text e prepared_sources restano vuoti.",
+        "Il primo reconsider interpreta erroneamente il problema come evidence_ids mancanti o errati, benché siano presenti e forniti. Tre modify con type in revised_steps non producono una seconda preparazione osservata; segue COMPLETION_BUDGET_EXHAUSTED."
+      ],
+      "source_scope": {
+        "old_memory_ref": "mem_43262246ed92296b9353",
+        "current_memory_ref": "mem_c5c5ea6cfaf8263a489b",
+        "generation_and_audit_evidence_ids": [
+          "evd_f1ba099e81ed4a2b"
+        ],
+        "recorded_total_evidence_count": 2,
+        "recorded_current_evidence_count": 1,
+        "numeric_source_revision_or_full_snapshot": "not_exported_in_this_report"
+      },
+      "generation": {
+        "sequence": 6,
+        "stage": "preparation_generation",
+        "model_attempts_before": 7,
+        "model_attempts_after": 8,
+        "response_kind": "object",
+        "content_kind": "text",
+        "content_characters": 2581,
+        "content_truncated": false,
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_f1ba099e81ed4a2b"
+        ],
+        "evidence_ids_count": 1,
+        "verified_kind": "none",
+        "input": {
+          "evidence_kind": "array",
+          "evidence_count": 1,
+          "evidence_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_f1ba099e81ed4a2b"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "goal_id": "gol_d044a2cd958d432c",
+          "step_id": "stp_39d79e3ac63b44c8"
+        },
+        "reported_model_call": {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2153,
+            "completion_tokens": 851
+          }
+        }
+      },
+      "audit": {
+        "sequence": 7,
+        "stage": "preparation_audit",
+        "model_attempts_before": 8,
+        "model_attempts_after": 9,
+        "response_kind": "object",
+        "content_kind": "object",
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_f1ba099e81ed4a2b"
+        ],
+        "evidence_ids_count": 1,
+        "verified_kind": "boolean",
+        "verified": true,
+        "reason": "Il documento è stato verificato e corretto in base ai dati forniti dall'utente, confermando la coerenza con le informazioni disponibili. Le differenze nascoste e i vincoli sono stati evidenziati in modo chiaro, con richiami espliciti a ciò che necessita di verifica con il fornitore. I calcoli sui costi totali sono corretti e basati sulle informazioni fornite. Le assunzioni non confermate sono stat",
+        "truncated_fields": [
+          "reason"
+        ],
+        "claim_review_count": 9,
+        "claim_review_omitted": 0,
+        "input": {
+          "evidence_kind": "array",
+          "evidence_count": 1,
+          "evidence_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_f1ba099e81ed4a2b"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "goal_id": "gol_d044a2cd958d432c",
+          "step_id": "stp_39d79e3ac63b44c8",
+          "draft_kind": "text",
+          "draft_characters": 2581,
+          "draft_truncated": false
+        },
+        "reported_model_call": {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 3218,
+            "completion_tokens": 2226
+          }
+        }
+      },
+      "semantic_findings": [
+        {
+          "finding": "Il testo generato afferma esclusioni di servizi mai dichiarate nella fonte.",
+          "quotes": [
+            "Non sono inclusi servizi premium (es. recupero dati, supporto prioritario)"
+          ],
+          "source_contrast": "100 GB e assistenza uguale non provano esclusione di recupero dati, supporto prioritario o altri servizi premium."
+        },
+        {
+          "finding": "Dichiara un vincolo tipico sull’annuale e usa la flessibilità mensile per raccomandare, oltre quanto stabilito dalla nota.",
+          "quotes": [
+            "ma solitamente vincolata al periodo",
+            "Se ci sono **incertezze o bisogno di flessibilità**, l'opzione mensile è preferibile."
+          ],
+          "qualification": "Il diverso momento del pagamento è documentato; libertà o condizioni di disdetta del mensile restano invece non specificate. Il costo corretto 150 e il risparmio 30 non sono contestati."
+        },
+        {
+          "finding": "L’audit riconosce almeno una famiglia di aggiunte non supportate, ma non è possibile leggere il content object che dichiara corretto.",
+          "claim_review_evidence": {
+            "claim": "Servizi aggiuntivi non inclusi (es. backup automatico, crittografia avanzata)",
+            "premises": "Assunzione implicita dall'utente che tali servizi non siano inclusi nelle opzioni standard. Assenza di prove esplicite che questi servizi siano esclusi o inclusi.",
+            "support": "unsupported",
+            "correction": "Da verificare con il fornitore, come già indicato nel draft. Non è una differenza nascosta confermata.",
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_f1ba099e81ed4a2b"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0
+          },
+          "qualification": "Nessuna accettazione semantica del risultato dell’audit; il runtime lo rifiuta per il tipo e non salva una bozza."
+        }
+      ],
+      "reconsider_misdiagnosis": {
+        "sequence": 8,
+        "reasoning": "Il fallimento del passo di preparazione è dovuto a un errore di formato nel contenuto (evidence_ids mancanti o errati). Si deve correggere il passo di preparazione per includere gli evidence_ids validi dalla fonte letta.",
+        "observed_error": "content wrong_type/object; evidence_ids array con il riferimento fornito"
+      },
+      "injection_coverage": {
+        "memory_corrected_between_wakes": "reached",
+        "fresh_corrected_read_and_150_30_generation": "observed",
+        "final_corrected_result_and_home_replay_checks": "not_reached"
+      },
+      "limit": "La correzione della fonte raggiunge lettura e generation. Non basta a dimostrare il completamento dopo correzione; il rapporto non esporta il testo interno dell’oggetto content restituito dall’audit."
+    },
+    {
+      "scenario": "source_change_crash",
+      "machine_passed": false,
+      "machine_failure_reason": "COMPLETION_BUDGET_EXHAUSTED",
+      "model_attempts": 16,
+      "model_http_requests": 16,
+      "admission": [
+        {
+          "id": "opp_6730a24455231aeb",
+          "agent_review_revision": "dc59c7f3c2c34043a9e2f1c25385fb7a",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_3722ace2614d440e",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_5dc60d967ac8445e",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_review_invalid",
+          "retryable": false
+        }
+      ],
+      "structured_decisions_retained": 11,
+      "structured_decisions_omitted": 0,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "manual_fail_visible_generation_audit_output_unreviewable_and_rejected",
+      "causal_chain": [
+        "Lo scan viene cancellato una volta; la ripresa produce una Opportunity, senza skipped. Discovery e ammissione funzionano in questo rapporto: create_goal al primo tentativo.",
+        "L’ammissione vede la fonte corrente, ma aggiunge già tra i criteri del lavoro l’assenza di vincoli del mensile, non presente nella nota.",
+        "Una lettura completa 0–565 riesce. Generation restituisce 1853 caratteri con evidence_id fornito; audit riceve esattamente questa bozza.",
+        "Audit restituisce verified=true ma content object; preparation_review_invalid impedisce il salvataggio. Il giudizio descrittivo dell’audit non è un esito valido di preparazione.",
+        "Il primo reconsider riconosce l’oggetto al posto del testo e propone modify; quello successivo ripropone prepare e verify tramite type. Il vecchio prepare resta failed, nessuna nuova preparazione è eseguita e il goal termina la prova active, senza checkpoint, per COMPLETION_BUDGET_EXHAUSTED."
+      ],
+      "discovery_results": [
+        {
+          "response_kind": "raised",
+          "exception_type": "CancelledError"
+        },
+        {
+          "silence": false,
+          "unavailable": false,
+          "created_count": 1,
+          "updated_count": 0,
+          "skipped_count": 0,
+          "skipped": [],
+          "skipped_omitted": 0
+        }
+      ],
+      "source_scope": {
+        "memory_ref": "mem_43262246ed92296b9353",
+        "read_characters": 565,
+        "generation_and_audit_evidence_ids": [
+          "evd_1ee3bd2d461d4dd1"
+        ]
+      },
+      "generation": {
+        "sequence": 7,
+        "stage": "preparation_generation",
+        "model_attempts_before": 8,
+        "model_attempts_after": 9,
+        "response_kind": "object",
+        "content_kind": "text",
+        "content_characters": 1853,
+        "content_truncated": false,
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_1ee3bd2d461d4dd1"
+        ],
+        "evidence_ids_count": 1,
+        "verified_kind": "none",
+        "input": {
+          "evidence_kind": "array",
+          "evidence_count": 1,
+          "evidence_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_1ee3bd2d461d4dd1"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "goal_id": "gol_3ff3e97e54bf46f4",
+          "step_id": "stp_5dc60d967ac8445e"
+        },
+        "reported_model_call": {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2508,
+            "completion_tokens": 589
+          }
+        }
+      },
+      "audit": {
+        "sequence": 8,
+        "stage": "preparation_audit",
+        "model_attempts_before": 9,
+        "model_attempts_after": 10,
+        "response_kind": "object",
+        "content_kind": "object",
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_1ee3bd2d461d4dd1"
+        ],
+        "evidence_ids_count": 1,
+        "verified_kind": "boolean",
+        "verified": true,
+        "reason": "Il testo è stato corretto per allinearsi ai dati dichiarati dall'utente (evd_1ee3bd2d461d4dd1), rimuovendo ipotesi non verificate (rimborso proporzionale) e aggiungendo una raccomandazione esplicita basata sui criteri chiari di costo, flessibilità e rischio finanziario. La sintesi è pronta per la lettura diretta.",
+        "claim_review_count": 6,
+        "claim_review_omitted": 0,
+        "input": {
+          "evidence_kind": "array",
+          "evidence_count": 1,
+          "evidence_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_1ee3bd2d461d4dd1"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "goal_id": "gol_3ff3e97e54bf46f4",
+          "step_id": "stp_5dc60d967ac8445e",
+          "draft_kind": "text",
+          "draft_characters": 1853,
+          "draft_truncated": false
+        },
+        "reported_model_call": {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 3016,
+            "completion_tokens": 1802
+          }
+        }
+      },
+      "semantic_findings": [
+        {
+          "finding": "Il generatore aggiunge condizioni mensili e una garanzia economica assenti dalla fonte.",
+          "quotes": [
+            "Disdetta senza vincoli, rimborso proporzionale*",
+            "Nessun rischio di perdita economica in caso di disdetta",
+            "Mensile**: Flessibilità totale, costo totale più alto (180€), nessun rischio di perdita."
+          ],
+          "source_contrast": "La fonte non dichiara recesso libero, rimborso proporzionale o assenza di rischio per il piano mensile. Il richiamo al fornitore in una nota non fonda queste asserzioni positive."
+        },
+        {
+          "finding": "Il ragionamento dell’audit attribuisce alla Memory una frase che la Memory non contiene.",
+          "claim_review_evidence": {
+            "claim": "Flessibilità del piano mensile: disdetta senza vincoli e rimborso proporzionale",
+            "premises": "Dati riferiti dall'utente: 'disdetta senza vincoli, rimborso proporzionale' (mem_43262246ed92296b9353, offset 0-565). Assenza di specifiche sul rimborso proporzionale (da verificare con fornitore).",
+            "support": "stated|conditional",
+            "correction": "Rimuovere la nota sul rimborso proporzionale come condizione non verificata: 'disdetta senza vincoli'.",
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_1ee3bd2d461d4dd1"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0
+          },
+          "source_contrast": "La premessa 'disdetta senza vincoli, rimborso proporzionale' non compare nei 565 caratteri. La correzione proposta toglie solo il rimborso e mantiene 'disdetta senza vincoli'; anche il support letterale 'stated|conditional' è ambiguo, ma rimane diagnostica non operativa."
+        },
+        {
+          "finding": "L’assenza di rimborso dell’annuale viene estesa a una perdita totale e contrapposta a rischio mensile nullo.",
+          "quote": "**Rischio di perdita totale** (120€) se si disdice prima dei 12 mesi",
+          "qualification": "La nota attesta non rimborsabilità del pagamento, non perdita integrale di tutto il valore del servizio già utilizzato. In ogni caso la garanzia opposta per il mensile manca di supporto."
+        },
+        {
+          "finding": "La generation non qualifica globalmente i dati come nota utente non confermata dal fornitore; la sola verifica prospettata riguarda il rimborso mensile inventato.",
+          "qualification": "Non è stato eseguito il gate finale di attribuzione fonte: questo è un rilievo sul testo visibile rifiutato, non una modifica del motivo automatico di fallimento."
+        }
+      ],
+      "injection_coverage": {
+        "source_scan_cancelled_once": "reached",
+        "durable_discovery_recovery": "observed_one_created_opportunity",
+        "admission_after_discovery": "observed_create_goal",
+        "completed_result": "not_reached"
+      },
+      "limit": "Non è più un fallimento di recupero discovery o di ammissione. Conservare un assessment precedente non autorevole è compatibile con il nuovo create_goal, ma questo rapporto non dimostra un nesso causale tra quella modifica e la scelta del modello."
+    },
+    {
+      "scenario": "already_resolved",
+      "machine_passed": true,
+      "machine_failure_reason": null,
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "admission": [
+        {
+          "id": "opp_eb3501b891885658",
+          "agent_review_revision": "f9d4355d84f14374980a2d2f4c6922e8",
+          "state": "settled",
+          "outcome": "no_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [],
+      "structured_decisions_retained": 1,
+      "structured_decisions_omitted": 0,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "negative_control_only_no_completion_claim",
+      "causal_chain": [
+        "La fonte sintetica dichiara confronto già ricevuto, scelta conclusa e nessun dubbio residuo.",
+        "Il modello restituisce no_goal/resolved al primo tentativo, senza wake o passi; il controllo negativo passa."
+      ],
+      "result": {
+        "state": "no_goal"
+      },
+      "injection_coverage": {
+        "fault_injection": "not_applicable"
+      },
+      "limit": "Riconoscere un bisogno già risolto non attesta di averlo risolto in questa esecuzione."
+    },
+    {
+      "scenario": "irrelevant",
+      "machine_passed": true,
+      "machine_failure_reason": null,
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "admission": [
+        {
+          "id": "opp_ba535f5a91922949",
+          "agent_review_revision": "11e5252b25994596a9059418e6fa69ea",
+          "state": "settled",
+          "outcome": "no_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "executed_steps": [],
+      "structured_decisions_retained": 1,
+      "structured_decisions_omitted": 0,
+      "executor_observations_omitted": 0,
+      "manual_completion_accepted": false,
+      "manual_result_assessment": "negative_control_only_no_completion_claim",
+      "causal_chain": [
+        "L’ammissione vede source_context_count=0, senza bisogno personale documentato.",
+        "Il modello restituisce no_goal/not_established; nessun wake o passo viene creato."
+      ],
+      "result": {
+        "state": "no_goal"
+      },
+      "injection_coverage": {
+        "fault_injection": "not_applicable"
+      },
+      "limit": "È un controllo di non iniziativa, non una prova di completamento."
+    }
+  ],
+  "generic_followups_supported_by_evidence": [
+    {
+      "issue": "Loss of generation/audit observations under a full diagnostics ring",
+      "evidence": "planning_outage retains sequences 1,2,8–17 and omits the five central decisions, including the saved-draft generation/audit.",
+      "minimal_direction": "Within the same cap, retain the latest generation and latest audit as separately identified observations; never assume they are a matched pair merely because both remain."
+    },
+    {
+      "issue": "Structured preparation contract violations",
+      "evidence": "One content string is 4394 characters; two audits return content object despite supplied evidence_ids and verified=true.",
+      "minimal_direction": "A constrained response format can be evaluated for the existing content string/list/length contract. Keep strict rejection and source fences. A format fix alone does not remedy false claims or establish a completed useful result."
+    },
+    {
+      "issue": "Reconsider step representation does not translate to a persisted executable replacement",
+      "evidence": "All observed nonempty revised_steps use type; failed step identities and plan sizes persist across subsequent reconsider attempts.",
+      "minimal_direction": "Reproduce the complete model-step representation round trip and atomic revision using the existing fields, including effects and cursors; do not insert missing reads, alter step semantics or infer authority."
+    },
+    {
+      "issue": "Preparation prerequisite and evidence are still confused in completed_result",
+      "evidence": "Both initial and proposed revised plans put prepare before any source reading, with zero Evidence.",
+      "minimal_direction": "Preserve the prerequisite rejection. An alias/format fix must not turn a preview or input_ref into a completed evidence read."
+    },
+    {
+      "issue": "Semantic claims exceed the source and can be laundered through review reasoning",
+      "evidence": "Saved draft invents monthly refund/easy cancellation; source_change audit quotes nonexistent monthly terms as user data; corrected generation excludes premium services without evidence.",
+      "minimal_direction": "Continue source-by-source semantic examination of actual retained contents and premises. No positive decision can be based only on schema validity, verified=true, literal amount matches or the presence of an evidence ID. No domain keyword rule or fixture/oracle relaxation is justified by this report."
+    }
+  ]
+}

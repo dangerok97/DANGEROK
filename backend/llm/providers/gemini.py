@@ -4,8 +4,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import time
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from llm.base import BaseLLMProvider, LLMResult
 from llm.errors import (
@@ -18,13 +19,14 @@ from llm.errors import (
     LLMQuotaError,
     LLMRateLimitError,
     LLMTimeoutError,
+    google_rpc_error_details,
     retry_after_seconds,
 )
 
 logger = logging.getLogger("ora.llm.gemini")
 
 # Secondary model after configured GEMINI_MODEL (then Provider Manager failover).
-_DEFAULT_ALTERNATE = "gemini-2.0-flash"
+_DEFAULT_ALTERNATE = "gemini-3.6-flash"
 
 
 def _api_key(env_var: str = "GEMINI_API_KEY") -> str:
@@ -43,6 +45,30 @@ def _model_candidates(primary: str) -> list[str]:
     return out
 
 
+def _has_daily_quota_violation(exc: BaseException) -> bool:
+    """A daily period must be explicit in typed quota identifiers/metrics."""
+    for detail in google_rpc_error_details(exc):
+        if detail.get("@type") != "type.googleapis.com/google.rpc.QuotaFailure":
+            continue
+        violations = detail.get("violations")
+        if not isinstance(violations, list):
+            continue
+        for violation in violations:
+            if not isinstance(violation, Mapping):
+                continue
+            for field in ("quotaId", "quotaMetric"):
+                value = violation.get(field)
+                if not isinstance(value, str):
+                    continue
+                # Both GenerateRequestsPerDay... and .../requests_per_day are
+                # identifier formats; descriptions/messages are never evidence.
+                normalized = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value).lower()
+                tokens = re.split(r"[^a-z0-9]+", normalized)
+                if any(left == "per" and right == "day" for left, right in zip(tokens, tokens[1:])):
+                    return True
+    return False
+
+
 def _map_api_error(exc: BaseException) -> BaseException:
     """Map google.genai errors → typed LLM errors (no secrets in messages)."""
     code = getattr(exc, "code", None)
@@ -59,7 +85,14 @@ def _map_api_error(exc: BaseException) -> BaseException:
         return LLMAuthenticationError("authentication")
 
     # Quota / rate
-    if code == 429 or "resource_exhausted" in msg or "resource_exhausted" in status:
+    if code == 429:
+        # A minute/second limit is also a "quota exceeded" error. Only an
+        # explicit daily violation warrants daily-quota escalation; it wins if
+        # multiple periods are reported. An unspecified 429 remains temporary.
+        if _has_daily_quota_violation(exc):
+            return LLMQuotaError("quota", retry_after=retry_after)
+        return LLMRateLimitError("rate_limit", retry_after=retry_after)
+    if "resource_exhausted" in msg or "resource_exhausted" in status:
         if "quota" in msg or "billing" in msg or "exceeded" in msg:
             return LLMQuotaError("quota", retry_after=retry_after)
         return LLMRateLimitError("rate_limit", retry_after=retry_after)
@@ -127,6 +160,7 @@ class GeminiProvider(BaseLLMProvider):
         user: str,
         session_id: Optional[str] = None,
         json_mode: bool = False,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         api_key = _api_key(self.key_env)
         if not api_key:
@@ -155,8 +189,10 @@ class GeminiProvider(BaseLLMProvider):
             "temperature": 0.2 if json_mode else 0.4,
             "http_options": types.HttpOptions(timeout=int(timeout_s * 1000)),
         }
-        if json_mode:
+        if json_mode or response_schema is not None:
             config_kwargs["response_mime_type"] = "application/json"
+        if response_schema is not None:
+            config_kwargs["response_json_schema"] = response_schema
         config = types.GenerateContentConfig(**config_kwargs)
 
         models_tried: list[str] = []

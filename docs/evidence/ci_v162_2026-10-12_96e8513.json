@@ -1,0 +1,2778 @@
+{
+  "schema": "ora-ci-evidence-v1",
+  "collected_at_utc": "2026-10-12 08:45:58 UTC",
+  "repository": "dangerok97/DANGEROK",
+  "pull_request": 212,
+  "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+  "candidate_tree": "9f98d79dd5183edef9b823d9aa799b07f19efdda",
+  "base_sha": "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+  "technical_merge": {
+    "sha": "0b94fec2efb58f749ff840e282bc44906c457fa0",
+    "tree": "9f98d79dd5183edef9b823d9aa799b07f19efdda",
+    "parents": [
+      "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+      "96e85137743657fda62ed317cb5644dd9497b3d8"
+    ],
+    "url": "https://api.github.com/repos/dangerok97/DANGEROK/git/commits/0b94fec2efb58f749ff840e282bc44906c457fa0",
+    "same_tree_as_candidate": true
+  },
+  "conclusion": {
+    "workflow_runs": 5,
+    "jobs": 15,
+    "success": 15,
+    "skipped": 0,
+    "failed": 0,
+    "all_runs_completed_successfully": true
+  },
+  "workflows": [
+    {
+      "id": 38224490155,
+      "name": "Situation follow-up regressions",
+      "event": "pull_request",
+      "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490155",
+      "created_at": "2026-10-12T08:35:25Z",
+      "run_started_at": "2026-10-12T08:35:25Z",
+      "updated_at": "2026-10-12T08:36:47Z",
+      "jobs": [
+        {
+          "id": 114728529957,
+          "name": "Situation follow-up presentation guards",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490155/job/114728529957",
+          "started_at": "2026-10-12T08:35:28Z",
+          "completed_at": "2026-10-12T08:35:36Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:32Z"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:32Z",
+              "completed_at": "2026-10-12T08:35:32Z"
+            },
+            {
+              "name": "Check conversation controls and absence of false active reminders",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:32Z",
+              "completed_at": "2026-10-12T08:35:32Z"
+            },
+            {
+              "name": "Estimate, action, expiry and current source presentation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:32Z",
+              "completed_at": "2026-10-12T08:35:32Z"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:32Z",
+              "completed_at": "2026-10-12T08:35:33Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:33Z",
+              "completed_at": "2026-10-12T08:35:33Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:33Z",
+              "completed_at": "2026-10-12T08:35:33Z"
+            }
+          ]
+        },
+        {
+          "id": 114728530411,
+          "name": "Situation checkpoint persistence and dispatch",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490155/job/114728530411",
+          "started_at": "2026-10-12T08:35:28Z",
+          "completed_at": "2026-10-12T08:36:47Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:40Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:40Z",
+              "completed_at": "2026-10-12T08:35:42Z"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:42Z",
+              "completed_at": "2026-10-12T08:35:44Z"
+            },
+            {
+              "name": "Install locked backend dependencies",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:44Z",
+              "completed_at": "2026-10-12T08:36:23Z"
+            },
+            {
+              "name": "Exercise persisted checkpoints, isolation, recovery and cancellation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:23Z",
+              "completed_at": "2026-10-12T08:36:34Z"
+            },
+            {
+              "name": "Initial admission race, cancellation readback and source revision",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:34Z",
+              "completed_at": "2026-10-12T08:36:39Z"
+            },
+            {
+              "name": "Useful outcome, current weather, final result delivery and closure",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:39Z",
+              "completed_at": "2026-10-12T08:36:45Z"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:45Z",
+              "completed_at": "2026-10-12T08:36:45Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:45Z",
+              "completed_at": "2026-10-12T08:36:45Z"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:45Z",
+              "completed_at": "2026-10-12T08:36:45Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:45Z",
+              "completed_at": "2026-10-12T08:36:45Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 38224490094,
+      "name": "Mobile conversation visual QA",
+      "event": "pull_request",
+      "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490094",
+      "created_at": "2026-10-12T08:35:25Z",
+      "run_started_at": "2026-10-12T08:35:25Z",
+      "updated_at": "2026-10-12T08:41:48Z",
+      "jobs": [
+        {
+          "id": 114728529641,
+          "name": "Mobile web layout and interaction (Chromium + WebKit)",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490094/job/114728529641",
+          "started_at": "2026-10-12T08:35:28Z",
+          "completed_at": "2026-10-12T08:41:48Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:31Z"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:31Z",
+              "completed_at": "2026-10-12T08:35:33Z"
+            },
+            {
+              "name": "Install locked dependencies",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:33Z",
+              "completed_at": "2026-10-12T08:36:00Z"
+            },
+            {
+              "name": "Typecheck and layout contracts",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:00Z",
+              "completed_at": "2026-10-12T08:36:12Z"
+            },
+            {
+              "name": "Export actual production web components",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:12Z",
+              "completed_at": "2026-10-12T08:36:47Z"
+            },
+            {
+              "name": "Install mobile browser engines",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:47Z",
+              "completed_at": "2026-10-12T08:37:52Z"
+            },
+            {
+              "name": "Check layout, scrolling, actions, map and visual viewport",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:52Z",
+              "completed_at": "2026-10-12T08:41:45Z"
+            },
+            {
+              "name": "Keep screenshots and test results (simulated API data)",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:45Z",
+              "completed_at": "2026-10-12T08:41:46Z"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:46Z",
+              "completed_at": "2026-10-12T08:41:46Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:46Z",
+              "completed_at": "2026-10-12T08:41:47Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:47Z",
+              "completed_at": "2026-10-12T08:41:47Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 38224490541,
+      "name": "CI",
+      "event": "pull_request",
+      "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490541",
+      "created_at": "2026-10-12T08:35:25Z",
+      "run_started_at": "2026-10-12T08:35:25Z",
+      "updated_at": "2026-10-12T08:43:47Z",
+      "jobs": [
+        {
+          "id": 114728531304,
+          "name": "Backend (compileall + pytest)",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490541/job/114728531304",
+          "started_at": "2026-10-12T08:35:29Z",
+          "completed_at": "2026-10-12T08:42:52Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:31Z"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:31Z",
+              "completed_at": "2026-10-12T08:35:40Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:40Z",
+              "completed_at": "2026-10-12T08:35:42Z"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:42Z",
+              "completed_at": "2026-10-12T08:35:46Z"
+            },
+            {
+              "name": "Install backend deps",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:46Z",
+              "completed_at": "2026-10-12T08:36:27Z"
+            },
+            {
+              "name": "Prepare writable document storage",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:27Z",
+              "completed_at": "2026-10-12T08:36:27Z"
+            },
+            {
+              "name": "compileall",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:27Z",
+              "completed_at": "2026-10-12T08:36:31Z"
+            },
+            {
+              "name": "Vita profile, flow and state semantics",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:31Z",
+              "completed_at": "2026-10-12T08:36:41Z"
+            },
+            {
+              "name": "Situation v157 initial review admission and checkpoint truth",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:41Z",
+              "completed_at": "2026-10-12T08:36:47Z"
+            },
+            {
+              "name": "Situation useful outcome, weather time, final delivery and closure",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:47Z",
+              "completed_at": "2026-10-12T08:36:53Z"
+            },
+            {
+              "name": "ORA native calendar without any external connector",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:53Z",
+              "completed_at": "2026-10-12T08:36:57Z"
+            },
+            {
+              "name": "Financial card meaning, provenance and repeat interpretation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:57Z",
+              "completed_at": "2026-10-12T08:37:01Z"
+            },
+            {
+              "name": "Google browser sign-in redirect and one-use ticket security",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:01Z",
+              "completed_at": "2026-10-12T08:37:06Z"
+            },
+            {
+              "name": "Focused pytest (AI docs + analysis versions + LE docs + V2)",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:06Z",
+              "completed_at": "2026-10-12T08:37:18Z"
+            },
+            {
+              "name": "Conversation presence isolation and lifecycle",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:18Z",
+              "completed_at": "2026-10-12T08:37:26Z"
+            },
+            {
+              "name": "Knowledge stars, account identity and full-name telephone introductions",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:26Z",
+              "completed_at": "2026-10-12T08:37:35Z"
+            },
+            {
+              "name": "Permanent memory and recurring birthday reminders",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:35Z",
+              "completed_at": "2026-10-12T08:37:44Z"
+            },
+            {
+              "name": "Closed-app birthday reminder delivery boundary",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:44Z",
+              "completed_at": "2026-10-12T08:37:52Z"
+            },
+            {
+              "name": "Safe bounded Expo transport retry and crash recovery",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:52Z",
+              "completed_at": "2026-10-12T08:38:00Z"
+            },
+            {
+              "name": "Expo receipt audit and per-device privacy",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:00Z",
+              "completed_at": "2026-10-12T08:38:08Z"
+            },
+            {
+              "name": "Authenticated notification tap and canonical navigation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:08Z",
+              "completed_at": "2026-10-12T08:38:16Z"
+            },
+            {
+              "name": "Voice lifecycle and phone recipient corrections",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:16Z",
+              "completed_at": "2026-10-12T08:38:26Z"
+            },
+            {
+              "name": "Continuous online market watch",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:26Z",
+              "completed_at": "2026-10-12T08:38:34Z"
+            },
+            {
+              "name": "Accommodation provider contract",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:34Z",
+              "completed_at": "2026-10-12T08:38:42Z"
+            },
+            {
+              "name": "Calendar departure freshness and background continuity",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:42Z",
+              "completed_at": "2026-10-12T08:38:51Z"
+            },
+            {
+              "name": "Autonomous work, clarification, source changes and scheduled recovery",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:51Z",
+              "completed_at": "2026-10-12T08:39:15Z"
+            },
+            {
+              "name": "Proactive delivery fairness and owner isolation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:15Z",
+              "completed_at": "2026-10-12T08:39:27Z"
+            },
+            {
+              "name": "Gmail relevance attachments and connected-life bridge",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:27Z",
+              "completed_at": "2026-10-12T08:39:36Z"
+            },
+            {
+              "name": "Google first sync, cloud sessions, location privacy and polling",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:36Z",
+              "completed_at": "2026-10-12T08:39:46Z"
+            },
+            {
+              "name": "Public auth rate limits",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:46Z",
+              "completed_at": "2026-10-12T08:39:54Z"
+            },
+            {
+              "name": "Autonomous goal wake recovery beyond already scheduled rows",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:54Z",
+              "completed_at": "2026-10-12T08:40:01Z"
+            },
+            {
+              "name": "Cross-worker wake cursor lease, retries and authority",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:01Z",
+              "completed_at": "2026-10-12T08:40:08Z"
+            },
+            {
+              "name": "Multiowner cursor and restarted goal wake recovery",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:08Z",
+              "completed_at": "2026-10-12T08:40:16Z"
+            },
+            {
+              "name": "Proactive AI initial initiative, silence and outage acceptance",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:16Z",
+              "completed_at": "2026-10-12T08:40:23Z"
+            },
+            {
+              "name": "Source revision and worker claim fence during proactive thinking",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:23Z",
+              "completed_at": "2026-10-12T08:40:30Z"
+            },
+            {
+              "name": "Verified autonomous outcome on synthetic life data",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:30Z",
+              "completed_at": "2026-10-12T08:40:39Z"
+            },
+            {
+              "name": "Autonomous outcome across real Mongo and separate Python workers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:39Z",
+              "completed_at": "2026-10-12T08:40:50Z"
+            },
+            {
+              "name": "Verified completed work becomes one Home result without push",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:50Z",
+              "completed_at": "2026-10-12T08:40:58Z"
+            },
+            {
+              "name": "Durable Home result outbox, retry, isolation and crash fencing",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:58Z",
+              "completed_at": "2026-10-12T08:41:05Z"
+            },
+            {
+              "name": "v162 canonical sources, planning recovery and connected autonomy acceptance",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:05Z",
+              "completed_at": "2026-10-12T08:41:44Z"
+            },
+            {
+              "name": "v162 planning, source read and Home outbox across exited Python workers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:44Z",
+              "completed_at": "2026-10-12T08:42:00Z"
+            },
+            {
+              "name": "v162 real Mongo consent and provider provenance regression",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:00Z",
+              "completed_at": "2026-10-12T08:42:04Z"
+            },
+            {
+              "name": "Backup restore round trip",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:04Z",
+              "completed_at": "2026-10-12T08:42:12Z"
+            },
+            {
+              "name": "Calendar command target, confirmation and timezone safety",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:12Z",
+              "completed_at": "2026-10-12T08:42:25Z"
+            },
+            {
+              "name": "Phase 1 persisted result survives a real process restart",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:25Z",
+              "completed_at": "2026-10-12T08:42:36Z"
+            },
+            {
+              "name": "Phase 2 reminder recovery survives a real process restart",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:36Z",
+              "completed_at": "2026-10-12T08:42:47Z"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:47Z",
+              "completed_at": "2026-10-12T08:42:47Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:47Z",
+              "completed_at": "2026-10-12T08:42:47Z"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:47Z",
+              "completed_at": "2026-10-12T08:42:48Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:48Z",
+              "completed_at": "2026-10-12T08:42:48Z"
+            }
+          ]
+        },
+        {
+          "id": 114728531376,
+          "name": "Telephone cloud safety",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490541/job/114728531376",
+          "started_at": "2026-10-12T08:35:29Z",
+          "completed_at": "2026-10-12T08:36:58Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:40Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:40Z",
+              "completed_at": "2026-10-12T08:35:42Z"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:42Z",
+              "completed_at": "2026-10-12T08:35:45Z"
+            },
+            {
+              "name": "Install backend deps",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:45Z",
+              "completed_at": "2026-10-12T08:36:25Z"
+            },
+            {
+              "name": "Prepare writable storage",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:25Z",
+              "completed_at": "2026-10-12T08:36:25Z"
+            },
+            {
+              "name": "Telephone transport + live runtime + recovery",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:25Z",
+              "completed_at": "2026-10-12T08:36:56Z"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:56Z",
+              "completed_at": "2026-10-12T08:36:56Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:56Z",
+              "completed_at": "2026-10-12T08:36:56Z"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:56Z",
+              "completed_at": "2026-10-12T08:36:57Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:57Z",
+              "completed_at": "2026-10-12T08:36:57Z"
+            }
+          ]
+        },
+        {
+          "id": 114728531489,
+          "name": "Frontend TypeScript",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490541/job/114728531489",
+          "started_at": "2026-10-12T08:35:29Z",
+          "completed_at": "2026-10-12T08:36:32Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:32Z"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:32Z",
+              "completed_at": "2026-10-12T08:35:34Z"
+            },
+            {
+              "name": "Install",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:34Z",
+              "completed_at": "2026-10-12T08:35:53Z"
+            },
+            {
+              "name": "tsc",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:53Z",
+              "completed_at": "2026-10-12T08:36:01Z"
+            },
+            {
+              "name": "Auth provider regressions",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:01Z",
+              "completed_at": "2026-10-12T08:36:01Z"
+            },
+            {
+              "name": "v162 session transitions, cleanup and device registration lifecycle",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:01Z",
+              "completed_at": "2026-10-12T08:36:02Z"
+            },
+            {
+              "name": "Google login iOS browser redirect and blank-button fallback",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:02Z",
+              "completed_at": "2026-10-12T08:36:02Z"
+            },
+            {
+              "name": "Home update lifecycle regression",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:02Z",
+              "completed_at": "2026-10-12T08:36:02Z"
+            },
+            {
+              "name": "Home calendar excludes task deadlines and review checkpoints",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:02Z",
+              "completed_at": "2026-10-12T08:36:03Z"
+            },
+            {
+              "name": "Prepared result review remains explicit in the update detail",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:03Z",
+              "completed_at": "2026-10-12T08:36:03Z"
+            },
+            {
+              "name": "Situation useful time and action remain separate from internal checks",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:03Z",
+              "completed_at": "2026-10-12T08:36:03Z"
+            },
+            {
+              "name": "ORA calendar month-grid regression",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:03Z",
+              "completed_at": "2026-10-12T08:36:03Z"
+            },
+            {
+              "name": "Calendar connector state and selected account consistency",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:03Z",
+              "completed_at": "2026-10-12T08:36:03Z"
+            },
+            {
+              "name": "Device location consent and native background presence",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:03Z",
+              "completed_at": "2026-10-12T08:36:03Z"
+            },
+            {
+              "name": "Push installation identity across two devices",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:03Z",
+              "completed_at": "2026-10-12T08:36:04Z"
+            },
+            {
+              "name": "Notification tap origin and navigation guards",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:04Z",
+              "completed_at": "2026-10-12T08:36:04Z"
+            },
+            {
+              "name": "Resolve Expo iOS configuration",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:04Z",
+              "completed_at": "2026-10-12T08:36:04Z"
+            },
+            {
+              "name": "Generate native iOS project",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:04Z",
+              "completed_at": "2026-10-12T08:36:06Z"
+            },
+            {
+              "name": "Export production iOS bundle",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:06Z",
+              "completed_at": "2026-10-12T08:36:30Z"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:30Z",
+              "completed_at": "2026-10-12T08:36:30Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:30Z",
+              "completed_at": "2026-10-12T08:36:30Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:30Z",
+              "completed_at": "2026-10-12T08:36:30Z"
+            }
+          ]
+        },
+        {
+          "id": 114728531542,
+          "name": "Secret scan (full history)",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490541/job/114728531542",
+          "started_at": "2026-10-12T08:35:29Z",
+          "completed_at": "2026-10-12T08:35:42Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:32Z"
+            },
+            {
+              "name": "Scan current tree and full Git history",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:32Z",
+              "completed_at": "2026-10-12T08:35:40Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:40Z",
+              "completed_at": "2026-10-12T08:35:40Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:40Z",
+              "completed_at": "2026-10-12T08:35:40Z"
+            }
+          ]
+        },
+        {
+          "id": 114731087604,
+          "name": "Frontend product guards (current Vita)",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224490541/job/114731087604",
+          "started_at": "2026-10-12T08:42:55Z",
+          "completed_at": "2026-10-12T08:43:46Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:56Z",
+              "completed_at": "2026-10-12T08:42:57Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:57Z",
+              "completed_at": "2026-10-12T08:43:00Z"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:43:00Z",
+              "completed_at": "2026-10-12T08:43:03Z"
+            },
+            {
+              "name": "Install",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:43:03Z",
+              "completed_at": "2026-10-12T08:43:30Z"
+            },
+            {
+              "name": "Current product guards",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:43:30Z",
+              "completed_at": "2026-10-12T08:43:44Z"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:43:44Z",
+              "completed_at": "2026-10-12T08:43:44Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:43:44Z",
+              "completed_at": "2026-10-12T08:43:44Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:43:44Z",
+              "completed_at": "2026-10-12T08:43:44Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 38224485852,
+      "name": "Situation follow-up regressions",
+      "event": "push",
+      "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485852",
+      "created_at": "2026-10-12T08:35:23Z",
+      "run_started_at": "2026-10-12T08:35:23Z",
+      "updated_at": "2026-10-12T08:36:31Z",
+      "jobs": [
+        {
+          "id": 114728515166,
+          "name": "Situation checkpoint persistence and dispatch",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485852/job/114728515166",
+          "started_at": "2026-10-12T08:35:26Z",
+          "completed_at": "2026-10-12T08:36:31Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:26Z",
+              "completed_at": "2026-10-12T08:35:27Z"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:27Z",
+              "completed_at": "2026-10-12T08:35:45Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:45Z",
+              "completed_at": "2026-10-12T08:35:47Z"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:47Z",
+              "completed_at": "2026-10-12T08:35:50Z"
+            },
+            {
+              "name": "Install locked backend dependencies",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:50Z",
+              "completed_at": "2026-10-12T08:36:14Z"
+            },
+            {
+              "name": "Exercise persisted checkpoints, isolation, recovery and cancellation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:14Z",
+              "completed_at": "2026-10-12T08:36:21Z"
+            },
+            {
+              "name": "Initial admission race, cancellation readback and source revision",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:21Z",
+              "completed_at": "2026-10-12T08:36:24Z"
+            },
+            {
+              "name": "Useful outcome, current weather, final result delivery and closure",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:24Z",
+              "completed_at": "2026-10-12T08:36:27Z"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:28Z",
+              "completed_at": "2026-10-12T08:36:28Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:28Z",
+              "completed_at": "2026-10-12T08:36:28Z"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:28Z",
+              "completed_at": "2026-10-12T08:36:28Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:28Z",
+              "completed_at": "2026-10-12T08:36:28Z"
+            }
+          ]
+        },
+        {
+          "id": 114728515491,
+          "name": "Situation follow-up presentation guards",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485852/job/114728515491",
+          "started_at": "2026-10-12T08:35:26Z",
+          "completed_at": "2026-10-12T08:35:32Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:26Z",
+              "completed_at": "2026-10-12T08:35:27Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:27Z",
+              "completed_at": "2026-10-12T08:35:29Z"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:29Z"
+            },
+            {
+              "name": "Check conversation controls and absence of false active reminders",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:29Z"
+            },
+            {
+              "name": "Estimate, action, expiry and current source presentation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:29Z"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:29Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 38224485846,
+      "name": "CI",
+      "event": "push",
+      "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485846",
+      "created_at": "2026-10-12T08:35:23Z",
+      "run_started_at": "2026-10-12T08:35:23Z",
+      "updated_at": "2026-10-12T08:42:31Z",
+      "jobs": [
+        {
+          "id": 114728515792,
+          "name": "Secret scan (full history)",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485846/job/114728515792",
+          "started_at": "2026-10-12T08:35:27Z",
+          "completed_at": "2026-10-12T08:35:42Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:28Z",
+              "completed_at": "2026-10-12T08:35:28Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:28Z",
+              "completed_at": "2026-10-12T08:35:31Z"
+            },
+            {
+              "name": "Scan current tree and full Git history",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:31Z",
+              "completed_at": "2026-10-12T08:35:39Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:39Z",
+              "completed_at": "2026-10-12T08:35:39Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:39Z",
+              "completed_at": "2026-10-12T08:35:40Z"
+            }
+          ]
+        },
+        {
+          "id": 114728515858,
+          "name": "Frontend TypeScript",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485846/job/114728515858",
+          "started_at": "2026-10-12T08:35:26Z",
+          "completed_at": "2026-10-12T08:36:56Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:28Z",
+              "completed_at": "2026-10-12T08:35:28Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:28Z",
+              "completed_at": "2026-10-12T08:35:30Z"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:30Z",
+              "completed_at": "2026-10-12T08:35:36Z"
+            },
+            {
+              "name": "Install",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:36Z",
+              "completed_at": "2026-10-12T08:36:03Z"
+            },
+            {
+              "name": "tsc",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:03Z",
+              "completed_at": "2026-10-12T08:36:15Z"
+            },
+            {
+              "name": "Auth provider regressions",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:15Z",
+              "completed_at": "2026-10-12T08:36:15Z"
+            },
+            {
+              "name": "v162 session transitions, cleanup and device registration lifecycle",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:15Z",
+              "completed_at": "2026-10-12T08:36:16Z"
+            },
+            {
+              "name": "Google login iOS browser redirect and blank-button fallback",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:16Z",
+              "completed_at": "2026-10-12T08:36:16Z"
+            },
+            {
+              "name": "Home update lifecycle regression",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:16Z",
+              "completed_at": "2026-10-12T08:36:17Z"
+            },
+            {
+              "name": "Home calendar excludes task deadlines and review checkpoints",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:17Z",
+              "completed_at": "2026-10-12T08:36:17Z"
+            },
+            {
+              "name": "Prepared result review remains explicit in the update detail",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:17Z",
+              "completed_at": "2026-10-12T08:36:17Z"
+            },
+            {
+              "name": "Situation useful time and action remain separate from internal checks",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:17Z",
+              "completed_at": "2026-10-12T08:36:17Z"
+            },
+            {
+              "name": "ORA calendar month-grid regression",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:17Z",
+              "completed_at": "2026-10-12T08:36:17Z"
+            },
+            {
+              "name": "Calendar connector state and selected account consistency",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:17Z",
+              "completed_at": "2026-10-12T08:36:17Z"
+            },
+            {
+              "name": "Device location consent and native background presence",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:17Z",
+              "completed_at": "2026-10-12T08:36:18Z"
+            },
+            {
+              "name": "Push installation identity across two devices",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:18Z",
+              "completed_at": "2026-10-12T08:36:18Z"
+            },
+            {
+              "name": "Notification tap origin and navigation guards",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:18Z",
+              "completed_at": "2026-10-12T08:36:18Z"
+            },
+            {
+              "name": "Resolve Expo iOS configuration",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:18Z",
+              "completed_at": "2026-10-12T08:36:19Z"
+            },
+            {
+              "name": "Generate native iOS project",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:19Z",
+              "completed_at": "2026-10-12T08:36:21Z"
+            },
+            {
+              "name": "Export production iOS bundle",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:21Z",
+              "completed_at": "2026-10-12T08:36:53Z"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:53Z",
+              "completed_at": "2026-10-12T08:36:53Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:53Z",
+              "completed_at": "2026-10-12T08:36:53Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:53Z",
+              "completed_at": "2026-10-12T08:36:53Z"
+            }
+          ]
+        },
+        {
+          "id": 114728515898,
+          "name": "Backend (compileall + pytest)",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485846/job/114728515898",
+          "started_at": "2026-10-12T08:35:26Z",
+          "completed_at": "2026-10-12T08:41:51Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:27Z",
+              "completed_at": "2026-10-12T08:35:29Z"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:29Z",
+              "completed_at": "2026-10-12T08:35:42Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:42Z",
+              "completed_at": "2026-10-12T08:35:44Z"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:44Z",
+              "completed_at": "2026-10-12T08:35:46Z"
+            },
+            {
+              "name": "Install backend deps",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:46Z",
+              "completed_at": "2026-10-12T08:36:26Z"
+            },
+            {
+              "name": "Prepare writable document storage",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:26Z",
+              "completed_at": "2026-10-12T08:36:26Z"
+            },
+            {
+              "name": "compileall",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:26Z",
+              "completed_at": "2026-10-12T08:36:29Z"
+            },
+            {
+              "name": "Vita profile, flow and state semantics",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:29Z",
+              "completed_at": "2026-10-12T08:36:39Z"
+            },
+            {
+              "name": "Situation v157 initial review admission and checkpoint truth",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:39Z",
+              "completed_at": "2026-10-12T08:36:44Z"
+            },
+            {
+              "name": "Situation useful outcome, weather time, final delivery and closure",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:44Z",
+              "completed_at": "2026-10-12T08:36:48Z"
+            },
+            {
+              "name": "ORA native calendar without any external connector",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:48Z",
+              "completed_at": "2026-10-12T08:36:52Z"
+            },
+            {
+              "name": "Financial card meaning, provenance and repeat interpretation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:52Z",
+              "completed_at": "2026-10-12T08:36:56Z"
+            },
+            {
+              "name": "Google browser sign-in redirect and one-use ticket security",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:56Z",
+              "completed_at": "2026-10-12T08:37:00Z"
+            },
+            {
+              "name": "Focused pytest (AI docs + analysis versions + LE docs + V2)",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:00Z",
+              "completed_at": "2026-10-12T08:37:16Z"
+            },
+            {
+              "name": "Conversation presence isolation and lifecycle",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:16Z",
+              "completed_at": "2026-10-12T08:37:22Z"
+            },
+            {
+              "name": "Knowledge stars, account identity and full-name telephone introductions",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:22Z",
+              "completed_at": "2026-10-12T08:37:29Z"
+            },
+            {
+              "name": "Permanent memory and recurring birthday reminders",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:29Z",
+              "completed_at": "2026-10-12T08:37:37Z"
+            },
+            {
+              "name": "Closed-app birthday reminder delivery boundary",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:37Z",
+              "completed_at": "2026-10-12T08:37:44Z"
+            },
+            {
+              "name": "Safe bounded Expo transport retry and crash recovery",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:44Z",
+              "completed_at": "2026-10-12T08:37:51Z"
+            },
+            {
+              "name": "Expo receipt audit and per-device privacy",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:51Z",
+              "completed_at": "2026-10-12T08:37:57Z"
+            },
+            {
+              "name": "Authenticated notification tap and canonical navigation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:57Z",
+              "completed_at": "2026-10-12T08:38:04Z"
+            },
+            {
+              "name": "Voice lifecycle and phone recipient corrections",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:04Z",
+              "completed_at": "2026-10-12T08:38:13Z"
+            },
+            {
+              "name": "Continuous online market watch",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:13Z",
+              "completed_at": "2026-10-12T08:38:20Z"
+            },
+            {
+              "name": "Accommodation provider contract",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:20Z",
+              "completed_at": "2026-10-12T08:38:26Z"
+            },
+            {
+              "name": "Calendar departure freshness and background continuity",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:26Z",
+              "completed_at": "2026-10-12T08:38:33Z"
+            },
+            {
+              "name": "Autonomous work, clarification, source changes and scheduled recovery",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:33Z",
+              "completed_at": "2026-10-12T08:38:55Z"
+            },
+            {
+              "name": "Proactive delivery fairness and owner isolation",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:38:55Z",
+              "completed_at": "2026-10-12T08:39:01Z"
+            },
+            {
+              "name": "Gmail relevance attachments and connected-life bridge",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:01Z",
+              "completed_at": "2026-10-12T08:39:08Z"
+            },
+            {
+              "name": "Google first sync, cloud sessions, location privacy and polling",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:08Z",
+              "completed_at": "2026-10-12T08:39:17Z"
+            },
+            {
+              "name": "Public auth rate limits",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:17Z",
+              "completed_at": "2026-10-12T08:39:22Z"
+            },
+            {
+              "name": "Autonomous goal wake recovery beyond already scheduled rows",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:22Z",
+              "completed_at": "2026-10-12T08:39:29Z"
+            },
+            {
+              "name": "Cross-worker wake cursor lease, retries and authority",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:29Z",
+              "completed_at": "2026-10-12T08:39:35Z"
+            },
+            {
+              "name": "Multiowner cursor and restarted goal wake recovery",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:35Z",
+              "completed_at": "2026-10-12T08:39:41Z"
+            },
+            {
+              "name": "Proactive AI initial initiative, silence and outage acceptance",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:41Z",
+              "completed_at": "2026-10-12T08:39:47Z"
+            },
+            {
+              "name": "Source revision and worker claim fence during proactive thinking",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:47Z",
+              "completed_at": "2026-10-12T08:39:53Z"
+            },
+            {
+              "name": "Verified autonomous outcome on synthetic life data",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:39:53Z",
+              "completed_at": "2026-10-12T08:40:01Z"
+            },
+            {
+              "name": "Autonomous outcome across real Mongo and separate Python workers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:01Z",
+              "completed_at": "2026-10-12T08:40:11Z"
+            },
+            {
+              "name": "Verified completed work becomes one Home result without push",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:11Z",
+              "completed_at": "2026-10-12T08:40:17Z"
+            },
+            {
+              "name": "Durable Home result outbox, retry, isolation and crash fencing",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:17Z",
+              "completed_at": "2026-10-12T08:40:23Z"
+            },
+            {
+              "name": "v162 canonical sources, planning recovery and connected autonomy acceptance",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:23Z",
+              "completed_at": "2026-10-12T08:40:55Z"
+            },
+            {
+              "name": "v162 planning, source read and Home outbox across exited Python workers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:40:55Z",
+              "completed_at": "2026-10-12T08:41:10Z"
+            },
+            {
+              "name": "v162 real Mongo consent and provider provenance regression",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:10Z",
+              "completed_at": "2026-10-12T08:41:13Z"
+            },
+            {
+              "name": "Backup restore round trip",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:13Z",
+              "completed_at": "2026-10-12T08:41:19Z"
+            },
+            {
+              "name": "Calendar command target, confirmation and timezone safety",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:19Z",
+              "completed_at": "2026-10-12T08:41:30Z"
+            },
+            {
+              "name": "Phase 1 persisted result survives a real process restart",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:30Z",
+              "completed_at": "2026-10-12T08:41:38Z"
+            },
+            {
+              "name": "Phase 2 reminder recovery survives a real process restart",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:38Z",
+              "completed_at": "2026-10-12T08:41:48Z"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:48Z",
+              "completed_at": "2026-10-12T08:41:48Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:48Z",
+              "completed_at": "2026-10-12T08:41:48Z"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:48Z",
+              "completed_at": "2026-10-12T08:41:50Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:50Z",
+              "completed_at": "2026-10-12T08:41:50Z"
+            }
+          ]
+        },
+        {
+          "id": 114728515980,
+          "name": "Telephone cloud safety",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485846/job/114728515980",
+          "started_at": "2026-10-12T08:35:27Z",
+          "completed_at": "2026-10-12T08:37:08Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:28Z",
+              "completed_at": "2026-10-12T08:35:28Z"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:28Z",
+              "completed_at": "2026-10-12T08:35:41Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:41Z",
+              "completed_at": "2026-10-12T08:35:44Z"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:44Z",
+              "completed_at": "2026-10-12T08:35:49Z"
+            },
+            {
+              "name": "Install backend deps",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:35:49Z",
+              "completed_at": "2026-10-12T08:36:31Z"
+            },
+            {
+              "name": "Prepare writable storage",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:31Z",
+              "completed_at": "2026-10-12T08:36:31Z"
+            },
+            {
+              "name": "Telephone transport + live runtime + recovery",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:36:31Z",
+              "completed_at": "2026-10-12T08:37:03Z"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:03Z",
+              "completed_at": "2026-10-12T08:37:03Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:03Z",
+              "completed_at": "2026-10-12T08:37:03Z"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:03Z",
+              "completed_at": "2026-10-12T08:37:04Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:37:04Z",
+              "completed_at": "2026-10-12T08:37:04Z"
+            }
+          ]
+        },
+        {
+          "id": 114730733842,
+          "name": "Frontend product guards (current Vita)",
+          "head_sha": "96e85137743657fda62ed317cb5644dd9497b3d8",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38224485846/job/114730733842",
+          "started_at": "2026-10-12T08:41:54Z",
+          "completed_at": "2026-10-12T08:42:30Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:55Z",
+              "completed_at": "2026-10-12T08:41:56Z"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:56Z",
+              "completed_at": "2026-10-12T08:41:59Z"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:41:59Z",
+              "completed_at": "2026-10-12T08:42:02Z"
+            },
+            {
+              "name": "Install",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:02Z",
+              "completed_at": "2026-10-12T08:42:20Z"
+            },
+            {
+              "name": "Current product guards",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:20Z",
+              "completed_at": "2026-10-12T08:42:28Z"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:28Z",
+              "completed_at": "2026-10-12T08:42:28Z"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:28Z",
+              "completed_at": "2026-10-12T08:42:28Z"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-10-12T08:42:28Z",
+              "completed_at": "2026-10-12T08:42:28Z"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "backend_test_evidence": [
+    {
+      "job_id": 114728531304,
+      "logs_url": "https://api.github.com/repos/dangerok97/DANGEROK/actions/jobs/114728531304/logs",
+      "retrieved_log_characters": 3527998,
+      "v162": {
+        "passed": 927,
+        "skipped": 0,
+        "seconds": 27.86
+      },
+      "real_mongo_restarted_workers": {
+        "at": "2026-10-12T08:42:00.2009268Z",
+        "step": "v162 planning, source read and Home outbox across exited Python workers",
+        "passed": 6,
+        "skipped": 0,
+        "seconds": 12.9
+      },
+      "real_mongo_consent_and_provenance": {
+        "at": "2026-10-12T08:42:04.0984352Z",
+        "step": "v162 real Mongo consent and provider provenance regression",
+        "passed": 3,
+        "skipped": 0,
+        "seconds": 0.41
+      },
+      "v141_home_result": {
+        "at": "2026-10-12T08:40:57.7287226Z",
+        "step": "Verified completed work becomes one Home result without push",
+        "passed": 3,
+        "skipped": 0,
+        "seconds": 4.06
+      },
+      "home_outbox": {
+        "at": "2026-10-12T08:41:04.9215587Z",
+        "step": "Durable Home result outbox, retry, isolation and crash fencing",
+        "passed": 5,
+        "skipped": 0,
+        "seconds": 3.91
+      },
+      "pytest_summary_lines": [
+        {
+          "at": "2026-10-12T08:36:41.0466631Z",
+          "passed": 107,
+          "skipped": 0,
+          "seconds": 4.74
+        },
+        {
+          "at": "2026-10-12T08:36:46.4831828Z",
+          "passed": 83,
+          "skipped": 0,
+          "seconds": 1.93
+        },
+        {
+          "at": "2026-10-12T08:36:52.4953298Z",
+          "passed": 116,
+          "skipped": 0,
+          "seconds": 2.42
+        },
+        {
+          "at": "2026-10-12T08:36:57.0907369Z",
+          "passed": 28,
+          "skipped": 0,
+          "seconds": 1.01
+        },
+        {
+          "at": "2026-10-12T08:37:01.4411005Z",
+          "passed": 33,
+          "skipped": 0,
+          "seconds": 0.8
+        },
+        {
+          "at": "2026-10-12T08:37:06.0792678Z",
+          "passed": 22,
+          "skipped": 3,
+          "seconds": 1.1
+        },
+        {
+          "at": "2026-10-12T08:37:18.2190733Z",
+          "passed": 89,
+          "skipped": 5,
+          "seconds": 8.35
+        },
+        {
+          "at": "2026-10-12T08:37:26.1233391Z",
+          "passed": 16,
+          "skipped": 0,
+          "seconds": 4.32
+        },
+        {
+          "at": "2026-10-12T08:37:34.8468121Z",
+          "passed": 28,
+          "skipped": 0,
+          "seconds": 5.19
+        },
+        {
+          "at": "2026-10-12T08:37:44.3708121Z",
+          "passed": 76,
+          "skipped": 0,
+          "seconds": 5.98
+        },
+        {
+          "at": "2026-10-12T08:37:52.1867959Z",
+          "passed": 5,
+          "skipped": 0,
+          "seconds": 4.22
+        },
+        {
+          "at": "2026-10-12T08:38:00.4514819Z",
+          "passed": 10,
+          "skipped": 0,
+          "seconds": 4.71
+        },
+        {
+          "at": "2026-10-12T08:38:08.1551714Z",
+          "passed": 9,
+          "skipped": 0,
+          "seconds": 4.17
+        },
+        {
+          "at": "2026-10-12T08:38:15.6342231Z",
+          "passed": 10,
+          "skipped": 0,
+          "seconds": 3.95
+        },
+        {
+          "at": "2026-10-12T08:38:25.9953209Z",
+          "passed": 83,
+          "skipped": 0,
+          "seconds": 6.82
+        },
+        {
+          "at": "2026-10-12T08:38:34.2141140Z",
+          "passed": 26,
+          "skipped": 0,
+          "seconds": 4.7
+        },
+        {
+          "at": "2026-10-12T08:38:42.0994701Z",
+          "passed": 12,
+          "skipped": 0,
+          "seconds": 4.27
+        },
+        {
+          "at": "2026-10-12T08:38:50.6158866Z",
+          "passed": 51,
+          "skipped": 0,
+          "seconds": 4.97
+        },
+        {
+          "at": "2026-10-12T08:39:06.6102719Z",
+          "passed": 286,
+          "skipped": 0,
+          "seconds": 12.39
+        },
+        {
+          "at": "2026-10-12T08:39:15.2138034Z",
+          "passed": 21,
+          "skipped": 0,
+          "seconds": 5.1
+        },
+        {
+          "at": "2026-10-12T08:39:22.5273931Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.87
+        },
+        {
+          "at": "2026-10-12T08:39:36.2446421Z",
+          "passed": 35,
+          "skipped": 0,
+          "seconds": 5.33
+        },
+        {
+          "at": "2026-10-12T08:39:46.4190936Z",
+          "passed": 37,
+          "skipped": 0,
+          "seconds": 6.74
+        },
+        {
+          "at": "2026-10-12T08:39:53.5285515Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.69
+        },
+        {
+          "at": "2026-10-12T08:40:00.8866486Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.9
+        },
+        {
+          "at": "2026-10-12T08:40:08.2227853Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.88
+        },
+        {
+          "at": "2026-10-12T08:40:15.7296780Z",
+          "passed": 5,
+          "skipped": 0,
+          "seconds": 4.07
+        },
+        {
+          "at": "2026-10-12T08:40:23.0282773Z",
+          "passed": 6,
+          "skipped": 0,
+          "seconds": 3.93
+        },
+        {
+          "at": "2026-10-12T08:40:30.3216994Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.9
+        },
+        {
+          "at": "2026-10-12T08:40:37.7239261Z",
+          "passed": 3,
+          "skipped": 0,
+          "seconds": 4.11
+        },
+        {
+          "at": "2026-10-12T08:40:50.3138435Z",
+          "passed": 1,
+          "skipped": 0,
+          "seconds": 8.04
+        },
+        {
+          "at": "2026-10-12T08:40:57.7287226Z",
+          "passed": 3,
+          "skipped": 0,
+          "seconds": 4.06
+        },
+        {
+          "at": "2026-10-12T08:41:04.9215587Z",
+          "passed": 5,
+          "skipped": 0,
+          "seconds": 3.91
+        },
+        {
+          "at": "2026-10-12T08:41:36.3660782Z",
+          "passed": 927,
+          "skipped": 0,
+          "seconds": 27.86
+        },
+        {
+          "at": "2026-10-12T08:41:44.0756484Z",
+          "passed": 3,
+          "skipped": 0,
+          "seconds": 0.49
+        },
+        {
+          "at": "2026-10-12T08:42:00.2009268Z",
+          "passed": 6,
+          "skipped": 0,
+          "seconds": 12.9
+        },
+        {
+          "at": "2026-10-12T08:42:04.0984352Z",
+          "passed": 3,
+          "skipped": 0,
+          "seconds": 0.41
+        },
+        {
+          "at": "2026-10-12T08:42:11.7771236Z",
+          "passed": 6,
+          "skipped": 0,
+          "seconds": 4.01
+        },
+        {
+          "at": "2026-10-12T08:42:25.3806698Z",
+          "passed": 262,
+          "skipped": 0,
+          "seconds": 10.26
+        },
+        {
+          "at": "2026-10-12T08:42:35.6551454Z",
+          "passed": 1,
+          "skipped": 0,
+          "seconds": 6.98
+        },
+        {
+          "at": "2026-10-12T08:42:46.9122794Z",
+          "passed": 1,
+          "skipped": 0,
+          "seconds": 7.98
+        }
+      ],
+      "scripted_autonomy": {
+        "version": "autonomy-completion-v162",
+        "fixture_revision": "personal_outcome_v1",
+        "mode": "scripted",
+        "status": "passed",
+        "passed": true,
+        "code_revision": "0b94fec2efb58f749ff840e282bc44906c457fa0",
+        "real_model_executed": false,
+        "started_at": "2026-10-12T08:41:38.423756+00:00",
+        "finished_at": "2026-10-12T08:41:40.375882+00:00",
+        "cases": [
+          {
+            "scenario": "completed_result",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "planning_outage",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "home_write_retry",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "source_revoked",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_revoked",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_corrected",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "source_change_crash",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "already_resolved",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "irrelevant",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          }
+        ]
+      }
+    },
+    {
+      "job_id": 114728515898,
+      "logs_url": "https://api.github.com/repos/dangerok97/DANGEROK/actions/jobs/114728515898/logs",
+      "retrieved_log_characters": 3587141,
+      "v162": {
+        "passed": 927,
+        "skipped": 0,
+        "seconds": 21.84
+      },
+      "real_mongo_restarted_workers": {
+        "at": "2026-10-12T08:41:09.3992085Z",
+        "step": "v162 planning, source read and Home outbox across exited Python workers",
+        "passed": 6,
+        "skipped": 0,
+        "seconds": 11.65
+      },
+      "real_mongo_consent_and_provenance": {
+        "at": "2026-10-12T08:41:12.7800270Z",
+        "step": "v162 real Mongo consent and provider provenance regression",
+        "passed": 3,
+        "skipped": 0,
+        "seconds": 0.33
+      },
+      "v141_home_result": {
+        "at": "2026-10-12T08:40:17.5747051Z",
+        "step": "Verified completed work becomes one Home result without push",
+        "passed": 3,
+        "skipped": 0,
+        "seconds": 3.35
+      },
+      "home_outbox": {
+        "at": "2026-10-12T08:40:23.4231560Z",
+        "step": "Durable Home result outbox, retry, isolation and crash fencing",
+        "passed": 5,
+        "skipped": 0,
+        "seconds": 3.26
+      },
+      "pytest_summary_lines": [
+        {
+          "at": "2026-10-12T08:36:38.7185448Z",
+          "passed": 107,
+          "skipped": 0,
+          "seconds": 4.27
+        },
+        {
+          "at": "2026-10-12T08:36:43.5393757Z",
+          "passed": 83,
+          "skipped": 0,
+          "seconds": 1.56
+        },
+        {
+          "at": "2026-10-12T08:36:48.3681890Z",
+          "passed": 116,
+          "skipped": 0,
+          "seconds": 1.77
+        },
+        {
+          "at": "2026-10-12T08:36:52.0101989Z",
+          "passed": 28,
+          "skipped": 0,
+          "seconds": 0.79
+        },
+        {
+          "at": "2026-10-12T08:36:55.4920307Z",
+          "passed": 33,
+          "skipped": 0,
+          "seconds": 0.66
+        },
+        {
+          "at": "2026-10-12T08:36:59.3476805Z",
+          "passed": 22,
+          "skipped": 3,
+          "seconds": 0.94
+        },
+        {
+          "at": "2026-10-12T08:37:15.5329933Z",
+          "passed": 89,
+          "skipped": 5,
+          "seconds": 13.15
+        },
+        {
+          "at": "2026-10-12T08:37:22.0023837Z",
+          "passed": 16,
+          "skipped": 0,
+          "seconds": 3.61
+        },
+        {
+          "at": "2026-10-12T08:37:29.4622127Z",
+          "passed": 28,
+          "skipped": 0,
+          "seconds": 4.49
+        },
+        {
+          "at": "2026-10-12T08:37:36.8880220Z",
+          "passed": 76,
+          "skipped": 0,
+          "seconds": 4.66
+        },
+        {
+          "at": "2026-10-12T08:37:43.3462937Z",
+          "passed": 5,
+          "skipped": 0,
+          "seconds": 3.58
+        },
+        {
+          "at": "2026-10-12T08:37:50.6810683Z",
+          "passed": 10,
+          "skipped": 0,
+          "seconds": 4.05
+        },
+        {
+          "at": "2026-10-12T08:37:57.1983882Z",
+          "passed": 9,
+          "skipped": 0,
+          "seconds": 3.51
+        },
+        {
+          "at": "2026-10-12T08:38:03.6644734Z",
+          "passed": 10,
+          "skipped": 0,
+          "seconds": 3.4
+        },
+        {
+          "at": "2026-10-12T08:38:12.5594336Z",
+          "passed": 83,
+          "skipped": 0,
+          "seconds": 5.96
+        },
+        {
+          "at": "2026-10-12T08:38:19.5532785Z",
+          "passed": 26,
+          "skipped": 0,
+          "seconds": 3.91
+        },
+        {
+          "at": "2026-10-12T08:38:26.1764950Z",
+          "passed": 12,
+          "skipped": 0,
+          "seconds": 3.5
+        },
+        {
+          "at": "2026-10-12T08:38:32.9771555Z",
+          "passed": 51,
+          "skipped": 0,
+          "seconds": 4.01
+        },
+        {
+          "at": "2026-10-12T08:38:46.8973575Z",
+          "passed": 286,
+          "skipped": 0,
+          "seconds": 10.98
+        },
+        {
+          "at": "2026-10-12T08:38:54.9272252Z",
+          "passed": 21,
+          "skipped": 0,
+          "seconds": 5.1
+        },
+        {
+          "at": "2026-10-12T08:39:01.2789007Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.34
+        },
+        {
+          "at": "2026-10-12T08:39:08.3988543Z",
+          "passed": 35,
+          "skipped": 0,
+          "seconds": 4.44
+        },
+        {
+          "at": "2026-10-12T08:39:16.5244778Z",
+          "passed": 37,
+          "skipped": 0,
+          "seconds": 5.49
+        },
+        {
+          "at": "2026-10-12T08:39:22.5070979Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.07
+        },
+        {
+          "at": "2026-10-12T08:39:28.8469750Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.42
+        },
+        {
+          "at": "2026-10-12T08:39:34.8269919Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.22
+        },
+        {
+          "at": "2026-10-12T08:39:40.9455533Z",
+          "passed": 5,
+          "skipped": 0,
+          "seconds": 3.36
+        },
+        {
+          "at": "2026-10-12T08:39:47.0721093Z",
+          "passed": 6,
+          "skipped": 0,
+          "seconds": 3.41
+        },
+        {
+          "at": "2026-10-12T08:39:53.2258228Z",
+          "passed": 4,
+          "skipped": 0,
+          "seconds": 3.34
+        },
+        {
+          "at": "2026-10-12T08:39:59.7164097Z",
+          "passed": 3,
+          "skipped": 0,
+          "seconds": 3.66
+        },
+        {
+          "at": "2026-10-12T08:40:11.5833586Z",
+          "passed": 1,
+          "skipped": 0,
+          "seconds": 7.81
+        },
+        {
+          "at": "2026-10-12T08:40:17.5747051Z",
+          "passed": 3,
+          "skipped": 0,
+          "seconds": 3.35
+        },
+        {
+          "at": "2026-10-12T08:40:23.4231560Z",
+          "passed": 5,
+          "skipped": 0,
+          "seconds": 3.26
+        },
+        {
+          "at": "2026-10-12T08:40:48.3272802Z",
+          "passed": 927,
+          "skipped": 0,
+          "seconds": 21.84
+        },
+        {
+          "at": "2026-10-12T08:40:55.0376486Z",
+          "passed": 3,
+          "skipped": 0,
+          "seconds": 0.4
+        },
+        {
+          "at": "2026-10-12T08:41:09.3992085Z",
+          "passed": 6,
+          "skipped": 0,
+          "seconds": 11.65
+        },
+        {
+          "at": "2026-10-12T08:41:12.7800270Z",
+          "passed": 3,
+          "skipped": 0,
+          "seconds": 0.33
+        },
+        {
+          "at": "2026-10-12T08:41:19.0436435Z",
+          "passed": 6,
+          "skipped": 0,
+          "seconds": 3.35
+        },
+        {
+          "at": "2026-10-12T08:41:29.8845855Z",
+          "passed": 262,
+          "skipped": 0,
+          "seconds": 8.18
+        },
+        {
+          "at": "2026-10-12T08:41:38.5792023Z",
+          "passed": 1,
+          "skipped": 0,
+          "seconds": 5.86
+        },
+        {
+          "at": "2026-10-12T08:41:48.0305892Z",
+          "passed": 1,
+          "skipped": 0,
+          "seconds": 6.74
+        }
+      ],
+      "scripted_autonomy": {
+        "version": "autonomy-completion-v162",
+        "fixture_revision": "personal_outcome_v1",
+        "mode": "scripted",
+        "status": "passed",
+        "passed": true,
+        "code_revision": "96e85137743657fda62ed317cb5644dd9497b3d8",
+        "real_model_executed": false,
+        "started_at": "2026-10-12T08:40:50.531590+00:00",
+        "finished_at": "2026-10-12T08:40:52.081620+00:00",
+        "cases": [
+          {
+            "scenario": "completed_result",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "planning_outage",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "home_write_retry",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "source_revoked",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_revoked",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_corrected",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "source_change_crash",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "already_resolved",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          },
+          {
+            "scenario": "irrelevant",
+            "passed": true,
+            "model_attempts": 0,
+            "model_http_requests": 0,
+            "external_effects": 0
+          }
+        ]
+      }
+    }
+  ],
+  "mobile": {
+    "job_id": 114728529641,
+    "run_id": 38224490094,
+    "logs_url": "https://api.github.com/repos/dangerok97/DANGEROK/actions/jobs/114728529641/logs",
+    "retrieved_log_characters": 157797,
+    "passed": 36,
+    "failed": 0,
+    "chromium_passed": 18,
+    "webkit_passed": 18,
+    "duration_text": "3.9m",
+    "scope": "Production web export, Chromium and WebKit with intercepted synthetic API data; not a signed native build or device push receipt."
+  },
+  "situation_test_evidence": [
+    {
+      "job_id": 114728530411,
+      "logs_url": "https://api.github.com/repos/dangerok97/DANGEROK/actions/jobs/114728530411/logs",
+      "pytest_pass_counts": [
+        111,
+        62,
+        116
+      ],
+      "retrieved_log_characters": 105275
+    },
+    {
+      "job_id": 114728515166,
+      "logs_url": "https://api.github.com/repos/dangerok97/DANGEROK/actions/jobs/114728515166/logs",
+      "pytest_pass_counts": [
+        111,
+        62,
+        116
+      ],
+      "retrieved_log_characters": 103734
+    }
+  ],
+  "provenance": {
+    "reads_only": true,
+    "workflow_reruns_requested": 0,
+    "code_or_repository_edits": 0,
+    "logs_retrieval_truncation_observed": false,
+    "evidence_file_is_a_selective_summary": true,
+    "raw_logs_copied_to_file": false,
+    "raw_identity_or_creator_metadata_copied": false,
+    "clock_source": "clock.curr_time; job/run timestamps are from the GitHub Actions API",
+    "app_service_metadata": "No Railway app service metadata or deployment actions in this CI observation."
+  },
+  "limits": [
+    "Tests skipped within older backend groups remain visible in pytest_summary_lines; no workflow job was skipped on this head.",
+    "CI and scripted responses do not establish live-model semantic correctness.",
+    "iOS config generation and bundle export passed, but signed installation and native notification receipt are separate gates.",
+    "No job execution was triggered, retried, cancelled or modified by this observer."
+  ]
+}

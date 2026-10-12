@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -51,6 +51,7 @@ class OllamaProvider(BaseLLMProvider):
         user: str,
         session_id: Optional[str] = None,
         json_mode: bool = False,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         if not await self.probe():
             raise LLMNotConfigured("Ollama non raggiungibile")
@@ -64,7 +65,9 @@ class OllamaProvider(BaseLLMProvider):
                 {"role": "user", "content": user},
             ],
         }
-        if json_mode:
+        if response_schema is not None:
+            payload["format"] = response_schema
+        elif json_mode:
             payload["format"] = "json"
         try:
             async with httpx.AsyncClient(timeout=timeout_s) as client:

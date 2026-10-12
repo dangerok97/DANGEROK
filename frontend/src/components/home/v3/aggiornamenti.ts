@@ -14,13 +14,14 @@
  * superfici. Nessun campo viene inventato: quello che una sorgente non dice
  * resta vuoto, e l'interfaccia lo dichiara invece di riempirlo.
  */
-import type { HomeV2Response, MonitoredSituation } from '@/src/api/client';
+import type { HomeV2Response, MonitoredSituation, PreparedReview } from '@/src/api/client';
 
 export type GenereAggiornamento = 'lavoro' | 'suggerimento' | 'spunto' | 'occasione';
 
 export type Aggiornamento = {
   retry_available?: boolean;
   testo_preparato?: string;
+  revisione_preparazione?: PreparedReview | null;
   id: string;
   genere: GenereAggiornamento;
   /** Di che cosa si tratta, in una riga. */
@@ -52,6 +53,23 @@ export type Aggiornamento = {
 };
 
 const SENZA_FONTE = 'originale non disponibile';
+
+function revisionePreparazione(value: unknown, preparedText: unknown): PreparedReview | null {
+  if (typeof preparedText !== 'string' || !preparedText.trim()
+    || !value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const review = value as Record<string, unknown>;
+  if ((review.outcome !== 'partial' && review.outcome !== 'uncertain')
+    || typeof review.what_is_missing !== 'string' || typeof review.reasoning !== 'string'
+    || typeof review.reviewed_at !== 'string' || !Number.isFinite(Date.parse(review.reviewed_at))) return null;
+  // Artifact identity and source currency are checked by the backend. Do not
+  // infer a review from an open goal, its state label or an earlier draft.
+  return {
+    outcome: review.outcome,
+    what_is_missing: review.what_is_missing.trim(),
+    reasoning: review.reasoning.trim(),
+    reviewed_at: review.reviewed_at,
+  };
+}
 
 /** Date-only values mean "through the named day", not midnight at its start. */
 export function aggiornamentoScaduto(iso?: string | null, now: Date = new Date()): boolean {
@@ -87,7 +105,8 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     id: w.id,
     genere: 'lavoro',
     retry_available: w.retry_available === true,
-    testo_preparato: w.prepared_text || '',
+    testo_preparato: typeof w.prepared_text === 'string' ? w.prepared_text : '',
+    revisione_preparazione: revisionePreparazione(w.prepared_review, w.prepared_text),
     cosa: w.what,
     perche: w.why_now || '',
     fonte: w.source || SENZA_FONTE,

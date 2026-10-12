@@ -176,6 +176,9 @@ class DeliverySubject(BaseModel):
     # blocked throws away the only useful thing the notification knew. Empty
     # for an opportunity, which has nothing above it.
     goal_id: str = Field(default="", max_length=64)
+    # Code-owned destination for a validated final result, never model copy.
+    result_goal_id: str = Field(default="", max_length=64)
+    result_completed_at: Optional[str] = Field(default=None, max_length=64)
     requires_response: bool = False
     # In human words: what ORA already did, so the judgement can weigh
     # "everything is ready and one thing is missing" differently from
@@ -318,6 +321,8 @@ class DeliveryPlan(BaseModel):
     # Where a tap lands. A notification that opens Home when we know exactly
     # what it was about has thrown away the only thing it knew.
     deep_link: str = Field(default="", max_length=300)
+    result_goal_id: str = Field(default="", max_length=64)
+    result_completed_at: Optional[str] = Field(default=None, max_length=64)
 
     decision_provenance: DeliveryProvenance = "model"
     # Why it ended up where it ended up, in whoever's words decided.

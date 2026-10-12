@@ -1,0 +1,1344 @@
+{
+  "record_type": "primary_ci_status",
+  "observed_at": "2026-10-12T06:47:18Z",
+  "repository": "dangerok97/DANGEROK",
+  "pull_request": 212,
+  "code_revision": "3b7c4d773e61f10d9b5031bf056edd456bae0ffd",
+  "tree": "982759e89beaaf1424297dc691991dc145eb538d",
+  "runs": [
+    {
+      "run_id": 38212832791,
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38212832791",
+      "jobs": [
+        {
+          "id": 114690668701,
+          "name": "Telephone cloud safety",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install backend deps",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Prepare writable storage",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Telephone transport + live runtime + recovery",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114690668841,
+          "name": "Backend (compileall + pytest)",
+          "status": "completed",
+          "conclusion": "failure",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install backend deps",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Prepare writable document storage",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "compileall",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Vita profile, flow and state semantics",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Situation v157 initial review admission and checkpoint truth",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Situation useful outcome, weather time, final delivery and closure",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "ORA native calendar without any external connector",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Financial card meaning, provenance and repeat interpretation",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Google browser sign-in redirect and one-use ticket security",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Focused pytest (AI docs + analysis versions + LE docs + V2)",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Conversation presence isolation and lifecycle",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Knowledge stars, account identity and full-name telephone introductions",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Permanent memory and recurring birthday reminders",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Closed-app birthday reminder delivery boundary",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Safe bounded Expo transport retry and crash recovery",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Expo receipt audit and per-device privacy",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Authenticated notification tap and canonical navigation",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Voice lifecycle and phone recipient corrections",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Continuous online market watch",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Accommodation provider contract",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Calendar departure freshness and background continuity",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Autonomous work, clarification, source changes and scheduled recovery",
+              "status": "completed",
+              "conclusion": "failure"
+            },
+            {
+              "name": "Proactive delivery fairness and owner isolation",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Gmail relevance attachments and connected-life bridge",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Google first sync, cloud sessions, location privacy and polling",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Public auth rate limits",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Autonomous goal wake recovery beyond already scheduled rows",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Cross-worker wake cursor lease, retries and authority",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Multiowner cursor and restarted goal wake recovery",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Proactive AI initial initiative, silence and outage acceptance",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Source revision and worker claim fence during proactive thinking",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verified autonomous outcome on synthetic life data",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Autonomous outcome across real Mongo and separate Python workers",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verified completed work becomes one Home result without push",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Durable Home result outbox, retry, isolation and crash fencing",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "v162 canonical sources, planning recovery and connected autonomy acceptance",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "v162 planning, source read and Home outbox across exited Python workers",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "v162 real Mongo consent and provider provenance regression",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Backup restore round trip",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Calendar command target, confirmation and timezone safety",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Phase 1 persisted result survives a real process restart",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Phase 2 reminder recovery survives a real process restart",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114690668975,
+          "name": "Frontend TypeScript",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "tsc",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Auth provider regressions",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "v162 session transitions, cleanup and device registration lifecycle",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Google login iOS browser redirect and blank-button fallback",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Home update lifecycle regression",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Home calendar excludes task deadlines and review checkpoints",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Prepared result review remains explicit in the update detail",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Situation useful time and action remain separate from internal checks",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "ORA calendar month-grid regression",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Calendar connector state and selected account consistency",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Device location consent and native background presence",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Push installation identity across two devices",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Notification tap origin and navigation guards",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Resolve Expo iOS configuration",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Generate native iOS project",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Export production iOS bundle",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114690669038,
+          "name": "Secret scan (full history)",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Scan current tree and full Git history",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114691545309,
+          "name": "Frontend product guards (current Vita)",
+          "status": "completed",
+          "conclusion": "skipped"
+        }
+      ]
+    },
+    {
+      "run_id": 38212825926,
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38212825926",
+      "jobs": [
+        {
+          "id": 114690646021,
+          "name": "Secret scan (full history)",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Scan current tree and full Git history",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114690646277,
+          "name": "Frontend TypeScript",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "tsc",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Auth provider regressions",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "v162 session transitions, cleanup and device registration lifecycle",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Google login iOS browser redirect and blank-button fallback",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Home update lifecycle regression",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Home calendar excludes task deadlines and review checkpoints",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Prepared result review remains explicit in the update detail",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Situation useful time and action remain separate from internal checks",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "ORA calendar month-grid regression",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Calendar connector state and selected account consistency",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Device location consent and native background presence",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Push installation identity across two devices",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Notification tap origin and navigation guards",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Resolve Expo iOS configuration",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Generate native iOS project",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Export production iOS bundle",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114690646293,
+          "name": "Telephone cloud safety",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install backend deps",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Prepare writable storage",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Telephone transport + live runtime + recovery",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114690646355,
+          "name": "Backend (compileall + pytest)",
+          "status": "completed",
+          "conclusion": "failure",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install backend deps",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Prepare writable document storage",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "compileall",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Vita profile, flow and state semantics",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Situation v157 initial review admission and checkpoint truth",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Situation useful outcome, weather time, final delivery and closure",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "ORA native calendar without any external connector",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Financial card meaning, provenance and repeat interpretation",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Google browser sign-in redirect and one-use ticket security",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Focused pytest (AI docs + analysis versions + LE docs + V2)",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Conversation presence isolation and lifecycle",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Knowledge stars, account identity and full-name telephone introductions",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Permanent memory and recurring birthday reminders",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Closed-app birthday reminder delivery boundary",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Safe bounded Expo transport retry and crash recovery",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Expo receipt audit and per-device privacy",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Authenticated notification tap and canonical navigation",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Voice lifecycle and phone recipient corrections",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Continuous online market watch",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Accommodation provider contract",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Calendar departure freshness and background continuity",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Autonomous work, clarification, source changes and scheduled recovery",
+              "status": "completed",
+              "conclusion": "failure"
+            },
+            {
+              "name": "Proactive delivery fairness and owner isolation",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Gmail relevance attachments and connected-life bridge",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Google first sync, cloud sessions, location privacy and polling",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Public auth rate limits",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Autonomous goal wake recovery beyond already scheduled rows",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Cross-worker wake cursor lease, retries and authority",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Multiowner cursor and restarted goal wake recovery",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Proactive AI initial initiative, silence and outage acceptance",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Source revision and worker claim fence during proactive thinking",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verified autonomous outcome on synthetic life data",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Autonomous outcome across real Mongo and separate Python workers",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verified completed work becomes one Home result without push",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Durable Home result outbox, retry, isolation and crash fencing",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "v162 canonical sources, planning recovery and connected autonomy acceptance",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "v162 planning, source read and Home outbox across exited Python workers",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "v162 real Mongo consent and provider provenance regression",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Backup restore round trip",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Calendar command target, confirmation and timezone safety",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Phase 1 persisted result survives a real process restart",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Phase 2 reminder recovery survives a real process restart",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114691479434,
+          "name": "Frontend product guards (current Vita)",
+          "status": "completed",
+          "conclusion": "skipped"
+        }
+      ]
+    },
+    {
+      "run_id": 38212833085,
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38212833085",
+      "jobs": [
+        {
+          "id": 114690669269,
+          "name": "Situation follow-up presentation guards",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Check conversation controls and absence of false active reminders",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Estimate, action, expiry and current source presentation",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114690669519,
+          "name": "Situation checkpoint persistence and dispatch",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked backend dependencies",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Exercise persisted checkpoints, isolation, recovery and cancellation",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Initial admission race, cancellation readback and source revision",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Useful outcome, current weather, final result delivery and closure",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": 38212825928,
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38212825928",
+      "jobs": [
+        {
+          "id": 114690646437,
+          "name": "Situation follow-up presentation guards",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Check conversation controls and absence of false active reminders",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Estimate, action, expiry and current source presentation",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 114690646751,
+          "name": "Situation checkpoint persistence and dispatch",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Initialize containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked backend dependencies",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Exercise persisted checkpoints, isolation, recovery and cancellation",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Initial admission race, cancellation readback and source revision",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Useful outcome, current weather, final result delivery and closure",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Stop containers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": 38212832660,
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38212832660",
+      "jobs": [
+        {
+          "id": 114690667724,
+          "name": "Mobile web layout and interaction (Chromium + WebKit)",
+          "status": "completed",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked dependencies",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Typecheck and layout contracts",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Export actual production web components",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install mobile browser engines",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Check layout, scrolling, actions, map and visual viewport",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Keep screenshots and test results (simulated API data)",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "job_conclusions": {
+    "success": 11,
+    "failure": 2,
+    "skipped": 2
+  },
+  "mobile": {
+    "passed": 36,
+    "chromium": 18,
+    "webkit": 18,
+    "source_job_id": 114690667724
+  },
+  "backend": {
+    "failed_jobs": [
+      114690668841,
+      114690646355
+    ],
+    "failing_test": "test_calendar_conflict_choice_becomes_one_authorised_verified_local_move",
+    "failure": "The legacy fake returns decision execute with an empty step_id; the current runtime correctly rejects this invalid decision.",
+    "later_gates_not_reached": [
+      "v141 verified Home result",
+      "v142 durable Home outbox",
+      "v162 canonical sources and connected autonomy",
+      "v162 exited-worker real Mongo",
+      "v162 real Mongo consent/provenance"
+    ],
+    "local_fixture_correction_pending_publish": {
+      "file": "backend/tests/test_agent_preparation_v4.py",
+      "positive_fakes_corrected": 3,
+      "assertions_changed": false,
+      "runtime_changed": false,
+      "negative_empty_id_test_unchanged": true
+    }
+  },
+  "acceptance": {
+    "ci_green": false,
+    "merge_ready": false,
+    "native_receipt_proven": false
+  }
+}

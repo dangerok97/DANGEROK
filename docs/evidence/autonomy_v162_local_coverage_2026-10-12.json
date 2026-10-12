@@ -1,0 +1,372 @@
+{
+  "kind": "local_verification_result_coverage_v162",
+  "base_local_commit": "ab932c11cb914c985af0a86e3213710a196d15ab",
+  "base_remote_commit": "5b4efd5caf70d5450e94dfb84a48f6e7ddc9dddc",
+  "production_live_acceptance": "pending_new_commit",
+  "pytest": {
+    "passed": 1415,
+    "skipped": 1,
+    "modules": 115,
+    "seconds": 38.78
+  },
+  "pytest_command": {
+    "command": [
+      "/workspace/scratch/ee708e10d9bd/ora-resume/.venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-n",
+      "0",
+      "--disable-warnings",
+      "tests/test_agent_memory_read_v162.py",
+      "tests/test_memory_source_context_v162.py",
+      "tests/test_agent_memory_replanning_context_v162.py",
+      "tests/test_agent_memory_continuation_v162.py",
+      "tests/test_agent_terminal_plan_v162.py",
+      "tests/test_agent_completed_result_delivery_v162.py",
+      "tests/test_autonomy_home_revocation_v162.py",
+      "tests/test_eval_gemini_transport_v162.py",
+      "tests/test_pending_outcome_contract_v162.py",
+      "tests/test_discovery_outcome_contract_v162.py",
+      "tests/test_agent_preparation_grounding_v162.py",
+      "tests/test_preparation_response_schema_v162.py",
+      "tests/test_preparation_source_quotes_v162.py",
+      "tests/test_agent_preparation_dependency_v162.py",
+      "tests/test_agent_admission_contract_v162.py",
+      "tests/test_agent_verification_context_v162.py",
+      "tests/test_verification_recovery_v162.py",
+      "tests/test_prepared_review_v162.py",
+      "tests/test_prepared_review_delivery_v162.py",
+      "tests/test_autonomy_eval_recovery_diagnostics_v162.py",
+      "tests/test_autonomy_model_diagnostics_v162.py",
+      "tests/test_gemini_quota_retry_v162.py",
+      "tests/test_llm_response_schema_v162.py",
+      "tests/test_agent_protocol_recovery_v162.py",
+      "tests/test_agent_replan_protocol_v162.py",
+      "tests/test_opportunity_assessment_context_v162.py",
+      "tests/test_agent_action_context_v162.py",
+      "tests/test_completed_result_context_v162.py",
+      "tests/test_preparation_recovery_v162.py",
+      "tests/test_preparation_feedback_v162.py",
+      "tests/test_autonomy_preparation_diagnostics_v162.py",
+      "tests/test_autonomy_result_diagnostics_v162.py",
+      "tests/test_autonomy_worker_recovery_v162.py",
+      "tests/test_autonomy_wait_recovery_v162.py",
+      "tests/test_agent_connector_readiness_v162.py",
+      "tests/test_agent_planning_recovery_v162.py",
+      "tests/test_autonomy_planning_retry_observation_v162.py",
+      "tests/test_route_provenance_v162.py",
+      "tests/test_agent_route_provenance_v162.py",
+      "tests/test_situation_delivery_recovery_v162.py",
+      "tests/test_completion_visibility_recovery_v162.py",
+      "tests/test_opportunity_discovery_recovery_v162.py",
+      "tests/test_agent_memory_source_fence_v162.py",
+      "tests/test_connector_oauth_return_v162.py",
+      "tests/test_push_session_lifecycle_v162.py",
+      "tests/test_autonomy_completion_eval_v162.py",
+      "tests/test_agent_visibility_v39.py::test_visibility_guard_detects_real_outcome_promotions",
+      "tests/test_agent_visibility_v39.py::test_visibility_guard_does_not_confuse_an_action_step_or_need_with_a_visibility",
+      "tests/test_agent_visibility_v39.py::test_no_branch_turns_a_goal_status_into_a_visibility",
+      "tests/test_phase2_result_visibility_v141.py",
+      "tests/test_agent_pending_steps_v4.py",
+      "tests/test_phase1_read_provider_eval_v126.py",
+      "tests/test_exact_minute_followups_v68.py",
+      "tests/test_local_time_followup_reasoning_v65.py",
+      "tests/test_autonomous_external_followups_v56.py",
+      "tests/test_autonomy_reality_gate_v55.py",
+      "tests/test_ai_provider_manager.py",
+      "tests/test_llm_cooldown_and_deadline_v3132.py",
+      "tests/test_provider_failover_v34.py",
+      "tests/test_situation_useful_outcome_v160.py",
+      "tests/test_situation_weather_clock_v160.py",
+      "tests/test_situation_outcome_delivery_v160.py",
+      "tests/test_situation_outcome_visibility_v160.py",
+      "tests/test_situation_completion_response_v160.py",
+      "tests/test_situation_outcome_projection_v160.py",
+      "tests/test_delivery_admission_v4.py",
+      "tests/test_delivery_fair_admission_v134.py",
+      "tests/test_autonomy_continuity_v4.py",
+      "tests/test_background_agent_loop.py",
+      "tests/test_opportunity_admission_v4.py",
+      "tests/test_admission_source_context_v4.py",
+      "tests/test_agent_preparation_v4.py",
+      "tests/test_autonomous_document_cycle_v4.py",
+      "tests/test_routine_autonomy_v40.py",
+      "tests/test_routine_proactive_wakes_v41.py",
+      "tests/test_routine_route_context_v42.py",
+      "tests/test_routine_user_control_v43.py",
+      "tests/test_agent_context_reads_v44.py",
+      "tests/test_agent_ephemeral_mail_v45.py",
+      "tests/test_linked_situation_propagation_v46.py",
+      "tests/test_communication_delta_review_v47.py",
+      "tests/test_disagreement_actionable_calendar_v47.py",
+      "tests/test_specific_authority_handoff_v48.py",
+      "tests/test_disagreement_source_refs_v49.py",
+      "tests/test_planner_calendar_modify_v50.py",
+      "tests/test_prepared_effect_replanning_v50.py",
+      "tests/test_generic_causal_propagation_v51.py",
+      "tests/test_agent_device_contacts_v52.py",
+      "tests/test_agent_banking_context_v53.py",
+      "tests/test_native_presence_runtime_v54.py",
+      "tests/test_external_reply_goal_resume_v57.py",
+      "tests/test_conversation_situation_autonomy_v58.py",
+      "tests/test_agent_weather_context_v59.py",
+      "tests/test_pinned_place_weather_v60.py",
+      "tests/test_ai_chosen_followup_timing_v60.py",
+      "tests/test_everyday_situation_weather_followup_v77.py",
+      "tests/test_immediate_situation_action_v88b.py",
+      "tests/test_everyday_situation_visibility_v78.py",
+      "tests/test_life_outcome_watch_v84.py",
+      "tests/test_contract_renewal_reality_v80.py",
+      "tests/test_agent_situation_context_v61.py",
+      "tests/test_canonical_place_situation_links_v62.py",
+      "tests/test_verified_situation_links_v63.py",
+      "tests/test_autonomous_live_route_v64.py",
+      "tests/test_proactive_delivery_recheck_v66.py",
+      "tests/test_ambient_agent_need_recheck_v70.py",
+      "tests/test_post_run_visibility_budget_v69.py",
+      "tests/test_user_controls_running_autonomy_v73.py",
+      "tests/test_opportunity_agent_work_dedupe_v74.py",
+      "tests/test_document_extraction_signal_v4.py",
+      "tests/test_update_work.py",
+      "tests/test_life_profile_opportunity_bridge.py",
+      "tests/test_tool_catalogue_compact_v3132.py",
+      "tests/test_conversation_local_clock.py",
+      "tests/test_phase1_route_reference_v126.py",
+      "tests/test_phase1_route_freshness_v126.py",
+      "tests/test_phase1_route_outcome_v123.py",
+      "-x"
+    ],
+    "modules": 115
+  },
+  "targeted_diagnostics": {
+    "new_tests_before_patch_failed": 8,
+    "new_tests_after_patch_passed": 8,
+    "overlapping_group_passed": 105,
+    "overlapping_group_modules": 4,
+    "seconds": 3.78,
+    "additive_to_full_suite": false,
+    "earlier_non_test_attempt": "Alternative existing venv lacked PIL; no tests ran. Correct verification used the same established venv as the full suite, without installing dependencies."
+  },
+  "comparison_oracle": {
+    "byte_identical_to_base": true,
+    "source_slice_including_final_lf_sha256": "949dc52de0de172f74d03665d7b2abb68c0ca34abbc3b5c9710ac35b33360e55"
+  },
+  "scripted": {
+    "passed": 9,
+    "total": 9,
+    "model_calls": 0,
+    "model_http": 0,
+    "external_effects": 0
+  },
+  "code_files": [
+    {
+      "path": "backend/agent/preparation.py",
+      "sha256": "706ff75d9ed692ec20a9183c96dacdb14d0a992f943c6c964cc99652192b05df"
+    },
+    {
+      "path": "backend/agent/reasoning.py",
+      "sha256": "46434cb3c38228cc65e3457b95afe0655eec3369de3d2aef7788febee0d37d0a"
+    },
+    {
+      "path": "backend/conversation_engine/ai_core/prompt.py",
+      "sha256": "3d7f18abe5482cc710d90527d9db9816e1257adce992bc51b09f6cddf8ee97f9"
+    },
+    {
+      "path": "backend/scripts/autonomy_completion_eval_v162.py",
+      "sha256": "7838a0aaaed828f79c83e5b73d8d74ee67df9298822df32149e92736786a3c92"
+    },
+    {
+      "path": "backend/tests/test_autonomy_result_diagnostics_v162.py",
+      "sha256": "762cb307dbe67e69efd573e8e918794809f58cac17d106be7345c506ee755553"
+    },
+    {
+      "path": "frontend/app.config.ts",
+      "sha256": "c77956579f7ff33a8da257d5a060e83235fa8b164ec194a399a259049037aa42"
+    },
+    {
+      "path": "frontend/.env.example",
+      "sha256": "e5bd5af2dec3204330db6c806b0a2f9a04f660af45d412e85ee9235ffbfc0915"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "97fd9206f7ca716589cc6768fcc4e426133afb1e4800128af2f19d28c16b57a6"
+    }
+  ],
+  "evidence_files": [
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_5b4efd5.json",
+      "bytes": 229753,
+      "sha256": "c8fed7a830e4eadbe0e824d9123423b22825e703f37121219e17a4e35295d3be"
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_manual_review_2026-10-12_5b4efd5.json",
+      "bytes": 198189,
+      "sha256": "9767af54efb9573b12bb022edd1e5597a2b2bcbc7f4a9e248e3abaaec4793cb6"
+    },
+    {
+      "path": "docs/evidence/public_read_v162_live_2026-10-12_5b4efd5.json",
+      "bytes": 10523,
+      "sha256": "ce4c1443faf594ae2a5a2362bd63b24d325868eed6bc1e39db68604722e02be8"
+    },
+    {
+      "path": "docs/evidence/public_read_v162_manual_review_2026-10-12_5b4efd5.json",
+      "bytes": 20983,
+      "sha256": "32a802235316ff76f8cb4356313dde5a5501a3a3e61eff9084d542de37142e04"
+    },
+    {
+      "path": "docs/evidence/ci_v162_2026-10-12_5b4efd5.json",
+      "bytes": 113809,
+      "sha256": "de8dac0ec4d8cb08b07efc8ba7d82b7cbbc83f8883419b7926436082de3131bf"
+    },
+    {
+      "path": "docs/evidence/app_deployment_v162_2026-10-12_0922.json",
+      "bytes": 4738,
+      "sha256": "816fb57c92d002875b3bad88bc4c34987d8695a81b624ee7266f39119569785d"
+    }
+  ],
+  "deployment_bindings": {
+    "retrieved_at": "2026-10-12 09:14:37 UTC",
+    "project_id": "1264aea8-7e1e-403b-9d14-66f61135f179",
+    "scope": "technical_synthetic_eval_only_not_app_deployment",
+    "autonomy": {
+      "id": "82246613-03cb-4a83-8915-4708d6f288df",
+      "status": "CRASHED",
+      "created_at": "2026-10-12T08:59:45.794Z",
+      "updated_at": "2026-10-12T09:04:33.080Z",
+      "service_id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "source": {
+        "reason": "deploy",
+        "commitMessage": "fix(autonomy): preserve derived findings and source limits\n\nKeep supported calculations through source audits, distinguish protocol failures from missing factual support, and preserve the nature and time limits of provider estimates. Same tree as local ab932c1: 1407 passed, 1 optional skip, scripted 9/9. Preserve all original 96e8513 live verdicts and independent reviews.",
+        "commitHash": "5b4efd5caf70d5450e94dfb84a48f6e7ddc9dddc",
+        "branch": "ora/v162-memory-context"
+      }
+    },
+    "public_read": {
+      "id": "d4e77013-7509-4bfe-9330-9ac01ec34e95",
+      "status": "SUCCESS",
+      "created_at": "2026-10-12T09:05:18.861Z",
+      "updated_at": "2026-10-12T09:06:09.598Z",
+      "service_id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "source": {
+        "reason": "deploy",
+        "commitMessage": "fix(autonomy): preserve derived findings and source limits\n\nKeep supported calculations through source audits, distinguish protocol failures from missing factual support, and preserve the nature and time limits of provider estimates. Same tree as local ab932c1: 1407 passed, 1 optional skip, scripted 9/9. Preserve all original 96e8513 live verdicts and independent reviews.",
+        "commitHash": "5b4efd5caf70d5450e94dfb84a48f6e7ddc9dddc",
+        "branch": "ora/v162-memory-context"
+      }
+    },
+    "public_original_report_revision_absent": true,
+    "public_binding_source": "primary_Railway_pinned_commit_deployment_metadata_and_deployment_logs",
+    "standard_command_restored": true
+  },
+  "vision_preserved": {
+    "base_sha": "c59db28c840fc6079f98067a9f42093773e5c4d7",
+    "files_identical": [
+      {
+        "path": "backend/vision_provider.py",
+        "sha256": "24862c39f20fdb77d47e69dba9e2fe843e15627e1cc5e9e55dd89cfe8c469021"
+      },
+      {
+        "path": "backend/vision_tests/test_catalog75.py",
+        "sha256": "d8e724c1441902b8f7995f6078a3ad730040b2c00a6c90d0c6956f1455e38295"
+      },
+      {
+        "path": "backend/vision_tests/test_provider_deadline.py",
+        "sha256": "f9e6bc6512c4bc91d1bd36d80b9aaaf67843241e2355ae95785be21389d6a4fa"
+      },
+      {
+        "path": "backend/vision_tests/test_provider_observation_v2.py",
+        "sha256": "bfed0060b5585775b5564ec28258bd31a7b9fd7183c4af058fbc94e57695ca49"
+      },
+      {
+        "path": "backend/vision_tests/test_seed_pack.py",
+        "sha256": "5f7db11bb281a12e50c0b55463c1713b977a6fb95a0956e5d75cce38d19d1163"
+      },
+      {
+        "path": "backend/vision_xray.py",
+        "sha256": "6b5a9ab89ea753b9e44f6823da050a95d1b627e0aaf645613cad2ea735637069"
+      },
+      {
+        "path": "docs/VISION_OBSERVATION_V2.md",
+        "sha256": "01f086186901cc4c546b8f1f764b7dfde609c45e01d343313dea9049e72ed9db"
+      },
+      {
+        "path": "frontend/e2e/vision-observation-v2.spec.ts",
+        "sha256": "51009640a1c4c9c8aada0df1b4b1e055ef6a1f9e14ac04dfa6731430269eb48f"
+      },
+      {
+        "path": "frontend/playwright.vision.config.ts",
+        "sha256": "e40353550552ba47cc133c0d758250521868cfd4274306e422c4db7c75b6ff76"
+      },
+      {
+        "path": "frontend/src/vision-xray/LiveExplorer.web.tsx",
+        "sha256": "2cc24777af30bc6d26dd13f0fd41ff9ccb07f6b8ccbe84ab10305934dea81e51"
+      },
+      {
+        "path": "frontend/src/vision-xray/catalogApi.ts",
+        "sha256": "3dcd67fdee7c5da3753514608c13b95191af35a2b2658e51c9391b0f1778e9c2"
+      },
+      {
+        "path": "frontend/src/vision-xray/recognitionHelpStyle.ts",
+        "sha256": "f6cd0ac486632704762fd0eb1df098b1cabef0b62325d14213d497a12c4aa263"
+      }
+    ],
+    "scope": "All twelve files introduced or modified by merged Vision PR215 are byte-identical to new staging base."
+  },
+  "post_tool_transport": {
+    "scope": "Offline reconstruction from the saved public report and observation of the real _call_ai callback boundary; no model, provider request or external effect. This is not a historical raw-HTTP prompt capture.",
+    "payload_keys_unchanged": true,
+    "all_fields_except_reminder_unchanged": true,
+    "system_unchanged": true,
+    "system_chars": 94837,
+    "system_sha256": "f3d96b9b5fecc1d7793fa9dde031a179835d02dbb5388f158342aac33434ecb4",
+    "reminder_chars": 2604,
+    "reminder_sha256": "b81accfa9ebe5402b4c2c516785c4d34332a6c40b47a6bbf9fdff81bb31e54a5",
+    "callback_calls": 1,
+    "exact_system_and_user_forwarding": true,
+    "observations_unchanged": true,
+    "observation_count": 2,
+    "route_metadata": {
+      "duration_kind": "estimate",
+      "retrieval_time_source": "ora_clock_not_provider_observation_time",
+      "provider_as_of": null,
+      "retrieved_at": "2026-10-12T09:05:56.546523+00:00"
+    }
+  },
+  "typescript": {
+    "command": "./node_modules/.bin/tsc --noEmit",
+    "exit_code": 0,
+    "seconds": 10.204,
+    "scope": "Current integrated frontend, installed compiler, no network or installation",
+    "log_sha256": "a2b4ea07a2ffa53b5d2886aa23cdb02a44b5065a927f5b81f475adaf77442ce2"
+  },
+  "eas_config": {
+    "resolver": "@expo/config 12.0.14",
+    "plugins": "enabled",
+    "network": "blocked",
+    "baseline_passed": 4,
+    "baseline_failed": 2,
+    "patched_copy_passed": 6,
+    "applied_files_passed": 6,
+    "signed_build": false,
+    "device_receipt": false,
+    "verification_script_sha256": "e3a2d2ac4f3e2dddc1b4baad29789a6d6b30207bf568cc063c2bb3f8f3cf2251"
+  },
+  "local_logs": [
+    {
+      "path": "/tmp/ora_v162_coverage_local_pytest.log",
+      "sha256": "2f3598d2805f99fd5a83b8c61e9830e7721661add12176515f15d3e1df986b54"
+    },
+    {
+      "path": "/tmp/ora-autonomy-v162-coverage-scripted.json",
+      "sha256": "185bafcb7aca6be2db3f753d4edc79e81df3c21db7c9ffdf12e0f12a7f49b120"
+    },
+    {
+      "path": "/tmp/ora-autonomy-v162-coverage-scripted.log",
+      "sha256": "e16b20520cac6ed92cbf18b7431e9a1472f92c68b903ab0a6dac79945f73d736"
+    }
+  ],
+  "scope": "Controlled synthetic tests, existing real services and offline native config; no signed app or physical laundry/device proof."
+}

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 from unittest.mock import AsyncMock
 
 import pytest
@@ -199,5 +200,10 @@ async def test_reasoning_payload_accepts_absolute_minute_checkpoint(monkeypatch)
         language="it",
     )
     assert result["wait_until"] == "2026-10-05T18:35:00+02:00"
-    assert '"local_time": "13:00"' in captured["user"]
-    assert "wait_until" in captured["user"] or result["wait_until"]
+    assert json.loads(captured["user"])["local_clock"] == {
+        "local_datetime": "2026-10-05T13:00:00+02:00",
+        "local_time": "13:00",
+        "local_date": "2026-10-05",
+        "timezone": "Europe/Rome",
+        "authority": "user_confirmed",
+    }

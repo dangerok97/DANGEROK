@@ -1,0 +1,244 @@
+{
+  "review_kind": "manual_review_of_synthetic_eval_evidence",
+  "reviewed_at": "2026-10-12T06:02:36.623428+00:00",
+  "code_revision": "2e848b61479b3d621fd7f217bb0699f53bed0d43",
+  "machine_report": "docs/evidence/autonomy_v162_live_2026-10-12_2e848b6.json",
+  "machine_report_sha256": "e0222372a0ee2209fa516ea9c62eb86a5f8879cb660314e975ce0dd46c99441c",
+  "fixture_revision": "personal_outcome_v1",
+  "machine_verdict_unchanged": {
+    "status": "failed",
+    "passed": false,
+    "passed_cases": 5,
+    "case_count": 9
+  },
+  "overall_accepted": false,
+  "scope": {
+    "reviewed_cases": [
+      "completed_result",
+      "source_change_crash"
+    ],
+    "basis": "Existing sanitized synthetic report, canonical fixture and read-only production code inspection. No new model/provider calls or tests.",
+    "not_an_autonomy_verification": true,
+    "does_not_replace_machine_results": true,
+    "original_report_fixture_and_oracle_unchanged": true
+  },
+  "canonical_source": {
+    "source_type": "synthetic_user_stated_memory",
+    "fact_file": "backend/scripts/phase2_goal_outcome_eval_v140.py",
+    "fact_symbol": "FACT",
+    "personal_context_file": "backend/scripts/autonomy_completion_eval_v162.py",
+    "personal_context_symbol": "FIXTURE_CONTEXT",
+    "statement": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento autorizzato.",
+    "source_limit": "User-reported data, not confirmation from the supplier; no contract change or payment authorized."
+  },
+  "completed_result": {
+    "machine_passed": true,
+    "machine_semantic_review": {
+      "passed": true,
+      "reasons": [],
+      "status": "bounded_check",
+      "human_review_still_required": true
+    },
+    "manually_accepted": false,
+    "manual_verdict": "Material unsupported monthly contractual conditions survive generation, preparation audit and goal verification.",
+    "supported_content": [
+      "15 euros per month; 12 months total 180 euros.",
+      "120 euros prepaid for the annual option; difference over the stated 12-month horizon is 60 euros.",
+      "100 GB, equal assistance and zero initial fees in both options.",
+      "Annual option has no refund for early cancellation.",
+      "The text attributes data to the user and explicitly says supplier confirmation is absent.",
+      "The software report attests a saved prepared result, Home delivery, replay idempotence and no external action attempts."
+    ],
+    "limitations_do_not_cure_unsupported_claims": "A general recommendation to verify with the supplier does not make definitive invented cancellation or refund conditions supported by the cited source.",
+    "findings": [
+      {
+        "id": "monthly_cancellation_terms_not_sourced",
+        "source_support": "The fixture states the monthly price; it does not specify monthly cancellation dates, fees, minimum duration or refund conditions.",
+        "generation_excerpt": "Per la formula mensile, la disdetta è possibile a fine mese senza costi aggiuntivi (non indicato diversamente).",
+        "audit_excerpt": "**Formula mensile**: Disdetta flessibile a fine mese, senza costi aggiuntivi.",
+        "introduced_at": "preparation_generation",
+        "audit_effect": "Retained the unsupported condition and removed the parenthetical qualification. Absence of a specified restriction does not establish its absence.",
+        "severity": "material_unsupported_contractual_claim"
+      },
+      {
+        "id": "monthly_refund_exclusion_added_by_audit",
+        "source_support": "The no-refund condition applies explicitly to the annual option only.",
+        "generation_excerpt": "Per la formula mensile non è indicato un vincolo specifico di rimborso, ma la disdetta anticipata non è prevista per sua natura (si paga mese per mese).",
+        "audit_excerpt": "**Formula mensile**: Nessun rimborso applicabile (pagamento mese per mese), ma **nessun costo aggiuntivo** per disdetta a fine mese. *Nota*: Se si disdice dopo pochi mesi, i pagamenti già effettuati non sono rimborsabili.",
+        "introduced_at": "preparation_audit_for_the_explicit_exclusion_of_refunds_on_all_prior_monthly_payments",
+        "audit_effect": "Converted a missing monthly refund condition into an explicit non-refund rule. The generation already contained an unsupported inference about the nature of monthly cancellation.",
+        "severity": "material_unsupported_contractual_claim"
+      },
+      {
+        "id": "monthly_flexibility_and_no_minimum_duration_not_sourced",
+        "source_support": "Payment frequency alone does not establish termination freedom or absence of a minimum contractual duration.",
+        "generation_excerpt": "Se si desidera flessibilità (es. possibilità di disdire prima dei 12 mesi senza perdere l'importo già pagato), la formula mensile è più adatta, pur costando di più nel lungo periodo.",
+        "audit_excerpt": "**Flessibilità**: La formula mensile offre maggiore libertà (es. disdetta senza vincoli di durata), pur con un costo maggiore nel lungo periodo.",
+        "introduced_at": "preparation_generation_for_flexibility; preparation_audit_for_explicit_absence_of_duration_constraints",
+        "audit_effect": "Retained and strengthened an unsupported premise used in advice about choosing between the options.",
+        "severity": "material_unsupported_contractual_claim"
+      }
+    ],
+    "audit_misclassification": {
+      "claim": "Formula mensile: disdetta possibile a fine mese senza costi aggiuntivi",
+      "premises": "Assenza di vincoli specifici di rimborso per la formula mensile, ma la disdetta è intrinsecamente flessibile (pagamento mese per mese).",
+      "support": "stated",
+      "correction": "Clarificare che la disdetta mensile non implica rimborso di eventuali pagamenti già effettuati (es. se si disdice dopo pochi mesi).",
+      "evidence_ids_kind": "array",
+      "evidence_ids": [
+        "evd_0025d4f0306c412a"
+      ],
+      "evidence_ids_count": 1,
+      "evidence_ids_omitted": 0
+    },
+    "generation_model": {
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b"
+    },
+    "audit_model": {
+      "provider": "mistral",
+      "model": "ministral-8b-2512"
+    },
+    "goal_verification": {
+      "outcome": "achieved",
+      "reasoning": "Il confronto scritto richiesto è stato redatto e salvato, includendo i costi per 12 mesi, i vincoli e la nota sulla provenienza dei dati.",
+      "what_is_missing": ""
+    },
+    "prepared_text_characters": 1777,
+    "prepared_text_truncated": false,
+    "attribution_limit": "Unsupported flexibility was already introduced by generation; the audit endorsed it and added stronger unsupported wording. The error is not attributable exclusively to the fallback model."
+  },
+  "source_change_crash": {
+    "machine_passed": false,
+    "machine_failure": "ONE_ACTIVE_GOAL_REQUIRED",
+    "model_attempts": 3,
+    "model_http_requests": 3,
+    "model_calls": [
+      {
+        "provider": "mistral",
+        "model": "ministral-8b-2512"
+      },
+      {
+        "provider": "mistral",
+        "model": "ministral-8b-2512"
+      },
+      {
+        "provider": "mistral",
+        "model": "ministral-8b-2512"
+      }
+    ],
+    "discovery_recovery_observed": [
+      {
+        "response_kind": "raised",
+        "exception_type": "CancelledError"
+      },
+      {
+        "silence": false,
+        "unavailable": false,
+        "created_count": 1,
+        "updated_count": 0,
+        "skipped_count": 0,
+        "skipped": [],
+        "skipped_omitted": 0
+      }
+    ],
+    "discovery_recovery_worked": true,
+    "audited_prior_assessment": {
+      "response_kind": "object",
+      "desired_outcome": "un confronto scritto e dettagliato tra le due formule di archiviazione digitale (mensile vs. annuale) per aiutare la decisione finale",
+      "outcome_state": "open",
+      "remaining_internal_work": "preparare un confronto scritto con costi, vincoli e implicazioni pratiche delle due opzioni (mensile vs. annuale) basato sui dati disponibili",
+      "supporting_refs": [
+        "mem_43262246ed92296b9353"
+      ],
+      "supporting_refs_omitted": 0,
+      "completion_refs": [],
+      "completion_refs_omitted": 0
+    },
+    "admission_input_observed": {
+      "source_context_count": 1,
+      "source_context_unavailable": false
+    },
+    "audited_proposal_prefix_persisted_by_current_code": "Preparerò un confronto scritto con i seguenti punti chiave basati sui dati disponibili:\n\n- **Costo totale per 12 mesi**:\n  - Mensile: 15€/mese × 12 = **180€**\n  - Annuale: **120€** (pagamento anticipato)\n\n- **Vincoli e implicazioni pratiche**:\n  - Entrambe le opzioni includono **100 GB di archiviazi",
+    "admission_decision": {
+      "outcome": "no_goal",
+      "reasoning": "Il confronto scritto è già stato preparato e salvato in ORA sulla base dei dati forniti dall'utente (memoria *mem_43262246ed92296b9353*), includendo tutti i punti chiave richiesti: costi totali, vincoli pratici (assenza di rimborso per l'opzione annuale) e caratteristiche comuni. Non è necessario ripeterlo.",
+      "outcome_assessment": {
+        "response_kind": "object",
+        "desired_outcome": "un confronto scritto e completo tra le due formule di archiviazione digitale (mensile e annuale), evidenziando costi totali, vincoli pratici (es. assenza di rimborso in caso di disdetta anticipata per l'opzione annuale) e implicazioni operative, basato sui dati forniti dall'utent",
+        "outcome_state": "resolved",
+        "truncated_fields": [
+          "desired_outcome"
+        ],
+        "supporting_refs": [
+          "mem_43262246ed92296b9353: dati utente su costi (15€/mese vs. 120€ annuale), vincoli (assenza rimborso annuale), e caratteristiche uguali (100 GB, assistenza)."
+        ],
+        "supporting_refs_omitted": 0,
+        "completion_refs": [
+          "mem_43262246ed92296b9353: confronto già sintetizzato in ORA con tutti i punti chiave richiesti (costi, vincoli, assenza di rimborso)."
+        ],
+        "completion_refs_omitted": 0
+      }
+    },
+    "admission_observations": [
+      {
+        "id": "opp_eb2e7b48a36bc5ab",
+        "agent_review_revision": "2150a798c9184221a766a1061819764a",
+        "state": "settled",
+        "outcome": "no_goal",
+        "error_kind": "",
+        "attempts": 1,
+        "has_due": false,
+        "has_question": false,
+        "invalid_fields": []
+      }
+    ],
+    "failure_state": {
+      "available": true,
+      "goals_count": 0,
+      "goals": [],
+      "admission_sources_count": 1,
+      "admission_sources": [
+        {
+          "id": "opp_eb2e7b48a36bc5ab",
+          "agent_review_revision": "2150a798c9184221a766a1061819764a",
+          "state": "settled",
+          "outcome": "no_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ]
+    },
+    "executed_capabilities": [],
+    "manual_findings": [
+      "The injected CancelledError is followed by a successful discovery result creating one opportunity. This part of recovery works.",
+      "The third successful model response is a semantically unsupported no_goal/resolved decision, asserting that a comparison has already been prepared and saved.",
+      "The scenario uses its own new database; no goal or execution step exists in the final state, and the canonical source explicitly says the written comparison is still missing.",
+      "The completion_refs returned by admission append explanatory text to the source memory handle; they do not identify a supplied prepared artifact or an explicit closure statement.",
+      "The persisted settled/no_goal state has one attempt, no technical error, no due checkpoint and no question. The runner correctly does not force an unavailable retry for this validly shaped semantic decision.",
+      "A no_goal model decision does not establish that the personal need is absent. Here its asserted completion is contradicted by the source and isolated execution state."
+    ],
+    "context_loss_confirmed_in_code": {
+      "candidate": "backend/opportunities/service.py::_read_candidate copies prose and evidence_refs but omits outcome_assessment.",
+      "models": "backend/opportunities/models.py::OpportunityCandidate and Opportunity do not retain the prior assessment.",
+      "admission": "backend/agent/admission.py::drain forwards the proposal prose and initiative; backend/agent/service.py::consider separately reads current owner-scoped Memory previews.",
+      "source_provenance": "Current Memory previews include source=memory, authority, epistemic_status, recorded_at and excerpt coverage. Source provenance is present; the discarded prior model assessment and proposal origin are the distinct context issue.",
+      "assessment_contract": "backend/agent/reasoning.py::goal_decision_invalid_fields intentionally treats outcome_assessment as diagnostic and does not override valid no_goal decisions."
+    },
+    "causal_limit": "The loss of the prior open assessment is proven in code, and the unsupported resolved decision is proven in the report. That the detailed proposal wording caused the model confusion is a plausible inference, not established model causality.",
+    "minimal_context_proposal": {
+      "status": "proposal_only_at_review_time",
+      "change": "Preserve the previous bounded assessment with the proposal, scoped to its owner/revision, explicitly model-origin and non-authoritative, using only supplied owned references; pass it separately from reread current sources.",
+      "invariants": [
+        "Current source facts remain distinct from prior model judgments and from actual completed artifacts.",
+        "Updates or withdrawal replace or retire old context; legacy absence remains valid.",
+        "No automatic goal creation, no no_goal override, no new semantic admission gate or retry budget.",
+        "No new business, domain or keyword rule; usefulness remains a model judgment.",
+        "Preserving context is not proof that a future real-model run will become semantically correct."
+      ]
+    }
+  }
+}

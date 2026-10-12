@@ -8,7 +8,7 @@ import { ora, oraShadow, oraType } from '@/src/theme/oraSurface';
 import { OraLink } from '@/src/components/ora-ui';
 import { tokens } from '@/src/theme/tokens';
 import { api, type HomeCurrentSituation, type HomeItem } from '@/src/api/client';
-import { calendarEntries } from './calendarItems';
+import { calendarEntries, calendarMonthMarks } from './calendarItems';
 
 const WEEKDAYS = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
 
@@ -63,6 +63,7 @@ export function ContextRail({
   const [selected, setSelected] = useState<Date | null>(null);
   const [manual, setManual] = useState<{ id: string; title: string; starts_at: string }[]>([]);
   const [manualMarks, setManualMarks] = useState<string[]>([]);
+  const [monthLoading, setMonthLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dayError, setDayError] = useState('');
   const [dayLoading, setDayLoading] = useState(false);
@@ -85,9 +86,11 @@ export function ContextRail({
 
   useEffect(() => {
     let live = true;
+    setMonthLoading(true);
     api.homeMonthDays(monthKey).then((days) => {
-      if (live) setManualMarks(days);
-    }).catch(() => undefined);
+      if (live) setManualMarks(calendarMonthMarks(days));
+    }).catch(() => undefined)
+      .finally(() => { if (live) setMonthLoading(false); });
     return () => { live = false; };
   }, [monthKey, reloadDay, items]);
 
@@ -129,7 +132,7 @@ export function ContextRail({
   );
 
   const markedDays = useMemo(() => {
-    const set = new Set<string>(manualMarks.map((day) => String(Number(day))));
+    const set = new Set<string>(manualMarks);
     for (const { at } of dated) {
       if (at.getFullYear() === cursor.getFullYear() && at.getMonth() === cursor.getMonth()) {
         set.add(String(at.getDate()));
@@ -189,7 +192,7 @@ export function ContextRail({
   ].filter((s) => s.value > 0);
 
   return (
-    <View style={styles.rail} testID="home-context-rail">
+    <View style={styles.rail} testID="home-context-rail" aria-busy={monthLoading}>
       {/*
         Il giorno, prima di tutto. Non è una card: è la riga che dice dove sei
         nel tempo, e da lì in giù si legge l'agenda.

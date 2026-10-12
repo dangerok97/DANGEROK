@@ -189,6 +189,17 @@ IntentStatus = Literal[
 ]
 
 
+class MemoryReadRange(BaseModel):
+    """A bounded reader cursor, not a claim that the whole Memory was read."""
+
+    ref: str = Field(min_length=1, max_length=160)
+    offset: int = Field(ge=0)
+    end: int = Field(ge=0)
+    total: int = Field(ge=0)
+    version: str = Field(min_length=64, max_length=64)
+    next_offset: Optional[int] = Field(default=None, ge=0)
+
+
 class ResultProvenance(BaseModel):
     """
     Where a result came from, attached to the result itself.
@@ -211,6 +222,10 @@ class ResultProvenance(BaseModel):
     # Only the Memory reader attests a genuinely empty bounded selection.
     # Legacy unreferenced claims cannot be certified from today's database.
     memory_read_scope: Literal["", "empty", "versioned"] = ""
+    # Unlike the internal source-version fence, these code-issued cursors are
+    # reasoning input. Persist them with the evidence so a restarted worker
+    # can continue an excerpt without inventing a previously read position.
+    memory_reads: List[MemoryReadRange] = Field(default_factory=list, max_length=8)
     freshness: Freshness = "unknown"
     # Code attests a completed, sufficient research run with cited claims.
     # Unknown on legacy evidence; this does not certify geographic relevance.
@@ -237,6 +252,8 @@ class ResultProvenance(BaseModel):
             "research_valid_until": self.research_valid_until,
             "weather_valid_until": self.weather_valid_until,
             "note": self.certainty_note or None,
+            **({"memory_reads": [read.model_dump() for read in self.memory_reads]}
+               if self.memory_reads else {}),
         }
 
 
@@ -638,6 +655,27 @@ def how_we_say_the_source(kind: str, created_at: str = "") -> str:
     return f"{da} del {quando}" if quando else da
 
 
+class PreparedResultReview(BaseModel):
+    """An explicit incomplete verdict about one exact internal preparation.
+
+    Its absence is not a positive verification. Identity and digest are
+    code-owned binding fields and never part of the public diagnosis.
+    """
+
+    prepared_result_id: str = Field(default="", max_length=64)
+    artifact_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    outcome: Literal["partial", "uncertain"]
+    what_is_missing: str = Field(default="", max_length=300)
+    reasoning: str = Field(default="", max_length=400)
+    reviewed_at: str = Field(default_factory=now_iso)
+
+    @model_validator(mode="after")
+    def _aware_review_time(self):
+        if datetime.fromisoformat(self.reviewed_at.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("prepared review time must have a timezone")
+        return self
+
+
 class AutonomousGoal(BaseModel):
     """
     An outcome ORA is trying to bring about.
@@ -704,6 +742,10 @@ class AutonomousGoal(BaseModel):
     source_review_pending: str = Field(default="", exclude=True)
     prepared_text: str = Field(default="", max_length=4000)
     prepared_sources: List[str] = Field(default_factory=list, max_length=12)
+    # Minted only when a preparation is actually saved, never while reading a
+    # legacy goal. Even an identical new draft is a new review target.
+    prepared_result_id: str = Field(default="", max_length=64)
+    prepared_review: Optional[PreparedResultReview] = None
     situation_outcome: Optional[SituationOutcomeAssessment] = None
 
     def touch(self) -> None:
@@ -729,6 +771,8 @@ class AutonomousGoal(BaseModel):
         anche `source` (da dove nasce, in italiano) e `needs_you` (che cosa
         serve alla persona adesso, o niente).
         """
+        from agent.prepared_review import current_prepared_review
+
         cosa, quale = self._as_definite_as_i_really_am(self.objective)
         return {
             "id": self.id,
@@ -740,6 +784,7 @@ class AutonomousGoal(BaseModel):
             "planning_unavailable": self.planning_unavailable,
             "source": self.where_it_came_from(),
             "prepared_text": self.prepared_text or None,
+            "prepared_review": current_prepared_review(self),
             "needs_you": self.what_it_needs_from_you(),
             #     E SE NON SO QUALE, LO DICO.
             "unclear": (
@@ -807,6 +852,15 @@ class AutonomousGoal(BaseModel):
     def for_ai(self) -> Dict[str, Any]:
         return {
             "objective": self.objective,
+            # Code-owned origin, not another model inference: autonomous
+            # success criteria are proposed hypotheses, not user demands.
+            "origin": self.origin,
+            "decision_provenance": self.decision_provenance,
+            "criteria_source": (
+                "ora_inferred_not_user_instruction"
+                if self.origin == "agent_initiated" and self.decision_provenance == "model"
+                else "check_explicit_user_requirements"
+            ),
             "source_kind": self.source_kind,
             "source_refs": self.source_refs,
             "user_clarifications_not_authority": self.clarifications,
@@ -896,6 +950,8 @@ class ActionStep(BaseModel):
             "input_refs": list(self.input_refs),
             "document_offset": self.parameters.get("document_offset") if self.capability_needed == "document.read" else None,
             "document_version": self.parameters.get("document_version") if self.capability_needed == "document.read" else None,
+            "memory_offset": self.parameters.get("memory_offset") if self.capability_needed == "information.read" else None,
+            "memory_version": self.parameters.get("memory_version") if self.capability_needed == "information.read" else None,
             "wait_until": self.parameters.get("wait_until") if self.step_type == "wait" else None,
             "wait_minutes": self.parameters.get("wait_minutes") if self.step_type == "wait" else None,
             # Legacy v60 plans remain readable while new plans use minute/absolute timing.
@@ -1352,6 +1408,9 @@ class VisibilityDecision(BaseModel):
     # Handles back to what actually happened. Never content.
     refs: List[str] = Field(default_factory=list, max_length=8)
     memory_source_snapshot: str = Field(default="", max_length=64)
+    # None denotes older, unbound records; "" explicitly means that this
+    # judgement concerned work with no prepared artifact yet.
+    prepared_result_ref: Optional[str] = Field(default=None, max_length=160)
     # What this update is *about*, so the same thing said twice is recognised
     # as the same thing rather than as news.
     fingerprint: str = Field(default="", max_length=64)
@@ -1441,6 +1500,11 @@ class CommunicationNeed(BaseModel):
     # Handles back to the work: goal, journal, evidence. Never content.
     source_refs: List[str] = Field(default_factory=list, max_length=8)
     memory_source_snapshot: str = Field(default="", max_length=64)
+    # Immutable identity and digest of the preparation judged worth saying.
+    prepared_result_ref: Optional[str] = Field(default=None, max_length=160)
+    # Captured from the goal whose final visibility was judged. A delayed
+    # intermediate update cannot borrow a later completion at delivery time.
+    goal_completed_at: Optional[str] = Field(default=None, max_length=64)
     # The visibility judgement this grew out of, kept so the two can be read
     # together afterwards.
     visibility: OutcomeVisibility = "inform_user"

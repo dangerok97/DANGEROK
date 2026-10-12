@@ -28,6 +28,10 @@ async def test_due_checkpoint_reactivates_waiting_provider_step():
     db = AsyncMongoMockClient().test
     service = AgentService(db)
     goal = _goal()
+    # advance persists this technical continuation before resuming the due
+    # external wait; a missing next judgement must not erase it.
+    technical_retry = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+    goal.next_run_at = technical_retry
     step = ActionStep(
         id="step_mail",
         ordinal=0,
@@ -61,7 +65,8 @@ async def test_due_checkpoint_reactivates_waiting_provider_step():
     assert goal.status == "active"
     assert plan.status == "active"
     assert plan.steps[0].status == "pending"
-    assert goal.next_run_at is None
+    assert goal.next_run_at == technical_retry
+    assert (await service.repo.get_goal("alice", goal.id)).next_run_at == technical_retry
 
     journal = await db.agent_journal.find_one(
         {"owner_id": "alice", "goal_id": goal.id, "kind": "external_checkpoint_due"},

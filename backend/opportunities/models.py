@@ -26,9 +26,9 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 # How much this matters to this person, in words that carry their reasoning.
 Relevance = Literal["low", "medium", "high"]
@@ -145,6 +145,61 @@ class EvidenceRef(BaseModel):
     summary: str = Field(default="", max_length=240)
 
 
+class OpportunityOutcomeAssessment(BaseModel):
+    """Bounded decision context, never a source or proof of completion."""
+
+    model_config = ConfigDict(strict=True)
+
+    desired_outcome: Optional[str] = Field(default=None, max_length=280)
+    outcome_state: Literal["open", "resolved", "not_established"]
+    remaining_internal_work: Optional[str] = Field(default=None, max_length=280)
+    supporting_refs: List[Annotated[str, Field(max_length=120)]] = Field(default_factory=list, max_length=8)
+    completion_refs: List[Annotated[str, Field(max_length=120)]] = Field(default_factory=list, max_length=8)
+    context_truncated: bool = False
+
+    @classmethod
+    def from_proposal(cls, raw: Any, cited_refs: set[str]) -> Optional["OpportunityOutcomeAssessment"]:
+        # This optional metadata must not change whether a proposal is accepted.
+        if not isinstance(raw, dict) or raw.get("outcome_state") not in (
+            "open", "resolved", "not_established"
+        ):
+            return None
+        values = {"outcome_state": raw["outcome_state"], "context_truncated": False}
+        for key in ("desired_outcome", "remaining_internal_work"):
+            value = raw.get(key)
+            if value is not None and not isinstance(value, str):
+                return None
+            values[key] = value[:280] if value is not None else None
+            values["context_truncated"] |= value is not None and len(value) > 280
+        for key in ("supporting_refs", "completion_refs"):
+            refs = raw.get(key, [])
+            if not isinstance(refs, list):
+                return None
+            kept = []
+            for ref in refs[:32]:
+                if (isinstance(ref, str) and ref in cited_refs and len(ref) <= 120
+                        and ref not in kept and len(kept) < 8):
+                    kept.append(ref)
+            values[key] = kept
+            values["context_truncated"] |= kept != refs
+        return cls(**values)
+
+
+class PriorOpportunityAssessment(BaseModel):
+    """Code-owned scope for a previous, explicitly non-authoritative judgment."""
+
+    model_config = ConfigDict(strict=True)
+
+    origin: Literal["model"] = "model"
+    authoritative: Literal[False] = False
+    owner_id: str = Field(min_length=1, max_length=160)
+    opportunity_id: str = Field(min_length=1, max_length=120)
+    # Content revision, using the existing admission fingerprint. Diagnostics
+    # themselves do not change that fingerprint or reopen an admission budget.
+    proposal_revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    assessment: OpportunityOutcomeAssessment
+
+
 class OpportunityCandidate(BaseModel):
     """
     What the model proposed during one scan.
@@ -171,6 +226,7 @@ class OpportunityCandidate(BaseModel):
     what_ora_can_do: str = Field(default="", max_length=300)
 
     evidence: List[EvidenceRef] = Field(default_factory=list, max_length=8)
+    outcome_assessment: Optional[OpportunityOutcomeAssessment] = None
 
     # What the model could not establish, and what it would ask.
     requires_clarification: bool = False
@@ -216,6 +272,7 @@ class Opportunity(BaseModel):
     what_ora_can_do: str = Field(default="", max_length=300)
 
     evidence: List[EvidenceRef] = Field(default_factory=list, max_length=8)
+    outcome_assessment: Optional[PriorOpportunityAssessment] = None
     # Which scan produced it, for tracing a judgement back to its inputs.
     source_context: str = Field(default="", max_length=120)
 
@@ -254,7 +311,43 @@ class Opportunity(BaseModel):
     created_at: str = Field(default_factory=now_iso)
     updated_at: str = Field(default_factory=now_iso)
 
+    @field_validator("outcome_assessment", mode="before")
+    @classmethod
+    def _optional_assessment(cls, value):
+        # Legacy absence and malformed optional metadata never invalidate the
+        # actual opportunity or become a new technical admission failure.
+        if value is None:
+            return None
+        try:
+            return PriorOpportunityAssessment.model_validate(value)
+        except (ValidationError, TypeError):
+            return None
+
+    def bind_outcome_assessment(self, assessment: Optional[OpportunityOutcomeAssessment]) -> None:
+        from agent.admission import fingerprint
+
+        self.outcome_assessment = (
+            PriorOpportunityAssessment(
+                owner_id=self.owner_id, opportunity_id=self.id,
+                proposal_revision=fingerprint(self), assessment=assessment.model_copy(deep=True),
+            ) if assessment is not None and self.status == "active" else None
+        )
+
+    def previous_model_assessment(self) -> Optional[Dict[str, Any]]:
+        from agent.admission import fingerprint
+
+        prior = self.outcome_assessment
+        if (prior is None or self.status != "active" or prior.owner_id != self.owner_id
+                or prior.opportunity_id != self.id or prior.proposal_revision != fingerprint(self)):
+            return None
+        cited = {item.ref for item in self.evidence}
+        if not set(prior.assessment.supporting_refs + prior.assessment.completion_refs) <= cited:
+            return None
+        return prior.model_dump(mode="json")
+
     def touch(self) -> None:
+        if self.outcome_assessment is not None and self.previous_model_assessment() is None:
+            self.outcome_assessment = None
         self.updated_at = now_iso()
 
     @property

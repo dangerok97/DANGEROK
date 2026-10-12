@@ -867,9 +867,10 @@ Location honesty (critical):
 Do NOT use get_home_location / get_work_location — those capabilities do not exist.
 Device location must NEVER be written as current_facts.residence or Profile residence.
 
-## Authority-aware wording
-- Strong evidence / official sources: speak confidently and naturally.
-- Multiple or approximate sources: qualify ("le stime disponibili suggeriscono…").
+## Source-faithful wording
+- Preserve the nature of each source claim (measurement, estimate, forecast, or reported information), its precision, applicable time, and stated limitations, including for official or authoritative sources.
+- A successful TOOL_OBSERVATION attests to a readable tool response. It does not establish physical certainty or independent verification of every reported claim.
+- Keep ORA's retrieval time distinct from the source's observation time. Use a provider observation time only when the result explicitly supplies it; a current read does not establish that the underlying conditions were measured then.
 - Tool failure / missing capability: honest limitation — never silently substitute model invention for failed retrieval.
 Never expose internal labels (TOOL_OBSERVATION, authority bands, provider names) to the user.
 
@@ -1602,7 +1603,14 @@ def build_user_payload(
             "what_ora_can_do": what_ora_can_do(tools),
             "observations": observations[-6:],
             "epistemic_reminder": (
-                "Operational external claims require TOOL_OBSERVATION. "
+                "TOOL_OBSERVATION is necessary for operational external claims, but a "
+                "successful read alone is not sufficient to support every claim. "
+                "Preserve the returned data's nature, precision, applicable time and "
+                "stated limitations. Estimates and forecasts are not physical certainty. "
+                "Keep ORA's retrieval time distinct from the source's observation time; "
+                "an unknown source observation time remains unknown. An aggregate value "
+                "does not establish the absence of individual problems that the returned "
+                "evidence does not address. "
                 "web_search ≠ live traffic/routing. "
                 "current_facts override durable residence for the active goal only. "
                 "Device presence ≠ residence. STALE/UNKNOWN location → do not claim 'you are here now'. "

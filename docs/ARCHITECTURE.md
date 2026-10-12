@@ -1,6 +1,694 @@
+# 12 ottobre 2026 — v162, integrazione del ramo concorrente verificata
+
+La cronologia conserva il ramo concorrente fino a `06d2d9e`. Restano i suoi
+log diagnostici compatti e il relativo test, integrati con i controlli separati
+di risultato, Home, replay, owner e isolamento del candidato locale `e624015`.
+
+La trasformazione automatica introdotta da `7c28019` viene ritirata dopo due
+review indipendenti e controprove sul suo blob esatto. Associava tutti gli importi
+a tutti i periodi della frase: due durate diverse diventavano falsamente comuni.
+Un canone mensile precedente all'importo veniva trattato come totale; separatori
+delle migliaia, componenti del costo e attribuzioni fra fonti producevano altri
+errori. Quattro controprove sono state riprodotte anche dal root, senza modello,
+HTTP, esecuzione dell'app o dati dell'utente. L'audit successivo era presente:
+non si afferma che ogni aggiunta errata sia stata salvata. Il risultato utile
+resta responsabilità dei contratti di preparazione, audit e verifica sulle fonti.
+
+Verifica dell'integrazione: **1.416 PASS, 1 SKIP, 115 moduli, 37,60 s**;
+scripted **9/9**, zero chiamate modello, HTTP modello ed effetti esterni.
+La produzione coincide con il candidato già verificato: il solo nuovo codice
+mantenuto è il diagnostico nel runner, con il suo test. Configurazione nativa e
+TypeScript sono invariati rispetto alle verifiche precedenti. Il test del log
+attesta formato e limite, non una troncatura reale o un redattore di dati arbitrari.
+CI e prove reali devono ancora attestare l'head integrato dopo la pubblicazione.
+
+Evidenze: `docs/evidence/autonomy_v162_concurrent_math_review_2026-10-12_7c28019.json`
+e `docs/evidence/autonomy_v162_local_integration_2026-10-12.json`.
+Tarquinia e l'obiettivo del ritiro restano confermati; la vecchia stesura è chiusa.
+Il limite già documentato sul deploy dell'app e sulla verifica nativa resta aperto.
+
+---
+
+# 12 ottobre 2026 — v162, completezza del risultato e collegamento nativo
+
+L'audit della preparazione controlla ora anche i risultati sostanziali mancanti
+rispetto al bisogno attestato. Deve integrare le conclusioni sostenute dalle fonti
+correnti e verificarne premesse e citazioni. Il verifier confronta il contenuto con
+l'esito personale: un criterio generato che dice soltanto «documento disponibile»
+non sostituisce il confronto richiesto. Requisiti derivati e richiesta non sono
+promossi a prove; non si inventano premesse o condizioni.
+
+Il promemoria accanto alle osservazioni degli strumenti conserva natura, precisione,
+tempo e limiti dei dati. Una lettura riuscita non sostiene qualsiasi conclusione,
+una stima non è certezza fisica e un aggregato non dimostra assenza di criticità.
+La sezione di sistema precedente era già inoltrata: non è stata trovata una perdita
+del prompt. Questa è una precisazione delle istruzioni, da collaudare sul modello.
+
+Il runner registra separatamente i controlli di risultato, Home, replay, owner e
+isolamento anche quando il testo non supera il matcher. Il controllo semantico
+originale e il suo FAIL restano obbligatori; un controllo non eseguito resta tale.
+Non è una modifica al percorso di consegna dell'app o alle fonti sintetiche.
+
+La configurazione Expo usa `EXPO_PUBLIC_EAS_PROJECT_ID` quando non è già presente
+`extra.eas.projectId`, preservando gli altri campi. Sei verifiche sul resolver
+effettivo passano; nessun ID, account o credenziale è stato inventato. Occorrono
+l'UUID del progetto reale e un backend raggiungibile dal telefono per la build.
+
+Verifica locale del candidato: **1.415 PASS, 1 SKIP, 115 moduli, 38,78 s**; scripted **9/9**, zero chiamate modello, HTTP modello ed effetti esterni.
+
+La nuova base `c59db28` (Vision PR 215) è integrata: i dodici file interessati
+restano identici a quel commit. Non cambiano provider predefiniti, budget di
+esecuzione, scheduler, dipendenze o schema del database. I limiti locali della
+bozza e l'autenticazione letterale delle citazioni restano invariati; autenticità
+non significa automaticamente supporto della conclusione.
+
+Tarquinia resta la località confermata e la vecchia stesura resta chiusa. Il percorso
+del bucato è coperto da motore reale con risposte sintetiche; non è ancora attestata
+una prova unica con meteo/ricerca reali, attesa fisica e notifica nativa osservata.
+La patch app Railway `eb9c3870` è bloccata dal rifiuto automatico precedente e non
+viene aggirata tramite merge. La lettura primaria delle 09:22 UTC attesta backend
+e web su `c59db28` (Vision), mentre la patch resta STAGED con cinque modifiche.
+Il candidato di autonomia non è applicato all'app; il servizio tecnico è distinto.
+Export e browser non provano firma, installazione o comparsa della notifica ad app chiusa.
+
+---
+
+# 12 ottobre 2026 — v162, calcoli conservati e qualificazione delle fonti
+
+Il candidato chiarisce che un calcolo derivato cita gli operandi e le
+condizioni della fonte: il risultato non deve essere già scritto nella fonte.
+L'audit deve conservare i calcoli sostenuti e rendere conto delle eliminazioni
+materiali. La diagnosi `preparation_protocol` descrive il precedente difetto di
+formato, distinto dal supporto fattuale e dal contenuto della nuova bozza.
+La richiesta di concisione evita ripetizioni senza troncare il testo nel codice.
+
+La provenienza viene espressa in italiano comprensibile e le istruzioni della
+conversazione conservano tipo, precisione, tempo e limiti del dato anche se il
+provider è autorevole. Una lettura effettiva attesta la risposta ricevuta;
+non trasforma una stima in osservazione fisica o il clock ORA nel tempo del provider.
+
+Restano due chiamate per preparazione e audit, payload di 9.000 caratteri,
+bozza di 4.000, 1–12 righe di revisione e massimo tre citazioni da 280 caratteri
+per riga. Lo schema nativo cambia solo nelle descrizioni. Il limite stringa
+resta verificato localmente: il sottoinsieme documentato di `responseJsonSchema`
+nel canale Gemini attuale non attesta un enforcement portabile di `maxLength`.
+La verifica letterale continua a certificare solo l'autenticità della citazione.
+Il recupero di risultato e consegna già presente conserva gli stessi due slot,
+lease, tre tentativi, backoff e controlli di validità.
+
+Verifica locale del candidato: **1.407 PASS, 1 SKIP, 114 moduli, 36,59 s**; scripted **9/9**, zero LLM/HTTP/effetti.
+
+Dettagli e fonti: `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
+# 12 ottobre 2026 — v162, autenticità delle citazioni e provenienza temporale
+
+## Confine dell'audit
+
+Ogni voce `claim_review` contiene `source_quotes` con `evidence_id` e `quote`.
+Lo schema nativo limita gli ID alle righe effettivamente conservate nel payload
+di quello specifico audit. Il controllo locale positivo richiede una revisione
+di 1–12 voci, al massimo tre citazioni per voce e 280 caratteri per citazione.
+Le voci `stated` e `derived` richiedono almeno una citazione autentica.
+
+Il testo deve essere una sottostringa letterale del `claim` della singola fonte
+indicata e citata nella stessa voce: niente normalizzazione, ricerca in altre
+righe o uso dei metadati come testo della fonte. Una violazione produce feedback
+strutturale e rifiuta la nuova bozza. L'audit negativo conserva il rifiuto.
+Owner, versione, correzione/revoca Memory e controllo prima della persistenza
+restano attivi. Autenticità e implicazione logica sono proprietà distinte.
+
+## Pianificazione e osservazione del recupero
+
+Il journal `planning_protocol_invalid` conserva solo diagnosi strutturali
+limitate, tentativo e identità dell'`AgentRun` esistente. Il report associa la
+diagnosi al run effettivamente osservato, allo stesso owner/goal e tentativo;
+quando il legame manca la omette. Un nuovo ciclo sullo stesso goal non eredita
+un errore storico soltanto perché il contatore è tornato a uno.
+
+Il runner osserva il tentativo tecnico già salvato anche nei casi diversi da
+`planning_outage`. Avanza esclusivamente attraverso il worker/wake esistente,
+con lo stesso tetto di quattro tentativi. Non crea goal, non legge la fonte per
+conto del modello e non aggira attese, domande, consenso o rinvii dell'utente.
+Restano l'asserzione di una sola lettura e gli stessi oracoli di completamento,
+Home, revoca e replay. Le diagnosi non modificano il verdetto.
+
+## Stime di percorso
+
+`places/routing.py` aggiunge ai soli successi `duration_kind=estimate`,
+`retrieved_at` dal clock UTC al termine della lettura,
+`retrieval_time_source=ora_clock_not_provider_observation_time` e
+`provider_as_of`, nullo con gli adapter attuali. Non modifica durata, distanza,
+provider, modalità o classificazione dei fallimenti. I campi attraversano
+capability, Observation e payload del modello e sono conservati nella proiezione
+del report pubblico. Nessun nuovo prompt o criterio del verdetto pubblico.
+
+Il consumer `route.read` conserva la natura di stima e qualifica la propria
+provenienza: l'età della risposta letta da ORA non certifica l'istante delle misure
+di traffico. Usa solo un tempo di lettura attestato; il payload legacy senza tale
+tempo resta esplicitamente di età sconosciuta. Non cambia i gate globali della
+freschezza, i riferimenti dei luoghi o il divieto di persistere coordinate.
+
+## Recupero della consegna
+
+Il Need conserva l'intenzione tecnica di chiedere un giudizio Delivery prima
+dell'await, con un indice operativo per riprenderla. La lane di ammissione già
+esistente reclama il lavoro con lease e tentativi limitati; non crea un piano,
+un canale o un testo di notifica senza la decisione effettiva. Silenzio e risposta
+in-app restano scelte concluse, distinte dall'indisponibilità tecnica. Il budget
+complessivo del passaggio rimane quello esistente.
+
+Il cap di tre giudizi ammette il solo recupero di un piano materiale dopo un
+crash dell'ultimo tentativo: non autorizza un quarto giudizio. Una lease persa
+blocca la risposta tardiva prima del salvataggio del piano e del provider.
+La ricerca limitata del piano pertinente ignora i terminali storici; un piano
+aperto ma scaduto non attesta l'handoff corrente. La precedenza di un secondo
+owner viene cercata fra le code prima del ritorno allo stesso account.
+
+Prima della scrittura terminale del goal viene registrato anche il checkpoint
+interno `completion_visibility`, legato a owner, goal, run, completed_at e
+identità del risultato. Il recupero si attiva soltanto sullo stesso risultato
+effettivamente completato: non riapre il goal e non riesegue il piano. Il
+candidato Visibility proviene dal modello e viene conservato prima dei successivi
+controlli sulla fonte; resta non ammesso finché quei controlli non passano.
+
+La ripresa di questo passaggio consuma uno dei due slot della stessa lane, entro
+il limite del worker di 125 secondi. Può registrare il Need per il prossimo slot,
+senza chiamare anche il modello Delivery nello stesso slot. Un candidato già
+salvato viene riletto e ricontrollato senza una nuova decisione del modello.
+Il cap di tre tentativi resta esplicito; l'assenza tecnica della risposta è
+distinta dal silenzio deciso. Il candidato salvato può completare i controlli
+senza un nuovo giudizio, entro la validità della fonte e al massimo i 14 giorni
+del ledger Home. Il successivo recupero Home non aggiunge giudizi.
+
+Gli indici operativi aggiunti sono `(status, delivery_review_due)` sui Need e
+`(status, completion_visibility.pending, completion_visibility.due_at)` sui goal.
+Sono additivi; i checkpoint rimangono fuori dai DTO pubblici e dal contesto dato
+al modello. Non viene introdotto un indice TTL che cancelli il goal.
+
+Un errore temporaneo nel rileggere il luogo della fonte meteo viene propagato
+come indisponibilità alla consegna, che usa il differimento già presente.
+Un luogo assente, modificato o di altro owner resta una fonte non valida.
+Scadenza, revoca e chiusura non possono essere convertite in un avviso da inviare.
+
+La deduplicazione del recupero riguarda un piano già salvato come `delivered`.
+Il piano ancora pending deve avere un'attivazione durevole per essere ripreso.
+Resta distinto il confine preesistente tra accettazione del provider e salvataggio
+locale: queste prove non attestano una consegna esterna exactly-once in quel crash.
+
+## Verifica
+
+Locale **1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**; nove scenari scripted senza chiamate reali o effetti esterni.
+Il recupero della consegna Situation viene verificato separatamente dal contenuto
+stimato e dalla notifica visibile su dispositivo. La prova nativa resta aperta.
+Report e confini delle nuove regressioni: `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 `vision_catalog_extended` compone tre raccolte additive, 50 ricette originali in nove primitive. `common_recipes()` conserva le venti ricette storiche; `all_recipes()` le integra con la nuova raccolta. `seeds()` e `METADATA` usano lo stesso insieme. Nessuna modifica a schema dati o servizio di pubblicazione. Il renderer include il massimo ingrandimento prospettico nel calcolo di adattamento: insieme e componente focalizzato restano entro la visuale allo zoom iniziale, anche per i nuovi gruppi larghi o profondi. I manifest dei 25 seed storici conservano il fingerprint canonico.
+
+---
+
+# 12 ottobre 2026 — v162, contratto dei passi e schema della preparazione
+
+## Rivalutazione del piano
+
+`agent/reasoning.py` condivide tra pianificazione e rivalutazione un unico
+contratto dichiarativo del passo. `agent/service.py` normalizza soltanto alias
+effettivamente esposti da `ActionStep.for_ai()`: `type`, `what_kind_of_change`,
+`execution_parameters` e cursori/versioni o tempi di attesa appiattiti. Non
+ricostruisce parametri nascosti da una vista parziale, non assegna autorità e non
+riutilizza identità o stati forniti dal modello. Campi in conflitto, tipi non JSON,
+valori non finiti e dichiarazioni parziali di effetti o domande sono rifiutati.
+
+Una decisione `modify` valida tutti i nuovi passi prima di registrare una
+revisione riuscita, ritirare passi pendenti o salvare una valutazione dell'esito.
+La lista deve essere non vuota e rientrare nello spazio residuo del piano. Un
+errore rifiuta l'intero gruppo, registra `replan_protocol_invalid` con diagnosi
+limitata e usa la sospensione/continuazione durevole esistente. Le protezioni
+sulle fonti, la storia conclusa, i budget e la scelta del modello restano attivi.
+
+## Generazione e audit
+
+Il parametro opzionale `response_schema` attraversa `research._ask_model`,
+`LLMManager` e gli adapter senza modificare le chiamate che non lo richiedono.
+Gemini usa `response_json_schema`; Groq, Mistral e OpenAI usano
+`response_format.json_schema`; Ollama usa `format`. Emergent segnala la
+funzionalità non supportata e segue il recupero di configurazione già esistente.
+Un rifiuto del provider non causa un secondo tentativo senza schema.
+
+`agent/preparation_schema.py` costruisce due contratti nuovi per ciascuna
+invocazione: generazione e audit. Gli ID ammessi provengono esclusivamente dalle
+evidenze rimaste nel payload di quella chiamata, dopo la rispettiva riduzione del
+contesto. L'audit può rispondere `verified=false`; il contratto non gli impone di
+approvare. I controlli locali continuano a rifiutare contenuti non testuali,
+citazioni estranee, booleani errati e testi oltre il limite di 4.000 caratteri.
+La lunghezza descritta al provider non sostituisce tale limite locale.
+
+Il runner conserva entro il medesimo limite di 12 osservazioni i contesti iniziali,
+l'ultima generazione, l'ultimo audit e l'attività recente. Generazione e audit
+conservati possono riferirsi a esecuzioni diverse: gli identificativi restano
+necessari per attribuire una risposta. Nessun nuovo scheduler, modello predefinito,
+configurazione, dipendenza o schema persistito è introdotto da questa modifica.
+
+La verifica locale del candidato è **1.088 PASS, 1 SKIP**, più **9/9 scripted**.
+La prova con i provider reali e la correttezza semantica restano gate aperti;
+vedere `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
+# 12 ottobre 2026 — v162, decisioni valide e contesto conservato
+
+Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.
+
+Le scelte execute/skip riferite a passi mancanti o non più eseguibili non possono
+eseguire o saltare un altro passo per fallback. La decisione invalida ritorna alla
+rivalutazione ordinaria con una diagnosi bounded, entro gli stessi budget.
+Il modello mantiene la scelta di continuare, modificare, chiedere o attendere.
+
+Le risposte di preparazione con tipi/citazioni non validi continuano a essere
+rifiutate. Il recupero conserva una diagnosi strutturale specifica al contesto,
+senza convertire oggetti in testo, inventare una bozza o trattare feedback come
+fonte. La valutazione precedente dell'esito di un'opportunità resta disponibile
+all'ammissione come contesto del modello non autorevole: è separata dalle fonti
+correnti e non impone la creazione del goal né annulla un no_goal valido.
+Il binding riguarda la revisione della proposta, owner e riferimenti citati;
+non introduce un nuovo digest delle Memory. AgentService.consider continua
+a rileggere le fonti correnti e a mostrarle separatamente al modello.
+
+La scelta successiva tenta ora la condivisione esatta di testo e tabelle
+ricostruibili anche quando non esiste ancora una preparazione corrente.
+In quel percorso non sono consentite omissioni di storia generata o descrizioni
+dei passi conclusi; fonti, cursori, limiti, criteri e orologio restano integrali.
+Un contesto materiale ancora troppo grande resta indisponibile. Il confronto
+di copie distingue anche booleani e numeri, che Python considera altrimenti uguali.
+
+Il rapporto 14B mostra tre scelte senza risposta e senza una nuova chiamata al
+modello dopo la lettura riuscita nel caso source_change_crash. Non conserva
+il payload integrale. La riproduzione locale è quindi dichiaratamente sintetica,
+costruita da repository e reader reali: dimostra che il solo dedup dei candidati
+può eccedere 9.000 caratteri mentre la condivisione esatta consente di consegnare
+le medesime informazioni allo SDK. Non viene presentata come cattura HTTP storica.
+
+Il calendario Home normalizza la risposta dei giorni prima di usarla come array.
+Un payload oggetto non crea eventi né provoca il crash del dettaglio. La prova
+browser attende ora il callback Home effettivo prima della navigazione; la fixture
+malformata e l'asserzione sugli errori restano intatte. I vecchi 4/4 locali avevano
+lasciato sfuggire questo problema di tempi. Le fixture v141 persistono il goal
+prima del controllo della concorrenza o dell'assenza di prove, mantenendo gli assert.
+Il vecchio test unitario v4 che prescriveva il fallback su un altro passo viene
+aggiornato a verificare il rifiuto della scelta invalida e gli stati immutati.
+Il vecchio test di contesto con stesso id e definizioni diverse non richiede
+più indisponibilità quando le informazioni entrano senza perdite: richiede
+il ripristino integrale e tipizzato di entrambe le definizioni e la decisione
+invariata. L'overflow materiale distinto continua a impedire la chiamata.
+
+## Esiti conservati e limiti della prova
+
+Il candidato `2e848b6` ha **5/9 PASS automatici**, 69 chiamate logiche e 88 HTTP;
+**non è accettato alla lettura manuale**. Il testo di completed_result contiene
+calcoli 180/120/60 corretti, ma inventa condizioni mensili di disdetta, rimborso
+e assenza di vincoli. La generazione introduce parte dell'errore e l'audit lo
+conferma/aggrava. Il PASS bounded non copre queste clausole. I tre casi
+planning_outage/home_write_retry/memory_corrected esauriscono il budget;
+source_change_crash recupera Discovery ma riceve un no_goal non sostenuto.
+Le 69 risposte riuscite sono 59 Mistral e 10 Groq, nessuna Gemini: disponibilità
+della risposta e completamento utile sono misure distinte.
+
+La CI `2e848b6` è **10 PASS / 3 FAIL / 2 SKIP**, cinque workflow. I Backend si
+fermano sulla fixture v141 prima dei gate v162/Mongo successivi. Mobile è
+34/36 (17/18 per motore); i due fallimenti malformati nascono dal calendario
+Home. Questi sono esiti della revisione precedente, non CI verde del candidato.
+
+Le letture pubbliche separate sullo stesso `2e848b6` eseguono due HTTP reali
+(Mapbox/Open-Meteo), cinque chiamate LLM e 68.520 ms di loop. Tecnico PASS,
+semantico FAIL per MODEL_CLAIM_REWRITTEN. Il rapporto non conserva il messaggio
+originale prima della riscrittura: la sola risposta finale non permette di
+ricostruire quella frase. Il primo avvio separato aveva omesso la dipendenza
+mongomock-motor dal comando e si è fermato con ModuleNotFoundError; il comando
+corretto installa la medesima versione 0.0.36 già usata nella prova completa.
+
+**Rettifica dell'interpretazione del vecchio rapporto pubblico d5:** il pattern
+`intensi` intercetta l'inizio di «intensità» nella corretta negazione «non è una
+misura dell'intensità». UNVERIFIED_FORECAST_INTENSITY è un falso positivo su
+quel testo. MODEL_CLAIM_REWRITTEN include anche il rendering di messaggi
+strutturati e il rapporto non conserva l'originale: non dimostra da solo una
+specifica affermazione meteo falsa del modello. Il vecchio report resta FAIL;
+fixture, oracle e risultati originali non vengono riscritti.
+
+Il confronto diagnostico con LLM_PROVIDER=mistral e
+MISTRAL_MODEL=ministral-14b-2512 usa sempre il codice `2e848b6`, gli stessi
+nove scenari, budget e confini: **5/9 PASS automatici,
+53 chiamate logiche / 65 HTTP**. È una configurazione del
+solo servizio di collaudo: la catena ha usato anche fallback Groq e OpenAI,
+quindi non tutte le risposte sono del modello 14B. Non dimostra da sola
+il comportamento dei servizi app né sostituisce la lettura delle risposte
+o il collaudo del codice successivo. Le preferenze free-first restano valide:
+nessun default dell'app, account, fatturazione o servizio a pagamento viene
+attivato o cambiato da questa prova.
+
+Anche i due risultati positivi di questa diagnostica non sono accettati
+alla revisione manuale. completed_result conserva flessibilità e costi
+proporzionali non documentati, oltre a soglie temporali incoerenti: generazione
+14B, audit GPT-4o-mini. memory_corrected usa correttamente la nuova cifra
+150 e la differenza 30, ma confronta il rischio sulla base di vincoli mensili
+assenti dalla fonte: generazione Groq/Qwen, audit GPT-4o-mini.
+La correzione della fonte e il salvataggio funzionano; la fedeltà semantica
+non è dimostrata e non viene certificata dai controlli di formato o citazioni.
+
+Nei tre casi planning_outage/home_write_retry/memory_revoked della diagnostica
+14B, il fallback propone una preparazione senza lettura. Nei casi Home e
+revoca il gate si ferma prima di quelle iniezioni; il guasto di pianificazione
+è già stato iniettato nel suo caso. I goal conservano una scadenza di recupero. Il vecchio report non esporta revised_steps e non consente
+di dedurre perché modify non abbia aggiunto passi. La diagnostica del prossimo
+collaudo registra separatamente formato e passi di rivalutazione, entro gli
+stessi limiti e guard del solo owner sintetico, senza cambiare il verdetto.
+
+Report e annotazione separata:
+
+- [Collaudo originale 2e](evidence/autonomy_v162_live_2026-10-12_2e848b6.json)
+- [Revisione manuale 2e](evidence/autonomy_v162_manual_review_2026-10-12_2e848b6.json)
+- [Letture pubbliche 2e](evidence/public_read_v162_live_2026-10-12_2e848b6.json)
+- [Diagnostica Ministral 14B](evidence/autonomy_v162_ministral14b_live_2026-10-12_2e848b6.json)
+- [Revisione manuale della diagnostica 14B](evidence/autonomy_v162_ministral14b_manual_review_2026-10-12_2e848b6.json)
+
+## Confine del rilascio
+
+Merge soltanto con CI verde e risultati reali accettabili sul candidato.
+Nessun dominio/keyword router, nuovo scheduler, reset dei budget o azione esterna
+reale nel collaudo. Il bucato precedente di Tarquinia resta chiuso. Un nuovo
+bucato deve condurre all'avviso utile di ritiro, distinguendo stima di asciugatura
+e ritiro anticipato per rischio.
+
+I servizi app non sono stati aggiornati: la patch Railway è preparata ma
+l'applicazione è stata rifiutata dal controllo automatico. Il servizio isolato
+di valutazione non applica quella patch. Backend resta al commit 9e1a2f0,
+web a 9dc0d65. Configurazione/prebuild/export iOS in CI non sono firma,
+installazione o ricezione su dispositivo. Mancano accesso al progetto EAS e
+credenziali native; registrazione, app chiusa, avviso visibile e apertura del
+risultato sul dispositivo restano da verificare. Nessun push reale inviato.
+
+---
+
+## 12 ottobre 2026 — v162, giudizio del risultato e consegna della preparazione corrente
+
+Una verifica parziale o incerta di un risultato interno viene conservata sul
+preciso artefatto che il verificatore ha letto. Una nuova preparazione riceve
+una nuova identità anche se il testo è identico. Testo, citazioni e contesto
+vincolano il giudizio; una risposta tardiva non può sovrascrivere una nuova
+bozza. Una successiva verifica positiva dello stesso artefatto ritira la
+critica insieme alla chiusura autorizzata, prima del cleanup.
+
+Home, comunicazioni in coda e apertura di un vecchio avviso rispettano la
+preparazione corrente e il suo giudizio. Le domande su informazioni o autorità
+rimangono possibili quando il goal corrente ne ha davvero bisogno. Un errore
+di lettura conserva la possibilità di riprovare. Il dettaglio mostra
+«Bozza da rivedere» oppure «Verifica ancora incerta», con ciò che manca sopra
+il testo, senza nascondere le bozze da approvare.
+
+`prepared_result_id` viene generato solo al salvataggio riuscito.
+`prepared_review` espone soltanto outcome partial/uncertain, what_is_missing,
+reasoning e reviewed_at. Il legame interno confronta owner, goal, identità,
+testo, citazioni ordinate e contesto di requisiti/fonti. Il CAS negativo evita
+critiche a bozze sostituite; il CAS terminale positivo precede modifiche a piani,
+Need e Opportunity. Il payload per chooser/verifier non cresce.
+
+Il riferimento catturato dalla visibilità passa alla Need e all'outbox.
+None legacy, stringa vuota (nessuna bozza osservata) e riferimento esplicito
+restano distinti. Il fingerprint di un nuovo artefatto non aggiorna la vecchia
+Need. Il controllo viene ripetuto dopo il modello, ai confini di Home, al replay,
+in ambient_line, aprendo un link e prima del provider. L'outbox già saltata
+non torna attuale. Le domande richiedono il blocker corrente del tipo corretto;
+l'assenza di una critica non costituisce verifica positiva.
+
+Le istruzioni distinguono ora esplicitamente lettura, preparazione salvata
+e azione esterna: nominare una capacità di lettura su un passo prepare non
+esegue la lettura. La verifica finale deve valutare il contenuto adesso; un
+passo di verifica ancora pendente non è da solo una mancanza sostanziale.
+Il confronto deve esplicitare le differenze utili e i calcoli sostenuti dalle
+premesse. Discovery non può usare una propria proposta al passato come
+prova che un lavoro sia stato svolto. Queste correzioni sono generali;
+fixture, oracolo, budget e decisioni negative del modello restano invariati.
+
+Il report osserva al massimo 40 esiti di chiamate logiche e 8 fallback per esito. Esporta soltanto sequence, outcome, provider e failure_kind da allowlist, elapsed_ms e la catena limitata. Sul successo usa usage.failover_errors della risposta corrente; sul fallimento, attempts dell'eccezione corrente. Non legge _last_attempts. Lo scope è manager_reported_final_chain: non pretende di ricostruire gli skip per cooldown, le precedenti catene di pacing o ogni retry interno del SDK. elapsed_ms comprende l'intera chiamata logica, inclusi fallback e pacing. Payload, prompt, URL, credenziali e messaggi d'errore restano esclusi; contatori, budget, gate ed eccezioni non cambiano.
+
+La classificazione Gemini dei 429 usa QuotaFailure tipizzata: solo un periodo giornaliero esplicito in quotaId/quotaMetric attiva quota, con precedenza nelle violazioni miste. Gli altri 429 restano rate_limit. RetryInfo richiede il tipo RPC esatto e una durata JSON finita e non negativa; il massimo degli hint validi HTTP/RPC resta entro il cap di 300 secondi, senza cambiare la politica del Manager. Il nuovo modulo ha riprodotto 27 FAIL / 31 PASS prima della correzione e 58/58 PASS dopo, inclusi SDK reale con HTTP sintetico e recupero del Manager con orologio finto. Questi casi sono inclusi nell'aggregato, non si sommano.
+
+Il default alternativo passa da gemini-2.0-flash a gemini-3.6-flash, sostituto indicato nella [tabella ufficiale Gemini](https://ai.google.dev/gemini-api/docs/deprecations). Principale, override, priorità, timeout e budget rimangono invariati. La correzione di un endpoint ritirato non prova disponibilità o qualità sul progetto reale, e non viene attribuita retroattivamente ai fallback d5. Configurazione e fonti del protocollo sono nel [riferimento del Provider Manager](AI_PROVIDER_MANAGER.md).
+Verifica locale: **757 PASS, 1 SKIP, 43 moduli, 28.27 s**; CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Review indipendenti del core CAS, dei controlli di
+consegna e delle istruzioni: nessun blocker confermato al freeze.
+
+## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
+
+Il recupero conserva il checkpoint già persistito prima di un risveglio,
+anche quando il giudizio successivo non è disponibile. Le critiche di una
+preparazione respinta e di una verifica finale incompleta raggiungono la
+rivalutazione e il successivo tentativo, anche dopo la ricreazione del
+servizio. Sono diagnostica non autorevole, vincolata a owner, requisiti e
+fonti correnti; non diventano nuove prove o autorizzazioni.
+
+La decisione successiva e la verifica finale ricevono il risultato e il
+materiale necessario entro lo stesso limite di contesto. Le riduzioni
+riguardano copie e storia generata, con riferimenti espliciti: fonti,
+vincoli, criteri, copertura delle letture e testo da verificare restano
+controllabili. La Home e la consegna finale condividono il controllo della
+fonte: una revoca nota blocca il risultato superato, mentre un guasto del
+database conserva una consegna riprovabile.
+
+`_next` passa testo salvato e citazioni correnti al chooser e dà priorità alle Evidence citate. Entro gli stessi 9.000 caratteri, i serializer dedicati eliminano soltanto frammenti generati non citati e `intent`/`expected_result` dei passi conclusi; tutte le note operative rimangono. Testo di anteprima e `why_now` vengono condivisi soltanto quando identici, con riferimenti espliciti e metadati separati. Tabelle limitate a passi e capability conservano campi comuni, colonne, righe e indici dei campi assenti, distinguendo assenza, null, booleani e numeri. I candidati fanno riferimento al piano soltanto con una definizione unica e identica. Fonti, risultato, criteri, limiti, effetti e cursori restano ricostruibili; materiale essenziale ancora eccedente o citazione mancante produce indisponibilità prima del modello. Le 14 prove includono i testi originali e3a: chooser 11.409→8.968 e 18.115→8.952 caratteri, verifier 9.992→8.225 e 16.698→8.554, su ricostruzioni dichiarate. Il contratto comune descrive `current_source_situation` come snapshot che può includere interpretazioni dell'AI: i suoi riepiloghi non attestano una lettura eseguita o un risultato già salvato. Questa qualificazione non aggiunge campi ai payload.
+
+La diagnosi conserva solo `reason` e campi tipizzati di `claim_review`, fino a 1.400 caratteri nel journal esistente e 600 nell'osservazione immediata. Owner, goal, scadenza e hash di requisiti, Evidence e snapshot Memory delimitano il riuso dopo reload. Fonti corrette, requisiti cambiati o una preparazione riuscita ritirano la critica precedente. `reconsider` e la nuova preparazione la ricevono separatamente come contesto fallibile; la diagnosi facoltativa viene omessa prima di sacrificare materiale corrente quando supera il budget. Un journal indisponibile non blocca il risultato né elimina la critica immediata. Le 16 prove attraversano i percorsi ordinario e fallback, isolamenti, TTL, versioni, forme malformate e overflow; nessuna bozza respinta viene salvata come risultato o Evidence. La provenienza di ogni tentativo `unavailable` dichiara ora che quel tentativo non ha salvato una nuova bozza; l'errore `preparation_sources_required` precisa l'assenza di Evidence utilizzabili per il goal. Restano invariati provider, classe e retryable. Cinque prove esistenti erano rosse sulla vecchia nota di successo e ora verificano il resoconto coerente che raggiunge la rivalutazione.
+
+Nel solo risultato interno già preparato, senza intenti o ricevute esterne, i verdetti `partially_achieved` e `uncertain` raggiungono `_reconsider` con motivo, mancanza e critica persistita. Il budget resta quello esistente: al limite la prosecuzione è salvata senza chiamate extra. `wait`, `ask`, `continue` e piano modificato conservano i loro esiti; una nuova preparazione deve passare nuovamente audit e verifica. I rami di completamento, fallimento e attesa esterna rimangono invariati. Le 15 prove verificano recupero dopo reload, limiti e revoche. Le sei compatibilità dei test precedenti isolano soltanto la rivalutazione successiva fuori dal loro contratto, lasciando integro il primo recupero reale. Il percorso principale controllato rende la visibilità silenziosa: non attesta un nuovo veto globale di Delivery sulle bozze attive.
+
+Il checkpoint conservato in `_resume_due_wait` è quello già salvato da
+`advance`; i rami esistenti di attesa, richiesta alla persona, chiusura e
+limite background continuano a sostituirlo o cancellarlo. Il controllo
+Opportunity di Home e Delivery ammette la risoluzione dovuta al completamento,
+ma rifiuta revoca, soppressione, scadenza o assenza della fonte dello stesso
+owner. Un'indisponibilità di lettura non è una revoca. L'outbox definitivamente
+saltata non può essere riaperta da un worker tardivo.
+
+Il runner emette ora un progresso per caso con sola identità dello scenario,
+modalità, esito e contatori. Nessun prompt, testo di fonte o dato di utente
+reale viene aggiunto a quelle righe. Limiti, fixture e giudizi del runner
+non cambiano. Verifica locale: **569 PASS su 34 moduli in 7,68 secondi**, più CLI scripted **9/9**, con zero chiamate LLM reali, HTTP del modello ed effetti esterni.
+
+## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
+
+L'audit riceve anche obiettivo, risultato atteso e criteri del lavoro,
+protetti insieme alla bozza e alle fonti citate entro gli stessi 9000
+caratteri. Distingue la richiesta della persona dalle interpretazioni
+precedenti, che non possono prevalere su una fonte corretta. Il controllo
+delle premesse collega le clausole ai passaggi disponibili e considera
+controesempi compatibili con quei fatti; una caratteristica tipica della
+categoria non sostituisce una premessa documentata. Le correzioni devono
+conservare i risultati e le differenze già sostenuti. Restano due chiamate,
+generazione e audit, con lo stesso parser operativo e senza regole di dominio.
+
+Il payload dell'audit può eliminare soltanto righe non citate per rispettare
+il limite. Se richiesta, bozza e fonti necessarie non entrano, restituisce
+l'errore tecnico già previsto prima della chiamata; non accorcia le prove.
+Il salvataggio resta vincolato a `verified is True`, testo utilizzabile,
+citazioni valide e fonti correnti dello stesso owner.
+
+Il collaudo osserva ora anche la rivalutazione successiva a un fallimento,
+nel contesto del metodo effettivo `_reconsider`, solo sul database sintetico
+marcato e con owner esatto. Riusa il limite di dodici osservazioni e
+conserva tipi, ritorni, eccezioni e cancellazioni, senza decidere o accelerare
+attese. La correzione lessicale del reporter riconosce “note salvate” come
+attribuzione, senza accettare “condizioni note” o “notazione” come provenienza.
+Nessun criterio sostanziale della fixture è rimosso. Verifica locale: **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni.
+
+## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
+
+`choose_next_action` usa un serializer dedicato entro gli stessi 9000
+caratteri. Se necessario, sostituisce soltanto la copia esattamente identica
+di un passo in `plan.steps` con un riferimento alla definizione completa in
+`still_to_do`. ID uguali con parametri o effetti diversi non sono duplicati.
+Goal, criteri, capability, clock, fonti, qualifiche e cursori restano integri;
+il contenuto essenziale che non entra produce indisponibilità tecnica prima
+del modello. La deduplica non simula una lettura parziale.
+
+L'audit della preparazione richiede una `claim_review` delle affermazioni
+materiali e delle premesse su entrambi i lati di un confronto. È descrittiva:
+i campi operativi restano `verified`, `content` ed `evidence_ids`, con gli
+stessi controlli. Non introduce una chiamata aggiuntiva o un giudice a regole.
+Il fallimento della preparazione generata in `_finish` conserva nota,
+provenienza, `error_type` e `retryable` e raggiunge la `_reconsider` esistente,
+entro lo stesso budget. Il suo esito viene propagato; un piano rivisto usa
+la continuazione già salvata. Cronologia e contatori non vengono azzerati.
+
+Il solo collaudo accelera continuazioni attive già persistite nel database
+sintetico marcato, con confronto atomico di proprietario, revisione, stato,
+contatore, scadenza e vincoli dell'utente. Osserva il limite applicativo di
+tre esecuzioni in background; attese decise dal modello, richieste di dati,
+autorità e rinvii dell'utente non vengono convertiti. I tentativi falliti
+restano cronologia terminale solo dopo le verifiche di goal, piano, testo,
+prove e consegna. I passi ancora pendenti restano un errore.
+
+Il guard del collaudo ammette il `prepare` locale senza capability, già
+supportato dall'executor, soltanto con database, owner e marker corretti.
+Gli altri passi vuoti o con effetti restano bloccati. Il reporter osserva
+generazione e audit dentro il contesto effettivo della preparazione e
+conserva dati sintetici limitati e redatti, senza cambiare ritorni, eccezioni
+o contatori. Verifica locale: **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+
+## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
+
+`AgentService.consider` controlla i campi consumati prima dei cast: obiettivo
+e risultato atteso non vuoti, domanda utilizzabile per `clarify`, array di
+stringhe per criteri e condizioni se presenti. Nessun campo viene copiato
+dall'assessment per completare una risposta mancante. L'errore tecnico
+`invalid_goal_decision` e una allowlist di nomi passano all'ammissione, che
+conserva gli stessi lease, revisioni, tre tentativi e backoff già esistenti.
+
+La verifica del risultato conserva integralmente testo, criteri e righe delle
+fonti citate. Riduce prima informazioni accessorie e copie della bozza; non
+usa una bozza come evidenza indipendente. La selezione delle prove conserva
+anche i riferimenti richiesti fuori dalle ultime dodici righe. Se il contenuto
+essenziale manca o non entra nei 9000 caratteri, la chiamata al modello non
+viene eseguita e la verifica rimane tecnicamente indisponibile. I controlli
+sulle fonti correnti, sulle versioni e sul proprietario restano operativi.
+
+Il solo evaluator accelera una scadenza di retry già persistita su database
+sintetico marcato, con confronto atomico di owner, fonte, revisione, tentativi,
+scadenza e lease. Non converte `wait`, `clarify` o `no_goal` in lavoro attivo.
+Le osservazioni distinguono proposta Discovery, audit e scarti strutturali,
+con limiti e sanificazione; non cambiano le decisioni o le eccezioni.
+
+Verifica locale: **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni. Nessun nuovo scheduler, dipendenza o migrazione.
+
+---
+
+## 12 ottobre 2026 — v162, dipendenza fra lettura e preparazione
+
+Le istruzioni delle chiamate esistenti `make_plan`, `choose_next_action` e
+`reconsider` esplicitano il contratto applicativo: `document.create` usa
+le evidenze del goal e non legge i propri `input_refs` o le anteprime.
+Il piano include il prerequisito quando non è mostrata una lettura eseguita;
+un inventario omesso non prova che lo store sia vuoto. La scelta successiva
+può riusare prove correnti, saltare la lettura già soddisfatta o proseguire
+un estratto con cursore e versione. `preparation_sources_required` guida la
+ripianificazione verso una lettura disponibile, senza retry a vuoto.
+
+Parser, runtime, capability, budget e numero delle chiamate restano invariati.
+Dieci nuove prove attraversano il vero SDK con HTTP simulato e il recupero
+persistito del servizio; l'aggregato locale è 336 PASS, scripted 9/9. La
+correttezza delle scelte reali resta soggetta al gate completo successivo.
+
+---
+
+## 12 ottobre 2026 — v162, confine osservato fra contesto e lettura eseguita
+
+La diagnostica `aa6bef` verifica il percorso completo di una nota sintetica:
+`information.read` produce evidenze persistite con provenienza; generazione
+e audit conservano `bears_on`, limiti e cursori; la verifica del risultato
+precede disponibilità nella Home, replay idempotente e controllo dell'owner.
+Il testo finale passa anche la revisione manuale sulla fonte immutata.
+
+Il caso `source_change_crash` rende visibile un confine ancora aperto nel
+contratto del planner. Discovery e ammissione producono il lavoro pertinente,
+ma `make_plan`, con `evidence_kind=none`, tratta l'anteprima Memory come base
+sufficiente per un unico `document.create`. Nessuna evidenza del reader è
+stata registrata. La preparazione rifiuta il risultato privo di fonti lette;
+la diagnostica conserva `OWNED_SOURCE_NOT_READ_ONCE`, testo vuoto e goal attivo.
+
+Le anteprime continuano a essere contesto decisionale, senza trasformarsi
+in evidenze o autorità per la preparazione. La correzione contrattuale del
+piano è in verifica: non è ancora una prosecuzione riuscita attestata dal
+report. Budget, parser, guard sulle fonti e consenso mantengono il loro ruolo.
+Il [report originale](evidence/autonomy_v162_diagnostic_2026-10-12_aa6bef.json)
+separa modello reale, note sintetiche, storage in memoria e assenza di effetti
+esterni; non documenta un riavvio reale del processo o una lettura live di
+provider personali.
+
+---
+
+## 12 ottobre 2026 — v162, schema della scoperta e qualifiche nella preparazione
+
+Lo schema JSON effettivo di Discovery contiene `outcome_assessment` prima
+di `opportunities`, nel silenzio e nella proposta; ogni proposta mantiene
+il proprio riepilogo. L'audit conserva `verified` al livello principale.
+I campi descrittivi restano opzionali per il parser e non convertono la scelta.
+
+Preparazione e audit ricevono anche il significato di `supports`/`bears_on`,
+insieme a claim, riferimenti, limiti e cursori. Il contratto comune del testo
+e della verifica distingue attribuzione, deduzioni condizionali e termini
+ignoti, entro gli stessi budget e controlli sulle fonti. Una qualifica della
+memoria non sostituisce una verifica presso terzi.
+
+---
+
+## 12 ottobre 2026 — v162, stato dell'esito nel contratto decisionale
+
+Ammissione e Discovery distinguono bisogno personale aperto, materiali
+disponibili e prove di completamento. Il riepilogo `outcome_assessment`
+rimane nello stesso JSON della decisione: stato dell'esito, lavoro interno
+residuo e riferimenti. Non è un nuovo gate, non converte `no_goal` in attività
+e non aggiunge richieste al modello. Provenienza e permessi restano separati.
+
+La diagnostica del runner osserva questo riepilogo anche sulle proposte e
+sul silenzio, con campi consentiti, testo limitato e otto riferimenti per
+campo. Una risposta contraddittoria resta osservabile e non viene corretta
+dal reporter. La verifica del confine attraversa manager, adapter e SDK
+reali con il solo HTTP simulato; non prova la qualità semantica del modello.
+
+Il reporter conserva inoltre il testo preparato sui fallimenti tardivi,
+con la stessa guard del database sintetico e lo stesso filtro owner. La
+redazione precede il limite di 6000 caratteri sia nel successo sia nel
+fallimento; la copia persistita e i criteri del gate non vengono modificati.
+
+---
+
+## 12 ottobre 2026 — v162, verifica live: contesto citato e conclusione del piano
+
+L'ammissione e lo snapshot della scoperta condividono `read_memory_previews`:
+solo riferimenti Memory citati, owner corretto e stato corrente, fino a otto
+anteprime di 600 caratteri. Qualificazioni, provenienza, data e troncamento
+restano nel contesto. Una memoria mancante o un errore del database sono
+copertura indisponibile, senza ripiego su note estranee. Le anteprime non
+creano evidenze e non sostituiscono l'esecuzione di `information.read`.
+
+La scoperta rilegge i riferimenti del batch di cambiamenti. `memories` entra
+nella fingerprint, così una correzione sostanziale non viene saltata come
+`same_facts` solo perché l'involucro del cambiamento è rimasto identico.
+La scelta del modello di non aprire un lavoro rimane valida.
+
+Planning e ragionamento successivo ricevono `current_source_context` con le
+anteprime Memory correnti e l'eventuale motivo persistito del refresh. Il
+modello deve riconciliare le proprie ipotesi derivate con i fatti aggiornati,
+conservando obiettivi, requisiti e autorità della persona. Le anteprime restano
+distinte dalle evidenze prodotte dal reader; non aggiungono un nuovo passaggio LLM.
+
+`information.read` conserva nella provenienza `memory_reads`, con riferimento,
+versione, intervallo osservato, lunghezza e prossimo offset. La continuazione
+richiede una singola fonte e la versione letta. Il testo resta limitato a otto
+claim di 600 caratteri; una pagina finale non certifica da sola il prefisso
+non letto. I cursori passano alla verifica e all'audit attraverso le evidenze
+persistite. I payload restano JSON valido entro 9000 caratteri e dichiarano
+le riduzioni. L'audit rimuove soltanto righe non citate; se le fonti citate
+eccedono il limite, restituisce `preparation_context_too_large` senza salvare
+la bozza o chiedere un retry temporaneo per un problema di dimensione.
+
+La conclusione verificata di un goal ritira i passaggi ancora eseguibili come
+`skipped`, conservando risultati, tentativi ed esiti terminali già registrati.
+La verifica incerta e le barriere di proprietà, revoca e aggiornamento della
+fonte precedono questa chiusura. Il collaudo non richiede di eseguire un passo
+che il risultato verificato ha reso superfluo.
+
+La consegna dei risultati generali usa il completamento del goal come
+ancoraggio distinto dalla versione della Memory. La Need registra il
+completamento visto dalla decisione originale; il reader verifica lo stesso
+completamento corrente, l'owner, le prove citate, le scadenze e la versione
+delle fonti. Una Need intermedia o una vecchia domanda non può diventare
+un avviso finale. La destinazione del risultato viene costruita dal codice
+e punta al dettaglio del goal; le richieste ancora aperte conservano il
+percorso di risposta. Il gate di consegna viene riletto prima dell'invio
+differito e non concede da solo un canale o un consenso.
 
 ---
 

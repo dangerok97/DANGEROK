@@ -1,0 +1,299 @@
+{
+  "scope": "Exact remote helper loaded from git blob; synthetic local counterexamples only, no model or external effects. No worktree writes.",
+  "commit": "7c280199faa99ffbd2187c150be88997397999be",
+  "module_sha256": "5fa77a54e26907ebeed61fc0d9b3775cf98775350681c6441ef37a368e096d0b",
+  "cases": [
+    {
+      "case": "different_periods_in_one_clause",
+      "source": "A costa 120 euro per 12 mesi, B costa 90 euro per 6 mesi.",
+      "draft": "A costa 120 euro per 12 mesi, B costa 90 euro per 6 mesi.",
+      "purpose": "Confrontare i costi",
+      "output": "A costa 120 euro per 12 mesi, B costa 90 euro per 6 mesi.\n\nDifferenza aritmetica dei due costi indicati per 12 mesi: 30 euro. Il calcolo non dimostra condizioni contrattuali non specificate dalla fonte.",
+      "changed": true,
+      "extracted_groups": [
+        {
+          "count": "12",
+          "unit": "mesi",
+          "amounts": [
+            "120",
+            "90"
+          ]
+        },
+        {
+          "count": "6",
+          "unit": "mesi",
+          "amounts": [
+            "120",
+            "90"
+          ]
+        }
+      ],
+      "interpretation": "No two source-stated totals for the same period; cannot claim a 30-euro difference over 12 months."
+    },
+    {
+      "case": "monthly_unit_before_amount",
+      "source": "A costa mensilmente 15 euro per 12 mesi. B costa 120 euro per 12 mesi.",
+      "draft": "A costa mensilmente 15 euro per 12 mesi. B costa 120 euro per 12 mesi.",
+      "purpose": "Confrontare i costi",
+      "output": "A costa mensilmente 15 euro per 12 mesi. B costa 120 euro per 12 mesi.\n\nDifferenza aritmetica dei due costi indicati per 12 mesi: 105 euro. Il calcolo non dimostra condizioni contrattuali non specificate dalla fonte.",
+      "changed": true,
+      "extracted_groups": [
+        {
+          "count": "12",
+          "unit": "mesi",
+          "amounts": [
+            "120",
+            "15"
+          ]
+        }
+      ],
+      "interpretation": "The first 12-month total is 180, so its difference from 120 is 60, not 105."
+    },
+    {
+      "case": "thousands_separator",
+      "source": "A costa 1.200 euro per 12 mesi. B costa 800 euro per 12 mesi.",
+      "draft": "A costa 1.200 euro per 12 mesi. B costa 800 euro per 12 mesi.",
+      "purpose": "Confrontare i costi",
+      "output": "A costa 1.200 euro per 12 mesi. B costa 800 euro per 12 mesi.\n\nDifferenza aritmetica dei due costi indicati per 12 mesi: 600 euro. Il calcolo non dimostra condizioni contrattuali non specificate dalla fonte.",
+      "changed": true,
+      "extracted_groups": [
+        {
+          "count": "12",
+          "unit": "mesi",
+          "amounts": [
+            "200",
+            "800"
+          ]
+        }
+      ],
+      "interpretation": "1200 minus 800 equals 400, not 600."
+    },
+    {
+      "case": "decimal_dot",
+      "source": "A costa 180.40 euro per 12 mesi. B costa 120.10 euro per 12 mesi.",
+      "draft": "A costa 180.40 euro per 12 mesi. B costa 120.10 euro per 12 mesi.",
+      "purpose": "Confrontare i costi",
+      "output": "A costa 180.40 euro per 12 mesi. B costa 120.10 euro per 12 mesi.\n\nDifferenza aritmetica dei due costi indicati per 12 mesi: 30 euro. Il calcolo non dimostra condizioni contrattuali non specificate dalla fonte.",
+      "changed": true,
+      "extracted_groups": [
+        {
+          "count": "12",
+          "unit": "mesi",
+          "amounts": [
+            "10",
+            "40"
+          ]
+        }
+      ],
+      "interpretation": "180.40 minus 120.10 equals 60.30, not 30; unsupported notation must not become a different amount."
+    },
+    {
+      "case": "cost_component_not_second_total",
+      "source": "Il costo totale per 12 mesi è 120 euro, di cui 20 euro di tasse.",
+      "draft": "Il costo totale per 12 mesi è 120 euro, di cui 20 euro di tasse.",
+      "purpose": "Confrontare i costi",
+      "output": "Il costo totale per 12 mesi è 120 euro, di cui 20 euro di tasse.\n\nDifferenza aritmetica dei due costi indicati per 12 mesi: 100 euro. Il calcolo non dimostra condizioni contrattuali non specificate dalla fonte.",
+      "changed": true,
+      "extracted_groups": [
+        {
+          "count": "12",
+          "unit": "mesi",
+          "amounts": [
+            "120",
+            "20"
+          ]
+        }
+      ],
+      "interpretation": "There is only one total and its included tax component, not two alternative same-period totals."
+    },
+    {
+      "case": "mixed_source_attribution",
+      "source": "Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: desidero un confronto.\nIl listino ufficiale verificato del fornitore riporta A a 180 euro per 12 mesi. B a 120 euro per 12 mesi.",
+      "draft": "Il listino ufficiale verificato del fornitore riporta A a 180 euro per 12 mesi e B a 120 euro per 12 mesi.",
+      "purpose": "Confrontare i costi",
+      "output": "Fonte: nota salvata in ORA; dati riferiti dall'utente e non confermati dal fornitore.\n\nIl listino ufficiale verificato del fornitore riporta A a 180 euro per 12 mesi e B a 120 euro per 12 mesi.\n\nDifferenza aritmetica dei due costi indicati per 12 mesi: 60 euro. Il calcolo non dimostra condizioni contrattuali non specificate dalla fonte.",
+      "changed": true,
+      "extracted_groups": [
+        {
+          "count": "12",
+          "unit": "mesi",
+          "amounts": [
+            "120",
+            "180"
+          ]
+        }
+      ],
+      "interpretation": "The user-note origin describes the preference, not the separate supplier evidence that contains the prices."
+    },
+    {
+      "case": "unrelated_difference_amount",
+      "source": "A costa 180 euro per 12 mesi. B costa 120 euro per 12 mesi. Il deposito rimborsabile è 60 euro.",
+      "draft": "A costa 180 euro per 12 mesi. B costa 120 euro per 12 mesi. Il deposito rimborsabile è 60 euro.",
+      "purpose": "Confrontare i costi",
+      "output": "A costa 180 euro per 12 mesi. B costa 120 euro per 12 mesi. Il deposito rimborsabile è 60 euro.",
+      "changed": false,
+      "extracted_groups": [
+        {
+          "count": "12",
+          "unit": "mesi",
+          "amounts": [
+            "120",
+            "180"
+          ]
+        }
+      ],
+      "interpretation": "An unrelated deposit equal to 60 does not express the missing difference between the two totals."
+    },
+    {
+      "case": "euro_symbol_before_amount",
+      "source": "A costa €180 per 12 mesi. B costa €120 per 12 mesi.",
+      "draft": "A costa €180 per 12 mesi. B costa €120 per 12 mesi.",
+      "purpose": "Confrontare i costi",
+      "output": "A costa €180 per 12 mesi. B costa €120 per 12 mesi.",
+      "changed": false,
+      "extracted_groups": [],
+      "interpretation": "Same arithmetic as the fixture, but the supported euro notation is not recognised."
+    }
+  ],
+  "historical_text_replay": {
+    "scope": "Pure helper replay on the last retained generation from the original 5b4 report, with its canonical source and an explicit comparison purpose. Not an LLM rerun or a prediction of the next audit response; original verdicts unchanged.",
+    "original_report": "docs/evidence/autonomy_v162_live_2026-10-12_5b4efd5.json",
+    "original_sha256": "c8fed7a830e4eadbe0e824d9123423b22825e703f37121219e17a4e35295d3be",
+    "source_chars": 565,
+    "source_sha256": "5bf7ffcd0bcdf67e81ce8132b77ab92fbf3ecc49152492312b78378e3df2fef6",
+    "cases": [
+      {
+        "scenario": "completed_result",
+        "original_machine_passed": false,
+        "original_machine_reason": "SEMANTIC_RESULT_REJECTED:INTERNAL_SOURCE_NOT_ATTRIBUTED",
+        "generation_sequence": 5,
+        "audit_sequence": 6,
+        "generation_characters": 764,
+        "augmented_characters": 851,
+        "added_origin_prefix": true,
+        "added_difference": false,
+        "unchanged_original_generation_review": {
+          "passed": false,
+          "reasons": [
+            "INTERNAL_SOURCE_NOT_ATTRIBUTED"
+          ],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "pure_augmented_text_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "unchanged_original_final_audit_review": {
+          "passed": false,
+          "reasons": [
+            "INTERNAL_SOURCE_NOT_ATTRIBUTED"
+          ],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        }
+      },
+      {
+        "scenario": "planning_outage",
+        "original_machine_passed": false,
+        "original_machine_reason": "SEMANTIC_RESULT_REJECTED:INTERNAL_SOURCE_NOT_ATTRIBUTED",
+        "generation_sequence": 6,
+        "audit_sequence": 7,
+        "generation_characters": 696,
+        "augmented_characters": 783,
+        "added_origin_prefix": true,
+        "added_difference": false,
+        "unchanged_original_generation_review": {
+          "passed": false,
+          "reasons": [
+            "INTERNAL_SOURCE_NOT_ATTRIBUTED"
+          ],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "pure_augmented_text_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "unchanged_original_final_audit_review": {
+          "passed": false,
+          "reasons": [
+            "INTERNAL_SOURCE_NOT_ATTRIBUTED"
+          ],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        }
+      },
+      {
+        "scenario": "home_write_retry",
+        "original_machine_passed": false,
+        "original_machine_reason": "SEMANTIC_RESULT_REJECTED:MISSING_COMPARISON_VALUE_60",
+        "generation_sequence": 12,
+        "audit_sequence": 13,
+        "generation_characters": 572,
+        "augmented_characters": 717,
+        "added_origin_prefix": false,
+        "added_difference": true,
+        "unchanged_original_generation_review": {
+          "passed": false,
+          "reasons": [
+            "MISSING_COMPARISON_VALUE_60"
+          ],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "pure_augmented_text_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "unchanged_original_final_audit_review": {
+          "passed": false,
+          "reasons": [
+            "MISSING_COMPARISON_VALUE_60"
+          ],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        }
+      },
+      {
+        "scenario": "source_change_crash",
+        "original_machine_passed": false,
+        "original_machine_reason": "SEMANTIC_RESULT_REJECTED:INTERNAL_SOURCE_NOT_ATTRIBUTED",
+        "generation_sequence": 18,
+        "audit_sequence": 19,
+        "generation_characters": 729,
+        "augmented_characters": 816,
+        "added_origin_prefix": true,
+        "added_difference": false,
+        "unchanged_original_generation_review": {
+          "passed": false,
+          "reasons": [
+            "INTERNAL_SOURCE_NOT_ATTRIBUTED"
+          ],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "pure_augmented_text_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "unchanged_original_final_audit_review": {
+          "passed": false,
+          "reasons": [
+            "INTERNAL_SOURCE_NOT_ATTRIBUTED"
+          ],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        }
+      }
+    ]
+  }
+}

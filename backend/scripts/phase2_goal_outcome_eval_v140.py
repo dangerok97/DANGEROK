@@ -133,7 +133,7 @@ async def scripted_verify(*args, **kwargs):
     }
 
 
-async def scripted_draft(system, user):
+async def scripted_draft(system, user, *, response_schema=None):
     try:
         payload = json.loads(user)
         ids = [
@@ -146,7 +146,48 @@ async def scripted_draft(system, user):
     if not ids:
         return None
     if "Audit this draft" in system:
-        return {"verified": True, "content": DRAFT, "evidence_ids": ids[:2]}
+        # These are explicit statements of this synthetic fixture, not an
+        # automatic validator of arbitrary drafts. The correction scenario
+        # supplies the same note with its annual price changed to 150.
+        annual = "150" if "150 euro" in DRAFT else "120"
+        difference = "30" if annual == "150" else "60"
+        passages = {
+            "monthly": "il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro.",
+            "annual": f"La seconda opzione indicata nella nota costa {annual} euro anticipati per 12 mesi.",
+            "equal": "In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle.",
+            "refund": "L'annuale non prevede rimborso in caso di disdetta anticipata.",
+            "authority": "dati riferiti dall'utente e non confermati dal fornitore:",
+        }
+        quoted = {}
+        for key, passage in passages.items():
+            source = next((row for row in payload["evidence"]
+                           if row.get("id") in ids[:2] and passage in row.get("claim", "")), None)
+            if source is None:
+                return None
+            quoted[key] = {"evidence_id": source["id"], "quote": passage}
+
+        def review(claim, premises, support, keys):
+            quotes = [quoted[key] for key in keys]
+            return {"claim": claim, "premises": premises, "support": support, "correction": "",
+                    "evidence_ids": list(dict.fromkeys(row["evidence_id"] for row in quotes)),
+                    "source_quotes": quotes}
+
+        return {"verified": True, "content": DRAFT, "evidence_ids": ids[:2],
+                "reason": "Confronto controllato sui dati della nota sintetica, senza conferma esterna.",
+                "claim_review": [
+                    review(f"Su dodici mesi il mensile costa 180 euro e l'annuale {annual}, differenza {difference}.",
+                           "Stesso orizzonte di dodici mesi, con servizio mantenuto per l'intero periodo.",
+                           "derived", ["monthly", "annual"]),
+                    review("L'annuale richiede pagamento anticipato e non rimborsa in caso di disdetta anticipata.",
+                           "Le due condizioni si riferiscono solo alla formula annuale.",
+                           "stated", ["annual", "refund"]),
+                    review("Capacità e assistenza sono uguali secondo la nota.",
+                           "La stessa dotazione è dichiarata per entrambe le formule.",
+                           "stated", ["equal"]),
+                    review("Le condizioni provengono dalla nota e non sono confermate dal fornitore.",
+                           "La qualifica si applica a tutti i dati confrontati.",
+                           "stated", ["authority"]),
+                ]}
     if "Produce the actual useful draft" in system:
         return {"content": DRAFT, "evidence_ids": ids[:2]}
     return None
