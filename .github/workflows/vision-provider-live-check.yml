@@ -1,0 +1,26 @@
+name: Vision provider real smoke
+on:
+  push:
+    branches: [qa/vision-provider-recovery-prepare]
+    paths: ['.github/workflows/vision-provider-live-check.yml']
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install httpx pillow
+      - name: Compare baseline and deployed recovery; real API and AI
+        run: python scripts/vision_provider_live_check.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vision-provider-live-evidence
+          path: .vision-provider-live/
+          include-hidden-files: true
+          retention-days: 7
