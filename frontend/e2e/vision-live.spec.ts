@@ -8,7 +8,7 @@ async function session(page: Page) {
 }
 async function virtualCamera(page: Page) {
   await page.addInitScript(() => {
-    const state:any={offset:0,blank:false,frames:0,stream:null,openings:0};
+    const state:any={offset:0,blank:false,frames:0,stream:null,openings:0,bodyRegion:null};
     (window as any).__visionFixture=state;
     const getUserMedia=async()=>{
       state.openings++;
@@ -22,6 +22,10 @@ async function virtualCamera(page: Page) {
           ctx.strokeStyle='#535e60';ctx.lineWidth=3;ctx.stroke();
           ctx.fillStyle='#b98764';ctx.beginPath();ctx.arc(x+55,99,12,0,Math.PI*2);ctx.fill();
           for(let r=0;r<8;r++)for(let j=0;j<3;j++){ctx.fillStyle=r%2?'#d1d5ce':'#70858c';ctx.beginPath();ctx.arc(x+24+j*31,137+r*30,7,0,Math.PI*2);ctx.fill();}
+        }
+        if(state.bodyRegion){
+          const b=state.bodyRegion==='hand'?90:state.bodyRegion==='face'?140:195;
+          ctx.fillStyle='rgb(245,28,'+b+')';ctx.fillRect(288,208,64,64);
         }
         ctx.fillStyle='#495d62';ctx.fillRect(20,440,state.frames%100,9);
       };draw();setInterval(draw,40);
@@ -123,71 +127,67 @@ test('denied camera permission is explained without a fake live state',async({pa
 });
 
 
-test('anatomy atlas uses same live camera, switchable levels and a same-stream X',async({page,browserName})=>{
-  test.skip(browserName==='webkit','Physical-device camera controls are checked separately');
-  await session(page);await virtualCamera(page);await page.goto('/vision-xray');
-  await page.getByTestId('vision-open-camera').click();
-  await expect(page.getByTestId('vision-open-anatomy')).toBeVisible();
-  const initialTime=await page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>v.currentTime);
-  await page.getByTestId('vision-open-anatomy').click();
-  await expect(page.getByTestId('vision-anatomy')).toBeVisible();
-  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-scene-state','anatomy');
-  await page.getByTestId('vision-anatomy-layer-muscles').click();
-  await page.getByTestId('vision-anatomy-select-pectorals').click();
-  await expect(page.getByTestId('vision-anatomy-description')).toContainText('movimenti delle braccia');
-  await page.getByTestId('vision-anatomy-layer-organs').click();
-  await page.getByTestId('vision-anatomy-part-heart').click();
-  await expect(page.getByTestId('vision-anatomy-description')).toContainText('Pompa il sangue');
-  await page.getByTestId('vision-anatomy-layer-reproductive').click();
-  await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(0);
-  await page.getByTestId('vision-anatomy-variant-female').click();
-  await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(1);
-  await page.getByTestId('vision-anatomy-variant-male').click();
-  await expect(page.getByTestId('vision-anatomy-part-prostate')).toHaveCount(1);
-  await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(0);
-  const afterTime=await page.getByTestId('vision-camera-video').evaluate((v:HTMLVideoElement)=>v.currentTime);
-  expect(afterTime).toBeGreaterThan(initialTime);
-  await expect(page.getByTestId('vision-anatomy')).toContainText('non vede sotto la pelle');
-  await page.getByTestId('vision-anatomy-close').click();
-  await expect(page.getByTestId('vision-anatomy')).toHaveCount(0);
-  await expect(page.getByTestId('vision-camera-video')).toBeVisible();
-  expect(await page.evaluate(()=>(window as any).__visionFixture.openings)).toBe(1);
-});
 
-
-test('anatomy is discoverable from the first screen, remains visible during live camera and X resets',async({page,browserName})=>{
- test.skip(browserName==='webkit','Video stream exercised on Chromium; WebKit camera still needs physical-device checks');
- await session(page); await virtualCamera(page); await page.goto('/vision-xray');
- const nav=page.getByTestId('vision-anatomy-nav');
- await expect(nav).toBeVisible();
- await expect(nav).toHaveText('Anatomia');
- await page.getByTestId('vision-anatomy-welcome').click();
- await expect(page.getByTestId('vision-anatomy')).toBeVisible();
- await expect(nav).toHaveAttribute('aria-pressed','true');
- const video=page.getByTestId('vision-camera-video');
- expect(await video.evaluate((v:HTMLVideoElement)=>(v.srcObject as MediaStream).getVideoTracks()[0].readyState)).toBe('live');
- const before=await video.evaluate((v:HTMLVideoElement)=>v.currentTime);
- await page.getByTestId('vision-anatomy-layer-bones').click();
- await page.getByTestId('vision-anatomy-select-skull').click();
- await expect(page.getByTestId('vision-anatomy-description')).toContainText('Protegge');
- const after=await video.evaluate((v:HTMLVideoElement)=>v.currentTime);
+test('person automatically opens full-body anatomy without any anatomy shortcut',async({page,browserName},info)=>{
+ test.skip(browserName==='webkit','Synthetic canvas-camera test uses Chromium; iPhone hardware remains separate');
+ await session(page);await virtualCamera(page);await page.goto('/vision-xray');
+ await expect(page.getByTestId('vision-anatomy-nav')).toHaveCount(0);
+ await expect(page.getByTestId('vision-anatomy-welcome')).toHaveCount(0);
+ await page.evaluate(()=>{(window as any).__visionFixture.bodyRegion='full_body';});
+ await page.getByTestId('vision-open-camera').click();
+ const atlas=page.getByTestId('vision-anatomy');
+ await expect(atlas).toBeVisible({timeout:30000});
+ await expect(atlas).toHaveAttribute('data-region','full_body');
+ await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-scene-state','anatomy');
+ await expect(page.getByTestId('vision-open-anatomy')).toHaveCount(0);
+ const live=page.getByTestId('vision-camera-video');
+ const before=await live.evaluate((v:HTMLVideoElement)=>v.currentTime);
+ await page.getByTestId('vision-anatomy-layer-muscles').click();
+ await expect(page.getByTestId('vision-anatomy-select-pectorals')).toBeVisible();
+ await page.getByTestId('vision-anatomy-select-pectorals').click();
+ await expect(page.getByTestId('vision-anatomy-description')).toContainText('movimenti delle braccia');
+ await page.getByTestId('vision-anatomy-layer-organs').click();
+ await page.getByTestId('vision-anatomy-part-heart').click();
+ await expect(page.getByTestId('vision-anatomy-description')).toContainText('Pompa il sangue');
+ await page.getByTestId('vision-anatomy-layer-reproductive').click();
+ await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(0);
+ await page.getByTestId('vision-anatomy-variant-female').click();
+ await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(1);
+ await page.getByTestId('vision-anatomy-variant-male').click();
+ await expect(page.getByTestId('vision-anatomy-part-prostate')).toHaveCount(1);
+ await expect(page.getByTestId('vision-anatomy-part-uterus')).toHaveCount(0);
+ await page.getByTestId('vision-anatomy-disclaimer').click();
+ await expect(atlas).toContainText('non rileva ossa');
+ await page.evaluate(()=>{(window as any).__visionFixture.bodyRegion=null;});
+ await page.waitForTimeout(1000);
+ await expect(atlas).toBeVisible();
+ const after=await live.evaluate((v:HTMLVideoElement)=>v.currentTime);
  expect(after).toBeGreaterThan(before);
+ await page.screenshot({path:'../.vision-evidence/vision-auto-anatomy-'+info.project.name+'.png',fullPage:true});
  await page.getByTestId('vision-anatomy-close').click();
- await expect(page.getByTestId('vision-anatomy')).toHaveCount(0);
- await expect(nav).toBeVisible();
- await expect(nav).toHaveAttribute('aria-pressed','false');
+ await expect(atlas).toHaveCount(0);
  expect(await page.evaluate(()=>(window as any).__visionFixture.openings)).toBe(1);
- await nav.click();
- await expect(page.getByTestId('vision-anatomy')).toBeVisible();
 });
 
-test('anatomy remains discoverable after an object is displayed',async({page})=>{
- await session(page); await page.goto('/vision-xray');
- await page.getByTestId('vision-catalog-toggle').click();
- await page.getByTestId('vision-catalog-remote_control').click();
- await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count','8');
- await expect(page.getByTestId('vision-anatomy-nav')).toBeVisible();
- await page.getByTestId('vision-anatomy-nav').click();
- await expect(page.getByTestId('vision-anatomy')).toBeVisible();
- await expect(page.getByTestId('vision-part-pcb')).toHaveCount(0);
+test('hand and face closeups are automatically chosen, not forced by the object catalog',async({page,browserName},info)=>{
+ test.skip(browserName==='webkit','Synthetic camera playback is Chromium only');
+ await session(page);await virtualCamera(page);await page.goto('/vision-xray');
+ await page.evaluate(()=>{(window as any).__visionFixture.bodyRegion='hand';});
+ await page.getByTestId('vision-open-camera').click();
+ const atlas=page.getByTestId('vision-anatomy');
+ await expect(atlas).toHaveAttribute('data-region','hand',{timeout:30000});
+ await page.getByTestId('vision-anatomy-layer-bones').click();
+ await expect(page.getByTestId('vision-anatomy-select-finger_bones')).toBeVisible();
+ await page.getByTestId('vision-anatomy-select-finger_bones').click();
+ await expect(page.getByTestId('vision-anatomy-description')).toContainText('falangi');
+ await expect(page.getByTestId('vision-anatomy-part-skull')).toHaveCount(0);
+ await page.evaluate(()=>{(window as any).__visionFixture.bodyRegion='face';});
+ await page.getByTestId('vision-anatomy-close').click();
+ await expect(atlas).toHaveAttribute('data-region','face',{timeout:30000});
+ await page.getByTestId('vision-anatomy-layer-organs').click();
+ await page.getByTestId('vision-anatomy-select-eyes').click();
+ await expect(page.getByTestId('vision-anatomy-description')).toContainText('retina');
+ await expect(page.getByTestId('vision-anatomy-part-heart')).toHaveCount(0);
+ expect(await page.evaluate(()=>(window as any).__visionFixture.openings)).toBe(1);
+ await page.screenshot({path:'../.vision-evidence/vision-auto-face-'+info.project.name+'.png',fullPage:true});
 });

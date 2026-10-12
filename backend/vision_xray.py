@@ -26,6 +26,7 @@ from deps import db, get_current_user
 from vision_provider import ask_json, VisionProviderError
 from vision_catalog import CatalogLimit, CatalogService, SHAPES, seeds
 from vision_seed_library import canonical_key, PACK_VERSION
+from vision_body_regions import anatomy_region, REGIONS
 
 router = APIRouter(prefix="/vision-xray", tags=["vision-xray"])
 _SCAN_LIMIT = asyncio.Semaphore(3)
@@ -86,11 +87,20 @@ canonical_key: nome comune inglese in snake_case, non un marchio o seriale.
 object_name: nome comune italiano. confidence: high|medium|low.
 bbox: [ymin,xmin,ymax,xmax] in 0..1000, solo oggetto, [0,0,0,0] se non localizzabile.
 La mancanza di una localizzazione precisa NON rende sconosciuta una famiglia chiara.
-Se l'immagine mostra chiaramente una figura umana, puoi restituire
-recognized=true, canonical_key=human_anatomy, object_name=Persona,
-confidence=high|medium e safe_to_generate=false. Non identificare la persona,
-non indovinare sesso, genere, organi interni, età o condizioni di salute.
-Il client userà un atlante anonimo e non salverà la fotografia.
+Se l'immagine mostra chiaramente una PERSONA o una sua PARTE ANATOMICA
+(es. mano, volto, braccio, torace, addome, gamba), rispondi come corpo umano
+e NON come normale oggetto da ricostruire. Usa canonical_key=human_anatomy,
+object_name=Parte del corpo oppure Persona e body_region secondo la zona
+principale visibile: full_body|face|hand|arm|torso|abdomen|leg.
+Se la vista è ravvicinata di una mano, usa hand; solo volto -> face,
+solo torace -> torso, solo gamba -> leg. Per le persone usa SEMPRE
+safe_to_generate=false e confidence high|medium solo se l'anatomia visibile
+è sufficientemente identificabile.
+Se una persona regge un oggetto in primo piano, identifica l'oggetto
+quando è il bersaglio principale, altrimenti l'anatomia visibile.
+Non indovinare sesso, genere, organi interni, età, malattie, identità
+o caratteristiche personali. Non identificare la persona.
+Il client mostrerà un atlante generico e non conserverà la fotografia.
 safe_to_generate=true solo per oggetti quotidiani innocui. Per armi, ordigni,
 persone/animali/organi, dispositivi medici, impianti alimentati, recipienti
 pressurizzati o oggetti potenzialmente pericolosi: false. Un comune contenitore
@@ -128,6 +138,7 @@ def normalize_identification(raw):
     return {"canonical_key": key, "object_name": str(raw.get("object_name") or key)[:90],
             "confidence": confidence, "bbox": normalized,
             "safe_to_generate": raw.get("safe_to_generate") is True,
+            "body_region": raw.get("body_region") if isinstance(raw.get("body_region"), str) and raw.get("body_region") in REGIONS else None,
             "uncertainty": str(raw.get("uncertainty") or "")[:220]}
 
 def focused_object_crop(image: bytes) -> bytes:
@@ -250,11 +261,14 @@ async def scan_object(body: ScanRequest, response: Response, user=Depends(get_cu
                     "error_code": "object_uncertain", "can_hint": True,
                     "reason": "Non riesco ancora a identificare questo oggetto. Puoi indicarne il nome oppure mostrare un altro lato."}
         key = identification["canonical_key"]
-        if key in {"human_anatomy", "human_body", "human", "person", "person_body"}:
-            # No shared catalog, profile inference, anatomical scan or generative job.
+        region = anatomy_region(identification)
+        if region:
+            # A visible body part opens a generic atlas, never a user-specific model.
+            # Never write a person, their traits or the frame to the shared catalog.
+            identification["body_region"] = region
             return {"status": "anatomy", "frame_id": body.frame_id,
-                    "identification": identification,
-                    "note": "Atlante anatomico generico: non è l'anatomia rilevata della persona."}
+                    "body_region": region, "identification": identification,
+                    "note": "Atlante anatomico generico, non una radiografia o diagnosi."}
         generator = (lambda: generate_family(key)) if body.allow_generation and identification["safe_to_generate"] else None
         result = await service.resolve(key=key, title=identification["object_name"], user_id=user["user_id"], generator=generator)
         return {**result, "identification": identification, "frame_id": body.frame_id}
