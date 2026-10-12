@@ -48,7 +48,7 @@ const sourceFile=(p)=>readFileSync(resolve(vendorRoot,p),'utf8');
 assert.match(read('index.html'),/lang="it"/);
 assert.match(read('index.html'),/ORA · Anatomia 3D/);
 assert.match(sourceFile('app/page.tsx'),/Atlante umano/);
-assert.match(sourceFile('app/ora-overlay.tsx'),/ORA · ANATOMIA 3D/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/ORA · \{STUDY_LABEL\[focusRegion\]/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/Scomponi/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/Preparo il corpo umano 3D/);
 assert.match(sourceFile('app/scene.tsx'),/alpha:oraInline/);
