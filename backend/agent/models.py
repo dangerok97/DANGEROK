@@ -852,6 +852,15 @@ class AutonomousGoal(BaseModel):
     def for_ai(self) -> Dict[str, Any]:
         return {
             "objective": self.objective,
+            # Code-owned origin, not another model inference: autonomous
+            # success criteria are proposed hypotheses, not user demands.
+            "origin": self.origin,
+            "decision_provenance": self.decision_provenance,
+            "criteria_source": (
+                "ora_inferred_not_user_instruction"
+                if self.origin == "agent_initiated" and self.decision_provenance == "model"
+                else "check_explicit_user_requirements"
+            ),
             "source_kind": self.source_kind,
             "source_refs": self.source_refs,
             "user_clarifications_not_authority": self.clarifications,
