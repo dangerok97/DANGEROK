@@ -112,7 +112,11 @@ for(const [en,expected] of [
  ['Left frontal nerve','Nervo frontale sinistro'],
  ['Left supra-orbital nerve','Nervo sovraorbitario sinistro'],
  ['Right common carotid artery','Arteria carotide comune destra'],
- ['Left choroid','Coroide sinistra']
+ ['Left choroid','Coroide sinistra'],
+ ['External ear','Orecchio esterno'],
+ ['Right external ear','Orecchio esterno destro'],
+ ['Left lacrimal sac','Sacco lacrimale sinistro'],
+ ['White matter of right cerebral hemisphere','Sostanza bianca dell’emisfero cerebrale destro']
 ]){
  const got=it.anatomyNameIt(en);
  assert.equal(got.name,expected,'Incorrect Italian term for '+en);
@@ -120,6 +124,9 @@ for(const [en,expected] of [
 }
 assert.deepEqual(Object.keys(it.anatomyNameIt('Unlisted mysterious tissue of foobar')).sort(),['name','reviewed']);
 assert.equal(it.anatomyNameIt('Unlisted mysterious tissue of foobar').reviewed,false);
+assert.match(it.systemExplanation('sensory','Orecchio esterno'),/padiglione auricolare/);
+assert.match(it.systemExplanation('skeletal','Osso frontale'),/volta cranica/);
+assert.match(it.systemExplanation('nervous','Sostanza bianca'),/fibre nervose/);
 const candidates=[...model.parts,...model.concepts];
 const translated=candidates.filter(p=>it.anatomyNameIt(p.name).reviewed);
 const untranslated=candidates.filter(p=>!it.anatomyNameIt(p.name).reviewed);
@@ -128,7 +135,7 @@ console.log('ANATOMY_ITALIAN_TERMINOLOGY '+JSON.stringify({
  percentage:+(translated.length/candidates.length*100).toFixed(1),
  originalTerms:untranslated.slice(0,18).map(p=>p.name)
 }));
-assert.ok(translated.length/candidates.length>.40,
+assert.ok(translated.length/candidates.length>.80,
  'Medical Italian terminology coverage regressed unexpectedly');
 // Ensure exploded meshes do not collapse into hundreds of unreadable fragments,
 // and tapping an individual piece isolates it while remembering the prior page.
@@ -139,6 +146,10 @@ assert.match(oraOverlay,/data-testid="ora-inline-return-explosion"/);
 assert.match(oraOverlay,/isolate:true,explode:0/);
 assert.match(oraOverlay,/setState\(s=>\(\{\.\.\.s,selected:\[\],isolate:false,explode:previous\?\.explode/);
 assert.match(oraOverlay,/data-testid="ora-inline-zoom-in"/);
+assert.match(oraOverlay,/const displayedExplosion=state.isolate&&beforeInspect\?beforeInspect.explode:state.explode/);
+assert.match(oraOverlay,/data-testid="ora-inline-explode-percentage"/);
+assert.match(oraOverlay,/value=\{Math.round\(displayedExplosion\*100\)\} disabled=\{Boolean\(chosen\)\}/);
+assert.doesNotMatch(oraOverlay,/title=\{part.originalName\|\|part.name\}/);
 assert.match(sourceFile('app/scene.tsx'),/detailZoom\|\|1/);
 
 console.log(JSON.stringify({status:'PASS',parts:model.parts.length,concepts:model.concepts.length,
