@@ -5,16 +5,19 @@ the photographed pixels nor anatomical traits enter the persistent object catalo
 """
 from __future__ import annotations
 
-REGIONS = frozenset({"full_body", "face", "hand", "arm", "torso", "abdomen", "leg"})
+REGIONS = frozenset({"full_body","face","hand","wrist","forearm","arm","elbow","shoulder","neck","torso","abdomen","back","pelvis","leg","knee","foot"})
 _KEYS = {
     "human_anatomy": "full_body", "human_body": "full_body", "human": "full_body",
     "person": "full_body", "person_body": "full_body", "person_full_body": "full_body",
     "human_face": "face", "face": "face", "human_head": "face", "head": "face",
     "human_hand": "hand", "hand": "hand", "palm": "hand", "fingers": "hand",
-    "human_arm": "arm", "arm": "arm", "forearm": "arm",
+    "human_arm": "arm", "arm": "arm", "forearm": "forearm",
+    "human_wrist":"wrist","wrist":"wrist","elbow":"elbow","shoulder":"shoulder",
+    "human_neck":"neck","neck":"neck",
     "human_torso": "torso", "torso": "torso", "chest": "torso",
     "abdomen": "abdomen", "human_abdomen": "abdomen", "belly": "abdomen",
-    "leg": "leg", "human_leg": "leg", "thigh": "leg", "foot": "leg",
+    "back":"back","human_back":"back","pelvis":"pelvis","hip":"pelvis",
+    "leg": "leg", "human_leg": "leg", "thigh": "leg", "foot": "foot", "human_foot":"foot", "knee":"knee",
 }
 
 def anatomy_region(identification: dict) -> str | None:
