@@ -6,7 +6,7 @@ from agent.models import ResultProvenance
 
 async def prepare(db, owner_id, goal, step):
     from agent.providers import CapabilityOutcome, Claim
-    from agent.reasoning import _DISCIPLINE, _ask_model
+    from agent.reasoning import _DISCIPLINE, _GROUNDED_RESULT, _ask_model
 
     provenance = ResultProvenance(source_class="internal_observation",
         capability=step.capability_needed or "prepare", provider="generated_draft",
@@ -53,7 +53,8 @@ async def prepare(db, owner_id, goal, step):
     if is_home_calendar_pair(goal):
         return unavailable("preparation_calendar_changed", True)
     rows = [{"id": e.id, "claim": e.claim, "source_class": e.provenance.source_class,
-             "source_refs": e.provenance.source_refs[:4], "observed_at": e.observed_at,
+             "source_refs": e.provenance.source_refs[:4], "bears_on": e.supports or None,
+             "observed_at": e.observed_at,
              "limits": e.provenance.certainty_note[:180],
              **({"memory_reads": e.provenance.for_ai()["memory_reads"]}
                 if e.provenance.memory_reads else {})} for e in evidence]
@@ -63,10 +64,10 @@ async def prepare(db, owner_id, goal, step):
         payload["evidence_truncated"] = True
     if len(json.dumps(payload, ensure_ascii=False, default=str)) > 9000:
         return unavailable("preparation_context_too_large")
-    answer = await _ask_model(_DISCIPLINE + "\nProduce the actual useful draft requested by the step. "
+    answer = await _ask_model(_DISCIPLINE + "\n" + _GROUNDED_RESULT + "\nProduce the actual useful draft requested by the step. "
         "Never just say it is ready or describe having read a source. State the useful findings, "
         "their implications and tradeoffs. When comparable costs are supplied, show the totals "
-        "including fees and the difference, preserving time periods and constraints. "
+        "including supplied fees and the difference, preserving time periods and constraints. "
         "Use only supplied evidence, preserve uncertainty and restrictions. "
         "For calendar conflicts, distinguish overlap from proven impossibility. A proposed new time "
         "is a request pending acceptance, not a confirmed slot. Do not promise same-day delivery, "
@@ -102,9 +103,12 @@ async def prepare(db, owner_id, goal, step):
         audit_rows.pop(unused)
         audit_payload["evidence_truncated"] = True
     allowed = {row["id"] for row in audit_rows}
-    checked = await _ask_model(_DISCIPLINE + "\nAudit this draft against the supplied evidence only. "
+    checked = await _ask_model(_DISCIPLINE + "\n" + _GROUNDED_RESULT + "\nAudit this draft against the supplied evidence only. "
         "Check every factual claim, calculation, comparison and obligation. A person's intention "
         "or preference is NOT a contractual requirement. Verify ratios and percentage descriptions from the supplied numbers. "
+        "Check every explanatory clause and conditional conclusion, not only cited IDs or numerical totals. "
+        "A correct calculation does not validate a surrounding unsupported claim. The earlier draft's "
+        "wording is not additional evidence. "
         "Correct unsupported wording and arithmetic, retaining material costs and limitations. "
         "Review proposed options too: do not relax a stated minimum requirement, invent extra "
         "resources, turn unavailable time into available time, or invent a restriction. "

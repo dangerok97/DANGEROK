@@ -1,6 +1,24 @@
 # QA v162 — iniziativa, prosecuzione e risultato
 
-## Ultima verifica locale: stato dell'esito e report revisionabile
+## Ultima verifica locale: scoperta coerente e qualifiche fino alla verifica
+
+La revisione successiva alla diagnostica 1292788 supera **326 test su 18
+moduli in 4,65 secondi** e il CLI scripted **9/9**, senza modello reale,
+HTTP del modello o effetti esterni. Comprende sei nuove prove del vero
+schema JSON di Discovery e nove del percorso di provenienza nella preparazione.
+Gli aggregati mirati di 47 e 53 casi si sovrappongono a quello finale.
+
+La regressione sul reader reale era rossa perché `bears_on` mancava dal
+payload della preparazione. La correzione conserva qualifiche note e ignote,
+cursori e letture parziali nei limiti esistenti. Preparazione, audit e verifica
+condividono il contratto di fedeltà ai fatti, senza nuovi giudizi o controlli
+deterministici del contenuto. Il parser mantiene gli esiti del modello.
+
+I quattro casi diagnostici verranno ripetuti sulla stessa fixture prima del
+gate completo; questi test locali non dimostrano ancora la correttezza delle
+nuove decisioni o dei nuovi testi prodotti dal modello reale.
+
+## Verifica locale precedente: stato dell'esito e report revisionabile
 
 La revisione del contratto decisionale e dell'esportazione diagnostica supera
 **311 test su 16 moduli in 4,25 secondi** e il CLI scripted **9/9**, senza
@@ -18,10 +36,61 @@ sanificato e il conteggio conserva la lunghezza originale. Il testo persistito
 e tutti i criteri di accettazione restano invariati. I report falliti dei due
 head precedenti sono conservati nei JSON collegati sotto.
 
-La prossima prova reale è diagnostica e limitata a `completed_result`,
+La prova reale diagnostica successiva usa `completed_result`,
 `source_change_crash`, `already_resolved` e `irrelevant`, senza cambiare la
-fixture. Il gate completo di nove casi e la successiva lettura pubblica
-restano necessari dopo la diagnosi; la loro riuscita non è presunta.
+fixture. Il suo esito è registrato sotto; il gate completo di nove casi e
+la successiva lettura pubblica restano necessari dopo la diagnosi.
+
+## Diagnostica del head 1292788: ammissione ripresa, qualità e scoperta aperte
+
+Il head `12927881483d4102b657625ea4c8a36a26f9f551`, albero
+`b732a46b2f967dd693e143f5b07d1633dcc2f6ce`, è eseguito nel deployment
+`2d8281e8-1b70-4f21-9ebc-696b7f25352d` il 12 ottobre 2026 fra
+02:37:15.909 e 02:37:32.808 UTC. La diagnostica è **2/4 PASS**, con
+**13 chiamate logiche e 14 HTTP osservati**, Gemini 2
+`gemini-flash-lite-latest`. Il [report integrale](evidence/autonomy_v162_diagnostic_2026-10-12_1292.json)
+conserva separatamente i quattro report originali. Non è il gate completo.
+
+Sul medesimo head concludono **14/14 job CI PASS**: sette sulla PR
+([CI](https://github.com/dangerok97/DANGEROK/actions/runs/38196412622),
+[Situation](https://github.com/dangerok97/DANGEROK/actions/runs/38196412589))
+e sette sul push ([CI](https://github.com/dangerok97/DANGEROK/actions/runs/38196409711),
+[Situation](https://github.com/dangerok97/DANGEROK/actions/runs/38196409721)).
+Entrambi i backend riportano 294 PASS v162, scripted 9/9, sei prove Mongo
+senza skip e tre regressioni v39. Il merge tecnico della PR
+`0d41df2ca3b2ea86c406bfff0eacd263121dfcd0` ha parent `da6c7456`/`1292788`
+e lo stesso albero. Il rapporto del push riporta direttamente il head.
+Nessun workflow mobile attivato e nessun artifact separato caricato;
+il JSON scripted è nei log. Questi verdi non sostituiscono il live fallito.
+
+`completed_result` riconosce ora il bisogno aperto, crea il goal, legge
+l'intera nota e completa i due passi di lettura/preparazione. Il report
+conserva il testo anche dopo il fallimento tardivo. L'esito automatico è
+`SEMANTIC_RESULT_REJECTED:INTERNAL_SOURCE_NOT_ATTRIBUTED`: la locuzione
+«In base alle informazioni registrate» non è riconosciuta dal controllo
+lessicale. Questo limite del riconoscitore non rende valido il testo.
+
+La revisione manuale rileva due difetti sostanziali: attribuisce al mensile
+una flessibilità contrattuale che la nota non documenta e conclude che ogni
+interruzione anticipata azzeri il risparmio dell'annuale. Quest'ultima è una
+generalizzazione non sostenuta; la comparazione a dodici mesi non basta
+a dedurre tutti gli scenari di interruzione. Occorrerebbero anche condizioni
+del mensile e durata effettiva. Cifre e differenza a dodici mesi sono corrette,
+e la necessità di verificare i dati col fornitore è espressa, ma il risultato
+non supera la revisione semantica complessiva.
+
+`source_change_crash` continua a scegliere silenzio con una sola chiamata,
+motivandolo con dati già completi e assenza di scadenze o documenti nuovi.
+Il riepilogo `outcome_assessment` è assente: il contratto lo chiedeva nel
+testo, mentre il vero esempio JSON del silenzio lo ometteva. La correzione
+successiva rende coerente lo schema e riduce i filtri locali contraddittori.
+`already_resolved` e `irrelevant` restano entrambi correttamente `no_goal`.
+
+L'esame del percorso di preparazione individua inoltre la qualificazione
+`supports` della fonte esclusa dalle righe inviate a generazione e audit.
+Il passo seguente ne conserva il significato entro lo stesso limite e
+chiarisce il contratto generale su attribuzione, derivazioni e condizioni
+non note. Nessun prezzo, esito o frase del gate viene imposto dal codice.
 
 ## Verifica locale precedente: fonti, completamento e consegna
 

@@ -1,3 +1,16 @@
+## 12 ottobre 2026 — v162, verifica delle deduzioni e schema coerente
+
+- Riepilogo dell'esito incluso nel vero JSON di Discovery e audit, con
+  criteri locali accorpati sul contributo utile ancora mancante.
+- Qualifiche `supports`/`bears_on` conservate nella preparazione; contratto
+  comune su fatti attribuiti, deduzioni e condizioni non note.
+- Archiviata la diagnostica 1292788, 2/4: ammissione avviata, testo ancora
+  semanticamente difettoso e Discovery in silenzio. CI 14/14 distinta.
+- Aggregato locale della correzione: 326 PASS su 18 moduli e scripted 9/9;
+  modello reale ancora da verificare con la fixture invariata.
+
+---
+
 ## 12 ottobre 2026 — v162, esito personale distinto dai materiali disponibili
 
 - Contratto generale di ammissione e Discovery: stato personale aperto,

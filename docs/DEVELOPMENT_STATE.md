@@ -1,3 +1,26 @@
+## 12 ottobre 2026 — v162, ammissione avviata e due difetti ancora in verifica
+
+Il head `1292788` conclude 14 job CI PASS, sette sulla PR e sette sul push,
+con 294 casi v162, scripted 9/9, sei prove Mongo/processi senza skip e tre
+regressioni v39. La diagnostica reale a quattro casi rimane però 2/4.
+
+L'ammissione avvia il lavoro e il documento viene completato. La revisione
+manuale rileva condizioni aggiunte e una conclusione troppo generale,
+mentre Discovery tace ancora sui materiali completi. I due negativi restano
+corretti. Report e testo sono conservati nel QA e nel JSON collegato.
+
+Il seguito rende coerente lo schema della scoperta e conserva le qualifiche
+delle evidenze fino a preparazione, audit e verifica. Fixture, permessi,
+criteri del gate e chiamate per giudizio restano invariati. La prossima
+diagnostica e il gate completo rimangono da superare.
+
+La revisione successiva supera 326 test locali su 18 moduli in 4,65 secondi
+e scripted 9/9, con zero modello reale, HTTP del modello ed effetti esterni.
+I sei nuovi casi Discovery e i nove della preparazione verificano schema,
+provenienza, limiti e decisioni senza simulare un verdetto semantico reale.
+
+---
+
 ## 12 ottobre 2026 — v162, CI verde e limite decisionale ancora aperto
 
 Il head `e2bc1322f0aa9093eeab7e6097ef07cd30d0be20` della PR #212 ha tutti

@@ -67,6 +67,31 @@ _DISCIPLINE = (
 )
 
 
+# The same grounding contract follows a written result from generation to
+# its source audit and final verification. Admission remains a separate
+# judgement about whether a useful personal outcome is still missing.
+_GROUNDED_RESULT = (
+    "Keep a written result faithful to the supplied sources at the level of each claim. "
+    "Attribute material facts to their actual origin, using source_refs, bears_on and note/limits. "
+    "Information recorded from the person (user_stated) is their report. A Memory marked "
+    "known or confirmed establishes its recorded status, not independent confirmation of "
+    "a third party's facts or current terms. Reading it now does not change that authority. "
+    "Preserve unknown authority or validity.\n"
+    "Separate stated facts from derived conclusions and explicitly conditional possibilities. "
+    "A calculation or consequence must retain its premises, comparison baseline, time horizon "
+    "and any other necessary conditions. Do not generalize one case or horizon to every case, "
+    "or choose a missing variable silently. A fully read source may still omit relevant terms: "
+    "silence is not evidence of a benefit, permission, restriction or obligation. One option's "
+    "conditions do not establish another's. If a consequence depends on an unknown, qualify "
+    "that specific consequence or leave it unresolved; keep the supported findings useful.\n"
+    "Qualifications belong next to the claims they limit. A missing independent confirmation "
+    "is a limit of certainty, not by itself a mandatory errand or a reason to withhold a useful "
+    "conditional comparison or draft. Require further verification or consent only where the "
+    "requested outcome, a sourced prerequisite or the actual external action requires it. "
+    "Never imply that an external action occurred or that permission was granted.\n"
+)
+
+
 _SITUATION_OUTCOME = (
     "For a goal with source_kind situation_initial_review or situation_followup, "
     "the user's desired_outcome is the useful action moment, not the act of reading conditions. "
@@ -705,6 +730,13 @@ async def verify_goal(
         "say what you are relying on and how much weight it bears.\n\n"
         "Say which success criterion each conclusion rests on. A criterion "
         "with nothing behind it is not met, however well the steps went.\n\n"
+        "If prepared_result is present, judge its actual wording against the source evidence "
+        "and the requested criteria. Successful preparation, valid citations or an earlier "
+        "consistency audit do not establish every claim. A generated draft is not independent "
+        "corroboration. A material unsupported clause leaves its criterion unmet; name the "
+        "unsupported conclusion or missing premise. A useful conditional result can meet a "
+        "bounded internal goal without independent third-party confirmation unless that "
+        "confirmation is itself required by the goal.\n\n"
         "Your choices:\n"
         "- `achieved` — it is true, and you can say why.\n"
         "- `partially_achieved` — part of it holds; say which part does not.\n"
@@ -721,7 +753,7 @@ async def verify_goal(
     )
 
     data = await _ask_model(
-        _DISCIPLINE + "\n\n" + instruction + "\n\n" + _SITUATION_OUTCOME,
+        _DISCIPLINE + "\n\n" + _GROUNDED_RESULT + "\n\n" + instruction + "\n\n" + _SITUATION_OUTCOME,
         _dump({"goal": goal, "what_was_done": evidence}),
     )
     if not isinstance(data, dict):

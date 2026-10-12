@@ -1,3 +1,18 @@
+## 12 ottobre 2026 — v162, schema della scoperta e qualifiche nella preparazione
+
+Lo schema JSON effettivo di Discovery contiene `outcome_assessment` prima
+di `opportunities`, nel silenzio e nella proposta; ogni proposta mantiene
+il proprio riepilogo. L'audit conserva `verified` al livello principale.
+I campi descrittivi restano opzionali per il parser e non convertono la scelta.
+
+Preparazione e audit ricevono anche il significato di `supports`/`bears_on`,
+insieme a claim, riferimenti, limiti e cursori. Il contratto comune del testo
+e della verifica distingue attribuzione, deduzioni condizionali e termini
+ignoti, entro gli stessi budget e controlli sulle fonti. Una qualifica della
+memoria non sostituisce una verifica presso terzi.
+
+---
+
 ## 12 ottobre 2026 — v162, stato dell'esito nel contratto decisionale
 
 Ammissione e Discovery distinguono bisogno personale aperto, materiali

@@ -1,3 +1,16 @@
+## 12 ottobre 2026 — v162, risultati che conservano i limiti delle fonti
+
+Un risultato utile distingue ciò che la fonte dice, ciò che si può dedurre
+e ciò che rimane ignoto. Una condizione non descritta non diventa un vantaggio
+né un divieto. Una conclusione valida per un periodo o una premessa non può
+essere estesa a tutti gli scenari senza sostegno.
+
+Le qualifiche della fonte accompagnano il lavoro fino al testo e alla verifica.
+Il collaudo reale mantiene una revisione del contenuto: creare un documento
+e chiudere il piano non ne dimostra la correttezza.
+
+---
+
 ## 12 ottobre 2026 — v162, riconoscere il risultato ancora mancante
 
 Disporre dei materiali non significa aver ricevuto il risultato utile. Se una

@@ -22,7 +22,7 @@ Evidenze e gate in [QA_AUTONOMY_COMPLETION_V162.md](QA_AUTONOMY_COMPLETION_V162.
 con modello reale ha superato solo 2/8 casi. Il seguito corregge il contesto
 delle Memory prima di decisione e ripianificazione, la lettura delle parti
 successive delle note e la chiusura dei passi ormai inutili. L’aggregato corrente conta
-280 test locali PASS e nove scenari scripted PASS; la nuova prova live
+326 test locali PASS e nove scenari scripted PASS; la nuova prova live
 resta da superare. Il
 rilascio app è preparato e sospeso dopo il rifiuto effettivo del controllo
 di approvazione Railway; non è considerato eseguito.
@@ -38,9 +38,17 @@ Il bisogno arriva integro fino all'HTTP dell'SDK. Il passo corrente corregge
 la distinzione decisionale fra materiali disponibili e risultato ancora
 mancante, conservando la fixture e i negativi; occorre poi ripetere il gate
 reale e la lettura pubblica prima di integrare questa revisione.
-La revisione locale del contratto e del report è verificata con 311 PASS
+La precedente revisione locale del contratto e del report è verificata con 311 PASS
 su 16 moduli e scripted 9/9; il prossimo live diagnostico usa quattro casi
 selezionati, seguito dal gate completo a nove senza modifica della fixture.
+
+La diagnostica `1292788` è poi 2/4: l'ammissione prosegue fino al documento,
+ma il contenuto contiene deduzioni non sostenute e Discovery resta in silenzio.
+I 14 job CI attivati sono verdi. Il passo corrente corregge lo schema della
+scoperta e le qualifiche/condizioni nella preparazione; revisione del contenuto
+e gate completo rimangono condizioni di uscita.
+La correzione locale successiva conclude 326 PASS su 18 moduli e scripted
+9/9; la diagnostica viene ripetuta prima del collaudo completo.
 
 **Gate di prodotto ancora distinti:** build nativa firmata e installata,
 ricezione effettiva dell'avviso, background del dispositivo e osservazione
