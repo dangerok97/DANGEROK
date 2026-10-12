@@ -96,12 +96,14 @@ test('validated BodyParts3D geometry opens by default, stays sandboxed, and fall
  const frame=page.getByTestId('vision-bp3d-frame');
  await expect(frame).toBeVisible();
  await expect(frame).toHaveAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');
+ await expect(frame).toHaveAttribute('src',/ora=inline&lang=it&region=full_body&cx=/);
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
  expect((await frame.getAttribute('sandbox'))).not.toContain('allow-same-origin');
  const fullScreen=page.getByTestId('vision-bp3d-fullscreen');
  await expect(fullScreen).toHaveAttribute('href','/bodyparts3d/index.html');
  await expect(fullScreen).toHaveAttribute('target','_blank');
  await expect(fullScreen).toHaveAttribute('rel','noopener noreferrer');
- await expect(fullScreen).toBeVisible();
+ await expect(fullScreen).toBeHidden(); // Person view must not become a separate full-screen page.
  await expect(page.getByTestId('vision-bp3d-toggle')).toHaveAttribute('aria-pressed','true');
  await expect(page.getByText('2.234 mesh')).toBeVisible();
  await page.getByTestId('vision-bp3d-fallback').click();
@@ -127,21 +129,65 @@ test('mismatched or missing BodyParts3D provenance never hides the original ORA 
 });
 
 
-test('direct human atlas requires neither camera permission nor an AI image request',async({page})=>{
+test('anatomy appears only after person detection, not as a separate navigation section',async({page})=>{
  let scans=0;page.on('request',r=>{if(r.url().endsWith('/api/vision-xray/scan'))scans++;});
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
+   model_is_person_specific:false,parts:2234,concepts:3432
+  })
+ }));
+ await launchAnatomy(page);
+ await expect(page.getByTestId('vision-open-human-atlas')).toHaveCount(0);
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
+ await expect(page.getByTestId('vision-bp3d-frame')).toHaveAttribute('src',/ora=inline&lang=it/);
+ await page.getByTestId('vision-anatomy-close').click();
+ await expect(page.getByTestId('vision-anatomy')).toHaveCount(0);
+ expect(scans).toBe(1);
+});
+
+test('held person overlay keeps the real camera stream and X reuses it for the next target',async({page,browserName})=>{
+ test.skip(browserName==='webkit','Synthetic captureStream is not a physical WebKit camera.');
+ let scans=0;
+ await page.route('**/api/vision-xray/scan',route=>{
+  scans++;return route.fulfill({status:200,contentType:'application/json',
+   body:JSON.stringify({status:'anatomy',body_region:'full_body',
+     identification:{canonical_key:'human_anatomy',body_region:'full_body',bbox:[.25,.10,.5,.8]}})});
+ });
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',
+  body:JSON.stringify({provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
+    model_is_person_specific:false,parts:2234,concepts:3432})
+ }));
+ await page.route('**/bodyparts3d/index.html?*',route=>route.fulfill({
+  status:200,contentType:'text/html',body:'<!doctype html><html lang="it"><title>Overlay didattico test</title><body style="background:transparent">Modello didattico</body></html>'
+ }));
  await page.addInitScript(()=>{
   localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));
-  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:()=>{
-   throw new Error('Camera permission must not be requested for the atlas');
+  const state={opened:0,stream:null as MediaStream|null};
+  (window as any).__personCam=state;
+  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{
+   state.opened++;const canvas=document.createElement('canvas');canvas.width=640;canvas.height=480;
+   const c=canvas.getContext('2d')!;c.fillStyle='#7c989e';c.fillRect(0,0,640,480);
+   state.stream=canvas.captureStream(18);return state.stream;
   }}});
  });
  await page.goto('/vision-xray');
- await page.getByTestId('vision-open-human-atlas').click();
- await expect(page.getByTestId('vision-anatomy')).toBeVisible();
- await expect(page.getByTestId('vision-anatomy-close')).toBeVisible();
- expect(scans).toBe(0);
+ await page.getByTestId('vision-open-camera').click();
+ await expect(page.getByTestId('vision-anatomy')).toBeVisible({timeout:20000});
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
+ const frame=page.getByTestId('vision-bp3d-frame');
+ await expect(frame).toHaveAttribute('src',/ora=inline&lang=it&region=full_body&cx=0.500/);
+ await expect(page.getByTestId('vision-camera-video')).toBeVisible();
+ await expect(page.getByTestId('vision-camera-video')).not.toHaveJSProperty('paused',true);
+ const previous=scans;
+ await page.waitForTimeout(1800);
+ expect(scans).toBe(previous);
  await page.getByTestId('vision-anatomy-close').click();
  await expect(page.getByTestId('vision-anatomy')).toHaveCount(0);
- await expect(page.getByTestId('vision-open-camera')).toBeVisible();
- expect(scans).toBe(0);
+ await expect.poll(()=>scans).toBeGreaterThan(previous);
+ const opens=await page.evaluate(()=>(window as any).__personCam.opened);
+ expect(opens).toBe(1);
+ await page.getByTestId('vision-stop-camera').click();
+ expect(await page.evaluate(()=>(window as any).__personCam.stream.getTracks().every((t:MediaStreamTrack)=>t.readyState==='ended'))).toBe(true);
 });
