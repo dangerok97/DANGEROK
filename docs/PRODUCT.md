@@ -2096,3 +2096,9 @@ Riferimenti API: https://www.w3.org/TR/image-capture/ e
 https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
 Lo zoom qui è digitale, non un comando hardware o zoom ottico. Le sorgenti
 generali per i seed sono elencate nel modulo; nessun CAD o immagine è copiato.
+
+
+
+## ORA su WhatsApp (V1, 2026-10-12)
+
+La stessa intelligenza ORA puo ricevere e rispondere a messaggi di testo via WhatsApp Cloud API ufficiale, dopo associazione esplicita numero-account mediante codice temporaneo in Connessioni e servizi. Memoria e permessi rimangono quelli dell'account ORA. Fino alla configurazione Meta mostra un chiaro stato non disponibile. Vocali, foto e notifiche proattive WhatsApp non fanno parte della V1. Dettagli: docs/WHATSAPP_CLOUD_API_V1.md.
