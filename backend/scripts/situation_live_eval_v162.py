@@ -67,6 +67,23 @@ _KEY_NAMES = ("GEMINI_API_KEY", "GEMINI2_API_KEY", "GEMINI_API_KEY_2", "OPENAI_A
               "BRAVE_API_KEY", "ROUTING_API_KEY", "WEATHER_API_KEY")
 _MODEL_NAMES = frozenset({"gemini", "gemini2", "groq", "mistral", "openai", "ollama", "emergent"})
 _STAGE = ContextVar("situation_eval_stage", default="unclassified")
+_CONVERSATION_MODES = frozenset({"answer", "ask", "tool", "act", "context", "research", "compare", "finish"})
+_CONVERSATION_ERRORS = frozenset({"provider_unavailable", "loop_bound"})
+_CONVERSATION_EVENTS = frozenset({
+    "TOOL", "DUPLICATE_SOFT", "DUPLICATE_REUSED", "PROVIDER_FAIL", "AI_DECISION_RETRY", "MALFORMED_FALLBACK",
+    "BARE_ACK_NUDGE", "BARE_ACK_BLOCKED_TERMINAL", "BARE_ACK_BLOCKED_BOUND", "FINAL", "LOOP_BOUND",
+    "SITUATION_MUTATION", "SITUATION_MUTATION_FAIL", "SITUATION_PLAN_NUDGE",
+    "SITUATION_SCHEDULE_TIME_NUDGE", "SITUATION_SCHEDULE_TIME_REWRITTEN",
+    "SITUATION_SCHEDULE_STATUS_TERMINAL", "SITUATION_SCHEDULE_STATUS_BOUND",
+    "GROUNDING_REPLY_REPAIR_REQUESTED", "GROUNDING_MESSAGE_RENDERED", "GROUNDING_MESSAGE_RENDERED_BOUND",
+    "GROUNDING_ADVICE_REWRITTEN", "GROUNDING_ADVICE_REWRITTEN_BOUND",
+    "GROUNDING_WEATHER_REWRITTEN", "GROUNDING_WEATHER_REWRITTEN_BOUND",
+    "TOOL_BUDGET", "WRITE_BUDGET", "CONTEXT_BUDGET", "COMPARE_BUDGET", "RESEARCH_BUDGET",
+    "OBJECT_BUDGET", "ARTIFACT_BUDGET", "READY_ACT_NO_EFFECT_NUDGE", "READY_ACT_NO_EFFECT_BLOCKED",
+    "READY_ACT_NO_EFFECT_BOUND", "EMPIRICAL_ESTIMATE_EVIDENCE_NUDGE", "EMPIRICAL_ESTIMATE_BLOCKED_TERMINAL",
+    "SKILL_PLAN_INCOMPLETE_NUDGE", "SKILL_PLAN_FAILURE_NUDGE", "SKILL_PLAN_INCOMPLETE_TERMINAL",
+    "SKILL_PLAN_BOUND_UNFINISHED", "SKILL_PLAN_BOUND_COMPLETED",
+})
 
 
 class EvaluationFailure(RuntimeError):
@@ -124,6 +141,106 @@ def redact_report(value):
     if isinstance(value, dict):
         return {key: redact_report(item) for key, item in value.items()}
     return value
+
+
+def _conversation_trace(trace):
+    """Project event codes before public_trace can omit later steps.
+
+    Only the latest twelve allowed events and aggregate counts are retained.
+    Free text, findings, arguments, identifiers and source payloads are absent.
+    Counts describe this observed input, not hidden or reconstructed events.
+    """
+    if not isinstance(trace, dict) or not isinstance(trace.get("steps"), list):
+        return {"status": "steps_unavailable", "source": "public_trace_input"}
+    events, counts, excluded_fields = [], {}, 0
+    details = {
+        "capability": LOCAL_TOOLS | EXTERNAL_TOOLS, "name": LOCAL_TOOLS | EXTERNAL_TOOLS,
+        "mode": _CONVERSATION_MODES,
+        "guidance_outcome": frozenset({"ask", "act", "complete", "continue", "limbo"}),
+        "status": frozenset({"ok", "success", "failed", "partial", "unavailable", "denied"}),
+    }
+    for sequence, step in enumerate(trace["steps"], 1):
+        event = step.get("event") if isinstance(step, dict) else None
+        if not isinstance(event, str) or event not in _CONVERSATION_EVENTS:
+            continue
+        counts[event] = counts.get(event, 0) + 1
+        row = {"sequence": sequence, "event": event}
+        for key, allowed in details.items():
+            value = step.get(key)
+            if isinstance(value, str) and value in allowed:
+                row[key] = value
+        excluded_fields += len(set(step) - (set(row) - {"sequence"}))
+        events.append(row)
+        if len(events) > MAX_DECISION_OBSERVATIONS:
+            events.pop(0)
+    selected = sum(counts.values())
+    return {"status": "observed", "source": "public_trace_input", "steps_total": len(trace["steps"]),
+        "steps_excluded": len(trace["steps"]) - selected, "event_counts": counts, "events": events,
+        "events_omitted": selected - len(events), "event_limit": MAX_DECISION_OBSERVATIONS,
+        "retention": "latest_allowlisted_events", "event_fields_excluded": excluded_fields,
+        "trace_fields_excluded": len(trace) - 1}
+
+
+def _conversation_result_fields(response):
+    mode, error = getattr(response, "mode", None), getattr(response, "error", None)
+    known_error = isinstance(error, str) and error in _CONVERSATION_ERRORS
+    return {"ok": response.ok if type(getattr(response, "ok", None)) is bool else None,
+        "mode": mode if isinstance(mode, str) and mode in _CONVERSATION_MODES else None,
+        "error": error if known_error else None, "error_present": error is not None,
+        "error_omitted": error is not None and not known_error,
+        **{key: value if type(value := getattr(response, key, None)) is int and value >= 0 else None
+           for key in ("ai_calls", "tool_calls")}}
+
+
+async def observe_conversation(db, session, report, **kwargs):
+    """Observe only this synthetic conversation task; keep calls and returns.
+
+    TRACE configuration and public_trace's own output are unchanged. The
+    wrapper stores only a projection, never a raw trace, even on failure.
+    """
+    from conversation_engine.ai_core import loop
+
+    async def owned_scope():
+        try:
+            require_synthetic_database(db)
+            return (session.user_id == OWNER and bool(await db.eval_guards.find_one(
+                {"_id": VERSION, "owner": OWNER}, {"_id": 1})))
+        except Exception:
+            return False
+
+    owned, task = await owned_scope(), asyncio.current_task()
+    original = loop.public_trace
+    captured, calls = {"status": "not_observed"}, 0
+
+    def public_trace(trace):
+        nonlocal captured, calls
+        result = original(trace)
+        try:
+            if asyncio.current_task() is not task or session.user_id != OWNER:
+                return result
+        except Exception:
+            return result  # An unrelated thread may have no event loop.
+        try:
+            calls += 1
+            captured = _conversation_trace(trace)
+        except Exception:
+            captured = {"status": "projection_unavailable"}
+        return result
+
+    if owned:
+        with patch.object(loop, "public_trace", public_trace):
+            response = await loop.run_cognitive_loop(sess=session, db=db, **kwargs)
+    else:
+        response = await loop.run_cognitive_loop(sess=session, db=db, **kwargs)
+    if not owned or not await owned_scope():
+        report["conversation_result"] = {"status": "scope_not_observed"}
+    else:
+        try:
+            report["conversation_result"] = {"status": "observed", **_conversation_result_fields(response),
+                "trace": captured, "public_trace_calls": calls}
+        except Exception:
+            report["conversation_result"] = {"status": "projection_unavailable"}
+    return response
 
 
 def public_url(value):
@@ -901,8 +1018,8 @@ async def run_case(*, mode="scripted"):
                         _STAGE.reset(token)
 
                 report["phases"]["conversation"] = {"status": "running"}
-                response = await loop.run_cognitive_loop(sess=session, user_message=scenario_message(started),
-                    db=db, decision_fn=decision, max_steps=7)
+                response = await observe_conversation(db, session, report, user_message=scenario_message(started),
+                    decision_fn=decision, max_steps=7)
                 report["conversation_answer"] = safe_text(response.ora_text, 5000)
                 require(response.ok, "CONVERSATION_NOT_OK")
                 situations = await db.situations.find({"user_id": OWNER}, {"_id": 0}).limit(3).to_list(3)

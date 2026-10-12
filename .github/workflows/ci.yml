@@ -249,6 +249,7 @@ jobs:
             tests/test_autonomy_model_diagnostics_v162.py \
             tests/test_autonomy_declaration_diagnostics_v162.py \
             tests/test_autonomy_context_diagnostics_v162.py \
+            tests/test_autonomy_verification_diagnostics_v162.py \
             tests/test_gemini_quota_retry_v162.py \
             tests/test_llm_response_schema_v162.py \
             tests/test_agent_protocol_recovery_v162.py \
@@ -280,6 +281,8 @@ jobs:
             tests/test_planning_protocol_history_v162.py \
             tests/test_situation_live_eval_v162.py \
             tests/test_situation_estimate_schedule_truth_v162.py \
+            tests/test_situation_terminal_schedule_truth_v162.py \
+            tests/test_situation_conversation_diagnostics_v162.py \
             tests/test_situation_creation_protocol_v162.py \
             tests/test_pre_reply_grounding_recovery_v162.py \
             tests/test_public_answer_diagnostics_v162.py \

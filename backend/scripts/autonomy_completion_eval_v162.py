@@ -54,6 +54,7 @@ MAX_DECISION_OBSERVATIONS = 12
 CONTEXT_TEXT_LIMIT = 9000
 ACTION_CONTEXT_FIELDS = ("goal", "plan", "local_clock", "still_to_do", "what_has_been_found",
                          "what_ora_can_do", "prepared_result", "prepared_source_refs")
+VERIFICATION_CONTEXT_FIELDS = ("goal", "what_was_done")
 DECISION_TEXT_LIMIT = 400
 MAX_DIAGNOSTIC_PROPOSALS = 3
 MAX_DIAGNOSTIC_PLAN_STEPS = 6
@@ -155,7 +156,7 @@ def model_observations(probe):
             "planning_observations_omitted": probe.planning_observations_omitted,
             "context_observations": probe.context_observations,
             "context_observations_omitted": probe.context_observations_omitted,
-            "context_observations_scope": "owned AgentService._next -> choose_next_action -> _action_dump; known logged causes only",
+            "context_observations_scope": "owned AgentService._next -> choose_next_action -> _action_dump or _finish -> verify_goal -> _verification_dump; shared cap; known logged causes only",
             "result_checks": probe.result_checks,
             "discovery_results": probe.discovery_results,
             "executed_capabilities": (probe.steps if len(probe.steps) <= MAX_DECISION_OBSERVATIONS
@@ -165,20 +166,21 @@ def model_observations(probe):
             "token_usage_scope": "successful_responses_with_provider_usage_only"}
 
 
-def _action_context_observation(payload, result, cause):
+def _action_context_observation(payload, result, cause, *, stage="choose_next_action"):
     """Only a caller with the synthetic owner/marker scope may export this."""
     encode = lambda value: json.dumps(value, ensure_ascii=False, default=str)
     source = encode(payload)
     clean = _safe_text(source, CONTEXT_TEXT_LIMIT + 1)
+    fields = VERIFICATION_CONTEXT_FIELDS if stage == "verify_goal" else ACTION_CONTEXT_FIELDS
     return {
-        "stage": "choose_next_action", "available": result is not None,
+        "stage": stage, "available": result is not None,
         "input_characters": len(source),
         "input_sha256": hashlib.sha256(source.encode()).hexdigest(),
         "encoded_characters": len(result) if isinstance(result, str) else None,
-        "section_characters": {key: len(encode(payload[key])) for key in ACTION_CONTEXT_FIELDS
+        "section_characters": {key: len(encode(payload[key])) for key in fields
                                if isinstance(payload, dict) and key in payload},
         "unavailable_reason": (cause if result is None and cause in
-                               ("prepared_source_missing", "material_context_exceeds_budget") else None),
+                               ("prepared_source_missing", "material_context_exceeds_budget", "goal_criteria_exceed_budget") else None),
         "input": clean[:CONTEXT_TEXT_LIMIT], "input_truncated": len(clean) > CONTEXT_TEXT_LIMIT,
     }
 
@@ -735,6 +737,9 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
     original_service_next, original_action_dump = AgentService._next, reasoning._action_dump
     next_context = ContextVar("autonomy_eval_next_owner", default=None)
     action_context = ContextVar("autonomy_eval_action_context", default=None)
+    original_service_finish, original_verification_dump = AgentService._finish, reasoning._verification_dump
+    finish_context = ContextVar("autonomy_eval_finish_owner", default=None)
+    verification_context = ContextVar("autonomy_eval_verification_context", default=None)
     original_service_reconsider, original_reconsider = AgentService._reconsider, reasoning.reconsider
     reconsider_context = ContextVar("autonomy_eval_reconsider", default=False)
     base_plan = baseline.scripted_make_plan if mode == "scripted" else reasoning.make_plan
@@ -827,10 +832,17 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         finally:
             next_context.reset(token)
 
-    def action_dump(payload):
-        context = action_context.get()
+    async def service_finish(self, owner_id, goal, *args, **kwargs):
+        owned = self.db is db and owner_id == getattr(goal, "owner_id", None) == OWNER
+        token = finish_context.set({"goal_id": goal.id, "task": asyncio.current_task()} if owned else None)
+        try:
+            return await original_service_finish(self, owner_id, goal, *args, **kwargs)
+        finally:
+            finish_context.reset(token)
+
+    def observe_dump(payload, original, context, *, stage):
         if context is None:
-            return original_action_dump(payload)
+            return original(payload)
         cause, original_info = None, reasoning.logger.info
 
         def record_diagnostic(message, *args, **kwargs):
@@ -838,6 +850,9 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
             known = {
                 "action context unavailable: prepared_source_missing": "prepared_source_missing",
                 "action context unavailable: material_context_exceeds_budget": "material_context_exceeds_budget",
+                "verification context unavailable: prepared_source_missing": "prepared_source_missing",
+                "verification context unavailable: material_context_exceeds_budget": "material_context_exceeds_budget",
+                "verification context unavailable: goal_criteria_exceed_budget": "goal_criteria_exceed_budget",
             }
             if type(message) is str and message in known:
                 cause = known[message]
@@ -846,9 +861,9 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         # The reducer is synchronous. Its exact output and exceptions retain
         # their identity; no unavailable cause is inferred from size or text.
         with patch.object(reasoning.logger, "info", record_diagnostic):
-            result = original_action_dump(payload)
+            result = original(payload)
         try:
-            observation = _action_context_observation(payload, result, cause)
+            observation = _action_context_observation(payload, result, cause, stage=stage)
             observation.update(goal_id=_safe_text(context["goal_id"], 80),
                 model_attempts=probe.model_attempts,
                 sequence=len(probe.context_observations) + probe.context_observations_omitted + 1)
@@ -859,6 +874,18 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         except Exception:
             pass  # Best-effort diagnostics never replace the reducer result.
         return result
+
+    def action_dump(payload):
+        return observe_dump(payload, original_action_dump, action_context.get(), stage="choose_next_action")
+
+    def verification_dump(payload):
+        context = verification_context.get()
+        try:
+            if context is not None and context["task"] is not asyncio.current_task():
+                context = None
+        except RuntimeError:
+            context = None  # A foreign thread has no owning conversation task.
+        return observe_dump(payload, original_verification_dump, context, stage="verify_goal")
 
 
     async def build_plan(self, owner_id, goal, run, *args, **kwargs):
@@ -968,7 +995,14 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         return await observed_decision("make_plan", plan_result, *args, **kwargs)
 
     async def verify(*args, **kwargs):
-        return await observed_decision("verify_goal", base_verify, *args, **kwargs)
+        context = finish_context.get()
+        enabled = (context is not None and context["task"] is asyncio.current_task()
+                   and await _synthetic_diagnostics_allowed(db, OWNER))
+        token = verification_context.set(context if enabled else None)
+        try:
+            return await observed_decision("verify_goal", base_verify, *args, **kwargs)
+        finally:
+            verification_context.reset(token)
 
     async def choose(*args, **kwargs):
         context = next_context.get()
@@ -1100,6 +1134,7 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         stack.enter_context(patch.object(AgentService, "advance", bounded_first_read))
         stack.enter_context(patch.object(AgentService, "_build_plan", build_plan))
         stack.enter_context(patch.object(AgentService, "_next", service_next))
+        stack.enter_context(patch.object(AgentService, "_finish", service_finish))
         stack.enter_context(patch.object(AgentService, "_reconsider", service_reconsider))
         stack.enter_context(patch.object(DeliveryService, "note_activity", note))
         stack.enter_context(patch.object(provider, "get_provider", lambda: BlockedPush(probe)))
@@ -1107,6 +1142,7 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         stack.enter_context(patch.object(reasoning, "verify_goal", verify))
         stack.enter_context(patch.object(reasoning, "choose_next_action", choose))
         stack.enter_context(patch.object(reasoning, "_action_dump", action_dump))
+        stack.enter_context(patch.object(reasoning, "_verification_dump", verification_dump))
         stack.enter_context(patch.object(reasoning, "reconsider", reconsider))
         stack.enter_context(patch.object(OpportunityService, "scan", scan))
         stack.enter_context(patch.object(reasoning, "decide_goal", decide_goal))

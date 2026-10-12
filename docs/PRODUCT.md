@@ -1,3 +1,25 @@
+# 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
+
+**L’obiettivo lavanderia non è ancora dimostrato.** Una nuova dichiarazione «ho steso i panni» a Tarquinia deve portare a un avviso utile per il ritiro, distinguendo asciugatura stimata e necessità di mettere al riparo il bucato. La stesa precedente resta chiusa e non deve essere riaperta.
+
+Il candidato `650a6f4` supera la CI completa: **6 workflow e 16 job PASS**, comprese **40 prove browser, 20 Chromium e 20 WebKit**. Il collaudo con modelli e fonti reali resta però insufficiente: autonomia **4/9 automatica**, con soli quattro casi negativi superati e **0/5 testi dei casi positivi accettabili alla revisione manuale**. Un risultato salvato, una citazione autentica o il verde dei test non bastano a rendere utile e corretto il contenuto consegnato.
+
+Nella prova sintetica Tarquinia nasce la Situation e viene salvato un controllo futuro, ma il risultato è **`followup_pending_unobserved`, `passed=false`**. Worker, monitoraggio, controllo futuro, azione utile e ricevuta sul dispositivo non sono osservati. La successiva cancellazione sintetica è verificata e lascia zero wake pendenti; non rappresenta il ritiro fisico dei panni.
+
+La risposta finale del tragitto pubblico Roma Termini–Colosseo è accettabile nel singolo caso: distanza, durata stimata e meteo nelle ore indicate corrispondono alle due fonti lette. La review distingue un precedente messaggio intermedio scorretto, che non coincide con il finale. Questo risultato non chiude l’accettazione dell’autonomia.
+
+Le modifiche successive alla risposta terminale e alla diagnostica sono congelate nello snapshot locale `0604fd9` e non sono state provate dal collaudo reale 650. La risposta terminale può riferire il controllo già persistito dopo rilettura corrente, conservando l’esito incompleto; la diagnostica rende osservabili più confini effettivi del turno e della verifica, entro i limiti del reporter. L’esempio astratto X/A/B nell’audit sostituisce due ripetizioni del prompt: è un’ipotesi da valutare, non una correzione semantica dimostrata. Le 40 regressioni locali dell’esperimento verificano compatibilità di protocollo, trasporto e fonti; non provano la qualità della prossima risposta reale. Schema, parser, numero di chiamate e budget restano invariati.
+
+L’autorizzazione generale della persona a proseguire resta valida. La revisione automatica dell’approvazione ha però respinto la specifica patch APP `eb9c3870-6835-4c5a-bcbb-24d34b6dd627` (`INVALID_ARGUMENT`; `Cancelled — the user did not approve this action. No changes were made.`). Quella modifica APP non è stata eseguita e non è stato effettuato un merge su `staging/cloud` per aggirare il blocco. Firma, installazione e ricezione di una notifica sul telefono ad app chiusa restano non attestate.
+
+**Verifica locale successiva, separata dalla CI 650:** snapshot `0604fd9`, **1.874 PASS / 1 SKIP / 0 FAIL**, 152 moduli e 154 selezioni in 71,38 s, con gli otto file sorgente invariati durante la prova. **CLI scripted 9/9**, zero tentativi modello, HTTP modello ed effetti esterni. Il report CLI conserva `code_revision=null`, con collegamento esterno allo snapshot; non viene rinominato 650. L’unico SKIP è `tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional`, perché `GEMINI_API_KEY` è stata deliberatamente lasciata vuota nel run isolato; non descrive le credenziali dei servizi.
+
+La selezione separata della risposta terminale ha **54 PASS e 3 FAIL legacy di navigazione**, riprodotti anche caricando il sorgente HEAD di confronto. I tre nodi sono rimasti invariati e sono fuori dall’aggregato di 152 moduli; il totale integrato non ne dichiara la risoluzione.
+
+[CI 650](evidence/autonomy_v162_ci_2026-10-12_650a6f4.json) · [Manifest dei tre collaudi e archivio](evidence/autonomy_v162_live_2026-10-12_650a6f4_manifest.json) · [Review dei cinque testi positivi](evidence/autonomy_v162_live_2026-10-12_650a6f4_semantic_review.json) · [Revisione separata del pubblico](evidence/autonomy_v162_live_2026-10-12_650a6f4_public_review.json) · [Seguito locale e log](evidence/autonomy_v162_followthrough_2026-10-12.json). Gli originali e i suffissi documentali storici restano invariati.
+
+---
+
 # 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
 
 **Il risultato richiesto resta un avviso utile al ritiro.** Per una nuova dichiarazione «ho steso i panni» a Tarquinia, ORA deve seguire le condizioni, conservare il controllo futuro e distinguere un’asciugatura stimata dall’esigenza di ritirare prima per il meteo. La precedente stesa è chiusa e non viene riaperta.

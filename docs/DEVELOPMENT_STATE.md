@@ -1,3 +1,31 @@
+# 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
+
+**Stato: CI 650 completa; accettazione autonoma non raggiunta.** Revisione `650a6f404be52829c983cf49c0b612a96e6a4a11`, tree `fb5a9bb2fa8d3a593815481a66767a5d3cca2f89`. La CI PR usa il merge tecnico `96565463674bf8b58d1b3e693f01f3a2a30f4e62`, con tree identico e base `6e619cf`.
+
+| Prova650 | Risultato osservato | Limite |
+|---|---|---|
+| CI push e PR | **6 workflow / 16 job PASS**; 7 job push e 9 PR | Non è il totale dei test unici |
+| Backend, per invocazione | v162 **1.274 PASS**, Vision **192**, Mongo con riavvio **6**, guard statici v39 **3**; questi gruppi senza skip | Otto skip appartengono ad altre selezioni storiche, non ai job o ai gruppi indicati |
+| CLI scripted, per invocazione | **9/9**, zero tentativi modello, HTTP modello ed effetti esterni | Non è una prova con modello reale |
+| Browser | **40/40**, 20 Chromium e 20 WebKit | API simulate; non installazione o notifica su telefono |
+| Autonomia reale | **4/9 automatica**, 90 chiamate logiche e 97 HTTP modello | **0/5 testi positivi accettabili manualmente** |
+| Tarquinia sintetica | `followup_pending_unobserved`, `passed=false`; 7 chiamate logiche, 11 HTTP modello e una lettura provider | Worker, monitoraggio, controllo futuro, ritiro e ricevuta `not_run` |
+| Pubblico | Finale accettabile nella review del singolo caso; due letture e quattro decisioni, zero riscritture grounding | Il report originale conserva `pending_human_review`; nessuna accettazione generale dedotta |
+
+Il deployment tecnico `d32cdee9-64f2-4d40-90be-4d907fe7f036` ha emesso tutti e tre i rapporti e termina **CRASHED**, aggiornato alle 13:18:27.613 UTC. La raccolta degli originali è completa: il suo esito 0 certifica l’estrazione, non il successo delle prove. Non si ricostruisce dal solo stato Railway un codice d’uscita o una causa precisa del processo.
+
+Le modifiche successive alla risposta terminale e alla diagnostica sono congelate nello snapshot locale `0604fd9` e non sono state provate dal collaudo reale 650. La risposta terminale può riferire il controllo già persistito dopo rilettura corrente, conservando l’esito incompleto; la diagnostica rende osservabili più confini effettivi del turno e della verifica, entro i limiti del reporter. L’esempio astratto X/A/B nell’audit sostituisce due ripetizioni del prompt: è un’ipotesi da valutare, non una correzione semantica dimostrata. Le 40 regressioni locali dell’esperimento verificano compatibilità di protocollo, trasporto e fonti; non provano la qualità della prossima risposta reale. Schema, parser, numero di chiamate e budget restano invariati.
+
+L’autorizzazione generale della persona a proseguire resta valida. La revisione automatica dell’approvazione ha però respinto la specifica patch APP `eb9c3870-6835-4c5a-bcbb-24d34b6dd627` (`INVALID_ARGUMENT`; `Cancelled — the user did not approve this action. No changes were made.`). Quella modifica APP non è stata eseguita e non è stato effettuato un merge su `staging/cloud` per aggirare il blocco. Firma, installazione e ricezione di una notifica sul telefono ad app chiusa restano non attestate.
+
+**Verifica locale successiva:** commit `0604fd9a96ba7c4ae21b78feb869b8a4e9e57d9b`, tree `23b63ffbbe1648eae0e1614389c6caddb8cad860`; **1.874 PASS / 1 SKIP / 0 FAIL**, 152 moduli e 154 selezioni in 71,38 s, esito 0 e otto file sorgente invariati durante la prova. **CLI scripted 9/9**, zero tentativi modello, HTTP al modello ed effetti esterni, `real_model_executed=false`. Il report mantiene `code_revision=null`; commit e tree sono attestati separatamente dal manifest di esecuzione. L’unico SKIP è `tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional`, perché `GEMINI_API_KEY` è stata deliberatamente lasciata vuota nel run isolato; non descrive le credenziali dei servizi. Questi sono esiti locali, distinti da CI e live 650; la nuova revisione non ha ancora una propria prova remota o reale.
+
+La selezione separata della risposta terminale ha **54 PASS e 3 FAIL legacy di navigazione**, riprodotti anche caricando il sorgente HEAD di confronto. I tre nodi sono rimasti invariati e sono fuori dall’aggregato di 152 moduli; il totale integrato non ne dichiara la risoluzione.
+
+[CI 650](evidence/autonomy_v162_ci_2026-10-12_650a6f4.json) · [Manifest dei tre collaudi e archivio](evidence/autonomy_v162_live_2026-10-12_650a6f4_manifest.json) · [Review dei cinque testi positivi](evidence/autonomy_v162_live_2026-10-12_650a6f4_semantic_review.json) · [Revisione separata del pubblico](evidence/autonomy_v162_live_2026-10-12_650a6f4_public_review.json) · [Seguito locale e log](evidence/autonomy_v162_followthrough_2026-10-12.json). Gli originali e i suffissi documentali storici restano invariati.
+
+---
+
 # 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
 
 **Stato: correzioni locali verificate; accettazione reale ancora aperta.** Il candidato storico `636c0f72b374bff95039ad2b3e017ed2974c77db` ha **2 workflow push e 7 job PASS**. La CI su pull request e Mobile di quel candidato non è stata eseguita; il ricalcolo della PR ha esposto la base avanzata `6e619cf`. I risultati di altri SHA non sono trasferiti a `636c0f7` né alla nuova integrazione.

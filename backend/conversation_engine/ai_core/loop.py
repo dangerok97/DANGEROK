@@ -2784,6 +2784,16 @@ async def run_cognitive_loop(
                 decision.message_to_user = (
                     "Non sono riuscita a completare la richiesta in questo turno."
                 )
+                if (step + 1 >= max_steps and not phone_owns_turn
+                        and not _observations_wait_for_user(observations[turn_start:])):
+                    check_copy = await _current_scheduled_check_copy(
+                        db, sess.user_id, observations[turn_start:]
+                    )
+                    if check_copy:
+                        decision.message_to_user = (
+                            f"{check_copy} Non ho ancora completato la valutazione."
+                        )
+                        add_step(trace, event="SITUATION_SCHEDULE_STATUS_TERMINAL")
                 decision.question = None
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
@@ -4355,6 +4365,18 @@ async def run_cognitive_loop(
         or (last_decision.question if last_decision else None)
         or "Non ho completato la richiesta in questo turno. Non considero eseguita alcuna azione senza una conferma verificata."
     )
+    if (not (last_decision and (last_decision.message_to_user or last_decision.question))
+            and not _has_phone_observation(observations[turn_start:])
+            and not _observations_wait_for_user(observations[turn_start:])):
+        # A final tool call can leave no prose while a real check is saved.
+        # Preserve that current state; later action/confirmation guards retain
+        # their precedence, and this does not turn the bound into completion.
+        check_copy = await _current_scheduled_check_copy(
+            db, sess.user_id, observations[turn_start:]
+        )
+        if check_copy:
+            ora = f"{check_copy} Non ho ancora completato la valutazione."
+            add_step(trace, event="SITUATION_SCHEDULE_STATUS_BOUND")
     if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
         ora = (
             "Ho aggiornato la situazione, ma non sono riuscita a riconciliare il piano "

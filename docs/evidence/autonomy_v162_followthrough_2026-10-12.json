@@ -1,0 +1,172 @@
+{
+  "created_at": "2026-10-12T13:38:28.607347+00:00",
+  "snapshot_status": "local_pass_remote_ci_and_live_pending",
+  "code_commit": "0604fd9a96ba7c4ae21b78feb869b8a4e9e57d9b",
+  "code_tree": "23b63ffbbe1648eae0e1614389c6caddb8cad860",
+  "published_baseline": {
+    "commit": "650a6f404be52829c983cf49c0b612a96e6a4a11",
+    "tree": "fb5a9bb2fa8d3a593815481a66767a5d3cca2f89"
+  },
+  "changes": [
+    {
+      "kind": "runtime_correction",
+      "description": "Two terminal fallback paths freshly read an owned current saved Situation checkpoint before reporting its scheduled time; uncertainty and original error/trace remain."
+    },
+    {
+      "kind": "runner_diagnostics",
+      "description": "Situation terminal events and actual verifier input refusals are observed inside synthetic task/owner/database boundaries. Existing limits, return/exception identity and verdicts remain."
+    },
+    {
+      "kind": "semantic_comprehension_experiment",
+      "description": "One repeated audit instruction is replaced by an abstract X/A/B counterexample. Same two calls and protocol; semantic improvement requires new live evidence."
+    }
+  ],
+  "local_regression": {
+    "passed": 1874,
+    "failed": 0,
+    "skipped": 1,
+    "errors": 0,
+    "returncode": 0,
+    "wall_seconds": 75.96,
+    "summary": "1874 passed, 1 skipped, 21384 warnings in 71.38s (0:01:11)",
+    "modules": 152,
+    "selectors": 154,
+    "code_commit": "0604fd9a96ba7c4ae21b78feb869b8a4e9e57d9b",
+    "code_tree": "23b63ffbbe1648eae0e1614389c6caddb8cad860",
+    "changed_code_unchanged_during_run": true,
+    "finished_at": "2026-10-12T13:36:25.921414+00:00",
+    "log": {
+      "path": "/tmp/ora_v162_followthrough_local_pytest.log",
+      "bytes": 2219,
+      "sha256": "ee70ad273306de39dfa8ae1249ed8981250b5f4fcc43e3625d7b834c039b7fcc"
+    },
+    "seconds": 71.38
+  },
+  "scripted_cycle": {
+    "command": [
+      "/workspace/scratch/ee708e10d9bd/ora-resume/.venv/bin/python",
+      "-m",
+      "scripts.autonomy_completion_eval_v162",
+      "--mode",
+      "scripted",
+      "--output",
+      "/tmp/ora_v162_followthrough_scripted.json"
+    ],
+    "local_code_commit": "0604fd9a96ba7c4ae21b78feb869b8a4e9e57d9b",
+    "local_code_tree": "23b63ffbbe1648eae0e1614389c6caddb8cad860",
+    "returncode": 0,
+    "passed": true,
+    "status": "passed",
+    "report_code_revision": null,
+    "cases": 9,
+    "passed_cases": 9,
+    "model_attempts": 0,
+    "model_http_requests": 0,
+    "external_effects": 0,
+    "real_model_executed": false,
+    "log": {
+      "path": "/tmp/ora_v162_followthrough_scripted.log",
+      "bytes": 100320,
+      "sha256": "1df3fac7c2679b4e66e30de9ca206d40708e00e9e78652f71399d8811076627e"
+    },
+    "report": {
+      "path": "/tmp/ora_v162_followthrough_scripted.json",
+      "bytes": 137110,
+      "sha256": "d9fd3486ffe0a0ff2cfe5c500bd7747f96bb078ab118eeb3e778dc97b71ea4da"
+    }
+  },
+  "verification_units": {
+    "terminal_new": 12,
+    "situation_diagnostics_new": 16,
+    "verifier_diagnostics_new": 15,
+    "all_new_included_in_integrated_count": true,
+    "separate_terminal_selection": {
+      "passed": 54,
+      "failed": 3,
+      "failure_scope": "Three existing navigation tests expecting ai_calls==0; reproduced identically on prior HEAD before the changed fallback, no legacy test edit."
+    }
+  },
+  "live650": {
+    "ci": "docs/evidence/autonomy_v162_ci_2026-10-12_650a6f4.json",
+    "original_manifest": "docs/evidence/autonomy_v162_live_2026-10-12_650a6f4_manifest.json",
+    "autonomy_manual_review": "docs/evidence/autonomy_v162_live_2026-10-12_650a6f4_semantic_review.json",
+    "public_manual_review": "docs/evidence/autonomy_v162_live_2026-10-12_650a6f4_public_review.json",
+    "autonomy_bounded": {
+      "passed": 4,
+      "total": 9
+    },
+    "positive_texts_manually_accepted": {
+      "passed": 0,
+      "total": 5
+    },
+    "situation": "followup_pending_unobserved; useful collection action and device not observed",
+    "public": "single final reply accepted in separate manual review; original pending_human_review preserved"
+  },
+  "archive": {
+    "path": "/workspace/scratch/abe5c63b5e73/ora/docs/evidence/autonomy_v162_followthrough_2026-10-12_logs.json.gz",
+    "bytes": 52838,
+    "sha256": "6d37b381261a363e1fbe10b4eda5c6d4d928305db875fbf1b79be4857769e5ea",
+    "uncompressed_bytes": 483621,
+    "uncompressed_sha256": "f79d0b5bdccb7f3f63723d3a899db9fc4e2b627ed5d1885f8767c171ebdf6fc5",
+    "entries": 33,
+    "reused_originals": 2,
+    "roundtrip_verified": true,
+    "deterministic_gzip_mtime": 0
+  },
+  "original_local_manifests": [
+    {
+      "path": "/tmp/ora_v162_terminal_schedule_review.json",
+      "bytes": 7290,
+      "sha256": "f8143d01d8fdc768cfb1966483e0c1554a3fdd2869263c134c12984a2477d45d"
+    },
+    {
+      "path": "/tmp/ora_v162_situation_conversation_diagnostics_freeze.json",
+      "bytes": 3585,
+      "sha256": "763067740de1f1c1f7e4dd5e88e1b5e4bd1a513732f923afc4479196fe923c7e"
+    },
+    {
+      "path": "/tmp/ora_v162_verification_diagnostics_review.json",
+      "bytes": 2852,
+      "sha256": "198455ef3f21082d6fd357e58f5b5951e91c48f2e0eb969b29944d4d718d7020"
+    },
+    {
+      "path": "/tmp/ora_v162_abstract_audit_experiment_review.json",
+      "bytes": 1624,
+      "sha256": "5a642aa6ae651633a19cd0156a9aa4d14591d7555d636a7b25130825cc8afe11"
+    },
+    {
+      "path": "/tmp/ora_v162_650_home_memory_causal_review.json",
+      "bytes": 46618,
+      "sha256": "f3f5241c1c84c9badc79123093eafec661adf37ee7cde2b35b1ab1ff5448e297"
+    },
+    {
+      "path": "/tmp/ora_v162_650_planning_source_causal_review.json",
+      "bytes": 11237,
+      "sha256": "1ca4c141dbb1d761bbd0f82afa4aad913fdf0fe6efda8f8c189ada2294515370"
+    },
+    {
+      "path": "/tmp/ora_v162_followthrough_local_command.json",
+      "bytes": 10375,
+      "sha256": "213d7de03b94188ea483359b5b0e3a971948f731cb355b7089e06d7706ede720"
+    },
+    {
+      "path": "/tmp/ora_v162_followthrough_local_metrics.json",
+      "bytes": 638,
+      "sha256": "54607b86359deb964e10a60ec8aed802065005aa143dfb3d33235e86cce81ddd"
+    },
+    {
+      "path": "/tmp/ora_v162_followthrough_scripted_metrics.json",
+      "bytes": 957,
+      "sha256": "59a54ab18b03450ddcecab39c1536de8fe3c50427635de29b27c2d2832157a64"
+    }
+  ],
+  "limits": [
+    "The sole local skip is tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional, skipped because GEMINI_API_KEY is deliberately empty in this synthetic run. This is not evidence of globally missing credentials.",
+    "CLI report_code_revision is null locally; commit/tree bound by the external immutable run manifest.",
+    "The650 verifier cause is unobserved; the source-change equivalent9368-character reducer measurement is not a complete historical replay.",
+    "No source/criterion was truncated, provider changed, budget raised, live clock advanced, or acceptance criterion weakened.",
+    "Automatic approval review rejected APP patch eb9c3870-6835-4c5a-bcbb-24d34b6dd627; no APP deployment or staging merge bypass.",
+    "Native signing, installation, closed-app push receipt and authenticated tap remain unproved.",
+    "Previous real laundry remains closed; all evaluation personal records are synthetic."
+  ]
+}

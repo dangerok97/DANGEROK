@@ -1,0 +1,1151 @@
+{
+  "schema": "ora_v162_three_report_collection_v1",
+  "finalized_at": "2026-10-12T13:22:16.811645+00:00",
+  "scope": "Original MCP log envelopes and byte-preserving reconstruction; no evaluation run started by this collector.",
+  "binding": {
+    "code_revision": "650a6f404be52829c983cf49c0b612a96e6a4a11",
+    "tree": "fb5a9bb2fa8d3a593815481a66767a5d3cca2f89",
+    "project_id": "1264aea8-7e1e-403b-9d14-66f61135f179",
+    "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+    "service_id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+    "deployment_id": "d32cdee9-64f2-4d40-90be-4d907fe7f036"
+  },
+  "branch": "ora/v162-autonomy-validation-20261012",
+  "source_launch_evidence": {
+    "path": "/tmp/ora_v162_650_live_launch.json",
+    "bytes": 10198,
+    "sha256": "1adede95f23f98e7ecbd1a37a7b06e2676719771e6e579ead7aa2324b2e88d92"
+  },
+  "source_metadata_readbacks": [
+    {
+      "path": "/tmp/ora_v162_650_collection/deployments_001.json",
+      "bytes": 1396,
+      "sha256": "f2322666472e1a9ad3ca24252d603fc1fd2e85b8ca7794c0759c8410b5eec1bf"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/deployments_terminal.json",
+      "bytes": 1396,
+      "sha256": "14d3bd2303cec574504a123aa3a234de152c7d017644606691e45cba47fbfe61"
+    }
+  ],
+  "terminal_fetch_record": {
+    "path": "/tmp/ora_v162_650_collection/fetch_deployments_terminal.json",
+    "bytes": 565,
+    "sha256": "5882cc8239f6ad87bfc92dcd49cdda2f26e1d7daa44113e6d1a49da4c47682e6"
+  },
+  "terminal_status": "CRASHED",
+  "terminal_status_updated_at": "2026-10-12T13:18:27.613Z",
+  "terminal_readback_at": "2026-10-12T13:20:53.059Z",
+  "runtime_timeline": [
+    {
+      "event": "deployment_created",
+      "at": "2026-10-12T13:07:55.940Z",
+      "observed_status": "BUILDING",
+      "source": "/tmp/ora_v162_650_live_launch.json"
+    },
+    {
+      "event": "container_start_log",
+      "at": "2026-10-12T13:08:31.686416796Z",
+      "message": "Starting Container",
+      "source": "/tmp/ora_v162_650_collection/merged_logs.json"
+    },
+    {
+      "event": "platform_initial_readback",
+      "at": "2026-10-12T13:08:34.205Z",
+      "observed_status": "SUCCESS",
+      "timestamp_kind": "deployment.updatedAt, not fetch time",
+      "source": "/tmp/ora_v162_650_collection/deployments_001.json"
+    },
+    {
+      "event": "situation_report_started",
+      "at": "2026-10-12T13:08:33.508784+00:00",
+      "source": "/tmp/ora_v162_650_collection/situation_live.json"
+    },
+    {
+      "event": "situation_report_finished",
+      "at": "2026-10-12T13:09:45.793530+00:00",
+      "source": "/tmp/ora_v162_650_collection/situation_live.json"
+    },
+    {
+      "event": "situation_summary_emitted",
+      "at": "2026-10-12T13:09:45.886164332Z",
+      "source": "/tmp/ora_v162_650_collection/merged_logs.json"
+    },
+    {
+      "event": "autonomy_report_started",
+      "at": "2026-10-12T13:09:47.648187+00:00",
+      "source": "/tmp/ora_v162_650_collection/autonomy_live.json"
+    },
+    {
+      "event": "autonomy_report_finished",
+      "at": "2026-10-12T13:17:33.728734+00:00",
+      "source": "/tmp/ora_v162_650_collection/autonomy_live.json"
+    },
+    {
+      "event": "autonomy_summary_emitted",
+      "at": "2026-10-12T13:17:37.047163934Z",
+      "source": "/tmp/ora_v162_650_collection/merged_logs.json"
+    },
+    {
+      "event": "public_summary_emitted",
+      "at": "2026-10-12T13:18:27.355916151Z",
+      "source": "/tmp/ora_v162_650_collection/merged_logs.json"
+    },
+    {
+      "event": "platform_terminal_readback",
+      "at": "2026-10-12T13:18:27.613Z",
+      "observed_status": "CRASHED",
+      "timestamp_kind": "deployment.updatedAt",
+      "fetched_at": "2026-10-12T13:20:53.059Z",
+      "source": "/tmp/ora_v162_650_collection/deployments_terminal.json"
+    }
+  ],
+  "build_finished_at": null,
+  "build_timing_note": "No explicit build completion timestamp was collected. Container-start logs and the scripts’ own report timestamps attest actual execution independently of platform SUCCESS.",
+  "collector": {
+    "helper": {
+      "path": "/tmp/ora_v162_collect_three_reports.py",
+      "bytes": 14267,
+      "sha256": "1ac99bf453aa11e293c33ecfb5c6e18e4f478398457f75c3c74e26c5692c193f"
+    },
+    "wrapper": {
+      "path": "/tmp/ora_v162_650_run_collector.py",
+      "bytes": 1623,
+      "sha256": "b8a99ca2b84f48c7c018373c537d6c332957e8a76f4aef12af90570d5fd21f1d"
+    },
+    "finalizer": {
+      "path": "/tmp/ora_v162_650_finalize_collection.py",
+      "bytes": 10985,
+      "sha256": "3fbb4e3981fd352892651fac7d5dc9cdc527856ac3df251276cdb77f8910c9bb"
+    },
+    "collection_index": {
+      "path": "/tmp/ora_v162_650_collection/collection.json",
+      "bytes": 24170,
+      "sha256": "17c67e6378962f214add86525096a020405dfe95cc900cc67112ded29b9c18ad"
+    },
+    "merged_logs": {
+      "path": "/tmp/ora_v162_650_collection/merged_logs.json",
+      "bytes": 608827,
+      "sha256": "853c5bdd1b406466dd75a294da8c07ed308d0c0ad87e5a9827c873db30124041"
+    },
+    "report_bodies_joined_with": "",
+    "saved_report_terminator": "one LF",
+    "unique_log_rows": 43,
+    "progress_rows": 9,
+    "missing_reports": [],
+    "incomplete_summaries": [],
+    "duplicate_summaries": [],
+    "limit_reached": false,
+    "timestamp_backfill_needed": false,
+    "original_body_integrity_verified": true,
+    "logs_are_original_mcp_results": true,
+    "logs_are_raw_model_http_payloads": false
+  },
+  "polls": [
+    {
+      "ordinal": 1,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_001.json",
+        "bytes": 117409,
+        "sha256": "95357f0d959fbd994b6ab70734bac856cebaf46f100998d44d39b3b62775c4dc"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_001.json",
+        "bytes": 230587,
+        "sha256": "af65051716a1d22b4d3c5609b58a3d2da2b5ed5b98990b07cd196ef7ca46333c"
+      },
+      "fetch_record": null,
+      "request_started_at": null,
+      "fetched_at": null,
+      "timestamp_note": "First batch has no separate persisted fetch timestamp; no timestamp is reconstructed.",
+      "status": "SUCCESS",
+      "rows": 27,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 2,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_002.json",
+        "bytes": 118242,
+        "sha256": "961885612ddcaf776623fd2e515530a34ba21a4a46501dc7314fcdd55760bcc8"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_002.json",
+        "bytes": 232094,
+        "sha256": "143b7f02df7dd549aa706f7b780b5f6dfb04750efc71e02b4069342082f8bfa7"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_002.json",
+        "bytes": 514,
+        "sha256": "e35816d0211f0806340cd12e1a79ae6bb42a22966aafdb50b03620263b07419a"
+      },
+      "request_started_at": "2026-10-12T13:12:00.495Z",
+      "fetched_at": "2026-10-12T13:12:03.206Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 28,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 3,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_003.json",
+        "bytes": 119052,
+        "sha256": "491b973485aee078489f261e8c53e6caf8ab721265062b9c367880ac7ef6fe7d"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_003.json",
+        "bytes": 233555,
+        "sha256": "1acb339d919f3c9d66f611dc7b70654a91e93213f962ab3ec69a7f3d890b3936"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_003.json",
+        "bytes": 514,
+        "sha256": "1b814b45fbd77aa7bd7d805d6d1373428dea92950ca26d07bff58450c0567bc7"
+      },
+      "request_started_at": "2026-10-12T13:12:51.234Z",
+      "fetched_at": "2026-10-12T13:12:52.476Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 29,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 4,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_004.json",
+        "bytes": 119052,
+        "sha256": "491b973485aee078489f261e8c53e6caf8ab721265062b9c367880ac7ef6fe7d"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_004.json",
+        "bytes": 233555,
+        "sha256": "1acb339d919f3c9d66f611dc7b70654a91e93213f962ab3ec69a7f3d890b3936"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_004.json",
+        "bytes": 514,
+        "sha256": "c1c740528ebe3d8065e80ba1c31607a46de35cd572d4546fff43689228834cea"
+      },
+      "request_started_at": "2026-10-12T13:13:27.477Z",
+      "fetched_at": "2026-10-12T13:13:29.233Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 29,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 5,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_005.json",
+        "bytes": 119052,
+        "sha256": "491b973485aee078489f261e8c53e6caf8ab721265062b9c367880ac7ef6fe7d"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_005.json",
+        "bytes": 233555,
+        "sha256": "1acb339d919f3c9d66f611dc7b70654a91e93213f962ab3ec69a7f3d890b3936"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_005.json",
+        "bytes": 514,
+        "sha256": "56749df1576bcd7e2b7bda5f2e7dba99fd45bd396c120b199624bb5394d5988c"
+      },
+      "request_started_at": "2026-10-12T13:14:13.153Z",
+      "fetched_at": "2026-10-12T13:14:14.090Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 29,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 6,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_006.json",
+        "bytes": 121070,
+        "sha256": "ba7acbaa98c9ee2050ff93beea35d20fabece8c3284e2dff4ef8e0b3b598346f"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_006.json",
+        "bytes": 237114,
+        "sha256": "b7719ab0fa22f0d903d1ad34c77aff1955e44c62b99082c442abfd3036c7f1af"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_006.json",
+        "bytes": 514,
+        "sha256": "c838a519fb469b47f8dce4de27384282c2af65c77a23295104385d1fe3fc7f7e"
+      },
+      "request_started_at": "2026-10-12T13:15:01.693Z",
+      "fetched_at": "2026-10-12T13:15:02.537Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 32,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 7,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_007.json",
+        "bytes": 121070,
+        "sha256": "ba7acbaa98c9ee2050ff93beea35d20fabece8c3284e2dff4ef8e0b3b598346f"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_007.json",
+        "bytes": 237114,
+        "sha256": "b7719ab0fa22f0d903d1ad34c77aff1955e44c62b99082c442abfd3036c7f1af"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_007.json",
+        "bytes": 514,
+        "sha256": "26c160730b1710e1c98f9953280be3fbd9a57d655b9c3bb3c8bc19e7c87cd24f"
+      },
+      "request_started_at": "2026-10-12T13:15:37.538Z",
+      "fetched_at": "2026-10-12T13:15:38.555Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 32,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 8,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_008.json",
+        "bytes": 121070,
+        "sha256": "ba7acbaa98c9ee2050ff93beea35d20fabece8c3284e2dff4ef8e0b3b598346f"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_008.json",
+        "bytes": 237114,
+        "sha256": "b7719ab0fa22f0d903d1ad34c77aff1955e44c62b99082c442abfd3036c7f1af"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_008.json",
+        "bytes": 514,
+        "sha256": "468ac60e9bb603f7a68ee4270d2340dd4c5b66ab9806ae18ea15a660e4cc8834"
+      },
+      "request_started_at": "2026-10-12T13:16:13.556Z",
+      "fetched_at": "2026-10-12T13:16:14.378Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 32,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 9,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_009.json",
+        "bytes": 121886,
+        "sha256": "3f3971dac597cc100167aa6763ace5d20a36010453acbb509055694c6f75011e"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_009.json",
+        "bytes": 238587,
+        "sha256": "d05ffdd6fac54dd7a27e212af491a9c094199388a1314b219f9ca6dbeeeed2b6"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_009.json",
+        "bytes": 514,
+        "sha256": "826e9b4bfd43750d558f1228e3179cbf6b59df425a40f577737b916c2aaacccc"
+      },
+      "request_started_at": "2026-10-12T13:16:49.379Z",
+      "fetched_at": "2026-10-12T13:16:50.464Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 33,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 10,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_010.json",
+        "bytes": 121886,
+        "sha256": "3f3971dac597cc100167aa6763ace5d20a36010453acbb509055694c6f75011e"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_010.json",
+        "bytes": 238587,
+        "sha256": "d05ffdd6fac54dd7a27e212af491a9c094199388a1314b219f9ca6dbeeeed2b6"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_010.json",
+        "bytes": 514,
+        "sha256": "a7a96b2cf41e573fa232e4e4c9d9cc286ddbe2dad9b4136c2c953fc9243d87e8"
+      },
+      "request_started_at": "2026-10-12T13:17:25.465Z",
+      "fetched_at": "2026-10-12T13:17:26.344Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 33,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 11,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_011.json",
+        "bytes": 594770,
+        "sha256": "0b818878f2e87661fb303abaa50886b6bce21bf9207f5a91204d2021d06d1973"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_011.json",
+        "bytes": 1182924,
+        "sha256": "b24d9c8dbc13b12fc628e3f5c74583e0a296a9e2861edcc634c311d45514bfd4"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_011.json",
+        "bytes": 514,
+        "sha256": "f90647464fdd6536f0ea5b41c6ae153f9e0fb25a45058165185378e01f0f222f"
+      },
+      "request_started_at": "2026-10-12T13:18:01.345Z",
+      "fetched_at": "2026-10-12T13:18:03.215Z",
+      "timestamp_note": null,
+      "status": "SUCCESS",
+      "rows": 42,
+      "limit": 500,
+      "at_limit": false
+    },
+    {
+      "ordinal": 12,
+      "envelope": {
+        "path": "/tmp/ora_v162_650_collection/logs_012.json",
+        "bytes": 608851,
+        "sha256": "7a2efd89041c044d90eb2c949d7dda6124e2fa36c4eda504919c9b9cfd860758"
+      },
+      "original_tool_result": {
+        "path": "/tmp/ora_v162_650_collection/tool_logs_012.json",
+        "bytes": 1210927,
+        "sha256": "51e0b09224ef31f731590cc8c365466b8c45b1b07c72b9609ff669f0cdb017cf"
+      },
+      "fetch_record": {
+        "path": "/tmp/ora_v162_650_collection/fetch_012.json",
+        "bytes": 514,
+        "sha256": "e99ee24c2140942e783399d32e3de34afa0c002509dd2b328966d231b5b5c187"
+      },
+      "request_started_at": "2026-10-12T13:19:00.083Z",
+      "fetched_at": "2026-10-12T13:19:01.444Z",
+      "timestamp_note": null,
+      "status": "CRASHED",
+      "rows": 43,
+      "limit": 500,
+      "at_limit": false
+    }
+  ],
+  "monitoring_access": {
+    "get_logs_calls": 12,
+    "list_deployments_calls": 2,
+    "read_only_railway_calls": 14,
+    "scope_note": "Counts cover this collection subtask only; parent deployment/setup requests are separate.",
+    "collector_offline_network_calls": 0,
+    "model_calls_started_by_collector": 0,
+    "external_mutations": 0,
+    "repository_writes": 0
+  },
+  "reports": [
+    {
+      "kind": "situation",
+      "path": "/tmp/ora_v162_650_collection/situation_live.json",
+      "bytes": 101039,
+      "sha256": "25fb74340f538d5037a67ce891e6d63665388202913ea6515466de5a0a9a84b7",
+      "fragments": 2,
+      "first_log_row": 25,
+      "last_log_row": 26,
+      "first_log_at": "2026-10-12T13:09:45.882461616Z",
+      "last_log_at": "2026-10-12T13:09:45.886164332Z",
+      "started_at": "2026-10-12T13:08:33.508784+00:00",
+      "finished_at": "2026-10-12T13:09:45.793530+00:00",
+      "code_revision_in_original": "650a6f404be52829c983cf49c0b612a96e6a4a11",
+      "revision_binding": "report_and_deployment",
+      "reconstructed_body_plus_one_lf_matches_original": true,
+      "levels": {
+        "passed": false,
+        "overall_outcome": "followup_pending_unobserved",
+        "entry_route": "conversation_scheduled",
+        "phases": {
+          "conversation": {
+            "status": "passed",
+            "situation_id": "sit_07cbc03e93df40f7",
+            "goal_id": "gol_sit_1afc00a59ac11a2f29000f3e"
+          },
+          "initial_worker": {
+            "status": "not_run"
+          },
+          "monitoring": {
+            "status": "not_run"
+          },
+          "future_check": {
+            "status": "not_run"
+          },
+          "useful_action": {
+            "status": "not_run"
+          },
+          "device_receipt": {
+            "status": "not_run"
+          },
+          "cancellation": {
+            "status": "passed",
+            "pending_wakes": 0,
+            "replay_admission": "no_attention",
+            "physical_collection_claimed": false
+          }
+        },
+        "semantic_review": {
+          "status": "not_run",
+          "automatically_accepted": false
+        },
+        "logical_model_calls": 7,
+        "model_http_requests": 11,
+        "live_provider_reads": 1,
+        "intercepted_notification_attempts": [],
+        "real_notifications_sent": 0,
+        "full_laundry_outcome_passed": false,
+        "source_appropriateness_accepted": false,
+        "physical_clock_advanced": false,
+        "process_restart_tested": false,
+        "persistence": "in_memory_only_cancelled_after_snapshot",
+        "isolation": "HTTPX_scope_allowlist_not_process_socket_sandbox",
+        "scope_note": "First-cycle monitoring only; deferred/unobserved phases retain their original status."
+      }
+    },
+    {
+      "kind": "autonomy",
+      "path": "/tmp/ora_v162_650_collection/autonomy_live.json",
+      "bytes": 434748,
+      "sha256": "4a9dd9218cb4cddad16f527466188a7509dec341c5dc140c94c81501a455d45d",
+      "fragments": 6,
+      "first_log_row": 36,
+      "last_log_row": 41,
+      "first_log_at": "2026-10-12T13:17:36.977271688Z",
+      "last_log_at": "2026-10-12T13:17:37.047163934Z",
+      "started_at": "2026-10-12T13:09:47.648187+00:00",
+      "finished_at": "2026-10-12T13:17:33.728734+00:00",
+      "code_revision_in_original": "650a6f404be52829c983cf49c0b612a96e6a4a11",
+      "revision_binding": "report_and_deployment",
+      "reconstructed_body_plus_one_lf_matches_original": true,
+      "levels": {
+        "passed": false,
+        "status": "failed",
+        "case_count": 9,
+        "case_pass_count": 4,
+        "model_attempts": 90,
+        "model_http_requests": 97,
+        "final_provider_records": [
+          {
+            "provider": "groq",
+            "model": "qwen/qwen3.8-27b",
+            "records": 2
+          },
+          {
+            "provider": "mistral",
+            "model": "ministral-8b-2512",
+            "records": 88
+          }
+        ],
+        "cases": [
+          {
+            "scenario": "completed_result",
+            "passed": false,
+            "reason": "SEMANTIC_RESULT_REJECTED:MISSING_COMPARISON_VALUE_60",
+            "result_checks": {
+              "preconditions": {
+                "status": "passed"
+              },
+              "semantic": {
+                "status": "failed",
+                "review": {
+                  "passed": false,
+                  "reasons": [
+                    "MISSING_COMPARISON_VALUE_60"
+                  ],
+                  "status": "bounded_check",
+                  "human_review_still_required": true
+                }
+              },
+              "home": {
+                "status": "passed"
+              },
+              "replay": {
+                "status": "passed"
+              },
+              "owner_isolation": {
+                "status": "passed"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 11,
+            "model_http_requests": 14
+          },
+          {
+            "scenario": "planning_outage",
+            "passed": false,
+            "reason": "COMPLETION_BUDGET_EXHAUSTED",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 17,
+            "model_http_requests": 18
+          },
+          {
+            "scenario": "home_write_retry",
+            "passed": false,
+            "reason": "COMPLETION_BUDGET_EXHAUSTED",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 19,
+            "model_http_requests": 19
+          },
+          {
+            "scenario": "source_revoked",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 5,
+            "model_http_requests": 5,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_revoked",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 5,
+            "model_http_requests": 8,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_corrected",
+            "passed": false,
+            "reason": "COMPLETION_NEEDS_NEW_DECISION",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 14,
+            "model_http_requests": 14
+          },
+          {
+            "scenario": "source_change_crash",
+            "passed": false,
+            "reason": "COMPLETION_BUDGET_EXHAUSTED",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 17,
+            "model_http_requests": 17
+          },
+          {
+            "scenario": "already_resolved",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 1,
+            "model_http_requests": 1,
+            "external_effects": 0
+          },
+          {
+            "scenario": "irrelevant",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 1,
+            "model_http_requests": 1,
+            "external_effects": 0
+          }
+        ],
+        "scope_note": "Original automatic verdicts; six result checks remain independent. Missing effect fields are not zero."
+      }
+    },
+    {
+      "kind": "public",
+      "path": "/tmp/ora_v162_650_collection/public_live.json",
+      "bytes": 12934,
+      "sha256": "7992d04ff3d80580046761d09a6da41b4d1d4394a89b33058a032a8c9702cb8c",
+      "fragments": 1,
+      "first_log_row": 42,
+      "last_log_row": 42,
+      "first_log_at": "2026-10-12T13:18:27.355916151Z",
+      "last_log_at": "2026-10-12T13:18:27.355916151Z",
+      "started_at": null,
+      "finished_at": null,
+      "code_revision_in_original": null,
+      "revision_binding": "external_deployment_metadata",
+      "reconstructed_body_plus_one_lf_matches_original": true,
+      "levels": {
+        "verdict": {
+          "technical_passed": true,
+          "semantic_gate_passed": true,
+          "passed": true,
+          "reasons": [],
+          "verified_reads": [
+            "get_route",
+            "get_weather_forecast"
+          ],
+          "required_reads": [
+            "get_route",
+            "get_weather_forecast"
+          ],
+          "model_decisions": 4,
+          "ai_calls": 4,
+          "tool_calls": 2,
+          "elapsed_ms": 49310,
+          "final_mode": "answer",
+          "semantic_acceptance": "pending_human_review"
+        },
+        "semantic_review": {
+          "status": "bounded_pass",
+          "passed": true,
+          "reasons": [],
+          "automatically_accepted": false,
+          "human_review_still_required": true,
+          "grounding_rewrites": 0,
+          "time_metadata_limit": "Weather dates/timezone reach the model; routing HTTP retrieval time is not a provider as-of timestamp."
+        },
+        "live_provider_reads": 2,
+        "model_call_records": 4,
+        "final_provider_records": [
+          {
+            "provider": "mistral",
+            "model": "ministral-8b-2512",
+            "records": 3
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "records": 1
+          }
+        ],
+        "http_read_records": 2,
+        "blocked_operations": [],
+        "scope_note": "Technical, bounded semantic, and human acceptance remain separate; no internal revision field is fabricated."
+      }
+    }
+  ],
+  "summary": {
+    "path": "/tmp/ora_v162_650_collection_summary.json",
+    "bytes": 19394,
+    "sha256": "2b8345fb9dae3f2cf03fca72d1bb4ea3bbba5209026c674e49986f414a78ad83"
+  },
+  "artifacts": [
+    {
+      "path": "/tmp/ora_v162_650_collection/autonomy_live.json",
+      "bytes": 434748,
+      "sha256": "4a9dd9218cb4cddad16f527466188a7509dec341c5dc140c94c81501a455d45d"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/collection.json",
+      "bytes": 24170,
+      "sha256": "17c67e6378962f214add86525096a020405dfe95cc900cc67112ded29b9c18ad"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/deployments_001.json",
+      "bytes": 1396,
+      "sha256": "f2322666472e1a9ad3ca24252d603fc1fd2e85b8ca7794c0759c8410b5eec1bf"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/deployments_terminal.json",
+      "bytes": 1396,
+      "sha256": "14d3bd2303cec574504a123aa3a234de152c7d017644606691e45cba47fbfe61"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_002.json",
+      "bytes": 514,
+      "sha256": "e35816d0211f0806340cd12e1a79ae6bb42a22966aafdb50b03620263b07419a"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_003.json",
+      "bytes": 514,
+      "sha256": "1b814b45fbd77aa7bd7d805d6d1373428dea92950ca26d07bff58450c0567bc7"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_004.json",
+      "bytes": 514,
+      "sha256": "c1c740528ebe3d8065e80ba1c31607a46de35cd572d4546fff43689228834cea"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_005.json",
+      "bytes": 514,
+      "sha256": "56749df1576bcd7e2b7bda5f2e7dba99fd45bd396c120b199624bb5394d5988c"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_006.json",
+      "bytes": 514,
+      "sha256": "c838a519fb469b47f8dce4de27384282c2af65c77a23295104385d1fe3fc7f7e"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_007.json",
+      "bytes": 514,
+      "sha256": "26c160730b1710e1c98f9953280be3fbd9a57d655b9c3bb3c8bc19e7c87cd24f"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_008.json",
+      "bytes": 514,
+      "sha256": "468ac60e9bb603f7a68ee4270d2340dd4c5b66ab9806ae18ea15a660e4cc8834"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_009.json",
+      "bytes": 514,
+      "sha256": "826e9b4bfd43750d558f1228e3179cbf6b59df425a40f577737b916c2aaacccc"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_010.json",
+      "bytes": 514,
+      "sha256": "a7a96b2cf41e573fa232e4e4c9d9cc286ddbe2dad9b4136c2c953fc9243d87e8"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_011.json",
+      "bytes": 514,
+      "sha256": "f90647464fdd6536f0ea5b41c6ae153f9e0fb25a45058165185378e01f0f222f"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_012.json",
+      "bytes": 514,
+      "sha256": "e99ee24c2140942e783399d32e3de34afa0c002509dd2b328966d231b5b5c187"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/fetch_deployments_terminal.json",
+      "bytes": 565,
+      "sha256": "5882cc8239f6ad87bfc92dcd49cdda2f26e1d7daa44113e6d1a49da4c47682e6"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_001.json",
+      "bytes": 117409,
+      "sha256": "95357f0d959fbd994b6ab70734bac856cebaf46f100998d44d39b3b62775c4dc"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_002.json",
+      "bytes": 118242,
+      "sha256": "961885612ddcaf776623fd2e515530a34ba21a4a46501dc7314fcdd55760bcc8"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_003.json",
+      "bytes": 119052,
+      "sha256": "491b973485aee078489f261e8c53e6caf8ab721265062b9c367880ac7ef6fe7d"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_004.json",
+      "bytes": 119052,
+      "sha256": "491b973485aee078489f261e8c53e6caf8ab721265062b9c367880ac7ef6fe7d"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_005.json",
+      "bytes": 119052,
+      "sha256": "491b973485aee078489f261e8c53e6caf8ab721265062b9c367880ac7ef6fe7d"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_006.json",
+      "bytes": 121070,
+      "sha256": "ba7acbaa98c9ee2050ff93beea35d20fabece8c3284e2dff4ef8e0b3b598346f"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_007.json",
+      "bytes": 121070,
+      "sha256": "ba7acbaa98c9ee2050ff93beea35d20fabece8c3284e2dff4ef8e0b3b598346f"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_008.json",
+      "bytes": 121070,
+      "sha256": "ba7acbaa98c9ee2050ff93beea35d20fabece8c3284e2dff4ef8e0b3b598346f"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_009.json",
+      "bytes": 121886,
+      "sha256": "3f3971dac597cc100167aa6763ace5d20a36010453acbb509055694c6f75011e"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_010.json",
+      "bytes": 121886,
+      "sha256": "3f3971dac597cc100167aa6763ace5d20a36010453acbb509055694c6f75011e"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_011.json",
+      "bytes": 594770,
+      "sha256": "0b818878f2e87661fb303abaa50886b6bce21bf9207f5a91204d2021d06d1973"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/logs_012.json",
+      "bytes": 608851,
+      "sha256": "7a2efd89041c044d90eb2c949d7dda6124e2fa36c4eda504919c9b9cfd860758"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/merged_logs.json",
+      "bytes": 608827,
+      "sha256": "853c5bdd1b406466dd75a294da8c07ed308d0c0ad87e5a9827c873db30124041"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/monitor_progress.json",
+      "bytes": 267,
+      "sha256": "5e8e71f17f7d869dc0f82f6607da668af4325fd558ca72ba6299b0cd1b8d15a6"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/public_live.json",
+      "bytes": 12934,
+      "sha256": "7992d04ff3d80580046761d09a6da41b4d1d4394a89b33058a032a8c9702cb8c"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/raw_logs_0b818878f2e87661.json",
+      "bytes": 594770,
+      "sha256": "0b818878f2e87661fb303abaa50886b6bce21bf9207f5a91204d2021d06d1973"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/raw_logs_3f3971dac597cc10.json",
+      "bytes": 121886,
+      "sha256": "3f3971dac597cc100167aa6763ace5d20a36010453acbb509055694c6f75011e"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/raw_logs_491b973485aee078.json",
+      "bytes": 119052,
+      "sha256": "491b973485aee078489f261e8c53e6caf8ab721265062b9c367880ac7ef6fe7d"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/raw_logs_7a2efd89041c044d.json",
+      "bytes": 608851,
+      "sha256": "7a2efd89041c044d90eb2c949d7dda6124e2fa36c4eda504919c9b9cfd860758"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/raw_logs_95357f0d959fbd99.json",
+      "bytes": 117409,
+      "sha256": "95357f0d959fbd994b6ab70734bac856cebaf46f100998d44d39b3b62775c4dc"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/raw_logs_961885612ddcaf77.json",
+      "bytes": 118242,
+      "sha256": "961885612ddcaf776623fd2e515530a34ba21a4a46501dc7314fcdd55760bcc8"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/raw_logs_ba7acbaa98c9ee20.json",
+      "bytes": 121070,
+      "sha256": "ba7acbaa98c9ee2050ff93beea35d20fabece8c3284e2dff4ef8e0b3b598346f"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/situation_live.json",
+      "bytes": 101039,
+      "sha256": "25fb74340f538d5037a67ce891e6d63665388202913ea6515466de5a0a9a84b7"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_deployments_001.json",
+      "bytes": 2459,
+      "sha256": "b388f741d13603871f20b0704ae9e61b9056f2f219ccc9d1c3627119f2c87fab"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_deployments_terminal.json",
+      "bytes": 2459,
+      "sha256": "1884bf685171cf995011aae27ea50f269191ac47fe9e10574fba6bc4b5e2f7af"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_001.json",
+      "bytes": 230587,
+      "sha256": "af65051716a1d22b4d3c5609b58a3d2da2b5ed5b98990b07cd196ef7ca46333c"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_002.json",
+      "bytes": 232094,
+      "sha256": "143b7f02df7dd549aa706f7b780b5f6dfb04750efc71e02b4069342082f8bfa7"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_003.json",
+      "bytes": 233555,
+      "sha256": "1acb339d919f3c9d66f611dc7b70654a91e93213f962ab3ec69a7f3d890b3936"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_004.json",
+      "bytes": 233555,
+      "sha256": "1acb339d919f3c9d66f611dc7b70654a91e93213f962ab3ec69a7f3d890b3936"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_005.json",
+      "bytes": 233555,
+      "sha256": "1acb339d919f3c9d66f611dc7b70654a91e93213f962ab3ec69a7f3d890b3936"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_006.json",
+      "bytes": 237114,
+      "sha256": "b7719ab0fa22f0d903d1ad34c77aff1955e44c62b99082c442abfd3036c7f1af"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_007.json",
+      "bytes": 237114,
+      "sha256": "b7719ab0fa22f0d903d1ad34c77aff1955e44c62b99082c442abfd3036c7f1af"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_008.json",
+      "bytes": 237114,
+      "sha256": "b7719ab0fa22f0d903d1ad34c77aff1955e44c62b99082c442abfd3036c7f1af"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_009.json",
+      "bytes": 238587,
+      "sha256": "d05ffdd6fac54dd7a27e212af491a9c094199388a1314b219f9ca6dbeeeed2b6"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_010.json",
+      "bytes": 238587,
+      "sha256": "d05ffdd6fac54dd7a27e212af491a9c094199388a1314b219f9ca6dbeeeed2b6"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_011.json",
+      "bytes": 1182924,
+      "sha256": "b24d9c8dbc13b12fc628e3f5c74583e0a296a9e2861edcc634c311d45514bfd4"
+    },
+    {
+      "path": "/tmp/ora_v162_650_collection/tool_logs_012.json",
+      "bytes": 1210927,
+      "sha256": "51e0b09224ef31f731590cc8c365466b8c45b1b07c72b9609ff669f0cdb017cf"
+    }
+  ],
+  "preserved_diagnostic_limits": {
+    "report_fragment_integrity": "All emitted report fragments are complete and joined without inserted separators.",
+    "bounded_fields": "Internal model/tool observation truncation and omission flags remain unchanged in the original reports; complete reconstruction is not a claim of full raw model IO.",
+    "public_internal_revision": "Absent in the original; binding comes only from exact deployment metadata and deployment-scoped logs.",
+    "manual_acceptance": "not_assessed_by_collector"
+  }
+}

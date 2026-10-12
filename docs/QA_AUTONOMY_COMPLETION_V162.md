@@ -1,3 +1,53 @@
+# 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
+
+## Identità e CI osservata
+
+Head `650a6f404be52829c983cf49c0b612a96e6a4a11`, tree `fb5a9bb2fa8d3a593815481a66767a5d3cca2f89`; merge tecnico PR `96565463674bf8b58d1b3e693f01f3a2a30f4e62`, genitori `6e619cf` e 650, stesso tree. **6 workflow / 16 job / 259 step SUCCESS**, 7 job push e 9 PR. Nessun job saltato.
+
+Ogni invocazione backend riporta **1.274 PASS v162, 192 PASS Vision catalog/seed/anatomy, 6 PASS Mongo con riavvio di processo e 3 PASS dei guard statici v39**, senza skip in questi gruppi. Le due selezioni storiche precedenti conservano rispettivamente tre e cinque test saltati. CLI scripted **9/9**, zero modello reale, HTTP al modello ed effetti esterni; SHA650 nel push, SHA del merge tecnico nella PR. Scansione completa della storia eseguita nei due eventi. Il manifest derivato corregge esplicitamente l’aggancio iniziale dei tre guard statici al conteggio 1.274: i log e i verdetti restano invariati.
+
+Mobile **40/40**, 20 Chromium e 20 WebKit. Configurazione Expo, generazione iOS ed export JavaScript iOS passano in entrambi i job frontend. Le prove browser usano API simulate; il workflow phone-turn verifica il confine conversazionale, non una telefonata o una ricevuta su dispositivo. Questi conteggi non sono un totale di test unici e non sostituiscono l’aggregato locale 1.831 della precedente registrazione.
+
+## Tre prove reali650
+
+Deployment tecnico `d32cdee9-64f2-4d40-90be-4d907fe7f036`, servizio `d84dcca0-6372-40cc-a19e-ca32c3533fb0`, ambiente `8554e8b3-db0b-4e55-ae40-7ab5a25eb657`. I tre rapporti sono completi prima dello stato terminale **CRASHED**, `updatedAt=13:18:27.613Z`; la raccolta riuscita non promuove il risultato delle prove.
+
+| Prova | Esito originale | Accettazione e limite |
+|---|---|---|
+| Situation Tarquinia | `followup_pending_unobserved`, `passed=false`; 7 chiamate logiche / 11 HTTP modello / 1 lettura provider | Situazione e controllo futuro salvati; worker, monitoraggio, controllo futuro, azione utile e dispositivo `not_run`. Cancellazione sintetica PASS, zero wake residue, nessun ritiro fisico dichiarato |
+| Autonomia | **4/9**, 90 chiamate logiche / 97 HTTP modello | Passano soltanto `source_revoked`, `memory_revoked`, `already_resolved`, `irrelevant`; **0/5 testi positivi accettabili manualmente** |
+| Letture pubbliche | Tecnica e semantica bounded PASS; 2 letture / 4 decisioni / 0 grounding rewrite | Il finale di 578 è accettabile nel singolo caso; l’originale conserva `pending_human_review`, senza promozione automatica o prova di autonomia generale |
+
+`completed_result` conserva il rifiuto automatico `MISSING_COMPARISON_VALUE_60`; planning, Home e source-change esauriscono il budget, Memory corretta termina `COMPLETION_NEEDS_NEW_DECISION`. I codici automatici e i giudizi manuali sono registrati separatamente. Soltanto il caso completed raggiunge i controlli finali Home/replay/owner; gli altri quattro casi positivi li conservano `not_run`, senza inventare una consegna.
+
+Nel pubblico il finale coincide byte per byte con il quarto `message_to_user`, prodotto da OpenAI `gpt-4o-mini`: 2.990 m / 782 s e le previsioni23 °C / 0% alle 16/17 sono riportati fedelmente come distanza, stima e previsione. La review non accetta il messaggio intermedio Mistral di 2.668, che tratta ETA come dato misurato, anticipa un meteo non ancora letto e aggiunge rallentamenti non documentati; quel testo non è il finale. L’identità del provider osservato non è una prova di fatturazione né una raccomandazione di cambiare configurazione.
+
+### Revisione dei cinque testi positivi
+
+- **Completed:** il differenziale 60 è eliminato dall’audit; restano clausole mensili di disdetta/rimborso non sostenute. Il completamento software e i controlli Home non rendono accettabile il testo.
+- **Planning:** 60 è presente. Il rifiuto manuale riguarda condizioni non fondate, tra cui nonrimborso attribuito a entrambe le formule; gli esempi 20 € e 30 giorni sono esplicitamente ipotetici e non vengono descritti qui come fatti affermati.
+- **Home:** 60 è presente, ma assenza di penali e condizioni mensili non derivano dalla nota. Il caso si ferma prima delle verifiche finali di consegna.
+- **Memory corretta:** la lettura corrente contiene 150 e il relativo passaggio autentico viene citato, ma l’audit afferma 120 e respinge 150; il testo conserva 120/60 anziché 150/30.
+- **Source-change:** la differenza −60 € è un’espressione aritmetica valida. Il rifiuto manuale riguarda l’assenza di spese extra e la flessibilità non sostenute, separate dall’overflow successivo del chooser.
+
+Le 43 selezioni letterali osservate risultano autentiche; questo non prova l’implicazione delle affermazioni. I cinque testi salvati sono esaminati integralmente. Alcune generazioni precedenti rifiutate e alcuni input diagnostici restano troncati o omessi: non viene ricostruito un corpo storico completo che il report non conserva.
+
+## Modifiche successive e conservazione
+
+Le modifiche successive alla risposta terminale e alla diagnostica sono congelate nello snapshot locale `0604fd9` e non sono state provate dal collaudo reale 650. La risposta terminale può riferire il controllo già persistito dopo rilettura corrente, conservando l’esito incompleto; la diagnostica rende osservabili più confini effettivi del turno e della verifica, entro i limiti del reporter. L’esempio astratto X/A/B nell’audit sostituisce due ripetizioni del prompt: è un’ipotesi da valutare, non una correzione semantica dimostrata. Le 40 regressioni locali dell’esperimento verificano compatibilità di protocollo, trasporto e fonti; non provano la qualità della prossima risposta reale. Schema, parser, numero di chiamate e budget restano invariati.
+
+Archivio con **53 voci: 49 originali esatti e 4 copie redatte**. Sono rimossi soltanto quattro oggetti creator e due rese testuali degli stessi dati personali; nessun valore personale nel manifest. I tre rapporti mantengono dimensioni, hash e frammenti originali, concatenati senza separatori e con un solo LF finale. Gzip `mtime=0`, decompressione ed estrazione di ogni voce verificate. Le limitazioni interne dei record diagnostici restano quelle originarie; il JSON completo non equivale al corpo HTTP completo di tutti i modelli.
+
+L’autorizzazione generale della persona a proseguire resta valida. La revisione automatica dell’approvazione ha però respinto la specifica patch APP `eb9c3870-6835-4c5a-bcbb-24d34b6dd627` (`INVALID_ARGUMENT`; `Cancelled — the user did not approve this action. No changes were made.`). Quella modifica APP non è stata eseguita e non è stato effettuato un merge su `staging/cloud` per aggirare il blocco. Firma, installazione e ricezione di una notifica sul telefono ad app chiusa restano non attestate.
+
+**Verifica locale successiva:** commit `0604fd9a96ba7c4ae21b78feb869b8a4e9e57d9b`, tree `23b63ffbbe1648eae0e1614389c6caddb8cad860`; **1.874 PASS / 1 SKIP / 0 FAIL**, 152 moduli e 154 selezioni in 71,38 s, esito 0 e otto file sorgente invariati durante la prova. **CLI scripted 9/9**, zero tentativi modello, HTTP al modello ed effetti esterni, `real_model_executed=false`. Il report mantiene `code_revision=null`; commit e tree sono attestati separatamente dal manifest di esecuzione. L’unico SKIP è `tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional`, perché `GEMINI_API_KEY` è stata deliberatamente lasciata vuota nel run isolato; non descrive le credenziali dei servizi. Questi sono esiti locali, distinti da CI e live 650; la nuova revisione non ha ancora una propria prova remota o reale.
+
+La selezione separata della risposta terminale ha **54 PASS e 3 FAIL legacy di navigazione**, riprodotti anche caricando il sorgente HEAD di confronto. I tre nodi sono rimasti invariati e sono fuori dall’aggregato di 152 moduli; il totale integrato non ne dichiara la risoluzione.
+
+[CI 650](evidence/autonomy_v162_ci_2026-10-12_650a6f4.json) · [Manifest dei tre collaudi e archivio](evidence/autonomy_v162_live_2026-10-12_650a6f4_manifest.json) · [Review dei cinque testi positivi](evidence/autonomy_v162_live_2026-10-12_650a6f4_semantic_review.json) · [Revisione separata del pubblico](evidence/autonomy_v162_live_2026-10-12_650a6f4_public_review.json) · [Seguito locale e log](evidence/autonomy_v162_followthrough_2026-10-12.json). Gli originali e i suffissi documentali storici restano invariati.
+
+---
+
 # 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
 
 **636 resta fallito come accettazione reale; le correzioni seguenti sono verificate separatamente.** Gli originali e la review semantica sono conservati senza modificare risposte o verdetti. Revisione esatta: `636c0f72b374bff95039ad2b3e017ed2974c77db`, tree `1c7653987a805f34d75269495b3d86c5b1b5e796`.

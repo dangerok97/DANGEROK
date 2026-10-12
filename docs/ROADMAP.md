@@ -1,3 +1,22 @@
+# 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
+
+**La CI del candidato650 è chiusa; l’obiettivo di autonomia resta aperto.** Sono verificati **6 workflow, 16 job e 40 prove browser**, mentre il collaudo reale conserva **4/9 automatici e 0/5 testi positivi accettabili manualmente**. Il pubblico finale è accettabile nel singolo caso, ma non risolve gli altri esiti.
+
+1. **Pubblicare e verificare il candidato successivo allo snapshot locale `0604fd9`.** Risposta terminale e diagnostica conservano lo stato riletto senza attestare monitoraggio o consegna; il comportamento reale resta da provare. Il nuovo esempio astratto nell’audit resta un’ipotesi: le regressioni di protocollo non ne dimostrano l’effetto sulla semantica reale.
+2. **Valutare i risultati positivi sul prossimo candidato esatto.** Verificare completezza, valori correnti, conseguenze fondate e azione utile; mantenere i verdetti originali e distinguere le bozze salvate dai risultati effettivamente consegnati. Il verde650 non si trasferisce a codice modificato dopo la prova.
+3. **Osservare il monitoraggio effettivo della nuova stesa sintetica a Tarquinia.** La programmazione650 è attestata, ma il controllo futuro non è stato eseguito nella finestra osservata. Occorre seguire il tempo realmente scelto, senza anticiparlo, e poi distinguere stima di asciugatura, eventuale rischio anticipato e avviso utile. La precedente stesa reale resta chiusa.
+4. **Tenere separata la prova di rilascio e ricezione sul telefono.** Configurazione, prebuild/export iOS e browser verdi sono preparazione tecnica. Firma, installazione e ricevuta ad app chiusa richiedono evidenza propria sul candidato accettato.
+
+L’autorizzazione generale della persona a proseguire resta valida. La revisione automatica dell’approvazione ha però respinto la specifica patch APP `eb9c3870-6835-4c5a-bcbb-24d34b6dd627` (`INVALID_ARGUMENT`; `Cancelled — the user did not approve this action. No changes were made.`). Quella modifica APP non è stata eseguita e non è stato effettuato un merge su `staging/cloud` per aggirare il blocco. Firma, installazione e ricezione di una notifica sul telefono ad app chiusa restano non attestate.
+
+**Verifica locale successiva, separata dalla CI 650:** snapshot `0604fd9`, **1.874 PASS / 1 SKIP / 0 FAIL**, 152 moduli e 154 selezioni in 71,38 s, con gli otto file sorgente invariati durante la prova. **CLI scripted 9/9**, zero tentativi modello, HTTP modello ed effetti esterni. Il report CLI conserva `code_revision=null`, con collegamento esterno allo snapshot; non viene rinominato 650. L’unico SKIP è `tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional`, perché `GEMINI_API_KEY` è stata deliberatamente lasciata vuota nel run isolato; non descrive le credenziali dei servizi.
+
+La selezione separata della risposta terminale ha **54 PASS e 3 FAIL legacy di navigazione**, riprodotti anche caricando il sorgente HEAD di confronto. I tre nodi sono rimasti invariati e sono fuori dall’aggregato di 152 moduli; il totale integrato non ne dichiara la risoluzione.
+
+[CI 650](evidence/autonomy_v162_ci_2026-10-12_650a6f4.json) · [Manifest dei tre collaudi e archivio](evidence/autonomy_v162_live_2026-10-12_650a6f4_manifest.json) · [Review dei cinque testi positivi](evidence/autonomy_v162_live_2026-10-12_650a6f4_semantic_review.json) · [Revisione separata del pubblico](evidence/autonomy_v162_live_2026-10-12_650a6f4_public_review.json) · [Seguito locale e log](evidence/autonomy_v162_followthrough_2026-10-12.json). Gli originali e i suffissi documentali storici restano invariati.
+
+---
+
 # 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
 
 **L’autonomia resta un obiettivo da dimostrare nel risultato consegnato.** La nuova versione integra la base `6e619cf` e i recuperi verificati localmente, ma i risultati reali di `636c0f7` restano immutati: **5/9 automatici, nessuna accettazione semantica complessiva**, Tarquinia fallita prima del monitoraggio e risposta pubblica riscritta dal controllo finale.

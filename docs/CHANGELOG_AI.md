@@ -1,3 +1,24 @@
+# 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
+
+**Registrati gli esiti reali650 senza modificare i verdetti storici.** Il candidato ha CI **6/6 workflow e 16/16 job PASS**, ma resta non accettato come autonomia: **4/9 automatico e 0/5 testi positivi accettabili alla revisione manuale**.
+
+- Archiviati i tre report reali e tutte le 53 voci della raccolta, con gzip deterministico, hash e roundtrip verificati: 49 originali esatti più quattro copie di metadati redatte nei soli dati del creatore. I rapporti Situation, autonomia e pubblico restano byte-exact.
+- Verificati i conteggi CI sullo SHA esatto e sul merge tecnico con tree identico: 1.274 PASS v162 per invocazione, 192 Vision, sei Mongo con riavvio, tre guard statici v39, CLI 9/9 e browser40/40. I gruppi sovrapposti e gli eventi push/PR non sono sommati.
+- Conservato il risultato Tarquinia `followup_pending_unobserved`, falso: Situation e controllo programmato osservati, ma monitoraggio e ritiro non eseguiti nella finestra. Cancellazione sintetica distinta dal ritiro fisico.
+- Separata la revisione pubblica: finale di 578 coerente con le fonti, messaggio intermedio di 2.668 difettoso e non coincidente con il finale. Il report originale resta in attesa di revisione umana; non si trasferisce il singolo esito all’autonomia generale.
+
+Le modifiche successive alla risposta terminale e alla diagnostica sono congelate nello snapshot locale `0604fd9` e non sono state provate dal collaudo reale 650. La risposta terminale può riferire il controllo già persistito dopo rilettura corrente, conservando l’esito incompleto; la diagnostica rende osservabili più confini effettivi del turno e della verifica, entro i limiti del reporter. L’esempio astratto X/A/B nell’audit sostituisce due ripetizioni del prompt: è un’ipotesi da valutare, non una correzione semantica dimostrata. Le 40 regressioni locali dell’esperimento verificano compatibilità di protocollo, trasporto e fonti; non provano la qualità della prossima risposta reale. Schema, parser, numero di chiamate e budget restano invariati.
+
+L’autorizzazione generale della persona a proseguire resta valida. La revisione automatica dell’approvazione ha però respinto la specifica patch APP `eb9c3870-6835-4c5a-bcbb-24d34b6dd627` (`INVALID_ARGUMENT`; `Cancelled — the user did not approve this action. No changes were made.`). Quella modifica APP non è stata eseguita e non è stato effettuato un merge su `staging/cloud` per aggirare il blocco. Firma, installazione e ricezione di una notifica sul telefono ad app chiusa restano non attestate.
+
+**Verifica locale successiva, separata dalla CI 650:** snapshot `0604fd9`, **1.874 PASS / 1 SKIP / 0 FAIL**, 152 moduli e 154 selezioni in 71,38 s, con gli otto file sorgente invariati durante la prova. **CLI scripted 9/9**, zero tentativi modello, HTTP modello ed effetti esterni. Il report CLI conserva `code_revision=null`, con collegamento esterno allo snapshot; non viene rinominato 650. L’unico SKIP è `tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional`, perché `GEMINI_API_KEY` è stata deliberatamente lasciata vuota nel run isolato; non descrive le credenziali dei servizi.
+
+La selezione separata della risposta terminale ha **54 PASS e 3 FAIL legacy di navigazione**, riprodotti anche caricando il sorgente HEAD di confronto. I tre nodi sono rimasti invariati e sono fuori dall’aggregato di 152 moduli; il totale integrato non ne dichiara la risoluzione.
+
+[CI 650](evidence/autonomy_v162_ci_2026-10-12_650a6f4.json) · [Manifest dei tre collaudi e archivio](evidence/autonomy_v162_live_2026-10-12_650a6f4_manifest.json) · [Review dei cinque testi positivi](evidence/autonomy_v162_live_2026-10-12_650a6f4_semantic_review.json) · [Revisione separata del pubblico](evidence/autonomy_v162_live_2026-10-12_650a6f4_public_review.json) · [Seguito locale e log](evidence/autonomy_v162_followthrough_2026-10-12.json). Gli originali e i suffissi documentali storici restano invariati.
+
+---
+
 # 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
 
 **Correzioni dopo `636c0f7`, con gli esiti storici conservati.** Il collaudo reale resta **5/9 automatico e non accettato semanticamente**; anche un risultato automaticamente completato include condizioni non sostenute. La precedente CI attesta soltanto i due workflow push, **7/7 job**, mentre PR e Mobile su quel candidato non sono state eseguite.

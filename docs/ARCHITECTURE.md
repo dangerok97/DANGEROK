@@ -1,3 +1,24 @@
+# 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
+
+**I confini di esecuzione, verifica del contenuto e consegna mantengono esiti distinti.** CI e collaudo reale 650 sono legati al medesimo SHA `650a6f404be52829c983cf49c0b612a96e6a4a11` e tree `fb5a9bb2fa8d3a593815481a66767a5d3cca2f89`. Il merge tecnico PR `96565463674bf8b58d1b3e693f01f3a2a30f4e62`, sulla base `6e619cf`, ha lo stesso tree. Le modifiche locali successive non ereditano questi risultati.
+
+- La conversazione può programmare il controllo di una Situation prima del worker iniziale. Lo snapshot 650 dimostra questa programmazione, mentre le fasi successive restano `not_run`: una wake persistita non attesta una stima adeguata, asciugatura fisica o consegna dell’avviso.
+- Autonomia 650 conserva **4/9 PASS automatici e 0/5 testi positivi accettabili manualmente**. Il protocollo dell’audit e l’autenticità delle citazioni non certificano che una conseguenza sia sostenuta dal passaggio citato. I fallimenti e le fasi di consegna non raggiunte restano osservabili.
+- Il pubblico conserva le letture Mapbox/Open-Meteo e il testo parsato prima della normalizzazione. Il finale di 578 caratteri coincide con l’ultimo `message_to_user`, senza riscrittura del grounding; ETA e meteo sono qualificati come stima e previsione. Il messaggio intermedio difettoso resta nel report separato dal finale.
+- L’archivio conserva 53 voci: **49 originali esatti e quattro copie dei metadati con i soli dati del creatore rimossi**. Hash originali e conservati, percorsi delle redazioni e decompressione verificata impediscono di descrivere l’intero archivio come byte-exact. I tre rapporti sono copie esatte.
+
+Le modifiche successive alla risposta terminale e alla diagnostica sono congelate nello snapshot locale `0604fd9` e non sono state provate dal collaudo reale 650. La risposta terminale può riferire il controllo già persistito dopo rilettura corrente, conservando l’esito incompleto; la diagnostica rende osservabili più confini effettivi del turno e della verifica, entro i limiti del reporter. L’esempio astratto X/A/B nell’audit sostituisce due ripetizioni del prompt: è un’ipotesi da valutare, non una correzione semantica dimostrata. Le 40 regressioni locali dell’esperimento verificano compatibilità di protocollo, trasporto e fonti; non provano la qualità della prossima risposta reale. Schema, parser, numero di chiamate e budget restano invariati.
+
+La preparazione nativa verificata in CI comprende configurazione Expo, generazione del progetto iOS ed export del bundle JavaScript. Non dimostra firma, installazione o ricezione su dispositivo. L’autorizzazione generale della persona a proseguire resta valida. La revisione automatica dell’approvazione ha però respinto la specifica patch APP `eb9c3870-6835-4c5a-bcbb-24d34b6dd627` (`INVALID_ARGUMENT`; `Cancelled — the user did not approve this action. No changes were made.`). Quella modifica APP non è stata eseguita e non è stato effettuato un merge su `staging/cloud` per aggirare il blocco. Firma, installazione e ricezione di una notifica sul telefono ad app chiusa restano non attestate.
+
+**Verifica locale successiva, separata dalla CI 650:** snapshot `0604fd9`, **1.874 PASS / 1 SKIP / 0 FAIL**, 152 moduli e 154 selezioni in 71,38 s, con gli otto file sorgente invariati durante la prova. **CLI scripted 9/9**, zero tentativi modello, HTTP modello ed effetti esterni. Il report CLI conserva `code_revision=null`, con collegamento esterno allo snapshot; non viene rinominato 650. L’unico SKIP è `tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional`, perché `GEMINI_API_KEY` è stata deliberatamente lasciata vuota nel run isolato; non descrive le credenziali dei servizi.
+
+La selezione separata della risposta terminale ha **54 PASS e 3 FAIL legacy di navigazione**, riprodotti anche caricando il sorgente HEAD di confronto. I tre nodi sono rimasti invariati e sono fuori dall’aggregato di 152 moduli; il totale integrato non ne dichiara la risoluzione.
+
+[CI 650](evidence/autonomy_v162_ci_2026-10-12_650a6f4.json) · [Manifest dei tre collaudi e archivio](evidence/autonomy_v162_live_2026-10-12_650a6f4_manifest.json) · [Review dei cinque testi positivi](evidence/autonomy_v162_live_2026-10-12_650a6f4_semantic_review.json) · [Revisione separata del pubblico](evidence/autonomy_v162_live_2026-10-12_650a6f4_public_review.json) · [Seguito locale e log](evidence/autonomy_v162_followthrough_2026-10-12.json). Gli originali e i suffissi documentali storici restano invariati.
+
+---
+
 # 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
 
 **Recupero dell’operazione dovuta e fedeltà delle fonti, con i limiti esistenti.** La base `6e619cf` è integrata preservando le modifiche concorrenti; la configurazione delle prove browser combina i due insiemi. Le sole pulizie dei file in ingresso riguardano sette righe di spaziatura.
