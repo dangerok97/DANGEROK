@@ -75,9 +75,12 @@ export default function OraOverlay(){
  },[atlas,permittedIds,state.visible]);
  const pageCount=Math.max(1,Math.ceil(eligiblePieces.length/EXPLODED_PAGE_SIZE));
  const displayedPage=Math.min(piecePage,pageCount-1);
- const currentPieces=eligiblePieces.slice(displayedPage*EXPLODED_PAGE_SIZE,(displayedPage+1)*EXPLODED_PAGE_SIZE);
- const renderedIds=state.isolate?state.selected:
-  exploded?currentPieces.map(p=>p.id):subset?.ids||[];
+ const currentPieces=useMemo(()=>
+  eligiblePieces.slice(displayedPage*EXPLODED_PAGE_SIZE,(displayedPage+1)*EXPLODED_PAGE_SIZE),
+  [eligiblePieces,displayedPage]);
+ const renderedIds=useMemo(()=>state.isolate?state.selected:
+  exploded?currentPieces.map(p=>p.id):subset?.ids||[],
+  [state.isolate,state.selected,exploded,currentPieces,subset?.ids]);
  useEffect(()=>{
   document.documentElement.lang='it';
   if(Number.isFinite(focusX)){
