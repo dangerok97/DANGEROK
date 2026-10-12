@@ -16,6 +16,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from whatsapp.cloud import CloudConfig
+from whatsapp.formatting import render_whatsapp_answer
 
 log = logging.getLogger("ora.whatsapp")
 
@@ -217,7 +218,7 @@ class WhatsAppService:
                 )
         if not answer.get("ok"):
             raise RuntimeError("AI Core did not return a successful turn")
-        text = str(answer.get("ora_text") or answer.get("question") or "").strip()
+        text = render_whatsapp_answer(answer.get("ora_text") or answer.get("question"))
         if answer.get("client_actions"):
             text = (text + "\n\nPer completare questa operazione serve aprire l'app ORA: WhatsApp non può usare i sensori o le autorizzazioni del telefono al suo posto.").strip()
         return text or "Ho ricevuto il messaggio, ma non ho ancora una risposta verificata. Riprova tra poco."
