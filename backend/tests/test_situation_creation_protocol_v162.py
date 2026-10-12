@@ -326,13 +326,26 @@ async def test_terminal_missing_refs_saves_first_then_schedules_with_real_id(mon
 
 
 @pytest.mark.asyncio
-async def test_invalid_place_id_is_nudged_before_any_schedule_tool_execution(monkeypatch):
+@pytest.mark.parametrize("proposed_id, foreign_owned", [
+    (PLACE_REF, False),
+    ("sit_0123456789abcdef", False),
+    ("sit_1234567890abcdef", True),
+])
+async def test_invalid_place_id_is_nudged_before_any_schedule_tool_execution(
+    monkeypatch, proposed_id, foreign_owned
+):
     """Model decides that live state must be created after protocol feedback."""
     monkeypatch.setenv("AMBIENT_RUNTIME", "1")
     db = AsyncMongoMockClient().synthetic_missing_identity_nudge
     await db.agent_goals.create_index("id", unique=True)
     await db.agent_runs.create_index("goal_id", unique=True)
     await db.ambient_wakes.create_index("identity", unique=True)
+    if foreign_owned:
+        await db.situations.insert_one(SituationState(
+            id=proposed_id, user_id="unrelated-synthetic-owner",
+            summary="Un'altra situazione privata.", status="active",
+            attention_intent="Appartiene solo all'altro account.",
+        ).model_dump())
     sess = session()
     due = (datetime.now(timezone.utc) + timedelta(minutes=26)).isoformat()
     calls = []
@@ -342,7 +355,7 @@ async def test_invalid_place_id_is_nudged_before_any_schedule_tool_execution(mon
         payload = json.loads(user)
         calls.append(payload)
         if len(calls) == 1:
-            wrong = schedule(PLACE_REF, 1, due)
+            wrong = schedule(proposed_id, 1, due)
             wrong["situation_update"] = {"operation": "none"}
             wrong["situation_followup"] = {
                 "disposition": "continue", "situation_id": None,
@@ -359,7 +372,9 @@ async def test_invalid_place_id_is_nudged_before_any_schedule_tool_execution(mon
             feedback = observation(payload, "situation_schedule_requires_persisted_identity")
             assert feedback["status"] == "nudge"
             assert feedback["payload"]["failure_code"] == "SITUATION_SCHEDULE_HAS_NO_CANONICAL_ID"
-            assert await db.situations.count_documents({}) == 0
+            assert proposed_id not in json.dumps(feedback["payload"], ensure_ascii=False)
+            assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 0
+            assert await db.situations.count_documents({"user_id": OWNER}) == 0
             assert await db.ambient_wakes.count_documents({}) == 0
             return {
                 "response_mode": "answer",

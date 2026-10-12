@@ -1702,7 +1702,25 @@ async def run_cognitive_loop(
             proposed_id = str(
                 (decision.tool_call.arguments or {}).get("situation_id") or ""
             )
-            if not proposed_id.startswith("sit_"):
+            # A sit_ prefix is syntax, not proof of a stored, owned identity.
+            # Resolve the exact candidate before using it to schedule work.
+            # If the store is unavailable, let the tool report the failure;
+            # do not ask cognition to create duplicate state on an outage.
+            verified_identity = False
+            if proposed_id.startswith("sit_"):
+                try:
+                    from situations.repository import SituationRepository
+                    existing_situation = await SituationRepository(db).get(
+                        sess.user_id, proposed_id
+                    )
+                except Exception:
+                    verified_identity = None
+                else:
+                    verified_identity = bool(
+                        existing_situation
+                        and existing_situation.status in ("active", "changed")
+                    )
+            if verified_identity is False:
                 schedule_identity_nudge_used = True
                 observations.append(
                     Observation(
