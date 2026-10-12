@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, prossimo criterio di avanzamento
+
+Il comportamento richiesto resta “ho steso” → controllo autonomo delle condizioni → momento utile per ritirare. Sul frontend848 sono verificati34 casi e40 prove web; il fallimento noto della lettura non deve mantenere una promessa operativa come attuale.
+
+Prima del prossimo live occorre la CI completa verde della revisione con le due fixture corrette: fake scripted con source_refs esplicito e guard sul nome verifiedFollowup. La precedente CI848 è negativa e resta registrata; il gruppo backend non ha completato i1359 casi attesi. Dopo il verde: preflight fresco del servizio tecnico già autorizzato e una sola prova Situation sintetica Tarquinia, senza ripetere Memory invariata.
+
+Restano aperti qualità semantica della risposta finale, distinzione controllo/ritiro, ciclo futuro e notifica autentica con app chiusa. Prebuild/export iOS e browser verdi non sostituiscono installazione firmata, ricevuta push e tap autenticato. Nessuna modifica APP o promozione automatica; vecchia stesura reale chiusa. [Stato848](evidence/autonomy_v162_ci_2026-10-12_848a379_failure.json) · [Riparazione](evidence/autonomy_v162_scripted_context_and_guard_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, prossimo gate dopo f1
 
 1. Eseguire il candidato con i tre test corretti e runtime f1 invariato, verificando in particolare modulo42, gruppo1359, CLI e riavvioMongo che f1 non aveva raggiunto.

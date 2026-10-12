@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, CI848 conclusa e correzioni delle fixture
+
+848a379:6 workflow conclusi attempt1,2 successi e4 failure;16 job,10 successi,4 failure,2 saltati. Frontend TypeScript,34 regressioni Situation, prebuild/export iOS e40 prove web passano. Entrambi i backend Situation passano le tre selezioni111+62+116. Entrambi i backend generali si fermano nello step42 a877 PASS/1 FAIL su full_contexts vuoto; i42 casi handoff e i successivi CLI9/Mongo6/provenance3 non sono raggiunti. Il guard statico Situation fallisce sulla riga403 con il vecchio riferimento followup.
+
+La correzione candidata contiene due soli ritocchi ai supporti di test: source_refs:[] nel fake scripted e verifiedFollowup nell'assert esistente. Nessuna modifica al runtime o ai workflow. Il guard completo eseguito con adattatori V8 conclude130 asserzioni, ma la verifica Node/pytest della nuova revisione resta da eseguire. Tutti i14 log848 sono preservati con hash e provenienza dei checkout.
+
+Autonomia non accettata. Nessun live848 eseguito dopo la CI negativa; nessun rerun Memory invariato. APP resta esclusa per il diniego già registrato. [CI completa](evidence/autonomy_v162_ci_2026-10-12_848a379_failure.json) · [Candidato](evidence/autonomy_v162_scripted_context_and_guard_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, CI f1 negativa e correzione dei soli test
 
 La revisione f1cec19a3bcb64ba625adab84e34e1fd26b75c9d, tree66afaf0542ca529f77535939c26677fa32647716, conclude6 workflow:2 SUCCESS e4 FAILURE;16 job:6 SUCCESS,8 FAILURE e2 SKIPPED, tutti attempt1. Entrambi i backend si fermano alla fixture v84:156 PASS/1 FAIL nello step, prima del modulo42, gruppo1359, CLI e riavvioMongo. I gate Situation si fermano allo stesso caso e al guard visivo sul nome della variabile.

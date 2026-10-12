@@ -1,3 +1,19 @@
+# 12 ottobre 2026 — v162, esiti848 e riparazione dei supporti di test
+
+CI848 completa alle17:06:36Z, attempt1, nessun rerun:6 workflow (2 successi,4 failure),16 job (10 successi,4 failure,2 saltati). Push checkout848a379; PR checkout reale e7ddc35, tree2ffa79b, parent c907ca2+848. I25 file differenti appartengono a Vision/WhatsApp; i18 percorsi critici confrontati sono identici.
+
+Per entrambi i backend generali lo step42 termina877 PASS/1 FAIL su test_scripted_first_cycle_uses_real_worker_sources_and_a_future_check, assert full_contexts. Le invocazioni precedenti sommano1424 PASS push e1436 PASS PR, con8 skip storici ciascuno; non sono conteggi deduplicati. Il modulo handoff42, successivo nell'ordine, non è raggiunto; CLI9, Mongo6 e provenance3 non eseguiti. I backend Situation dedicati completano tre selezioni111+62+116 PASS ciascuno.
+
+I due job frontend completano tsc e34 casi:20 presenter,9 hook,5 render; anche prebuild/export iOS passano. Situation presentation si ferma invece all'assert statico riga403 sul vecchio nome followup; il successivo step presenter di quel workflow non parte. Mobile web40 PASS,20 Chromium e20 WebKit. Phone cloud294 PASS per job, bounded phone7 PASS. Secret scan18910 oggetti push e18917 PR:0 pattern e0 percorsi sensibili.
+
+La causa scripted è ricostruita dai sorgenti848: il solo CREATE raw del fake omette source_refs e ripete l'omissione durante la riparazione, quindi non entra nel worker. Aggiunto esclusivamente source_refs:[]. Nessuna modifica al vero manager, all'oracolo, all'assert full_contexts o alle soglie. Audit di20 script e20 moduli successivi al punto di arresto: altre fixture raw positive complete; negativi intenzionali e typed preservati.
+
+L'assert ora14 mantiene l'obbligo del label/timestamp persistito usando verifiedFollowup. Verifica V8 dell'intero guard con15 sorgenti esatti: baseline fallisce alla118ª asserzione, candidato130 PASS. Gli adattatori fs/assert e i corpi reali dei due helper non equivalgono a una nuova esecuzione Node. Pytest e Node della revisione corretta restano NOT_RUN al congelamento.
+
+Preservati14 log848:8.418.238 byte originali;8.418.634 byte pubblicati. Tre copie hanno12 sole redazioni di contatti pubblici npm, con hash originali conservati; le altre11 sono byte-identiche. Nessun live848 con CI negativa, nessuna prova nativa o accettazione autonoma. [CI848 e log](evidence/autonomy_v162_ci_2026-10-12_848a379_failure.json) · [Riparazione esatta](evidence/autonomy_v162_scripted_context_and_guard_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, regressioni f1 e tre riparazioni ai test
 
 CI f1 completa, negativa, senza rerun:6 workflow/16 job,8 failure e2 job saltati. Entrambi i backend:156 PASS/1 FAIL nello step della fixture v84 priva di location_label. Le21 invocazioni raggiunte sommano1158 PASS push e1170 PASS PR,1 FAIL e8 skip storici ciascuno; non sono casi deduplicati né il gruppo v162. Modulo42, gruppo1359, CLI9, riavvioMongo6 e guard successivi non raggiunti.

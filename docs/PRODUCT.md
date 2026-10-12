@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, verifiche del momento utile e del primo controllo
+
+Sul candidato848 la CI Node conferma tutti i34 casi del presenter e del hook/render: il momento utile al ritiro rimane distinto dal prossimo controllo; un errore noto nella rilettura impedisce di mostrare come attuale il precedente risultato operativo. Le40 prove web Chromium/WebKit passano. Questo non certifica né la prosa del modello né una notifica ricevuta con app chiusa.
+
+L'accettazione autonoma resta aperta: la CI generale si ferma nel simulatore del primo controllo, il cui CREATE omette source_refs, e un guard statico usa ancora il vecchio nome della variabile. La riparazione aggiunge il solo elenco vuoto al fake scripted e allinea la sola aspettativa statica. Runtime di produzione e modalità live restano invariati rispetto a848/f1. La vecchia stesura reale resta chiusa; il prossimo caso ammesso è sintetico, Tarquinia, Europe/Rome, dopo CI verde della revisione effettiva.
+
+[CI848 completa](evidence/autonomy_v162_ci_2026-10-12_848a379_failure.json) · [Riparazione e limiti](evidence/autonomy_v162_scripted_context_and_guard_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, verifica completa ancora aperta
 
 La scheda aggiornata supera le cinque prove di rendering della CI f1: dopo una lettura fallita della fonte usata ritira le indicazioni operative; una fonte diversa in errore non invalida quella corrente. Le40 prove browser mobile passano. Queste prove non attestano ancora l'avviso utile ricevuto su un telefono con app chiusa.

@@ -400,7 +400,7 @@ console.log('ora14: all assertions passed');
 // v107: show the same server-projected local schedule as conversation readback.
 {
   const rail = readCode('src/components/ora/OraCockpitContext.tsx');
-  assert.ok(rail.includes('followup.next_check_label || timeLabel(followup.next_check_at)'));
+  assert.ok(rail.includes('verifiedFollowup.next_check_label || timeLabel(verifiedFollowup.next_check_at)'));
 }
 
 

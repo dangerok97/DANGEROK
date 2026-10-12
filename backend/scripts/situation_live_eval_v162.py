@@ -488,6 +488,7 @@ class ScriptedModel:
                     "desired_outcome": "Sapere quando ritirare i panni presumibilmente asciutti o prima in caso di rischio.",
                     "attention_intent": "Riesaminare le fonti e indicare il momento utile al ritiro.",
                     "started_at": self.started.isoformat(), "location_label": "Tarquinia",
+                    "source_refs": [],
                     "linked_object_refs": ["place:" + PLACE["id"]],
                     "facts": ["I panni sono stati appena stesi all'aperto."]}}
         elif stage == "make_plan":

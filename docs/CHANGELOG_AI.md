@@ -1,3 +1,15 @@
+# 12 ottobre 2026 — v162, fixture scripted completa e guard coerente
+
+- Aggiunto il solo source_refs:[] al CREATE di ScriptedModel.chat; preimmagine verificata, ramo live invariato.
+- Adeguato l'assert esistente della riga403 di ora14 al nome verifiedFollowup per label e timestamp; nessuna asserzione rimossa.
+- Documentata CI848 completa negativa:4 job falliti,10 verdi,2 saltati; frontend34 e web40 verdi; gruppo backend interrotto877 PASS/1 FAIL.
+- Conservati14 log integrali, con12 sole redazioni di contatti pubblici npm in tre copie e hash degli originali; checkout push e merge PR distinti.
+- Registrata verifica statica V8 del guard completo130 asserzioni; nessuna esecuzione locale Python/Node dichiarata. Nuova CI e live pertinente restano pendenti.
+
+[Evidenze CI848](evidence/autonomy_v162_ci_2026-10-12_848a379_failure.json) · [Riparazione](evidence/autonomy_v162_scripted_context_and_guard_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, correzione delle verifiche f1
 
 - Aggiunto soltanto location_label=None alla fixture v84;43 righe assert conservate.

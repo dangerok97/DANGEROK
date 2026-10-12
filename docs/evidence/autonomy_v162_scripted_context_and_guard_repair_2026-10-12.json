@@ -1,0 +1,404 @@
+{
+  "schema": "ora_v162_scripted_context_and_guard_repair_v1",
+  "frozen_at": "2026-10-12 17:13:47 UTC",
+  "source": {
+    "repository": "dangerok97/DANGEROK",
+    "branch": "ora/v162-autonomy-validation-20261012",
+    "pr": 220,
+    "draft": true,
+    "parent_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+    "parent_tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+    "production_runtime_changed": false,
+    "live_model_path_changed": false,
+    "workflow_changed": false
+  },
+  "reason": "Repair two incomplete test/support adaptations found by the complete negative CI848 without changing runtime behavior, assertions, live oracles or budgets.",
+  "changes": [
+    {
+      "path": "backend/scripts/situation_live_eval_v162.py",
+      "before": "443e004beeb3f6d37f17cbda7867f57d102d807e",
+      "after": "7d041b91551a2e8727d7d33011cd3b41643267ba",
+      "change": "Add only source_refs:[] to the existing ScriptedModel.chat CREATE.",
+      "scope": "scripted fake only",
+      "original_bytes": 63155,
+      "result_bytes": 63194,
+      "added_lines": 1,
+      "deleted_lines": 0
+    },
+    {
+      "path": "frontend/src/components/ora/ora14.test.ts",
+      "before": "b9da0e0c6703a4305e20610a9067d543031e5a3f",
+      "after": "0aa4c5cda560afe8f00e1821c15ab4fe66601d57",
+      "change": "Line403 keeps the existing persisted label/timestamp assertion and uses verifiedFollowup in both references.",
+      "original_bytes": 20546,
+      "result_bytes": 20562,
+      "added_lines": 1,
+      "deleted_lines": 1
+    }
+  ],
+  "review": {
+    "root": {
+      "script_only_added_explicit_empty_source_refs": true,
+      "front_only_verified_variable_in_existing_assertion": true,
+      "existing_assertions_removed": 0,
+      "live_model_path_changed": false,
+      "runtime_changed": false,
+      "workflow_changed": false
+    },
+    "scripted": "autonomy_v162_ci_2026-10-12_848a379_scripted_review.json",
+    "independent_QA": "autonomy_v162_ci_2026-10-12_848a379_backend_review.json",
+    "frontend": "autonomy_v162_ci_2026-10-12_848a379_frontend_review.json",
+    "script_inventory": 20,
+    "later_test_module_inventory": 20,
+    "negative_cases_and_typed_models_preserved": true
+  },
+  "verification": {
+    "baseline_ci": "FAIL; 6 terminal workflows / 16 jobs, 10 success, 4 failure, 2 skipped, attempt1",
+    "baseline_ci_manifest": "autonomy_v162_ci_2026-10-12_848a379_failure.json",
+    "candidate_local_python": "NOT_RUN; executor offline",
+    "candidate_local_Node": "NOT_RUN; executor offline",
+    "candidate_V8_static_guard": {
+      "baseline": "failure at assertion118 matching CI line403",
+      "candidate": "130 assertions pass, end of file reached",
+      "sources": 15,
+      "limit": "V8 fs/assert/test adapters and exact helper bodies; not a Node execution"
+    },
+    "candidate_remote_CI": "PENDING on the new commit",
+    "expected_acceptance_group_cases": 1359,
+    "expected_handoff_module_cases": 42,
+    "expected_scripted_CLI_cases": 9,
+    "expected_Mongo_restart_cases": 6
+  },
+  "prior_evidence": {
+    "all_existing_tree_entries_preserved": true,
+    "ci848_log_files": 14,
+    "ci848_log_original_bytes": 8418238,
+    "ci848_log_published_bytes": 8418634,
+    "all_14_readback_exact": true,
+    "public_npm_email_redaction_spans": 12,
+    "unredacted_original_hashes_retained": true,
+    "old_f1_641_and_earlier_negative_results_preserved": true
+  },
+  "files": [
+    {
+      "path": "backend/scripts/situation_live_eval_v162.py",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": "443e004beeb3f6d37f17cbda7867f57d102d807e",
+      "blob": "7d041b91551a2e8727d7d33011cd3b41643267ba",
+      "sha256": "9c68ad955fa4c5be3b022b9f54d17fc77478fd9bb84a912fcf9e0d324baf4733",
+      "bytes": 63194,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 136207
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": "ff4cd0d2e6dae362e62f02426e09fa64f86de3d5",
+      "blob": "cd3642a3e13bfb528d718c533df22fa513c17bb0",
+      "sha256": "53f48145433bbdeee8d230fd72cc567d785b740cf954390cb657101604c6e78c",
+      "bytes": 347892,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 349233
+    },
+    {
+      "path": "docs/CHANGELOG_AI.md",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": "a555be1fae167a9be5dc2af1f5576b56f89e0b87",
+      "blob": "6445dbc85db3dbeb4f6bed713c51e8d76f7053d2",
+      "sha256": "3e328c3cbab899132b67caa6ce580d9387376dfac798650c22be3f66f9085e26",
+      "bytes": 411544,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 412849
+    },
+    {
+      "path": "docs/DEVELOPMENT_STATE.md",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": "00a7a3f0452aea4e5e116e42026b78166e940fc8",
+      "blob": "10ae8b2244e941a37f1400aba74001ffe593aa8f",
+      "sha256": "f0e54afa79110a62c0d033c0eb29d81b0f7b7d5df3b623ce1349f2e310bbc6e6",
+      "bytes": 403481,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 404468
+    },
+    {
+      "path": "docs/PRODUCT.md",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": "81385ae2ece535daf9947af54d20046de2e32550",
+      "blob": "f380cedd776c58b9b4f6984a3a1f75525dcedceb",
+      "sha256": "24d75a162481425d49ce7fe52f1588dfd2d33c438d191dd6711abb47c39d9b63",
+      "bytes": 195360,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 195911
+    },
+    {
+      "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": "ed4bba9a058da7c7b65ac756a96f0350c63e4394",
+      "blob": "fd22de8538e318792a446638de014ebddd960b74",
+      "sha256": "06daccd9e3228714e89c5a8c442eb6db9577c94fd74eedb0bb32f8b73c16fa67",
+      "bytes": 177727,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 177736
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": "4c5929ca5b5364a860cff0d59ad0c4d9f6ea1035",
+      "blob": "4537a3d34d6e605f86c54942a00adef09459227d",
+      "sha256": "70a892f3b828d13e94cb2703a6c7e3e5e312d30670c08d2d9fb9f90927b74921",
+      "bytes": 152218,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 152223
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_backend_review.json",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "f3bbaad82a240ecb573de46689b45763bb2e35ae",
+      "sha256": "10255d8d767a3bf928733c98d366028901db37a061f006ad9a440e06847f5c44",
+      "bytes": 14554,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 36078
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_failure.json",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "7e58bd8d4d2688642389414b0c4f06719254300a",
+      "sha256": "74dca1b3e2972e1ce256dec0b1dc429f4a00d85e90f13f887680e353d6af494a",
+      "bytes": 74046,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 89879
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_frontend_review.json",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "a6f3d582eeec3299c08e2c847a4fc69576cb9509",
+      "sha256": "0805364051759e8b2a11f490d7345ee3872cf735c1da320c2ef27f470ec7c7e5",
+      "bytes": 50141,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 173025
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918902013.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "3d1316cd6d64a011499804f695e51838ba93f3a8",
+      "sha256": "3c7dbf59690ec2caaa38aa583275ba5027578f19295b2d24325610f3548860f9",
+      "bytes": 12784,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 25605
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918902319.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "a2bb30a7334782fea011f3415311e384ba20fb8c",
+      "sha256": "4044aa818ce5fe6bc6c67559c16eeaf79cf3a5d0ab2252d67774b5ead104d2f1",
+      "bytes": 104227,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 213766
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918903474.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "e33e0b374cb37ff870b3bbe26d8d3c298a8743e8",
+      "sha256": "291424aebfb359f3cbeee79a136c7034e1fdb95b99b7f5d1440a72117fb1ebbb",
+      "bytes": 3215921,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 6664761
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918903660.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "ecacd3fc17859269be2729e499afec60fda091fe",
+      "sha256": "01e2eb2f247a7da280bbd6d1b94f499a914d8e8a9ad6177e878640f683676238",
+      "bytes": 52681,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 105399
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918903699.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "0bf6e67c582b318795acdf04bb8f89f7950bcb00",
+      "sha256": "7c759aeb9c9aef114a9284a90ec196b21c2e4bfc58df04e4f4d6f7308a338c4f",
+      "bytes": 571447,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 1202205
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918903714.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "666a4b4da960fb08a49e5c6f84e3a7d9f63914a5",
+      "sha256": "d576427eeea9fc57bafb574092dd4ce7f503b74792f8fdb890073dd12f1d6115",
+      "bytes": 62217,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 124562
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918925128.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "90a344210158d4bd59c591c7cb91a14dd05da19a",
+      "sha256": "226c35f9cbda04545efe49230675c74b721b00306a8922a8fb9075cf2a6e00b5",
+      "bytes": 105297,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 215950
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918925236.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "50be9761a1d42392c53b203d6b15bf3b51d3db31",
+      "sha256": "31300a2ffa559e26dd9ee5efc3a63c96ba9752227afc5bad1357bbbea7dda7b4",
+      "bytes": 69362,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 138776
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918925295.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "26c40a4b534776c2093871b3ff87f7224d604a5e",
+      "sha256": "cf5c8ac6d6e43b69ab9539ab6a13c75f192ca3752208a27a5e2ffd81f830b900",
+      "bytes": 164066,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 328179
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918925630.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "5d080f9d89e088e664d65ba996cc9c2b6bc8d284",
+      "sha256": "82a141ea1f12576a63a560ad37a14527f98220f2f2657924b843913423d7bce6",
+      "bytes": 13624,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 27285
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918927117.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "98c7e6bd8e56c4f37912a0c0ababde7b48d356ed",
+      "sha256": "e0f8991263ea519a9d0b9cf3c10dc290e68087a2875ff6bdb377ba3da3c0b56b",
+      "bytes": 575023,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 1210196
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918927135.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "f1d7d2c1a1cac94841532b4409b48c7c25dd5542",
+      "sha256": "912b102fec28dda1654610948db52490f6cd87f2e2dc5dc53273bdde73087d0f",
+      "bytes": 62994,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 126116
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918927207.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "d0bdb73a1b7d8d346016108e23e227a37d1cde08",
+      "sha256": "96b8b1170c08dfb55e2d9d756a028017f734389ac0127f89e116f164c3e24f40",
+      "bytes": 55490,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 111017
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918927368.log",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "2e60c1b68dab5f2b0dfb5a49133573f2e62e8996",
+      "sha256": "33b0f0da0823411aac53af107a08ebd1e55696d58d9b6d757730e76a1c90e8fb",
+      "bytes": 3353501,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 6962554
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_scripted_review.json",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": null,
+      "blob": "e41a04cd17b84363e7ca95f9f118ca89e518b002",
+      "sha256": "c145c1e17e7d8c01dba560e8dca486068a9cbf0507a2cd60e0763fdab42dfb96",
+      "bytes": 3554,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 9924
+    },
+    {
+      "path": "frontend/src/components/ora/ora14.test.ts",
+      "mode": "100644",
+      "type": "blob",
+      "before_blob": "b9da0e0c6703a4305e20610a9067d543031e5a3f",
+      "blob": "0aa4c5cda560afe8f00e1821c15ab4fe66601d57",
+      "sha256": "5b96a85646e98ef07c98db66aee8ac8f81daa5b9bd3aa923c29b0d30129a51fe",
+      "bytes": 20562,
+      "scan_findings": 0,
+      "decoded_scan_bytes": 41535
+    }
+  ],
+  "scan_of_listed_files": {
+    "raw_bytes": 10332907,
+    "bytes_including_decoded_strings": 19635439,
+    "findings": 0,
+    "creator_keys": 0,
+    "skipped_bytes": 0,
+    "placeholder_exemptions": 0,
+    "scope": "Full contents of all listed changed/new files, not diff lines; this index is separately scanned and read back after serialization."
+  },
+  "publication": {
+    "one_parent": true,
+    "parent_lease_required": true,
+    "force": false,
+    "tree_merkle_required": true,
+    "no_merge": true,
+    "draft_PR": true,
+    "all_blob_readbacks_required": true
+  },
+  "acceptance": {
+    "autonomy_accepted": false,
+    "old_real_laundry": "closed",
+    "place": "Tarquinia",
+    "timezone": "Europe/Rome",
+    "live848": "NOT_RUN after negative CI",
+    "future_live": "One relevant Situation-only case, after all new CI passes and a fresh idle technical service preflight; no unchanged Memory rerun.",
+    "physical_dryness": "estimated, not measured by a sensor",
+    "model_prose": "Timing semantics remain unaccepted after prior641 negative live.",
+    "native_receipt": "Signed install, closed-app notification and authenticated tap unproved.",
+    "APP": {
+      "unchanged": true,
+      "denial_patch_id": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+      "denial_retained": true
+    }
+  }
+}

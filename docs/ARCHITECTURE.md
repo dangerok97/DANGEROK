@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, compatibilità delle fixture con il contratto CREATE
+
+ScriptedModel.chat nel runner situation_live_eval_v162 emette ora source_refs:[] insieme al luogo e ai riferimenti già presenti. Il fake è selezionato solo in mode=scripted; il ramo live continua a restituire il vero manager. Il precedente fake ometteva la chiave anche alla riparazione JSON esistente: il guard fermava quindi il turno prima dell'ingresso nel worker. Questa causa è ricostruita dal codice848; il log pytest conserva solo la rappresentazione troncata del report.
+
+Nel guard ora14 la sola aspettativa label/timestamp usa verifiedFollowup, coerente con la fonte verificata del runtime già introdotto in f1. Nessun cambiamento a scheduling, polling, provider, cap, oracoli, ordine dei piani o letture automatiche. I20 runner Python e i20 moduli della selezione successivi al punto di arresto sono stati esaminati: nessun altro CREATE raw positivo incompleto; casi negativi intenzionali e modelli tipizzati restano intatti.
+
+[Evidenze](evidence/autonomy_v162_ci_2026-10-12_848a379_failure.json) · [Delta esatto](evidence/autonomy_v162_scripted_context_and_guard_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, tre correzioni ai test dopo f1
 
 Il nuovo candidato conserva integralmente il runtime f1. La fixture v84 dichiara location_label=None per rappresentare il luogo sconosciuto già implicito. Il guard statico della scheda segue verifiedFollowup.next_check_at, mantenendo il requisito di un timestamp persistito. Il nuovo harness attende un turno Node con setImmediate per completare l'adozione e le continuazioni delle Promise fra host e vm prima del render osservato.

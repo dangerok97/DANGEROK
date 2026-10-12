@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "kind": "backend_ci_failure_and_bounded_fixture_review",
+  "repository": "dangerok97/DANGEROK",
+  "pull_request": 220,
+  "candidate": {
+    "sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+    "tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+    "parent": "f1cec19a3bcb64ba625adab84e34e1fd26b75c9d"
+  },
+  "verdict": "BOTH_FULL_BACKENDS_FAILED_DURING_V162_BEFORE_CLI_AND_MONGO_RESTART",
+  "source_binding": {
+    "pr_checkout": "e7ddc35f30bde22e7ab88dfd21fc287292b1493c",
+    "pr_tree": "2ffa79b0b9dd5c5b599b7b84f5fb0cddc5ee4410",
+    "pr_parents": [
+      "c907ca2a864c683f2a50faa48ac90b325e6982f0",
+      "848a379555b4b20382ec8b90bb85b79a58d1a600"
+    ],
+    "actual_pr_base": "c907ca2a864c683f2a50faa48ac90b325e6982f0",
+    "compare_file_count": 25,
+    "compare_scope": "25 Vision/WhatsApp files; no differences in Agent/conversation/scripts/tests Situation, CI or frontend ORA critical paths.",
+    "push_and_pr_trees_distinct": true
+  },
+  "backends": {
+    "push": {
+      "run_id": 38281281145,
+      "job_id": 114918903474,
+      "event": "push",
+      "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+      "attempt": 1,
+      "run_status": "completed",
+      "run_conclusion": "failure",
+      "job_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281281145/job/114918903474",
+      "job_conclusion": "failure",
+      "checkout": {
+        "sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+        "log_line": 208
+      },
+      "pre_v162": {
+        "pytest_summary_count": 35,
+        "passed_sum": 1424,
+        "failed_sum": 0,
+        "historical_skipped_sum": 8,
+        "qualification": "Sum of executed pytest invocation summaries, not deduplicated tests.",
+        "vision": 192,
+        "whatsapp": 6
+      },
+      "v162": {
+        "step": 42,
+        "status": "failure",
+        "observed_summary": {
+          "line": 3666,
+          "summary": "2026-10-12T17:05:24.4392953Z 1 failed, 877 passed, 14293 warnings in 22.55s",
+          "passed": 877,
+          "failed": 1,
+          "skipped": 0
+        },
+        "expected_total_from_preflight": 1359,
+        "total_was_not_completed": true
+      },
+      "failure": {
+        "test": "tests/test_situation_live_eval_v162.py::test_scripted_first_cycle_uses_real_worker_sources_and_a_future_check",
+        "source_line": 65,
+        "assertion": "assert full_contexts, report",
+        "actual": "[]",
+        "evidence_lines": [
+          3552,
+          3597
+        ],
+        "report_representation_truncated_by_pytest": true,
+        "full_case_report_not_available_in_log": true
+      },
+      "downstream": {
+        "handoff_42_case_module": {
+          "status": "not_run",
+          "proof": "Explicit selector occurs after the first failing Situation runner test in the serial -n0 -x invocation.",
+          "command_log_line": 3495
+        },
+        "scripted_cli9": "not_run",
+        "static_visibility3": "not_run",
+        "v162_real_mongo_restart6": "not_run",
+        "v39_provider_provenance3": "not_run"
+      },
+      "original_log": {
+        "bytes": 3215921,
+        "sha256": "291424aebfb359f3cbeee79a136c7034e1fdb95b99b7f5d1440a72117fb1ebbb",
+        "git_blob_precomputed": "e33e0b374cb37ff870b3bbe26d8d3c298a8743e8",
+        "raw": {
+          "strict": {
+            "private_key_pem": 0,
+            "google_api_key": 0,
+            "openai_style_key": 0,
+            "github_token": 0,
+            "mongodb_uri_with_password": 0
+          },
+          "pii": {
+            "email_address": 0,
+            "creator_object": 0,
+            "authored_email_rendering": 0,
+            "private_home_path": 0,
+            "phone_like": 0,
+            "jwt_like": 0
+          }
+        },
+        "decoded_strings": {
+          "strict": {
+            "private_key_pem": 0,
+            "google_api_key": 0,
+            "openai_style_key": 0,
+            "github_token": 0,
+            "mongodb_uri_with_password": 0
+          },
+          "pii": {
+            "email_address": 0,
+            "creator_object": 0,
+            "authored_email_rendering": 0,
+            "private_home_path": 0,
+            "phone_like": 0,
+            "jwt_like": 0
+          }
+        },
+        "decoded_string_bytes": 2042096,
+        "exemptions": 0,
+        "text_v8_key": "ci848:logtext:push",
+        "tool_result_v8_key": "ci848:logs:push",
+        "publication": "Parent collector holds and publishes log separately; QA did not create a log blob."
+      }
+    },
+    "pr": {
+      "run_id": 38281288880,
+      "job_id": 114918927368,
+      "event": "pull_request",
+      "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+      "attempt": 1,
+      "run_status": "completed",
+      "run_conclusion": "failure",
+      "job_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281288880/job/114918927368",
+      "job_conclusion": "failure",
+      "checkout": {
+        "sha": "e7ddc35f30bde22e7ab88dfd21fc287292b1493c",
+        "log_line": 223
+      },
+      "pre_v162": {
+        "pytest_summary_count": 35,
+        "passed_sum": 1436,
+        "failed_sum": 0,
+        "historical_skipped_sum": 8,
+        "qualification": "Sum of executed pytest invocation summaries, not deduplicated tests.",
+        "vision": 202,
+        "whatsapp": 8
+      },
+      "v162": {
+        "step": 42,
+        "status": "failure",
+        "observed_summary": {
+          "line": 3679,
+          "summary": "2026-10-12T17:06:19.8976656Z 1 failed, 877 passed, 14293 warnings in 30.89s",
+          "passed": 877,
+          "failed": 1,
+          "skipped": 0
+        },
+        "expected_total_from_preflight": 1359,
+        "total_was_not_completed": true
+      },
+      "failure": {
+        "test": "tests/test_situation_live_eval_v162.py::test_scripted_first_cycle_uses_real_worker_sources_and_a_future_check",
+        "source_line": 65,
+        "assertion": "assert full_contexts, report",
+        "actual": "[]",
+        "evidence_lines": [
+          3565,
+          3610
+        ],
+        "report_representation_truncated_by_pytest": true,
+        "full_case_report_not_available_in_log": true
+      },
+      "downstream": {
+        "handoff_42_case_module": {
+          "status": "not_run",
+          "proof": "Explicit selector occurs after the first failing Situation runner test in the serial -n0 -x invocation.",
+          "command_log_line": 3508
+        },
+        "scripted_cli9": "not_run",
+        "static_visibility3": "not_run",
+        "v162_real_mongo_restart6": "not_run",
+        "v39_provider_provenance3": "not_run"
+      },
+      "original_log": {
+        "bytes": 3353501,
+        "sha256": "33b0f0da0823411aac53af107a08ebd1e55696d58d9b6d757730e76a1c90e8fb",
+        "git_blob_precomputed": "2e60c1b68dab5f2b0dfb5a49133573f2e62e8996",
+        "raw": {
+          "strict": {
+            "private_key_pem": 0,
+            "google_api_key": 0,
+            "openai_style_key": 0,
+            "github_token": 0,
+            "mongodb_uri_with_password": 0
+          },
+          "pii": {
+            "email_address": 0,
+            "creator_object": 0,
+            "authored_email_rendering": 0,
+            "private_home_path": 0,
+            "phone_like": 0,
+            "jwt_like": 0
+          }
+        },
+        "decoded_strings": {
+          "strict": {
+            "private_key_pem": 0,
+            "google_api_key": 0,
+            "openai_style_key": 0,
+            "github_token": 0,
+            "mongodb_uri_with_password": 0
+          },
+          "pii": {
+            "email_address": 0,
+            "creator_object": 0,
+            "authored_email_rendering": 0,
+            "private_home_path": 0,
+            "phone_like": 0,
+            "jwt_like": 0
+          }
+        },
+        "decoded_string_bytes": 2138971,
+        "exemptions": 0,
+        "text_v8_key": "ci848:logtext:pr",
+        "tool_result_v8_key": "ci848:logs:pr",
+        "publication": "Parent collector holds and publishes log separately; QA did not create a log blob."
+      }
+    }
+  },
+  "source_diagnosis": {
+    "status": "DEMONSTRATED_SCRIPTED_INPUT_CONTRACT_MISMATCH",
+    "scope": "Code reconstruction on848, not an observed full historical case report.",
+    "source": {
+      "path": "backend/scripts/situation_live_eval_v162.py",
+      "blob": "443e004beeb3f6d37f17cbda7867f57d102d807e",
+      "lines": [
+        484,
+        492
+      ]
+    },
+    "finding": "ScriptedModel conversation CREATE includes location_label and linked_object_refs but omits source_refs. The same scripted branch is used for the existing JSON-repair call, so the new raw presence guard rejects both before the worker.",
+    "not_claimed": [
+      "No evidence of weather/research/provider failure",
+      "No missing context serializer output attributed to lossless reducer failure",
+      "No new model behavior or live evaluation"
+    ]
+  },
+  "remaining_module_inventory": {
+    "scope": "20 later selected test modules read in full or searched for actual Situation declaration and call sites; meaningful CREATE blocks individually inspected. No test execution.",
+    "modules": [
+      {
+        "path": "backend/tests/test_situation_estimate_schedule_truth_v162.py",
+        "blob": "9ed660a596e47908ff120d929f668fcc6d04c1f4"
+      },
+      {
+        "path": "backend/tests/test_situation_terminal_schedule_truth_v162.py",
+        "blob": "b3e112301908f980f8ce6987ba6ae5f6c01193ab"
+      },
+      {
+        "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+        "blob": "4958fb6d950f5ef09f01a50b708d31566d09a5c2"
+      },
+      {
+        "path": "backend/tests/test_situation_conversation_diagnostics_v162.py",
+        "blob": "4e6bdd92e79eca0435ce905993dfe2caa75735ec"
+      },
+      {
+        "path": "backend/tests/test_situation_creation_protocol_v162.py",
+        "blob": "7687c7cee35b8f8431427e928b2084cccfa5d6d6"
+      },
+      {
+        "path": "backend/tests/test_pre_reply_grounding_recovery_v162.py",
+        "blob": "9ce4cfb188c1ecb487d01438bb9662b478218258"
+      },
+      {
+        "path": "backend/tests/test_public_answer_diagnostics_v162.py",
+        "blob": "261c2605e448a852a169afce9516ec5bddcaef6c"
+      },
+      {
+        "path": "backend/tests/test_current_fact_provenance_v162.py",
+        "blob": "2fa717f0d677b03ba982a688e0e97e82ab4b9527"
+      },
+      {
+        "path": "backend/tests/test_public_temperature_ranges_v162.py",
+        "blob": "d64036f09c68f0f1d48c5aeeeb6017900a9d3560"
+      },
+      {
+        "path": "backend/tests/test_gemini_search_grounding_v162.py",
+        "blob": "243d8d1e84d5aa30c9af0d208682227b1407465a"
+      },
+      {
+        "path": "backend/tests/test_research_snippet_origin_v162.py",
+        "blob": "3290c4723068febd6d8b7cf3c322ff7e7d078bbc"
+      },
+      {
+        "path": "backend/tests/test_route_provenance_v162.py",
+        "blob": "a8a20cca24877beae159c71500d4e722f7675624"
+      },
+      {
+        "path": "backend/tests/test_agent_route_provenance_v162.py",
+        "blob": "918afbdffe3e9861e2048f11d663991eb5561106"
+      },
+      {
+        "path": "backend/tests/test_situation_delivery_recovery_v162.py",
+        "blob": "04d79abd74d61c755021c225f43a0f8ce0f378b8"
+      },
+      {
+        "path": "backend/tests/test_completion_visibility_recovery_v162.py",
+        "blob": "efb8eb6bdc8638342fe0f0b1166c8353842b5ad8"
+      },
+      {
+        "path": "backend/tests/test_opportunity_discovery_recovery_v162.py",
+        "blob": "1b8fdc1bb3edb73467fbd82e2b194f51f0ace3d4"
+      },
+      {
+        "path": "backend/tests/test_agent_memory_source_fence_v162.py",
+        "blob": "213e7a42c8c7cc4b57db6803e222d9b311ff202f"
+      },
+      {
+        "path": "backend/tests/test_connector_oauth_return_v162.py",
+        "blob": "6b586e586355373e47e002a3e85a0f753653dcc2"
+      },
+      {
+        "path": "backend/tests/test_push_session_lifecycle_v162.py",
+        "blob": "687bb7512046c9582fe3605ad3da28ca217b80f1"
+      },
+      {
+        "path": "backend/tests/test_autonomy_completion_eval_v162.py",
+        "blob": "4631fe1c64d926d702ce9bea4da868d4b0eca4ca"
+      }
+    ],
+    "other_positive_raw_create_missing_fields_found": 0,
+    "distinctions": [
+      "handoff positive declarations explicitly have all3context keys",
+      "handoff omission cases deliberately test hard rejection",
+      "typed default compatibility deliberately constructs typed CognitiveDecision before validation",
+      "creation_protocol CREATE_636 preserves all3context fields while omitting summary intentionally",
+      "terminal/scheduled seed paths call SituationUpdate and SituationService.apply directly"
+    ]
+  },
+  "proposed_fix_review": {
+    "mode": "read_only",
+    "tests_executed": 0,
+    "verdict": "NO_CONCRETE_BLOCKER",
+    "runner": {
+      "blob": "7d041b91551a2e8727d7d33011cd3b41643267ba",
+      "base": "443e004beeb3f6d37f17cbda7867f57d102d807e",
+      "delta": [
+        {
+          "op": "+",
+          "new_line": 491,
+          "text": "                    \"source_refs\": [],"
+        }
+      ],
+      "only_scripted": true
+    },
+    "ora14": {
+      "blob": "0aa4c5cda560afe8f00e1821c15ab4fe66601d57",
+      "base": "b9da0e0c6703a4305e20610a9067d543031e5a3f",
+      "delta": [
+        {
+          "op": "+",
+          "new_line": 403,
+          "text": "  assert.ok(rail.includes('verifiedFollowup.next_check_label || timeLabel(verifiedFollowup.next_check_at)'));"
+        },
+        {
+          "op": "-",
+          "old_line": 403,
+          "text": "  assert.ok(rail.includes('followup.next_check_label || timeLabel(followup.next_check_at)'));"
+        }
+      ]
+    },
+    "additional_raw_positive_omissions_found": 0,
+    "inventory_scope": "20 later selected test modules inspected; typed creates and intentional negative omissions distinguished",
+    "historical_failure_unchanged": true,
+    "new_ci_required": true
+  },
+  "preservation": {
+    "logs_unchanged": true,
+    "manifest_is_derived": true,
+    "reviewer_test_executions": 0,
+    "workflow_reruns": 0,
+    "model_calls": 0,
+    "Railway_calls": 0,
+    "branch_changes": 0,
+    "raw_author_metadata_embedded": false
+  },
+  "limits": [
+    "All historical848 verdicts remain failure. A new CI run is required for the proposed fixture/test-only corrections.",
+    "The40-case browser result and dedicated Situation jobs are collected by parent/peer, not reassigned from these full backend logs.",
+    "A prior legacy realMongo test ran earlier in the job; that does not establish the later v1626-case process-restart gate, which was not reached."
+  ]
+}

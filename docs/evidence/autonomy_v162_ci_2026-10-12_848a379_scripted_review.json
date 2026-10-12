@@ -1,0 +1,73 @@
+{
+  "schema": "ora_v162_scripted_create_context_review_v1",
+  "base_commit": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+  "base_tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+  "file": "backend/scripts/situation_live_eval_v162.py",
+  "original": {
+    "blob": "443e004beeb3f6d37f17cbda7867f57d102d807e",
+    "sha256": "6b2cab0624b9577d7d585fad9f564f7afa1d50582bc39413fc4dea4e49b3ae56",
+    "bytes": 63155
+  },
+  "candidate": {
+    "blob": "7d041b91551a2e8727d7d33011cd3b41643267ba",
+    "sha256": "9c68ad955fa4c5be3b022b9f54d17fc77478fd9bb84a912fcf9e0d324baf4733",
+    "bytes": 63194,
+    "readback_exact": true
+  },
+  "change": {
+    "added_lines": 1,
+    "deleted_lines": 0,
+    "preimage": "                    \"started_at\": self.started.isoformat(), \"location_label\": \"Tarquinia\",\n                    \"linked_object_refs\": [\"place:\" + PLACE[\"id\"]],\n",
+    "replacement": "                    \"started_at\": self.started.isoformat(), \"location_label\": \"Tarquinia\",\n                    \"source_refs\": [],\n                    \"linked_object_refs\": [\"place:\" + PLACE[\"id\"]],\n",
+    "reverse_exact": true
+  },
+  "diagnosis": {
+    "failure": "test_situation_live_eval_v162.py::test_scripted_first_cycle_uses_real_worker_sources_and_a_future_check:65",
+    "root_cause": "ScriptedModel.chat conversation CREATE omits source_refs; both initial reply and the sole existing repair repeat the same invalid fixture.",
+    "guard": "governance.py:362–370 returns situation_create_missing_source_refs before Situation effects",
+    "loop": "loop.py:1613–1641 performs the existing single repair then malformed fallback",
+    "consequence": "No Situation admission or initial worker path reaches _action_dump; empty full_contexts is a downstream assertion.",
+    "evidence_type": "source trace plus primary CI failure reported by root and QA; no local reproduction",
+    "other_test_create": "test_situation_live_eval_v162.py:160–166 uses typed SituationUpdate with direct SituationService.apply; unchanged",
+    "live": "True live model response forwarded unchanged; no raw CREATE fixture in the live branch."
+  },
+  "static_review": {
+    "workflow": ".github/workflows/ci.yml",
+    "workflow_blob": "cd08a9f09413898fe90a4ace33ff0fdb86873eb4",
+    "step": "v162 canonical sources, planning recovery and connected autonomy acceptance",
+    "all_backend_script_files": 20,
+    "all_backend_script_bytes": 347064,
+    "raw_situation_create_count": 1,
+    "other_raw_situation_create_missing_fields": 0,
+    "subsequent_selected_test_modules_reviewed_by": "outcome_qa",
+    "subsequent_test_module_count": 20,
+    "peer_findings": "No other incomplete positive raw CREATE found; intentional negatives and typed fixtures unchanged."
+  },
+  "preserved": {
+    "assertions": true,
+    "oracles": true,
+    "mode_live": true,
+    "clock": true,
+    "budgets": true,
+    "providers": true,
+    "source_reads": true,
+    "declared_outcome": true,
+    "location_and_link": true,
+    "negative_and_typed_fixtures": true
+  },
+  "scan": {
+    "bytes": 63194,
+    "content_signatures": 5,
+    "sensitive_path_rules": 5,
+    "document_storage_rule": true,
+    "findings": [],
+    "skipped_bytes": 0,
+    "placeholder_exemptions_used": 0
+  },
+  "tests": {
+    "baseline": "CI 848: 1 failed, 877 passed in this group (root/QA primary logs)",
+    "candidate": "NOT_RUN; environment offline",
+    "additional_model_or_service_calls": 0
+  },
+  "publication": "orphan blobs only; no tree, commit, ref, workflow dispatch or service mutation"
+}
