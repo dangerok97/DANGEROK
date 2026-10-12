@@ -154,7 +154,7 @@ class GoogleCalendarService:
         fake_account: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Returns ``{instance, redirect_after}`` after a successful callback."""
-        session = await self.oauth_state.consume(state=state)
+        session = await self.oauth_state.consume(state=state, expect_flow="calendar_google")
         user_id = session["user_id"]
         redirect_after = sanitize_redirect_after(session.get("redirect_after"))
 

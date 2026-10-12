@@ -1,3 +1,54 @@
+## 12 ottobre 2026 — v162: completamento e verifica dell'autonomia
+
+Ripresa autorizzata dell'autonomia sul commit `9e1a2f0`, che conserva le
+correzioni v160/v161 e Vision #208. Prima del rilascio è integrata anche
+Vision #210 (`9dc0d65`), conservandone codice, walkthrough e documentazione. Il collaudo ha riprodotto ostacoli reali:
+lo schema corrente delle Memory non veniva letto, un errore del planner
+poteva interrompere definitivamente un nuovo goal, una review interrotta
+poteva consumare i cambiamenti e alcune letture confondevano account o
+freschezza della cache. Le correzioni riusano i servizi e le code esistenti.
+
+Il collaudo ha esteso la verifica delle Memory al tempo successivo alla
+lettura: revoca e correzione devono fermare anche una preparazione già in
+corso e il replay di un vecchio risultato. Il recupero della pianificazione
+è persistito e limitato; la scheda del goal consente una ripresa verificata
+dal server dopo l'esaurimento dei tentativi tecnici.
+
+Sul client vengono corretti il collegamento OAuth nativo che non apriva il
+browser, una chiave SecureStore incompatibile con l'SDK, la perdita della
+sessione per un errore di rete e la registrazione/revoca push durante cambi
+di account. Il successo OAuth richiede la rilettura dell'istanza corrente.
+Il logout locale resta possibile senza rete; i tentativi tardivi non devono
+ripristinare l'account precedente o revocare il dispositivo di quello nuovo.
+
+L'aggregato locale finale comprende 322 test backend PASS e un solo SKIP,
+relativo alla prova Mongo reale in quattro processi, obbligatoria in CI.
+Il frontend conta 90 PASS su sessione, storage, push, auth e OAuth.
+TypeScript è PASS; il lint dei file modificati non presenta errori e conserva
+warning preesistenti. I tre casi v39 sulla provenienza e l'assenza di letture
+sono affidati alla CI con Mongo e non vengono conteggiati fra i PASS locali.
+
+L'attivazione esplicita delle notifiche registra anche il consenso canonico
+alla consegna: la sola registrazione del token non produce più un falso
+stato attivo. Foreground e rotazione non concedono permessi. Il logout
+ritira anche gli endpoint legacy dello stesso owner senza disattivare altre
+sessioni associate; una revoca pendente impedisce il ripristino della vecchia
+credenziale anche quando falliscono entrambi gli aggiornamenti locali.
+
+Il rapporto `QA_AUTONOMY_COMPLETION_V162.md` conserva la verifica integrata,
+i casi negativi e i limiti. Gli esiti conclusivi di CI, modello reale,
+provider pubblici e l'esatto commit distribuito vengono registrati nella
+PR del rilascio; un gate non eseguito non vale come PASS.
+
+Il config Expo risolto non contiene un `projectId` EAS, `runtimeVersion` o
+`updates.url`, e non include `expo-updates`. I profili in `eas.json` non
+provano un canale di distribuzione nativo. Il rilascio Railway aggiorna
+backend e web; build iPhone firmata, ricezione push e comportamento reale
+in background restano prove separate. Il vecchio caso fisico a Tarquinia
+resta chiuso e non viene riattivato dai test.
+
+---
+
 ## 12 ottobre 2026 — Vision: percorsi per tutte le 25 famiglie
 
 Aggiunti 20 percorsi alle cinque famiglie esistenti, con testi originali e fonti primarie dei principi generali. Esecuzione locale dei controlli geometrici, gesti e percorsi: 129/129 passati. Test browser aggiunti per tutte le nuove famiglie, fonti per passaggio, compatibilita e schermi compatti. Gate remoti, ispezione visiva e rilascio vanno verificati prima di dichiarare la pubblicazione. Non e un collaudo di fotocamera/flash fisici iPhone.

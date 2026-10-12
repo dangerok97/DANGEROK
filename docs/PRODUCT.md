@@ -1,3 +1,39 @@
+## 12 ottobre 2026 — v162: autonomia che conserva il lavoro e verifica le fonti
+
+Una richiesta autorizzata deve continuare senza essere riscritta dopo un errore
+temporaneo. ORA conserva il lavoro, programma i tentativi di recupero e mostra
+il risultato quando è sostenuto dalle evidenze. Se il servizio necessario
+rimane indisponibile dopo i tentativi previsti, il lavoro resta riconoscibile
+come sospeso e può essere ripreso dalla sua scheda. L'assenza temporanea del
+ragionamento non diventa una richiesta di nuove informazioni alla persona.
+
+Le memorie usate sono quelle effettivamente confermate o conservate da ORA,
+con la loro provenienza e validità. Una memoria ritirata smette di sostenere
+il lavoro e i vecchi risultati; una correzione richiede una nuova valutazione.
+Una lettura delle note recenti descrive soltanto la selezione osservata:
+non dimostra che un'informazione manchi da tutte le fonti personali.
+
+Le fonti collegate vengono lette per gli account effettivamente autorizzati.
+Una sincronizzazione in corso non cancella la lettura precedente, la cui
+data resta visibile come limite. Un risultato utile deve raggiungere la Home
+anche dopo un errore di scrittura o un riavvio, senza essere duplicato.
+
+Sul telefono, il collegamento di Gmail e Google Calendar apre l'autorizzazione
+di Google e verifica l'account restituito dal server. Rifiutare o chiudere
+l'autorizzazione lascia la possibilità di riprovare. Notifiche e sessione
+devono poter recuperare un errore temporaneo; uscire dall'account interrompe
+il suo uso locale anche senza rete. La verifica del codice nativo resta
+distinta dalla ricezione effettiva su una build installata.
+«Attiva notifiche» richiede sia il permesso del dispositivo sia il consenso
+alla consegna in ORA; un aggiornamento automatico non concede nuovi permessi.
+Una sessione scaduta conserva la destinazione del risultato dopo il nuovo login.
+
+Le azioni con conseguenze esterne mantengono le proprie autorizzazioni.
+Un risultato preparato, un dato del provider o l'accettazione di una notifica
+non sono da soli la prova che il risultato fisico sia stato raggiunto.
+
+---
+
 ## 12 ottobre 2026 — Vision: percorsi per tutte le 25 famiglie
 
 Tutte le 25 famiglie del pacchetto iniziale hanno ora un percorso didattico scritto: 75 passaggi complessivi. Selezione dei gruppi coinvolti, relazioni simboliche, pausa/frecce/ripetizione e fonti del passaggio. Non si inventa un percorso per un modello generato o incompatibile.

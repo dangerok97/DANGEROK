@@ -180,7 +180,7 @@ class StepExecutor:
             return ExecutionResult(
                 step_id=step.id, status="unavailable",
                 observation="Questo non è ancora collegato a niente di reale.",
-                error_type="not_wired", retryable=False,
+                error_type=resolution.reason or "not_wired", retryable=False,
                 provenance=ResultProvenance(
                     source_class="internal_observation",
                     capability=step.capability_needed,
@@ -241,7 +241,7 @@ class StepExecutor:
         # comparisons, so that no branch in this file can ever come to depend
         # on what a goal happens to be about.
         reader = _READERS.get(capability, providers.read_internal_state)
-        if capability in ("document.read", "mail.read", "contacts.read", "banking.read", "weather.read", "route.read"):
+        if capability in ("information.read", "document.read", "mail.read", "contacts.read", "banking.read", "weather.read", "route.read"):
             if capability == "mail.read" and budget is not None:
                 # One extra cognitive call distills private content into
                 # bounded facts before anything can enter durable evidence.

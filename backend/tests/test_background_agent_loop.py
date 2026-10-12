@@ -115,8 +115,11 @@ async def test_calendar_reads_only_current_selected_events(db, monkeypatch):
     monkeypatch.setitem(sys.modules, 'home', package)
     from agent.providers import read_calendar
     now = datetime.now(timezone.utc)
-    await db.connector_instances.insert_one({'user_id':'alice', 'connector_id':'calendar_google',
+    await db.connector_instances.insert_one({'id':'calendar_alice', 'user_id':'alice', 'connector_id':'calendar_google',
         'status':'connected', 'selected_resource_ids':['primary'], 'last_sync_at': now.isoformat()})
+    from permissions.service import PermissionService
+    await PermissionService(db).grant(user_id='alice', capability_id='calendar.read',
+        connector_id='calendar_google', connector_instance_id='calendar_alice')
     for name, status, ingestion, calendar in [
         ('Current','confirmed','processed','primary'),
         ('Cancelled','cancelled','processed','primary'),

@@ -19,6 +19,7 @@ import type { HomeV2Response, MonitoredSituation } from '@/src/api/client';
 export type GenereAggiornamento = 'lavoro' | 'suggerimento' | 'spunto' | 'occasione';
 
 export type Aggiornamento = {
+  retry_available?: boolean;
   testo_preparato?: string;
   id: string;
   genere: GenereAggiornamento;
@@ -85,6 +86,7 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
   const lavori: Aggiornamento[] = (home.agent_work || []).filter(w => !aggiornamentoScaduto(w.valid_until)).slice(0, 2).map((w) => ({
     id: w.id,
     genere: 'lavoro',
+    retry_available: w.retry_available === true,
     testo_preparato: w.prepared_text || '',
     cosa: w.what,
     perche: w.why_now || '',

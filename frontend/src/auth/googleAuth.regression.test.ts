@@ -66,12 +66,19 @@ test('J: Login usa l adapter Google; Settings resta separata dalle credenziali',
   assert.doesNotMatch(settingsSource, /expo-auth-session\/providers\/google/);
 });
 
-test('K: storage JWT failure impedisce update user state', () => {
-  const persistIndex = contextSource.indexOf('await authToken.set(token)');
-  const userIndex = contextSource.indexOf('setUser(u)', persistIndex);
-  assert.ok(persistIndex >= 0 && userIndex > persistIndex);
-  assert.match(contextSource, /if \(!persisted\)/);
-  assert.match(contextSource, /auth_storage_failed/);
+test('K: storage JWT failure impedisce update user state', async () => {
+  const { createSessionLifecycle } = await import('./sessionLifecycle.ts');
+  let activated = false;
+  const lifecycle = createSessionLifecycle({
+    readToken: async () => null, writeToken: async () => false, clearToken: async () => {},
+    me: async () => ({ user_id: 'synthetic-storage' }),
+    activate: () => { activated = true; }, end: async () => {}, resetOpening: () => {},
+  });
+  await assert.rejects(lifecycle.signIn('synthetic-not-a-credential', { user_id: 'synthetic-storage' }), /auth_storage_failed/);
+  assert.equal(activated, false);
+  assert.equal(lifecycle.getSnapshot().user, null);
+  assert.match(contextSource, /createSessionLifecycle/);
+  assert.match(contextSource, /writeToken: authToken\.set/);
 });
 
 test('M/N: GIS non riscrive localhost o 127.0.0.1', () => {

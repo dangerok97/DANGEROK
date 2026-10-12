@@ -104,10 +104,17 @@ class VisibilityService:
         does not need to tell them apart, and a surface certainly does not.
         """
         from agent.reasoning import decide_visibility
+        from agent.memory_fence import memory_result_current
+
+        memory_snapshot = str(what_happened.get("_memory_source_snapshot") or "")
+        if not await memory_result_current(self.db, owner_id, goal, memory_snapshot):
+            return VisibilityDecision(goal_id=goal.id, outcome="silent", decided_by="code",
+                                      quietened_by_code="le memorie di partenza non sono più attuali")
 
         answer = await decide_visibility(
             goal.for_ai(),
-            what_happened=what_happened,
+            what_happened={key: value for key, value in what_happened.items()
+                           if key != "_memory_source_snapshot"},
             already_said=await self.recent(owner_id),
             language=language,
         )
@@ -125,6 +132,7 @@ class VisibilityService:
             headline=str(answer.get("headline") or "")[:200].strip(),
             reasoning=str(answer.get("reasoning") or "")[:400],
             refs=[str(r)[:120] for r in (what_happened.get("refs") or [])][:8],
+            memory_source_snapshot=memory_snapshot,
             fingerprint=_fingerprint(
                 goal.id, str(answer.get("about") or ""),
                 str(answer.get("headline") or ""),
@@ -132,6 +140,11 @@ class VisibilityService:
         )
 
         if not decision.is_visible:
+            return decision
+
+        if not await memory_result_current(self.db, owner_id, goal, decision.memory_source_snapshot):
+            decision.outcome, decision.decided_by = "silent", "code"
+            decision.quietened_by_code = "le memorie di partenza non sono più attuali"
             return decision
 
         if not await self._situation_decision_current(
@@ -150,6 +163,12 @@ class VisibilityService:
             decision.decided_by = "code"
             decision.quietened_by_code = "non c'era niente da dire"
             return decision
+
+        if memory_snapshot:
+            # A corrected fact may yield useful news about the same topic.
+            decision.fingerprint = _fingerprint(
+                goal.id + "|" + memory_snapshot, str(answer.get("about") or ""), decision.headline,
+            )
 
         if not decision.refs:
             # No proof of work. This is the guard that stops «me ne sto
@@ -250,12 +269,26 @@ class VisibilityService:
         """What they have already been told, so the model can hear itself."""
         docs = await self.db[UPDATES].find(
             {"owner_id": owner_id},
-            {"_id": 0, "headline": 1, "outcome": 1, "at": 1},
+            {"_id": 0, "headline": 1, "outcome": 1, "at": 1,
+             "goal_id": 1, "memory_source_snapshot": 1},
         ).sort("at", -1).to_list(RECENT_SHOWN)
-        return [
-            {"said": d.get("headline"), "kind": d.get("outcome"), "when": d.get("at")}
-            for d in docs
-        ]
+        from agent.memory_fence import memory_result_current, MemorySourcesUnavailable
+        from agent.repository import AgentRepository
+
+        rows = []
+        for doc in docs:
+            goal = await AgentRepository(self.db).get_goal(owner_id, doc.get("goal_id", ""))
+            if goal is None:
+                continue
+            try:
+                if not await memory_result_current(
+                    self.db, owner_id, goal, doc.get("memory_source_snapshot", ""),
+                ):
+                    continue
+            except MemorySourcesUnavailable:
+                continue
+            rows.append({"said": doc.get("headline"), "kind": doc.get("outcome"), "when": doc.get("at")})
+        return rows
 
     async def _already_said(self, owner_id: str, fingerprint: str) -> bool:
         found = await self.db[UPDATES].find_one(
@@ -303,6 +336,14 @@ class VisibilityService:
             f"{owner_id}|{decision.fingerprint}".encode("utf-8")
         ).hexdigest()[:24]
         try:
+            from agent.memory_fence import memory_result_current
+            if not await memory_result_current(self.db, owner_id, goal, decision.memory_source_snapshot):
+                await self.db[UPDATES].update_one(
+                    {"owner_id": owner_id, "fingerprint": decision.fingerprint, "home_pending": True},
+                    {"$set": {"home_pending": False, "home_skipped": "memory_sources_changed"},
+                     "$unset": {"home_due_at": ""}},
+                )
+                return False
             if not await self._situation_decision_current(owner_id, goal, decision):
                 await self.db[UPDATES].update_one(
                     {"owner_id": owner_id, "fingerprint": decision.fingerprint,
@@ -323,6 +364,7 @@ class VisibilityService:
                     "agent": "visibility",
                     "visibility": decision.outcome,
                     "goal": goal.id,
+                    "memory_source_snapshot": decision.memory_source_snapshot,
                 },
                 visible=True,
                 activity_id=activity_id,
@@ -391,7 +433,7 @@ class VisibilityService:
                 else:
                     skipped = await self.db[UPDATES].find_one(
                         {"owner_id": owner, "fingerprint": fingerprint,
-                         "home_skipped": "situation_no_longer_current"}, {"_id": 1},
+                         "home_skipped": {"$in": ["situation_no_longer_current", "memory_sources_changed"]}}, {"_id": 1},
                     )
                     results["stale" if skipped else "deferred"] += 1
             except Exception as exc:

@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   RefreshControl,
   AppState,
+  Linking,
   ScrollView,
   StyleSheet,
   View,
@@ -65,6 +66,9 @@ import {
 } from '@/src/components/home/v3';
 import { useAmbientInset } from '@/src/shell';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
+import { usePushRegistration } from '@/src/ambient/usePushRegistration';
+import { enablePush } from '@/src/ambient/pushRegistration';
+import { pushRecovery } from '@/src/ambient/pushLifecycle';
 
 /**
  * Home is the one route allowed past PX1.1's 800px reading column: it is a
@@ -318,25 +322,29 @@ export default function HomeScreen() {
   */
   const [askedLater, setAskedLater] = useState(false);
   const [permissionBusy, setPermissionBusy] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const push = usePushRegistration();
+  const notificationRecovery = pushRecovery(push);
+  useEffect(() => { setAskedLater(false); setPermissionError(null); }, [user?.user_id]);
 
   const enableNotifications = useCallback(async () => {
     setPermissionBusy(true);
+    setPermissionError(null);
     try {
-      const { enablePush } = await import('@/src/ambient/pushRegistration');
-      const outcome = await enablePush();
-      if (!outcome.ok && outcome.state === 'unsupported') {
-        setErrorBanner('Le notifiche di ORA funzionano sull\'app del telefono.');
-      } else if (!outcome.ok && outcome.state === 'no_project') {
-        setErrorBanner('Questa build non è ancora collegata alle notifiche.');
+      if (notificationRecovery?.action === 'settings') {
+        await Linking.openSettings();
+      } else {
+        const outcome = await enablePush();
+        if (outcome.ok) await load({ silent: true });
       }
-      setAskedLater(true);
     } catch {
-      setErrorBanner('Non sono riuscito ad attivare le notifiche.');
+      setPermissionError(notificationRecovery?.action === 'settings'
+        ? 'Non riesco ad aprire le impostazioni. Puoi aprirle dalle impostazioni del telefono.'
+        : 'Non sono riuscito ad attivare le notifiche. Riprova.');
     } finally {
       setPermissionBusy(false);
-      await load({ silent: true });
     }
-  }, [load]);
+  }, [load, notificationRecovery?.action]);
 
   /*
     Three answers to something ORA raised, and they are genuinely different.
@@ -434,8 +442,12 @@ export default function HomeScreen() {
       <HomeHeaderV3
         name={user?.name}
         ambient={home?.ambient || null}
-        permission={askedLater ? null : home?.notification_prompt || null}
-        permissionBusy={permissionBusy}
+        permission={askedLater || push.state === 'granted' ? null : home?.notification_prompt || null}
+        permissionBusy={permissionBusy || push.busy}
+        permissionRecovery={askedLater || push.state === 'granted' ? null
+          : permissionError ? { message: permissionError, actionLabel: notificationRecovery?.actionLabel || 'Riprova' }
+          : home?.notification_prompt || push.state === 'error' || push.state === 'no_project'
+            ? notificationRecovery : null}
         onEnableNotifications={() => void enableNotifications()}
         onDismissNotifications={() => setAskedLater(true)}
         weather={home?.weather || null}

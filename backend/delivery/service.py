@@ -27,6 +27,9 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from agent.memory_fence import (
+    MemorySourcesUnavailable, memory_result_current, opportunity_memories_current,
+)
 from delivery import context as delivery_context
 from delivery.models import (
     DeliverySubject,
@@ -131,7 +134,10 @@ class DeliveryService:
         kind = source_of(subject)
         subject_id = getattr(subject, "id", "")
         if kind == "agent_need":
-            current = await self._current_agent_need(user_id, subject_id)
+            try:
+                current = await self._current_agent_need(user_id, subject_id)
+            except MemorySourcesUnavailable:
+                return await self._source_check_unavailable(user_id, kind, subject_id)
             if current is None:
                 await self.cancel_for_source(
                     user_id, subject_id, source_type=kind,
@@ -144,6 +150,16 @@ class DeliveryService:
         # Do not even ask a model to notify about a provably expired event.
         # The exact source is rechecked once more just before send.
         if kind == "opportunity":
+            try:
+                memory_current = await opportunity_memories_current(self.db, user_id, subject)
+            except MemorySourcesUnavailable:
+                return await self._source_check_unavailable(user_id, kind, subject_id)
+            if not memory_current:
+                await self.cancel_for_source(
+                    user_id, subject_id, source_type=kind,
+                    reason="le memorie citate sono state aggiornate o ritirate",
+                )
+                return DeliveryResult(blocked_by="memory_sources_changed")
             from opportunities.source_lifecycle import (
                 perishable_opportunity_expired, appointment_disagreement_unverifiable,
             )
@@ -371,6 +387,8 @@ class DeliveryService:
         goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id)
         if goal is None:
             return None
+        if not await memory_result_current(self.db, user_id, goal, need.memory_source_snapshot):
+            return None
         now = _now()
         for raw in (need.valid_until, goal.valid_until):
             due = _aware_wait_until(raw)
@@ -444,6 +462,8 @@ class DeliveryService:
             )
             if subject is None or subject.status != "active":
                 return None
+            if not await opportunity_memories_current(self.db, user_id, subject):
+                return None
             from agent.service import _aware_wait_until
             deadline = _aware_wait_until(subject.valid_until)
             if deadline is not None and deadline <= datetime.now(timezone.utc):
@@ -498,7 +518,12 @@ class DeliveryService:
                 held += 1
                 continue
 
-            subject = await self._current_subject_for_plan(user_id, plan)
+            try:
+                subject = await self._current_subject_for_plan(user_id, plan)
+            except MemorySourcesUnavailable:
+                await self._defer_source_check(plan)
+                held += 1
+                continue
             if subject is None:
                 await self._cancel(
                     plan, "la sorgente non è più aperta prima dell'invio", "code_cancel"
@@ -538,7 +563,11 @@ class DeliveryService:
         # A source can close after the re-judgement but before the provider
         # call. Re-read it at the last possible boundary; no old plan gets to
         # outlive the fact that justified it.
-        subject = await self._current_subject_for_plan(user_id, plan)
+        try:
+            subject = await self._current_subject_for_plan(user_id, plan)
+        except MemorySourcesUnavailable:
+            await self._defer_source_check(plan)
+            return
         if subject is None:
             await self._cancel(
                 plan, "la sorgente si è chiusa prima dell'invio", "code_cancel"
@@ -612,6 +641,22 @@ class DeliveryService:
         plan.outcome = "delivered"
         plan.last_rechecked_at = plan.last_rechecked_at or plan.delivered_at
         await self.repo.save_plan(plan)
+
+    async def _defer_source_check(self, plan: DeliveryPlan) -> None:
+        """Keep an unsent intention durable while source validity is unknown."""
+        plan.status = "pending"
+        plan.not_before = (_now() + timedelta(minutes=2)).isoformat()
+        plan.decision_provenance = "code_safety"
+        plan.rationale = "La verifica delle fonti non è disponibile; riprovo prima di inviare."
+        await self.repo.save_plan(plan)
+        await self._arrange_wake(plan)
+
+    async def _source_check_unavailable(self, owner_id: str, kind: str, source_id: str) -> DeliveryResult:
+        for plan in await self.repo.plans_for(owner_id, source_id, source_type=kind):
+            if plan.is_open:
+                await self._defer_source_check(plan)
+        return DeliveryResult(unavailable=True, blocked_by="source_check_unavailable",
+                              reason="La verifica delle fonti non è disponibile.")
 
     # --- what happens to it afterwards ------------------------------------
 
@@ -961,10 +1006,15 @@ class DeliveryService:
         Returns nothing at all when no such judgement is waiting, which is
         almost always.
         """
-        held = [
-            p for p in await self.repo.open_plans(user_id)
-            if p.status == "held" and p.rationale == "no_notification_permission"
-        ]
+        held = []
+        for plan in await self.repo.open_plans(user_id):
+            if plan.status != "held" or plan.rationale != "no_notification_permission":
+                continue
+            try:
+                if await self._current_subject_for_plan(user_id, plan) is not None:
+                    held.append(plan)
+            except MemorySourcesUnavailable:
+                continue  # A read cannot request permission using unverifiable words.
         if not held:
             return None
         return {
@@ -1008,10 +1058,9 @@ class DeliveryService:
         ))}
         rows = await self.db.agent_goals.find({
             "owner_id": user_id, "id": {"$in": list(goal_ids)},
-            "source_kind": {"$in": ["situation_initial_review", "situation_followup"]},
         }, {"_id": 0}).to_list(2) if goal_ids else []
         if not rows:
-            return None if bindings else latest.for_home()
+            return None if bindings or latest.cognitive_provenance.get("goal") else latest.for_home()
         if len(rows) != 1:
             return None
 
@@ -1020,6 +1069,16 @@ class DeliveryService:
         from situations.outcomes import current_outcome, moment, situation_id
 
         goal = AutonomousGoal.model_validate(rows[0])
+        try:
+            if not await memory_result_current(
+                self.db, user_id, goal,
+                str(latest.cognitive_provenance.get("memory_source_snapshot") or ""),
+            ):
+                return None
+        except MemorySourcesUnavailable:
+            return None
+        if goal.source_kind not in ("situation_initial_review", "situation_followup"):
+            return latest.for_home() if goal.status not in ("cancelled", "abandoned") else None
         expiry = moment(goal.valid_until)
         if goal.valid_until and (expiry is None or expiry <= now):
             return None

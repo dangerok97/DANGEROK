@@ -32,6 +32,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 
 from agent.models import ResultProvenance
+from agent.memory_sources import MEMORY_READ_PROJECTION, memory_source_id, memory_source_version
 
 logger = logging.getLogger(__name__)
 
@@ -90,21 +91,68 @@ def _unavailable(capability: str, reason: str, note: str) -> CapabilityOutcome:
 
 # --- what ORA already holds -------------------------------------------------
 
-async def read_internal_state(db, owner_id: str, goal) -> CapabilityOutcome:
-    """
-    A bounded look at what ORA already knows about this person.
+def _memory_ids(refs) -> List[str]:
+    """Resolve recorded Memory handles only; never infer a subject from words."""
+    out: List[str] = []
+    for raw in refs or []:
+        memory_id = memory_source_id(raw)
+        if memory_id and memory_id not in out:
+            out.append(memory_id)
+    return out[:MAX_CLAIMS]
 
-    Deliberately not "the life model": a handful of durable facts, most
-    recent first. The planner needs enough to know whether it already has the
-    answer, and no more — passing a whole life to a model to decide one step
-    is both a privacy failure and a bill.
+
+def _memory_reference(doc) -> str:
+    memory_id = str(doc.get("id") or "").strip()
+    if not memory_id or len(memory_id) > 120:
+        return ""
+    return memory_id if memory_id.startswith("mem_") else f"memory:{memory_id}"
+
+
+def _memory_support(doc) -> str:
+    parts = [f"Memoria {_memory_reference(doc) or 'senza riferimento'}"]
+    # The time of this database read does not make a stored belief a present
+    # observation. Keep the governed epistemic and temporal qualifications.
+    for label, key in (("stato", "epistemic_status"), ("autorità", "authority")):
+        value = str(doc.get(key) or (doc.get("status") if key == "epistemic_status" else "") or "").strip()
+        if value:
+            parts.append(f"{label}: {value[:40]}")
+    temporal = doc.get("temporal_scope") or {}
+    if isinstance(temporal, dict):
+        for label, key in (("dal", "starts_at"), ("fino al", "ends_at")):
+            if temporal.get(key):
+                parts.append(f"{label}: {str(temporal[key])[:40]}")
+    if doc.get("updated_at") or doc.get("created_at"):
+        parts.append(f"registrata: {str(doc.get('updated_at') or doc.get('created_at'))[:40]}")
+    return "; ".join(parts)[:300]
+
+
+async def read_internal_state(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome:
+    """Read cited governed memories, or explicitly bounded recent notes.
+
+    Current governance writes ``statement``/``content``. Older notes used
+    ``summary``/``fact_summary``. A read supports both, excludes superseded
+    facts, and never treats an empty recent window as an exhaustive search
+    through the person's profile, documents, calendar and other sources.
     """
+    step_refs = list(getattr(step, "input_refs", None) or [])
+    requested = _memory_ids(step_refs or getattr(goal, "source_refs", None))
+    if step_refs and not requested:
+        return _unavailable(
+            "information.read", "memory_reference_required",
+            "Per rileggere una memoria serve il suo riferimento già osservato.",
+        )
+    query = {
+        "user_id": owner_id,
+        "status": {"$in": ["active", "known", "likely", "ambiguous", None]},
+    }
+    if requested:
+        query["id"] = {"$in": requested}
     facts: List[Claim] = []
     try:
         docs = await db.memories.find(
-            {"user_id": owner_id, "status": {"$ne": "forgotten"}},
-            {"_id": 0, "summary": 1, "fact_summary": 1, "kind": 1, "updated_at": 1},
-        ).sort("updated_at", -1).to_list(MAX_FACTS)
+            query,
+            MEMORY_READ_PROJECTION,
+        ).sort([("updated_at", -1), ("created_at", -1), ("id", 1)]).limit(MAX_FACTS + 1).to_list(MAX_FACTS + 1)
     except Exception as e:
         logger.info("internal read soft-fail: %s", type(e).__name__)
         return CapabilityOutcome(
@@ -117,42 +165,59 @@ async def read_internal_state(db, owner_id: str, goal) -> CapabilityOutcome:
             retryable=True,
         )
 
-    for doc in docs:
-        text = (doc.get("summary") or doc.get("fact_summary") or "").strip()
-        if text:
-            facts.append(Claim(text=text[:400], supports="quello che risulta già"))
+    refs: List[str] = []
+    versions: dict[str, str] = {}
+    observed_ids: List[str] = []
+    for doc in docs[:MAX_FACTS]:
+        value = next((doc.get(key) for key in ("statement", "content", "summary", "fact_summary")
+                      if isinstance(doc.get(key), str) and doc[key].strip()), "")
+        if value.strip():
+            facts.append(Claim(text=value.strip()[:600], supports=_memory_support(doc)))
+            ref = _memory_reference(doc)
+            if ref:
+                refs.append(ref)
+                versions[ref] = memory_source_version(doc)
+            observed_ids.append(str(doc.get("id") or ""))
+            if len(facts) == MAX_CLAIMS:
+                break
+
+    scope = (
+        "Lettura limitata alle memorie citate; non verifica da sola la loro validità attuale o le altre fonti."
+        if requested else
+        "Lettura limitata alle memorie recenti; non è una ricerca completa e non copre profilo, documenti o altre fonti."
+    )
+    provenance = ResultProvenance(
+        source_class="internal_observation", capability="information.read",
+        provider="life_memory", source_refs=refs, source_versions=versions,
+        memory_read_scope=("empty" if not facts else
+                           "versioned" if len(versions) == len(facts) else ""),
+        freshness="fresh", certainty_note=scope,
+    )
 
     if not facts:
-        # Finding nothing is a finding. It is recorded as evidence like any
-        # other, because "there is nothing on file about this" is exactly the
-        # sort of thing a plan needs to know, and reporting it as a failure
-        # would send the model looking for a fault that is not there.
+        if requested:
+            return CapabilityOutcome(
+                status="unavailable", provenance=provenance,
+                observation="Non trovo una memoria leggibile e ancora valida tra i riferimenti indicati.",
+                error_type="memory_not_observed",
+            )
+        # Empty coverage is evidence about this selection, never evidence
+        # that the requested information does not exist anywhere in ORA.
+        empty = "Non ho trovato testo leggibile nelle memorie correnti selezionate."
         return CapabilityOutcome(
             status="succeeded",
-            observation="Ho guardato: non risulta niente di registrato su questo.",
-            provenance=ResultProvenance(
-                source_class="internal_observation",
-                capability="information.read",
-                freshness="fresh",
-                certainty_note="letto ora, e non c'era niente",
-            ),
-            claims=[Claim(
-                text="Non risulta niente di registrato su questo.",
-                supports="quello che risulta già",
-            )],
+            observation=empty, provenance=provenance,
+            claims=[Claim(text=empty, supports="solo la selezione di memorie letta")],
             data_ref="internal:0",
         )
 
+    incomplete = bool(requested and set(requested) - set(observed_ids))
     return CapabilityOutcome(
-        status="succeeded",
-        observation=f"Ho guardato quello che risulta già: {len(facts)} cose.",
-        provenance=ResultProvenance(
-            source_class="internal_observation",
-            capability="information.read",
-            provider="life_memory",
-            freshness="fresh",
-        ),
-        claims=facts[:MAX_CLAIMS],
+        status="partial" if incomplete else "succeeded",
+        observation=(f"Ho riletto {len(facts)} memorie nella selezione. "
+                     + ("Alcuni riferimenti non sono più disponibili." if incomplete else scope)),
+        provenance=provenance, claims=facts,
+        error_type="memory_selection_incomplete" if incomplete else "",
         data_ref=f"internal:{len(facts)}",
     )
 
@@ -259,36 +324,36 @@ async def read_mail_metadata(db, owner_id: str, goal) -> CapabilityOutcome:
     """
     try:
         from connectors.gmail.scopes import EMAIL_RECORD_TYPE
-        connected = await db.connector_instances.find_one(
-            {
-                "user_id": owner_id,
-                "connector_id": "mail_gmail",
-                "status": {"$in": ["connected", "active", "healthy"]},
-            },
-            {"_id": 0, "id": 1},
-            sort=[("updated_at", -1)],
-        )
+        from agent.connector_reads import authorized_instances, sync_provenance
+        connected = await authorized_instances(db, owner_id, "mail_gmail", "mail.metadata", audit=True)
     except Exception as exc:
         logger.info("mail metadata connection check soft-fail: %s", type(exc).__name__)
-        connected = None
+        return CapabilityOutcome(
+            status="failed", observation="Non riesco a verificare la connessione alla posta in questo momento.",
+            provenance=ResultProvenance(source_class="internal_observation", capability="mail.metadata"),
+            error_type="mail_connection_check_failed", retryable=True,
+        )
 
     if not connected:
         return _unavailable(
             "mail.metadata",
             "requires_connection",
-            "Non c'è una casella Gmail collegata da rileggere.",
+            "Non c'è una casella Gmail collegata con il permesso di lettura.",
         )
 
     try:
         rows = await db.ingestion_events.find(
-            {"user_id": owner_id, "source_record_type": EMAIL_RECORD_TYPE},
+            {"user_id": owner_id, "source_record_type": EMAIL_RECORD_TYPE,
+             "connector_instance_id": {"$in": [row["id"] for row in connected]},
+             "ingestion_status": {"$nin": ["superseded", "quarantined", "skipped"]},
+             "source_status": {"$ne": "detached"}},
             {
                 "_id": 0,
                 "external_id": 1,
                 "normalized_payload": 1,
                 "ingested_at": 1,
             },
-        ).sort("ingested_at", -1).to_list(MAX_CLAIMS)
+        ).sort("ingested_at", -1).limit(MAX_CLAIMS).to_list(MAX_CLAIMS)
     except Exception as exc:
         logger.info("mail metadata read soft-fail: %s", type(exc).__name__)
         return CapabilityOutcome(
@@ -304,9 +369,14 @@ async def read_mail_metadata(db, owner_id: str, goal) -> CapabilityOutcome:
         )
 
     claims: List[Claim] = []
-    for row in rows:
-        payload = row.get("normalized_payload") or {}
+    source_refs: List[str] = []
+    from ingestion.reading import plain
+
+    for row in rows[:MAX_CLAIMS]:
+        payload = plain(row.get("normalized_payload"))
         message_ref = str(payload.get("message_ref") or row.get("external_id") or "")
+        if message_ref:
+            source_refs.append(f"mail:{message_ref}")
         subject = str(payload.get("subject") or "").strip()[:180] or "senza oggetto"
         relation = str(payload.get("sender_relationship") or "unknown")
         received = str(payload.get("received_at") or "")
@@ -321,23 +391,23 @@ async def read_mail_metadata(db, owner_id: str, goal) -> CapabilityOutcome:
             supports=f"mail:{message_ref}" if message_ref else "gmail:metadata",
         ))
 
+    synced_at, freshness = sync_provenance(connected)
+    sync_note = (f"Ultima sincronizzazione delle caselle lette: {synced_at}."
+                 if synced_at else "Data dell'ultima sincronizzazione non disponibile.")
     return CapabilityOutcome(
         status="succeeded",
         observation=(
             f"Ho riletto {len(claims)} comunicazioni Gmail sincronizzate."
             if claims
             else "La casella è collegata, ma non risultano comunicazioni sincronizzate nella finestra letta."
-        ),
+        ) + " " + sync_note,
         provenance=ResultProvenance(
             source_class="connected_provider",
             capability="mail.metadata",
             provider="gmail_sync",
-            source_refs=[
-                f"mail:{str((row.get('normalized_payload') or {}).get('message_ref') or row.get('external_id') or '')}"
-                for row in rows
-                if str((row.get('normalized_payload') or {}).get('message_ref') or row.get('external_id') or '')
-            ][:MAX_CLAIMS],
-            freshness="fresh",
+            source_refs=source_refs[:MAX_CLAIMS],
+            freshness=freshness,
+            certainty_note="Metadati delle caselle autorizzate, non una nuova lettura dal provider; finestra limitata.",
         ),
         claims=claims,
         data_ref="gmail:metadata",
@@ -1464,19 +1534,20 @@ async def read_calendar(db, owner_id: str, goal) -> CapabilityOutcome:
     than an empty week.
     """
     try:
-        connected = await db.connector_instances.count_documents(
-            {"user_id": owner_id, "connector_id": "calendar_google",
-             "status": {"$in": ["connected", "active", "healthy"]}},
-            limit=1,
-        )
+        from agent.connector_reads import authorized_instances, sync_provenance
+        connected = await authorized_instances(db, owner_id, "calendar_google", "calendar.read", audit=True)
     except Exception as e:
         logger.info("calendar connection check soft-fail: %s", type(e).__name__)
-        connected = 0
+        return CapabilityOutcome(
+            status="failed", observation="Non riesco a verificare la connessione al calendario in questo momento.",
+            provenance=ResultProvenance(source_class="internal_observation", capability="calendar.read"),
+            error_type="calendar_connection_check_failed", retryable=True,
+        )
 
     if not connected:
         return CapabilityOutcome(
             status="unavailable",
-            observation="Non c'e nessun calendario collegato, quindi non posso guardarci.",
+            observation="Non c'è un calendario collegato con il permesso di lettura, quindi non posso guardarci.",
             provenance=ResultProvenance(
                 source_class="connected_provider", capability="calendar.read"
             ),
@@ -1485,14 +1556,15 @@ async def read_calendar(db, owner_id: str, goal) -> CapabilityOutcome:
         )
 
     try:
-        from home.adapters.google_calendar import load_google_calendar_events, google_connection_state
-        from agent.evidence import freshness_of
-        state = await google_connection_state(db, owner_id)
-        events, warnings = await load_google_calendar_events(db, owner_id)
-        synced_at = str(state.get("last_sync_at") or "")
-        freshness = freshness_of(synced_at) if synced_at else "unknown"
+        from home.adapters.google_calendar import load_google_calendar_events
+        events, warnings = await load_google_calendar_events(db, owner_id, instances=connected)
+        synced_at, freshness = sync_provenance(connected)
     except Exception:
-        return _unavailable("calendar.read", "read_failed", "Non sono riuscita a leggere il calendario sincronizzato.")
+        return CapabilityOutcome(
+            status="failed", observation="Non sono riuscita a leggere il calendario sincronizzato.",
+            provenance=ResultProvenance(source_class="internal_observation", capability="calendar.read"),
+            error_type="calendar_read_failed", retryable=True,
+        )
     claims = [Claim(
         text=f"In calendario: {event.title} — {event.start_at}"[:400],
         supports="appuntamento presente nell'ultima sincronizzazione",

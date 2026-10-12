@@ -16,12 +16,26 @@ async def prepare(db, owner_id, goal, step):
             provenance=provenance, error_type=kind, retryable=retryable)
     if goal.owner_id != owner_id:
         return unavailable("preparation_owner_mismatch")
+    from agent.memory_fence import inspect_memory_sources, memory_result_current, MemorySourcesUnavailable
+    try:
+        memory = await inspect_memory_sources(db, owner_id, goal)
+    except MemorySourcesUnavailable:
+        return unavailable("preparation_source_check_unavailable", True)
+    if memory.status != "current":
+        return unavailable("preparation_memory_changed", True)
+    async def memory_changed():
+        try:
+            return not await memory_result_current(db, owner_id, goal, memory.snapshot)
+        except MemorySourcesUnavailable:
+            return True  # A failed read cannot authorise saving the old text.
     evidence = [e for e in await EvidenceStore(db).for_goal(owner_id, goal.id)
                 if e.provenance.source_class in REAL_SOURCES and e.provenance.provider != "generated_draft"][-12:]
     if not evidence:
         return unavailable("preparation_sources_required")
     from agent.calendar_conflict import overlap_draft, is_home_calendar_pair
     overlap = await overlap_draft(db, owner_id, goal, evidence)
+    if await memory_changed():
+        return unavailable("preparation_source_check_unavailable", True)
     if overlap:
         content, refs = overlap
         saved = await db.agent_goals.update_one(
@@ -60,6 +74,8 @@ async def prepare(db, owner_id, goal, step):
         "\"evidence_ids\": [\"IDs of supplied evidence actually used\"]}. "
         "If the evidence cannot support a useful draft return empty content.",
         json.dumps(payload, ensure_ascii=False, default=str))
+    if await memory_changed():
+        return unavailable("preparation_memory_changed", True)
     if not isinstance(answer, dict):
         return unavailable("preparation_model_unavailable", True)
     content = answer.get("content")
@@ -89,6 +105,8 @@ async def prepare(db, owner_id, goal, step):
         "If you cannot support a useful corrected draft, return verified=false. "
         "This checks consistency with sources, not whether sources are independently true.",
         json.dumps({"draft": content, "evidence": rows}, ensure_ascii=False, default=str))
+    if await memory_changed():
+        return unavailable("preparation_memory_changed", True)
     if not isinstance(checked, dict) or checked.get("verified") is not True:
         return unavailable("preparation_not_supported", True)
     content, refs = checked.get("content"), checked.get("evidence_ids")

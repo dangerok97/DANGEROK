@@ -82,6 +82,8 @@ async def _refresh_situation(service, goal):
     goal.situation_outcome = None
     goal.requires_user_input = goal.requires_user_authority = False
     goal.background_runs = 0
+    goal.planning_attempts = 0
+    goal.planning_unavailable = False
     goal.user_deferred_until = None
     now = datetime.now(timezone.utc)
     goal.status = "cancelled" if closed else "active"
@@ -151,7 +153,7 @@ async def current_source(db, goal):
     return await db.opportunities.find_one({"id": goal.opportunity_id, "owner_id": goal.owner_id})
 
 
-async def refresh(service, goal):
+async def _refresh_primary(service, goal):
     """Called only while holding the existing goal lease, before any new work."""
     if _situation_id(goal) is not None:
         return await _refresh_situation(service, goal)
@@ -186,6 +188,8 @@ async def refresh(service, goal):
     goal.opportunity_revision = revision
     goal.source_situation = context(row or {})
     goal.background_runs = 0
+    goal.planning_attempts = 0
+    goal.planning_unavailable = False
 
     now = datetime.now(timezone.utc)
     deferred_until = None
@@ -217,7 +221,7 @@ async def refresh(service, goal):
     return True
 
 
-async def changed(db, goal):
+async def _primary_changed(db, goal):
     if _situation_id(goal) is not None:
         row = await _situation_state(db, goal)
         prior = goal.source_situation.get("situation_revision")
@@ -231,3 +235,104 @@ async def changed(db, goal):
         expiry = datetime.fromisoformat(row["valid_until"])
         return (expiry if expiry.tzinfo else expiry.replace(tzinfo=timezone.utc)) <= datetime.now(timezone.utc)
     return False
+
+
+async def _refresh_memory(service, goal, state):
+    """Retire the old interpretation before any further use of its evidence."""
+    now = datetime.now(timezone.utc)
+    revoked = state.status == "revoked"
+    note = ("La memoria di partenza è stata ritirata: questo lavoro non prosegue."
+            if revoked else "Le fonti di partenza richiedono una nuova lettura prima di proseguire.")
+    # Persist the cleared preparation and a recoverable marker first. If a
+    # process dies while invalidating old rows, neither their text nor their
+    # result is current; the same goal resumes the remaining invalidation.
+    goal.prepared_text, goal.prepared_sources = "", []
+    goal.situation_outcome = None
+    goal.requires_user_input = goal.requires_user_authority = False
+    goal.background_runs = goal.planning_attempts = 0
+    goal.planning_unavailable = False
+    goal.status = "abandoned" if revoked else "active"
+    goal.rationale = note
+    goal.why_now = "Le fonti del risultato richiedono una nuova verifica." if not revoked else ""
+    due = goal.user_deferred_until if goal.user_deferred_until and goal.user_deferred_until > now.isoformat() else now.isoformat()
+    goal.next_run_at = None if revoked else due
+    if revoked:
+        goal.user_deferred_until = None
+    else:
+        goal.source_refs = list(dict.fromkeys([
+            *(state.replacements.get(ref, ref) for ref in goal.source_refs),
+            *state.replacements.values(),
+        ]))[:8]
+    # The opportunity summary may quote the superseded fact. It must not be
+    # supplied as current factual context on the new planning pass.
+    for key in ("semantic_summary", "why_it_matters", "why_now", "what_ora_can_do"):
+        goal.source_situation.pop(key, None)
+    goal.source_situation["memory_refresh_pending"] = "true"
+    goal.source_situation["memory_refresh_reason"] = note
+    # A user defer deliberately rejects ordinary worker save_goal writes.
+    # Invalidate only source-derived content first, without changing their
+    # status or chosen time; the pending marker survives a crash or defer.
+    cleared = await service.db.agent_goals.update_one(
+        {"id": goal.id, "owner_id": goal.owner_id,
+         "status": {"$in": ["proposed", "active", "waiting"]}},
+        {"$set": {"prepared_text": "", "prepared_sources": [], "situation_outcome": None,
+                  "source_refs": goal.source_refs,
+                  "source_situation.memory_refresh_pending": "true",
+                  "source_situation.memory_refresh_reason": note},
+         "$unset": {f"source_situation.{key}": "" for key in
+                    ("semantic_summary", "why_it_matters", "why_now", "what_ora_can_do")}},
+    )
+    if cleared.matched_count != 1:
+        latest = await service.repo.get_goal(goal.owner_id, goal.id)
+        goal.status = latest.status if latest else "cancelled"
+        goal.next_run_at = latest.next_run_at if latest else None
+        return True
+    await service.repo.save_goal(goal)
+    if goal.status == "cancelled":
+        return True
+    plan = await service.repo.plan_for(goal.owner_id, goal.id)
+    if plan:
+        for step in plan.steps:
+            if step.status in ("pending", "blocked", "waiting", "running"):
+                step.status = "skipped"
+                step.note = "Le memorie usate da questo piano non sono più attuali."
+        plan.status = "cancelled"
+        await service.repo.save_plan(plan)
+    await service.db.agent_evidence.update_many(
+        {"owner_id": goal.owner_id, "goal_id": goal.id}, {"$set": {"superseded": True}},
+    )
+    await service.needs.close_for_goal(goal.owner_id, goal.id, why="Memorie aggiornate o ritirate")
+    await service.db.agent_updates.update_many(
+        {"owner_id": goal.owner_id, "goal_id": goal.id, "home_pending": True},
+        {"$set": {"home_pending": False, "home_skipped": "memory_sources_changed"},
+         "$unset": {"home_due_at": ""}},
+    )
+    goal.source_situation.pop("memory_refresh_pending", None)
+    await service.repo.save_goal(goal)
+    from ambient.repository import AmbientRepository
+    await AmbientRepository(service.db).cancel_for(goal.owner_id, source_ref=f"goal:{goal.id}")
+    if goal.is_open:
+        await service._schedule_planning_retry(goal.owner_id, goal)
+    await service.repo.journal(goal.owner_id, goal.id,
+                               kind="memory_source_withdrawn" if revoked else "memory_source_refreshed",
+                               note=note)
+    return True
+
+
+async def refresh(service, goal):
+    """Re-read primary and Memory sources under the existing goal lease."""
+    primary = await _refresh_primary(service, goal)
+    if not goal.is_open:
+        return primary
+    from agent.memory_fence import inspect_memory_sources
+    state = await inspect_memory_sources(service.db, goal.owner_id, goal)
+    if state.status != "current":
+        return await _refresh_memory(service, goal, state)
+    return primary
+
+
+async def changed(db, goal):
+    if await _primary_changed(db, goal):
+        return True
+    from agent.memory_fence import inspect_memory_sources
+    return (await inspect_memory_sources(db, goal.owner_id, goal)).status != "current"

@@ -16,6 +16,7 @@ need a distributed lock service to be true.
 from __future__ import annotations
 
 import logging
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -237,7 +238,7 @@ class AmbientRepository:
 
     # --- devices ----------------------------------------------------------
 
-    async def upsert_endpoint(self, endpoint: PushEndpoint) -> PushEndpoint:
+    async def upsert_endpoint(self, endpoint: PushEndpoint) -> Optional[PushEndpoint]:
         """
         Register a device, or recognise one already known.
 
@@ -245,26 +246,92 @@ class AmbientRepository:
         idempotent: the same phone re-registering on every launch updates one
         row instead of accumulating a row per launch.
         """
+        from pymongo.errors import DuplicateKeyError
+
         existing = await self.db[ENDPOINTS].find_one(
-            {"token": endpoint.token}, {"_id": 0}
+            {"token": endpoint.token}, sort=[("device_revision", -1)],
         )
         if existing:
             endpoint.id = existing["id"]
             endpoint.created_at = existing.get("created_at", endpoint.created_at)
         endpoint.updated_at = _now().isoformat()
         endpoint.last_seen_at = endpoint.updated_at
-        await self.db[ENDPOINTS].update_one(
-            {"token": endpoint.token},
-            {"$set": endpoint.model_dump()},
-            upsert=True,
-        )
+        # New rows use the same deterministic _id even when two requests see
+        # no existing token. Mongo's built-in unique _id closes that race
+        # without a destructive conversion of the historical token index.
+        row_id = existing["_id"] if existing else "push:" + hashlib.sha256(endpoint.token.encode()).hexdigest()
+        query = {"_id": row_id, "$or": [
+            {"device_revision": {"$lte": endpoint.device_revision}},
+            {"device_revision": {"$exists": False}},
+        ]}
+        try:
+            result = await self.db[ENDPOINTS].update_one(
+                query, {"$set": endpoint.model_dump()}, upsert=not bool(existing),
+            )
+        except DuplicateKeyError:
+            return None
+        if not result.matched_count and result.upserted_id is None:
+            return None
         return endpoint
+
+    async def newer_device_registration(self, device_hash: str, revision: int) -> bool:
+        return await self.db[ENDPOINTS].find_one(
+            {"device_hash": device_hash, "device_revision": {"$gt": revision}}, {"_id": 1},
+        ) is not None
 
     async def active_endpoints(self, owner_id: str) -> List[PushEndpoint]:
         docs = await self.db[ENDPOINTS].find(
             {"owner_id": owner_id, "status": "active"}, {"_id": 0}
-        ).to_list(10)
-        return [PushEndpoint.model_validate(d) for d in docs]
+        ).to_list(None)
+        active = []
+        for doc in docs:
+            endpoint = PushEndpoint.model_validate(doc)
+            if await self.newer_device_registration(endpoint.device_hash, endpoint.device_revision):
+                continue
+            if await self.endpoint_session_active(
+                endpoint.session_digest, endpoint.session_expires_at,
+            ):
+                active.append(endpoint)
+                if len(active) == 10:
+                    break
+        return active
+
+    async def endpoint_session_active(self, digest: str, expires_at: str | None) -> bool:
+        # Legacy registrations are not assigned an invented session. Existing
+        # granted devices keep working until their next registration migrates
+        # them; partially populated or invalid new bindings fail closed.
+        if not digest and not expires_at:
+            return True
+        if not digest or not expires_at:
+            return False
+        try:
+            expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            if expiry.tzinfo is None or expiry <= _now():
+                return False
+        except (ValueError, TypeError):
+            return False
+        return await self.db.revoked_sessions.find_one(
+            {"_id": digest}, {"_id": 1},
+        ) is None
+
+    async def revoke_session(self, owner_id: str, digest: str, *, include_legacy: bool = False) -> int:
+        if not digest:
+            return 0
+        session_query = {"session_digest": digest}
+        if include_legacy:
+            # A legacy endpoint cannot prove it belongs to another session.
+            # Explicit logout retires these for this owner; bound endpoints
+            # from other sessions remain reachable on their own devices.
+            session_query = {"$or": [
+                {"session_digest": digest}, {"session_digest": ""},
+                {"session_digest": None},
+            ]}
+        result = await self.db[ENDPOINTS].update_many(
+            {"owner_id": owner_id, "status": "active", **session_query},
+            {"$set": {"status": "revoked", "disabled_reason": "session ended",
+                      "updated_at": _now().isoformat()}},
+        )
+        return result.modified_count
 
     async def disable_endpoint(self, *, token: str = "", endpoint_id: str = "",
                                reason: str = "") -> int:
@@ -276,7 +343,9 @@ class AmbientRepository:
         )
         return result.modified_count
 
-    async def revoke_device(self, *, device_hash: str, owner_id: str = "") -> int:
+    async def revoke_device(self, *, device_hash: str, owner_id: str = "",
+                            session_digest: str = "", max_revision: int | None = None,
+                            except_token: str = "") -> int:
         """
         This device is no longer reachable for this account.
 
@@ -287,6 +356,21 @@ class AmbientRepository:
         query: Dict[str, Any] = {"device_hash": device_hash, "status": "active"}
         if owner_id:
             query["owner_id"] = owner_id
+        if except_token:
+            query["token"] = {"$ne": except_token}
+        if max_revision is not None:
+            query["$and"] = [{"$or": [
+                {"device_revision": {"$lte": max_revision}},
+                {"device_revision": {"$exists": False}},
+            ]}]
+        if session_digest:
+            # A late release for the previous session cannot revoke a device
+            # that has already been registered by a new login. An unbound
+            # legacy endpoint on this exact owner's device can be retired.
+            query["$or"] = [
+                {"session_digest": session_digest}, {"session_digest": ""},
+                {"session_digest": {"$exists": False}},
+            ]
         result = await self.db[ENDPOINTS].update_many(
             query,
             {"$set": {"status": "revoked", "disabled_reason": "device released",

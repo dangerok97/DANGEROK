@@ -2,7 +2,8 @@
  * ORA API client — reads Bearer token from secure storage.
  */
 import { Platform } from 'react-native';
-import { storage } from '@/src/utils/storage';
+import { authToken } from '@/src/auth/tokenStorage';
+export { authToken };
 
 /**
  * Resolve backend origin (no trailing slash, no /api suffix).
@@ -33,20 +34,6 @@ function resolveBackendBaseUrl(): string {
 
 const BASE = resolveBackendBaseUrl();
 export const API_BASE_URL = BASE || undefined;
-
-const TOKEN_KEY = 'ora_auth_token';
-
-export const authToken = {
-  async get(): Promise<string | null> {
-    return await storage.secureGet<string>(TOKEN_KEY, '' as string).then((v) => (v ? String(v) : null));
-  },
-  async set(token: string) {
-    return await storage.secureSet(TOKEN_KEY, token);
-  },
-  async clear() {
-    await storage.secureRemove(TOKEN_KEY);
-  },
-};
 
 /**
  * Resolve a media path returned by the API into something an image loader can
@@ -114,6 +101,18 @@ async function request<T>(path: string, init: RequestInit = {}, auth = true): Pr
     throw err;
   }
   return (await res.json()) as T;
+}
+
+/** A delayed lifecycle write must never borrow a newly signed-in account. */
+async function sessionRequest<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    return await request<T>(path, {
+      ...init, signal: controller.signal,
+      headers: { ...(init.headers as Record<string, string>), Authorization: `Bearer ${token}` },
+    }, false);
+  } finally { clearTimeout(timeout); }
 }
 
 // ---- Types
@@ -928,9 +927,13 @@ export const api = {
       body: JSON.stringify({ provider }),
     }),
 
-  me: () => request<ApiUser>('/auth/me'),
+  me: (sessionToken?: string) => sessionToken
+    ? sessionRequest<ApiUser>('/auth/me', sessionToken)
+    : request<ApiUser>('/auth/me'),
 
-  logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
+  logout: (sessionToken?: string) => sessionToken
+    ? sessionRequest<{ ok: boolean }>('/auth/logout', sessionToken, { method: 'POST' })
+    : request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
 
   // Priorities / Tasks
   priorities: (limit: number = 3) =>
@@ -1235,16 +1238,22 @@ export const api = {
     platform?: string;
     device?: string;
     permission_state?: string;
-  }) =>
-    request<{ ok: boolean; endpoint: Record<string, unknown> }>('/ambient/push/register', {
+    device_revision?: number;
+    request_delivery_permission?: boolean;
+  }, sessionToken?: string) => sessionToken
+    ? sessionRequest<{ ok: boolean; endpoint: Record<string, unknown>; delivery_allowed: boolean; delivery_available: boolean }>('/ambient/push/register', sessionToken, {
       method: 'POST',
       body: JSON.stringify(body),
+    }) : request<{ ok: boolean; endpoint: Record<string, unknown>; delivery_allowed: boolean; delivery_available: boolean }>('/ambient/push/register', {
+      method: 'POST', body: JSON.stringify(body),
     }),
 
-  releasePushDevice: (device: string) =>
-    request<{ ok: boolean; released: number }>('/ambient/push/release', {
+  releasePushDevice: (device: string, sessionToken?: string) => sessionToken
+    ? sessionRequest<{ ok: boolean; released: number }>('/ambient/push/release', sessionToken, {
       method: 'POST',
       body: JSON.stringify({ device }),
+    }) : request<{ ok: boolean; released: number }>('/ambient/push/release', {
+      method: 'POST', body: JSON.stringify({ device }),
     }),
 
   /** Only an acknowledged, already-issued delivery plan may open its target. */
@@ -1276,6 +1285,8 @@ export const api = {
   /** What a tap from an agent need lands on. */
   getAgentNeed: (needId: string) => request<AgentNeed>(`/agent/needs/${needId}`),
   getAgentGoal: (goalId: string) => request<HomeAgentWork>(`/agent/${encodeURIComponent(goalId)}`),
+  retryAgentGoal: (goalId: string) =>
+    request<{ ok: boolean; state: string; goal_id: string }>(`/agent/${encodeURIComponent(goalId)}/retry`, { method: 'POST' }),
   stopSituationAlerts: (goalId: string, decision: 'stop_alerts' | 'resolved', expected_revision: number) =>
     request<{ ok: boolean; monitor_stopped: boolean }>(`/agent/${encodeURIComponent(goalId)}/situation-alerts`, {
       method: 'POST', body: JSON.stringify({ decision, expected_revision }),
@@ -3358,6 +3369,8 @@ export type MonitoredSituation = {
 };
 
 export type HomeAgentWork = {
+  planning_unavailable?: boolean;
+  retry_available?: boolean;
   situation?: MonitoredSituation | null;
   created_at?: string | null;
   valid_until?: string | null;

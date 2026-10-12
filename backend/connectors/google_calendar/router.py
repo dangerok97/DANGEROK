@@ -82,9 +82,21 @@ async def oauth_callback(
             headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
         )
 
+    svc = get_google_calendar_service()
+    if error:
+        try:
+            session = await svc.oauth_state.consume(state=state, expect_flow="calendar_google")
+        except OAuthStateInvalid as e:
+            raise HTTPException(status_code=400, detail={"error": "oauth_state_invalid", "message": str(e)})
+        redirect_after = sanitize_redirect_after(session.get("redirect_after"))
+        if redirect_after:
+            return RedirectResponse(
+                url=_append_query(redirect_after, google_calendar="cancelled"), status_code=302,
+                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+            )
+        return {"ok": False, "reason": "declined"}
     if not code:
         raise HTTPException(status_code=400, detail="Codice OAuth mancante")
-    svc = get_google_calendar_service()
     try:
         result = await svc.handle_oauth_callback(state=state, code=code)
     except OAuthStateInvalid as e:
@@ -102,7 +114,10 @@ async def oauth_callback(
             google_calendar="connected",
             instance_id=instance.get("id") or "",
         )
-        return RedirectResponse(url=target, status_code=302)
+        return RedirectResponse(
+            url=target, status_code=302,
+            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+        )
     return {"ok": True, "instance": instance}
 
 

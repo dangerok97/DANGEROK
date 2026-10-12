@@ -228,9 +228,16 @@ def sanitize_redirect_after(url: Optional[str]) -> Optional[str]:
         parsed = urlparse(candidate)
     except Exception:
         return None
-    if parsed.scheme not in ("http", "https"):
-        return None
     if parsed.username or parsed.password:
+        return None
+    if parsed.scheme == "ora":
+        # These are connector return screens in the registered native scheme,
+        # not arbitrary deep links. Never carry caller-supplied query/fragment.
+        native_return = f"ora://{parsed.netloc}{parsed.path}"
+        return native_return if native_return in {
+            "ora://account/permessi", "ora://settings",
+        } else None
+    if parsed.scheme not in ("http", "https"):
         return None
     origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
     allowed = {o.rstrip("/") for o in allowed_frontend_origins()}
@@ -310,10 +317,13 @@ class OAuthStateStore:
             # nowhere else: an unknown flow must never pass as a match.
             if str(doc.get("flow") or "calendar_google") != expect_flow:
                 raise OAuthStateInvalid("state belongs to another flow")
-        await self.col.update_one(
-            {"state": state, "consumed": False},
-            {"$set": {"consumed": True, "consumed_at": _now().isoformat()}},
+        consumed_at = _now().isoformat()
+        consumed = await self.col.update_one(
+            {"state": state, "consumed": False, "expires_at": {"$gt": consumed_at}},
+            {"$set": {"consumed": True, "consumed_at": consumed_at}},
         )
+        if consumed.modified_count != 1:
+            raise OAuthStateInvalid("state expired or already consumed")
         return doc
 
 

@@ -72,6 +72,19 @@ MAX_ITERATIONS = 6
 MAX_MODEL_CALLS = 8
 MAX_PLAN_STEPS = 12
 
+# The first planning pass plus three durable retries. Technical outages have
+# their own budget: they have not executed a plan or disproved its outcome.
+PLANNING_RETRY_SECONDS = (60, 300, 1800)
+MAX_PLANNING_ATTEMPTS = len(PLANNING_RETRY_SECONDS) + 1
+
+
+class _PlanNotPossible(Exception):
+    """A validated negative planning judgement, never an adapter failure."""
+
+
+class _PlanningStopped(Exception):
+    """The source or the person's control changed while planning."""
+
 # A model may choose a clock minute now. Keep one hard lower/upper bound so
 # precision cannot turn into polling and a typo cannot schedule a year away.
 MIN_WAIT_MINUTES = 1
@@ -666,8 +679,15 @@ class AgentService:
             if revisit_due:
                 goal.background_runs = 0
 
+            needs_plan = await self.repo.plan_for(owner_id, goal.id) is None
+            if not run.background and needs_plan and goal.planning_unavailable:
+                # This entry point is an explicit request. Ordinary worker
+                # retries preserve the counter and can never reset it.
+                goal.planning_attempts = 0
+                goal.planning_unavailable = False
+                goal.background_runs = 0
             if run.background:
-                if goal.background_runs >= 3:
+                if goal.background_runs >= 3 and not (needs_plan and goal.planning_attempts):
                     goal.next_run_at = None
                     await self.repo.save_goal(goal)
                     run.stopped_because = "background_budget"
@@ -681,7 +701,7 @@ class AgentService:
                 revisit_due=revisit_due,
             )
             if (not goal.is_open or goal.requires_user_input or goal.requires_user_authority
-                    or (run.background and goal.background_runs >= 3)):
+                    or (run.background and goal.background_runs >= 3 and not goal.planning_unavailable)):
                 goal.next_run_at = None
             await self.repo.save_goal(goal)
         finally:
@@ -710,12 +730,26 @@ class AgentService:
         plan = await self.repo.plan_for(owner_id, goal.id)
 
         if plan is None:
-            plan = await self._build_plan(
-                owner_id, goal, run, budget, language=language
-            )
+            if goal.planning_attempts >= MAX_PLANNING_ATTEMPTS:
+                if run.background:
+                    goal.background_runs = max(0, goal.background_runs - 1)
+                return await self._planning_retry(owner_id, goal, run)
+            try:
+                plan = await self._build_plan(
+                    owner_id, goal, run, budget, language=language
+                )
+            except _PlanNotPossible as negative:
+                run.stopped_because = "planning_not_possible"
+                await self.repo.journal(
+                    owner_id, goal.id, kind="planning_not_possible", note=str(negative),
+                )
+                return await self._stop(goal, run, str(negative))
+            except _PlanningStopped as stopped:
+                return {"ok": True, "state": str(stopped), "goal": goal.for_human()}
             if plan is None:
-                run.stopped_because = "no_plan"
-                return await self._stop(goal, run, "il piano non era formulabile")
+                return await self._planning_retry(owner_id, goal, run)
+            if run.background:
+                goal.background_runs += 1
 
         if revisit_due:
             outcome = await self._resume_due_wait(
@@ -763,6 +797,9 @@ class AgentService:
             decision, step = await self._next(
                 owner_id, goal, plan, run, budget, language=language
             )
+            source_change = await self._source_change_result(owner_id, goal, run)
+            if source_change is not None:
+                return source_change
 
             if decision == "finish":
                 return await self._finish(
@@ -1311,6 +1348,15 @@ class AgentService:
 
         budget.cognitive_calls += 1
         run.model_calls = budget.cognitive_calls
+        # Charge before the awaited call. A killed process cannot buy an
+        # unlimited number of first attempts by losing its in-memory state.
+        goal.planning_attempts += 1
+        if run.background:
+            # advance charges a generic pass before execution for crash
+            # recovery. Transfer that charge to the durable planning budget;
+            # _work counts it as actual work only after a valid plan exists.
+            goal.background_runs = max(0, goal.background_runs - 1)
+        await self.repo.save_goal(goal)
         planning_context = await _user_clock_context(self.db, owner_id)
         source_context, source_context_unavailable = await self._planning_source_context(
             owner_id, goal
@@ -1320,25 +1366,53 @@ class AgentService:
         if source_context_unavailable:
             planning_context["source_context_unavailable"] = True
 
-        answer = await make_plan(
-            goal.for_ai(),
-            capabilities=await self.capabilities.available(owner_id),
-            # The clock is computed by code; governed source context is re-read
-            # from the exact owner-scoped refs instead of being copied into the
-            # goal. This keeps the durable goal handle-only while letting the
-            # planner understand what it is actually following.
-            context=planning_context,
-            language=language,
-        )
-        if answer is None:
+        available = await self.capabilities.available(owner_id)
+        error_kind = "invalid_response"
+        try:
+            answer = await make_plan(
+                goal.for_ai(),
+                capabilities=available,
+                # Current clock and owned governed facts; no copied transcript.
+                context=planning_context,
+                language=language,
+            )
+            if answer is None:
+                error_kind = "provider_unavailable"
+        except Exception as exc:
+            # Do not catch cancellation: it leaves the pre-persisted recovery
+            # time and attempt budget for the next worker.
+            answer = None
+            error_kind = "provider_error"
+            logger.info("planning unavailable error=%s", type(exc).__name__)
+
+        await self._planning_fence(owner_id, goal, run)
+        if not isinstance(answer, dict) or not isinstance(answer.get("steps"), list):
+            goal.planning_unavailable = True
+            run.stopped_because = error_kind
+            return None
+        outcome = answer.get("planning_outcome", "plan")
+        if outcome == "not_possible" and not answer["steps"] and isinstance(answer.get("reasoning"), str) and answer["reasoning"].strip():
+            goal.planning_unavailable = False
+            goal.planning_attempts = 0
+            raise _PlanNotPossible(answer["reasoning"].strip()[:300])
+        if outcome != "plan":
+            goal.planning_unavailable = True
+            run.stopped_because = "invalid_response"
             return None
 
         steps: List[ActionStep] = []
-        for ordinal, raw in enumerate(answer.get("steps") or [][:MAX_PLAN_STEPS]):
-            step = self._read_step(raw, ordinal)
-            if step is not None:
-                steps.append(step)
+        for ordinal, raw in enumerate(answer["steps"][:MAX_PLAN_STEPS]):
+            try:
+                step = self._read_step(raw, ordinal)
+            except (TypeError, ValueError):
+                step = None
+            if step is None:
+                steps = []
+                break
+            steps.append(step)
         if not steps:
+            goal.planning_unavailable = True
+            run.stopped_because = "invalid_response"
             return None
 
         plan = ActionPlan(
@@ -1347,18 +1421,98 @@ class AgentService:
             status="active",
             plan_summary=str(answer.get("plan_summary") or "")[:400],
             expected_outcome=str(answer.get("expected_outcome") or "")[:400],
-            assumptions=[str(a)[:200] for a in (answer.get("assumptions") or [])][:6],
+            assumptions=[str(a)[:200] for a in answer.get("assumptions", [])][:6]
+            if isinstance(answer.get("assumptions"), list) else [],
             known_constraints=[
-                str(c)[:200] for c in (answer.get("known_constraints") or [])
-            ][:6],
+                str(c)[:200] for c in answer.get("known_constraints", [])
+            ][:6] if isinstance(answer.get("known_constraints"), list) else [],
             steps=steps[:MAX_PLAN_STEPS],
         )
         await self.repo.save_plan(plan)
+        goal.planning_attempts = 0
+        goal.planning_unavailable = False
+        await self.repo.save_goal(goal)
         await self.repo.journal(
             owner_id, goal.id, kind="plan_made", note=plan.plan_summary,
             detail={"steps": len(plan.steps)},
         )
         return plan
+
+    async def _planning_fence(self, owner_id, goal, run: AgentRun) -> None:
+        """Do not publish a slow planning response after its source changed."""
+        from agent.source_refresh import changed, refresh
+
+        latest = await self.repo.get_goal(owner_id, goal.id)
+        if latest is None or not latest.is_open:
+            goal.status = latest.status if latest else "cancelled"
+            goal.next_run_at = None
+            run.stopped_because = goal.status
+            raise _PlanningStopped(goal.status)
+        if await changed(self.db, goal):
+            await refresh(self, goal)
+            state = "source_changed" if goal.is_open else goal.status
+            run.stopped_because = state
+            raise _PlanningStopped(state)
+        if latest.user_deferred_until and latest.user_deferred_until > _now().isoformat():
+            goal.status = latest.status
+            goal.next_run_at = latest.next_run_at
+            goal.user_deferred_until = latest.user_deferred_until
+            goal.background_runs = latest.background_runs
+            run.stopped_because = "user_deferred"
+            raise _PlanningStopped("user_deferred")
+
+    async def _planning_retry(self, owner_id, goal, run: AgentRun) -> Dict[str, Any]:
+        """Keep failed planning recoverable without claiming work was done."""
+        try:
+            await self._planning_fence(owner_id, goal, run)
+        except _PlanningStopped as stopped:
+            return {"ok": True, "state": str(stopped), "goal": goal.for_human()}
+        goal.status = "active"
+        goal.planning_unavailable = True
+        exhausted = goal.planning_attempts >= MAX_PLANNING_ATTEMPTS
+        # Guard unusual legacy/mock callers too; a zero-attempt failure still
+        # consumes one retry slot rather than spinning at the initial delay.
+        goal.planning_attempts = max(1, goal.planning_attempts)
+        delay = None if exhausted else PLANNING_RETRY_SECONDS[goal.planning_attempts - 1]
+        goal.next_run_at = None if delay is None else (_now() + timedelta(seconds=delay)).isoformat()
+        goal.rationale = (
+            "Preparazione sospesa: non riesco ancora a formulare un piano affidabile. "
+            "Il lavoro resta aperto; puoi riprovare e lo rivaluterò se cambiano le informazioni."
+            if exhausted else
+            "Non riesco ancora a preparare il lavoro per un problema temporaneo. Riproverò automaticamente."
+        )
+        await self.repo.save_goal(goal)
+        if not goal.is_open:
+            return {"ok": True, "state": goal.status}
+        state = "planning_unavailable" if exhausted else "planning_retry_scheduled"
+        await self.repo.journal(
+            owner_id, goal.id, kind=state, note=goal.rationale,
+            detail={"attempts": goal.planning_attempts, "error": run.stopped_because,
+                    "retry_at": goal.next_run_at},
+        )
+        run.stopped_because = state
+        if goal.next_run_at:
+            await self._schedule_planning_retry(owner_id, goal)
+        return {"ok": True, "state": state if goal.is_open else goal.status,
+                "goal": goal.for_human()}
+
+    async def _schedule_planning_retry(self, owner_id, goal) -> None:
+        """An accelerator; next_run_at remains the durable recovery contract."""
+        from ambient.service import AmbientService
+        try:
+            await AmbientService(self.db).schedule(
+                owner_id, reason="opportunity_revisit",
+                when=datetime.fromisoformat(goal.next_run_at),
+                source_ref=f"goal:{goal.id}", provenance="code_schedule",
+            )
+        except Exception as exc:
+            logger.info("planning wake soft-fail: %s", type(exc).__name__)
+        latest = await self.repo.get_goal(owner_id, goal.id)
+        if latest is None or not latest.is_open:
+            goal.status = latest.status if latest else "cancelled"
+            goal.next_run_at = None
+            from ambient.repository import AmbientRepository
+            await AmbientRepository(self.db).cancel_for(owner_id, source_ref=f"goal:{goal.id}")
 
     async def _reasoning_goal(self, owner_id, goal):
         """Carry the current useful outcome and physical start across checkpoints."""
@@ -1425,6 +1579,9 @@ class AgentService:
         Something happened. Change as little of the plan as accounts for it.
         """
         from agent.reasoning import reconsider
+        source_change = await self._source_change_result(owner_id, goal, run)
+        if source_change is not None:
+            return source_change
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             # Nothing left to think with. Stopping here is honest; carrying
@@ -1446,6 +1603,10 @@ class AgentService:
         )
         if answer is None:
             return await self._pause(owner_id, goal, plan, run, "il giudizio non era disponibile")
+
+        source_change = await self._source_change_result(owner_id, goal, run)
+        if source_change is not None:
+            return source_change
 
         await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
 
@@ -1525,6 +1686,19 @@ class AgentService:
 
     # --- ends --------------------------------------------------------------
 
+    async def _source_change_result(self, owner_id, goal, run):
+        """A source correction outranks an in-flight planning judgement."""
+        from agent.source_refresh import changed, refresh
+        # Partial domain payloads do not declare the persisted goal contract.
+        if not isinstance(goal, AutonomousGoal):
+            return None
+        if not await changed(self.db, goal):
+            return None
+        await refresh(self, goal)
+        run.stopped_because = "source_changed"
+        return {"ok": True, "state": "source_changed" if goal.is_open else goal.status,
+                "goal": goal.for_human()}
+
     async def _finish(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, budget: AgentBudget,
         *, language: str,
@@ -1539,6 +1713,10 @@ class AgentService:
         that second decision cannot be argued with because it is never asked.
         """
         from agent.reasoning import verify_goal
+
+        source_change = await self._source_change_result(owner_id, goal, run)
+        if source_change is not None:
+            return source_change
 
         evidence = await self.evidence.for_goal(owner_id, goal.id)
         intents = await self.executor.intents_for(owner_id, goal.id)
@@ -1565,6 +1743,9 @@ class AgentService:
             budget.steps_executed += 1
             await self.repo.save_plan(plan)
             if result.status != "succeeded" or not goal.prepared_text:
+                source_change = await self._source_change_result(owner_id, goal, run)
+                if source_change is not None:
+                    return source_change
                 return await self._pause(owner_id, goal, plan, run,
                     "Il risultato utile non è ancora pronto; la sola lettura non conclude il lavoro.")
             evidence = await self.evidence.for_goal(owner_id, goal.id)
@@ -1593,6 +1774,10 @@ class AgentService:
         )
         if answer is None:
             return await self._pause(owner_id, goal, plan, run, "la verifica non era disponibile")
+
+        source_change = await self._source_change_result(owner_id, goal, run)
+        if source_change is not None:
+            return source_change
 
         await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
 
@@ -2174,6 +2359,10 @@ class AgentService:
         kind = _need_kind(decision.outcome, goal)
         if kind is None:
             return None
+        from agent.memory_fence import memory_result_current
+        memory_snapshot = getattr(decision, "memory_source_snapshot", "")
+        if not await memory_result_current(self.db, owner_id, goal, memory_snapshot):
+            return None
 
         outcome = None
         if goal.source_kind in ("situation_initial_review", "situation_followup"):
@@ -2201,6 +2390,7 @@ class AgentService:
             summary=decision.headline[:200],
             reason=decision.reasoning[:400] or decision.headline[:400],
             source_refs=list(decision.refs)[:8],
+            memory_source_snapshot=memory_snapshot,
             visibility=decision.outcome,
             requires_response=kind in ("needs_information", "needs_authority"),
             response_kind=(
@@ -2215,7 +2405,8 @@ class AgentService:
             ][:6],
             what_is_missing=_what_is_missing(goal),
             valid_until=outcome["valid_until"] if outcome else goal.valid_until,
-            fingerprint=f"situation_outcome:{outcome['id']}" if outcome else "",
+            fingerprint=(f"situation_outcome:{outcome['id']}" if outcome else
+                         decision.fingerprint if memory_snapshot else ""),
         )
         raised = await self.needs.raise_need(need)
         await self.repo.journal(
@@ -2237,6 +2428,10 @@ class AgentService:
         is needed from the person, and what they were told before. Nothing
         here weighs any of it — weighing is what is being bought.
         """
+        from agent.memory_fence import inspect_memory_sources
+        memory = await inspect_memory_sources(self.db, owner_id, goal)
+        if memory.status != "current":
+            return {"refs": []}
         history = await self.repo.history(owner_id, goal.id, limit=30)
         fresh = [row for row in history if str(row.get("at") or "") >= run.at]
 
@@ -2265,6 +2460,9 @@ class AgentService:
             if outcome:
                 refs = [*outcome_refs(outcome), *refs]
         return {
+            # Stripped before the model call; the outbox must bind the same
+            # Memory versions as these already-assembled facts.
+            "_memory_source_snapshot": memory.snapshot,
             "situation_outcome": outcome,
             "what_ora_did_this_time": did[-8:],
             "what_it_found": found,
@@ -2285,6 +2483,54 @@ class AgentService:
         }
 
     # --- what a person may do about it -------------------------------------
+
+    async def retry_planning(self, owner_id: str, goal_id: str) -> Dict[str, Any]:
+        """Retry a suspended owned goal; queue work without granting authority."""
+        goal = await self.repo.get_goal(owner_id, goal_id)
+        if goal is None:
+            return {"ok": False, "reason": "unknown_goal"}
+        if (not goal.is_open or not goal.planning_unavailable
+                or goal.requires_user_input or goal.requires_user_authority):
+            return {"ok": False, "reason": "planning_not_suspended"}
+        deadline = _aware_wait_until(goal.valid_until)
+        if deadline is not None and deadline <= _now():
+            return {"ok": False, "reason": "source_expired"}
+        worker = f"retry:{uuid.uuid4().hex[:20]}"
+        if not await self.repo.claim(owner_id, goal_id, worker_id=worker):
+            return {"ok": True, "state": "already_running", "goal_id": goal_id}
+        try:
+            goal = await self.repo.get_goal(owner_id, goal_id)
+            if goal is None:
+                return {"ok": False, "reason": "unknown_goal"}
+            if (not goal.is_open or not goal.planning_unavailable
+                    or goal.requires_user_input or goal.requires_user_authority):
+                return {"ok": False, "reason": "planning_not_suspended"}
+            from agent.source_refresh import refresh
+            if await refresh(self, goal):
+                return {"ok": goal.is_open, "state": "source_changed" if goal.is_open else goal.status,
+                        "reason": "source_closed" if not goal.is_open else "",
+                        "goal_id": goal_id}
+            if goal.next_run_at:
+                # A double tap does not buy a new budget or pull a person's
+                # explicit defer forward. Missing wakes are recovered normally.
+                return {"ok": True, "state": "already_scheduled", "goal_id": goal_id}
+            if await self._legacy_event_alert_expired(owner_id, goal):
+                return {"ok": False, "reason": "source_unverifiable"}
+            goal.planning_attempts = 0
+            goal.background_runs = 0
+            goal.status = "active"
+            goal.next_run_at = (_now() + timedelta(seconds=30)).isoformat()
+            goal.rationale = "Mi hai chiesto di riprovare; riprendo la preparazione."
+            await self.repo.save_goal(goal)
+            if not goal.is_open:
+                return {"ok": False, "reason": "planning_not_suspended"}
+            await self._schedule_planning_retry(owner_id, goal)
+            await self.repo.journal(owner_id, goal_id, kind="planning_retry_requested",
+                                    note=goal.rationale, detail={"by": "user"})
+            return {"ok": goal.is_open, "state": "planning_retry_scheduled" if goal.is_open else goal.status,
+                    "reason": "source_closed" if not goal.is_open else "", "goal_id": goal_id}
+        finally:
+            await self.repo.release(goal_id, stopped_because="planning_retry_requested", worker_id=worker)
 
     async def defer_opportunity_goal(
         self, owner_id: str, opportunity_id: str, *, until: str,
@@ -2836,6 +3082,8 @@ class AgentService:
         }, {"_id": 0}).sort("completed_at", -1).to_list(1)
         for row in completed:
             goal = AutonomousGoal.model_validate(row)
+            if not await self._memory_renderable(owner_id, goal):
+                continue
             if goal.source_kind in ("situation_initial_review", "situation_followup"):
                 card = await self._open_card(owner_id, goal)
                 if not card.get("stale") and (card.get("situation") or {}).get("outcome"):
@@ -2881,6 +3129,8 @@ class AgentService:
         """Read one owner's still relevant goal, independently of Home ranking."""
         goal = await self.repo.get_goal(owner_id, goal_id)
         if goal is None:
+            return None
+        if not await self._memory_renderable(owner_id, goal):
             return None
         if goal.is_open:
             deadline = _aware_wait_until(goal.valid_until)
@@ -2971,6 +3221,8 @@ class AgentService:
         ])
 
     async def _open_card(self, owner_id: str, goal: AutonomousGoal) -> Dict[str, Any]:
+        if not await self._memory_renderable(owner_id, goal):
+            return {"stale": True}
         from agent.situation_cards import situation_card, concrete_need
         monitored = await situation_card(self.db, owner_id, goal)
         if monitored and monitored.get("inactive"):
@@ -3007,6 +3259,14 @@ class AgentService:
         scheda["already_done"] = _what_was_done(came_from) if last_done else ""
         scheda["has_real_activity"] = bool(last_done)
         scheda["problem"] = ""
+        scheda["retry_available"] = bool(
+            goal.is_open and goal.planning_unavailable and not goal.next_run_at
+            and not (goal.requires_user_input or goal.requires_user_authority)
+        )
+        if scheda["retry_available"]:
+            # This makes an exhausted technical retry visible on Home without
+            # a fabricated result, question, delivery need or notification.
+            scheda["problem"] = await self._progress_of(owner_id, goal)
 
         # A due time that has passed without a real execution is a useful
         # problem. A future due time is merely scheduling state and must not
@@ -3036,6 +3296,8 @@ class AgentService:
                     "route": "/ora", "params": {"needId": needs[0].id, "goalId": goal.id, "entry": "agent_need"}}
             else:
                 scheda["next_step"] = "ORA non ha formulato una domanda specifica; non devi indovinare cosa rispondere."
+        elif scheda["retry_available"]:
+            scheda["next_step"] = "Puoi riprovare; rivaluterò anche eventuali nuove informazioni."
         elif goal.background_runs >= 3 and not goal.next_run_at:
             scheda["next_step"] = ""
         elif goal.next_run_at:
@@ -3062,7 +3324,18 @@ class AgentService:
                 scheda["problem"] = "Non risulta un prossimo controllo confermato per questa situazione."
             if goal.requires_user_input and not scheda.get("needs_you"):
                 scheda["next_step"] = "Serve un chiarimento preciso da ORA prima di poter rispondere."
+        if scheda["retry_available"]:
+            scheda["state"] = await self._progress_of(owner_id, goal)
+            scheda["problem"] = scheda["state"]
+            scheda["next_step"] = "Puoi riprovare; rivaluterò anche eventuali nuove informazioni."
         return scheda
+
+    async def _memory_renderable(self, owner_id, goal) -> bool:
+        from agent.memory_fence import inspect_memory_sources, MemorySourcesUnavailable
+        try:
+            return (await inspect_memory_sources(self.db, owner_id, goal)).status == "current"
+        except MemorySourcesUnavailable:
+            return False  # Reading Home never declares a failed read a revocation.
 
     async def _where_it_really_came_from(self, owner_id: str, goal) -> str:
         """
@@ -3150,6 +3423,10 @@ class AgentService:
         provenance it was written with. A goal that has done nothing yet says
         so.
         """
+        if getattr(goal, "planning_unavailable", False) and goal.is_open:
+            return ("Preparazione sospesa: non riesco ancora a formulare un piano affidabile."
+                    if not goal.next_run_at else
+                    "La preparazione ha incontrato un problema temporaneo. Riproverò automaticamente.")
         if goal.background_runs >= 3 and not goal.next_run_at and goal.is_open and not (
             goal.requires_user_input or goal.requires_user_authority
         ):

@@ -44,11 +44,40 @@ async def test_cooldown_retains_due_wake_instead_of_losing_it(monkeypatch):
 @pytest.mark.asyncio
 async def test_provider_unavailable_keeps_due_review_retryable(monkeypatch):
     db=AsyncMongoMockClient().test
-    monkeypatch.setattr(OpportunityService,'scan',AsyncMock(return_value=ScanResult(unavailable=True)))
+    monkeypatch.setattr(snapshot,'build',AsyncMock(return_value={'documents':[{'ref':'document:synthetic'}]}))
+    scan=AsyncMock(side_effect=[ScanResult(unavailable=True),ScanResult(silence=True)])
+    monkeypatch.setattr(OpportunityService,'scan',scan)
+    note=AsyncMock()
+    monkeypatch.setattr(AmbientService,'_note',note)
+    change=await OpportunityDiscovery(db).changes.record(
+        'alice',source='documents',kind='document.facts_changed',entity_ref='document:synthetic',
+    )
+    assert change.admitted
     wake=AmbientWake(owner_id='alice',reason='ambient_review')
     result=await AmbientService(db).review_life(wake)
     assert result.retry_after_seconds and result.error=='model_unavailable'
-    assert await db.opportunity_scan_state.count_documents({'owner_id':'alice'})==0
+    # The durable owner row also owns the scan lease. Its existence does not
+    # mean a review succeeded: unavailable work releases its lease and cannot
+    # record a successful fingerprint/cooldown or consume the pending change.
+    state=await db.opportunity_scan_state.find_one({'owner_id':'alice'})
+    assert state is not None
+    assert not any(state.get(key) for key in ('last_scan_at','fingerprint','lease_token','lease_until'))
+    pending=await db.meaningful_changes.find_one({'id':change.change.id,'owner_id':'alice'})
+    assert pending['status']=='pending' and not pending.get('consumed_by')
+    assert not pending.get('claim_token') and not pending.get('claim_until')
+    note.assert_not_awaited()
+
+    # The same due review can retry without another source event or a forced
+    # scan. Only this successful attempt may acknowledge the original change.
+    resumed=await AmbientService(db).review_life(wake)
+    assert resumed.handled and resumed.result=='reviewed' and not resumed.retry_after_seconds
+    assert scan.await_count==2
+    state=await db.opportunity_scan_state.find_one({'owner_id':'alice'})
+    assert state.get('last_scan_at') and state.get('fingerprint')
+    assert not state.get('lease_token') and not state.get('lease_until')
+    settled=await db.meaningful_changes.find_one({'id':change.change.id,'owner_id':'alice'})
+    assert settled['status']=='consumed' and settled.get('consumed_by')
+    note.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_runtime_completes_due_review_with_no_home_or_chat(monkeypatch):
