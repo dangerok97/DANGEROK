@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import math
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -135,6 +136,50 @@ def _ready_to_verify_existing_internal_result(goal, plan, pending, evidence) -> 
         and not step.authority_requirement
         for step in pending
     )
+
+
+def _internal_verify_blocker_flags(goal, plan, pending, evidence) -> dict[str, bool]:
+    """Only safe booleans for investigating a missed read-only completion.
+
+    These fields say why the existing fast path did not run. They are not
+    proof of a completed result and expose no source names, contents, owner
+    handles, prompts, tool parameters or provider responses.
+    """
+    from agent.prepared_review import current_prepared_review
+    source_refs = getattr(goal, "prepared_sources", None) or []
+    seen = {item.id for item in evidence}
+    return {
+        "goal_active": getattr(goal, "status", None) == "active",
+        "plan_active": getattr(plan, "status", None) == "active",
+        "non_situation": getattr(goal, "source_kind", "") not in
+            ("situation_initial_review", "situation_followup"),
+        "no_human_block": not (
+            getattr(goal, "requires_user_input", False)
+            or getattr(goal, "requires_user_authority", False)
+            or getattr(goal, "user_deferred_until", None)
+        ),
+        "has_artifact_and_sources": bool(getattr(goal, "prepared_text", "") and source_refs),
+        "review_absent": current_prepared_review(goal) is None,
+        "prepared_sources_in_evidence": bool(source_refs) and set(source_refs).issubset(seen),
+        "no_external_step": not any(
+            s.external_effect or s.reaches_somebody_else or s.step_type == "execute"
+            for s in plan.steps
+        ),
+        "prepared_step_succeeded": any(
+            s.step_type == "prepare" and s.status == "succeeded"
+            and s.capability_needed == "document.create" for s in plan.steps
+        ),
+        "pending_verify_only": bool(pending) and all(
+            s.step_type == "verify" and s.capability_needed in ("", "information.read")
+            for s in pending
+        ),
+        "pending_no_input_ref": all(not s.input_refs for s in pending),
+        "pending_no_parameters": all(not s.parameters for s in pending),
+        "pending_no_human_or_effect_target": all(
+            not s.asks and not s.effect_target and not s.authority_requirement
+            for s in pending
+        ),
+    }
 
 
 def _step_declaration(raw: Any):
@@ -1229,6 +1274,15 @@ class AgentService:
             # _finish itself spends the bounded verifier call and may refuse
             # completion; do not waste a separate model call to select it.
             return ("finish", None)
+
+        if (os.getenv("ORA_AUTONOMY_DIAG_VERIFY") == "1"
+                and getattr(goal, "prepared_text", "")
+                and pending and all(s.step_type == "verify" for s in pending)):
+            # Boolean-only diagnostic, enabled only in the synthetic evaluator.
+            logger.info("agent_verify_shortcut_skipped %s", json.dumps(
+                _internal_verify_blocker_flags(goal, plan, pending, evidence),
+                sort_keys=True,
+            ))
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             # Out of judgement for this run is NOT the same as out of work.
