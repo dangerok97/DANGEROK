@@ -32,4 +32,12 @@ export const visualStyle = `
 
 /* Native WebKit select appearance otherwise paints a white bezel under light text. */
 .vx-catalog-category{-webkit-appearance:none;appearance:none;color-scheme:dark;background-color:#122c3b;background-image:linear-gradient(45deg,transparent 50%,#b7d5e3 50%),linear-gradient(135deg,#b7d5e3 50%,transparent 50%);background-position:calc(100% - 18px) 19px,calc(100% - 13px) 19px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px;color:#e0f3f8}
+
+/* Anatomy is primary navigation, not a hidden footer action. */
+.vx-anatomy-nav{margin-left:auto;min-height:44px;padding:9px 11px;border:1px solid #4f7d92;border-radius:12px;background:#173a49;color:#d9f6ff!important;font-size:12px!important;font-weight:650!important;white-space:nowrap}
+.vx-anatomy-nav[aria-pressed=true]{background:#234a59;border-color:#93e0ea;box-shadow:0 0 0 1px #6ab9d5}
+.vx-anatomy-nav:focus-visible{outline:2px solid #ffb473;outline-offset:2px}
+.vx-header .vx-catalog{margin-left:0;white-space:nowrap}
+@media(max-width:500px){.vx-header{gap:4px;padding-left:5px;padding-right:7px}.vx-back{width:38px;min-width:38px}.vx-brand{font-size:16px;letter-spacing:2px;white-space:nowrap}.vx-brand span{font-size:9px;margin-left:2px;letter-spacing:1px}.vx-version{font-size:7px;letter-spacing:.6px}.vx-anatomy-nav,.vx-header .vx-catalog{min-height:43px;padding:8px 7px;font-size:11px!important;border-radius:9px}.vx-anatomy-nav{margin-left:auto}}
+@media(max-width:345px){.vx-version{display:none}.vx-brand{font-size:14px}.vx-anatomy-nav,.vx-header .vx-catalog{font-size:10px!important;padding:7px 5px}}
 `;
