@@ -227,6 +227,7 @@ jobs:
             tests/test_pending_outcome_contract_v162.py \
             tests/test_discovery_outcome_contract_v162.py \
             tests/test_agent_preparation_grounding_v162.py \
+            tests/test_agent_comparison_math_v162.py \
             tests/test_preparation_response_schema_v162.py \
             tests/test_preparation_source_quotes_v162.py \
             tests/test_agent_preparation_dependency_v162.py \

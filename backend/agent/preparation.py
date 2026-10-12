@@ -7,6 +7,7 @@ from agent.evidence import EvidenceStore, REAL_SOURCES
 from agent.models import ResultProvenance
 from agent.prepared_review import new_prepared_result_id
 from agent.preparation_schema import audit_schema, draft_schema
+from agent.comparison_math import complete_explicit_price_comparison
 
 
 _FEEDBACK_FIELD = "preparation_feedback_non_authoritative"
@@ -405,7 +406,11 @@ async def prepare(db, owner_id, goal, step):
         feedback = _protocol_feedback("generation", errors)
         await _remember_feedback(db, owner_id, goal.id, scope, feedback)
         return unavailable("preparation_ungrounded", feedback=feedback)
-    content = content.strip()
+    content = complete_explicit_price_comparison(
+        content.strip(),
+        "\n".join(row["claim"] for row in rows if isinstance(row.get("claim"), str)),
+        " ".join(str(x) for x in (goal.objective, goal.desired_outcome, step.intent)),
+    )
     refs = list(dict.fromkeys(refs))
     audit_rows = list(rows)
     # The audit needs the intended deliverable, not only the draft's own
