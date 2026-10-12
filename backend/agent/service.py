@@ -1104,7 +1104,33 @@ class AgentService:
 
         evidence = await self.evidence.for_goal(owner_id, goal.id)
         if not evidence:
-            return ("execute", pending[0])
+            # An evidence-bound preparation is not itself a source read.
+            # Before any evidence exists, take an explicitly planned internal
+            # read first even when the model put the draft ahead of it.
+            # If the planner omitted that prerequisite, reject that
+            # impossible selection and let bounded reconsideration repair
+            # the route, rather than running a guaranteed-to-fail draft.
+            first = pending[0]
+            if first.step_type == "prepare" and first.capability_needed == "document.create":
+                prerequisite = next((
+                    item for item in pending
+                    if item.step_type in ("inspect", "research")
+                    and (item.capability_needed.endswith(".read")
+                         or item.capability_needed == "web.research")
+                ), None)
+                if prerequisite is not None:
+                    return ("execute", prerequisite)
+                await self.repo.journal(
+                    owner_id, goal.id, kind="planning_prerequisite_missing",
+                    note="La preparazione richiede una lettura reale che il piano non contiene.",
+                    detail={"step_id": first.id, "reason": "preparation_sources_required"},
+                )
+                raise _InvalidNextSelection({
+                    "problem": "preparation_sources_required",
+                    "result": {"problem": "preparation_sources_required"},
+                    "selection": {"candidate_step_ids": [item.id for item in pending[:MAX_PLAN_STEPS]]},
+                })
+            return ("execute", first)
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             # Out of judgement for this run is NOT the same as out of work.
