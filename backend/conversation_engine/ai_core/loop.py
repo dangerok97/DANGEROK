@@ -945,7 +945,10 @@ def _consume_pending_navigation(
     return ("other", [])
 
 
-async def _ensure_navigation(observations, turn_start: int, message: str, db, uid: str) -> str:
+async def _ensure_navigation(
+    observations, turn_start: int, message: str, db, uid: str,
+    *, platform: str = "web",
+) -> str:
     """Produce the map link once for an explicit departure, even on model failure."""
     destination = _navigation_destination(message)
     if not destination or db is None or not uid:
@@ -959,7 +962,7 @@ async def _ensure_navigation(observations, turn_start: int, message: str, db, ui
 
         obs = await open_navigation(
             {"destination": destination, "arrival_request": _arrival_request(message)},
-            {"db": db, "user_id": uid, "platform": "web"},
+            {"db": db, "user_id": uid, "platform": platform},
         )
         observations.append(obs.model_dump())
         payload = obs.payload or {}
@@ -1309,6 +1312,14 @@ async def run_cognitive_loop(
     tools = ToolRegistry(db)
     broker = ContextBroker(db)
     st = state_mod.get_ai_state(sess)
+    # WhatsApp is a conversational channel, not an app with permission to
+    # request device GPS. The same AI skills must receive the real channel.
+    channel_platform = (
+        "whatsapp"
+        if (sess.meta or {}).get("entry_point") == "whatsapp"
+        or str(getattr(sess, "origin", "") or "") == "whatsapp"
+        else "web"
+    )
 
     # Client-resume continues the SAME user turn — do not duplicate recent_turns.
     if not resume_client:
@@ -3325,7 +3336,8 @@ async def run_cognitive_loop(
                 # handling. Do not turn semantic refs into permanent session bans.
                 st["clarification_history"] = []
             navigation_text = await _ensure_navigation(
-                observations, turn_start, user_message, db, sess.user_id
+                observations, turn_start, user_message, db, sess.user_id,
+                platform=channel_platform,
             )
             if navigation_text:
                 ora = navigation_text
@@ -3976,7 +3988,7 @@ async def run_cognitive_loop(
                     "session_id": sess.id,
                     "db": db,
                     "reasoning_epoch": epoch,
-                    "platform": "web",
+                    "platform": channel_platform,
                     # What the person actually wrote this turn, and whether
                     # ORA had asked them something before they wrote it.
                     #
@@ -4283,7 +4295,8 @@ async def run_cognitive_loop(
             "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
         )
     navigation_text = await _ensure_navigation(
-        observations, turn_start, user_message, db, sess.user_id
+        observations, turn_start, user_message, db, sess.user_id,
+        platform=channel_platform,
     )
     if navigation_text:
         ora = navigation_text
