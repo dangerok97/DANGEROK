@@ -448,6 +448,8 @@ export default function ConnessioniScreen() {
               </ServiceCard>
             ) : null}
 
+            <WhatsAppConnection />
+
             {error ? <InlineError>{error}</InlineError> : null}
 
             <DevDiagnostics
