@@ -98,6 +98,8 @@ test('validated BodyParts3D geometry opens by default, stays sandboxed, and fall
  await expect(frame).toHaveAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');
  await expect(frame).toHaveAttribute('src',/ora=inline&lang=it&region=full_body&cx=/);
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
+ await expect(page.locator('.vx-shade-anatomy')).toHaveCount(1);
+ await expect(page.locator('.vx-anatomy-inline')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
  expect((await frame.getAttribute('sandbox'))).not.toContain('allow-same-origin');
  const fullScreen=page.getByTestId('vision-bp3d-fullscreen');
  await expect(fullScreen).toHaveAttribute('href','/bodyparts3d/index.html');
@@ -105,7 +107,7 @@ test('validated BodyParts3D geometry opens by default, stays sandboxed, and fall
  await expect(fullScreen).toHaveAttribute('rel','noopener noreferrer');
  await expect(fullScreen).toBeHidden(); // Person view must not become a separate full-screen page.
  await expect(page.getByTestId('vision-bp3d-toggle')).toHaveAttribute('aria-pressed','true');
- await expect(page.getByText('2.234 mesh')).toBeVisible();
+ await expect(page.getByText('2.234 mesh')).toBeHidden(); // Camera overlay has no standalone atlas footer.
  await expect(page.getByTestId('vision-bp3d-fallback')).toBeHidden();
  await expect(page.getByTestId('vision-anatomy-region-torso')).toBeHidden();
  await expect(frame).toBeVisible();
