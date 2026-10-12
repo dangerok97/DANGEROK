@@ -311,6 +311,17 @@ def _decision_result(stage, value):
             out["asks_kind"] = _response_kind(value["asks"])
             if type(value["asks"]) is str:
                 out["has_asks"] = bool(value["asks"].strip())
+        if "revised_steps" in value:
+            steps = value["revised_steps"]
+            out["revised_steps_kind"] = _response_kind(steps)
+            if isinstance(steps, list):
+                out["revised_steps_count"] = len(steps)
+                out["revised_steps"] = [_decision_fields(item, (
+                    "step_type", "type", "capability_needed", "intent", "expected_result",
+                ), limit=160) for item in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]]
+                out["revised_steps_omitted"] = max(0, len(steps) - MAX_DIAGNOSTIC_PLAN_STEPS)
+        if "replace_step_ids" in value:
+            out.update(_diagnostic_refs(value, "replace_step_ids"))
     if stage in ("preparation_generation", "preparation_audit"):
         out.update(_preparation_text_fields(value, "content"))
         out.update(_diagnostic_refs(value, "evidence_ids"))

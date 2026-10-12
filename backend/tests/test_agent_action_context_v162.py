@@ -170,21 +170,32 @@ async def test_context_reduction_does_not_mutate_inputs_or_replace_an_ask_decisi
 
 
 @pytest.mark.asyncio
-async def test_same_id_with_different_step_effects_or_parameters_is_not_a_duplicate(monkeypatch, caplog):
+async def test_same_id_with_different_step_effects_or_parameters_is_not_a_duplicate(monkeypatch):
+    from test_completed_result_context_v162 import restore_lossless_choice
+
     h = await reconstruct()
     # An ID alone cannot establish equivalence to a current candidate. Keep
-    # contradictory declarations visible, even if they no longer fit together.
+    # both declarations intact when lossless tables let them fit together.
     h.payload["still_to_do"][0]["effect_target"] = "a-different-target"
     h.payload["still_to_do"][1]["memory_offset"] = 600
     h.payload["still_to_do"][1]["memory_version"] = "a-different-version"
     original = deepcopy(h.payload)
-    model = AsyncMock(return_value={"decision": "execute", "step_id": h.plan.steps[1].id})
-    monkeypatch.setattr(reasoning, "_ask_model", model)
-    with caplog.at_level("INFO", logger="agent.reasoning"):
+    answer = {"decision": "execute", "step_id": h.plan.steps[1].id}
+    transported = fake_gemini(monkeypatch, lambda _system, _payload: answer)
+    with gate.isolated_engine(h.db, mode="live") as probe:
         result = await choose(h.payload)
-    assert result is None and model.await_count == 0
-    assert "material_context_exceeds_budget" in caplog.text
-    assert h.payload == original
+        assert len(transported) == probe.model_attempts == probe.model_http_requests == 1
+        assert not probe.network.blocked and not probe.blocked_effects
+    assert result == answer
+    restored = restore_lossless_choice(transported[0]["payload"])
+    assert json.dumps(restored, sort_keys=True) == json.dumps(original, sort_keys=True)
+    for candidate in restored["still_to_do"]:
+        step = next(row for row in restored["plan"]["steps"] if row["id"] == candidate["id"])
+        assert json.dumps(step, sort_keys=True) != json.dumps(candidate, sort_keys=True)
+    assert restored["still_to_do"][0]["effect_target"] == "a-different-target"
+    assert restored["still_to_do"][1]["memory_offset"] == 600
+    assert restored["still_to_do"][1]["memory_version"] == "a-different-version"
+    assert json.dumps(h.payload, sort_keys=True) == json.dumps(original, sort_keys=True)
 
 
 @pytest.mark.asyncio

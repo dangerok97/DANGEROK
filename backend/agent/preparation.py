@@ -83,6 +83,64 @@ def _review_feedback(checked, allowed, *, origin="preparation_audit"):
     return _fit_feedback(result, 1400)
 
 
+def _draft_validation_errors(answer, allowed):
+    """Describe the strict response contract without retaining invalid values."""
+    def kind(value):
+        if value is None:
+            return "null"
+        if isinstance(value, bool):
+            return "boolean"
+        if isinstance(value, str):
+            return "text"
+        if isinstance(value, list):
+            return "array"
+        if isinstance(value, dict):
+            return "object"
+        if isinstance(value, (int, float)):
+            return "number"
+        return "other"
+
+    errors = []
+    for field, expected_type, limit in (("content", str, 4000), ("evidence_ids", list, 12)):
+        value = answer.get(field)
+        issue = None
+        if field not in answer:
+            issue = "missing"
+        elif not isinstance(value, expected_type):
+            issue = "wrong_type"
+        elif not (value.strip() if field == "content" else value):
+            issue = "empty"
+        elif len(value) > limit:
+            issue = "too_long"
+        elif field == "evidence_ids":
+            if any(not isinstance(ref, str) for ref in value):
+                issue = "wrong_type"
+            elif any(ref not in allowed for ref in value):
+                issue = "not_supplied"
+        if issue:
+            errors.append({"field": field, "issue": issue,
+                           "received": kind(value) if field in answer else "missing"})
+    return errors
+
+
+def _protocol_feedback(stage, errors):
+    """Code-owned format diagnosis, distinct from a model's factual criticism."""
+    if stage not in ("generation", "audit") or not isinstance(errors, list):
+        return None
+    kept = []
+    for row in errors[:2]:
+        if not isinstance(row, dict):
+            continue
+        if (row.get("field") in ("content", "evidence_ids")
+                and row.get("issue") in ("missing", "wrong_type", "empty", "too_long", "not_supplied")
+                and row.get("received") in ("missing", "null", "boolean", "text", "array", "object", "number", "other")):
+            kept.append({key: row[key] for key in ("field", "issue", "received")})
+    if not kept:
+        return None
+    return {"origin": "preparation_protocol", "stage": stage, "validation_errors": kept,
+            "reason": "Per salvare una bozza: content testo non vuoto (max 4000); evidence_ids elenco di 1–12 ID forniti."}
+
+
 def _source_rows(evidence):
     return [{"id": e.id, "claim": e.claim, "source_class": e.provenance.source_class,
              "source_refs": e.provenance.source_refs[:4], "bears_on": e.supports or None,
@@ -146,6 +204,8 @@ async def _previous_feedback(db, owner_id, goal_id, scope, allowed):
             origin = feedback.get("origin") if isinstance(feedback, dict) else None
             if origin in ("preparation_audit", "goal_verification"):
                 return _review_feedback(feedback, allowed, origin=origin)
+            if origin == "preparation_protocol":
+                return _protocol_feedback(feedback.get("stage"), feedback.get("validation_errors"))
     except Exception:
         pass  # Losing optional diagnosis cannot block a supported preparation.
     return None
@@ -252,10 +312,11 @@ async def prepare(db, owner_id, goal, step):
     content = answer.get("content")
     refs = answer.get("evidence_ids")
     allowed = {row["id"] for row in rows}
-    if (not isinstance(content, str) or not content.strip() or len(content) > 4000
-            or not isinstance(refs, list) or not refs or len(refs) > 12
-            or any(not isinstance(ref, str) or ref not in allowed for ref in refs)):
-        return unavailable("preparation_ungrounded")
+    errors = _draft_validation_errors(answer, allowed)
+    if errors:
+        feedback = _protocol_feedback("generation", errors)
+        await _remember_feedback(db, owner_id, goal.id, scope, feedback)
+        return unavailable("preparation_ungrounded", feedback=feedback)
     content = content.strip()
     refs = list(dict.fromkeys(refs))
     audit_rows = list(rows)
@@ -341,10 +402,11 @@ async def prepare(db, owner_id, goal, step):
             await _remember_feedback(db, owner_id, goal.id, scope, feedback)
         return unavailable("preparation_not_supported", True, feedback=feedback)
     content, refs = checked.get("content"), checked.get("evidence_ids")
-    if (not isinstance(content, str) or not content.strip() or len(content) > 4000
-            or not isinstance(refs, list) or not refs or len(refs) > 12
-            or any(not isinstance(ref, str) or ref not in allowed for ref in refs)):
-        return unavailable("preparation_review_invalid")
+    errors = _draft_validation_errors(checked, allowed)
+    if errors:
+        feedback = _protocol_feedback("audit", errors)
+        await _remember_feedback(db, owner_id, goal.id, scope, feedback)
+        return unavailable("preparation_review_invalid", feedback=feedback)
     content, refs = content.strip(), list(dict.fromkeys(refs))
     prepared_id = new_prepared_result_id()
     saved = await db.agent_goals.update_one(

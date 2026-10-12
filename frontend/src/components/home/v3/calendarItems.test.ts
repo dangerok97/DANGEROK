@@ -1,10 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { HomeItem } from '@/src/api/client';
-import { calendarEntries } from './calendarItems.ts';
+import { calendarEntries, calendarMonthMarks } from './calendarItems.ts';
 import { allItems, todayItems } from './homeItemView.ts';
 
 const start = '2026-10-12T10:00:00Z';
+
+test('month marks reject malformed response containers without inventing appointments', () => {
+  const homePayload = { priorities: [], agent_work: [{ id: 'gol_synthetic' }] };
+  for (const value of [{}, homePayload, null, undefined, '12', 12, true]) {
+    assert.deepEqual(calendarMonthMarks(value), []);
+  }
+});
+
+test('month marks preserve valid API days and normalize duplicate string and numeric forms', () => {
+  const days = ['01', '02', '12', '31', 1, 2, 12, 31];
+  const before = [...days];
+  assert.deepEqual(calendarMonthMarks(days), ['1', '2', '12', '31']);
+  assert.deepEqual(days, before);
+  assert.deepEqual(calendarMonthMarks([]), []);
+});
+
+test('invalid month entries cannot coerce themselves into a calendar day', () => {
+  assert.deepEqual(calendarMonthMarks([
+    '03', 4, '00', '32', 0, 32, -1, 2.5, NaN, Infinity,
+    '', ' ', '1.0', '1e1', '01x', true, false, null, {}, [], [5],
+  ]), ['3', '4']);
+});
 
 function item(id: string, fields: Partial<HomeItem> = {}): HomeItem {
   return {

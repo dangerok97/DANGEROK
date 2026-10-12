@@ -51,12 +51,18 @@ async function openPrepared(page: Page, initial: Record<string, unknown>) {
     else if (path.includes('location')) json = { preference: 'off', enabled: false, status: 'off' };
     await route.fulfill({ status: 200, headers, json });
   });
+  const monthRead = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/api/calendar/events/home/month');
   await page.goto('/login');
   await page.getByTestId('login-email-button').click();
   await page.getByTestId('login-email-input').fill(user.email);
   await page.getByTestId('login-password-input').fill('SyntheticFixture123!');
   await page.getByTestId('login-submit-button').click();
   await expect(page.getByTestId('login-submit-button')).not.toBeVisible({ timeout: 30000 });
+  await monthRead;
+  // Login briefly renders Home. Let its actual calendar callback settle so
+  // a fast local navigation cannot hide malformed-data errors seen in CI.
+  await expect(page.getByTestId('home-context-rail')).toHaveAttribute('aria-busy', 'false');
   await page.goto(`/aggiornamento/${goalId}`);
   await expect(page.getByTestId('dettaglio-cosa')).toBeVisible();
   return { mutations, update: (next: Record<string, unknown>) => { overrides = next; } };

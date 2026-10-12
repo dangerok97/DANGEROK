@@ -85,6 +85,14 @@ class _PlanNotPossible(Exception):
 class _PlanningStopped(Exception):
     """The source or the person's control changed while planning."""
 
+
+class _InvalidNextSelection(Exception):
+    """A model selected no pending step; reconsider without doing other work."""
+
+    def __init__(self, context):
+        super().__init__("action_selection_invalid")
+        self.context = context
+
 # A model may choose a clock minute now. Keep one hard lower/upper bound so
 # precision cannot turn into polling and a typo cannot schedule a year away.
 MIN_WAIT_MINUTES = 1
@@ -827,9 +835,16 @@ class AgentService:
                 return await self._continue_later(owner_id, goal, plan, run, "iterations")
 
             run.iterations += 1
-            decision, step = await self._next(
-                owner_id, goal, plan, run, budget, language=language
-            )
+            invalid_selection = None
+            try:
+                decision, step = await self._next(
+                    owner_id, goal, plan, run, budget, language=language
+                )
+            except _InvalidNextSelection as invalid:
+                # The existing reconsideration owns the next decision and
+                # consumes the same run budget as any other changed finding.
+                decision, step = "replan", None
+                invalid_selection = invalid.context
             source_change = await self._source_change_result(owner_id, goal, run)
             if source_change is not None:
                 return source_change
@@ -871,7 +886,9 @@ class AgentService:
                         "what_was_found": for_verification(
                             await self.evidence.for_goal(owner_id, goal.id)
                         ),
-                        "problem": "quello che si è scoperto cambia la strada",
+                        **(invalid_selection or {
+                            "problem": "quello che si è scoperto cambia la strada",
+                        }),
                     },
                     language=language,
                 )
@@ -979,10 +996,29 @@ class AgentService:
         if answer is None:
             return ("stalled", None)
 
-        await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
-
         decision = answer["decision"]
-        chosen = next((s for s in pending if s.id == str(answer.get("step_id") or "")), None)
+        requested_id = answer.get("step_id")
+        chosen = next((s for s in pending if isinstance(requested_id, str) and s.id == requested_id), None)
+        if decision in ("execute", "skip") and chosen is None:
+            known = next((s for s in plan.steps if isinstance(requested_id, str) and s.id == requested_id), None)
+            issue = ("missing_step_id" if requested_id is None or requested_id == "" else
+                     "wrong_type" if not isinstance(requested_id, str) else
+                     "not_pending" if known else "unknown_step")
+            invalid = {"problem": "action_selection_invalid", "selection": {
+                "decision": decision, "issue": issue,
+                # Only identifiers already in this owned plan enter the
+                # diagnosis; an arbitrary model value is not operational data.
+                "requested_step_id": known.id if known else None,
+                "candidate_step_ids": [s.id for s in pending[:MAX_PLAN_STEPS]],
+            }}
+            await self.repo.journal(
+                owner_id, goal.id, kind="chose_next",
+                note="La scelta non identifica un passo ancora eseguibile.",
+                detail={"decision": decision, "step_id": "", **invalid},
+            )
+            raise _InvalidNextSelection(invalid)
+
+        await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
         await self.repo.journal(
             owner_id, goal.id, kind="chose_next",
             note=str(answer.get("reasoning") or "")[:300],
@@ -990,9 +1026,7 @@ class AgentService:
         )
 
         if decision in ("execute", "skip"):
-            # A step id that names nothing is not a reason to improvise. The
-            # first thing still to do is the honest fallback.
-            return (decision, chosen or pending[0])
+            return (decision, chosen)
 
         if decision == "complete":
             return ("finish", None)

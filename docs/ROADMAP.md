@@ -1,3 +1,136 @@
+# 12 ottobre 2026 — v162, decisioni valide e contesto conservato
+
+Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.
+
+Le scelte execute/skip riferite a passi mancanti o non più eseguibili non possono
+eseguire o saltare un altro passo per fallback. La decisione invalida ritorna alla
+rivalutazione ordinaria con una diagnosi bounded, entro gli stessi budget.
+Il modello mantiene la scelta di continuare, modificare, chiedere o attendere.
+
+Le risposte di preparazione con tipi/citazioni non validi continuano a essere
+rifiutate. Il recupero conserva una diagnosi strutturale specifica al contesto,
+senza convertire oggetti in testo, inventare una bozza o trattare feedback come
+fonte. La valutazione precedente dell'esito di un'opportunità resta disponibile
+all'ammissione come contesto del modello non autorevole: è separata dalle fonti
+correnti e non impone la creazione del goal né annulla un no_goal valido.
+Il binding riguarda la revisione della proposta, owner e riferimenti citati;
+non introduce un nuovo digest delle Memory. AgentService.consider continua
+a rileggere le fonti correnti e a mostrarle separatamente al modello.
+
+La scelta successiva tenta ora la condivisione esatta di testo e tabelle
+ricostruibili anche quando non esiste ancora una preparazione corrente.
+In quel percorso non sono consentite omissioni di storia generata o descrizioni
+dei passi conclusi; fonti, cursori, limiti, criteri e orologio restano integrali.
+Un contesto materiale ancora troppo grande resta indisponibile. Il confronto
+di copie distingue anche booleani e numeri, che Python considera altrimenti uguali.
+
+Il rapporto 14B mostra tre scelte senza risposta e senza una nuova chiamata al
+modello dopo la lettura riuscita nel caso source_change_crash. Non conserva
+il payload integrale. La riproduzione locale è quindi dichiaratamente sintetica,
+costruita da repository e reader reali: dimostra che il solo dedup dei candidati
+può eccedere 9.000 caratteri mentre la condivisione esatta consente di consegnare
+le medesime informazioni allo SDK. Non viene presentata come cattura HTTP storica.
+
+Il calendario Home normalizza la risposta dei giorni prima di usarla come array.
+Un payload oggetto non crea eventi né provoca il crash del dettaglio. La prova
+browser attende ora il callback Home effettivo prima della navigazione; la fixture
+malformata e l'asserzione sugli errori restano intatte. I vecchi 4/4 locali avevano
+lasciato sfuggire questo problema di tempi. Le fixture v141 persistono il goal
+prima del controllo della concorrenza o dell'assenza di prove, mantenendo gli assert.
+Il vecchio test unitario v4 che prescriveva il fallback su un altro passo viene
+aggiornato a verificare il rifiuto della scelta invalida e gli stati immutati.
+Il vecchio test di contesto con stesso id e definizioni diverse non richiede
+più indisponibilità quando le informazioni entrano senza perdite: richiede
+il ripristino integrale e tipizzato di entrambe le definizioni e la decisione
+invariata. L'overflow materiale distinto continua a impedire la chiamata.
+
+## Esiti conservati e limiti della prova
+
+Il candidato `2e848b6` ha **5/9 PASS automatici**, 69 chiamate logiche e 88 HTTP;
+**non è accettato alla lettura manuale**. Il testo di completed_result contiene
+calcoli 180/120/60 corretti, ma inventa condizioni mensili di disdetta, rimborso
+e assenza di vincoli. La generazione introduce parte dell'errore e l'audit lo
+conferma/aggrava. Il PASS bounded non copre queste clausole. I tre casi
+planning_outage/home_write_retry/memory_corrected esauriscono il budget;
+source_change_crash recupera Discovery ma riceve un no_goal non sostenuto.
+Le 69 risposte riuscite sono 59 Mistral e 10 Groq, nessuna Gemini: disponibilità
+della risposta e completamento utile sono misure distinte.
+
+La CI `2e848b6` è **10 PASS / 3 FAIL / 2 SKIP**, cinque workflow. I Backend si
+fermano sulla fixture v141 prima dei gate v162/Mongo successivi. Mobile è
+34/36 (17/18 per motore); i due fallimenti malformati nascono dal calendario
+Home. Questi sono esiti della revisione precedente, non CI verde del candidato.
+
+Le letture pubbliche separate sullo stesso `2e848b6` eseguono due HTTP reali
+(Mapbox/Open-Meteo), cinque chiamate LLM e 68.520 ms di loop. Tecnico PASS,
+semantico FAIL per MODEL_CLAIM_REWRITTEN. Il rapporto non conserva il messaggio
+originale prima della riscrittura: la sola risposta finale non permette di
+ricostruire quella frase. Il primo avvio separato aveva omesso la dipendenza
+mongomock-motor dal comando e si è fermato con ModuleNotFoundError; il comando
+corretto installa la medesima versione 0.0.36 già usata nella prova completa.
+
+**Rettifica dell'interpretazione del vecchio rapporto pubblico d5:** il pattern
+`intensi` intercetta l'inizio di «intensità» nella corretta negazione «non è una
+misura dell'intensità». UNVERIFIED_FORECAST_INTENSITY è un falso positivo su
+quel testo. MODEL_CLAIM_REWRITTEN include anche il rendering di messaggi
+strutturati e il rapporto non conserva l'originale: non dimostra da solo una
+specifica affermazione meteo falsa del modello. Il vecchio report resta FAIL;
+fixture, oracle e risultati originali non vengono riscritti.
+
+Il confronto diagnostico con LLM_PROVIDER=mistral e
+MISTRAL_MODEL=ministral-14b-2512 usa sempre il codice `2e848b6`, gli stessi
+nove scenari, budget e confini: **5/9 PASS automatici,
+53 chiamate logiche / 65 HTTP**. È una configurazione del
+solo servizio di collaudo: la catena ha usato anche fallback Groq e OpenAI,
+quindi non tutte le risposte sono del modello 14B. Non dimostra da sola
+il comportamento dei servizi app né sostituisce la lettura delle risposte
+o il collaudo del codice successivo. Le preferenze free-first restano valide:
+nessun default dell'app, account, fatturazione o servizio a pagamento viene
+attivato o cambiato da questa prova.
+
+Anche i due risultati positivi di questa diagnostica non sono accettati
+alla revisione manuale. completed_result conserva flessibilità e costi
+proporzionali non documentati, oltre a soglie temporali incoerenti: generazione
+14B, audit GPT-4o-mini. memory_corrected usa correttamente la nuova cifra
+150 e la differenza 30, ma confronta il rischio sulla base di vincoli mensili
+assenti dalla fonte: generazione Groq/Qwen, audit GPT-4o-mini.
+La correzione della fonte e il salvataggio funzionano; la fedeltà semantica
+non è dimostrata e non viene certificata dai controlli di formato o citazioni.
+
+Nei tre casi planning_outage/home_write_retry/memory_revoked della diagnostica
+14B, il fallback propone una preparazione senza lettura. Nei casi Home e
+revoca il gate si ferma prima di quelle iniezioni; il guasto di pianificazione
+è già stato iniettato nel suo caso. I goal conservano una scadenza di recupero. Il vecchio report non esporta revised_steps e non consente
+di dedurre perché modify non abbia aggiunto passi. La diagnostica del prossimo
+collaudo registra separatamente formato e passi di rivalutazione, entro gli
+stessi limiti e guard del solo owner sintetico, senza cambiare il verdetto.
+
+Report e annotazione separata:
+
+- [Collaudo originale 2e](evidence/autonomy_v162_live_2026-10-12_2e848b6.json)
+- [Revisione manuale 2e](evidence/autonomy_v162_manual_review_2026-10-12_2e848b6.json)
+- [Letture pubbliche 2e](evidence/public_read_v162_live_2026-10-12_2e848b6.json)
+- [Diagnostica Ministral 14B](evidence/autonomy_v162_ministral14b_live_2026-10-12_2e848b6.json)
+- [Revisione manuale della diagnostica 14B](evidence/autonomy_v162_ministral14b_manual_review_2026-10-12_2e848b6.json)
+
+## Confine del rilascio
+
+Merge soltanto con CI verde e risultati reali accettabili sul candidato.
+Nessun dominio/keyword router, nuovo scheduler, reset dei budget o azione esterna
+reale nel collaudo. Il bucato precedente di Tarquinia resta chiuso. Un nuovo
+bucato deve condurre all'avviso utile di ritiro, distinguendo stima di asciugatura
+e ritiro anticipato per rischio.
+
+I servizi app non sono stati aggiornati: la patch Railway è preparata ma
+l'applicazione è stata rifiutata dal controllo automatico. Il servizio isolato
+di valutazione non applica quella patch. Backend resta al commit 9e1a2f0,
+web a 9dc0d65. Configurazione/prebuild/export iOS in CI non sono firma,
+installazione o ricezione su dispositivo. Mancano accesso al progetto EAS e
+credenziali native; registrazione, app chiusa, avviso visibile e apertura del
+risultato sul dispositivo restano da verificare. Nessun push reale inviato.
+
+---
+
 ## 12 ottobre 2026 — v162, giudizio del risultato e consegna della preparazione corrente
 
 **Candidato successivo a d5:** **757 PASS, 1 SKIP, 43 moduli, 28.27 s**; CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni.

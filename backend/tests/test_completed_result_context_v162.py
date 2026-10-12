@@ -15,10 +15,10 @@ import pytest
 
 from agent import reasoning
 from agent.evidence import for_verification
-from agent.models import AgentBudget, AgentRun
+from agent.models import AgentBudget, AgentEvidence, AgentRun, ResultProvenance
 from agent.service import AgentService, _user_clock_context
 from scripts import autonomy_completion_eval_v162 as gate
-from test_agent_action_context_v162 import reconstruct
+from test_agent_action_context_v162 import reconstruct, choose as choose_unprepared
 from test_agent_preparation_dependency_v162 import fake_gemini
 from test_pending_outcome_contract_v162 import synthetic_transport_only  # noqa: F401
 
@@ -308,3 +308,150 @@ async def test_same_source_ref_does_not_merge_contradictory_text_or_different_me
     with gate.isolated_engine(h.db, mode="live"):
         assert await judge(payload, mode) == answer
     assert len(transported) == 1 and payload == original
+
+
+async def unprepared_case(*, partial=False):
+    """Complete synthetic context, not the unavailable historical 14B payload."""
+    h = await reconstruct(partial=partial)
+    for index, step in enumerate(h.plan.steps):
+        step.intent = (f"Passo sintetico {index}: verificare le condizioni indicate senza supporre quelle assenti. " * 5)[:280]
+        step.expected_result = (f"Esito sintetico {index}: conservare ogni limite della fonte e distinguere ciò che resta da verificare. " * 5)[:300]
+    service = AgentService(h.db)
+    await service.repo.save_plan(h.plan)
+    # Generated history can exist without a current saved preparation. This
+    # path may share copies, but cannot discard even this non-source row.
+    await service.evidence.record(AgentEvidence(
+        owner_id=OWNER, goal_id=h.goal.id,
+        claim="Vecchia bozza sintetica non più corrente; conserva questo limite e non usarla come prova.",
+        provenance=ResultProvenance(source_class="internal_observation", provider="generated_draft",
+                                    capability="document.create"),
+    ))
+    with gate.isolated_engine(h.db):
+        service = AgentService(h.db)
+        goal = await service.repo.get_goal(OWNER, h.goal.id)
+        plan = await service.repo.plan_for(OWNER, h.goal.id)
+        payload = {
+            "goal": await service._reasoning_goal(OWNER, goal), "plan": plan.for_ai(),
+            "local_clock": await _user_clock_context(h.db, OWNER),
+            "still_to_do": [step.for_ai() for step in plan.steps if step.status == "pending"],
+            "what_has_been_found": for_verification(await service.evidence.for_goal(OWNER, goal.id)),
+            "what_ora_can_do": await service.capabilities.available(OWNER),
+        }
+    assert not goal.prepared_text and not goal.prepared_sources
+    return SimpleNamespace(db=h.db, service=service, goal=goal, plan=plan, source=h.source, payload=payload)
+
+
+def restore_lossless_choice(payload):
+    restored = deepcopy(payload)
+    steps = expand_records(restored["plan"]["steps"])
+    candidates = [deepcopy(next(step for step in steps if step["id"] == row["id"]))
+                  if row.get("details_in") == "plan.steps" else row
+                  for row in restored["still_to_do"]]
+    restored["plan"]["steps"] = [deepcopy(next(row for row in candidates if row["id"] == step["id"]))
+                                  if step.get("details_in") == "still_to_do" else step for step in steps]
+    restored["still_to_do"] = candidates
+    restored["what_ora_can_do"] = expand_records(restored["what_ora_can_do"])
+    for preview in restored["goal"]["current_source_context"]["sources"]:
+        if "statement_in_evidence" in preview:
+            ref = preview.pop("statement_in_evidence")
+            preview["statement"] = next(row["what_was_found"] for row in restored["what_has_been_found"]
+                                        if row["evidence_id"] == ref)
+    source = restored["goal"].get("current_source_situation") or {}
+    if "why_now_in" in source:
+        assert source.pop("why_now_in") == "goal.why_now"
+        source["why_now"] = restored["goal"]["why_now"]
+    omitted = restored.pop("action_context_omitted", {})
+    assert set(omitted) <= {"repeated_step_details"}, "No history or descriptions may disappear without an artifact."
+    return restored
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("partial", [False, True], ids=["complete_source", "partial_source"])
+async def test_unprepared_worker_context_reaches_sdk_losslessly_after_reload(monkeypatch, partial):
+    h = await unprepared_case(partial=partial)
+    captured, sizes = [], {}
+    original_dump = reasoning._action_dump
+
+    def capture(payload):
+        original = deepcopy(payload)
+        captured.append(original)
+        size = lambda value: len(json.dumps(value, ensure_ascii=False, separators=(",", ":")))
+        sizes["complete"] = size(payload)
+        dedup = deepcopy(payload)
+        repeated = []
+        for index, step in enumerate(dedup["plan"]["steps"]):
+            if step in dedup["still_to_do"]:
+                dedup["plan"]["steps"][index] = {key: step[key] for key in ("id", "type", "status")}
+                dedup["plan"]["steps"][index]["details_in"] = "still_to_do"
+                repeated.append(step["id"])
+        dedup["action_context_omitted"] = {"repeated_step_details": repeated}
+        sizes["candidate_dedup"] = size(dedup)
+        encoded = original_dump(payload)
+        sizes["sent"] = len(encoded) if encoded is not None else None
+        assert payload == original
+        return encoded
+
+    monkeypatch.setattr(reasoning, "_action_dump", capture)
+    answer = {"decision": "execute", "step_id": h.plan.steps[2 if partial else 1].id}
+
+    def reply(_system, payload):
+        assert json.dumps(restore_lossless_choice(payload), sort_keys=True) == json.dumps(captured[0], sort_keys=True)
+        assert payload["what_has_been_found"] == captured[0]["what_has_been_found"]
+        source = next(row for row in payload["what_has_been_found"] if row["evidence_id"] == h.source.id)
+        assert source["memory_reads"][0]["next_offset"] == (600 if partial else None)
+        return answer
+
+    transported = fake_gemini(monkeypatch, reply)
+    before = await h.db.agent_goals.find_one({"owner_id": OWNER, "id": h.goal.id})
+    with gate.isolated_engine(h.db, mode="live") as probe:
+        decision, chosen = await h.service._next(OWNER, h.goal, h.plan,
+            AgentRun(owner_id=OWNER, goal_id=h.goal.id), AgentBudget(), language="it")
+        assert decision == "execute" and chosen.id == answer["step_id"], sizes
+        assert sizes["complete"] > sizes["candidate_dedup"] > 9000 >= sizes["sent"]
+        assert len(transported) == probe.model_attempts == probe.model_http_requests == 1
+        assert not probe.network.blocked and not probe.blocked_effects
+    assert await h.db.agent_goals.find_one({"owner_id": OWNER, "id": h.goal.id}) == before
+    assert await h.db.agent_action_attempts.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("difference", ["effects_and_cursor", "boolean_is_not_number"])
+async def test_unprepared_same_id_different_candidate_is_not_shared(monkeypatch, difference):
+    h = await unprepared_case()
+    if difference == "effects_and_cursor":
+        h.payload["still_to_do"][0].update(effect_target="different-target", what_kind_of_change="modify",
+                                          memory_offset=600, memory_version="different-version")
+    else:
+        assert h.payload["plan"]["steps"][1]["external_effect"] is False
+        h.payload["still_to_do"][0]["external_effect"] = 0
+    original = deepcopy(h.payload)
+    answer = {"decision": "replan", "reasoning": "Scelta sintetica lasciata invariata."}
+
+    def reply(_system, payload):
+        assert json.dumps(restore_lossless_choice(payload), sort_keys=True) == json.dumps(original, sort_keys=True)
+        assert isinstance(payload["plan"]["steps"], dict)
+        return answer
+
+    transported = fake_gemini(monkeypatch, reply)
+    with gate.isolated_engine(h.db, mode="live"):
+        result = await choose_unprepared(h.payload)
+    assert result == answer and len(transported) == 1
+    assert json.dumps(restore_lossless_choice(transported[0]["payload"]), sort_keys=True) == json.dumps(original, sort_keys=True)
+    assert h.payload == original
+
+
+@pytest.mark.asyncio
+async def test_unprepared_distinct_material_still_cannot_be_dropped_to_fit(monkeypatch, caplog):
+    h = await unprepared_case()
+    for index in range(8):
+        row = deepcopy(h.payload["what_has_been_found"][0])
+        row.update(evidence_id=f"evd_unprepared_distinct_{index}",
+                   what_was_found=f"Condizione distinta {index}: " + "Qualificazione materiale da conservare. " * 16)
+        h.payload["what_has_been_found"].append(row)
+    original = deepcopy(h.payload)
+    model = AsyncMock(return_value={"decision": "complete"})
+    monkeypatch.setattr(reasoning, "_ask_model", model)
+    with caplog.at_level("INFO", logger="agent.reasoning"):
+        assert await choose_unprepared(h.payload) is None
+    assert model.await_count == 0 and h.payload == original
+    assert "material_context_exceeds_budget" in caplog.text

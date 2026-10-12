@@ -466,6 +466,112 @@ async def test_planning_and_verification_diagnostics_preserve_the_actual_decisio
         assert probe.model_attempts == probe.model_http_requests == 0
 
 
+@pytest.mark.parametrize("payload,expected", [
+    ({}, {}),
+    ({"revised_steps": None}, {"revised_steps_kind": "none"}),
+    ({"revised_steps": []}, {"revised_steps_kind": "array", "revised_steps_count": 0,
+                            "revised_steps": [], "revised_steps_omitted": 0}),
+    ({"revised_steps": "DO_NOT_EXPORT"}, {"revised_steps_kind": "text"}),
+    ({"revised_steps": {"raw": "DO_NOT_EXPORT"}}, {"revised_steps_kind": "object"}),
+    ({"revised_steps": 7}, {"revised_steps_kind": "other"}),
+])
+def test_reconsider_revision_shape_does_not_invent_or_repair_steps(payload, expected):
+    response = {"decision": "modify", **payload}
+    original = json.dumps(response, sort_keys=True)
+    assert gate._decision_result("reconsider", response) == {
+        "response_kind": "object", "decision": "modify", **expected,
+    }
+    assert json.dumps(response, sort_keys=True) == original
+
+
+def test_reconsider_revised_steps_and_replacements_are_bounded_redacted_and_typed(monkeypatch):
+    credential = "synthetic-revised-step-credential"
+    monkeypatch.setenv("GEMINI_API_KEY_2", credential)
+    long_text = credential + "x" * 300
+    fields = ("step_type", "type", "capability_needed", "intent", "expected_result")
+    response = {
+        "decision": "modify",
+        "revised_steps": [
+            {**dict.fromkeys(fields, long_text), "raw_prompt": "DO_NOT_EXPORT"},
+            {"step_type": "prepare", "type": "inspect"},
+            None, [], "DO_NOT_EXPORT",
+            {"step_type": ["prepare"], "type": False, "capability_needed": {},
+             "intent": 7, "expected_result": None},
+            *[{"intent": "DO_NOT_EXPORT"}] * 3,
+        ],
+        "replace_step_ids": [long_text, {"raw": "DO_NOT_EXPORT"}, None, 7,
+                             *["synthetic-step-" + str(i) for i in range(9)]],
+    }
+    original = json.dumps(response, sort_keys=True)
+    observed = gate._decision_result("reconsider", response)
+    assert observed["decision"] == "modify" and observed["revised_steps_kind"] == "array"
+    assert observed["revised_steps_count"] == 9
+    assert len(observed["revised_steps"]) == gate.MAX_DIAGNOSTIC_PLAN_STEPS == 6
+    assert observed["revised_steps_omitted"] == 3
+    assert all(len(observed["revised_steps"][0][key]) == 160 for key in fields)
+    assert observed["revised_steps"][0]["truncated_fields"] == list(fields)
+    assert observed["revised_steps"][1:] == [
+        {"step_type": "prepare", "type": "inspect"}, {"response_kind": "none"},
+        {"response_kind": "array"}, {"response_kind": "text"}, {},
+    ]
+    assert observed["replace_step_ids_kind"] == "array"
+    assert observed["replace_step_ids_count"] == 13
+    assert observed["replace_step_ids_omitted"] == 13 - gate.MAX_ASSESSMENT_REFS
+    assert len(observed["replace_step_ids"]) == 5  # Non-string entries are never coerced.
+    assert all(len(ref) <= 160 for ref in observed["replace_step_ids"])
+    assert observed["replace_step_ids"][1:] == ["synthetic-step-" + str(i) for i in range(4)]
+    diagnostic = json.dumps(observed)
+    assert credential not in diagnostic and "DO_NOT_EXPORT" not in diagnostic
+    assert json.dumps(response, sort_keys=True) == original
+    for invalid in (None, "DO_NOT_EXPORT", {"raw": "DO_NOT_EXPORT"}):
+        invalid_observed = gate._decision_result("reconsider", {"replace_step_ids": invalid})
+        assert "replace_step_ids" not in invalid_observed
+        assert invalid_observed["replace_step_ids_kind"] == gate._response_kind(invalid)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scope", ["owned", "unmarked", "owner", "goal_owner"])
+async def test_reconsider_revision_trace_preserves_identity_and_the_synthetic_guard(monkeypatch, scope):
+    from agent import reasoning
+    from agent.models import AutonomousGoal
+    from agent.service import AgentService
+
+    response = {"decision": "modify", "revised_steps": [{"type": "prepare", "intent": "synthetic revision"}],
+                "replace_step_ids": ["synthetic-old-step"]}
+    original = json.dumps(response, sort_keys=True)
+    calls = []
+
+    async def original_reconsider(goal, **kwargs):
+        calls.append((goal, kwargs))
+        return response
+
+    async def original_service(self, owner, goal):
+        return await reasoning.reconsider(goal.for_ai(), plan={}, what_happened={}, capabilities=[])
+
+    monkeypatch.setattr(reasoning, "reconsider", original_reconsider)
+    monkeypatch.setattr(AgentService, "_reconsider", original_service)
+    db = AsyncMongoMockClient().v162_revised_step_diagnostics
+    if scope != "unmarked":
+        await db.eval_guards.insert_one({"_id": gate.VERSION, "owner": gate.OWNER})
+    goal = AutonomousGoal(owner_id="foreign-owner" if scope == "goal_owner" else gate.OWNER,
+                          status="active", objective="Synthetic comparison",
+                          desired_outcome="An internal result with its source limits")
+    await db.agent_goals.insert_one(goal.model_dump())
+    owner = "foreign-owner" if scope == "owner" else gate.OWNER
+    with gate.isolated_engine(db, mode="live") as probe:
+        result = await AgentService(db)._reconsider(owner, goal)
+    assert result is response and json.dumps(response, sort_keys=True) == original
+    assert calls == [(goal.for_ai(), {"plan": {}, "what_happened": {}, "capabilities": []})]
+    if scope == "owned":
+        observed, = probe.structured_decisions
+        assert observed["revised_steps"] == response["revised_steps"]
+        assert observed["replace_step_ids"] == response["replace_step_ids"]
+        assert observed["model_attempts_before"] == observed["model_attempts_after"] == 0
+    else:
+        assert probe.structured_decisions == []
+    assert probe.model_attempts == probe.model_http_requests == probe.blocked_effects == probe.push_attempts == 0
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("unfinished_status", ["pending", "waiting"])
 async def test_failed_completion_report_preserves_pending_steps_and_source_counts(

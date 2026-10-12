@@ -1,0 +1,325 @@
+{
+  "review_kind": "manual_review_of_synthetic_eval_evidence",
+  "reviewed_at": "2026-10-12T06:21:53.409078+00:00",
+  "code_revision": "2e848b61479b3d621fd7f217bb0699f53bed0d43",
+  "content_tree": "d50ebaf004f38364d696b2c5de8db9b8a61b6deb",
+  "local_content_commit": "abc2e8fed4667dc95d0256c55a8ec8f7efb8e3fd",
+  "machine_report": "docs/evidence/autonomy_v162_ministral14b_live_2026-10-12_2e848b6.json",
+  "machine_report_sha256": "53a596667eef1cee8a3056d3cddc717d706131ff50829c78910473943c572c2a",
+  "fixture_revision": "personal_outcome_v1",
+  "machine_verdict_unchanged": {
+    "status": "failed",
+    "passed": false,
+    "passed_cases": 5,
+    "case_count": 9,
+    "model_attempts": 53,
+    "model_http_requests": 65
+  },
+  "overall_accepted": false,
+  "scope": {
+    "reviewed_cases": [
+      "completed_result",
+      "memory_corrected"
+    ],
+    "basis": "Existing sanitized synthetic report and canonical fixture in the matching local content tree. No new model/provider calls or tests.",
+    "original_report_code_fixture_and_oracles_unchanged": true,
+    "not_an_autonomy_verification": true,
+    "not_a_replacement_for_machine_results": true,
+    "application_default_model_changed": false,
+    "isolated_model_quality_comparison": false,
+    "model_attribution_limit": "The technical Ministral14B override does not mean all stages used that model. Both reviewed preparation audits used GPT-4o-mini; corrected-source generation used Qwen through Groq. This is not a controlled 8B-versus-14B quality comparison."
+  },
+  "canonical_sources": {
+    "source_type": "synthetic_user_stated_memory_not_supplier_confirmation",
+    "base_fact_file": "backend/scripts/phase2_goal_outcome_eval_v140.py",
+    "base_fact_symbol": "FACT",
+    "context_file": "backend/scripts/autonomy_completion_eval_v162.py",
+    "context_symbol": "FIXTURE_CONTEXT",
+    "completed_result_statement": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento autorizzato.",
+    "memory_corrected_statement": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento autorizzato.",
+    "correction_contract": "Existing change_memory(correction=True) uses canonical Memory governance to replace 120 euro with 150 euro while retaining the personal need and all other source facts."
+  },
+  "completed_result": {
+    "machine_passed": true,
+    "machine_semantic_review": {
+      "passed": true,
+      "reasons": [],
+      "status": "bounded_check",
+      "human_review_still_required": true
+    },
+    "manually_accepted": false,
+    "manual_verdict": "Correct 12-month arithmetic and source caveats coexist with unsupported monthly contract terms and misleading duration thresholds.",
+    "supported_content": [
+      "15 euros monthly; 180 euros over 12 months.",
+      "120 euros prepaid for the annual option; 60-euro difference over the stated 12-month horizon.",
+      "100 GB, equal assistance and no initial fees in both options.",
+      "Annual early cancellation does not trigger a refund.",
+      "The text expressly states that the supplier has not confirmed the user-reported data."
+    ],
+    "findings": [
+      {
+        "id": "monthly_termination_and_proportional_cost_not_sourced",
+        "severity": "material_unsupported_contractual_condition",
+        "generation_excerpt": "Nessuna penalità esplicita segnalata per disdetta anticipata, ma il piano è rinnovabile mese per mese. In caso di interruzione, il costo si riduce proporzionalmente ai mesi non utilizzati.",
+        "saved_excerpt": "Nessuna penalità esplicita segnalata per disdetta anticipata, ma il piano è rinnovabile mese per mese. In caso di interruzione, il costo si riduce proporzionalmente ai mesi non utilizzati.",
+        "source_comparison": "The source gives a monthly price, not monthly renewability, cancellation eligibility, fees or proportional cost reduction. Reporting that no penalty is specified is legitimate; the subsequent positive conditions do not follow.",
+        "introduced_at": "preparation_generation",
+        "audit_effect": "Retained without semantic correction."
+      },
+      {
+        "id": "advice_uses_unestablished_monthly_flexibility",
+        "severity": "material_unsupported_recommendation_premise",
+        "generation_excerpt": "**Scegliere il piano mensile** se si prevede una possibile interruzione anticipata o se si preferisce pagare solo per i mesi effettivamente utilizzati.",
+        "saved_excerpt": "**Flessibilità**: Il piano mensile permette di adattare la spesa al periodo effettivo di utilizzo, mentre il piano annuale vincola economicamente per 12 mesi.",
+        "source_comparison": "The recommendation relies on cancellation and billing behavior absent from the source. A general recommendation to verify supplier terms does not establish that premise.",
+        "introduced_at": "preparation_generation",
+        "audit_effect": "Retained without semantic correction."
+      },
+      {
+        "id": "six_month_threshold_is_internally_unsupported",
+        "severity": "material_misleading_comparison",
+        "generation_excerpt": "| **Risparmio max**       | Solo se interruzione < 6 mesi| Solo se uso per 12 mesi      |",
+        "saved_excerpt": "| **Risparmio max**       | Solo se interruzione < 6 mesi| Solo se uso per 12 mesi      |",
+        "body_counterexample": "es. 6 mesi di servizio = 90€ vs. 120€ già pagati",
+        "analysis": "Even under the output's own unverified assumption that monthly charges cease after the exact months used, 15*m equals 120 at 8 months. Monthly is lower at 6 and 7 months; annual is lower at 9 through 11 as well as 12. The table's <6 and only-12 restrictions do not follow. The 60-euro difference for 12 months remains correct.",
+        "qualification": "Eight months is a conditional arithmetic crossover under that hypothetical billing assumption, not an established contractual break-even from the source.",
+        "introduced_at": "preparation_generation",
+        "audit_effect": "Retained without semantic correction."
+      }
+    ],
+    "stage_trace": {
+      "generation": {
+        "model": {
+          "provider": "mistral",
+          "model": "ministral-14b-2512"
+        },
+        "sequence": 5,
+        "characters": 3196,
+        "truncated": false,
+        "input_evidence_ids": [
+          "evd_7e22e284866f4f54"
+        ],
+        "cited_evidence_ids": [
+          "evd_7e22e284866f4f54"
+        ],
+        "input_evidence_truncated": false
+      },
+      "audit": {
+        "model": {
+          "provider": "openai",
+          "model": "gpt-4o-mini"
+        },
+        "sequence": 6,
+        "characters": 3189,
+        "truncated": false,
+        "input_evidence_ids": [
+          "evd_7e22e284866f4f54"
+        ],
+        "cited_evidence_ids": [
+          "evd_7e22e284866f4f54"
+        ],
+        "input_evidence_truncated": false,
+        "verified": true,
+        "reason": "La sintesi comparativa è stata verificata e correttamente redatta in base ai dati forniti dall'utente.",
+        "claim_review": [
+          {
+            "claim": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli.",
+            "premises": "Il piano mensile costa 15 euro mensili, per un totale di 180 euro per 12 mesi. La seconda opzione costa 120 euro anticipati per 12 mesi. Entrambe le opzioni offrono 100 GB e assistenza uguale, con spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata",
+            "support": "stated",
+            "correction": "",
+            "truncated_fields": [
+              "premises"
+            ],
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_7e22e284866f4f54"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0
+          }
+        ],
+        "claim_review_omitted": 0,
+        "exactly_matches_generation": false,
+        "matches_generation_ignoring_whitespace": true,
+        "exactly_matches_saved_result": true
+      },
+      "verifier": {
+        "model": {
+          "provider": "mistral",
+          "model": "ministral-14b-2512"
+        },
+        "sequence": 7,
+        "outcome": "achieved",
+        "reasoning": "Il confronto scritto dei costi e vincoli è completo, neutrale e pronto per la decisione finale.",
+        "what_is_missing": ""
+      },
+      "prepared_text_characters": 3189,
+      "prepared_text_truncated": false,
+      "prepared_text_sha256": "5cab4dd96dd605bd8517c8462814aecd7023278ab68cab33c86200064243dd59",
+      "structured_decisions_omitted": 0
+    },
+    "audit_review_limit": "The one reported claim-review entry recites the user need and source facts; it does not scrutinize added proportional billing, flexibility or duration thresholds. The original reporter marks its premises excerpt truncated.",
+    "reference_integrity": {
+      "memory_ref_observed_in_decisions": "mem_43262246ed92296b9353",
+      "generation_and_audit_cite_the_same_supplied_evidence_id": true,
+      "evidence_id": "evd_7e22e284866f4f54",
+      "source_read_count_attested_by_runner": 1,
+      "limitation": "An owned matching citation proves traceability, not support for every claim. Raw Evidence documents and source-version digests are not exported."
+    }
+  },
+  "memory_corrected": {
+    "machine_passed": true,
+    "machine_semantic_review": {
+      "passed": true,
+      "reasons": [],
+      "status": "bounded_check",
+      "human_review_still_required": true
+    },
+    "manually_accepted": false,
+    "manual_verdict": "The price correction is used correctly, but the result still favors monthly cancellation safety based on absent terms.",
+    "supported_content": [
+      "The final text uses the corrected annual price of 150 euros, monthly total of 180 euros and difference of 30 euros.",
+      "The old 120-euro price and 60-euro difference do not survive in the final result.",
+      "Annual non-refund and common practical conditions match the unchanged source facts.",
+      "The text expressly qualifies data as user-stated and not supplier-confirmed.",
+      "Monthly flexibility is openly labeled an assumption requiring confirmation; the rejection concerns its use as the premise for the greater-safety conclusion."
+    ],
+    "findings": [
+      {
+        "id": "monthly_flexibility_assumed_from_missing_terms",
+        "severity": "material_unestablished_comparison_premise",
+        "generation_excerpt": "Non sono specificati vincoli di disdetta anticipata nella nota; si presume flessibilità mensile (da confermare).",
+        "saved_excerpt": "Le condizioni di disdetta dell'Opzione A non sono dettagliate nella nota; si assume flessibilità, ma non è confermato.",
+        "source_comparison": "This is transparently an assumption, not an unqualified fact. It is nevertheless used later to favor an option instead of leaving the comparison explicitly conditional on the missing terms.",
+        "introduced_at": "preparation_generation",
+        "audit_effect": "Final text exactly matches generation."
+      },
+      {
+        "id": "monthly_safer_inferred_from_source_omission",
+        "severity": "material_unsupported_comparative_conclusion",
+        "generation_excerpt": "Se l'utente prevede di interrompere l'uso prima dei 12 mesi, l'Opzione A è più sicura perché non menziona penali o perdita dell'intero importo (ma va verificato).",
+        "saved_excerpt": "Se l'utente prevede di interrompere l'uso prima dei 12 mesi, l'Opzione A è più sicura perché non menziona penali o perdita dell'intero importo (ma va verificato).",
+        "source_comparison": "Absence of described monthly penalties does not establish greater safety on early termination. The parenthetical caveat acknowledges uncertainty but does not supply the premise for the comparative conclusion.",
+        "introduced_at": "preparation_generation",
+        "audit_effect": "Retained. Four claim-review entries cover prices, unspecified terms/annual non-refund, practical conditions and source limits, but not the assumed flexibility or greater-safety conclusion."
+      }
+    ],
+    "stage_trace": {
+      "generation": {
+        "model": {
+          "provider": "groq",
+          "model": "qwen/qwen3.8-27b"
+        },
+        "sequence": 6,
+        "characters": 2591,
+        "truncated": false,
+        "input_evidence_ids": [
+          "evd_cae31c5222d94d33"
+        ],
+        "cited_evidence_ids": [
+          "evd_cae31c5222d94d33"
+        ],
+        "input_evidence_truncated": false
+      },
+      "audit": {
+        "model": {
+          "provider": "openai",
+          "model": "gpt-4o-mini"
+        },
+        "sequence": 7,
+        "characters": 2591,
+        "truncated": false,
+        "input_evidence_ids": [
+          "evd_cae31c5222d94d33"
+        ],
+        "cited_evidence_ids": [
+          "evd_cae31c5222d94d33"
+        ],
+        "input_evidence_truncated": false,
+        "verified": true,
+        "reason": "La sintesi comparativa è stata verificata e corretta in base ai dati forniti dall'utente, evidenziando costi, vincoli e condizioni pratiche delle due formule.",
+        "claim_review": [
+          {
+            "claim": "I costi totali per 12 mesi sono 180 € per l'Opzione A e 150 € per l'Opzione B.",
+            "premises": "L'utente ha dichiarato che il piano mensile costa 15 € al mese per un totale di 180 € e che l'opzione anticipata costa 150 € per 12 mesi.",
+            "support": "stated",
+            "correction": "",
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_cae31c5222d94d33"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0
+          },
+          {
+            "claim": "L'Opzione A non ha vincoli di disdetta specificati, mentre l'Opzione B non prevede rimborso in caso di disdetta anticipata.",
+            "premises": "L'utente ha indicato che l'Opzione A non menziona vincoli di disdetta e che l'Opzione B non prevede rimborso in caso di disdetta anticipata.",
+            "support": "stated",
+            "correction": "",
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_cae31c5222d94d33"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0
+          },
+          {
+            "claim": "Le condizioni pratiche (spazio di archiviazione, assistenza, spese iniziali) sono uguali per entrambe le opzioni.",
+            "premises": "L'utente ha confermato che entrambe le opzioni offrono 100 GB di spazio, assistenza uguale e spese iniziali nulle.",
+            "support": "stated",
+            "correction": "",
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_cae31c5222d94d33"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0
+          },
+          {
+            "claim": "I dati sui costi e le condizioni non sono stati confermati dal fornitore.",
+            "premises": "L'utente ha specificato che i dati sono riferiti e non confermati dal fornitore.",
+            "support": "stated",
+            "correction": "",
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_cae31c5222d94d33"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0
+          }
+        ],
+        "claim_review_omitted": 0,
+        "exactly_matches_generation": true,
+        "matches_generation_ignoring_whitespace": true,
+        "exactly_matches_saved_result": true
+      },
+      "verifier": {
+        "model": {
+          "provider": "mistral",
+          "model": "ministral-14b-2512"
+        },
+        "sequence": 8,
+        "outcome": "achieved",
+        "reasoning": "Il documento interno è stato preparato e soddisfa tutti i criteri richiesti, inclusa la tabella comparativa e le avvertenze sui dati non confermati.",
+        "what_is_missing": ""
+      },
+      "prepared_text_characters": 2591,
+      "prepared_text_truncated": false,
+      "prepared_text_sha256": "80b137131009f2d87906878adbc9e1f1d0cd854d4ec9c61aafe8d7610a732c90",
+      "structured_decisions_omitted": 0
+    },
+    "reference_and_revision_observations": {
+      "original_memory_ref_observed_in_initial_plan": "mem_43262246ed92296b9353",
+      "replacement_memory_ref_observed_in_replan": "mem_c5c5ea6cfaf8263a489b",
+      "corrected_source_reread_reported": true,
+      "successful_information_reads_observed": 2,
+      "generation_and_audit_cite_the_same_supplied_evidence_id": true,
+      "current_generation_evidence_id": "evd_cae31c5222d94d33",
+      "current_read_ref_fence_attested_by_machine_gate": "run_case requires every current information.read Evidence to contain changed.current and exclude changed.old; verify_result requires one current read and two total reads for correction.",
+      "stale_replan_expected_outcome_observed": "La persona riceve un documento interno che confronta i costi (180€ vs. 120€), i vincoli di disdetta e le condizioni pratiche delle due opzioni, con evidenza della natura non confermata dei dati.",
+      "stale_replan_limit": "The second plan still describes 180 versus 120 despite naming the replacement Memory. Generation, audit and saved result use 150 and 30; this does not establish stale-price use in the final result.",
+      "numeric_revisions_or_source_version_digests_exported": false,
+      "limitation": "Reference replacement, executed reads and runner gates support current-source use. No live DB was inspected and unexported revision digests were not independently reconstructed."
+    }
+  }
+}

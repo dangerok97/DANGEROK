@@ -103,6 +103,10 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
                 source_refs = await expand_opportunity_source_refs(
                     db, row["owner_id"], opp.evidence
                 )
+                prior_assessment = opp.previous_model_assessment()
+                if (prior_assessment is not None
+                        and prior_assessment["proposal_revision"] != row.get("agent_review_fingerprint")):
+                    prior_assessment = None
                 answer = await asyncio.wait_for(AgentService(db).consider(
                     row["owner_id"], situation={
                         "what": opp.semantic_summary,
@@ -115,6 +119,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
                         "needs_research": opp.needs_research,
                         "research_question": opp.research_question or None,
                         "user_clarifications": row.get("agent_review_answers", [])[-3:],
+                        **({"previous_model_assessment": prior_assessment} if prior_assessment is not None else {}),
                     }, origin="agent_initiated", opportunity_id=opp.id,
                     source_kind="opportunity", source_refs=source_refs,
                     admission_revision=str(row["agent_review_revision"]),

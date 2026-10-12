@@ -236,6 +236,8 @@ jobs:
             tests/test_autonomy_eval_recovery_diagnostics_v162.py \
             tests/test_autonomy_model_diagnostics_v162.py \
             tests/test_gemini_quota_retry_v162.py \
+            tests/test_agent_protocol_recovery_v162.py \
+            tests/test_opportunity_assessment_context_v162.py \
             tests/test_agent_action_context_v162.py \
             tests/test_completed_result_context_v162.py \
             tests/test_preparation_recovery_v162.py \

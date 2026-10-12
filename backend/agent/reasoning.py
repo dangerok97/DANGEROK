@@ -1194,11 +1194,12 @@ def _action_dump(payload: Dict[str, Any]) -> Optional[str]:
         return encoded
     candidates = compact.get("still_to_do") or []
     steps = (compact.get("plan") or {}).get("steps") or []
-    original_steps = json.loads(json.dumps(steps)) if prepared else []
+    original_steps = json.loads(json.dumps(steps))
     repeated = []
     for index, step in enumerate(steps):
         if (isinstance(step, dict) and isinstance(step.get("id"), str) and step["id"]
-                and any(step == candidate for candidate in candidates)):
+                and any(json.dumps(step, ensure_ascii=False) == json.dumps(candidate, ensure_ascii=False)
+                        for candidate in candidates)):
             # Same id alone is insufficient: revisions can retain a step id
             # while changing its sources, parameters or effect declaration.
             steps[index] = {key: step[key] for key in ("id", "type", "status") if key in step}
@@ -1209,10 +1210,12 @@ def _action_dump(payload: Dict[str, Any]) -> Optional[str]:
     encoded = encode()
     if len(encoded) <= 9000:
         return encoded
-    if prepared:
-        encoded = _fit_prepared_context(compact, action=True, original_steps=original_steps)
-        if encoded is not None:
-            return encoded
+    encoded = _fit_prepared_context(
+        compact, action=True, original_steps=original_steps,
+        allow_history_omissions=bool(prepared),
+    )
+    if encoded is not None:
+        return encoded
     # More material than the bounded judgement can see is unavailability,
     # not a reason to ask for facts already read or to invent a next action.
     logger.info("action context unavailable: material_context_exceeds_budget")
@@ -1247,12 +1250,15 @@ def _record_table(rows: Any) -> Any:
 
 def _fit_prepared_context(
     compact: Dict[str, Any], *, action: bool, original_steps: Optional[List[Dict[str, Any]]] = None,
+    allow_history_omissions: bool = True,
 ) -> Optional[str]:
     """Fit the saved artifact by removing history and sharing exact copies.
 
     Source rows, the result, criteria, notes and operational fields are never
     shortened. The only descriptive omissions concern finished plan intent
     and expected_result. Generated history is not independent source evidence.
+    Without a current artifact, all history and descriptions remain too: only
+    exact text sharing and reconstructible tables may reduce the context.
     """
     encode = lambda: json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
     holder = compact if action else compact["what_was_done"]
@@ -1267,7 +1273,7 @@ def _fit_prepared_context(
     if not action:
         compact["context_truncated"] = True
 
-    generated = [row for row in rows if isinstance(row, dict)
+    generated = [row for row in rows if allow_history_omissions and isinstance(row, dict)
                  and row.get("generated_artifact") is True
                  and row.get("evidence_id") not in required]
     if generated:
@@ -1276,11 +1282,12 @@ def _fit_prepared_context(
     if len(encoded := encode()) <= 9000:
         return encoded
 
-    for step in steps + original_steps:
-        if isinstance(step, dict) and step.get("status") in ("succeeded", "skipped"):
-            for key in ("intent", "expected_result"):
-                step.pop(key, None)
-            omitted["completed_step_descriptions"] = True
+    if allow_history_omissions:
+        for step in steps + original_steps:
+            if isinstance(step, dict) and step.get("status") in ("succeeded", "skipped"):
+                for key in ("intent", "expected_result"):
+                    step.pop(key, None)
+                omitted["completed_step_descriptions"] = True
     if len(encoded := encode()) <= 9000:
         return encoded
 
