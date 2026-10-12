@@ -74,7 +74,7 @@ for(const id of ['hand','face','torso','abdomen','arm','leg','foot','wrist','kne
  result[id]={count:item.ids.length,source:item.source,available:item.available,
    ratio:+(item.ids.length/model.parts.length).toFixed(3)};
  console.log('REGION_SAMPLE '+id+' '+JSON.stringify(result[id]));
- if(['hand','face','torso','abdomen','arm','leg','foot'].includes(id)){
+ if(['hand','face','torso','abdomen','arm','leg','foot','wrist','knee'].includes(id)){
   assert.ok(item.available,'No usable local geometry for '+id+': '+JSON.stringify(result[id]));
   assert.ok(item.ids.length<model.parts.length*.65,'Too much body geometry in '+id);
  }
@@ -82,6 +82,15 @@ for(const id of ['hand','face','torso','abdomen','arm','leg','foot','wrist','kne
 assert.ok(!regions.anatomicalRegion(model,'hand','right').ids.includes(
  model.parts.find(p=>p.name.toLowerCase()==='heart')?.id||'__heart_missing__'
  ),'Hand cannot contain heart mesh');
+const rightHand=regions.anatomicalRegion(model,'hand','right');
+const leftHand=regions.anatomicalRegion(model,'hand','left');
+const sharedHands=rightHand.ids.filter(id=>leftHand.ids.includes(id)).length;
+console.log('REGION_HAND_SIDES '+JSON.stringify({
+ right:rightHand.ids.length,left:leftHand.ids.length,shared:sharedHands
+}));
+assert.ok(leftHand.available,'Left-hand reference mesh is missing');
+assert.ok(sharedHands<Math.min(rightHand.ids.length,leftHand.ids.length)*.45,
+ 'Both hand options cannot display the same anatomical reference');
 assert.ok(regions.anatomicalRegion(model,'full_body','unknown').ids.length===2234);
 console.log('ANATOMICAL_REGION_COUNTS '+JSON.stringify(result));
 
