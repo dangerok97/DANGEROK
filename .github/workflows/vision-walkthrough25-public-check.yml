@@ -1,0 +1,64 @@
+name: Vision walkthrough25 public assets
+on:
+  push:
+    branches: [qa/vision-walkthrough25-public-check]
+    paths: ['.github/workflows/vision-walkthrough25-public-check.yml']
+permissions:
+  contents: read
+concurrency:
+  group: vision-walkthrough25-public-check
+  cancel-in-progress: false
+jobs:
+  public-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - name: Read only public HTML and same-origin scripts; no account or camera
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, re, time
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from urllib.parse import urljoin, urlparse
+          base='https://ora-web-production-fb67.up.railway.app'
+          markers=['vision-tour-source-context','La molla si carica elasticamente','Il ritorno richiama altro liquido']
+          out=Path('evidence');out.mkdir(exist_ok=True)
+          def read(url):
+              if urlparse(url).scheme!='https' or urlparse(url).netloc!=urlparse(base).netloc:
+                  raise ValueError('Only the explicit public ORA origin is allowed')
+              with urlopen(Request(url,headers={'Cache-Control':'no-cache','User-Agent':'ORA-public-assets-QA'}),timeout=20) as response:
+                  if urlparse(response.url).netloc!=urlparse(base).netloc:
+                      raise ValueError('Unexpected redirect')
+                  data=response.read(30*1024*1024+1)
+                  if len(data)>30*1024*1024: raise ValueError('Asset size limit')
+                  return data.decode('utf-8'), response.status
+          last={}
+          deadline=time.monotonic()+840
+          while time.monotonic()<deadline:
+              try:
+                  html,status=read(base+'/vision-xray?qa=walkthrough25')
+                  paths=re.findall(r'<script[^>]+src=[\"\']([^\"\']+)',html)
+                  urls=list(dict.fromkeys(urljoin(base,p) for p in paths))[:8]
+                  found={m:False for m in markers}
+                  for url in urls:
+                      text,_=read(url)
+                      for marker in markers: found[marker]=found[marker] or marker in text
+                  last={'html_status':status,'script_count':len(urls),'markers':found,'authenticated':False,'physical_camera_test':False}
+                  if urls and all(found.values()):
+                      last['success']=True
+                      (out/'public-assets.json').write_text(json.dumps(last,ensure_ascii=False,indent=2))
+                      print(json.dumps(last,ensure_ascii=False));break
+              except Exception as exc:
+                  last={'success':False,'error_type':type(exc).__name__}
+              time.sleep(15)
+          else:
+              (out/'public-assets.json').write_text(json.dumps(last,ensure_ascii=False,indent=2))
+              raise SystemExit('New public walkthrough markers not observed within the bounded check')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walkthrough25-public-assets
+          path: evidence/
+          retention-days: 7
