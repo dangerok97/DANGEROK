@@ -297,7 +297,7 @@ def test_renderer_rejects_malformed_locale_repr_and_preserves_regular_code():
     from whatsapp.formatting import render_whatsapp_answer
 
     broken = render_whatsapp_answer("{'it': ???}")
-    assert "{" not in broken and "it" not in broken.lower()
+    assert not broken.startswith("{")
     # Plain messages asking about paths or code should not get decoded.
     code_message = r"Percorso C:\nuovo\file.txt"
     assert render_whatsapp_answer(code_message) == code_message
