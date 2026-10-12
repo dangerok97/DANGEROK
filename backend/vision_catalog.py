@@ -15,7 +15,7 @@ from typing import Awaitable, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pymongo import ReturnDocument
-from vision_seed_library import common_recipes, canonical_key, model_metadata
+from vision_seed_library import all_recipes, canonical_key, model_metadata
 
 SCHEMA_VERSION = 1
 SHAPES = ("shell", "board", "keypad", "cylinder", "spring", "cone", "bottle", "ring", "box")
@@ -135,7 +135,7 @@ def seeds() -> list[Manifest]:
             part("lens", "Protezione frontale", "Protegge l'ottica.", "È una rappresentazione semplificata dell'elemento anteriore; non ne determina il materiale.", "ring", (25, 4, 25), (0, 61, 0), (78, 24, 0)),
             part("tail", "Chiusura posteriore", "Chiude il corpo della torcia.", "L'interruttore può trovarsi qui oppure sul corpo. Non è deducibile con certezza da questo schema.", "cylinder", (25, 9, 25), (0, -50, 0), (85, -41, 0)),
         ]),
-    ] + [Manifest.model_validate(row["manifest"]) for row in common_recipes()]
+    ] + [Manifest.model_validate(row["manifest"]) for row in all_recipes()]
 
 
 class CatalogLimit(Exception):

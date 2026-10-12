@@ -1,7 +1,8 @@
 /** Built UI, real disposable Mongo. Camera/torch below are explicit test fixtures,
  * not a physical phone and not proof that Safari exposes a device torch. */
 import {test,expect,type Page} from '@playwright/test';
-import {mkdirSync} from 'node:fs';
+import {mkdirSync,readFileSync} from 'node:fs';
+const legacy=new Set(Object.keys(JSON.parse(readFileSync('../backend/vision_tests/fixtures/legacy25_sha256.json','utf8'))));
 mkdirSync('../.vision-evidence',{recursive:true});
 const headers={Authorization:'Bearer vision-test-alice'};
 async function session(page:Page){await page.addInitScript(()=>localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice')));}
@@ -25,10 +26,10 @@ async function camera(page:Page,supported=true,ignore=false){
 
 test('all 25 catalogue families load and have selectable explanatory parts',async({page},info)=>{
  await session(page);await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/vision-xray');
- await expect(page.getByTestId('vision-catalog-toggle')).toContainText('25');
- const list=await (await page.request.get('/api/vision-xray/catalog',{headers})).json();expect(list.models).toHaveLength(25);
+ await expect(page.getByTestId('vision-catalog-toggle')).toContainText('75');
+ const list=await (await page.request.get('/api/vision-xray/catalog',{headers})).json();expect(list.models).toHaveLength(75);const originalModels=list.models.filter((m:any)=>legacy.has(m.canonical_key));expect(originalModels).toHaveLength(25);
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- for(const entry of list.models){
+ for(const entry of originalModels){
   await page.getByTestId('vision-catalog-toggle').click();await page.getByTestId('vision-catalog-'+entry.canonical_key).click();
   const model=await (await page.request.get('/api/vision-xray/catalog/'+entry.model_id,{headers})).json();
   await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count',String(model.manifest.parts.length));
@@ -49,7 +50,7 @@ test('catalogue search finds aliases and filters categories without changing the
  const query=page.getByTestId('vision-catalog-search');await query.fill('telefono');
  await expect(page.getByTestId('vision-catalog-smartphone')).toBeVisible();
  await query.fill('thumb drive');await expect(page.getByTestId('vision-catalog-usb_flash_drive')).toBeVisible();
- await page.getByTestId('vision-catalog-category').selectOption('Casa');await expect(page.getByTestId('vision-catalog-category')).toHaveCSS('appearance','none');await expect(page.getByTestId('vision-catalog-count')).toContainText('0 di 25');
+ await page.getByTestId('vision-catalog-category').selectOption('Casa');await expect(page.getByTestId('vision-catalog-category')).toHaveCSS('appearance','none');await expect(page.getByTestId('vision-catalog-count')).toContainText('0 di 75');
  await query.fill('');await expect(page.getByTestId('vision-catalog-clothespin')).toBeVisible();
  await expect(page.getByTestId('vision-catalog-smartphone')).toHaveCount(0);
  await page.screenshot({path:'../.vision-evidence/catalog25-search-'+info.project.name+'.png',fullPage:true});

@@ -69,7 +69,7 @@ def recipes(r, p):
             p("wheel", "Ruota", "Rotola sul pavimento.", "Mozzo e battistrada sono riuniti; portata e materiale non sono dedotti.", "cylinder", (34,18,34), (0,-13,0)),
             p("axle", "Asse", "Collega la ruota alla forcella.", "Orientamento e fissaggio del gruppo sono semplificati.", "cylinder", (5,29,5), (0,-13,0)),
         ]),
-        r("coat_hanger", "Grucce con gancio metallico", "Casa", ("gruccia", "wooden_coat_hanger", "appendiabiti_gruccia"), [
+        r("coat_hanger", "Gruccia con gancio metallico", "Casa", ("gruccia", "wooden_coat_hanger", "appendiabiti_gruccia"), [
             p("shoulders", "Supporto delle spalle", "Sostiene il capo.", "Le due spalle sono rappresentate come un gruppo; il profilo triangolare è semplificato.", "box", (156,17,11), (0,10,0)),
             p("hook", "Gancio", "Appende la gruccia all'asta.", "La curvatura aperta del filo è schematizzata; non è un anello chiuso nel prodotto reale.", "ring", (24,36,4), (0,44,0)),
             p("bar", "Barra inferiore", "Può sostenere pantaloni o altri capi.", "Il collegamento alle spalle dipende dalla costruzione. Non tutte le grucce hanno la barra.", "cylinder", (9,138,9), (0,-15,0)),
