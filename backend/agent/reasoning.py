@@ -162,7 +162,19 @@ _STEP_DECLARATION_PROTOCOL = (
     "parameters, a question, authority or source facts from a capability name or an old "
     "step. Declared effects are proposals, never permission. id, ordinal, status and note "
     "describe stored history; code assigns a new pending identity to each new step. "
-    "An ambiguous or incomplete revision cannot be applied only in part.\n\n"
+    "An ambiguous or incomplete revision cannot be applied only in part. "
+    "A source-dependent preparation does NOT read even if its input_refs point "
+    "at a Memory or document. If no current executed read is in goal evidence, "
+    "the plan must contain a separate inspect/read step before source-grounded "
+    "preparation; a source_context preview, stored Memory reference or an "
+    "expected_result naming the facts is not execution evidence. A source read "
+    "already covering its full version is reusable and must not be repeated. "
+    "Do not replace an available owned-source read with speculative web research "
+    "for an unnamed or hypothetical provider; unknown contractual terms stay "
+    "unknown. For non-effect steps omit inapplicable effect metadata, or use "
+    "well-typed allowed values; never send a wrong-type effect_type. For execute "
+    "steps the real effect_type, target, external impact and authority requirements "
+    "are mandatory.\n\n"
 )
 
 
