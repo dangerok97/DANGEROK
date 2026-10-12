@@ -13,11 +13,13 @@
  * pre-authorised, so it is a sentence, not a switch — the absence of a toggle
  * there is the honest part.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { api } from '@/src/api/client';
+import { ConnectorOAuthError } from '@/src/connectors/connectorOAuth';
+import { connectGoogleSource } from '@/src/connectors/connectorOAuthRuntime';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { useInflight } from '@/src/shell';
@@ -173,6 +175,7 @@ export default function PermessiScreen() {
   */
   const [connected, setConnected] = useState<ConnectedSourceRow[]>([]);
   const [connectingMail, setConnectingMail] = useState(false);
+  const mailConnectionActive = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -382,17 +385,28 @@ export default function PermessiScreen() {
     sorgente a dire se e' collegata, non questa schermata a ricordarselo.
   */
   const connectMailbox = useCallback(async () => {
+    if (mailConnectionActive.current) return;
+    mailConnectionActive.current = true;
     haptic('tap');
     setConnectingMail(true);
+    setWriteError(null);
     try {
-      const r = await api.gmailOAuthStart();
-      const win: any = typeof window !== 'undefined' ? window : null;
-      if (win?.location) win.location.assign(r.authorize_url);
+      const result = await connectGoogleSource('gmail', '/account/permessi', {
+        start: api.gmailOAuthStart,
+        instances: api.gmailInstances,
+      });
+      if (result.state === 'connected') {
+        const sources = await api.getConnectedSources();
+        setConnected(sources.sources || []);
+        await reload();
+      }
     } catch (e: any) {
+      setWriteError(e instanceof ConnectorOAuthError ? e.message : humanizeError(e));
+    } finally {
+      mailConnectionActive.current = false;
       setConnectingMail(false);
-      setWriteError(humanizeError(e, 'connect'));
     }
-  }, []);
+  }, [reload]);
 
   return (
     <SubpageShell

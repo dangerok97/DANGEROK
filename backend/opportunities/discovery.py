@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from opportunities.changes import ChangeLog, MeaningfulChange, fingerprint
+from opportunities.changes import CLAIM_LEASE_SECONDS, ChangeLog, MeaningfulChange, fingerprint
 from opportunities.models import ScanResult
 
 logger = logging.getLogger(__name__)
@@ -145,93 +145,106 @@ class OpportunityDiscovery:
         from opportunities.service import OpportunityService
 
         pending = await self.changes.pending(owner_id)
+        state = await self._state(owner_id)
+        if str(state.get("lease_until") or "") > _now().isoformat():
+            return DiscoveryResult(reason=reason, skipped="una revisione è già in corso",
+                                   retry_after_seconds=CLAIM_LEASE_SECONDS)
         if not pending and not force and not scheduled:
             return DiscoveryResult(reason=reason, skipped="niente è cambiato")
-
-        state = await self._state(owner_id)
-
-        # A place transition is also new evidence about the shape of the
-        # person's days. Refresh routine understanding before building the
-        # snapshot so this very review can reason with the newly learned
-        # pattern. The routine service fingerprints evidence, so repeated
-        # arrivals with no new pattern cost no model call.
-        if any(getattr(change, "source", "") == "places" for change in pending):
-            try:
-                from places.service import PlacesService
-                await PlacesService(self.db).review_routines(owner_id, language=language)
-            except Exception as exc:
-                logger.info("routine learning soft-fail: %s", type(exc).__name__)
-
         if not force and self._cooling(state):
-            # The changes stay pending: the next review takes them.
-            return DiscoveryResult(
-                reason=reason, skipped="una revisione è appena avvenuta",
-                retry_after_seconds=COOLDOWN_SECONDS
+            return DiscoveryResult(reason=reason, skipped="una revisione è appena avvenuta",
+                                   retry_after_seconds=COOLDOWN_SECONDS)
+
+        scan_id = f"scn_{uuid.uuid4().hex[:20]}"
+        lease = await self._claim_scan(owner_id, scan_id)
+        if lease is None:
+            return DiscoveryResult(reason=reason, skipped="una revisione è già in corso",
+                                   retry_after_seconds=CLAIM_LEASE_SECONDS)
+        batch: List[MeaningfulChange] = []
+        async def current() -> bool:
+            return await self._scan_current(owner_id, scan_id)
+        try:
+            # Reserve before building the snapshot: a change that arrives while
+            # the model is thinking stays pending for the next bounded review.
+            batch = await self.changes.claim(owner_id, scan_id, lease_until=lease["lease_until"])
+            if not batch and not force and not scheduled:
+                return DiscoveryResult(reason=reason, skipped="niente è cambiato")
+
+            if any(change.source == "places" for change in batch):
+                try:
+                    from places.service import PlacesService
+                    await PlacesService(self.db).review_routines(owner_id, language=language)
+                except Exception as exc:
+                    logger.info("routine learning soft-fail: %s", type(exc).__name__)
+
+            snapshot = await life_snapshot.build(self.db, owner_id, changes=[c.for_ai() for c in batch])
+            print_ = fingerprint(snapshot)
+            same_facts = (not force and not any(c.source == "communications" for c in batch)
+                          and print_ == (lease.get("fingerprint") or ""))
+            if same_facts:
+                if not await self._remember(owner_id, scan_id=scan_id, fingerprint=print_):
+                    return self._unavailable(reason, len(batch), "la revisione non è più corrente")
+                if await self.changes.acknowledge(owner_id, batch) != len(batch):
+                    return self._unavailable(reason, len(batch), "la conferma della revisione non è disponibile")
+                return DiscoveryResult(reason=reason, skipped="i fatti sono gli stessi già valutati",
+                                       changes_reviewed=len(batch))
+
+            scan = await OpportunityService(self.db).scan(
+                owner_id, changes=[c.for_ai() for c in batch], language=language,
+                source_context=reason,
+                prepared_snapshot={**snapshot, "what_changed": [c.for_ai() for c in batch]},
+                claim_is_current=current,
             )
-
-        pending_ai = [change.for_ai() for change in pending]
-        snapshot = await life_snapshot.build(
-            self.db, owner_id, changes=pending_ai
-        )
-        print_ = fingerprint(snapshot)
-        has_fresh_communication = any(
-            getattr(change, "source", "") == "communications"
-            for change in pending
-        )
-        if (
-            not force
-            and not has_fresh_communication
-            and print_ == (state.get("fingerprint") or "")
-        ):
-            # Most changes have a durable representation in the snapshot, so
-            # an unchanged snapshot means the model would see the same facts.
-            # A fresh communication is different: its message/thread delta is
-            # itself the new fact and is not copied into stable life state.
-            # ChangeLog already dedupes it, so that batch gets one review.
-            await self.changes.claim(owner_id, "no_semantic_delta")
-            await self._remember(owner_id, fingerprint=print_)
-            return DiscoveryResult(
-                reason=reason,
-                skipped="i fatti sono gli stessi già valutati",
-                changes_reviewed=len(pending),
-            )
-
-        scan_id = f"scn_{uuid.uuid4().hex[:12]}"
-        batch = await self.changes.claim(owner_id, scan_id)
-
-        scan = await OpportunityService(self.db).scan(
-            owner_id,
-            changes=[c.for_ai() for c in batch],
-            language=language,
-            source_context=reason,
-            prepared_snapshot={
-                **snapshot,
-                "what_changed": [c.for_ai() for c in batch],
-            },
-        )
-
-        if scan.unavailable:
-            logger.info("opportunity_review outcome=unavailable changes=%d", len(batch))
-            # Nothing was read, so nothing has been reviewed. Putting the batch
-            # back is the difference between "we looked and there was nothing"
-            # and "we never looked" — and only one of those is true.
+            if scan.unavailable:
+                return DiscoveryResult(ran=True, reason=reason, changes_reviewed=len(batch), scan=scan)
+            if not await self._remember(owner_id, scan_id=scan_id, fingerprint=print_):
+                return self._unavailable(reason, len(batch), "la revisione non è più corrente")
+            # Decisions (including a valid silence) are durable before this
+            # acknowledgement. A failed acknowledgement can safely be replayed.
+            if await self.changes.acknowledge(owner_id, batch) != len(batch):
+                return self._unavailable(reason, len(batch), "la conferma della revisione non è disponibile")
+            logger.info("opportunity_review outcome=%s changes=%d created=%d updated=%d",
+                        "silence" if scan.silence else "opportunities", len(batch),
+                        len(scan.created), len(scan.updated))
+            return DiscoveryResult(ran=True, reason=reason, changes_reviewed=len(batch), scan=scan)
+        except Exception as exc:
+            logger.info("opportunity review interrupted error=%s", type(exc).__name__)
+            return self._unavailable(reason, len(batch), "la revisione non è disponibile")
+        finally:
+            # Cancellation releases only our own claims; a hard process crash
+            # is recovered by their expiry. Never clear a replacement's token.
             await self.changes.release(owner_id, batch)
-            return DiscoveryResult(
-                ran=True, reason=reason, changes_reviewed=len(batch), scan=scan
+            await self.db[STATE].update_one(
+                {"owner_id": owner_id, "lease_token": scan_id},
+                {"$unset": {"lease_token": "", "lease_until": ""}},
             )
-
-        await self._remember(owner_id, fingerprint=print_)
-        logger.info(
-            "opportunity_review outcome=%s changes=%d documents=%d created=%d updated=%d missing_sources=%d",
-            "silence" if scan.silence else "opportunities", len(batch),
-            len(snapshot.get("documents") or []), len(scan.created), len(scan.updated),
-            len(scan.unavailable_sources),
-        )
-        return DiscoveryResult(
-            ran=True, reason=reason, changes_reviewed=len(batch), scan=scan
-        )
 
     # --- the little state this needs -------------------------------------
+
+    @staticmethod
+    def _unavailable(reason, count, note) -> DiscoveryResult:
+        return DiscoveryResult(ran=True, reason=reason, changes_reviewed=count,
+                               scan=ScanResult(silence=True, unavailable=True, reason_for_silence=note))
+
+    async def _claim_scan(self, owner_id: str, token: str) -> Optional[Dict[str, Any]]:
+        from pymongo import ReturnDocument
+        await self.db[STATE].update_one({"owner_id": owner_id}, {"$setOnInsert": {
+            "owner_id": owner_id,
+        }}, upsert=True)
+        return await self.db[STATE].find_one_and_update(
+            {"owner_id": owner_id, "$or": [
+                {"lease_until": {"$exists": False}}, {"lease_until": {"$lte": _now().isoformat()}},
+            ]},
+            {"$set": {"lease_token": token,
+                      "lease_until": (_now() + timedelta(seconds=CLAIM_LEASE_SECONDS)).isoformat()}},
+            return_document=ReturnDocument.AFTER,
+        )
+
+    async def _scan_current(self, owner_id: str, token: str) -> bool:
+        return bool(await self.db[STATE].find_one(
+            {"owner_id": owner_id, "lease_token": token, "lease_until": {"$gt": _now().isoformat()}},
+            {"_id": 1},
+        ))
 
     async def _state(self, owner_id: str) -> Dict[str, Any]:
         try:
@@ -251,15 +264,16 @@ class OpportunityDiscovery:
             when = when.replace(tzinfo=timezone.utc)
         return (_now() - when) < timedelta(seconds=COOLDOWN_SECONDS)
 
-    async def _remember(self, owner_id: str, *, fingerprint: str) -> None:
+    async def _remember(self, owner_id: str, *, scan_id: str, fingerprint: str) -> bool:
         try:
-            await self.db[STATE].update_one(
-                {"owner_id": owner_id},
+            saved = await self.db[STATE].update_one(
+                {"owner_id": owner_id, "lease_token": scan_id, "lease_until": {"$gt": _now().isoformat()}},
                 {"$set": {"last_scan_at": _now().isoformat(), "fingerprint": fingerprint}},
-                upsert=True,
             )
+            return bool(saved.matched_count)
         except Exception as e:
             logger.info("scan state write soft-fail: %s", type(e).__name__)
+            return False
 
     async def forget_all(self, owner_id: str) -> Dict[str, int]:
         removed = await self.changes.forget_all(owner_id)

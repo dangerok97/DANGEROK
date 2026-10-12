@@ -34,6 +34,7 @@ from connectors.google_calendar.oauth import (
     OAuthStateInvalid,
     sanitize_redirect_after,
 )
+from .oauth import FLOW
 
 router = APIRouter(prefix="/connectors/gmail", tags=["gmail"])
 
@@ -96,6 +97,16 @@ async def oauth_callback(
     back where they were.
     """
     if error:
+        try:
+            session = await get_gmail_service().oauth_state.consume(state=state, expect_flow=FLOW)
+        except OAuthStateInvalid as e:
+            raise HTTPException(status_code=400, detail={"error": "oauth_state_invalid", "message": str(e)})
+        redirect_after = sanitize_redirect_after(session.get("redirect_after"))
+        if redirect_after:
+            return RedirectResponse(
+                url=_append_query(redirect_after, gmail="cancelled"), status_code=302,
+                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+            )
         return {"ok": False, "reason": "declined"}
     if not code:
         raise HTTPException(
@@ -126,6 +137,7 @@ async def oauth_callback(
                 instance_id=instance.get("id") or "",
             ),
             status_code=302,
+            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
         )
     return {"ok": True, "instance": instance}
 

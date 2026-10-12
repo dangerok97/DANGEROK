@@ -11,11 +11,10 @@
  *
  * The route name is unchanged on purpose — Home's calendar prompts and the
  * Apple Calendar flow all land here, and they all mean "the place where you
- * connect a calendar". None of the connector logic below is new: the handlers,
- * the OAuth start, the sync, the revoke and the confirmations are the ones
- * that already worked.
+ * connect a calendar". OAuth opens an actual auth session on native; the
+ * returned account is read back before this page reports a connection.
  */
-import { useCallback, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +28,8 @@ import {
   LLMProvidersStatus,
 } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
+import { ConnectorOAuthError } from '@/src/connectors/connectorOAuth';
+import { connectGoogleSource } from '@/src/connectors/connectorOAuthRuntime';
 import { haptic } from '@/src/utils/haptic';
 import { useInflight } from '@/src/shell';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
@@ -77,6 +78,7 @@ export default function ConnessioniScreen() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const oauthActive = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmAppleRevoke, setConfirmAppleRevoke] = useState(false);
@@ -131,37 +133,45 @@ export default function ConnessioniScreen() {
   }, [load]);
 
   const startGoogleOAuth = useCallback(async () => {
+    if (oauthActive.current) return;
+    oauthActive.current = true;
     haptic('tap');
+    setBusy('calendar_connect');
+    setError(null);
     try {
-      const r = await api.googleCalendarOAuthStart();
-      const win: any = typeof window !== 'undefined' ? window : null;
-      if (win?.location) win.location.assign(r.authorize_url);
-      else router.push('/(tabs)');
+      const result = await connectGoogleSource('google_calendar', '/settings', {
+        start: api.googleCalendarOAuthStart,
+        instances: api.googleCalendarInstances,
+      });
+      if (result.state === 'connected') await load();
     } catch (e: any) {
-      setError(humanizeError(e, 'connect'));
+      setError(e instanceof ConnectorOAuthError ? e.message : humanizeError(e));
+    } finally {
+      oauthActive.current = false;
+      setBusy(null);
     }
-  }, [router]);
+  }, [load]);
 
   const startGmailOAuth = useCallback(async () => {
-    if (busy === 'mail_connect') return;
+    if (oauthActive.current) return;
+    oauthActive.current = true;
     haptic('tap');
     setBusy('mail_connect');
     setError(null);
     try {
-      const redirect_after =
-        typeof window !== 'undefined' && window.location?.origin
-          ? `${window.location.origin}/settings`
-          : undefined;
-      const r = await api.gmailOAuthStart({ redirect_after });
-      const win: any = typeof window !== 'undefined' ? window : null;
-      if (win?.location) win.location.assign(r.authorize_url);
-      else router.push('/settings');
+      const result = await connectGoogleSource('gmail', '/settings', {
+        start: api.gmailOAuthStart,
+        instances: api.gmailInstances,
+      });
+      if (result.state === 'connected') await load();
     } catch (e: any) {
       haptic('error');
-      setError(humanizeError(e, 'connect'));
+      setError(e instanceof ConnectorOAuthError ? e.message : humanizeError(e));
+    } finally {
+      oauthActive.current = false;
       setBusy(null);
     }
-  }, [busy, router]);
+  }, [load]);
 
   const guard = useInflight();
 
@@ -300,6 +310,8 @@ export default function ConnessioniScreen() {
                           primary
                           icon="logo-google"
                           label="Autorizza la scrittura"
+                          loading={busy === 'calendar_connect'}
+                          disabled={busy !== null}
                           onPress={() => void startGoogleOAuth()}
                         />
                       </View>
@@ -313,6 +325,8 @@ export default function ConnessioniScreen() {
                     primary
                     icon="logo-google"
                     label={googleState === 'absent' ? 'Collega Google Calendar' : 'Ricollega'}
+                    loading={busy === 'calendar_connect'}
+                    disabled={busy !== null}
                     onPress={() => void startGoogleOAuth()}
                   />
                 </View>

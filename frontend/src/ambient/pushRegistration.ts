@@ -1,19 +1,4 @@
-/**
- * Asking to be reachable, and only when there is a reason.
- *
- * Two rules shape this file, and both are about restraint.
- *
- * The permission is never requested on launch. Asked then, the question is
- * about a feature and the honest answer is no; asked when ORA has actually
- * judged something worth reaching somebody for, it is about that thing. The
- * backend decides when that moment has come — `permission_moment` on Home is
- * present only while a real decision is waiting on it.
- *
- * And the web does not pretend. Expo push tokens are a native capability, and
- * a browser that asked for notification permission and then registered
- * nothing would be theatre. `capability()` says what this platform can
- * actually do so a surface can offer the truth.
- */
+/** Native push effects. Only enablePush may request an OS permission. */
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -21,119 +6,152 @@ import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 
 import { api } from '@/src/api/client';
-import { createInstallationHandle } from './installationHandle';
+import { storage } from '@/src/utils/storage';
+import { createInstallationHandle, createRegistrationRevision } from './installationHandle';
+import { createPushLifecycle, type PushPermission, type PushSession } from './pushLifecycle';
+import { createSessionCleanup, PENDING_SESSION_CLEANUP_KEY as CLEANUP_KEY, type PendingSessionCleanup } from '../auth/sessionCleanup';
 
+export type { PushOutcome, PushSnapshot } from './pushLifecycle';
 export type PushCapability = 'native' | 'unsupported';
-
-export type PushOutcome =
-  | { ok: true; state: 'granted' }
-  | { ok: false; state: 'denied' | 'unsupported' | 'no_project' | 'error'; detail?: string };
-
-/** What this platform can genuinely do about notifications. */
 export function capability(): PushCapability {
   return Platform.OS === 'ios' || Platform.OS === 'android' ? 'native' : 'unsupported';
 }
-
-/**
- * The Expo project this build belongs to.
- *
- * A push token is issued against a project, so without an id there is nothing
- * to ask for. Returning undefined here — rather than inventing one — is what
- * makes the failure legible instead of mysterious.
- */
 function projectId(): string | undefined {
   const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, unknown>;
   const eas = (extra.eas ?? {}) as Record<string, unknown>;
-  const fromEas = typeof eas.projectId === 'string' ? eas.projectId : undefined;
-  return fromEas || (Constants as unknown as { easConfig?: { projectId?: string } })
-    .easConfig?.projectId;
+  return (typeof eas.projectId === 'string' ? eas.projectId : undefined)
+    || Constants.easConfig?.projectId;
+}
+function permissionValue(value: Notifications.NotificationPermissionsStatus): PushPermission {
+  const granted = value.granted
+    || value.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+    || value.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL;
+  return {
+    status: granted ? 'granted' : value.status === 'denied' ? 'denied' : 'undetermined',
+    canAskAgain: value.canAskAgain,
+  };
+}
+async function bounded<T>(work: Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('push_timeout')), 12_000); }),
+    ]);
+  } finally { if (timeout) clearTimeout(timeout); }
 }
 
-/** Whether the OS has already been asked, without asking again. */
-export async function currentPermission(): Promise<'granted' | 'denied' | 'undetermined'> {
-  if (capability() !== 'native') return 'denied';
-  try {
-    const { status } = await Notifications.getPermissionsAsync();
-    if (status === 'granted') return 'granted';
-    return status === 'denied' ? 'denied' : 'undetermined';
-  } catch {
-    return 'undetermined';
-  }
-}
-
-/**
- * Ask, and if allowed, tell the backend which device to reach.
- *
- * The token goes straight to the server and is never stored on the device by
- * us: it is a capability to put text on this person's lock screen, and the
- * fewer places it exists, the better. If they say no, ORA carries on with
- * quiet presence and in-app cards, and nothing here asks again.
- */
-export async function enablePush(): Promise<PushOutcome> {
-  if (capability() !== 'native') {
-    return { ok: false, state: 'unsupported' };
-  }
-
-  let status: string;
-  try {
-    const existing = await Notifications.getPermissionsAsync();
-    status = existing.status;
-    if (status !== 'granted') {
-      const asked = await Notifications.requestPermissionsAsync();
-      status = asked.status;
-    }
-  } catch (e) {
-    return { ok: false, state: 'error', detail: String(e).slice(0, 120) };
-  }
-
-  if (status !== 'granted') {
-    // A missing token cannot unregister a previously authorized endpoint.
-    // Explicitly release THIS installation so ORA cannot keep targeting it
-    // after its owner revoked permission in the OS.
-    await releasePush();
-    return { ok: false, state: 'denied' };
-  }
-
-  const id = projectId();
-  if (!id) {
-    // No EAS project on this build. Nothing to invent — the permission is
-    // granted and there is simply no address yet.
-    return { ok: false, state: 'no_project' };
-  }
-
-  try {
-    const token = (await Notifications.getExpoPushTokenAsync({ projectId: id })).data;
-    await api.registerPushDevice({
-      token,
-      platform: Platform.OS === 'ios' ? 'ios' : 'android',
-      device: await deviceHandle(),
-      permission_state: 'granted',
-    });
-    return { ok: true, state: 'granted' };
-  } catch (e) {
-    return { ok: false, state: 'error', detail: String(e).slice(0, 120) };
-  }
-}
-
-/**
- * Release this device on the way out.
- *
- * A token left active for an account somebody just signed out of is how one
- * person's notification arrives on another person's phone.
- */
-export async function releasePush(): Promise<void> {
+const deviceHandle = createInstallationHandle(Platform.OS, SecureStore, () => Crypto.randomUUID());
+const registrationRevision = createRegistrationRevision(SecureStore);
+async function stopNative(): Promise<void> {
   if (capability() !== 'native') return;
-  try {
-    await api.releasePushDevice(await deviceHandle());
-  } catch {
-    // Logout should still work when the OS key store is unavailable.
+  // Stop Expo's own persisted token auto-registration before unregistering.
+  // Otherwise a later native token event can silently opt the device back in.
+  const auto = await Promise.allSettled([bounded(Notifications.setAutoServerRegistrationEnabledAsync(false))]);
+  const native = await Promise.allSettled([bounded(Notifications.unregisterForNotificationsAsync())]);
+  if (auto[0].status === 'rejected' || native[0].status === 'rejected') {
+    throw new Error('push_stop_pending');
   }
 }
 
-/**
- * Stable across logins and reloads on the same installation; fresh and unique
- * for another installation. The injected implementation is unit-tested.
- */
-const deviceHandle = createInstallationHandle(
-  Platform.OS, SecureStore, () => Crypto.randomUUID(),
-);
+export const pushLifecycle = createPushLifecycle({
+  native: capability() === 'native', projectId,
+  permission: async () => permissionValue(await Notifications.getPermissionsAsync()),
+  requestPermission: async () => permissionValue(await Notifications.requestPermissionsAsync()),
+  prepareChannel: async () => {
+    if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('default', {
+      name: 'Aggiornamenti ORA', importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  },
+  device: deviceHandle,
+  token: async id => {
+    const work = Notifications.getExpoPushTokenAsync({ projectId: id });
+    // Expo has no AbortSignal parameter. If it finishes after our deadline
+    // and logout, undo its auto-registration without touching a new account.
+    void work.then(() => {
+      if (!pushLifecycle.hasSession()) return stopNative().catch(() => undefined);
+    }).catch(() => undefined);
+    return (await bounded(work)).data;
+  },
+  register: async (session, token, device, requestDeliveryPermission) => api.registerPushDevice({
+    token, device, platform: Platform.OS, permission_state: 'granted',
+    device_revision: await registrationRevision(),
+    request_delivery_permission: requestDeliveryPermission,
+  }, session.token),
+  release: (session, device) => api.releasePushDevice(device, session.token),
+  stopNative,
+});
+
+export const sessionCleanup = createSessionCleanup({
+  read: async () => {
+    // Use the throwing native API here: an inaccessible keychain is not an
+    // empty queue and must never cause an older pending revocation to be lost.
+    const raw = capability() === 'native'
+      ? await SecureStore.getItemAsync(CLEANUP_KEY)
+      : await storage.secureGet<string>(CLEANUP_KEY, '');
+    if (!raw) return [];
+    const rows: unknown = JSON.parse(raw);
+    if (!Array.isArray(rows)) throw new Error('invalid_session_cleanup');
+    return rows.filter((row): row is PendingSessionCleanup =>
+      row && typeof row.token === 'string' && row.token.length > 0
+      && (row.device === null || typeof row.device === 'string')
+      && (row.expiresAt === null || (typeof row.expiresAt === 'number' && Number.isFinite(row.expiresAt))));
+  },
+  write: async rows => {
+    if (capability() === 'native') {
+      if (rows.length) await SecureStore.setItemAsync(CLEANUP_KEY, JSON.stringify(rows));
+      else await SecureStore.deleteItemAsync(CLEANUP_KEY);
+    } else {
+      const ok = rows.length
+        ? await storage.secureSet(CLEANUP_KEY, JSON.stringify(rows))
+        : await storage.secureRemove(CLEANUP_KEY);
+      if (!ok) throw new Error('session_cleanup_storage_failed');
+    }
+  },
+  revoke: async job => {
+    // The captured old credential is only used for its own device/session.
+    // Never read the current authToken while finishing somebody else's exit.
+    if (job.device) {
+      try { await api.releasePushDevice(job.device, job.token); } catch { /* logout below is the session fence */ }
+    }
+    try {
+      const result = await api.logout(job.token);
+      if (!result.ok) throw new Error('session_cleanup_pending');
+    } catch (error) {
+      // An already-invalid credential cannot own an active bound endpoint.
+      if ((error as { status?: number })?.status !== 401) throw error;
+    }
+  },
+  now: Date.now,
+});
+
+function tokenExpiry(token: string): number | null {
+  try {
+    const raw = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(atob(raw.padEnd(Math.ceil(raw.length / 4) * 4, '=')));
+    return typeof claims.exp === 'number' && Number.isFinite(claims.exp) ? claims.exp * 1000 : null;
+  } catch { return null; }
+}
+
+export function activatePushSession(session: PushSession): void {
+  pushLifecycle.setSession(session);
+}
+export function enablePush() { return pushLifecycle.reconcile(true); }
+export function reconcilePush() { return pushLifecycle.reconcile(false); }
+export function releasePush() { return pushLifecycle.release(); }
+
+/** Stage a protected retry before local credentials are removed; never block exit on network. */
+export async function endPushSession(token: string | null): Promise<void> {
+  const release = releasePush();
+  if (capability() === 'native') void Promise.allSettled([
+    Notifications.dismissAllNotificationsAsync(), Notifications.clearLastNotificationResponseAsync(),
+  ]);
+  // Native cleanup is also attempted while offline. Its outcome does not
+  // turn a pending server revocation into a claimed success.
+  void release.catch(() => undefined);
+  if (token) {
+    const device = capability() === 'native' ? await deviceHandle().catch(() => null) : null;
+    await sessionCleanup.add({ token, device, expiresAt: tokenExpiry(token) });
+  }
+  void sessionCleanup.flush();
+}

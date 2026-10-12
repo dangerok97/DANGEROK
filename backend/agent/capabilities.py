@@ -233,7 +233,8 @@ class Resolution:
 
     @property
     def usable(self) -> bool:
-        return self.known and self.permitted and self.executable
+        return (self.known and self.permitted and self.executable
+                and self.status in ("available_real", "available_simulated"))
 
     @property
     def is_real(self) -> bool:
@@ -278,6 +279,7 @@ class CapabilityResolver:
             elif reality == "simulated":
                 status = "available_simulated"
             else:
+                executable = False
                 status = "unavailable"
                 reason = "bank_not_connected"
 
@@ -290,6 +292,7 @@ class CapabilityResolver:
             if weather_ready:
                 status = "available_real"
             else:
+                executable = False
                 status = "unavailable"
                 reason = "weather_provider_unavailable"
 
@@ -335,16 +338,15 @@ class CapabilityResolver:
 
             service = PermissionService(self.db)
             if connector in _PER_INSTANCE:
-                instance = await self._instance_id(owner_id, connector)
-                if instance:
-                    return bool(
-                        await service.check_access(
-                            user_id=owner_id,
-                            capability_id=capability,
-                            connector_id=connector,
-                            connector_instance_id=instance,
-                        )
-                    )
+                from agent.connector_reads import authorized_instances
+
+                instances = await authorized_instances(self.db, owner_id, connector, capability)
+                if instances:
+                    return True
+                # A standing permission may still allow preparation of a
+                # future write. Reads require an actual authorized account.
+                if not _FACTS[capability].writes:
+                    return False
             return bool(
                 await service.check_access(
                     user_id=owner_id,
@@ -355,23 +357,6 @@ class CapabilityResolver:
         except Exception as e:
             logger.info("capability check soft-fail: %s", type(e).__name__)
             return False
-
-    async def _instance_id(self, owner_id: str, connector: str) -> str:
-        """Which connected account this person's consent was given about."""
-        try:
-            found = await self.db.connector_instances.find_one(
-                {
-                    "user_id": owner_id,
-                    "connector_id": connector,
-                    "status": {"$in": ["connected", "active", "authorized"]},
-                },
-                {"_id": 0, "id": 1},
-                sort=[("updated_at", -1)],
-            )
-            return str((found or {}).get("id") or "")
-        except Exception as e:
-            logger.info("instance lookup soft-fail: %s", type(e).__name__)
-            return ""
 
     async def available(self, owner_id: str) -> List[Dict[str, Any]]:
         """
@@ -403,8 +388,8 @@ class CapabilityResolver:
             out.append({
                 "capability": name,
                 "status": status,
-                "can_be_used_now": resolution.usable,
-                "really_does_something": status == "available_real",
+                "can_be_used_now": resolution.usable and status.startswith("available"),
+                "really_does_something": resolution.is_real,
                 "changes_something_in_the_world": resolution.writes,
                 "why_not": resolution.reason or None,
             })

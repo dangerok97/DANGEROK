@@ -34,6 +34,11 @@ async def test_mail_metadata_exposes_observed_refs_for_selective_body_read():
         "id": "gmail_1", "user_id": "alice",
         "connector_id": "mail_gmail", "status": "connected",
     })
+    from permissions.service import PermissionService
+    await PermissionService(db).grant(
+        user_id="alice", capability_id="mail.metadata", connector_id="mail_gmail",
+        connector_instance_id="gmail_1",
+    )
     await db.ingestion_events.insert_one({
         "id": "ing1", "user_id": "alice",
         "connector_instance_id": "gmail_1",

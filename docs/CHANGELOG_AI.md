@@ -1,3 +1,29 @@
+## 12 ottobre 2026 — v162: recupero dell'autonomia e verità delle fonti
+
+- Lettura delle Memory governate tramite schema corrente, riferimenti esatti,
+  stato valido, qualificazioni temporali e versione delle fonti osservate.
+- Invalidazione del lavoro e dei risultati precedenti quando una fonte viene
+  ritirata o corretta, anche durante la preparazione e il recupero della Home.
+- Recupero persistito degli errori di pianificazione con tentativi limitati,
+  sospensione leggibile e ripresa del medesimo lavoro dalla sua scheda.
+- Discovery con batch riservati e confermati dopo le scritture: crash,
+  cancellazione e risposta tardiva non perdono i nuovi cambiamenti.
+- Consensi per account rispettati nelle letture, connessioni in sincronizzazione
+  ancora disponibili e dati della cache qualificati dalla sincronizzazione reale.
+- Registrazione push e sessione recuperabili dopo errori temporanei; gestione
+  di logout offline, cambi account e risposte tardive, con storage protetto.
+- Consenso alla consegna legato all'attivazione esplicita delle notifiche;
+  logout degli endpoint legacy e protezione dal ripristino di credenziali
+  rimaste nello storage. Ritorno al risultato conservato dopo un nuovo login.
+- OAuth Gmail/Calendar nativo tramite SDK, destinazioni di ritorno limitate,
+  rilettura dell'istanza collegata e stato consumato atomicamente per flusso.
+- Collaudo attraverso ammissione, worker, risultato e Home, con casi negativi,
+  recupero tra processi e gate live che non simula la presenza del modello.
+- Nessuna nuova dipendenza di produzione; nessun effetto esterno reale nel QA.
+  Build firmata e ricezione fisica sul telefono conservano un gate distinto.
+
+---
+
 ## 12 ottobre 2026 — Vision: percorsi per tutte le 25 famiglie
 
 Estesi i percorsi Mostrami come funziona a smartphone, tablet, portatile, tastiera, controller, USB, auricolare/custodia, cancelleria, molletta, dispenser/spruzzatore, borraccia e cacciavite. Note adatte a meccanica, fluidi e materiali; fonti relative al passaggio. Conservati schema fissato, X sulla stessa traccia, zoom indipendenti e catalogo generico automatico.

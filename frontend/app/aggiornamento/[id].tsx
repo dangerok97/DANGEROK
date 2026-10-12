@@ -13,7 +13,7 @@ import { UpdateNextStep } from '@/src/components/home/v3/UpdateNextStep';
  * disponibile» compare anche qui, per intero, invece di sparire come se la
  * domanda non fosse stata fatta.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -103,15 +103,29 @@ export default function DettaglioAggiornamento() {
           testID="dettaglio-mancante"
         />
       ) : (
-        <Dettaglio a={a} onRemoved={() => router.replace('/aggiornamenti' as never)} />
+        <Dettaglio a={a} onRemoved={() => router.replace('/aggiornamenti' as never)} onChanged={leggi} />
       )}
     </PaginaOra>
   );
 }
 
-function Dettaglio({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }) {
+function Dettaglio({ a, onRemoved, onChanged }: { a: Aggiornamento; onRemoved: () => void; onChanged: () => Promise<void> }) {
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState('');
+  const retryInFlight = useRef(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState('');
+  const retry = async () => {
+    if (retryInFlight.current || !a.retry_available) return;
+    retryInFlight.current = true;
+    setRetrying(true); setRetryError('');
+    try {
+      const result = await api.retryAgentGoal(a.id);
+      if (!result.ok) throw new Error('Non sono riuscita a programmare la ripresa. Riprova tra poco.');
+      await onChanged();
+    } catch (e) { setRetryError(humanizeError(e)); }
+    finally { retryInFlight.current = false; setRetrying(false); }
+  };
   const remove = async () => {
     if (removing) return;
     setRemoving(true);
@@ -143,10 +157,23 @@ function Dettaglio({ a, onRemoved }: { a: Aggiornamento; onRemoved: () => void }
         testID="dettaglio-cosa"
       />
 
+      {a.retry_available && <OraCard style={styles.voce} testID="dettaglio-ripresa">
+        <Text style={[oraType.body, { color: ora.ink }]}>
+          Il lavoro è conservato. Puoi farlo ripartire senza riscrivere la richiesta.
+        </Text>
+        <Pressable accessibilityRole="button" testID="riprova-lavoro"
+          onPress={() => void retry()} disabled={retrying || removing}
+          accessibilityState={{ disabled: retrying || removing, busy: retrying }}
+          style={({ pressed }) => [styles.retry, pressed && { opacity: 0.8 }]}>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>{retrying ? 'Ripresa in preparazione…' : 'Riprova'}</Text>
+        </Pressable>
+        {!!retryError && <Text accessibilityRole="alert" style={{ color: ora.attention }}>{retryError}</Text>}
+      </OraCard>}
+
       <Pressable
         accessibilityRole="button"
         onPress={() => void remove()}
-        disabled={removing}
+        disabled={removing || retrying}
         style={({ pressed }) => [styles.remove, pressed && { opacity: 0.7 }]}
         testID="dettaglio-rimuovi"
       >
@@ -254,4 +281,5 @@ const styles = StyleSheet.create({
   voce: { gap: 8, padding: 20, alignItems: 'flex-start' },
   testa: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   remove: { alignSelf: 'flex-start', paddingVertical: 10 },
+  retry: { minHeight: 44, padding: 12, borderRadius: 12, backgroundColor: ora.cta, alignSelf: 'flex-start' },
 });

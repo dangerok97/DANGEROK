@@ -188,6 +188,19 @@ async def advance(goal_id: str, user=Depends(get_current_user)):
     return await AgentService(db).advance(user["user_id"], goal_id)
 
 
+@router.post("/{goal_id}/retry")
+async def retry_planning(goal_id: str, user=Depends(get_current_user)):
+    """Resume suspended preparation without granting any new authority."""
+    from agent.service import AgentService
+    from deps import db
+
+    result = await AgentService(db).retry_planning(user["user_id"], goal_id)
+    if not result.get("ok"):
+        reason = result.get("reason") or "planning_not_suspended"
+        raise HTTPException(status_code=404 if reason == "unknown_goal" else 409, detail=reason)
+    return result
+
+
 @router.post("/{goal_id}/answer")
 async def answer(goal_id: str, body: AnswerIn, user=Depends(get_current_user)):
     """

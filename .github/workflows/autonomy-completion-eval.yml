@@ -1,0 +1,141 @@
+name: ORA autonomy acceptance with required live evidence
+
+# Manual, trusted branch only. No fork PR or periodic model/provider spending.
+# Requested live work always executes: missing credentials are a blocked,
+# nonzero verdict from the runner, never a skipped green model check.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: autonomy-live-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scripted:
+    name: Required scripted source-to-Home contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHON_DOTENV_DISABLED: "1"
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_autonomy_synthetic_only
+      JWT_SECRET: synthetic-autonomy-evaluation-only
+      CALENDAR_PROVIDER_MODE: fake
+      AMBIENT_RUNTIME: "0"
+      DOCUMENT_AI_ENABLED: "0"
+      RESEARCH_ENABLED: "0"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Install locked dependencies and isolated Mongo adapter
+        run: pip install -r requirements-cloud.txt mongomock-motor==0.0.36
+      - name: Verify safety boundaries and all connected scripted cases
+        run: |
+          python -m pytest -q -n 0 tests/test_autonomy_completion_eval_v162.py -x
+          python -m scripts.autonomy_completion_eval_v162 --mode scripted \
+            --output /tmp/ora-autonomy-scripted.json
+      - name: Preserve explicit scripted verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autonomy-v162-scripted
+          path: /tmp/ora-autonomy-scripted.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  live-autonomy:
+    name: Required real LLM from admission through worker and Home
+    needs: scripted
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHON_DOTENV_DISABLED: "1"
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_autonomy_synthetic_only
+      JWT_SECRET: synthetic-autonomy-evaluation-only
+      CALENDAR_PROVIDER_MODE: fake
+      AMBIENT_RUNTIME: "0"
+      DOCUMENT_AI_ENABLED: "0"
+      RESEARCH_ENABLED: "0"
+      GEMINI_API_KEY: ${{ secrets.ORA_EVAL_GEMINI_API_KEY || secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.ORA_EVAL_OPENAI_API_KEY || secrets.OPENAI_API_KEY }}
+      LLM_PROVIDER: auto
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Install locked dependencies and isolated Mongo adapter
+        run: pip install -r requirements-cloud.txt mongomock-motor==0.0.36
+      - name: Execute required real model on canonical synthetic sources
+        run: |
+          python -m scripts.autonomy_completion_eval_v162 --mode live \
+            --output /tmp/ora-autonomy-live.json
+      - name: Preserve real-model verdict including blocked or failed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autonomy-v162-real-model
+          path: /tmp/ora-autonomy-live.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  live-public-sources:
+    name: Required real LLM and dated public route/weather sources
+    needs: scripted
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHON_DOTENV_DISABLED: "1"
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_public_read_synthetic_only
+      JWT_SECRET: synthetic-public-read-evaluation-only
+      CALENDAR_PROVIDER_MODE: fake
+      AMBIENT_RUNTIME: "0"
+      DOCUMENT_AI_ENABLED: "0"
+      RESEARCH_ENABLED: "0"
+      GEMINI_API_KEY: ${{ secrets.ORA_EVAL_GEMINI_API_KEY || secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.ORA_EVAL_OPENAI_API_KEY || secrets.OPENAI_API_KEY }}
+      ROUTING_PROVIDER: ${{ vars.ORA_EVAL_ROUTING_PROVIDER || vars.ROUTING_PROVIDER || 'google_routes' }}
+      ROUTING_API_KEY: ${{ secrets.ORA_EVAL_ROUTING_API_KEY || secrets.ROUTING_API_KEY }}
+      WEATHER_PROVIDER: open_meteo
+      LLM_PROVIDER: auto
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Install locked dependencies and isolated Mongo adapter
+        run: pip install -r requirements-cloud.txt mongomock-motor==0.0.36
+      - name: Execute required public reads at the fixed synthetic route
+        run: |
+          python -m scripts.phase1_read_provider_eval --mode live --max-steps 7 \
+            --output /tmp/ora-public-read-live.json
+      - name: Preserve dated provider observations and explicit verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autonomy-v162-public-provider-read
+          path: /tmp/ora-public-read-live.json
+          if-no-files-found: ignore
+          retention-days: 7

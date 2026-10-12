@@ -13,8 +13,9 @@ No endpoint here ever returns a push token.
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from deps import get_current_user
@@ -29,6 +30,10 @@ class RegisterIn(BaseModel):
     # An opaque device string; only its hash is stored.
     device: str = Field(default="", max_length=200)
     permission_state: str = Field(default="granted", max_length=16)
+    device_revision: int = Field(default=0, ge=0, le=9007199254740991)
+    # Only the explicit notification enable action requests account consent.
+    # A foreground/token refresh must not undo a deliberate revocation.
+    request_delivery_permission: bool = False
 
 
 class ReleaseIn(BaseModel):
@@ -63,14 +68,23 @@ def _dev_only() -> None:
 
 
 @router.post("/push/register")
-async def register(body: RegisterIn, user=Depends(get_current_user)):
+async def register(body: RegisterIn, user=Depends(get_current_user),
+                   authorization: str = Header(...)):
     """
     This device can be reached, and it belongs to this account.
 
     Idempotent, and it releases the device from whoever had it before.
     """
     from ambient.push import PushEndpointService
-    from deps import db
+    from deps import db, pyjwt, JWT_SECRET, JWT_ALGO
+    from session_revocation import token_digest
+
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        claims = pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        expires_at = datetime.fromtimestamp(claims["exp"], timezone.utc).isoformat()
+    except (pyjwt.PyJWTError, KeyError, ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     result = await PushEndpointService(db).register(
         user["user_id"],
@@ -78,19 +92,52 @@ async def register(body: RegisterIn, user=Depends(get_current_user)):
         platform=body.platform,
         device=body.device,
         permission_state=body.permission_state,
+        session_digest=token_digest(token),
+        session_expires_at=expires_at,
+        device_revision=body.device_revision,
     )
     if not result.get("ok"):
-        raise HTTPException(status_code=400, detail=result.get("reason"))
+        raise HTTPException(
+            status_code=401 if result.get("reason") == "session_inactive" else 400,
+            detail=result.get("reason"),
+        )
+    from permissions.errors import CapabilityDisabled
+    from permissions.service import PermissionService
+
+    permissions = PermissionService(db)
+    capability = "notifications.deliver"
+    available = await permissions.is_capability_enabled(capability)
+    if body.request_delivery_permission and body.permission_state == "granted" and available:
+        try:
+            await permissions.grant(
+                user_id=user["user_id"], capability_id=capability,
+                connector_id="notifications", purpose_id="delivery",
+                metadata={"source": "native_notification_enable"},
+            )
+        except CapabilityDisabled:
+            # A capability switch may race this request. Do not call the
+            # account unauthenticated or claim delivery was enabled.
+            available = False
+    result["delivery_available"] = available
+    result["delivery_allowed"] = available and await permissions.check_access(
+        user_id=user["user_id"], capability_id=capability,
+        connector_id="notifications", audit=False,
+    )
     return result
 
 
 @router.post("/push/release")
-async def release(body: ReleaseIn, user=Depends(get_current_user)):
+async def release(body: ReleaseIn, user=Depends(get_current_user),
+                  authorization: str = Header(...)):
     """Logout: nothing arrives on this phone for this account again."""
     from ambient.push import PushEndpointService
     from deps import db
+    from session_revocation import token_digest
 
-    return await PushEndpointService(db).release_device(user["user_id"], body.device)
+    return await PushEndpointService(db).release_device(
+        user["user_id"], body.device,
+        session_digest=token_digest(authorization.split(" ", 1)[1].strip()),
+    )
 
 
 @router.get("/push/endpoints")

@@ -1,3 +1,64 @@
+## 12 ottobre 2026 — v162: recupero, fonti correnti e consegna autonoma
+
+Il recupero della pianificazione usa il goal e la wake già esistenti. Errori,
+risposte non valide e indisponibilità temporanee conservano un contatore
+persistito: quattro tentativi complessivi, con rinvii di 60 secondi, 5 minuti
+e 30 minuti. L'esaurimento sospende il goal senza chiuderlo o inventare una
+domanda. Un'impossibilità valutata dal modello ha un esito strutturato
+distinto. La ripresa esplicita `POST /api/agent/{id}/retry` verifica owner,
+stato e ragione della sospensione; il doppio invio riusa la wake esistente.
+
+Discovery riserva il batch di cambiamenti con una lease persistita prima
+della valutazione. I cambiamenti restano pending finché le decisioni sono
+salvate e confermate. Cancellazione, errore o scadenza della lease consentono
+la ripresa; un vecchio worker non può confermare o liberare il batch del
+successore. La lease viene verificata anche dopo il modello e prima delle
+scritture. Nuovi cambiamenti restano disponibili per la revisione successiva.
+
+`information.read` legge lo schema governato `statement`/`content` e conserva
+la compatibilità con `summary`/`fact_summary`. I riferimenti del passo hanno
+precedenza su quelli del goal; una selezione esplicita non ripiega su note
+estranee. La query è owner-bound, limitata, e scarta memorie ritirate o
+superate. `source_versions` conserva l'impronta dei campi canonici osservati,
+senza copiare altro testo o occupare ulteriori riferimenti alla fonte.
+Il controllo della fonte viene ripetuto durante il ciclo, attorno alla
+preparazione e prima di visibilità, replay e consegna. Una correzione invalida
+la vecchia preparazione; una revoca non viene reinterpretata come correzione.
+Un errore DB resta indisponibilità di verifica, senza fingere una cancellazione.
+Il marker interno `memory_read_scope` distingue una lettura corrente vuota
+da una vecchia evidenza senza provenienza. Evidenze scomparse o superate
+richiedono nuova verifica; la rimozione del contenuto derivato conserva un
+eventuale rinvio scelto dall'utente prima di riprendere il ciclo normale.
+
+I lettori di posta e calendario condividono la selezione delle istanze per
+owner, stato connesso e consenso specifico. `syncing` rimane leggibile;
+l'istanza più recente senza consenso non nasconde quelle autorizzate.
+La freschezza deriva dalla sincronizzazione registrata, non dall'ora della
+lettura della cache. La disponibilità comunicata al planner coincide con
+la capacità effettivamente utilizzabile e con l'autorità ancora necessaria.
+
+Il ciclo client della sessione separa un errore temporaneo da una revoca
+confermata. La registrazione push è legata alla sessione e all'installazione;
+il recupero si esegue senza mostrare spontaneamente il dialogo dei permessi.
+La revoca offline viene conservata per essere ritentata usando lo storage
+protetto su native. Il gesto esplicito di attivazione registra il consenso
+canonico `notifications.deliver`; foreground e rotazione non lo concedono.
+Revisioni monotone dell'installazione impediscono alle richieste tardive di
+sostituire il nuovo account. La coda protetta delle revoche impedisce anche
+di ripristinare una credenziale rimasta nello storage dopo il logout.
+Il ritorno OAuth di un connettore usa una destinazione
+nativa esplicita, la sessione browser dell'SDK e una rilettura autenticata
+dell'esatto account collegato. Stato OAuth e flusso vengono consumati una
+sola volta anche in presenza di callback concorrenti.
+
+La verifica v162 attraversa governance, ammissione, wake, worker, preparazione,
+visibilità e outbox Home; include errori e processi distinti con Mongo reale.
+Il runner live richiede un modello effettivo e fallisce se la configurazione
+manca. Le prove usano account sintetici e vietano effetti esterni. Non viene
+aggiunto uno scheduler alternativo né un router di significato per dominio.
+
+---
+
 ## 12 ottobre 2026 — Vision: percorsi per tutte le 25 famiglie
 
 walkthroughLibrary.ts contiene i 20 nuovi percorsi e i contratti chiave/forma delle parti. walkthroughFor accetta solo seed illustrativi compatibili, rifiuta duplicati, metadati errati e collegamenti estranei ai gruppi evidenziati. sourcesForStep associa i riferimenti al passaggio. Nessuna modifica a backend, database, flash, crop, zoom o runtime dependencies.

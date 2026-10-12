@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 
 import { useAuth } from '@/src/contexts/AuthContext';
 import { tokens } from '@/src/theme/tokens';
+import { useSessionCleanup } from '@/src/ambient/usePushRegistration';
+import { sessionCleanup } from '@/src/ambient/pushRegistration';
 
 import { loginHrefFor } from './nextTarget';
 
@@ -36,13 +38,14 @@ function isPublic(pathname: string): boolean {
 }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshing, recovery, refresh } = useAuth();
+  const cleanup = useSessionCleanup();
   const router = useRouter();
   const pathname = usePathname();
   const sent = useRef<string | null>(null);
 
   const publicRoute = isPublic(pathname || '/');
-  const anonymous = !loading && !user && !publicRoute;
+  const anonymous = !loading && !user && !recovery && !publicRoute;
 
   useEffect(() => {
     if (!anonymous) {
@@ -56,9 +59,40 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     router.replace(loginHrefFor(pathname) as any);
   }, [anonymous, pathname, router]);
 
+  if (recovery && !user && !publicRoute) {
+    return (
+      <View testID="auth-session-recovery" style={{
+        flex: 1, justifyContent: 'center', padding: tokens.spacing.xl,
+        backgroundColor: tokens.color.backgroundPrimary,
+      }}>
+        <RecoveryNotice
+          message="Non riesco a verificare la sessione. Riprovo appena torna la connessione."
+          busy={refreshing}
+          onRetry={() => void refresh()}
+        />
+      </View>
+    );
+  }
+
+  const notices = (
+    <>
+      {recovery && user ? <RecoveryNotice
+        message="La connessione a ORA è interrotta. La tua sessione è conservata."
+        busy={refreshing} onRetry={() => void refresh()}
+      /> : null}
+      {cleanup.pending || cleanup.storageError ? <RecoveryNotice
+        message={cleanup.storageError
+          ? 'Non riesco ancora a leggere o salvare le sessioni in attesa di chiusura. Riprovo appena possibile.'
+          : 'L’uscita locale è completata. La connessione non ha ancora confermato la revoca sul server.'}
+        busy={cleanup.busy} onRetry={() => void sessionCleanup.flush()}
+        testID="session-revocation-pending"
+      /> : null}
+    </>
+  );
+
   // The root route runs its own gate and shows its own splash; letting this
   // one render over it would flash two spinners on every cold start.
-  if (publicRoute || pathname === '/') return <>{children}</>;
+  if (publicRoute || pathname === '/') return <View style={{ flex: 1 }}>{notices}{children}</View>;
 
   if (loading || anonymous) {
     return (
@@ -76,5 +110,28 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return <View style={{ flex: 1 }}>{notices}{children}</View>;
+}
+
+function RecoveryNotice({ message, busy, onRetry, testID = 'auth-recovery-notice' }: {
+  message: string; busy: boolean; onRetry: () => void; testID?: string;
+}) {
+  return (
+    <View testID={testID} style={{
+      paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.sm,
+      backgroundColor: tokens.color.backgroundSecondary,
+      flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: tokens.spacing.md,
+    }}>
+      <Text accessibilityLiveRegion="polite" style={{
+        flexGrow: 1, flexShrink: 1, flexBasis: 220,
+        fontSize: 14, lineHeight: 20, color: tokens.color.textSecondary,
+      }}>{message}</Text>
+      <Pressable onPress={onRetry} disabled={busy} accessibilityRole="button"
+        testID={`${testID}-retry`} style={{ minHeight: 44, justifyContent: 'center' }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: tokens.color.accent }}>
+          {busy ? 'Riprovo…' : 'Riprova'}
+        </Text>
+      </Pressable>
+    </View>
+  );
 }

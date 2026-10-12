@@ -70,6 +70,9 @@ class PushEndpointService:
         platform: str = "unknown",
         device: str = "",
         permission_state: str = "granted",
+        session_digest: str = "",
+        session_expires_at: str | None = None,
+        device_revision: int = 0,
     ) -> Dict[str, Any]:
         """
         Remember that this device can be reached, and that it belongs here.
@@ -81,10 +84,12 @@ class PushEndpointService:
         """
         if not token or not owner_id:
             return {"ok": False, "reason": "missing_token"}
+        if not await self.repo.endpoint_session_active(session_digest, session_expires_at):
+            return {"ok": False, "reason": "session_inactive"}
 
         handle = device_hash(device or token)
-        # Whoever had this device before does not have it now.
-        await self.repo.revoke_device(device_hash=handle)
+        if await self.repo.newer_device_registration(handle, device_revision):
+            return {"ok": False, "reason": "superseded_registration"}
 
         endpoint = await self.repo.upsert_endpoint(
             PushEndpoint(
@@ -93,6 +98,9 @@ class PushEndpointService:
                 platform=platform if platform in ("ios", "android", "web") else "unknown",
                 provider="expo" if is_expo_push_token(token) else "stub",
                 device_hash=handle,
+                session_digest=session_digest,
+                session_expires_at=session_expires_at,
+                device_revision=device_revision,
                 status="active",
                 permission_state=(
                     permission_state
@@ -101,13 +109,30 @@ class PushEndpointService:
                 ),
             )
         )
+        if endpoint is None:
+            return {"ok": False, "reason": "superseded_registration"}
+        # Retire only older registrations. A delayed request from the old
+        # account must not revoke the installation's newer owner.
+        await self.repo.revoke_device(
+            device_hash=handle, max_revision=device_revision, except_token=token,
+        )
+        # Logout can finish while the registration write is in flight. The
+        # delivery read checks the same registry too, so this late write never
+        # restores reachability for the revoked session.
+        if not await self.repo.endpoint_session_active(session_digest, session_expires_at):
+            await self.repo.revoke_session(owner_id, session_digest)
+            return {"ok": False, "reason": "session_inactive"}
+        if await self.repo.newer_device_registration(handle, device_revision):
+            return {"ok": False, "reason": "superseded_registration"}
         # The token is deliberately absent from what comes back.
         return {"ok": True, "endpoint": endpoint.public()}
 
-    async def release_device(self, owner_id: str, device: str) -> Dict[str, Any]:
+    async def release_device(self, owner_id: str, device: str, *,
+                             session_digest: str = "") -> Dict[str, Any]:
         """Logout. Nothing arrives on this phone for this account again."""
         released = await self.repo.revoke_device(
-            device_hash=device_hash(device), owner_id=owner_id
+            device_hash=device_hash(device), owner_id=owner_id,
+            session_digest=session_digest,
         )
         return {"ok": True, "released": released}
 

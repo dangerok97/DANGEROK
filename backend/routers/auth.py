@@ -367,8 +367,10 @@ async def get_avatar(key: str, user=Depends(get_current_user)):
 @router.post("/logout")
 async def logout(user=Depends(get_current_user), authorization: str = Header(...)):
     from deps import pyjwt, JWT_SECRET, JWT_ALGO
-    from session_revocation import revoke
+    from session_revocation import revoke, token_digest
+    from ambient.repository import AmbientRepository
     token = authorization.split(" ", 1)[1].strip()
     payload = pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
     await revoke(db, token, payload["exp"])
+    await AmbientRepository(db).revoke_session(user["user_id"], token_digest(token), include_legacy=True)
     return {"ok": True}

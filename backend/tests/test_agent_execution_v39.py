@@ -56,6 +56,7 @@ async def _clean(db, uid):
         "agent_evidence", "agent_runs", "autonomy_grants", "autonomy_policies",
         "autonomy_denials", "memories", "documents", "connector_instances",
         "ingestion_events", "ambient_wakes", "ambient_activity",
+        "permission_consents", "permission_audit",
     ):
         await db[coll].delete_many({"user_id": uid})
         await db[coll].delete_many({"owner_id": uid})
@@ -230,12 +231,17 @@ def test_no_calendar_is_not_an_empty_calendar():
             # With something actually connected, the same read reports a real
             # empty week — which is a different sentence and a real one.
             await db.connector_instances.insert_one({
-                "user_id": uid, "connector_id": "calendar_google", "status": "connected",
+                "id": "calendar_test", "user_id": uid, "connector_id": "calendar_google", "status": "connected",
             })
+            from permissions.service import PermissionService
+            await PermissionService(db).grant(
+                user_id=uid, capability_id="calendar.read", connector_id="calendar_google",
+                connector_instance_id="calendar_test",
+            )
             second = await providers.read_calendar(db, uid, _goal(uid))
             assert second.status in ("succeeded", "partial")
             assert second.error_type == ""
-            assert second.provenance.source_class == "connected_provider"
+            assert second.provenance.source_class == "internal_observation"
         finally:
             await _clean(db, uid)
             client.close()

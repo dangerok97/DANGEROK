@@ -1,10 +1,15 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import { AppState, Platform } from 'react-native';
 import { api, ApiUser, authToken } from '@/src/api/client';
 import { openingSession } from '@/src/components/ora/presence/openingSession';
+import { activatePushSession, endPushSession } from '@/src/ambient/pushRegistration';
+import { createSessionLifecycle } from '@/src/auth/sessionLifecycle';
 
 type AuthState = {
   user: ApiUser | null;
   loading: boolean;
+  refreshing: boolean;
+  recovery: boolean;
   signIn: (token: string, user: ApiUser) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -12,69 +17,51 @@ type AuthState = {
 };
 
 const Ctx = createContext<AuthState>({
-  user: null,
-  loading: true,
-  signIn: async () => {},
-  signOut: async () => {},
-  refresh: async () => {},
-  updateUser: () => {},
+  user: null, loading: true, refreshing: false, recovery: false,
+  signIn: async () => {}, signOut: async () => {}, refresh: async () => {}, updateUser: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<ApiUser | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    try {
-      const t = await authToken.get();
-      if (!t) {
-        openingSession.reset();
-        setUser(null);
-        return;
-      }
-      const u = await api.me();
-      setUser(u);
-    } catch {
-      openingSession.reset();
-      await authToken.clear();
-      setUser(null);
-    }
-  }, []);
+  const [lifecycle] = useState(() => createSessionLifecycle<ApiUser>({
+    readToken: authToken.get, writeToken: authToken.set, clearToken: authToken.clear,
+    me: token => api.me(token),
+    activate: (token, user) => activatePushSession({ ownerId: user.user_id, token }),
+    end: async token => {
+      await endPushSession(token);
+      // Location monitoring belongs to the same signed-in person too.
+      try {
+        const runtime = await import('@/src/location/presenceRuntime');
+        await runtime.shutdown();
+      } catch { /* A stopped native runtime must not prevent local logout. */ }
+    },
+    resetOpening: () => openingSession.reset(),
+  }));
+  const state = useSyncExternalStore(lifecycle.subscribe, lifecycle.getSnapshot, lifecycle.getSnapshot);
 
   useEffect(() => {
-    (async () => {
-      await refresh();
-      setLoading(false);
-    })();
-  }, [refresh]);
+    void lifecycle.refresh();
+    const foreground = AppState.addEventListener('change', status => {
+      if (status === 'active') void lifecycle.refresh();
+    });
+    const online = () => { void lifecycle.refresh(); };
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('online', online);
+    return () => {
+      foreground.remove();
+      if (Platform.OS === 'web' && typeof window !== 'undefined') window.removeEventListener('online', online);
+    };
+  }, [lifecycle]);
+  useEffect(() => {
+    if (!state.recovery) return;
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') void lifecycle.refresh();
+    }, 15_000);
+    return () => clearInterval(timer);
+  }, [lifecycle, state.recovery]);
 
-  const signIn = useCallback(async (token: string, u: ApiUser) => {
-    const persisted = await authToken.set(token);
-    if (!persisted) {
-      await authToken.clear();
-      throw new Error('auth_storage_failed');
-    }
-    openingSession.reset();
-    setUser(u);
-  }, []);
-
-  const signOut = useCallback(async () => {
-    try {
-      await api.logout();
-    } catch {}
-    // A phone left watching for somebody who signed out is a geofence zombie:
-    // it wakes up, records where the next person went, and has nowhere to send
-    // it. Stopping the monitoring is part of leaving.
-    try {
-      const runtime = await import('@/src/location/presenceRuntime');
-      await runtime.shutdown();
-    } catch {}
-    await authToken.clear();
-    openingSession.reset();
-    setUser(null);
-  }, []);
-
-  return <Ctx.Provider value={{ user, loading, signIn, signOut, refresh, updateUser: setUser }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{
+    ...state, signIn: lifecycle.signIn, signOut: lifecycle.signOut,
+    refresh: lifecycle.refresh, updateUser: lifecycle.updateUser,
+  }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => useContext(Ctx);

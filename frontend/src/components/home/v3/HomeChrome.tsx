@@ -27,6 +27,7 @@ export function HomeHeaderV3({
   ambient,
   permission,
   permissionBusy,
+  permissionRecovery,
   onEnableNotifications,
   onDismissNotifications,
   weather,
@@ -52,6 +53,7 @@ export function HomeHeaderV3({
    */
   permission?: { reason: string; example?: string | null } | null;
   permissionBusy?: boolean;
+  permissionRecovery?: { message: string; actionLabel: string | null } | null;
   onEnableNotifications?: () => void;
   onDismissNotifications?: () => void;
   /**
@@ -90,6 +92,7 @@ export function HomeHeaderV3({
         <NotificationMoment
           prompt={permission}
           busy={permissionBusy}
+          recovery={permissionRecovery}
           onEnable={() => onEnableNotifications?.()}
           onLater={() => onDismissNotifications?.()}
         />
@@ -210,7 +213,7 @@ export function HomeEmptyV3({ onAsk }: { onAsk?: () => void }) {
         <Ionicons name="checkmark" size={22} color={colors.accent} />
       </View>
       <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-        Per ora non c'è nulla che richieda la tua attenzione.
+        {"Per ora non c'è nulla che richieda la tua attenzione."}
       </Text>
       <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
         ORA continua a seguire quello che cambia. Se serve qualcosa, lo troverai qui.
@@ -276,29 +279,36 @@ export function HomeSkeletonV3({ wide }: { wide: boolean }) {
 export function NotificationMoment({
   prompt,
   busy,
+  recovery,
   onEnable,
   onLater,
 }: {
   prompt?: { reason: string; example?: string | null } | null;
   busy?: boolean;
+  recovery?: { message: string; actionLabel: string | null } | null;
   onEnable: () => void;
   onLater: () => void;
 }) {
   const { colors } = useTheme();
-  if (!prompt?.reason) return null;
+  if (!prompt?.reason && !recovery) return null;
+  const actionLabel = recovery ? recovery.actionLabel : 'Attiva notifiche';
 
   return (
     <View style={styles.permission} testID="notification-moment">
-      <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
+      {prompt?.reason ? <Text style={[styles.permissionText, { color: colors.textSecondary }]}>
         {prompt.reason}
-      </Text>
-      {prompt.example ? (
+      </Text> : null}
+      {recovery ? <Text testID="notification-feedback" accessibilityLiveRegion="polite"
+        style={[styles.permissionText, { color: colors.textSecondary }]}>
+        {recovery.message}
+      </Text> : null}
+      {prompt?.example ? (
         <Text style={[styles.permissionExample, { color: colors.textTertiary }]} numberOfLines={2}>
           Adesso, per esempio: {lowerFirst(prompt.example)}
         </Text>
       ) : null}
       <View style={styles.permissionActions}>
-        <Pressable
+        {actionLabel ? <Pressable
           onPress={onEnable}
           disabled={busy}
           style={({ pressed }) => [styles.permissionCta, pressed && styles.pressed]}
@@ -306,9 +316,9 @@ export function NotificationMoment({
           testID="notification-enable"
         >
           <Text style={[styles.permissionCtaText, { color: colors.accent }]}>
-            Attiva notifiche
+            {busy ? 'Verifico…' : actionLabel}
           </Text>
-        </Pressable>
+        </Pressable> : null}
         <Pressable
           onPress={onLater}
           style={({ pressed }) => [styles.permissionCta, pressed && styles.pressed]}
@@ -379,6 +389,7 @@ const styles = StyleSheet.create({
   },
   permissionActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 16,
     marginTop: 2,

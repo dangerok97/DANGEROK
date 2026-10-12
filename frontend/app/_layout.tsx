@@ -12,6 +12,7 @@ import { tokens } from '@/src/theme/tokens';
 import { AuthGate, ShellModeProvider, useShellTransitionMs } from '@/src/shell';
 import { installWebGlobals } from '@/src/theme/webGlobals';
 import { useNotificationHandoff } from '@/src/ambient/useNotificationHandoff';
+import { usePushReconciliation } from '@/src/ambient/usePushRegistration';
 
 /*
   The background task has to be defined at module scope, before the OS ever
@@ -97,6 +98,7 @@ function ThemedStack() {
   usePresenceReconciliation();
   useDeviceContactsReconciliation();
   useNotificationHandoff();
+  usePushReconciliation();
   return (
     <View style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
       {/*

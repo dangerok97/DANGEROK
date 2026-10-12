@@ -28,6 +28,11 @@ async def test_mail_metadata_is_real_bounded_and_omits_message_body():
         "status": "connected",
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
+    from permissions.service import PermissionService
+    await PermissionService(db).grant(
+        user_id=uid, capability_id="mail.metadata", connector_id="mail_gmail",
+        connector_instance_id="gmail_1",
+    )
     await db.ingestion_events.insert_one({
         "id": "ing_1",
         "user_id": uid,

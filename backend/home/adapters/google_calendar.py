@@ -30,12 +30,12 @@ async def google_connection_state(db, user_id: str) -> Dict[str, Any]:
 
 
 async def load_google_calendar_events(
-    db, user_id: str,
+    db, user_id: str, *, instances: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[List[HomeItem], List[ConnectionWarning]]:
     now = datetime.now(timezone.utc)
     window_end = now + timedelta(days=14)
     window_start = now - timedelta(hours=2)
-    docs = await google_calendar_records(db, user_id, window_start, window_end)
+    docs = await google_calendar_records(db, user_id, window_start, window_end, instances=instances)
 
     items: List[HomeItem] = []
     for d in docs:

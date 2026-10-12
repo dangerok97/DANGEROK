@@ -25,6 +25,8 @@ const ALLOWED = [
   '/life-area/',
   '/ora',
   '/attivita',
+  '/aggiornamento/',
+  '/prepara-chiamata',
   '/contesti',
   '/account/',
   '/settings',

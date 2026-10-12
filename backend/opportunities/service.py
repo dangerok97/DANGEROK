@@ -21,7 +21,7 @@ import logging
 import re
 import hashlib
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from opportunities import snapshot as life_snapshot
 from opportunities.models import (
@@ -64,6 +64,7 @@ class OpportunityService:
         language: str = "it",
         source_context: str = "manual_scan",
         prepared_snapshot: Optional[Dict[str, Any]] = None,
+        claim_is_current: Optional[Callable[[], Awaitable[bool]]] = None,
     ) -> ScanResult:
         """
         Ask whether anything in this life is worth raising.
@@ -88,6 +89,9 @@ class OpportunityService:
             already_raised=[o.for_ai() for o in known],
             language=language,
         )
+        if claim_is_current is not None and not await claim_is_current():
+            return ScanResult(silence=True, unavailable=True, unavailable_sources=blind_to,
+                              reason_for_silence="la revisione non è più corrente")
         if answer is None:
             logger.info("opportunity scan unavailable for %s", user_id[:8])
             return ScanResult(
@@ -185,6 +189,9 @@ class OpportunityService:
             existing = by_identity.get(candidate.identity_key) or await self.repo.by_identity(
                 user_id, candidate.identity_key
             )
+            if claim_is_current is not None and not await claim_is_current():
+                return ScanResult(silence=True, unavailable=True, unavailable_sources=blind_to,
+                                  reason_for_silence="la revisione non è più corrente")
             if existing is not None and existing.status in CLOSED:
                 fresh = self._what_is_new(existing, candidate)
                 same_departure = departures and any(
@@ -259,7 +266,10 @@ class OpportunityService:
                 decision_provenance="model",
             )
             await self.repo.save(opportunity)
-            await self._look_before_asking(user_id, opportunity, language)
+            if claim_is_current is None:
+                await self._look_before_asking(user_id, opportunity, language)
+            else:
+                await self._look_before_asking(user_id, opportunity, language, claim_is_current=claim_is_current)
             result.created.append(opportunity)
 
         if not result.created and not result.updated:
@@ -271,6 +281,7 @@ class OpportunityService:
 
     async def _look_before_asking(
         self, user_id: str, opportunity: Opportunity, language: str,
+        *, claim_is_current: Optional[Callable[[], Awaitable[bool]]] = None,
     ) -> None:
         """
         Guardare da sola prima di far guardare qualcun altro.
@@ -292,6 +303,8 @@ class OpportunityService:
                 self.db, user_id, opportunity, language=language,
             )
             if outcome.get("outcome") not in ("settled", "asked"):
+                return
+            if claim_is_current is not None and not await claim_is_current():
                 return
             await self.repo.save(opportunity)
             decision = decision_for(opportunity, outcome)

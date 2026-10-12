@@ -205,6 +205,12 @@ class ResultProvenance(BaseModel):
     provider: str = Field(default="", max_length=60)
     observed_at: str = Field(default_factory=now_iso)
     source_refs: List[str] = Field(default_factory=list, max_length=8)
+    # Code-owned snapshots used to fence later reuse after a source correction
+    # or revocation. Never exposed as model reasoning or as new evidence.
+    source_versions: Dict[str, str] = Field(default_factory=dict, max_length=8)
+    # Only the Memory reader attests a genuinely empty bounded selection.
+    # Legacy unreferenced claims cannot be certified from today's database.
+    memory_read_scope: Literal["", "empty", "versioned"] = ""
     freshness: Freshness = "unknown"
     # Code attests a completed, sufficient research run with cited claims.
     # Unknown on legacy evidence; this does not certify geographic relevance.
@@ -687,6 +693,10 @@ class AutonomousGoal(BaseModel):
     # may still close the goal if the world resolves underneath it.
     user_deferred_until: Optional[str] = None
     background_runs: int = 0
+    # A failed planning call is not a failed outcome. Its bounded retry budget
+    # survives process restarts independently of work already executed.
+    planning_attempts: int = Field(default=0, ge=0)
+    planning_unavailable: bool = False
     clarifications: List[Dict[str, str]] = Field(default_factory=list, max_length=3)
     opportunity_revision: str = ""
     source_situation: Dict[str, str] = Field(default_factory=dict)
@@ -727,6 +737,7 @@ class AutonomousGoal(BaseModel):
             "valid_until": self.valid_until,
             "outcome": self.desired_outcome,
             "why_now": self.why_now or None,
+            "planning_unavailable": self.planning_unavailable,
             "source": self.where_it_came_from(),
             "prepared_text": self.prepared_text or None,
             "needs_you": self.what_it_needs_from_you(),
@@ -1340,6 +1351,7 @@ class VisibilityDecision(BaseModel):
 
     # Handles back to what actually happened. Never content.
     refs: List[str] = Field(default_factory=list, max_length=8)
+    memory_source_snapshot: str = Field(default="", max_length=64)
     # What this update is *about*, so the same thing said twice is recognised
     # as the same thing rather than as news.
     fingerprint: str = Field(default="", max_length=64)
@@ -1428,6 +1440,7 @@ class CommunicationNeed(BaseModel):
 
     # Handles back to the work: goal, journal, evidence. Never content.
     source_refs: List[str] = Field(default_factory=list, max_length=8)
+    memory_source_snapshot: str = Field(default="", max_length=64)
     # The visibility judgement this grew out of, kept so the two can be read
     # together afterwards.
     visibility: OutcomeVisibility = "inform_user"

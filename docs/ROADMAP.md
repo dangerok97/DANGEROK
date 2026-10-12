@@ -1,3 +1,37 @@
+## 12 ottobre 2026 — v162: autonomia fino al risultato verificabile
+
+**Checkpoint corrente:** completamento dell'autonomia su richiesta esplicita
+del proprietario, con implementazione e collaudo fino al rilascio. Questo
+aggiornamento prevale sui checkpoint storici riportati sotto; l'ordine delle
+sei fasi approvate rimane valido.
+
+Il lavoro comprende recupero del planner e di Discovery, lettura delle Memory
+governate, controllo delle fonti cambiate durante il lavoro, disponibilità e
+consensi reali dei connettori, risultato persistito fino alla Home e recupero
+di sessione/notifiche. Le correzioni native includono anche il vero avvio e
+ritorno dell'autorizzazione di Gmail e Google Calendar.
+
+**Criterio di uscita software:** fonti canoniche → iniziativa pertinente →
+ammissione → worker ripreso dalla wake → risultato fondato → Home, con
+recupero dopo errori/riavvii, isolamento fra account e revoca rispettata.
+La prova con modello reale è distinta da quella a risposte controllate;
+le letture di provider pubblici sono distinte da un'integrazione personale.
+Evidenze e gate in [QA_AUTONOMY_COMPLETION_V162.md](QA_AUTONOMY_COMPLETION_V162.md).
+
+**Gate di prodotto ancora distinti:** build nativa firmata e installata,
+ricezione effettiva dell'avviso, background del dispositivo e osservazione
+longitudinale. Il config corrente non dimostra un progetto EAS o un canale
+OTA pubblicabile. Il funzionamento del motore e il successo di Railway non
+chiudono queste prove. Una stima fisica resta una stima finché manca una
+misura o una conferma; il vecchio bucato a Tarquinia resta concluso.
+
+Restano autorizzati nella sessione commit, push, PR, merge con CI verde e
+rilascio delle modifiche ordinarie. Non è stata chiesta né creata un'attività
+oraria di sviluppo, e il collaudo non invia messaggi, chiamate o notifiche
+reali a persone.
+
+---
+
 ## 8 ottobre 2026 — Piano di completamento ORA approvato
 
 **Checkpoint v126 della Fase 1 in verifica:** corrette classificazione degli
@@ -77,11 +111,11 @@ percorso fino al lancio si leggono qui e solo qui.
 
 | | |
 |---|---|
-| **Versione corrente** | **V4 — Autonomia trasversale · A0/A2 IN CORSO** |
-| **Prossimo sprint** | **Validazione cloud ammissione persistente; A1 approfondimento documentale** |
+| **Versione corrente** | **v162 — Completamento e collaudo dell'autonomia trasversale** |
+| **Prossimo gate** | **Catena autonoma, recupero fra processi, modello/provider reali e rilascio verificato** |
 | Branch operativo | `staging/cloud` |
-| Ultimo checkpoint | `1a0eb024` (voce deployed); preparazione iOS locale conservata |
-| Aggiornato | 2026-09-25 (priorità autonomia trasversale; iPhone sospeso) |
+| Ultimo checkpoint | v160/v161 distribuiti; v162 e prove finali documentati nella PR del rilascio |
+| Aggiornato | 2026-10-12 (autonomia; gate nativo distinto dal rilascio web/backend) |
 
 **Decisione di prodotto 25/09:** prima di iPhone dimostrare che ORA sa
 iniziare e completare lavoro utile senza una richiesta esplicita, attraverso

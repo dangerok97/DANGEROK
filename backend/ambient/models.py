@@ -164,6 +164,14 @@ class PushEndpoint(BaseModel):
     # A hash, not the device's own id: enough to recognise the same phone
     # again without keeping an identifier that follows somebody around.
     device_hash: str = Field(default="", max_length=64)
+    # Server-derived session binding. Legacy endpoints have neither field;
+    # the next authenticated registration migrates them in place. Neither
+    # the bearer credential nor its digest belongs in the public DTO.
+    session_digest: str = Field(default="", max_length=64)
+    session_expires_at: Optional[str] = None
+    # Monotonic per installation, persisted on the phone before sending. A
+    # timed-out old request cannot replace a newer account's registration.
+    device_revision: int = Field(default=0, ge=0, le=9007199254740991)
 
     status: Literal["active", "disabled", "revoked"] = "active"
     # What the OS last told us, as a fact about the device.

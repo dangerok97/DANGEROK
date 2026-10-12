@@ -44,9 +44,10 @@ RETENTION_DAYS = 14
 # Changes arriving inside this window are one review, not several.
 COALESCE_SECONDS = 90
 
-# The most a single review is told about. Beyond this the oldest are still
-# consumed — they are not lost, they are simply not all narrated.
+# The most a single review is told about. Later rows remain pending so a
+# bounded series of reviews makes progress through the oldest unread facts.
 MAX_PER_BATCH = 12
+CLAIM_LEASE_SECONDS = 300
 
 # A change older than this on arrival is describing a world that has already
 # been reviewed.
@@ -126,6 +127,8 @@ class MeaningfulChange(BaseModel):
     # pending until a review consumes it.
     status: Literal["pending", "consumed", "skipped"] = "pending"
     consumed_by: str = Field(default="", max_length=64)
+    claim_token: str = Field(default="", max_length=64)
+    claim_until: Optional[str] = None
     # Set by Mongo's TTL index; this is a working note, not a diary.
     expires_at: Optional[datetime] = None
 
@@ -172,6 +175,7 @@ class ChangeLog:
         try:
             await self.col.create_index("id", unique=True)
             await self.col.create_index([("owner_id", 1), ("status", 1)])
+            await self.col.create_index([("owner_id", 1), ("status", 1), ("recorded_at", 1), ("id", 1)])
             await self.col.create_index([("owner_id", 1), ("identity", 1)])
             # Retention, enforced by the database rather than by remembering.
             await self.col.create_index("expires_at", expireAfterSeconds=0)
@@ -274,31 +278,60 @@ class ChangeLog:
         return AdmissionResult(outcome="accepted", change=change)
 
     async def pending(self, owner_id: str, *, limit: int = MAX_PER_BATCH) -> List[MeaningfulChange]:
+        bound = max(1, min(int(limit or 1), MAX_PER_BATCH))
         docs = await self.col.find(
-            {"owner_id": owner_id, "status": "pending"}, {"_id": 0}
-        ).sort("recorded_at", 1).to_list(limit)
+            self._claimable(owner_id), {"_id": 0}
+        ).sort([("recorded_at", 1), ("id", 1)]).limit(bound).to_list(bound)
         return [MeaningfulChange.model_validate(d) for d in docs]
 
-    async def claim(self, owner_id: str, scan_id: str) -> List[MeaningfulChange]:
-        """
-        Take everything waiting, as one batch.
+    @staticmethod
+    def _claimable(owner_id: str) -> Dict[str, Any]:
+        return {"owner_id": owner_id, "status": "pending", "$or": [
+            {"claim_until": {"$exists": False}}, {"claim_until": None},
+            {"claim_until": {"$lte": _now_iso()}},
+        ]}
 
-        Three things moving within a minute of each other are one question
-        about a life, not three questions asked separately — which is both
-        cheaper and more accurate, because the answer often lives in how they
-        relate.
+    async def claim(
+        self, owner_id: str, scan_id: str, *, lease_until: Optional[str] = None,
+    ) -> List[MeaningfulChange]:
         """
-        batch = await self.pending(owner_id)
-        if not batch:
+        Reserve the oldest bounded batch, without claiming it was reviewed.
+
+        Rows keep their durable pending status so existing eligibility can
+        recover a killed worker. An active lease excludes competing claims;
+        only acknowledgement after persisted decisions makes them consumed.
+        """
+        from pymongo import ReturnDocument
+
+        until = lease_until or (_now() + timedelta(seconds=CLAIM_LEASE_SECONDS)).isoformat()
+        if until <= _now_iso():
             return []
-        await self.col.update_many(
-            {"owner_id": owner_id, "id": {"$in": [c.id for c in batch]}},
-            {"$set": {"status": "consumed", "consumed_by": scan_id}},
-        )
-        for c in batch:
-            c.status = "consumed"
-            c.consumed_by = scan_id
+        batch = []
+        for _ in range(MAX_PER_BATCH):
+            row = await self.col.find_one_and_update(
+                {**self._claimable(owner_id), "claim_token": {"$ne": scan_id}},
+                {"$set": {"claim_token": scan_id, "claim_until": until}},
+                sort=[("recorded_at", 1), ("id", 1)],
+                return_document=ReturnDocument.AFTER,
+            )
+            if row is None:
+                break
+            batch.append(MeaningfulChange.model_validate(row))
         return batch
+
+    async def acknowledge(self, owner_id: str, changes: List[MeaningfulChange]) -> int:
+        """Consume exactly the batch whose current lease completed its review."""
+        consumed = 0
+        for token in {change.claim_token for change in changes if change.claim_token}:
+            ids = [change.id for change in changes if change.claim_token == token]
+            result = await self.col.update_many(
+                {"owner_id": owner_id, "id": {"$in": ids}, "status": "pending",
+                 "claim_token": token, "claim_until": {"$gt": _now_iso()}},
+                {"$set": {"status": "consumed", "consumed_by": token},
+                 "$unset": {"claim_token": "", "claim_until": ""}},
+            )
+            consumed += result.modified_count
+        return consumed
 
     async def release(self, owner_id: str, changes: List[MeaningfulChange]) -> None:
         """
@@ -310,10 +343,12 @@ class ChangeLog:
         if not changes:
             return
         try:
-            await self.col.update_many(
-                {"owner_id": owner_id, "id": {"$in": [c.id for c in changes]}},
-                {"$set": {"status": "pending", "consumed_by": ""}},
-            )
+            for token in {change.claim_token for change in changes if change.claim_token}:
+                await self.col.update_many(
+                    {"owner_id": owner_id, "status": "pending", "claim_token": token,
+                     "id": {"$in": [c.id for c in changes if c.claim_token == token]}},
+                    {"$unset": {"claim_token": "", "claim_until": ""}},
+                )
         except Exception as e:
             logger.info("change release soft-fail: %s", type(e).__name__)
 

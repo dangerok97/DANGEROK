@@ -231,6 +231,11 @@ async def make_plan(
         "the thing being followed, you may copy that exact ref into a read "
         "step; never invent or infer a different ref. If "
         "source_context_unavailable is true, do not fill in what is missing.\n\n"
+        "For information.read, copy already-observed governed Memory references (mem_... or memory:<id>) "
+        "into input_refs when a specific fact matters. Otherwise it reads only a bounded selection of recent "
+        "memories, not the full profile or all internal sources. An empty selection never proves the "
+        "information does not exist elsewhere. Preserve the stored authority and temporal qualifications; "
+        "a fresh database read does not turn an old belief into a current measurement.\n\n"
         "For mail.metadata, read the bounded synced message metadata first. "
         "Use mail.read only when the body is genuinely needed to decide the mission. "
         "For mail.read, copy exactly one mail:<id> reference that ORA already observed "
@@ -290,7 +295,14 @@ async def make_plan(
         "supported by evidence. If a mail/calendar disagreement still needs reading, "
         "plan the read first and replan after the facts are known; never guess an hour "
         "or create a duplicate as a workaround.\n\n"
-        "Return JSON: {\"plan_summary\": \"one sentence\", "
+        "Return planning_outcome=plan with at least one valid step. Only when "
+        "the stated outcome cannot be pursued with the available capabilities "
+        "or constraints, return planning_outcome=not_possible, an empty steps "
+        "list and a concrete nonempty reasoning. A temporary provider failure "
+        "or unreadable response is not proof that the outcome is impossible. "
+        "Do not invent a question just to fill an empty plan.\n\n"
+        "Return JSON: {\"planning_outcome\": \"plan|not_possible\", "
+        "\"reasoning\": \"\", \"plan_summary\": \"one sentence\", "
         "\"expected_outcome\": \"...\", \"assumptions\": [], "
         "\"known_constraints\": [], \"steps\": ["
         "{\"intent\": \"what this step is for\", "
@@ -314,6 +326,14 @@ async def make_plan(
         _dump({"goal": goal, "context": context, "what_ora_can_do": capabilities}),
     )
     if not isinstance(data, dict) or not isinstance(data.get("steps"), list):
+        return None
+    outcome = data.get("planning_outcome", "plan")
+    if outcome not in ("plan", "not_possible"):
+        return None
+    if outcome == "not_possible":
+        if data["steps"] or not isinstance(data.get("reasoning"), str) or not data["reasoning"].strip():
+            return None
+    elif not data["steps"]:
         return None
     return data
 
