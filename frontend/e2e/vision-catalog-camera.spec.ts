@@ -26,8 +26,8 @@ async function camera(page:Page,supported=true,ignore=false){
 
 test('all 25 catalogue families load and have selectable explanatory parts',async({page},info)=>{
  await session(page);await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/vision-xray');
- await expect(page.getByTestId('vision-catalog-toggle')).toContainText('126');
- const list=await (await page.request.get('/api/vision-xray/catalog',{headers})).json();expect(list.models).toHaveLength(126);const originalModels=list.models.filter((m:any)=>legacy.has(m.canonical_key));expect(originalModels).toHaveLength(25);
+ await expect(page.getByTestId('vision-catalog-toggle')).toContainText('160');
+ const list=await (await page.request.get('/api/vision-xray/catalog',{headers})).json();expect(list.models).toHaveLength(160);const originalModels=list.models.filter((m:any)=>legacy.has(m.canonical_key));expect(originalModels).toHaveLength(25);
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  for(const entry of originalModels){
   await page.getByTestId('vision-catalog-toggle').click();await page.getByTestId('vision-catalog-'+entry.canonical_key).click();
@@ -50,7 +50,7 @@ test('catalogue search finds aliases and filters categories without changing the
  const query=page.getByTestId('vision-catalog-search');await query.fill('telefono');
  await expect(page.getByTestId('vision-catalog-smartphone')).toBeVisible();
  await query.fill('thumb drive');await expect(page.getByTestId('vision-catalog-usb_flash_drive')).toBeVisible();
- await page.getByTestId('vision-catalog-category').selectOption('Casa');await expect(page.getByTestId('vision-catalog-category')).toHaveCSS('appearance','none');await expect(page.getByTestId('vision-catalog-count')).toContainText('0 di 126');
+ await page.getByTestId('vision-catalog-category').selectOption('Casa');await expect(page.getByTestId('vision-catalog-category')).toHaveCSS('appearance','none');await expect(page.getByTestId('vision-catalog-count')).toContainText('0 di 160');
  await query.fill('');await expect(page.getByTestId('vision-catalog-clothespin')).toBeVisible();
  await expect(page.getByTestId('vision-catalog-smartphone')).toHaveCount(0);
  await page.screenshot({path:'../.vision-evidence/catalog25-search-'+info.project.name+'.png',fullPage:true});
