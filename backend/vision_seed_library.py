@@ -7,8 +7,9 @@ from __future__ import annotations
 import math
 import re
 import unicodedata
+from vision_catalog_extended import extended_recipes
 
-PACK_VERSION = "common-25-v1"
+PACK_VERSION = "common-75-v1"
 LIMIT = ("Schema di famiglia: forme, proporzioni e disposizione indicative. Mostra gruppi "
          "principali, anche saldati o incollati nell'oggetto reale; non certifica il modello "
          "fotografato e non è una guida allo smontaggio.")
@@ -205,10 +206,15 @@ def normalize_key(value):
     return re.sub(r"[^a-z0-9]+", "_", value.strip()).strip("_")
 
 
+def all_recipes():
+    """Original twenty recipes plus the additive fifty-family pack."""
+    return common_recipes() + extended_recipes(recipe, p)
+
+
 def metadata():
     rows = {key: dict(key=key, title=title, category=category, aliases=list(aliases), sources=[])
             for key, (title, category, aliases) in BASE_META.items()}
-    for entry in common_recipes():
+    for entry in all_recipes():
         rows[entry["key"]] = {k: v for k, v in entry.items() if k != "manifest"}
     return rows
 

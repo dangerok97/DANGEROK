@@ -1,3 +1,9 @@
+## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
+
+Il catalogo iniziale Vision passa da 25 a 75 famiglie, con cinquanta nuovi oggetti di cucina, casa, scrivania, elettronica, utensili e tempo libero. Ricerca per nome, sinonimo e categoria. Le nuove voci hanno parti selezionabili e spiegazioni; i percorsi didattici restano i 25 già pubblicati. Sono gruppi illustrativi, non interni verificati.
+
+---
+
 ## 12 ottobre 2026 — v162: autonomia che conserva il lavoro e verifica le fonti
 
 Una richiesta autorizzata deve continuare senza essere riscritta dopo un errore
