@@ -5087,3 +5087,9 @@ Riferimenti API: https://www.w3.org/TR/image-capture/ e
 https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
 Lo zoom qui è digitale, non un comando hardware o zoom ottico. Le sorgenti
 generali per i seed sono elencate nel modulo; nessun CAD o immagine è copiato.
+
+
+
+## ORA WhatsApp transport V1 (2026-10-12)
+
+Bridge and settings link UI implemented in feat/ora-whatsapp-cloud-20261012: Meta webhook GET challenge / POST HMAC verification, 10-minute one-time user pairing, encrypted/deduplicated inbox with worker and retry, owner-scoped AI Core. Runtime DISABLED until Meta variables/phone are provisioned; production WhatsApp live testing remains blocked. Test suite: backend/tests/test_whatsapp_cloud_bridge_v1.py. Open items: Meta business number and token, real end-to-end test, media/voice ingestion, user-opt-in/template-driven proactive notifications.
