@@ -72,3 +72,15 @@ test('zoom is finite and bounded; reduced motion immediately reaches target',()=
   assert.equal(approach(0,1,16,true),1);
   assert.ok(Math.abs(approach(approach(0,1,16),1,16)-approach(0,1,32))<1e-9);
 });
+
+test('all 75 families fit perspective overview and focused parts at default zoom',()=>{
+ assert.equal(seeds.length,75);
+ for(const [w,h] of [[390,490],[844,310],[1440,800]])for(const m of seeds){
+  const scene=new VisionPresentation(m);
+  for(const [yaw,pitch] of [[.46,-.22],[1.1,.5],[-.8,-.6]]){
+   const settings={...options,yaw,pitch};scene.draw(context(),w,h,settings);
+   for(const p of m.parts){const b=scene.partBounds(p.key);assert.ok(b[0]>=0&&b[1]>=0&&b[2]<=w&&b[3]<=h,m.canonical_key+' overview '+p.key+' '+JSON.stringify(b));}
+   for(const p of m.parts){scene.draw(context(),w,h,{...settings,selected:p.key,focus:1});const b=scene.partBounds(p.key);assert.ok(b[0]>=0&&b[1]>=0&&b[2]<=w&&b[3]<=h,m.canonical_key+' focus '+p.key+' '+JSON.stringify(b));}
+  }
+ }
+});
