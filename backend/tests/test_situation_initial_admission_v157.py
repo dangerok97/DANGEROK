@@ -127,6 +127,91 @@ async def test_model_selected_checkpoint_promotes_initial_review_without_duplica
 
 
 @pytest.mark.asyncio
+async def test_changed_situation_rechecks_early_without_moving_old_checkpoint_or_claiming_outcome(
+    setup, monkeypatch,
+):
+    from agent.background import advance_wake
+    from ambient.models import AmbientWake
+
+    db = setup
+    await indices(db)
+    sid = await create(db)
+    gid = goal_id_for(OWNER, sid)
+    original_due = (datetime.now(timezone.utc) + timedelta(hours=5)).isoformat()
+    scheduled = await arrange_followup(
+        db, OWNER, situation_id=sid, expected_revision=1,
+        check_at=original_due, purpose="Rileggere la situazione.",
+        notify_when="Intervenire solo se una fonte conferma un rischio.",
+        completion_when="Comunico l'esito utile, non un timer.",
+    )
+    assert scheduled["status"] == "scheduled"
+    before = datetime.now(timezone.utc)
+    amended = await SituationService(db).apply(
+        user_id=OWNER, session_id="synthetic_correction",
+        reasoning_epoch="synthetic-correction-v162",
+        update=SituationUpdate(
+            operation="update", situation_id=sid, expected_revision=1,
+            current_state_summary="L'utente ha corretto le condizioni iniziali.",
+            source="user_conversation",
+        ),
+    )
+    assert amended["status"] == "success" and amended["situation"]["revision"] == 2
+    goal = await AgentService(db).repo.get_goal(OWNER, gid)
+    assert goal.next_run_at == original_due and goal.source_situation["situation_revision"] == "1"
+    assert goal.situation_outcome is None  # No physical outcome invented.
+
+    pending = await db.ambient_wakes.find({
+        "owner_id": OWNER, "source_ref": f"goal:{gid}", "status": "pending",
+    }, {"_id": 0}).to_list(8)
+    assert len(pending) == 2
+    early = next(row for row in pending if row["scheduled_for"] != original_due)
+    assert before < datetime.fromisoformat(early["scheduled_for"]) < datetime.now(timezone.utc) + timedelta(minutes=3)
+    assert any(row["scheduled_for"] == original_due for row in pending)
+
+    # This is only the dispatch contract. A separate worker evaluation still
+    # has to re-read sources and model the useful outcome.
+    work = AsyncMock(return_value={"ok": True, "state": "source_changed"})
+    monkeypatch.setattr(AgentService, "advance", work)
+    handled = await advance_wake(db, AmbientWake.model_validate(early))
+    assert handled.result == "source_changed"
+    work.assert_awaited_once()
+    assert work.await_args.args[:2] == (OWNER, gid)
+    assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
+    assert await db.agent_goals.count_documents({"owner_id": "foreign-user"}) == 0
+
+
+@pytest.mark.asyncio
+async def test_explicit_user_defer_is_not_overridden_by_source_correction(setup):
+    db = setup
+    await indices(db)
+    sid = await create(db)
+    gid = goal_id_for(OWNER, sid)
+    original_due = (datetime.now(timezone.utc) + timedelta(hours=5)).isoformat()
+    assert (await arrange_followup(
+        db, OWNER, situation_id=sid, expected_revision=1, check_at=original_due,
+        purpose="Controllare in seguito.", notify_when="Avvertire solo su rischio.",
+    ))["status"] == "scheduled"
+    defer = (datetime.now(timezone.utc) + timedelta(hours=6)).isoformat()
+    assert await AgentService(db).repo.defer_goal(OWNER, gid, until=defer)
+    amended = await SituationService(db).apply(
+        user_id=OWNER, session_id="synthetic_defer",
+        reasoning_epoch="synthetic-defer-v162",
+        update=SituationUpdate(
+            operation="update", situation_id=sid, expected_revision=1,
+            current_state_summary="Nuove condizioni, ma il rinvio resta valido.",
+        ),
+    )
+    assert amended["status"] == "success"
+    pending = await db.ambient_wakes.find({
+        "owner_id": OWNER, "source_ref": f"goal:{gid}", "status": "pending",
+    }, {"_id": 0}).to_list(8)
+    assert len(pending) == 1
+    assert pending[0]["scheduled_for"] == original_due
+    goal = await AgentService(db).repo.get_goal(OWNER, gid)
+    assert goal.user_deferred_until == defer
+
+
+@pytest.mark.asyncio
 async def test_agent_wait_promotes_only_when_it_has_chosen_recheck(setup, monkeypatch):
     db = setup
     await indices(db)
