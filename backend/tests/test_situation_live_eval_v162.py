@@ -18,6 +18,65 @@ import pytest
 from scripts import situation_live_eval_v162 as runner
 
 
+def test_first_cycle_status_is_bounded_truthful_and_contains_no_private_payload():
+    private = "DO_NOT_LOG_UNVERIFIED_OR_PRIVATE_CONTENT"
+    original = {
+        "code_revision": "a" * 40, "mode": "live", "passed": False,
+        "overall_outcome": "followup_pending_unobserved",
+        "owner": private, "conversation_answer": private, "error": private,
+        "real_model_executed": True, "real_notifications_sent": 0,
+        "phases": {
+            "conversation": {"status": "passed", "user_message": private},
+            "initial_worker": {"status": "not_run"}, "future_check": {"status": "not_run"},
+            "device_receipt": {"status": "not_run"},
+        },
+        "admission_before_worker": {
+            "owner_id": private, "follow_up": {
+                "next_check_at": "2026-10-13T04:00:00+00:00",
+                "notify_when": private,
+            },
+        },
+        "provider_reads": [
+            {"capability": "weather", "http_status": 200, "raw_body": private},
+            {"capability": "grounded_search", "http_status": 402, "query": private},
+            {"capability": "other", "http_status": 200, "response": private},
+        ],
+        "model_observations": [{"input": private}],
+    }
+    result = runner.first_cycle_status(original)
+    encoded = json.dumps(result, ensure_ascii=False)
+    assert private not in encoded
+    assert result["scheduled_check_at"] == "2026-10-13T04:00:00+00:00"
+    assert result["outcome"] == "followup_pending_unobserved" and not result["passed"]
+    assert result["phases"]["initial_worker"] == result["phases"]["device_receipt"] == "not_run"
+    assert result["scheduled_check_is_not_completed_outcome"] is True
+    assert result["device_receipt_verified"] is result["physical_outcome_verified"] is False
+    assert result["provider_http_statuses"] == [
+        {"capability": "weather", "http_status": 200},
+        {"capability": "grounded_search", "http_status": 402},
+    ]
+    # Summary creation is pure and cannot rewrite the original evaluation.
+    assert original["conversation_answer"] == original["owner"] == private
+
+
+@pytest.mark.asyncio
+async def test_main_emits_status_before_full_original_report(monkeypatch, capsys):
+    fake = {
+        "mode": "scripted", "passed": False, "overall_outcome": "followup_pending_unobserved",
+        "phases": {name: {"status": "not_run"} for name in runner._FIRST_CYCLE_PHASE_NAMES},
+        "private": "NEVER_COPY_TO_STATUS",
+    }
+    monkeypatch.setattr(runner, "run_case", AsyncMock(return_value=fake))
+    result = await runner.main(mode="scripted")
+    lines = capsys.readouterr().out.splitlines()
+    assert result == 1 and len(lines) == 2
+    assert lines[0].startswith("ORA_SITUATION_STATUS ")
+    assert json.loads(lines[0].split(" ", 1)[1])["phases"]["initial_worker"] == "not_run"
+    assert "NEVER_COPY_TO_STATUS" not in lines[0]
+    assert lines[1].startswith("ORA_SITUATION_FIRST_CYCLE ")
+    assert json.loads(lines[1].split(" ", 1)[1]) == fake
+
+
 @pytest.fixture(autouse=True)
 def no_local_proxy_for_fake_transport(monkeypatch):
     # The real SDK is tested with fake HTTP; a workspace proxy is irrelevant.
