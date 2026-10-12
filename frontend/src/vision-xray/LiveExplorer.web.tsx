@@ -27,6 +27,7 @@ export default function LiveExplorer(){
   const [mode,setMode]=useState<Mode>('idle');
   const [anatomyActive,setAnatomyActive]=useState(false);
   const [anatomyRegion,setAnatomyRegion]=useState<BodyRegion>('full_body');
+  const [anatomyBox,setAnatomyBox]=useState<Box|null>(null);
   const [anatomyPosePoints,setAnatomyPosePoints]=useState<Record<string,[number,number]>|null>(null);
   const anatomyActiveRef=useRef(false);
   const [stage,setStage]=useState('Inquadra. Esplora. Capisci.');
@@ -109,7 +110,7 @@ export default function LiveExplorer(){
     busyRef.current=false;nextScan.current=Infinity;scene.current=null;heldResult.current=null;scanReference.current=null;
     resetView();objectHintRef.current='';
     anatomyActiveRef.current=false;
-    if(alive.current){setAnatomyActive(false);setAnatomyRegion('full_body');setAnatomyPosePoints(null);setAnatomyPosePoints(null);setCanHint(false);setObjectHint('');setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
+    if(alive.current){setAnatomyActive(false);setAnatomyRegion('full_body');setAnatomyBox(null);setAnatomyPosePoints(null);setAnatomyPosePoints(null);setCanHint(false);setObjectHint('');setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setAnatomyBox(null);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
   },[resetView]);
   const apply=useCallback((value:CatalogResult,origin?:{box:Box;sw:number;sh:number}|null)=>{
     if(!value.manifest||!value.version_id)return;
@@ -162,7 +163,7 @@ export default function LiveExplorer(){
       let value=await catalogApi.scan(dataURI,String(ticket)+'-'+Date.now(),controller.signal,hintOverride??objectHintRef.current);
       const identification=value.identification;
       if(value.status==='anatomy'){
-        if(epoch.current===ticket&&alive.current) activateAtlas(value.body_region||value.identification?.body_region||'full_body',value.identification?.pose_points||null);
+        if(epoch.current===ticket&&alive.current) activateAtlas(value.body_region||value.identification?.body_region||'full_body',value.identification?.pose_points||null,value.identification?.bbox||null);
         return;
       }
       for(let attempt=0;value.status==='building'&&attempt<12;attempt++){
@@ -218,13 +219,14 @@ export default function LiveExplorer(){
       stop();setError(e?.name==='NotAllowedError'?'Permesso negato. Abilita la fotocamera nelle impostazioni del sito.':String(e?.message||'Fotocamera non disponibile.'));
     }
   },[stop]);
-  const activateAtlas=(region:BodyRegion='full_body',posePoints:Record<string,[number,number]>|null=null)=>{
+  const activateAtlas=(region:BodyRegion='full_body',posePoints:Record<string,[number,number]>|null=null,box:Box|null=null)=>{
     setAnatomyRegion(region);setAnatomyPosePoints(posePoints);
+    setAnatomyBox(box&&box.length===4&&box.every(n=>Number.isFinite(n))&&box[2]>.03&&box[3]>.03?box:null);
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     anatomyActiveRef.current=true;setAnatomyActive(true);scene.current=null;
     heldResult.current=null;scanReference.current=null;resetView();setResult(null);
     setBusy(false);setError(null);setCanHint(false);setLibraryOpen(false);setInfoOpen(false);
-    setStage('Atlante anatomico didattico · scegli un livello e tocca una parte.');
+    setStage('Persona riconosciuta · modello anatomico 3D fissato sull’immagine.');
     nextScan.current=Infinity;
   };
   const newObject=()=>{
@@ -378,20 +380,19 @@ export default function LiveExplorer(){
   const visibleEntries=filterCatalog(entries,catalogQuery,catalogCategory);
   const categories=['Tutti',...Array.from(new Set(entries.map(e=>e.category||'Altri oggetti'))).sort()];
 
-  return <div className={'vx-root'+(result?' has-model':'')} data-testid="vision-live-explorer" data-version="visual-v2" data-experience="guided-v3" data-recognition="body-region-v4">
+  return <div className={'vx-root'+(result?' has-model':'')+(anatomyActive?' has-anatomy':'')} data-testid="vision-live-explorer" data-version="visual-v2" data-experience="guided-v3" data-recognition="body-region-v4">
     <style>{visualStyle+recognitionHelpStyle}</style>
     <header className="vx-header">
       <button aria-label="Torna a ORA" className="vx-back" onClick={()=>{stop();if(router.canGoBack())router.back();else router.replace('/ora');}}>←</button>
       <div className="vx-brand">ORA <span>VISION</span><small className="vx-version">ESPLORA L’ESSENZIALE</small></div>
-      <button className="vx-anatomy-nav" data-testid="vision-open-human-atlas" aria-pressed={anatomyActive} onClick={()=>activateAtlas('full_body')}>Anatomia 3D</button>
       <button className="vx-catalog" data-testid="vision-catalog-toggle" aria-expanded={libraryOpen} onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setInfoOpen(false);setLibraryOpen(v=>!v);}}>Catalogo <span>{entries.length}</span></button>
     </header>
     <section ref={stageElement} className="vx-stage" aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
       <video ref={video} autoPlay playsInline muted data-testid="vision-camera-video" aria-label="Video live della fotocamera" style={{opacity:live?1:0,transform:`scale(${cameraZoom})`,transformOrigin:"center"}} data-camera-zoom={cameraZoom.toFixed(2)}/>
       {photoURL&&<img src={photoURL} alt="Foto scelta per l’analisi" className="vx-photo"/>}
-      <div className={'vx-shade '+(result||anatomyActive?'vx-shade-result':'')}/>
+      <div className={'vx-shade '+(result?'vx-shade-result':anatomyActive?'vx-shade-anatomy':'')}/>
       <canvas ref={canvas} className="vx-canvas" data-testid="vision-scene" tabIndex={result||live?0:-1} aria-label={result?"Scena 3D: trascina per ruotare, due dita per ingrandire i componenti.":"Fotocamera: due dita per lo zoom digitale. I comandi sono disponibili anche nei pulsanti."} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={e=>onUp(e,true)} onLostPointerCapture={e=>{gestures.current.up(e.pointerId,e.clientX,e.clientY,true);}} onKeyDown={keyboard}/>
-      {anatomyActive&&<AnatomyExplorer region={anatomyRegion} posePoints={anatomyPosePoints} onClose={closeAtlas}/>}
+      {anatomyActive&&<AnatomyExplorer region={anatomyRegion} posePoints={anatomyPosePoints} anchorCenter={anatomyBox?Math.min(.78,Math.max(.22,anatomyBox[0]+anatomyBox[2]/2)):.5} onClose={closeAtlas}/>}
       <div className="vx-topline"><span className={'vx-tag '+(live?'vx-tag-live':'')}>{live?'● LIVE':mode==='photo'?'FOTO':mode==='catalog'?'CATALOGO':'VISION X-RAY'}</span><button className="vx-evidence" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}} aria-label="Informazioni sullo schema indicativo">Schema indicativo ⓘ</button></div>
       {(mode==='idle'||mode==='opening')&&!result&&!anatomyActive&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
       {result?.manifest&&<><button className="vx-close-model" data-testid="vision-close-model" aria-label="Chiudi la scomposizione e scansiona un altro oggetto" title="Scansiona un altro oggetto" onClick={newObject}>×</button><div className={'vx-object-title'+(focused&&!tourUI?' is-focus':'')}><strong>{focused&&!tourUI&&currentPart?currentPart.name:result.manifest.title}</strong><small>{tourUI?'PERCORSO DIDATTICO':focused?'COMPONENTE TIPICO':result.manifest.parts.length+' parti'}</small></div><div className="vx-zoom" aria-label="Zoom della scomposizione"><button aria-label="Riduci lo zoom" data-testid="vision-zoom-out" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom/1.25);}}>−</button><button aria-label="Aumenta lo zoom" data-testid="vision-zoom-in" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom*1.25);}}>+</button></div></>}
