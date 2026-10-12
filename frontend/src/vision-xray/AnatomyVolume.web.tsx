@@ -14,6 +14,8 @@ export function AnatomyVolume({regions,layer,region,selected,onSelect,zoom,onZoo
  const hits=React.useRef<VolumeHit[]>([]);
  const pointers=React.useRef(new Map<number,{x:number;y:number;startX:number;startY:number}>());
  const moved=React.useRef(false);
+ const pinch=React.useRef<{distance:number;zoom:number}|null>(null);
+ const pinched=React.useRef(false);
  const [yaw,setYaw]=React.useState(.34);
  const [pitch,setPitch]=React.useState(-.12);
  const [explode,setExplode]=React.useState(.03);
@@ -38,6 +40,7 @@ export function AnatomyVolume({regions,layer,region,selected,onSelect,zoom,onZoo
    node.dataset.faceCount=String(hits.current.length);
    node.dataset.poseMode=pose.reliability;
    node.dataset.yaw=yaw.toFixed(2);
+   node.dataset.zoom=zoom.toFixed(2);
   };
   const render=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(draw);};
   const observer=new ResizeObserver(render);observer.observe(node);render();
@@ -45,15 +48,28 @@ export function AnatomyVolume({regions,layer,region,selected,onSelect,zoom,onZoo
  },[regions,layer,region,selected,yaw,pitch,zoom,explode,pose,viewBox,isolated]);
  const down=(e:React.PointerEvent<HTMLCanvasElement>)=>{
   pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY});
-  moved.current=false;
+  if(pointers.current.size===1){moved.current=false;pinched.current=false;pinch.current=null;}
+  if(pointers.current.size===2){
+   const [first,second]=[...pointers.current.values()];
+   pinch.current={distance:Math.max(1,Math.hypot(first.x-second.x,first.y-second.y)),zoom};
+   pinched.current=true;moved.current=true;
+  }
   try{e.currentTarget.setPointerCapture(e.pointerId);}catch{/* WebKit synthetic capture */}
  };
  const move=(e:React.PointerEvent<HTMLCanvasElement>)=>{
   const prev=pointers.current.get(e.pointerId);if(!prev)return;
   const dx=e.clientX-prev.x,dy=e.clientY-prev.y;
   prev.x=e.clientX;prev.y=e.clientY;
+  if(pointers.current.size>1){
+   const pair=[...pointers.current.values()];
+   if(pair.length===2&&pinch.current){
+    const distance=Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y);
+    onZoom(Math.max(.85,Math.min(2.2,pinch.current.zoom*distance/pinch.current.distance)));
+   }
+   pinched.current=true;moved.current=true;return;
+  }
+  if(pinched.current)return;
   if(Math.hypot(e.clientX-prev.startX,e.clientY-prev.startY)>6)moved.current=true;
-  if(pointers.current.size>1)return;
   if(moved.current){
    setYaw(v=>Math.max(-1.3,Math.min(1.3,v+dx*.012)));
    setPitch(v=>Math.max(-.85,Math.min(.85,v-dy*.012)));
@@ -62,19 +78,26 @@ export function AnatomyVolume({regions,layer,region,selected,onSelect,zoom,onZoo
  const up=(e:React.PointerEvent<HTMLCanvasElement>)=>{
   const prev=pointers.current.get(e.pointerId);
   pointers.current.delete(e.pointerId);
-  if(!prev)return;
-  if(!moved.current&&Math.hypot(e.clientX-prev.startX,e.clientY-prev.startY)<8){
+  if(pointers.current.size<2)pinch.current=null;
+  if(prev&&!pinched.current&&!moved.current&&
+     Math.hypot(e.clientX-prev.startX,e.clientY-prev.startY)<8){
    const box=e.currentTarget.getBoundingClientRect();
    const key=hitVolume(hits.current,e.clientX-box.left,e.clientY-box.top);
    if(key)onSelect(key);
   }
-  if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
+  if(pointers.current.size===0){moved.current=false;pinched.current=false;}
+  try{if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}catch{/* Capture may have ended externally */}
+ };
+ const cancel=(e:React.PointerEvent<HTMLCanvasElement>)=>{
+  pointers.current.delete(e.pointerId);
+  if(pointers.current.size<2)pinch.current=null;
+  if(pointers.current.size===0){moved.current=false;pinched.current=false;}
  };
  return <>
   <canvas ref={canvas} data-testid="vision-anatomy-volume" className="vx-anatomy-volume"
-   role="img" tabIndex={0} aria-label="Modello anatomico tridimensionale illustrativo, trascina per ruotare e tocca una parte per selezionarla"
+   role="img" tabIndex={0} aria-label="Modello anatomico 3D illustrativo: trascina per ruotare, pizzica con due dita per zoom, tocca per selezionare; frecce da tastiera per orientare"
    onPointerDown={down} onPointerMove={move} onPointerUp={up}
-   onPointerCancel={e=>{pointers.current.delete(e.pointerId);}}
+   onPointerCancel={cancel}
    onKeyDown={e=>{
     if(e.key==='ArrowLeft'){e.preventDefault();setYaw(v=>Math.max(-1.3,v-.16));}
     else if(e.key==='ArrowRight'){e.preventDefault();setYaw(v=>Math.min(1.3,v+.16));}
