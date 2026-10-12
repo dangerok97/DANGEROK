@@ -1080,6 +1080,51 @@ class AgentService:
             if outcome is not None:
                 return outcome
 
+    async def _owned_memory_prerequisite(self, owner_id, goal, plan: ActionPlan):
+        """Add at most one owner-verified read required by a generated draft.
+
+        This is a code-owned, read-only dependency of an already planned
+        internal document, never authority for world-changing actions.
+        Ambiguous, missing and withdrawn sources still require replanning.
+        """
+        from agent.memory_sources import memory_source_id, read_memory_previews
+
+        if len(plan.steps) >= MAX_PLAN_STEPS:
+            return None
+        refs = list(dict.fromkeys(
+            str(ref) for ref in (getattr(goal, "source_refs", None) or [])
+            if memory_source_id(ref)
+        ))
+        if len(refs) != 1:
+            return None
+        # Do not hide a failed read under a newly minted repeated step.
+        if any(step.capability_needed == "information.read"
+               and step.step_type == "inspect" for step in plan.steps):
+            return None
+        resolution = await self.capabilities.resolve(owner_id, "information.read")
+        if not (resolution.usable and resolution.is_real and not resolution.writes):
+            return None
+        # The memory must still exist, be active and belong to this owner.
+        current = await read_memory_previews(self.db, owner_id, refs, limit=1)
+        if len(current) != 1 or current[0].get("ref") != refs[0]:
+            return None
+        step = ActionStep(
+            ordinal=len(plan.steps),
+            intent="Leggere la memoria associata prima di preparare il risultato",
+            step_type="inspect",
+            capability_needed="information.read",
+            input_refs=refs,
+            expected_result="Evidenza della lettura corrente, con versione e limiti della fonte",
+        )
+        plan.steps.append(step)
+        await self.repo.save_plan(plan)
+        await self.repo.journal(
+            owner_id, goal.id, kind="planning_prerequisite_added",
+            note="Inserita la lettura della memoria già associata al risultato.",
+            detail={"step_id": step.id, "capability": "information.read"},
+        )
+        return step
+
     async def _next(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, budget: AgentBudget,
         *, language: str,
@@ -1120,6 +1165,11 @@ class AgentService:
                 ), None)
                 if prerequisite is not None:
                     return ("execute", prerequisite)
+                owned_read = await self._owned_memory_prerequisite(
+                    owner_id, goal, plan,
+                )
+                if owned_read is not None:
+                    return ("execute", owned_read)
                 await self.repo.journal(
                     owner_id, goal.id, kind="planning_prerequisite_missing",
                     note="La preparazione richiede una lettura reale che il piano non contiene.",
