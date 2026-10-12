@@ -138,14 +138,28 @@ export function anatomicalRegion(atlas:Atlas,requested:StudyRegion,side:ModelSid
   source='fallback';
  }
  // Center-in-volume test avoids keeping huge unrelated body structures.
- const spatial=all.filter(p=>{
-  const b=p.bounds,spanY=b[1][1]-b[0][1],spanX=b[1][0]-b[0][0];
-  // Exclude whole-body skins and long structures whose centers happen to lie in
-  // the local ROI; this is a part view, not a body-wide slice.
-  if(spanY>(roi[3]-roi[2])*1.70||spanX>(roi[1]-roi[0])*2.5)return false;
-  return within(p,roi);
- });
- const ids=Array.from(new Set([...seed.filter(p=>within(p,roi)).map(p=>p.id),...spatial.map(p=>p.id)]));
+ const candidates=(area:Bounds)=>{
+  const spatial=all.filter(p=>{
+   const b=p.bounds,spanY=b[1][1]-b[0][1],spanX=b[1][0]-b[0][0];
+   // Avoid huge whole-body surfaces and structures spanning multiple limbs.
+   if(spanY>(area[3]-area[2])*1.70||spanX>(area[1]-area[0])*2.5)return false;
+   return within(p,area);
+  });
+  return Array.from(new Set([...seed.filter(p=>within(p,area)).map(p=>p.id),
+   ...spatial.map(p=>p.id)]));
+ };
+ let ids=candidates(roi);
+ // A source concept such as 'knee' may be only the patella itself. Expand to
+ // its actual body region, never to the entire body, for useful local context.
+ if(ids.length<spec.min&&source==='source-concept'){
+  const backup=normalizedROI(full,spec.location);
+  if(isSided(region)&&preferredSide==='left'){
+   const mid=(full[0]+full[1])/2;
+   backup[0]=2*mid-expected[1];backup[1]=2*mid-expected[0];
+  }
+  const alternate=candidates(backup);
+  if(alternate.length>ids.length){ids=alternate;roi=backup;source='fallback';}
+ }
  // Fail closed (never silently replace a hand with the full body).
  const available=ids.length>=spec.min&&ids.length<all.length*.87;
  return {region,side,ids:available?ids:[],bounds:roi,label:STUDY_LABEL[region],
