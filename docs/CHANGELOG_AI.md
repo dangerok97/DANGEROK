@@ -1,3 +1,31 @@
+# 12 ottobre 2026 — v162, correzione contesto e visibilità
+
+- Rifiutato il CREATE grezzo che omette i tre campi di contesto prima che i default nascondano l'omissione. Valori esplicitamente sconosciuti restano consentiti.
+- Aggiunta al solo tentativo di riparazione preesistente una descrizione delle chiavi mancanti, senza riempirle automaticamente.
+- Propagato display_focus_ref al modello già validato; nessun collegamento Situation viene dedotto dal focus.
+- Preparata la sospensione della scheda operativa dopo una lettura fallita della sua fonte, con recupero alla lettura riuscita e protezioni per risposte tardive e cambio account.
+- Aggiunti22 casi backend e regressioni frontend pertinenti; mantenute le asserzioni originali. Incluso esplicitamente il nuovo modulo hook/render nel solo comando frontend già esistente della CI, senza nuovi job o dipendenze.
+- Allegati gli esiti641 senza modificarne i verdetti: CI verde, Situation e Memory reali negativi. Nessuna nuova ripetizione Memory, lettura automatica, riordino del piano o modifica APP.
+
+Le verifiche del nuovo codice sono pendenti al congelamento; dettagli e limiti nell'indice.
+
+[Contesto, visibilità e verifiche del candidato](evidence/autonomy_v162_context_and_visibility_repair_2026-10-12.json). Gli esiti originali641 restano preservati nel blocco storico seguente.
+
+---
+
+# 12 ottobre 2026 — v162, conservazione degli esiti641
+
+- Acquisita la CI641 completa:5 workflow e14 job riusciti, con checkout push/PR distinti e modulo handoff20 casi incluso nelle1.337 prove v162.
+- Eseguiti soltanto Situation e `memory_corrected` sul servizio tecnico, dopo CI verde e verifica dello stato. Entrambi i report sono negativi e sono conservati senza riscrivere i verdetti.
+- Revisionata integralmente la risposta Situation: luogo omesso dal CREATE, controllo18:00 persistito, stima di asciugatura e restrizione sul ritiro non sostenute. Cancellazione sintetica riuscita; worker e consegna non raggiunti.
+- Diagnosticato il blocco Memory prima della correzione150: attesa di conoscenza scelta dal modello, senza difetto di trasporto dimostrato.
+- Conservati14 log CI:9 originali esatti e5 copie con il solo contatto personale pubblico del manutentore di una dipendenza rimosso dagli avvisi npm. Hash degli originali mantenuti; metadati GitHub personali non allegati.
+- Nessun risultato esteso a nuovo codice, app installata o vecchia stesura reale.
+
+[Indice641](evidence/autonomy_v162_641_results_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, osservazione completa degli eventi nel test
 
 - Diagnosticato l’arresto dei due backend c8ca: il test leggeva gli eventi terminali dalla traccia pubblica limitata ai primi 12 elementi.

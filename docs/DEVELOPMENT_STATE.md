@@ -1,3 +1,27 @@
+# 12 ottobre 2026 — v162, candidato di correzione dopo641
+
+Parent unico previsto: `641dbaf9869e0881ffe6778ff82c0e771e6fcca4`, tree `d2682060e404008a046797ca14b1e49b4a3bd27e`, sul ramo autorizzato della PR220 ancora draft. Il candidato raccoglie il vincolo dei campi CREATE espliciti, il trasporto di display_focus_ref e la sospensione delle indicazioni dopo una lettura non riuscita della fonte usata. Sono conservati integralmente i due FAIL live641, le review e i log CI pubblicabili.
+
+Backend:22 nuovi casi dichiarati portano il modulo handoff da20 a42; i20 casi precedenti e le loro74 asserzioni sono conservati. Tre fixture legacy rendono espliciti soltanto valori già sconosciuti. Il gruppo v162 atteso è1359 se la collection non cambia altrove. Questi numeri sono **attesi, non eseguiti** al congelamento del candidato. Frontend:34 casi dichiarati nel comando CI, di cui20 presenter e14 hook/render. L'autore ha eseguito29 controlli sui corpi JavaScript in V8, tutti PASS, riproducendo13 failure sul codice641; i5 casi di render, Node e TypeScript restano NOT_RUN. I gate effettivi sono identificati nell'indice.
+
+L'executor locale resta offline; compilazione, type-check, test e build del nuovo candidato devono essere attestati dalla nuova CI. Nessuna prova di installazione firmata, notifica ricevuta ad app chiusa o tap autenticato. Restano invariati provider, budget, risorse, variabili e rifiuto APP eb9c3870. La correzione150 nel test Memory non è stata raggiunta641 e non è risolta da questo candidato.
+
+[Contesto, visibilità e verifiche del candidato](evidence/autonomy_v162_context_and_visibility_repair_2026-10-12.json). Gli esiti originali641 restano preservati nel blocco storico seguente.
+
+---
+
+# 12 ottobre 2026 — v162, CI641 verde e due prove reali negative
+
+**Fonte provata:** `641dbaf9869e0881ffe6778ff82c0e771e6fcca4`, tree `d2682060e404008a046797ca14b1e49b4a3bd27e`. CI completa: **5 workflow /14 job SUCCESS**, attempt1; per backend1.337 PASS v162, CLI scripted9/9, Mongo con riavvio6 PASS. Browser40/40. Il checkout PR `4958ee9981579a734454b0a15645b344c032459f` ha tree diverso per21 file Vision/WhatsApp; le identità non sono confuse.
+
+Deployment tecnico `4b7fd25b-03a5-4ccc-965e-7db76ccd8032`: due report completi, entrambi FAIL, raccolti senza filtro in30 righe. Situation conserva asciugatura e controllo18:00, ma perde il binding del luogo nella dichiarazione del modello e produce indicazioni di ritiro non sostenute. Memory si ferma su una domanda preliminare prima della modifica a150. Questi esiti non attestano worker futuro, risultato utile o ricezione sul telefono.
+
+Originali e verdetti restano invariati. Niente nuove risorse, budget, provider, letture automatiche o modifiche APP. Il rifiuto APP eb9c3870 non è aggirato; firma, installazione, avviso ad app chiusa e tap autenticato restano non provati.
+
+[Indice delle evidenze641](evidence/autonomy_v162_641_results_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, secondo arresto CI diagnosticato
 
 Entrambi i backend c8ca terminano a **1 FAIL / 937 PASS** sul test con risposta intermedia, nell’asserzione degli eventi. Prima del fallimento passano stato iniziale e finale, identità, orario, numero di chiamate, unico obiettivo e unico wake. Le verifiche successive non sono attestate da questo esito.

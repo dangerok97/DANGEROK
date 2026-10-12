@@ -1,0 +1,954 @@
+﻿2026-10-12T15:39:38.0702841Z Current runner version: '2.337.0'
+2026-10-12T15:39:38.0720451Z ##[group]Runner Image Provisioner
+2026-10-12T15:39:38.0721028Z Hosted Compute Agent
+2026-10-12T15:39:38.0721376Z Version: 20261002.596
+2026-10-12T15:39:38.0721794Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T15:39:38.0722474Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T15:39:38.0722877Z Worker ID: {b64393f7-ec26-46fd-943a-603b2404c7c3}
+2026-10-12T15:39:38.0723369Z Region: southcentralus
+2026-10-12T15:39:38.0723712Z Cloud: Azure
+2026-10-12T15:39:38.0724058Z ##[endgroup]
+2026-10-12T15:39:38.0725088Z ##[group]Operating System
+2026-10-12T15:39:38.0725437Z Ubuntu
+2026-10-12T15:39:38.0725840Z 24.04.5
+2026-10-12T15:39:38.0726150Z LTS
+2026-10-12T15:39:38.0726497Z ##[endgroup]
+2026-10-12T15:39:38.0726838Z ##[group]Runner Image
+2026-10-12T15:39:38.0727185Z Image: ubuntu-24.04
+2026-10-12T15:39:38.0727587Z Version: 20261004.327.1
+2026-10-12T15:39:38.0728335Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T15:39:38.0729234Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T15:39:38.0729785Z ##[endgroup]
+2026-10-12T15:39:38.0730514Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T15:39:38.0731730Z Contents: read
+2026-10-12T15:39:38.0732288Z Metadata: read
+2026-10-12T15:39:38.0732673Z ##[endgroup]
+2026-10-12T15:39:38.0734129Z Secret source: Actions
+2026-10-12T15:39:38.0734663Z Cache mode: write
+2026-10-12T15:39:38.0735063Z Prepare workflow directory
+2026-10-12T15:39:38.0996956Z Prepare all required actions
+2026-10-12T15:39:38.1029680Z Getting action download info
+2026-10-12T15:39:38.3491316Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T15:39:38.4230775Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-10-12T15:39:38.6071020Z Complete job name: Situation checkpoint persistence and dispatch
+2026-10-12T15:39:38.6389915Z ##[group]Checking docker version
+2026-10-12T15:39:38.6398201Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+2026-10-12T15:39:38.7238727Z '1.48'
+2026-10-12T15:39:38.7246687Z Docker daemon API version: '1.48'
+2026-10-12T15:39:38.7247125Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+2026-10-12T15:39:38.7372864Z '1.48'
+2026-10-12T15:39:38.7383322Z Docker client API version: '1.48'
+2026-10-12T15:39:38.7387322Z ##[endgroup]
+2026-10-12T15:39:38.7389036Z ##[group]Clean up resources from previous jobs
+2026-10-12T15:39:38.7393156Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=33322b"
+2026-10-12T15:39:38.7498763Z ##[command]/usr/bin/docker network prune --force --filter "label=33322b"
+2026-10-12T15:39:38.7593503Z ##[endgroup]
+2026-10-12T15:39:38.7593809Z ##[group]Create local container network
+2026-10-12T15:39:38.7600280Z ##[command]/usr/bin/docker network create --label 33322b github_network_5d25993a2ffe40979996008e7634caba
+2026-10-12T15:39:38.8303336Z 4413e147b6a2236c191e82f37023b0aae565e0c820fbda4cec48fcc084883423
+2026-10-12T15:39:38.8320160Z ##[endgroup]
+2026-10-12T15:39:38.8338226Z ##[group]Starting mongo service container
+2026-10-12T15:39:38.8353154Z ##[command]/usr/bin/docker pull mongo:6
+2026-10-12T15:39:39.4728498Z 6: Pulling from library/mongo
+2026-10-12T15:39:39.6350146Z 40d16f30db40: Pulling fs layer
+2026-10-12T15:39:39.6351016Z c0ad2d19a4ba: Pulling fs layer
+2026-10-12T15:39:39.6351700Z 48a16a34f70d: Pulling fs layer
+2026-10-12T15:39:39.6352820Z 2f97e51c878f: Pulling fs layer
+2026-10-12T15:39:39.6353649Z 5c0db6993533: Pulling fs layer
+2026-10-12T15:39:39.6354491Z 3ef7422b83eb: Pulling fs layer
+2026-10-12T15:39:39.6355317Z 75cc5d84ff55: Pulling fs layer
+2026-10-12T15:39:39.6356202Z 99e079574d2f: Pulling fs layer
+2026-10-12T15:39:39.6356815Z 2f97e51c878f: Waiting
+2026-10-12T15:39:39.6357360Z 3ef7422b83eb: Waiting
+2026-10-12T15:39:39.6357901Z 75cc5d84ff55: Waiting
+2026-10-12T15:39:39.6358456Z 5c0db6993533: Waiting
+2026-10-12T15:39:39.6359327Z 99e079574d2f: Waiting
+2026-10-12T15:39:39.7956012Z c0ad2d19a4ba: Verifying Checksum
+2026-10-12T15:39:39.7957072Z c0ad2d19a4ba: Download complete
+2026-10-12T15:39:39.8951357Z 48a16a34f70d: Verifying Checksum
+2026-10-12T15:39:39.8959211Z 48a16a34f70d: Download complete
+2026-10-12T15:39:39.9340488Z 40d16f30db40: Verifying Checksum
+2026-10-12T15:39:39.9341500Z 40d16f30db40: Download complete
+2026-10-12T15:39:40.0198707Z 2f97e51c878f: Download complete
+2026-10-12T15:39:40.0398031Z 5c0db6993533: Verifying Checksum
+2026-10-12T15:39:40.0401094Z 5c0db6993533: Download complete
+2026-10-12T15:39:40.0892731Z 3ef7422b83eb: Verifying Checksum
+2026-10-12T15:39:40.2008891Z 99e079574d2f: Verifying Checksum
+2026-10-12T15:39:40.2009994Z 99e079574d2f: Download complete
+2026-10-12T15:39:40.6552869Z 40d16f30db40: Pull complete
+2026-10-12T15:39:40.8736814Z 75cc5d84ff55: Download complete
+2026-10-12T15:39:45.0016930Z c0ad2d19a4ba: Pull complete
+2026-10-12T15:39:45.1175294Z 48a16a34f70d: Pull complete
+2026-10-12T15:39:45.1672087Z 2f97e51c878f: Pull complete
+2026-10-12T15:39:45.1777419Z 5c0db6993533: Pull complete
+2026-10-12T15:39:45.1918555Z 3ef7422b83eb: Pull complete
+2026-10-12T15:39:51.0707007Z 75cc5d84ff55: Pull complete
+2026-10-12T15:39:51.0804833Z 99e079574d2f: Pull complete
+2026-10-12T15:39:51.0834607Z Digest: sha256:8b6d8f5bbedb25cb73517b65cf99f13aeb75ad5b157a56c479287a840bbad3ac
+2026-10-12T15:39:51.0847905Z Status: Downloaded newer image for mongo:6
+2026-10-12T15:39:51.0857644Z docker.io/library/mongo:6
+2026-10-12T15:39:51.0883995Z ##[command]/usr/bin/docker create --name 2e16ab20010e495a97b324a729864fbc_mongo6_c52b71 --label 33322b --network github_network_5d25993a2ffe40979996008e7634caba --network-alias mongo -p 27017:27017  -e GITHUB_ACTIONS=true -e CI=true mongo:6
+2026-10-12T15:39:51.1106360Z a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64
+2026-10-12T15:39:51.1125945Z ##[command]/usr/bin/docker start a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64
+2026-10-12T15:39:51.2825698Z a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64
+2026-10-12T15:39:51.2844500Z ##[command]/usr/bin/docker ps --all --filter id=a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64 --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2026-10-12T15:39:51.2953092Z a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64 Up Less than a second
+2026-10-12T15:39:51.2967007Z ##[command]/usr/bin/docker port a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64
+2026-10-12T15:39:51.3075234Z 27017/tcp -> 0.0.0.0:27017
+2026-10-12T15:39:51.3076954Z 27017/tcp -> [::]:27017
+2026-10-12T15:39:51.3111020Z ##[endgroup]
+2026-10-12T15:39:51.3117230Z ##[group]Waiting for all services to be ready
+2026-10-12T15:39:51.3128012Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64
+2026-10-12T15:39:51.3250614Z mongo service is healthy.
+2026-10-12T15:39:51.3251124Z ##[endgroup]
+2026-10-12T15:39:51.3534308Z ##[group]Run actions/checkout@v4
+2026-10-12T15:39:51.3534739Z with:
+2026-10-12T15:39:51.3534875Z   repository: dangerok97/DANGEROK
+2026-10-12T15:39:51.3536426Z   token: ***
+2026-10-12T15:39:51.3536553Z   ssh-strict: true
+2026-10-12T15:39:51.3536673Z   ssh-user: git
+2026-10-12T15:39:51.3536799Z   persist-credentials: true
+2026-10-12T15:39:51.3536956Z   clean: true
+2026-10-12T15:39:51.3537118Z   sparse-checkout-cone-mode: true
+2026-10-12T15:39:51.3537268Z   fetch-depth: 1
+2026-10-12T15:39:51.3537386Z   fetch-tags: false
+2026-10-12T15:39:51.3537508Z   show-progress: true
+2026-10-12T15:39:51.3537637Z   lfs: false
+2026-10-12T15:39:51.3537747Z   submodules: false
+2026-10-12T15:39:51.3537870Z   set-safe-directory: true
+2026-10-12T15:39:51.3538016Z   allow-unsafe-pr-checkout: false
+2026-10-12T15:39:51.3538238Z env:
+2026-10-12T15:39:51.3538369Z   MONGO_URL: mongodb://127.0.0.1:27017
+2026-10-12T15:39:51.3538529Z   DB_NAME: ora_situation_ci
+2026-10-12T15:39:51.3538722Z   JWT_SECRET: ci-test-secret-not-for-prod
+2026-10-12T15:39:51.3539076Z   AMBIENT_RUNTIME: 0
+2026-10-12T15:39:51.3539200Z   DOCUMENT_AI_ENABLED: 0
+2026-10-12T15:39:51.3539336Z   DOCUMENT_STORAGE_BACKEND: local
+2026-10-12T15:39:51.3539498Z   DOCUMENT_STORAGE_DIR: /tmp/ora-situation-ci
+2026-10-12T15:39:51.3539665Z   CALENDAR_PROVIDER_MODE: fake
+2026-10-12T15:39:51.3539804Z   GEMINI_API_KEY: 
+2026-10-12T15:39:51.3539926Z ##[endgroup]
+2026-10-12T15:39:51.4289921Z Syncing repository: dangerok97/DANGEROK
+2026-10-12T15:39:51.4291407Z ##[group]Getting Git version info
+2026-10-12T15:39:51.4291744Z Working directory is '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T15:39:51.4292493Z [command]/usr/bin/git version
+2026-10-12T15:39:51.4379999Z git version 2.55.0
+2026-10-12T15:39:51.4393363Z ##[endgroup]
+2026-10-12T15:39:51.4404491Z Temporarily overriding HOME='/home/runner/work/_temp/4872f4e1-0052-411c-8c05-cebe689a039e' before making global git config changes
+2026-10-12T15:39:51.4405329Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T15:39:51.4409323Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:39:51.4458791Z Deleting the contents of '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T15:39:51.4461154Z ##[group]Initializing the repository
+2026-10-12T15:39:51.4464073Z [command]/usr/bin/git init /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:39:51.4578569Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T15:39:51.4579118Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T15:39:51.4579560Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T15:39:51.4579905Z hint: call:
+2026-10-12T15:39:51.4580076Z hint:
+2026-10-12T15:39:51.4580368Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T15:39:51.4580668Z hint:
+2026-10-12T15:39:51.4580922Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T15:39:51.4581453Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T15:39:51.4581788Z hint:
+2026-10-12T15:39:51.4581964Z hint: 	git branch -m <name>
+2026-10-12T15:39:51.4582285Z hint:
+2026-10-12T15:39:51.4582558Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T15:39:51.4583255Z Initialized empty Git repository in /home/runner/work/DANGEROK/DANGEROK/.git/
+2026-10-12T15:39:51.4589845Z [command]/usr/bin/git remote add origin https://github.com/dangerok97/DANGEROK
+2026-10-12T15:39:51.4650417Z ##[endgroup]
+2026-10-12T15:39:51.4650845Z ##[group]Disabling automatic garbage collection
+2026-10-12T15:39:51.4651369Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T15:39:51.4690318Z ##[endgroup]
+2026-10-12T15:39:51.4690716Z ##[group]Setting up auth
+2026-10-12T15:39:51.4691115Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T15:39:51.4726200Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T15:39:51.5076917Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T15:39:51.5100920Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T15:39:51.5301543Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T15:39:51.5332242Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T15:39:51.5508172Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T15:39:51.5541459Z ##[endgroup]
+2026-10-12T15:39:51.5541791Z ##[group]Fetching the repository
+2026-10-12T15:39:51.5554331Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +4958ee9981579a734454b0a15645b344c032459f:refs/remotes/pull/220/merge
+2026-10-12T15:39:52.4784582Z From https://github.com/dangerok97/DANGEROK
+2026-10-12T15:39:52.4784909Z  * [new ref]         4958ee9981579a734454b0a15645b344c032459f -> pull/220/merge
+2026-10-12T15:39:52.4788224Z ##[endgroup]
+2026-10-12T15:39:52.4788538Z ##[group]Determining the checkout info
+2026-10-12T15:39:52.4790390Z ##[endgroup]
+2026-10-12T15:39:52.4794545Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T15:39:52.4842639Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T15:39:52.4871933Z ##[group]Checking out the ref
+2026-10-12T15:39:52.4872424Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/220/merge
+2026-10-12T15:39:52.6443344Z Note: switching to 'refs/remotes/pull/220/merge'.
+2026-10-12T15:39:52.6443532Z 
+2026-10-12T15:39:52.6443704Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-12T15:39:52.6444022Z changes and commit them, and you can discard any commits you make in this
+2026-10-12T15:39:52.6444415Z state without impacting any branches by switching back to a branch.
+2026-10-12T15:39:52.6444653Z 
+2026-10-12T15:39:52.6444840Z If you want to create a new branch to retain commits you create, you may
+2026-10-12T15:39:52.6445212Z do so (now or later) by using -c with the switch command. Example:
+2026-10-12T15:39:52.6445429Z 
+2026-10-12T15:39:52.6445530Z   git switch -c <new-branch-name>
+2026-10-12T15:39:52.6445677Z 
+2026-10-12T15:39:52.6445768Z Or undo this operation with:
+2026-10-12T15:39:52.6445902Z 
+2026-10-12T15:39:52.6445980Z   git switch -
+2026-10-12T15:39:52.6446091Z 
+2026-10-12T15:39:52.6446271Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-12T15:39:52.6446516Z 
+2026-10-12T15:39:52.6446798Z HEAD is now at 4958ee9 Merge 641dbaf9869e0881ffe6778ff82c0e771e6fcca4 into 9063c41bea894bba9c2b384756b040c0f9f69983
+2026-10-12T15:39:52.6457598Z ##[endgroup]
+2026-10-12T15:39:52.6504725Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T15:39:52.6529782Z 4958ee9981579a734454b0a15645b344c032459f
+2026-10-12T15:39:52.6736917Z ##[group]Run actions/setup-python@v5
+2026-10-12T15:39:52.6737075Z with:
+2026-10-12T15:39:52.6737192Z   python-version: 3.12
+2026-10-12T15:39:52.6737312Z   cache: pip
+2026-10-12T15:39:52.6737461Z   cache-dependency-path: backend/requirements-cloud.txt
+2026-10-12T15:39:52.6737643Z   check-latest: false
+2026-10-12T15:39:52.6739032Z   token: ***
+2026-10-12T15:39:52.6739147Z   update-environment: true
+2026-10-12T15:39:52.6739281Z   allow-prereleases: false
+2026-10-12T15:39:52.6739410Z   freethreaded: false
+2026-10-12T15:39:52.6739525Z env:
+2026-10-12T15:39:52.6739647Z   MONGO_URL: mongodb://127.0.0.1:27017
+2026-10-12T15:39:52.6739802Z   DB_NAME: ora_situation_ci
+2026-10-12T15:39:52.6739948Z   JWT_SECRET: ci-test-secret-not-for-prod
+2026-10-12T15:39:52.6740111Z   AMBIENT_RUNTIME: 0
+2026-10-12T15:39:52.6740229Z   DOCUMENT_AI_ENABLED: 0
+2026-10-12T15:39:52.6740357Z   DOCUMENT_STORAGE_BACKEND: local
+2026-10-12T15:39:52.6740510Z   DOCUMENT_STORAGE_DIR: /tmp/ora-situation-ci
+2026-10-12T15:39:52.6740693Z   CALENDAR_PROVIDER_MODE: fake
+2026-10-12T15:39:52.6740826Z   GEMINI_API_KEY: 
+2026-10-12T15:39:52.6740938Z ##[endgroup]
+2026-10-12T15:39:52.7563276Z ##[group]Installed versions
+2026-10-12T15:39:52.7740352Z (node:2491) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T15:39:52.7740887Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T15:39:52.7741487Z Successfully set up CPython (3.12.15)
+2026-10-12T15:39:52.7741969Z ##[endgroup]
+2026-10-12T15:39:52.7944542Z [command]/opt/hostedtoolcache/Python/3.12.15/x64/bin/pip cache dir
+2026-10-12T15:39:53.0431565Z /home/runner/.cache/pip
+2026-10-12T15:39:53.2345056Z Cache hit for: setup-python-Linux-x64-24.04-Ubuntu-python-3.12.15-pip-0044b7adfaf7bae0ba77d28f11c2fd6b11194b2b2ef52448a7645bcaa057feba
+2026-10-12T15:39:53.2409744Z (node:2491) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-12T15:39:54.3906076Z Received 88080384 of 183747004 (47.9%), 84.0 MBs/sec
+2026-10-12T15:39:55.3902360Z Received 130023424 of 183747004 (70.8%), 62.0 MBs/sec
+2026-10-12T15:39:56.3914612Z Received 179552700 of 183747004 (97.7%), 57.1 MBs/sec
+2026-10-12T15:39:57.3917112Z Received 179552700 of 183747004 (97.7%), 42.8 MBs/sec
+2026-10-12T15:39:57.4619928Z Received 183747004 of 183747004 (100.0%), 43.0 MBs/sec
+2026-10-12T15:39:57.4620549Z Cache Size: ~175 MB (183747004 B)
+2026-10-12T15:39:57.4644843Z [command]/usr/bin/tar -xf /home/runner/work/_temp/3fb8cb6a-c9d8-4043-b61e-6aede70f6019/cache.tzst -P -C /home/runner/work/DANGEROK/DANGEROK --use-compress-program unzstd
+2026-10-12T15:39:57.6838602Z Cache restored successfully
+2026-10-12T15:39:57.6917735Z Cache restored from key: setup-python-Linux-x64-24.04-Ubuntu-python-3.12.15-pip-0044b7adfaf7bae0ba77d28f11c2fd6b11194b2b2ef52448a7645bcaa057feba
+2026-10-12T15:39:57.7090174Z ##[group]Run python -m pip install -r backend/requirements-cloud.txt
+2026-10-12T15:39:57.7090513Z [36;1mpython -m pip install -r backend/requirements-cloud.txt[0m
+2026-10-12T15:39:57.7090750Z [36;1mpython -m pip install mongomock-motor==0.0.36[0m
+2026-10-12T15:39:57.7090953Z [36;1mmkdir -p /tmp/ora-situation-ci[0m
+2026-10-12T15:39:57.7274470Z shell: /usr/bin/bash -e {0}
+2026-10-12T15:39:57.7274629Z env:
+2026-10-12T15:39:57.7274789Z   MONGO_URL: mongodb://127.0.0.1:27017
+2026-10-12T15:39:57.7274951Z   DB_NAME: ora_situation_ci
+2026-10-12T15:39:57.7275108Z   JWT_SECRET: ci-test-secret-not-for-prod
+2026-10-12T15:39:57.7275269Z   AMBIENT_RUNTIME: 0
+2026-10-12T15:39:57.7275398Z   DOCUMENT_AI_ENABLED: 0
+2026-10-12T15:39:57.7275535Z   DOCUMENT_STORAGE_BACKEND: local
+2026-10-12T15:39:57.7275722Z   DOCUMENT_STORAGE_DIR: /tmp/ora-situation-ci
+2026-10-12T15:39:57.7275891Z   CALENDAR_PROVIDER_MODE: fake
+2026-10-12T15:39:57.7276031Z   GEMINI_API_KEY: 
+2026-10-12T15:39:57.7276206Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:39:57.7276450Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-12T15:39:57.7276683Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:39:57.7276897Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:39:57.7277116Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:39:57.7277329Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-12T15:39:57.7277522Z ##[endgroup]
+2026-10-12T15:39:58.3375736Z Collecting aiohappyeyeballs==2.7.1 (from -r backend/requirements-cloud.txt (line 2))
+2026-10-12T15:39:58.3385420Z   Using cached aiohappyeyeballs-2.7.1-py3-none-any.whl.metadata (5.9 kB)
+2026-10-12T15:39:58.7679956Z Collecting aiohttp==3.14.3 (from -r backend/requirements-cloud.txt (line 3))
+2026-10-12T15:39:58.7698859Z   Using cached aiohttp-3.14.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.3 kB)
+2026-10-12T15:39:58.7900844Z Collecting aiosignal==1.4.0 (from -r backend/requirements-cloud.txt (line 4))
+2026-10-12T15:39:58.7909456Z   Using cached aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+2026-10-12T15:39:58.8075515Z Collecting annotated-doc==0.0.5 (from -r backend/requirements-cloud.txt (line 5))
+2026-10-12T15:39:58.8083071Z   Using cached annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+2026-10-12T15:39:58.8251331Z Collecting annotated-types==0.8.0 (from -r backend/requirements-cloud.txt (line 6))
+2026-10-12T15:39:58.8259242Z   Using cached annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+2026-10-12T15:39:58.8454458Z Collecting anyio==4.14.2 (from -r backend/requirements-cloud.txt (line 7))
+2026-10-12T15:39:58.8462388Z   Using cached anyio-4.14.2-py3-none-any.whl.metadata (4.6 kB)
+2026-10-12T15:39:58.8838432Z Collecting ast_serialize==0.6.0 (from -r backend/requirements-cloud.txt (line 8))
+2026-10-12T15:39:58.8846863Z   Using cached ast_serialize-0.6.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (1.3 kB)
+2026-10-12T15:39:58.9026145Z Collecting attrs==26.1.0 (from -r backend/requirements-cloud.txt (line 9))
+2026-10-12T15:39:58.9033416Z   Using cached attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+2026-10-12T15:39:58.9331088Z Collecting bcrypt==4.1.3 (from -r backend/requirements-cloud.txt (line 10))
+2026-10-12T15:39:58.9339315Z   Using cached bcrypt-4.1.3-cp39-abi3-manylinux_2_28_x86_64.whl.metadata (9.5 kB)
+2026-10-12T15:39:58.9812242Z Collecting black==26.5.1 (from -r backend/requirements-cloud.txt (line 11))
+2026-10-12T15:39:58.9820356Z   Using cached black-26.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (95 kB)
+2026-10-12T15:39:59.1467194Z Collecting boto3==1.43.59 (from -r backend/requirements-cloud.txt (line 12))
+2026-10-12T15:39:59.1477390Z   Using cached boto3-1.43.59-py3-none-any.whl.metadata (6.6 kB)
+2026-10-12T15:39:59.3009427Z Collecting botocore==1.43.59 (from -r backend/requirements-cloud.txt (line 13))
+2026-10-12T15:39:59.3019277Z   Using cached botocore-1.43.59-py3-none-any.whl.metadata (5.6 kB)
+2026-10-12T15:39:59.3215123Z Collecting certifi==2026.7.22 (from -r backend/requirements-cloud.txt (line 14))
+2026-10-12T15:39:59.3222675Z   Using cached certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+2026-10-12T15:39:59.3825589Z Collecting cffi==2.1.0 (from -r backend/requirements-cloud.txt (line 15))
+2026-10-12T15:39:59.3834538Z   Using cached cffi-2.1.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.5 kB)
+2026-10-12T15:39:59.4852972Z Collecting charset-normalizer==3.4.9 (from -r backend/requirements-cloud.txt (line 16))
+2026-10-12T15:39:59.4863380Z   Using cached charset_normalizer-3.4.9-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (41 kB)
+2026-10-12T15:39:59.5067767Z Collecting click==8.4.2 (from -r backend/requirements-cloud.txt (line 17))
+2026-10-12T15:39:59.5076628Z   Using cached click-8.4.2-py3-none-any.whl.metadata (2.6 kB)
+2026-10-12T15:39:59.6058214Z Collecting cryptography==50.0.0 (from -r backend/requirements-cloud.txt (line 18))
+2026-10-12T15:39:59.6073624Z   Using cached cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.3 kB)
+2026-10-12T15:39:59.6380510Z Collecting distro==1.9.0 (from -r backend/requirements-cloud.txt (line 19))
+2026-10-12T15:39:59.6392222Z   Using cached distro-1.9.0-py3-none-any.whl.metadata (6.8 kB)
+2026-10-12T15:39:59.6835711Z Collecting dnspython==2.8.0 (from -r backend/requirements-cloud.txt (line 20))
+2026-10-12T15:39:59.6843898Z   Using cached dnspython-2.8.0-py3-none-any.whl.metadata (5.7 kB)
+2026-10-12T15:39:59.7457902Z Collecting email-validator==2.3.0 (from -r backend/requirements-cloud.txt (line 21))
+2026-10-12T15:39:59.7465616Z   Using cached email_validator-2.3.0-py3-none-any.whl.metadata (26 kB)
+2026-10-12T15:39:59.7746384Z Collecting execnet==2.1.2 (from -r backend/requirements-cloud.txt (line 22))
+2026-10-12T15:39:59.7753886Z   Using cached execnet-2.1.2-py3-none-any.whl.metadata (2.9 kB)
+2026-10-12T15:39:59.8077128Z Collecting fastapi==0.142.2 (from -r backend/requirements-cloud.txt (line 23))
+2026-10-12T15:39:59.8084505Z   Using cached fastapi-0.142.2-py3-none-any.whl.metadata (27 kB)
+2026-10-12T15:39:59.8363687Z Collecting fastuuid==0.14.0 (from -r backend/requirements-cloud.txt (line 24))
+2026-10-12T15:39:59.8371308Z   Using cached fastuuid-0.14.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (1.1 kB)
+2026-10-12T15:39:59.8638208Z Collecting filelock==3.32.2 (from -r backend/requirements-cloud.txt (line 25))
+2026-10-12T15:39:59.8646305Z   Using cached filelock-3.32.2-py3-none-any.whl.metadata (2.0 kB)
+2026-10-12T15:39:59.8906413Z Collecting flake8==7.3.0 (from -r backend/requirements-cloud.txt (line 26))
+2026-10-12T15:39:59.8914497Z   Using cached flake8-7.3.0-py2.py3-none-any.whl.metadata (3.8 kB)
+2026-10-12T15:39:59.9786027Z Collecting frozenlist==1.8.0 (from -r backend/requirements-cloud.txt (line 27))
+2026-10-12T15:39:59.9796018Z   Using cached frozenlist-1.8.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+2026-10-12T15:40:00.0018821Z Collecting fsspec==2026.7.0 (from -r backend/requirements-cloud.txt (line 28))
+2026-10-12T15:40:00.0026943Z   Using cached fsspec-2026.7.0-py3-none-any.whl.metadata (10 kB)
+2026-10-12T15:40:00.0303844Z Collecting google-ai-generativelanguage==0.6.15 (from -r backend/requirements-cloud.txt (line 29))
+2026-10-12T15:40:00.0311823Z   Using cached google_ai_generativelanguage-0.6.15-py3-none-any.whl.metadata (5.7 kB)
+2026-10-12T15:40:00.0650140Z Collecting google-api-core==2.33.0 (from -r backend/requirements-cloud.txt (line 30))
+2026-10-12T15:40:00.0658381Z   Using cached google_api_core-2.33.0-py3-none-any.whl.metadata (3.2 kB)
+2026-10-12T15:40:00.0953047Z Collecting google-api-python-client==2.198.0 (from -r backend/requirements-cloud.txt (line 31))
+2026-10-12T15:40:00.0961335Z   Using cached google_api_python_client-2.198.0-py3-none-any.whl.metadata (7.0 kB)
+2026-10-12T15:40:00.1309139Z Collecting google-auth==2.56.2 (from -r backend/requirements-cloud.txt (line 32))
+2026-10-12T15:40:00.1317290Z   Using cached google_auth-2.56.2-py3-none-any.whl.metadata (6.0 kB)
+2026-10-12T15:40:00.1541073Z Collecting google-auth-httplib2==0.4.0 (from -r backend/requirements-cloud.txt (line 33))
+2026-10-12T15:40:00.1548894Z   Using cached google_auth_httplib2-0.4.0-py3-none-any.whl.metadata (3.0 kB)
+2026-10-12T15:40:00.1903609Z Collecting google-genai==2.15.0 (from -r backend/requirements-cloud.txt (line 34))
+2026-10-12T15:40:00.1911301Z   Using cached google_genai-2.15.0-py3-none-any.whl.metadata (55 kB)
+2026-10-12T15:40:00.2142256Z Collecting googleapis-common-protos==1.75.0 (from -r backend/requirements-cloud.txt (line 35))
+2026-10-12T15:40:00.2150821Z   Using cached googleapis_common_protos-1.75.0-py3-none-any.whl.metadata (8.6 kB)
+2026-10-12T15:40:00.6385186Z Collecting grpcio==1.83.0 (from -r backend/requirements-cloud.txt (line 36))
+2026-10-12T15:40:00.6396836Z   Using cached grpcio-1.83.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.7 kB)
+2026-10-12T15:40:00.6688114Z Collecting grpcio-status==1.71.2 (from -r backend/requirements-cloud.txt (line 37))
+2026-10-12T15:40:00.6696511Z   Using cached grpcio_status-1.71.2-py3-none-any.whl.metadata (1.1 kB)
+2026-10-12T15:40:00.6885362Z Collecting h11==0.16.0 (from -r backend/requirements-cloud.txt (line 38))
+2026-10-12T15:40:00.6893236Z   Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+2026-10-12T15:40:00.7225867Z Collecting hf-xet==1.5.2 (from -r backend/requirements-cloud.txt (line 39))
+2026-10-12T15:40:00.7234084Z   Using cached hf_xet-1.5.2-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (4.9 kB)
+2026-10-12T15:40:00.7420147Z Collecting httpcore==1.0.9 (from -r backend/requirements-cloud.txt (line 40))
+2026-10-12T15:40:00.7428136Z   Using cached httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+2026-10-12T15:40:00.7611507Z Collecting httplib2==0.32.0 (from -r backend/requirements-cloud.txt (line 41))
+2026-10-12T15:40:00.7619801Z   Using cached httplib2-0.32.0-py3-none-any.whl.metadata (2.2 kB)
+2026-10-12T15:40:00.7808964Z Collecting httpx==0.28.1 (from -r backend/requirements-cloud.txt (line 42))
+2026-10-12T15:40:00.7819842Z   Using cached httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+2026-10-12T15:40:00.8164939Z Collecting huggingface_hub==1.25.1 (from -r backend/requirements-cloud.txt (line 43))
+2026-10-12T15:40:00.8172815Z   Using cached huggingface_hub-1.25.1-py3-none-any.whl.metadata (16 kB)
+2026-10-12T15:40:00.8409651Z Collecting idna==3.18 (from -r backend/requirements-cloud.txt (line 44))
+2026-10-12T15:40:00.8417453Z   Using cached idna-3.18-py3-none-any.whl.metadata (6.1 kB)
+2026-10-12T15:40:00.8637176Z Collecting importlib_metadata==8.9.0 (from -r backend/requirements-cloud.txt (line 45))
+2026-10-12T15:40:00.8645104Z   Using cached importlib_metadata-8.9.0-py3-none-any.whl.metadata (4.5 kB)
+2026-10-12T15:40:00.8970139Z Collecting iniconfig==2.3.0 (from -r backend/requirements-cloud.txt (line 46))
+2026-10-12T15:40:00.8978511Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-10-12T15:40:00.9235774Z Collecting isort==8.0.1 (from -r backend/requirements-cloud.txt (line 47))
+2026-10-12T15:40:00.9243970Z   Using cached isort-8.0.1-py3-none-any.whl.metadata (11 kB)
+2026-10-12T15:40:00.9448920Z Collecting Jinja2==3.1.6 (from -r backend/requirements-cloud.txt (line 48))
+2026-10-12T15:40:00.9456904Z   Using cached jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+2026-10-12T15:40:01.0517788Z Collecting jiter==0.16.0 (from -r backend/requirements-cloud.txt (line 49))
+2026-10-12T15:40:01.0528844Z   Using cached jiter-0.16.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.2 kB)
+2026-10-12T15:40:01.0705307Z Collecting jmespath==1.1.0 (from -r backend/requirements-cloud.txt (line 50))
+2026-10-12T15:40:01.0713391Z   Using cached jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+2026-10-12T15:40:01.1245301Z Collecting jq==1.12.0 (from -r backend/requirements-cloud.txt (line 51))
+2026-10-12T15:40:01.1253847Z   Using cached jq-1.12.0-cp312-cp312-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (7.0 kB)
+2026-10-12T15:40:01.1460245Z Collecting jsonschema==4.26.0 (from -r backend/requirements-cloud.txt (line 52))
+2026-10-12T15:40:01.1468300Z   Using cached jsonschema-4.26.0-py3-none-any.whl.metadata (7.6 kB)
+2026-10-12T15:40:01.1652627Z Collecting jsonschema-specifications==2025.9.1 (from -r backend/requirements-cloud.txt (line 53))
+2026-10-12T15:40:01.1660274Z   Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+2026-10-12T15:40:01.2391147Z Collecting librt==0.13.0 (from -r backend/requirements-cloud.txt (line 54))
+2026-10-12T15:40:01.2401047Z   Using cached librt-0.13.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (1.3 kB)
+2026-10-12T15:40:01.3253559Z Collecting litellm==1.96.2 (from -r backend/requirements-cloud.txt (line 55))
+2026-10-12T15:40:01.3264432Z   Using cached litellm-1.96.2-cp310-abi3-manylinux_2_28_x86_64.whl.metadata (41 kB)
+2026-10-12T15:40:01.3500250Z Collecting markdown-it-py==4.2.0 (from -r backend/requirements-cloud.txt (line 56))
+2026-10-12T15:40:01.3507965Z   Using cached markdown_it_py-4.2.0-py3-none-any.whl.metadata (7.4 kB)
+2026-10-12T15:40:01.3908781Z Collecting MarkupSafe==3.0.3 (from -r backend/requirements-cloud.txt (line 57))
+2026-10-12T15:40:01.3917769Z   Using cached markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+2026-10-12T15:40:01.4576703Z Collecting mccabe==0.7.0 (from -r backend/requirements-cloud.txt (line 58))
+2026-10-12T15:40:01.4584575Z   Using cached mccabe-0.7.0-py2.py3-none-any.whl.metadata (5.0 kB)
+2026-10-12T15:40:01.5072682Z Collecting mdurl==0.1.2 (from -r backend/requirements-cloud.txt (line 59))
+2026-10-12T15:40:01.5082488Z   Using cached mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+2026-10-12T15:40:01.5285733Z Collecting motor==3.3.1 (from -r backend/requirements-cloud.txt (line 60))
+2026-10-12T15:40:01.5293656Z   Using cached motor-3.3.1-py3-none-any.whl.metadata (20 kB)
+2026-10-12T15:40:01.7582253Z Collecting multidict==6.7.1 (from -r backend/requirements-cloud.txt (line 61))
+2026-10-12T15:40:01.7600577Z   Using cached multidict-6.7.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.3 kB)
+2026-10-12T15:40:01.8399496Z Collecting mypy==2.3.0 (from -r backend/requirements-cloud.txt (line 62))
+2026-10-12T15:40:01.8409188Z   Using cached mypy-2.3.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2026-10-12T15:40:01.8602575Z Collecting mypy_extensions==1.1.0 (from -r backend/requirements-cloud.txt (line 63))
+2026-10-12T15:40:01.8611564Z   Using cached mypy_extensions-1.1.0-py3-none-any.whl.metadata (1.1 kB)
+2026-10-12T15:40:01.9863006Z Collecting numpy==2.4.6 (from -r backend/requirements-cloud.txt (line 64))
+2026-10-12T15:40:01.9873595Z   Using cached numpy-2.4.6-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+2026-10-12T15:40:02.0052688Z Collecting oauthlib==4.0.0 (from -r backend/requirements-cloud.txt (line 65))
+2026-10-12T15:40:02.0061126Z   Using cached oauthlib-4.0.0-py3-none-any.whl.metadata (8.6 kB)
+2026-10-12T15:40:02.0416587Z Collecting openai==2.20.0 (from -r backend/requirements-cloud.txt (line 66))
+2026-10-12T15:40:02.0424528Z   Using cached openai-2.20.0-py3-none-any.whl.metadata (29 kB)
+2026-10-12T15:40:02.0634558Z Collecting packaging==26.2 (from -r backend/requirements-cloud.txt (line 67))
+2026-10-12T15:40:02.0642218Z   Using cached packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+2026-10-12T15:40:02.1335476Z Collecting pandas==3.0.5 (from -r backend/requirements-cloud.txt (line 68))
+2026-10-12T15:40:02.1345188Z   Using cached pandas-3.0.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+2026-10-12T15:40:02.1640727Z Collecting passlib==1.7.4 (from -r backend/requirements-cloud.txt (line 69))
+2026-10-12T15:40:02.1648378Z   Using cached passlib-1.7.4-py2.py3-none-any.whl.metadata (1.7 kB)
+2026-10-12T15:40:02.1821670Z Collecting pathspec==1.1.1 (from -r backend/requirements-cloud.txt (line 70))
+2026-10-12T15:40:02.1829016Z   Using cached pathspec-1.1.1-py3-none-any.whl.metadata (14 kB)
+2026-10-12T15:40:02.3584350Z Collecting pillow==12.3.0 (from -r backend/requirements-cloud.txt (line 71))
+2026-10-12T15:40:02.3595210Z   Using cached pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (9.1 kB)
+2026-10-12T15:40:02.3820104Z Collecting platformdirs==4.11.0 (from -r backend/requirements-cloud.txt (line 72))
+2026-10-12T15:40:02.3828373Z   Using cached platformdirs-4.11.0-py3-none-any.whl.metadata (5.5 kB)
+2026-10-12T15:40:02.4002622Z Collecting pluggy==1.6.0 (from -r backend/requirements-cloud.txt (line 73))
+2026-10-12T15:40:02.4011236Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-10-12T15:40:02.4475975Z Collecting propcache==0.5.2 (from -r backend/requirements-cloud.txt (line 74))
+2026-10-12T15:40:02.4484483Z   Using cached propcache-0.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (16 kB)
+2026-10-12T15:40:02.4683510Z Collecting proto-plus==1.28.2 (from -r backend/requirements-cloud.txt (line 75))
+2026-10-12T15:40:02.4692160Z   Using cached proto_plus-1.28.2-py3-none-any.whl.metadata (2.2 kB)
+2026-10-12T15:40:02.5508642Z Collecting protobuf==5.29.6 (from -r backend/requirements-cloud.txt (line 76))
+2026-10-12T15:40:02.5518530Z   Using cached protobuf-5.29.6-cp38-abi3-manylinux2014_x86_64.whl.metadata (592 bytes)
+2026-10-12T15:40:02.5732412Z Collecting pyasn1==0.6.4 (from -r backend/requirements-cloud.txt (line 77))
+2026-10-12T15:40:02.5740280Z   Using cached pyasn1-0.6.4-py3-none-any.whl.metadata (8.4 kB)
+2026-10-12T15:40:02.5946520Z Collecting pyasn1_modules==0.4.2 (from -r backend/requirements-cloud.txt (line 78))
+2026-10-12T15:40:02.5954542Z   Using cached pyasn1_modules-0.4.2-py3-none-any.whl.metadata (3.5 kB)
+2026-10-12T15:40:02.6139712Z Collecting pycodestyle==2.14.0 (from -r backend/requirements-cloud.txt (line 79))
+2026-10-12T15:40:02.6147423Z   Using cached pycodestyle-2.14.0-py2.py3-none-any.whl.metadata (4.5 kB)
+2026-10-12T15:40:02.6321074Z Collecting pycparser==3.0 (from -r backend/requirements-cloud.txt (line 80))
+2026-10-12T15:40:02.6328796Z   Using cached pycparser-3.0-py3-none-any.whl.metadata (8.2 kB)
+2026-10-12T15:40:02.7019361Z Collecting pydantic==2.13.4 (from -r backend/requirements-cloud.txt (line 81))
+2026-10-12T15:40:02.7028248Z   Using cached pydantic-2.13.4-py3-none-any.whl.metadata (109 kB)
+2026-10-12T15:40:03.2000675Z Collecting pydantic_core==2.46.4 (from -r backend/requirements-cloud.txt (line 82))
+2026-10-12T15:40:03.2012312Z   Using cached pydantic_core-2.46.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+2026-10-12T15:40:03.2226158Z Collecting pyflakes==3.4.0 (from -r backend/requirements-cloud.txt (line 83))
+2026-10-12T15:40:03.2234619Z   Using cached pyflakes-3.4.0-py2.py3-none-any.whl.metadata (3.5 kB)
+2026-10-12T15:40:03.2434425Z Collecting Pygments==2.20.0 (from -r backend/requirements-cloud.txt (line 84))
+2026-10-12T15:40:03.2442502Z   Using cached pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+2026-10-12T15:40:03.2632261Z Collecting PyJWT==2.15.0 (from -r backend/requirements-cloud.txt (line 85))
+2026-10-12T15:40:03.2640785Z   Using cached pyjwt-2.15.0-py3-none-any.whl.metadata (3.5 kB)
+2026-10-12T15:40:03.5330334Z Collecting pymongo==4.6.3 (from -r backend/requirements-cloud.txt (line 86))
+2026-10-12T15:40:03.5340927Z   Using cached pymongo-4.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (22 kB)
+2026-10-12T15:40:03.5585400Z Collecting pyparsing==3.3.2 (from -r backend/requirements-cloud.txt (line 87))
+2026-10-12T15:40:03.5593506Z   Using cached pyparsing-3.3.2-py3-none-any.whl.metadata (5.8 kB)
+2026-10-12T15:40:03.5810271Z Collecting pypdf==6.19.0 (from -r backend/requirements-cloud.txt (line 88))
+2026-10-12T15:40:03.5817997Z   Using cached pypdf-6.19.0-py3-none-any.whl.metadata (7.5 kB)
+2026-10-12T15:40:03.6365419Z Collecting pypdfium2==5.12.1 (from -r backend/requirements-cloud.txt (line 89))
+2026-10-12T15:40:03.6374373Z   Using cached pypdfium2-5.12.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (69 kB)
+2026-10-12T15:40:03.6558361Z Collecting pytesseract==0.3.13 (from -r backend/requirements-cloud.txt (line 90))
+2026-10-12T15:40:03.6565762Z   Using cached pytesseract-0.3.13-py3-none-any.whl.metadata (11 kB)
+2026-10-12T15:40:03.6737432Z Collecting python-docx==1.1.2 (from -r backend/requirements-cloud.txt (line 91))
+2026-10-12T15:40:03.6745142Z   Using cached python_docx-1.1.2-py3-none-any.whl.metadata (2.0 kB)
+2026-10-12T15:40:03.6918683Z Collecting python-pptx==1.0.2 (from -r backend/requirements-cloud.txt (line 92))
+2026-10-12T15:40:03.6926255Z   Using cached python_pptx-1.0.2-py3-none-any.whl.metadata (2.5 kB)
+2026-10-12T15:40:03.7156651Z Collecting pytest==9.1.1 (from -r backend/requirements-cloud.txt (line 93))
+2026-10-12T15:40:03.7164894Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-10-12T15:40:03.7438568Z Collecting pytest-asyncio==1.4.0 (from -r backend/requirements-cloud.txt (line 94))
+2026-10-12T15:40:03.7446009Z   Using cached pytest_asyncio-1.4.0-py3-none-any.whl.metadata (4.1 kB)
+2026-10-12T15:40:03.7636526Z Collecting pytest-xdist==3.8.0 (from -r backend/requirements-cloud.txt (line 95))
+2026-10-12T15:40:03.7643965Z   Using cached pytest_xdist-3.8.0-py3-none-any.whl.metadata (3.0 kB)
+2026-10-12T15:40:03.7821119Z Collecting python-dateutil==2.9.0.post0 (from -r backend/requirements-cloud.txt (line 96))
+2026-10-12T15:40:03.7829241Z   Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+2026-10-12T15:40:03.8067257Z Collecting python-dotenv==1.2.2 (from -r backend/requirements-cloud.txt (line 97))
+2026-10-12T15:40:03.8074625Z   Using cached python_dotenv-1.2.2-py3-none-any.whl.metadata (27 kB)
+2026-10-12T15:40:03.8266067Z Collecting python-multipart==0.0.32 (from -r backend/requirements-cloud.txt (line 98))
+2026-10-12T15:40:03.8273520Z   Using cached python_multipart-0.0.32-py3-none-any.whl.metadata (2.1 kB)
+2026-10-12T15:40:03.8456143Z Collecting pytokens==0.4.1 (from -r backend/requirements-cloud.txt (line 99))
+2026-10-12T15:40:03.8463835Z   Using cached pytokens-0.4.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+2026-10-12T15:40:03.8757830Z Collecting PyYAML==6.0.3 (from -r backend/requirements-cloud.txt (line 100))
+2026-10-12T15:40:03.8766320Z   Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2026-10-12T15:40:03.8977300Z Collecting referencing==0.37.0 (from -r backend/requirements-cloud.txt (line 101))
+2026-10-12T15:40:03.8984900Z   Using cached referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+2026-10-12T15:40:04.1054735Z Collecting regex==2026.7.19 (from -r backend/requirements-cloud.txt (line 102))
+2026-10-12T15:40:04.1065987Z   Using cached regex-2026.7.19-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+2026-10-12T15:40:04.2201982Z Collecting requests==2.34.2 (from -r backend/requirements-cloud.txt (line 103))
+2026-10-12T15:40:04.2210442Z   Using cached requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+2026-10-12T15:40:04.2388501Z Collecting requests-oauthlib==2.0.0 (from -r backend/requirements-cloud.txt (line 104))
+2026-10-12T15:40:04.2396112Z   Using cached requests_oauthlib-2.0.0-py2.py3-none-any.whl.metadata (11 kB)
+2026-10-12T15:40:04.2725097Z Collecting rich==15.0.0 (from -r backend/requirements-cloud.txt (line 105))
+2026-10-12T15:40:04.2732743Z   Using cached rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+2026-10-12T15:40:04.5360775Z Collecting rpds-py==2026.6.3 (from -r backend/requirements-cloud.txt (line 106))
+2026-10-12T15:40:04.5371510Z   Using cached rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+2026-10-12T15:40:04.5553362Z Collecting rsa==4.9.1 (from -r backend/requirements-cloud.txt (line 107))
+2026-10-12T15:40:04.5560677Z   Using cached rsa-4.9.1-py3-none-any.whl.metadata (5.6 kB)
+2026-10-12T15:40:04.5783606Z Collecting s3transfer==0.19.2 (from -r backend/requirements-cloud.txt (line 108))
+2026-10-12T15:40:04.5790901Z   Using cached s3transfer-0.19.2-py3-none-any.whl.metadata (1.7 kB)
+2026-10-12T15:40:04.6421657Z Collecting s5cmd==0.2.0 (from -r backend/requirements-cloud.txt (line 109))
+2026-10-12T15:40:04.6429850Z   Using cached s5cmd-0.2.0-py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.7 kB)
+2026-10-12T15:40:04.6721860Z Collecting shellingham==1.5.4 (from -r backend/requirements-cloud.txt (line 110))
+2026-10-12T15:40:04.6729384Z   Using cached shellingham-1.5.4-py2.py3-none-any.whl.metadata (3.5 kB)
+2026-10-12T15:40:04.7030222Z Collecting six==1.17.0 (from -r backend/requirements-cloud.txt (line 111))
+2026-10-12T15:40:04.7037723Z   Using cached six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+2026-10-12T15:40:04.7333452Z Collecting sniffio==1.3.1 (from -r backend/requirements-cloud.txt (line 112))
+2026-10-12T15:40:04.7340732Z   Using cached sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+2026-10-12T15:40:04.7563806Z Collecting starlette==1.7.0 (from -r backend/requirements-cloud.txt (line 113))
+2026-10-12T15:40:04.7571155Z   Using cached starlette-1.7.0-py3-none-any.whl.metadata (6.6 kB)
+2026-10-12T15:40:04.8042434Z Collecting stripe==14.4.1 (from -r backend/requirements-cloud.txt (line 114))
+2026-10-12T15:40:04.8051884Z   Using cached stripe-14.4.1-py3-none-any.whl.metadata (18 kB)
+2026-10-12T15:40:04.8305652Z Collecting tenacity==9.1.4 (from -r backend/requirements-cloud.txt (line 115))
+2026-10-12T15:40:04.8313258Z   Using cached tenacity-9.1.4-py3-none-any.whl.metadata (1.2 kB)
+2026-10-12T15:40:04.8739858Z Collecting tiktoken==0.13.0 (from -r backend/requirements-cloud.txt (line 116))
+2026-10-12T15:40:04.8747476Z   Using cached tiktoken-0.13.0-cp312-cp312-manylinux_2_28_x86_64.whl.metadata (6.7 kB)
+2026-10-12T15:40:04.9669866Z Collecting tokenizers==0.23.1 (from -r backend/requirements-cloud.txt (line 117))
+2026-10-12T15:40:04.9680112Z   Using cached tokenizers-0.23.1-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (9.8 kB)
+2026-10-12T15:40:05.0345283Z Collecting tqdm==4.70.0 (from -r backend/requirements-cloud.txt (line 118))
+2026-10-12T15:40:05.0353661Z   Using cached tqdm-4.70.0-py3-none-any.whl.metadata (57 kB)
+2026-10-12T15:40:05.0586227Z Collecting typer==0.27.0 (from -r backend/requirements-cloud.txt (line 119))
+2026-10-12T15:40:05.0594013Z   Using cached typer-0.27.0-py3-none-any.whl.metadata (15 kB)
+2026-10-12T15:40:05.0760831Z Collecting typing-inspection==0.4.2 (from -r backend/requirements-cloud.txt (line 120))
+2026-10-12T15:40:05.0768545Z   Using cached typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+2026-10-12T15:40:05.0955663Z Collecting typing_extensions==4.16.0 (from -r backend/requirements-cloud.txt (line 121))
+2026-10-12T15:40:05.0963328Z   Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+2026-10-12T15:40:05.1139230Z Collecting tzdata==2026.3 (from -r backend/requirements-cloud.txt (line 122))
+2026-10-12T15:40:05.1146853Z   Using cached tzdata-2026.3-py2.py3-none-any.whl.metadata (1.4 kB)
+2026-10-12T15:40:05.1309985Z Collecting uritemplate==4.2.0 (from -r backend/requirements-cloud.txt (line 123))
+2026-10-12T15:40:05.1317521Z   Using cached uritemplate-4.2.0-py3-none-any.whl.metadata (2.6 kB)
+2026-10-12T15:40:05.1524751Z Collecting urllib3==2.8.0 (from -r backend/requirements-cloud.txt (line 124))
+2026-10-12T15:40:05.1533035Z   Using cached urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+2026-10-12T15:40:05.1753451Z Collecting uvicorn==0.25.0 (from -r backend/requirements-cloud.txt (line 125))
+2026-10-12T15:40:05.1761210Z   Using cached uvicorn-0.25.0-py3-none-any.whl.metadata (6.4 kB)
+2026-10-12T15:40:05.2301424Z Collecting watchfiles==1.2.0 (from -r backend/requirements-cloud.txt (line 126))
+2026-10-12T15:40:05.2310360Z   Using cached watchfiles-1.2.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+2026-10-12T15:40:05.2967777Z Collecting websockets==16.1.1 (from -r backend/requirements-cloud.txt (line 127))
+2026-10-12T15:40:05.2977212Z   Using cached websockets-16.1.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (6.8 kB)
+2026-10-12T15:40:05.5658598Z Collecting yarl==1.24.5 (from -r backend/requirements-cloud.txt (line 128))
+2026-10-12T15:40:05.5669619Z   Using cached yarl-1.24.5-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (103 kB)
+2026-10-12T15:40:05.5911644Z Collecting zipp==4.1.0 (from -r backend/requirements-cloud.txt (line 129))
+2026-10-12T15:40:05.5919949Z   Using cached zipp-4.1.0-py3-none-any.whl.metadata (3.6 kB)
+2026-10-12T15:40:05.6554792Z Collecting opentelemetry-api>=1.44.0 (from fastapi==0.142.2->-r backend/requirements-cloud.txt (line 23))
+2026-10-12T15:40:05.7328650Z   Downloading opentelemetry_api-1.45.1-py3-none-any.whl.metadata (1.4 kB)
+2026-10-12T15:40:05.8158022Z Collecting pydantic-settings<3.0,>=2.14.1 (from litellm==1.96.2->-r backend/requirements-cloud.txt (line 55))
+2026-10-12T15:40:05.8165595Z   Using cached pydantic_settings-2.15.0-py3-none-any.whl.metadata (3.9 kB)
+2026-10-12T15:40:05.9939733Z Collecting lxml>=3.1.0 (from python-docx==1.1.2->-r backend/requirements-cloud.txt (line 91))
+2026-10-12T15:40:05.9950759Z   Using cached lxml-6.1.3-cp312-cp312-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (3.3 kB)
+2026-10-12T15:40:06.0243441Z Collecting XlsxWriter>=0.5.7 (from python-pptx==1.0.2->-r backend/requirements-cloud.txt (line 92))
+2026-10-12T15:40:06.0251003Z   Using cached xlsxwriter-3.2.9-py3-none-any.whl.metadata (2.7 kB)
+2026-10-12T15:40:06.0632662Z Using cached aiohappyeyeballs-2.7.1-py3-none-any.whl (15 kB)
+2026-10-12T15:40:06.0640298Z Using cached aiohttp-3.14.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.8 MB)
+2026-10-12T15:40:06.0652140Z Using cached multidict-6.7.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (256 kB)
+2026-10-12T15:40:06.0659344Z Using cached yarl-1.24.5-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (109 kB)
+2026-10-12T15:40:06.0666241Z Using cached aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+2026-10-12T15:40:06.0672762Z Using cached annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+2026-10-12T15:40:06.0679190Z Using cached annotated_types-0.8.0-py3-none-any.whl (13 kB)
+2026-10-12T15:40:06.0685652Z Using cached anyio-4.14.2-py3-none-any.whl (125 kB)
+2026-10-12T15:40:06.0692516Z Using cached ast_serialize-0.6.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.3 MB)
+2026-10-12T15:40:06.0702458Z Using cached attrs-26.1.0-py3-none-any.whl (67 kB)
+2026-10-12T15:40:06.0708974Z Using cached bcrypt-4.1.3-cp39-abi3-manylinux_2_28_x86_64.whl (283 kB)
+2026-10-12T15:40:06.0716350Z Using cached black-26.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.9 MB)
+2026-10-12T15:40:06.0727614Z Using cached pytokens-0.4.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (269 kB)
+2026-10-12T15:40:06.0734456Z Using cached boto3-1.43.59-py3-none-any.whl (140 kB)
+2026-10-12T15:40:06.0741012Z Using cached botocore-1.43.59-py3-none-any.whl (15.5 MB)
+2026-10-12T15:40:06.0784867Z Using cached jmespath-1.1.0-py3-none-any.whl (20 kB)
+2026-10-12T15:40:06.0791270Z Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+2026-10-12T15:40:06.0798151Z Using cached s3transfer-0.19.2-py3-none-any.whl (90 kB)
+2026-10-12T15:40:06.0804799Z Using cached urllib3-2.8.0-py3-none-any.whl (135 kB)
+2026-10-12T15:40:06.0811240Z Using cached certifi-2026.7.22-py3-none-any.whl (136 kB)
+2026-10-12T15:40:06.0818005Z Using cached cffi-2.1.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (221 kB)
+2026-10-12T15:40:06.0825325Z Using cached charset_normalizer-3.4.9-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (224 kB)
+2026-10-12T15:40:06.0831651Z Using cached click-8.4.2-py3-none-any.whl (119 kB)
+2026-10-12T15:40:06.0838400Z Using cached cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl (4.7 MB)
+2026-10-12T15:40:06.0855864Z Using cached distro-1.9.0-py3-none-any.whl (20 kB)
+2026-10-12T15:40:06.0862112Z Using cached dnspython-2.8.0-py3-none-any.whl (331 kB)
+2026-10-12T15:40:06.0869161Z Using cached email_validator-2.3.0-py3-none-any.whl (35 kB)
+2026-10-12T15:40:06.0875525Z Using cached execnet-2.1.2-py3-none-any.whl (40 kB)
+2026-10-12T15:40:06.0881721Z Using cached fastapi-0.142.2-py3-none-any.whl (144 kB)
+2026-10-12T15:40:06.0888519Z Using cached fastuuid-0.14.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (278 kB)
+2026-10-12T15:40:06.0895526Z Using cached filelock-3.32.2-py3-none-any.whl (98 kB)
+2026-10-12T15:40:06.0901790Z Using cached flake8-7.3.0-py2.py3-none-any.whl (57 kB)
+2026-10-12T15:40:06.0908296Z Using cached mccabe-0.7.0-py2.py3-none-any.whl (7.3 kB)
+2026-10-12T15:40:06.0914985Z Using cached pycodestyle-2.14.0-py2.py3-none-any.whl (31 kB)
+2026-10-12T15:40:06.0921192Z Using cached pyflakes-3.4.0-py2.py3-none-any.whl (63 kB)
+2026-10-12T15:40:06.0927801Z Using cached frozenlist-1.8.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (242 kB)
+2026-10-12T15:40:06.0934512Z Using cached fsspec-2026.7.0-py3-none-any.whl (206 kB)
+2026-10-12T15:40:06.0941103Z Using cached google_ai_generativelanguage-0.6.15-py3-none-any.whl (1.3 MB)
+2026-10-12T15:40:06.0950405Z Using cached google_api_core-2.33.0-py3-none-any.whl (176 kB)
+2026-10-12T15:40:06.0957070Z Using cached google_auth-2.56.2-py3-none-any.whl (258 kB)
+2026-10-12T15:40:06.0965021Z Using cached googleapis_common_protos-1.75.0-py3-none-any.whl (300 kB)
+2026-10-12T15:40:06.0971811Z Using cached proto_plus-1.28.2-py3-none-any.whl (50 kB)
+2026-10-12T15:40:06.0984023Z Using cached protobuf-5.29.6-cp38-abi3-manylinux2014_x86_64.whl (320 kB)
+2026-10-12T15:40:06.0990901Z Using cached requests-2.34.2-py3-none-any.whl (73 kB)
+2026-10-12T15:40:06.0997170Z Using cached idna-3.18-py3-none-any.whl (65 kB)
+2026-10-12T15:40:06.1003665Z Using cached google_api_python_client-2.198.0-py3-none-any.whl (15.6 MB)
+2026-10-12T15:40:06.1046920Z Using cached google_auth_httplib2-0.4.0-py3-none-any.whl (9.5 kB)
+2026-10-12T15:40:06.1053176Z Using cached httplib2-0.32.0-py3-none-any.whl (93 kB)
+2026-10-12T15:40:06.1059503Z Using cached pyparsing-3.3.2-py3-none-any.whl (122 kB)
+2026-10-12T15:40:06.1065995Z Using cached uritemplate-4.2.0-py3-none-any.whl (11 kB)
+2026-10-12T15:40:06.1072166Z Using cached google_genai-2.15.0-py3-none-any.whl (1.0 MB)
+2026-10-12T15:40:06.1080821Z Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
+2026-10-12T15:40:06.1087245Z Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
+2026-10-12T15:40:06.1093655Z Using cached pydantic-2.13.4-py3-none-any.whl (472 kB)
+2026-10-12T15:40:06.1100945Z Using cached tenacity-9.1.4-py3-none-any.whl (28 kB)
+2026-10-12T15:40:06.1107286Z Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+2026-10-12T15:40:06.1113813Z Using cached websockets-16.1.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (187 kB)
+2026-10-12T15:40:06.1120280Z Using cached grpcio-1.83.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.0 MB)
+2026-10-12T15:40:06.1142653Z Using cached grpcio_status-1.71.2-py3-none-any.whl (14 kB)
+2026-10-12T15:40:06.1148717Z Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+2026-10-12T15:40:06.1155271Z Using cached hf_xet-1.5.2-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.4 MB)
+2026-10-12T15:40:06.1171915Z Using cached huggingface_hub-1.25.1-py3-none-any.whl (774 kB)
+2026-10-12T15:40:06.1180212Z Using cached importlib_metadata-8.9.0-py3-none-any.whl (27 kB)
+2026-10-12T15:40:06.1187212Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-10-12T15:40:06.1193677Z Using cached isort-8.0.1-py3-none-any.whl (89 kB)
+2026-10-12T15:40:06.1200572Z Using cached jinja2-3.1.6-py3-none-any.whl (134 kB)
+2026-10-12T15:40:06.1207574Z Using cached jiter-0.16.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (343 kB)
+2026-10-12T15:40:06.1215124Z Using cached jq-1.12.0-cp312-cp312-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (776 kB)
+2026-10-12T15:40:06.1223519Z Using cached jsonschema-4.26.0-py3-none-any.whl (90 kB)
+2026-10-12T15:40:06.1230328Z Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+2026-10-12T15:40:06.1237283Z Using cached librt-0.13.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (531 kB)
+2026-10-12T15:40:06.1245187Z Using cached litellm-1.96.2-cp310-abi3-manylinux_2_28_x86_64.whl (24.3 MB)
+2026-10-12T15:40:06.1311736Z Using cached openai-2.20.0-py3-none-any.whl (1.1 MB)
+2026-10-12T15:40:06.1321273Z Using cached python_dotenv-1.2.2-py3-none-any.whl (22 kB)
+2026-10-12T15:40:06.1328360Z Using cached tiktoken-0.13.0-cp312-cp312-manylinux_2_28_x86_64.whl (1.1 MB)
+2026-10-12T15:40:06.1338366Z Using cached tokenizers-0.23.1-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.3 MB)
+2026-10-12T15:40:06.1353072Z Using cached markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
+2026-10-12T15:40:06.1359887Z Using cached mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+2026-10-12T15:40:06.1366986Z Using cached markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+2026-10-12T15:40:06.1373521Z Using cached motor-3.3.1-py3-none-any.whl (70 kB)
+2026-10-12T15:40:06.1380433Z Using cached pymongo-4.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (691 kB)
+2026-10-12T15:40:06.1388826Z Using cached mypy-2.3.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (15.3 MB)
+2026-10-12T15:40:06.1431016Z Using cached mypy_extensions-1.1.0-py3-none-any.whl (5.0 kB)
+2026-10-12T15:40:06.1438254Z Using cached numpy-2.4.6-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.6 MB)
+2026-10-12T15:40:06.1483128Z Using cached oauthlib-4.0.0-py3-none-any.whl (159 kB)
+2026-10-12T15:40:06.1489618Z Using cached packaging-26.2-py3-none-any.whl (100 kB)
+2026-10-12T15:40:06.1496357Z Using cached pandas-3.0.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.0 MB)
+2026-10-12T15:40:06.1528189Z Using cached passlib-1.7.4-py2.py3-none-any.whl (525 kB)
+2026-10-12T15:40:06.1535753Z Using cached pathspec-1.1.1-py3-none-any.whl (57 kB)
+2026-10-12T15:40:06.1542398Z Using cached pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (6.9 MB)
+2026-10-12T15:40:06.1564650Z Using cached platformdirs-4.11.0-py3-none-any.whl (23 kB)
+2026-10-12T15:40:06.1570826Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-10-12T15:40:06.1577424Z Using cached propcache-0.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (61 kB)
+2026-10-12T15:40:06.1583730Z Using cached pyasn1-0.6.4-py3-none-any.whl (84 kB)
+2026-10-12T15:40:06.1590130Z Using cached pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)
+2026-10-12T15:40:06.1596759Z Using cached pycparser-3.0-py3-none-any.whl (48 kB)
+2026-10-12T15:40:06.1603211Z Using cached pydantic_core-2.46.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+2026-10-12T15:40:06.1614255Z Using cached pygments-2.20.0-py3-none-any.whl (1.2 MB)
+2026-10-12T15:40:06.1623284Z Using cached pyjwt-2.15.0-py3-none-any.whl (33 kB)
+2026-10-12T15:40:06.1629289Z Using cached pypdf-6.19.0-py3-none-any.whl (395 kB)
+2026-10-12T15:40:06.1636605Z Using cached pypdfium2-5.12.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.7 MB)
+2026-10-12T15:40:06.1651250Z Using cached pytesseract-0.3.13-py3-none-any.whl (14 kB)
+2026-10-12T15:40:06.1657434Z Using cached python_docx-1.1.2-py3-none-any.whl (244 kB)
+2026-10-12T15:40:06.1664320Z Using cached python_pptx-1.0.2-py3-none-any.whl (472 kB)
+2026-10-12T15:40:06.1671594Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-10-12T15:40:06.1678850Z Using cached pytest_asyncio-1.4.0-py3-none-any.whl (16 kB)
+2026-10-12T15:40:06.1685216Z Using cached pytest_xdist-3.8.0-py3-none-any.whl (46 kB)
+2026-10-12T15:40:06.1691314Z Using cached python_multipart-0.0.32-py3-none-any.whl (30 kB)
+2026-10-12T15:40:06.1698126Z Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)
+2026-10-12T15:40:06.1706189Z Using cached referencing-0.37.0-py3-none-any.whl (26 kB)
+2026-10-12T15:40:06.1712611Z Using cached regex-2026.7.19-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (801 kB)
+2026-10-12T15:40:06.1720551Z Using cached requests_oauthlib-2.0.0-py2.py3-none-any.whl (24 kB)
+2026-10-12T15:40:06.1726723Z Using cached rich-15.0.0-py3-none-any.whl (310 kB)
+2026-10-12T15:40:06.1734113Z Using cached rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (366 kB)
+2026-10-12T15:40:06.1741125Z Using cached rsa-4.9.1-py3-none-any.whl (34 kB)
+2026-10-12T15:40:06.1747745Z Using cached s5cmd-0.2.0-py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (4.7 MB)
+2026-10-12T15:40:06.1765107Z Using cached shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
+2026-10-12T15:40:06.1771151Z Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+2026-10-12T15:40:06.1777317Z Using cached sniffio-1.3.1-py3-none-any.whl (10 kB)
+2026-10-12T15:40:06.1783426Z Using cached starlette-1.7.0-py3-none-any.whl (78 kB)
+2026-10-12T15:40:06.1789689Z Using cached stripe-14.4.1-py3-none-any.whl (2.1 MB)
+2026-10-12T15:40:06.1800751Z Using cached tqdm-4.70.0-py3-none-any.whl (80 kB)
+2026-10-12T15:40:06.1807163Z Using cached typer-0.27.0-py3-none-any.whl (122 kB)
+2026-10-12T15:40:06.1813696Z Using cached typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+2026-10-12T15:40:06.1819775Z Using cached tzdata-2026.3-py2.py3-none-any.whl (348 kB)
+2026-10-12T15:40:06.1826776Z Using cached uvicorn-0.25.0-py3-none-any.whl (60 kB)
+2026-10-12T15:40:06.1833383Z Using cached watchfiles-1.2.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (456 kB)
+2026-10-12T15:40:06.1844750Z Using cached zipp-4.1.0-py3-none-any.whl (10 kB)
+2026-10-12T15:40:06.1850877Z Using cached pydantic_settings-2.15.0-py3-none-any.whl (69 kB)
+2026-10-12T15:40:06.1857425Z Using cached lxml-6.1.3-cp312-cp312-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (5.2 MB)
+2026-10-12T15:40:06.2010020Z Downloading opentelemetry_api-1.45.1-py3-none-any.whl (60 kB)
+2026-10-12T15:40:06.2207330Z Using cached xlsxwriter-3.2.9-py3-none-any.whl (175 kB)
+2026-10-12T15:40:06.7180104Z Installing collected packages: passlib, zipp, XlsxWriter, websockets, urllib3, uritemplate, tzdata, typing_extensions, tqdm, tenacity, sniffio, six, shellingham, s5cmd, rpds-py, regex, PyYAML, pytokens, python-multipart, python-dotenv, pypdfium2, pypdf, pyparsing, PyJWT, Pygments, pyflakes, pycparser, pycodestyle, pyasn1, protobuf, propcache, pluggy, platformdirs, pillow, pathspec, packaging, oauthlib, numpy, mypy_extensions, multidict, mdurl, mccabe, MarkupSafe, lxml, librt, jq, jmespath, jiter, isort, iniconfig, idna, hf-xet, h11, fsspec, frozenlist, filelock, fastuuid, execnet, dnspython, distro, click, charset-normalizer, certifi, bcrypt, attrs, ast_serialize, annotated-types, annotated-doc, aiohappyeyeballs, yarl, uvicorn, typing-inspection, rsa, requests, referencing, python-pptx, python-docx, python-dateutil, pytest, pytesseract, pymongo, pydantic_core, pyasn1_modules, proto-plus, opentelemetry-api, mypy, markdown-it-py, Jinja2, importlib_metadata, httplib2, httpcore, grpcio, googleapis-common-protos, flake8, email-validator, cffi, black, anyio, aiosignal, watchfiles, tiktoken, stripe, starlette, rich, requests-oauthlib, pytest-xdist, pytest-asyncio, pydantic, pandas, motor, jsonschema-specifications, httpx, grpcio-status, cryptography, botocore, aiohttp, typer, s3transfer, pydantic-settings, openai, jsonschema, huggingface_hub, google-auth, fastapi, tokenizers, google-auth-httplib2, google-api-core, boto3, litellm, google-genai, google-api-python-client, google-ai-generativelanguage
+2026-10-12T15:40:24.4695583Z 
+2026-10-12T15:40:24.4750961Z Successfully installed Jinja2-3.1.6 MarkupSafe-3.0.3 PyJWT-2.15.0 PyYAML-6.0.3 Pygments-2.20.0 XlsxWriter-3.2.9 aiohappyeyeballs-2.7.1 aiohttp-3.14.3 aiosignal-1.4.0 annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.14.2 ast_serialize-0.6.0 attrs-26.1.0 bcrypt-4.1.3 black-26.5.1 boto3-1.43.59 botocore-1.43.59 certifi-2026.7.22 cffi-2.1.0 charset-normalizer-3.4.9 click-8.4.2 cryptography-50.0.0 distro-1.9.0 dnspython-2.8.0 email-validator-2.3.0 execnet-2.1.2 fastapi-0.142.2 fastuuid-0.14.0 filelock-3.32.2 flake8-7.3.0 frozenlist-1.8.0 fsspec-2026.7.0 google-ai-generativelanguage-0.6.15 google-api-core-2.33.0 google-api-python-client-2.198.0 google-auth-2.56.2 google-auth-httplib2-0.4.0 google-genai-2.15.0 googleapis-common-protos-1.75.0 grpcio-1.83.0 grpcio-status-1.71.2 h11-0.16.0 hf-xet-1.5.2 httpcore-1.0.9 httplib2-0.32.0 httpx-0.28.1 huggingface_hub-1.25.1 idna-3.18 importlib_metadata-8.9.0 iniconfig-2.3.0 isort-8.0.1 jiter-0.16.0 jmespath-1.1.0 jq-1.12.0 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 librt-0.13.0 litellm-1.96.2 lxml-6.1.3 markdown-it-py-4.2.0 mccabe-0.7.0 mdurl-0.1.2 motor-3.3.1 multidict-6.7.1 mypy-2.3.0 mypy_extensions-1.1.0 numpy-2.4.6 oauthlib-4.0.0 openai-2.20.0 opentelemetry-api-1.45.1 packaging-26.2 pandas-3.0.5 passlib-1.7.4 pathspec-1.1.1 pillow-12.3.0 platformdirs-4.11.0 pluggy-1.6.0 propcache-0.5.2 proto-plus-1.28.2 protobuf-5.29.6 pyasn1-0.6.4 pyasn1_modules-0.4.2 pycodestyle-2.14.0 pycparser-3.0 pydantic-2.13.4 pydantic-settings-2.15.0 pydantic_core-2.46.4 pyflakes-3.4.0 pymongo-4.6.3 pyparsing-3.3.2 pypdf-6.19.0 pypdfium2-5.12.1 pytesseract-0.3.13 pytest-9.1.1 pytest-asyncio-1.4.0 pytest-xdist-3.8.0 python-dateutil-2.9.0.post0 python-docx-1.1.2 python-dotenv-1.2.2 python-multipart-0.0.32 python-pptx-1.0.2 pytokens-0.4.1 referencing-0.37.0 regex-2026.7.19 requests-2.34.2 requests-oauthlib-2.0.0 rich-15.0.0 rpds-py-2026.6.3 rsa-4.9.1 s3transfer-0.19.2 s5cmd-0.2.0 shellingham-1.5.4 six-1.17.0 sniffio-1.3.1 starlette-1.7.0 stripe-14.4.1 tenacity-9.1.4 tiktoken-0.13.0 tokenizers-0.23.1 tqdm-4.70.0 typer-0.27.0 typing-inspection-0.4.2 typing_extensions-4.16.0 tzdata-2026.3 uritemplate-4.2.0 urllib3-2.8.0 uvicorn-0.25.0 watchfiles-1.2.0 websockets-16.1.1 yarl-1.24.5 zipp-4.1.0
+2026-10-12T15:40:25.3992256Z Collecting mongomock-motor==0.0.36
+2026-10-12T15:40:25.4526650Z   Downloading mongomock_motor-0.0.36-py3-none-any.whl.metadata (2.0 kB)
+2026-10-12T15:40:25.4740007Z Collecting mongomock<5.0.0,>=4.1.2 (from mongomock-motor==0.0.36)
+2026-10-12T15:40:25.4849025Z   Downloading mongomock-4.3.0-py2.py3-none-any.whl.metadata (12 kB)
+2026-10-12T15:40:25.4898121Z Requirement already satisfied: motor>=2.5 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from mongomock-motor==0.0.36) (3.3.1)
+2026-10-12T15:40:25.4902546Z Requirement already satisfied: packaging in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from mongomock<5.0.0,>=4.1.2->mongomock-motor==0.0.36) (26.2)
+2026-10-12T15:40:25.5327588Z Collecting pytz (from mongomock<5.0.0,>=4.1.2->mongomock-motor==0.0.36)
+2026-10-12T15:40:25.5419853Z   Downloading pytz-2026.5-py2.py3-none-any.whl.metadata (22 kB)
+2026-10-12T15:40:25.5649156Z Collecting sentinels (from mongomock<5.0.0,>=4.1.2->mongomock-motor==0.0.36)
+2026-10-12T15:40:25.5750896Z   Downloading sentinels-1.1.1-py3-none-any.whl.metadata (3.0 kB)
+2026-10-12T15:40:25.5781014Z Requirement already satisfied: pymongo<5,>=4.5 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from motor>=2.5->mongomock-motor==0.0.36) (4.6.3)
+2026-10-12T15:40:25.5795226Z Requirement already satisfied: dnspython<3.0.0,>=1.16.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from pymongo<5,>=4.5->motor>=2.5->mongomock-motor==0.0.36) (2.8.0)
+2026-10-12T15:40:25.5907789Z Downloading mongomock_motor-0.0.36-py3-none-any.whl (7.3 kB)
+2026-10-12T15:40:25.6013864Z Downloading mongomock-4.3.0-py2.py3-none-any.whl (64 kB)
+2026-10-12T15:40:25.6337920Z Downloading pytz-2026.5-py2.py3-none-any.whl (506 kB)
+2026-10-12T15:40:25.6706474Z Downloading sentinels-1.1.1-py3-none-any.whl (3.7 kB)
+2026-10-12T15:40:25.7565627Z Installing collected packages: pytz, sentinels, mongomock, mongomock-motor
+2026-10-12T15:40:25.8551898Z 
+2026-10-12T15:40:25.8603327Z Successfully installed mongomock-4.3.0 mongomock-motor-0.0.36 pytz-2026.5 sentinels-1.1.1
+2026-10-12T15:40:25.9056564Z ##[group]Run python -m pytest -q tests/test_situation_initial_admission_v157.py tests/test_map_focus_v114.py tests/test_recurring_memo_v113.py tests/test_situation_source_answer_v112.py tests/test_shipment_competency_v109.py tests/test_situation_clock_v107.py tests/test_situation_schedule_time_v106.py tests/test_temporary_situation_memory_guard_v105.py tests/test_situation_outcome_lifecycle_v102.py tests/test_situation_followup_recovery_v101.py tests/test_situation_followup_turn_v100.py tests/test_situation_followup_v98.py tests/test_situation_followup_loop_v98.py tests/test_conversation_situation_autonomy_v58.py tests/test_life_outcome_watch_v84.py tests/test_immediate_situation_action_v88b.py -x
+2026-10-12T15:40:25.9059002Z [36;1mpython -m pytest -q tests/test_situation_initial_admission_v157.py tests/test_map_focus_v114.py tests/test_recurring_memo_v113.py tests/test_situation_source_answer_v112.py tests/test_shipment_competency_v109.py tests/test_situation_clock_v107.py tests/test_situation_schedule_time_v106.py tests/test_temporary_situation_memory_guard_v105.py tests/test_situation_outcome_lifecycle_v102.py tests/test_situation_followup_recovery_v101.py tests/test_situation_followup_turn_v100.py tests/test_situation_followup_v98.py tests/test_situation_followup_loop_v98.py tests/test_conversation_situation_autonomy_v58.py tests/test_life_outcome_watch_v84.py tests/test_immediate_situation_action_v88b.py -x[0m
+2026-10-12T15:40:25.9115586Z shell: /usr/bin/bash -e {0}
+2026-10-12T15:40:25.9115732Z env:
+2026-10-12T15:40:25.9115873Z   MONGO_URL: mongodb://127.0.0.1:27017
+2026-10-12T15:40:25.9116034Z   DB_NAME: ora_situation_ci
+2026-10-12T15:40:25.9116188Z   JWT_SECRET: ci-test-secret-not-for-prod
+2026-10-12T15:40:25.9116352Z   AMBIENT_RUNTIME: 0
+2026-10-12T15:40:25.9116475Z   DOCUMENT_AI_ENABLED: 0
+2026-10-12T15:40:25.9116611Z   DOCUMENT_STORAGE_BACKEND: local
+2026-10-12T15:40:25.9116772Z   DOCUMENT_STORAGE_DIR: /tmp/ora-situation-ci
+2026-10-12T15:40:25.9116947Z   CALENDAR_PROVIDER_MODE: fake
+2026-10-12T15:40:25.9117085Z   GEMINI_API_KEY: 
+2026-10-12T15:40:25.9117244Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:25.9117483Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-12T15:40:25.9117724Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:25.9117937Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:25.9118153Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:25.9118518Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-12T15:40:25.9118704Z ##[endgroup]
+2026-10-12T15:40:31.6652152Z bringing up nodes...
+2026-10-12T15:40:31.6652406Z bringing up nodes...
+2026-10-12T15:40:31.6652492Z 
+2026-10-12T15:40:31.9342531Z ........................................................................ [ 64%]
+2026-10-12T15:40:32.9769322Z .......................................                                  [100%]
+2026-10-12T15:40:32.9769774Z =============================== warnings summary ===============================
+2026-10-12T15:40:32.9770228Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1
+2026-10-12T15:40:32.9770822Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1
+2026-10-12T15:40:32.9771368Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1
+2026-10-12T15:40:32.9772604Z   /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+2026-10-12T15:40:32.9773131Z     from starlette.testclient import TestClient as TestClient  # noqa
+2026-10-12T15:40:32.9773294Z 
+2026-10-12T15:40:32.9773365Z connectors/apple_calendar/router.py:57
+2026-10-12T15:40:32.9773532Z connectors/apple_calendar/router.py:57
+2026-10-12T15:40:32.9774108Z connectors/apple_calendar/router.py:57
+2026-10-12T15:40:32.9774782Z   /home/runner/work/DANGEROK/DANGEROK/backend/connectors/apple_calendar/router.py:57: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+2026-10-12T15:40:32.9775467Z     class AppleRawEventIn(BaseModel):
+2026-10-12T15:40:32.9775576Z 
+2026-10-12T15:40:32.9775625Z server.py:143
+2026-10-12T15:40:32.9775738Z server.py:143
+2026-10-12T15:40:32.9775849Z server.py:143
+2026-10-12T15:40:32.9776048Z   /home/runner/work/DANGEROK/DANGEROK/backend/server.py:143: DeprecationWarning: 
+2026-10-12T15:40:32.9776322Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:32.9776512Z   
+2026-10-12T15:40:32.9776629Z           Read more about it in the
+2026-10-12T15:40:32.9776879Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:32.9777107Z           
+2026-10-12T15:40:32.9777225Z     @app.on_event("startup")
+2026-10-12T15:40:32.9777318Z 
+2026-10-12T15:40:32.9777492Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:32.9777868Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:32.9778238Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:32.9778606Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:32.9778971Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:32.9779335Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:32.9779739Z   /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744: DeprecationWarning: 
+2026-10-12T15:40:32.9780077Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:32.9780259Z   
+2026-10-12T15:40:32.9780367Z           Read more about it in the
+2026-10-12T15:40:32.9780599Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:32.9780960Z           
+2026-10-12T15:40:32.9781121Z     return self.router.on_event(event_type)  # ty: ignore[deprecated]
+2026-10-12T15:40:32.9781271Z 
+2026-10-12T15:40:32.9781316Z server.py:676
+2026-10-12T15:40:32.9781428Z server.py:676
+2026-10-12T15:40:32.9781535Z server.py:676
+2026-10-12T15:40:32.9781724Z   /home/runner/work/DANGEROK/DANGEROK/backend/server.py:676: DeprecationWarning: 
+2026-10-12T15:40:32.9782116Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:32.9782324Z   
+2026-10-12T15:40:32.9782437Z           Read more about it in the
+2026-10-12T15:40:32.9782664Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:32.9782886Z           
+2026-10-12T15:40:32.9782999Z     @app.on_event("shutdown")
+2026-10-12T15:40:32.9783092Z 
+2026-10-12T15:40:32.9783210Z -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2026-10-12T15:40:32.9783455Z 111 passed, 18 warnings in 4.22s
+2026-10-12T15:40:33.3226988Z ##[group]Run python -m pytest -q -n 0 tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py -x
+2026-10-12T15:40:33.3227788Z [36;1mpython -m pytest -q -n 0 tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py -x[0m
+2026-10-12T15:40:33.3281440Z shell: /usr/bin/bash -e {0}
+2026-10-12T15:40:33.3281578Z env:
+2026-10-12T15:40:33.3281714Z   MONGO_URL: mongodb://127.0.0.1:27017
+2026-10-12T15:40:33.3281869Z   DB_NAME: ora_situation_ci
+2026-10-12T15:40:33.3282086Z   JWT_SECRET: ci-test-secret-not-for-prod
+2026-10-12T15:40:33.3282243Z   AMBIENT_RUNTIME: 0
+2026-10-12T15:40:33.3282364Z   DOCUMENT_AI_ENABLED: 0
+2026-10-12T15:40:33.3282495Z   DOCUMENT_STORAGE_BACKEND: local
+2026-10-12T15:40:33.3282690Z   DOCUMENT_STORAGE_DIR: /tmp/ora-situation-ci
+2026-10-12T15:40:33.3282862Z   CALENDAR_PROVIDER_MODE: fake
+2026-10-12T15:40:33.3282994Z   GEMINI_API_KEY: 
+2026-10-12T15:40:33.3283146Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:33.3283380Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-12T15:40:33.3283607Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:33.3283812Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:33.3284019Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:33.3284221Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-12T15:40:33.3284394Z ##[endgroup]
+2026-10-12T15:40:35.7671431Z ..............................................................           [100%]
+2026-10-12T15:40:35.7671861Z =============================== warnings summary ===============================
+2026-10-12T15:40:35.7672577Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1
+2026-10-12T15:40:35.7673477Z   /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+2026-10-12T15:40:35.7674227Z     from starlette.testclient import TestClient as TestClient  # noqa
+2026-10-12T15:40:35.7674418Z 
+2026-10-12T15:40:35.7674486Z connectors/apple_calendar/router.py:57
+2026-10-12T15:40:35.7675298Z   /home/runner/work/DANGEROK/DANGEROK/backend/connectors/apple_calendar/router.py:57: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+2026-10-12T15:40:35.7676306Z     class AppleRawEventIn(BaseModel):
+2026-10-12T15:40:35.7676469Z 
+2026-10-12T15:40:35.7676567Z server.py:143
+2026-10-12T15:40:35.7676826Z   /home/runner/work/DANGEROK/DANGEROK/backend/server.py:143: DeprecationWarning: 
+2026-10-12T15:40:35.7677599Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:35.7677859Z   
+2026-10-12T15:40:35.7678103Z           Read more about it in the
+2026-10-12T15:40:35.7678407Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:35.7678693Z           
+2026-10-12T15:40:35.7678970Z     @app.on_event("startup")
+2026-10-12T15:40:35.7679111Z 
+2026-10-12T15:40:35.7679329Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:35.7679805Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:35.7691070Z   /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744: DeprecationWarning: 
+2026-10-12T15:40:35.7691960Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:35.7692363Z   
+2026-10-12T15:40:35.7692522Z           Read more about it in the
+2026-10-12T15:40:35.7692854Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:35.7693187Z           
+2026-10-12T15:40:35.7693427Z     return self.router.on_event(event_type)  # ty: ignore[deprecated]
+2026-10-12T15:40:35.7693644Z 
+2026-10-12T15:40:35.7693717Z server.py:676
+2026-10-12T15:40:35.7693991Z   /home/runner/work/DANGEROK/DANGEROK/backend/server.py:676: DeprecationWarning: 
+2026-10-12T15:40:35.7694257Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:35.7694440Z   
+2026-10-12T15:40:35.7694550Z           Read more about it in the
+2026-10-12T15:40:35.7694775Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:35.7694994Z           
+2026-10-12T15:40:35.7695115Z     @app.on_event("shutdown")
+2026-10-12T15:40:35.7695203Z 
+2026-10-12T15:40:35.7695328Z -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2026-10-12T15:40:35.7695540Z 62 passed, 6 warnings in 0.76s
+2026-10-12T15:40:36.1452350Z ##[group]Run python -m pytest -q -n 0 tests/test_situation_useful_outcome_v160.py tests/test_situation_weather_clock_v160.py tests/test_situation_outcome_delivery_v160.py tests/test_situation_outcome_visibility_v160.py tests/test_situation_completion_response_v160.py tests/test_situation_outcome_projection_v160.py -x
+2026-10-12T15:40:36.1453485Z [36;1mpython -m pytest -q -n 0 tests/test_situation_useful_outcome_v160.py tests/test_situation_weather_clock_v160.py tests/test_situation_outcome_delivery_v160.py tests/test_situation_outcome_visibility_v160.py tests/test_situation_completion_response_v160.py tests/test_situation_outcome_projection_v160.py -x[0m
+2026-10-12T15:40:36.1507648Z shell: /usr/bin/bash -e {0}
+2026-10-12T15:40:36.1507793Z env:
+2026-10-12T15:40:36.1507934Z   MONGO_URL: mongodb://127.0.0.1:27017
+2026-10-12T15:40:36.1508095Z   DB_NAME: ora_situation_ci
+2026-10-12T15:40:36.1508261Z   JWT_SECRET: ci-test-secret-not-for-prod
+2026-10-12T15:40:36.1508437Z   AMBIENT_RUNTIME: 0
+2026-10-12T15:40:36.1508566Z   DOCUMENT_AI_ENABLED: 0
+2026-10-12T15:40:36.1508703Z   DOCUMENT_STORAGE_BACKEND: local
+2026-10-12T15:40:36.1508865Z   DOCUMENT_STORAGE_DIR: /tmp/ora-situation-ci
+2026-10-12T15:40:36.1509033Z   CALENDAR_PROVIDER_MODE: fake
+2026-10-12T15:40:36.1509173Z   GEMINI_API_KEY: 
+2026-10-12T15:40:36.1509333Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:36.1509569Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-10-12T15:40:36.1509806Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:36.1510022Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:36.1510232Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-10-12T15:40:36.1510444Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-12T15:40:36.1510629Z ##[endgroup]
+2026-10-12T15:40:38.7559429Z ........................................................................ [ 62%]
+2026-10-12T15:40:39.2723375Z ............................................                             [100%]
+2026-10-12T15:40:39.2723685Z =============================== warnings summary ===============================
+2026-10-12T15:40:39.2724017Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1
+2026-10-12T15:40:39.2724599Z   /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+2026-10-12T15:40:39.2725121Z     from starlette.testclient import TestClient as TestClient  # noqa
+2026-10-12T15:40:39.2725281Z 
+2026-10-12T15:40:39.2725349Z connectors/apple_calendar/router.py:57
+2026-10-12T15:40:39.2726023Z   /home/runner/work/DANGEROK/DANGEROK/backend/connectors/apple_calendar/router.py:57: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+2026-10-12T15:40:39.2726704Z     class AppleRawEventIn(BaseModel):
+2026-10-12T15:40:39.2726808Z 
+2026-10-12T15:40:39.2726860Z server.py:143
+2026-10-12T15:40:39.2727057Z   /home/runner/work/DANGEROK/DANGEROK/backend/server.py:143: DeprecationWarning: 
+2026-10-12T15:40:39.2727332Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:39.2727522Z   
+2026-10-12T15:40:39.2727632Z           Read more about it in the
+2026-10-12T15:40:39.2727865Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:39.2728094Z           
+2026-10-12T15:40:39.2728211Z     @app.on_event("startup")
+2026-10-12T15:40:39.2728303Z 
+2026-10-12T15:40:39.2728479Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:39.2729256Z ../../../../../../opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744
+2026-10-12T15:40:39.2729657Z   /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/fastapi/applications.py:4744: DeprecationWarning: 
+2026-10-12T15:40:39.2729989Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:39.2730166Z   
+2026-10-12T15:40:39.2730278Z           Read more about it in the
+2026-10-12T15:40:39.2730505Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:39.2730729Z           
+2026-10-12T15:40:39.2730889Z     return self.router.on_event(event_type)  # ty: ignore[deprecated]
+2026-10-12T15:40:39.2731196Z 
+2026-10-12T15:40:39.2731258Z server.py:676
+2026-10-12T15:40:39.2731451Z   /home/runner/work/DANGEROK/DANGEROK/backend/server.py:676: DeprecationWarning: 
+2026-10-12T15:40:39.2731708Z           on_event is deprecated, use lifespan event handlers instead.
+2026-10-12T15:40:39.2731894Z   
+2026-10-12T15:40:39.2732139Z           Read more about it in the
+2026-10-12T15:40:39.2732400Z           [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+2026-10-12T15:40:39.2732618Z           
+2026-10-12T15:40:39.2732731Z     @app.on_event("shutdown")
+2026-10-12T15:40:39.2732825Z 
+2026-10-12T15:40:39.2732914Z tests/test_situation_useful_outcome_v160.py: 590 warnings
+2026-10-12T15:40:39.2733129Z tests/test_situation_outcome_visibility_v160.py: 238 warnings
+2026-10-12T15:40:39.2733772Z   /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/mongomock/helpers.py:73: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+2026-10-12T15:40:39.2734375Z     return datetime.utcnow()
+2026-10-12T15:40:39.2734463Z 
+2026-10-12T15:40:39.2734707Z -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2026-10-12T15:40:39.2734925Z 116 passed, 834 warnings in 1.37s
+2026-10-12T15:40:39.7565149Z Post job cleanup.
+2026-10-12T15:40:39.8311012Z Cache hit occurred on the primary key setup-python-Linux-x64-24.04-Ubuntu-python-3.12.15-pip-0044b7adfaf7bae0ba77d28f11c2fd6b11194b2b2ef52448a7645bcaa057feba, not saving cache.
+2026-10-12T15:40:39.8311913Z (node:2601) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T15:40:39.8312559Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T15:40:39.8413622Z Post job cleanup.
+2026-10-12T15:40:39.8962857Z [command]/usr/bin/git version
+2026-10-12T15:40:39.8971984Z git version 2.55.0
+2026-10-12T15:40:39.8999121Z Temporarily overriding HOME='/home/runner/work/_temp/e81252c1-2732-487e-b17f-3dc673bc5226' before making global git config changes
+2026-10-12T15:40:39.8999817Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T15:40:39.9001688Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:40:39.9033205Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T15:40:39.9060987Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T15:40:39.9263691Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T15:40:39.9285393Z http.https://github.com/.extraheader
+2026-10-12T15:40:39.9294469Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T15:40:39.9324123Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T15:40:39.9524750Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T15:40:39.9559081Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T15:40:39.9853207Z Print service container logs: 2e16ab20010e495a97b324a729864fbc_mongo6_c52b71
+2026-10-12T15:40:39.9856521Z ##[command]/usr/bin/docker logs --details a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64
+2026-10-12T15:40:39.9949071Z  {"t":{"$date":"2026-10-12T15:39:51.310+00:00"},"s":"I",  "c":"CONTROL",  "id":23285,   "ctx":"-","msg":"Automatically disabling TLS 1.0, to force-enable TLS 1.0 specify --sslDisabledProtocols 'none'"}
+2026-10-12T15:40:39.9950658Z  {"t":{"$date":"2026-10-12T15:39:51.310+00:00"},"s":"I",  "c":"NETWORK",  "id":4915701, "ctx":"-","msg":"Initialized wire specification","attr":{"spec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":17},"incomingInternalClient":{"minWireVersion":0,"maxWireVersion":17},"outgoing":{"minWireVersion":6,"maxWireVersion":17},"isInternalClient":true}}}
+2026-10-12T15:40:39.9951966Z  {"t":{"$date":"2026-10-12T15:39:51.311+00:00"},"s":"I",  "c":"NETWORK",  "id":4648601, "ctx":"main","msg":"Implicit TCP FastOpen unavailable. If TCP FastOpen is required, set tcpFastOpenServer, tcpFastOpenClient, and tcpFastOpenQueueSize."}
+2026-10-12T15:40:39.9952851Z  {"t":{"$date":"2026-10-12T15:39:51.311+00:00"},"s":"I",  "c":"REPL",     "id":5123008, "ctx":"main","msg":"Successfully registered PrimaryOnlyService","attr":{"service":"TenantMigrationDonorService","namespace":"config.tenantMigrationDonors"}}
+2026-10-12T15:40:39.9953622Z  {"t":{"$date":"2026-10-12T15:39:51.311+00:00"},"s":"I",  "c":"REPL",     "id":5123008, "ctx":"main","msg":"Successfully registered PrimaryOnlyService","attr":{"service":"TenantMigrationRecipientService","namespace":"config.tenantMigrationRecipients"}}
+2026-10-12T15:40:39.9954365Z  {"t":{"$date":"2026-10-12T15:39:51.311+00:00"},"s":"I",  "c":"REPL",     "id":5123008, "ctx":"main","msg":"Successfully registered PrimaryOnlyService","attr":{"service":"ShardSplitDonorService","namespace":"config.tenantSplitDonors"}}
+2026-10-12T15:40:39.9955134Z  {"t":{"$date":"2026-10-12T15:39:51.311+00:00"},"s":"I",  "c":"CONTROL",  "id":5945603, "ctx":"main","msg":"Multi threading initialized"}
+2026-10-12T15:40:39.9955670Z  {"t":{"$date":"2026-10-12T15:39:51.312+00:00"},"s":"I",  "c":"CONTROL",  "id":4615611, "ctx":"initandlisten","msg":"MongoDB starting","attr":{"pid":1,"port":27017,"dbPath":"/data/db","architecture":"64-bit","host":"a8b1e275278f"}}
+2026-10-12T15:40:39.9956622Z  {"t":{"$date":"2026-10-12T15:39:51.312+00:00"},"s":"I",  "c":"CONTROL",  "id":23403,   "ctx":"initandlisten","msg":"Build Info","attr":{"buildInfo":{"version":"6.0.28","gitVersion":"ef888a6df901622004aeb4b7362e007b8c4299da","openSSLVersion":"OpenSSL 3.0.2 15 Mar 2022","modules":[],"allocator":"tcmalloc","environment":{"distmod":"ubuntu2204","distarch":"x86_64","target_arch":"x86_64"}}}}
+2026-10-12T15:40:39.9957475Z  {"t":{"$date":"2026-10-12T15:39:51.312+00:00"},"s":"I",  "c":"CONTROL",  "id":51765,   "ctx":"initandlisten","msg":"Operating System","attr":{"os":{"name":"Ubuntu","version":"22.04"}}}
+2026-10-12T15:40:39.9958011Z  {"t":{"$date":"2026-10-12T15:39:51.312+00:00"},"s":"I",  "c":"CONTROL",  "id":21951,   "ctx":"initandlisten","msg":"Options set by command line","attr":{"options":{"net":{"bindIp":"*"}}}}
+2026-10-12T15:40:39.9959246Z  {"t":{"$date":"2026-10-12T15:39:51.313+00:00"},"s":"I",  "c":"STORAGE",  "id":22297,   "ctx":"initandlisten","msg":"Using the XFS filesystem is strongly recommended with the WiredTiger storage engine. See http://dochub.mongodb.org/core/prodnotes-filesystem","tags":["startupWarnings"]}
+2026-10-12T15:40:39.9961033Z  {"t":{"$date":"2026-10-12T15:39:51.313+00:00"},"s":"I",  "c":"STORAGE",  "id":22315,   "ctx":"initandlisten","msg":"Opening WiredTiger","attr":{"config":"create,cache_size=7482M,session_max=33000,eviction=(threads_min=4,threads_max=4),config_base=false,statistics=(fast),log=(enabled=true,remove=true,path=journal,compressor=snappy),builtin_extension_config=(zstd=(compression_level=6)),file_manager=(close_idle_time=600,close_scan_interval=10,close_handle_minimum=2000),statistics_log=(wait=0),json_output=(error,message),verbose=[recovery_progress:1,checkpoint_progress:1,compact_progress:1,backup:0,checkpoint:0,compact:0,evict:0,history_store:0,recovery:0,rts:0,salvage:0,tiered:0,timestamp:0,transaction:0,verify:0,log:0],"}}
+2026-10-12T15:40:39.9963001Z  {"t":{"$date":"2026-10-12T15:39:51.408+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"initandlisten","msg":"WiredTiger message","attr":{"message":{"ts_sec":1791819591,"ts_usec":408675,"thread":"1:0x7f15137eccc0","session_name":"txn-recover","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG","verbose_level_id":1,"msg":"recovery log replay has successfully finished and ran for 0 milliseconds"}}}
+2026-10-12T15:40:39.9964250Z  {"t":{"$date":"2026-10-12T15:39:51.408+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"initandlisten","msg":"WiredTiger message","attr":{"message":{"ts_sec":1791819591,"ts_usec":408781,"thread":"1:0x7f15137eccc0","session_name":"txn-recover","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG","verbose_level_id":1,"msg":"Set global recovery timestamp: (0, 0)"}}}
+2026-10-12T15:40:39.9965431Z  {"t":{"$date":"2026-10-12T15:39:51.408+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"initandlisten","msg":"WiredTiger message","attr":{"message":{"ts_sec":1791819591,"ts_usec":408796,"thread":"1:0x7f15137eccc0","session_name":"txn-recover","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG","verbose_level_id":1,"msg":"Set global oldest timestamp: (0, 0)"}}}
+2026-10-12T15:40:39.9966775Z  {"t":{"$date":"2026-10-12T15:39:51.408+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"initandlisten","msg":"WiredTiger message","attr":{"message":{"ts_sec":1791819591,"ts_usec":408823,"thread":"1:0x7f15137eccc0","session_name":"txn-recover","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG","verbose_level_id":1,"msg":"recovery was completed successfully and took 0ms, including 0ms for the log replay, 0ms for the rollback to stable, and 0ms for the checkpoint."}}}
+2026-10-12T15:40:39.9967864Z  {"t":{"$date":"2026-10-12T15:39:51.411+00:00"},"s":"I",  "c":"STORAGE",  "id":4795906, "ctx":"initandlisten","msg":"WiredTiger opened","attr":{"durationMillis":98}}
+2026-10-12T15:40:39.9968399Z  {"t":{"$date":"2026-10-12T15:39:51.411+00:00"},"s":"I",  "c":"RECOVERY", "id":23987,   "ctx":"initandlisten","msg":"WiredTiger recoveryTimestamp","attr":{"recoveryTimestamp":{"$timestamp":{"t":0,"i":0}}}}
+2026-10-12T15:40:39.9969095Z  {"t":{"$date":"2026-10-12T15:39:51.415+00:00"},"s":"W",  "c":"CONTROL",  "id":22120,   "ctx":"initandlisten","msg":"Access control is not enabled for the database. Read and write access to data and configuration is unrestricted","tags":["startupWarnings"]}
+2026-10-12T15:40:39.9969880Z  {"t":{"$date":"2026-10-12T15:39:51.416+00:00"},"s":"W",  "c":"CONTROL",  "id":22178,   "ctx":"initandlisten","msg":"/sys/kernel/mm/transparent_hugepage/enabled is 'always'. We suggest setting it to 'never' in this binary version","tags":["startupWarnings"]}
+2026-10-12T15:40:39.9970780Z  {"t":{"$date":"2026-10-12T15:39:51.416+00:00"},"s":"I",  "c":"STORAGE",  "id":20320,   "ctx":"initandlisten","msg":"createCollection","attr":{"namespace":"admin.system.version","uuidDisposition":"provided","uuid":{"uuid":{"$uuid":"9161f137-382d-47b8-9554-f03e8e0d3c14"}},"options":{"uuid":{"$uuid":"9161f137-382d-47b8-9554-f03e8e0d3c14"}}}}
+2026-10-12T15:40:39.9971919Z  {"t":{"$date":"2026-10-12T15:39:51.419+00:00"},"s":"I",  "c":"INDEX",    "id":20345,   "ctx":"initandlisten","msg":"Index build: done building","attr":{"buildUUID":null,"collectionUUID":{"uuid":{"$uuid":"9161f137-382d-47b8-9554-f03e8e0d3c14"}},"namespace":"admin.system.version","index":"_id_","ident":"index-1-9110491545142666282","collectionIdent":"collection-0-9110491545142666282","commitTimestamp":null}}
+2026-10-12T15:40:39.9973089Z  {"t":{"$date":"2026-10-12T15:39:51.419+00:00"},"s":"I",  "c":"REPL",     "id":20459,   "ctx":"initandlisten","msg":"Setting featureCompatibilityVersion","attr":{"newVersion":"6.0"}}
+2026-10-12T15:40:39.9973687Z  {"t":{"$date":"2026-10-12T15:39:51.419+00:00"},"s":"I",  "c":"REPL",     "id":5853300, "ctx":"initandlisten","msg":"current featureCompatibilityVersion value","attr":{"featureCompatibilityVersion":"6.0","context":"setFCV"}}
+2026-10-12T15:40:39.9974975Z  {"t":{"$date":"2026-10-12T15:39:51.419+00:00"},"s":"I",  "c":"NETWORK",  "id":4915702, "ctx":"initandlisten","msg":"Updated wire specification","attr":{"oldSpec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":17},"incomingInternalClient":{"minWireVersion":0,"maxWireVersion":17},"outgoing":{"minWireVersion":6,"maxWireVersion":17},"isInternalClient":true},"newSpec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":17},"incomingInternalClient":{"minWireVersion":17,"maxWireVersion":17},"outgoing":{"minWireVersion":17,"maxWireVersion":17},"isInternalClient":true}}}
+2026-10-12T15:40:39.9976846Z  {"t":{"$date":"2026-10-12T15:39:51.420+00:00"},"s":"I",  "c":"NETWORK",  "id":4915702, "ctx":"initandlisten","msg":"Updated wire specification","attr":{"oldSpec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":17},"incomingInternalClient":{"minWireVersion":17,"maxWireVersion":17},"outgoing":{"minWireVersion":17,"maxWireVersion":17},"isInternalClient":true},"newSpec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":17},"incomingInternalClient":{"minWireVersion":17,"maxWireVersion":17},"outgoing":{"minWireVersion":17,"maxWireVersion":17},"isInternalClient":true}}}
+2026-10-12T15:40:39.9978128Z  {"t":{"$date":"2026-10-12T15:39:51.420+00:00"},"s":"I",  "c":"REPL",     "id":5853300, "ctx":"initandlisten","msg":"current featureCompatibilityVersion value","attr":{"featureCompatibilityVersion":"6.0","context":"startup"}}
+2026-10-12T15:40:39.9978755Z  {"t":{"$date":"2026-10-12T15:39:51.420+00:00"},"s":"I",  "c":"STORAGE",  "id":5071100, "ctx":"initandlisten","msg":"Clearing temp directory"}
+2026-10-12T15:40:39.9979187Z  {"t":{"$date":"2026-10-12T15:39:51.420+00:00"},"s":"I",  "c":"CONTROL",  "id":20536,   "ctx":"initandlisten","msg":"Flow Control is enabled on this deployment"}
+2026-10-12T15:40:39.9979733Z  {"t":{"$date":"2026-10-12T15:39:51.420+00:00"},"s":"I",  "c":"FTDC",     "id":20625,   "ctx":"initandlisten","msg":"Initializing full-time diagnostic data capture","attr":{"dataDirectory":"/data/db/diagnostic.data"}}
+2026-10-12T15:40:39.9980529Z  {"t":{"$date":"2026-10-12T15:39:51.421+00:00"},"s":"I",  "c":"STORAGE",  "id":20320,   "ctx":"initandlisten","msg":"createCollection","attr":{"namespace":"local.startup_log","uuidDisposition":"generated","uuid":{"uuid":{"$uuid":"3bea6732-2d59-4df8-a0f1-3e5eaacfc058"}},"options":{"capped":true,"size":10485760}}}
+2026-10-12T15:40:39.9981622Z  {"t":{"$date":"2026-10-12T15:39:51.425+00:00"},"s":"I",  "c":"INDEX",    "id":20345,   "ctx":"initandlisten","msg":"Index build: done building","attr":{"buildUUID":null,"collectionUUID":{"uuid":{"$uuid":"3bea6732-2d59-4df8-a0f1-3e5eaacfc058"}},"namespace":"local.startup_log","index":"_id_","ident":"index-3-9110491545142666282","collectionIdent":"collection-2-9110491545142666282","commitTimestamp":null}}
+2026-10-12T15:40:39.9982693Z  {"t":{"$date":"2026-10-12T15:39:51.425+00:00"},"s":"I",  "c":"REPL",     "id":6015317, "ctx":"initandlisten","msg":"Setting new configuration state","attr":{"newState":"ConfigReplicationDisabled","oldState":"ConfigPreStart"}}
+2026-10-12T15:40:39.9983224Z  {"t":{"$date":"2026-10-12T15:39:51.425+00:00"},"s":"I",  "c":"STORAGE",  "id":22262,   "ctx":"initandlisten","msg":"Timestamp monitor starting"}
+2026-10-12T15:40:39.9983882Z  {"t":{"$date":"2026-10-12T15:39:51.426+00:00"},"s":"I",  "c":"STORAGE",  "id":20320,   "ctx":"LogicalSessionCacheRefresh","msg":"createCollection","attr":{"namespace":"config.system.sessions","uuidDisposition":"generated","uuid":{"uuid":{"$uuid":"273ed165-23cf-42f9-83ab-1829a94a5025"}},"options":{}}}
+2026-10-12T15:40:39.9984845Z  {"t":{"$date":"2026-10-12T15:39:51.427+00:00"},"s":"I",  "c":"CONTROL",  "id":20712,   "ctx":"LogicalSessionCacheReap","msg":"Sessions collection is not set up; waiting until next sessions reap interval","attr":{"error":"NamespaceNotFound: config.system.sessions does not exist"}}
+2026-10-12T15:40:39.9985508Z  {"t":{"$date":"2026-10-12T15:39:51.427+00:00"},"s":"I",  "c":"NETWORK",  "id":23015,   "ctx":"listener","msg":"Listening on","attr":{"address":"/tmp/mongodb-27017.sock"}}
+2026-10-12T15:40:39.9985959Z  {"t":{"$date":"2026-10-12T15:39:51.427+00:00"},"s":"I",  "c":"NETWORK",  "id":23015,   "ctx":"listener","msg":"Listening on","attr":{"address":"0.0.0.0"}}
+2026-10-12T15:40:39.9986414Z  {"t":{"$date":"2026-10-12T15:39:51.427+00:00"},"s":"I",  "c":"NETWORK",  "id":23016,   "ctx":"listener","msg":"Waiting for connections","attr":{"port":27017,"ssl":"off"}}
+2026-10-12T15:40:39.9988879Z  {"t":{"$date":"2026-10-12T15:39:51.427+00:00"},"s":"I",  "c":"CONTROL",  "id":8423403, "ctx":"initandlisten","msg":"mongod startup complete","attr":{"Summary of time elapsed":{"Startup from clean shutdown?":true,"Statistics":{"Transport layer setup":"0 ms","Run initial syncer crash recovery":"0 ms","Create storage engine lock file in the data directory":"0 ms","Create storage engine lock file in the data directory":"0 ms","Get metadata describing storage engine":"0 ms","Get metadata describing storage engine":"0 ms","Create storage engine":"0 ms","Create storage engine":"102 ms","Write current PID to file":"0 ms","Write current PID to file":"0 ms","Write a new metadata for storage engine":"0 ms","Write a new metadata for storage engine":"0 ms","Initialize FCV before rebuilding indexes":"0 ms","Initialize FCV before rebuilding indexes":"1 ms","Drop abandoned idents and get back indexes that need to be rebuilt or builds that need to be restarted":"0 ms","Drop abandoned idents and get back indexes that need to be rebuilt or builds that need to be restarted":"0 ms","Rebuild indexes for collections":"0 ms","Rebuild indexes for collections":"0 ms","Build user and roles graph":"0 ms","Set up the background thread pool responsible for waiting for opTimes to be majority committed":"0 ms","Start up the replication coordinator":"0 ms","Start transport layer":"0 ms","_initAndListen total elapsed time":"115 ms"}}}}
+2026-10-12T15:40:39.9991934Z  {"t":{"$date":"2026-10-12T15:39:51.432+00:00"},"s":"I",  "c":"INDEX",    "id":20345,   "ctx":"LogicalSessionCacheRefresh","msg":"Index build: done building","attr":{"buildUUID":null,"collectionUUID":{"uuid":{"$uuid":"273ed165-23cf-42f9-83ab-1829a94a5025"}},"namespace":"config.system.sessions","index":"_id_","ident":"index-5-9110491545142666282","collectionIdent":"collection-4-9110491545142666282","commitTimestamp":null}}
+2026-10-12T15:40:39.9993416Z  {"t":{"$date":"2026-10-12T15:39:51.432+00:00"},"s":"I",  "c":"INDEX",    "id":20345,   "ctx":"LogicalSessionCacheRefresh","msg":"Index build: done building","attr":{"buildUUID":null,"collectionUUID":{"uuid":{"$uuid":"273ed165-23cf-42f9-83ab-1829a94a5025"}},"namespace":"config.system.sessions","index":"lsidTTLIndex","ident":"index-6-9110491545142666282","collectionIdent":"collection-4-9110491545142666282","commitTimestamp":null}}
+2026-10-12T15:40:39.9997259Z Stop and remove container: 2e16ab20010e495a97b324a729864fbc_mongo6_c52b71
+2026-10-12T15:40:40.0000190Z ##[command]/usr/bin/docker rm --force a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64
+2026-10-12T15:40:41.5596297Z a8b1e275278f12443e9194cdf784c11fbe944ac4634ff9e6f0c899cebf329b64
+2026-10-12T15:40:41.5619103Z Remove container network: github_network_5d25993a2ffe40979996008e7634caba
+2026-10-12T15:40:41.5621947Z ##[command]/usr/bin/docker network rm github_network_5d25993a2ffe40979996008e7634caba
+2026-10-12T15:40:41.6589985Z github_network_5d25993a2ffe40979996008e7634caba
+2026-10-12T15:40:41.6645900Z Cleaning up orphan processes
+2026-10-12T15:40:41.6858616Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

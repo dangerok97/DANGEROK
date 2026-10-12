@@ -1,3 +1,25 @@
+# 12 ottobre 2026 — v162, risultato sospeso quando lo stato non è verificabile
+
+Il candidato successivo a641 affronta un rischio concreto: dopo una lettura fallita ORA poteva continuare a mostrare il vecchio «Ritira adesso». La scheda deve invece indicare **«Stato non verificabile»**, sospendere l'indicazione operativa e recuperarla soltanto dopo una lettura riuscita della fonte effettivamente usata. Lo stesso criterio vale se la prima lettura fallisce senza dati. Il cambio account non deve conservare il risultato del precedente account.
+
+Quando il modello dichiara una nuova Situation, luogo e riferimenti devono essere espliciti prima dei default. Valori sconosciuti restano ammessi: questa completezza formale non garantisce che il modello conservi correttamente Tarquinia o produca una stima attendibile di asciugatura. Prossimo controllo e ora di ritiro mantengono significati distinti.
+
+**Autonomia non ancora accettata.** Le modifiche del candidato richiedono nuova CI e verifica pertinente; i risultati verdi641 non si trasferiscono al nuovo codice. La vecchia stesura reale resta chiusa.
+
+[Contesto, visibilità e verifiche del candidato](evidence/autonomy_v162_context_and_visibility_repair_2026-10-12.json). Gli esiti originali641 restano preservati nel blocco storico seguente.
+
+---
+
+# 12 ottobre 2026 — v162, risultato utile ancora da dimostrare
+
+**ORA non è ancora accettata come autonoma per “Ho steso → quando ritirare”.** Il collaudo reale641 conserva l’obiettivo asciugatura e registra un controllo alle18:00 a Tarquinia, ma il modello omette il collegamento strutturato con il luogo. Il controllo programmato non è un’ora di ritiro. La risposta finale propone una finestra05:00–07:00 senza valutazione sufficiente e impone impropriamente di non ritirare prima del controllo.
+
+La CI641 è verde; la prova con modelli reali resta negativa. Monitoraggio successivo, indicazione utile e avviso sul dispositivo non sono stati raggiunti. La vecchia stesura reale resta chiusa. La prova riguarda esclusivamente una nuova fixture sintetica.
+
+[Esiti641 e originali](evidence/autonomy_v162_641_results_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, osservabilità della prova di programmazione
 
 La CI di c8ca conferma, prima del punto di arresto, che il controllo appena salvato viene letto con proprietario, stato e orario corretti anche dopo una risposta intermedia. Il test si ferma sui nomi degli eventi nella traccia pubblica, che conserva soltanto i primi 12 elementi. La correzione legge quegli eventi nel test prima della proiezione pubblica; il comportamento dell’app e la protezione della traccia restano invariati.

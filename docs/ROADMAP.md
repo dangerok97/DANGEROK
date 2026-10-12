@@ -1,3 +1,33 @@
+# 12 ottobre 2026 — v162, verifiche del candidato dopo641
+
+Il primo intervento sul confine CREATE è nel candidato: omissioni esplicite alla governance e riparazione già esistente. La correzione della visibilità affronta il vecchio «Ritira adesso» mantenuto dopo un errore di lettura. **Nessuno dei due interventi equivale all'accettazione del percorso completo.**
+
+1. Completare CI e regressioni del nuovo candidato, incluse freschezza, risposte fuori ordine, cambio owner, fallimento e recupero della fonte selezionata.
+2. Dopo CI verde e servizio tecnico libero, eseguire soltanto una prova Situation pertinente al cambiamento. Verificare luogo, obiettivo asciugatura, valutazione persistita e distinzione fra controllo e ritiro, preservando anche eventuali esiti negativi.
+3. Affrontare le affermazioni non sostenute nella prosa del modello e la domanda preliminare Memory osservata641, senza sopprimere risposte miste, dedurre riferimenti, riordinare piani o leggere fonti automaticamente. Nessuna ripetizione Memory identica per ottenere verde.
+4. Verificare worker futuro e avviso utile; affrontare separatamente installazione firmata, app chiusa e tap autenticato nei limiti dell'autorizzazione. Il rifiuto APP resta in vigore e non viene aggirato.
+
+Tarquinia/Europe/Rome resta il luogo del caso sintetico. La precedente stesura reale resta chiusa.
+
+[Contesto, visibilità e verifiche del candidato](evidence/autonomy_v162_context_and_visibility_repair_2026-10-12.json). Gli esiti originali641 restano preservati nel blocco storico seguente.
+
+---
+
+# 12 ottobre 2026 — v162, gate dopo il live641
+
+**La CI641 è completata; l’accettazione di autonomia è ancora aperta.** I due test reali sono negativi. Per il bucato sono attestati la dichiarazione dell’asciugatura e il prossimo controllo; non sono attestati luogo legato stabilmente, valutazione futura utile o avviso ricevuto.
+
+1. Rafforzare il confine della dichiarazione senza riempire automaticamente riferimenti o riscrivere l’intento. Il CREATE attuale può omettere i campi di contesto e ricevere default silenziosi. Una dichiarazione formalmente completa non garantisce da sola la correttezza semantica.
+2. Rendere la risposta coerente con i fatti persistiti, mantenendo distinti prossimo controllo e risultato utile. La prosa unica può includere richieste diverse: non sopprimerla con parole chiave o inferenze dallo strumento.
+3. Risolvere la domanda preliminare non necessaria osservata nel test Memory, senza riordinare il piano o leggere fonti automaticamente. La modifica a150 rimane da provare.
+4. Verificare separatamente firma, installazione, consenso OS, ricezione ad app chiusa e tap autenticato su un candidato accettato. Il rifiuto APP eb9c3870 resta in vigore.
+
+Nessuna ripetizione identica del live per ottenere un verde. Nuove prove richiedono una modifica pertinente, CI completa e nuova verifica che il servizio tecnico sia libero. La vecchia stesura reale resta chiusa.
+
+[Esiti e limiti641](evidence/autonomy_v162_641_results_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, gate sulla prova corretta degli eventi
 
 Completare la CI della revisione che osserva gli eventi interni nel test, mantenendo il limite della traccia pubblica. I due backend c8ca falliti non attestano le verifiche successive né la nuova revisione.

@@ -1,0 +1,467 @@
+﻿2026-10-12T15:47:50.3074669Z Current runner version: '2.337.0'
+2026-10-12T15:47:50.3101645Z ##[group]Runner Image Provisioner
+2026-10-12T15:47:50.3103329Z Hosted Compute Agent
+2026-10-12T15:47:50.3104477Z Version: 20261002.596
+2026-10-12T15:47:50.3105677Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T15:47:50.3106997Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T15:47:50.3108424Z Worker ID: {0a273ff4-6234-48de-b889-1fc2c52f10c6}
+2026-10-12T15:47:50.3109775Z Region: eastus2
+2026-10-12T15:47:50.3110823Z Cloud: Azure
+2026-10-12T15:47:50.3111760Z ##[endgroup]
+2026-10-12T15:47:50.3114508Z ##[group]Operating System
+2026-10-12T15:47:50.3115742Z Ubuntu
+2026-10-12T15:47:50.3116892Z 24.04.5
+2026-10-12T15:47:50.3117868Z LTS
+2026-10-12T15:47:50.3118761Z ##[endgroup]
+2026-10-12T15:47:50.3119737Z ##[group]Runner Image
+2026-10-12T15:47:50.3120885Z Image: ubuntu-24.04
+2026-10-12T15:47:50.3121915Z Version: 20261004.327.1
+2026-10-12T15:47:50.3124385Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T15:47:50.3126997Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T15:47:50.3128740Z ##[endgroup]
+2026-10-12T15:47:50.3134752Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T15:47:50.3138761Z Actions: write
+2026-10-12T15:47:50.3139819Z ArtifactMetadata: write
+2026-10-12T15:47:50.3140992Z Attestations: write
+2026-10-12T15:47:50.3142117Z Checks: write
+2026-10-12T15:47:50.3143411Z CodeQuality: write
+2026-10-12T15:47:50.3144605Z Contents: write
+2026-10-12T15:47:50.3145618Z CopilotRequests: write
+2026-10-12T15:47:50.3146673Z Deployments: write
+2026-10-12T15:47:50.3147906Z Discussions: write
+2026-10-12T15:47:50.3148920Z Drives: write
+2026-10-12T15:47:50.3150111Z Issues: write
+2026-10-12T15:47:50.3151187Z Metadata: read
+2026-10-12T15:47:50.3152108Z Models: read
+2026-10-12T15:47:50.3153564Z Packages: write
+2026-10-12T15:47:50.3154578Z Pages: write
+2026-10-12T15:47:50.3155684Z PullRequests: write
+2026-10-12T15:47:50.3156858Z RepositoryProjects: write
+2026-10-12T15:47:50.3157947Z SecurityEvents: write
+2026-10-12T15:47:50.3159251Z Statuses: write
+2026-10-12T15:47:50.3160288Z VulnerabilityAlerts: read
+2026-10-12T15:47:50.3161408Z ##[endgroup]
+2026-10-12T15:47:50.3164522Z Secret source: Actions
+2026-10-12T15:47:50.3166192Z Cache mode: write
+2026-10-12T15:47:50.3167741Z Prepare workflow directory
+2026-10-12T15:47:50.3635150Z Prepare all required actions
+2026-10-12T15:47:50.3704523Z Getting action download info
+2026-10-12T15:47:50.5882966Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T15:47:50.6707731Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T15:47:50.8547514Z Complete job name: Frontend product guards (current Vita)
+2026-10-12T15:47:50.9298280Z ##[group]Run actions/checkout@v4
+2026-10-12T15:47:50.9299157Z with:
+2026-10-12T15:47:50.9299610Z   repository: dangerok97/DANGEROK
+2026-10-12T15:47:50.9303819Z   token: ***
+2026-10-12T15:47:50.9304289Z   ssh-strict: true
+2026-10-12T15:47:50.9304723Z   ssh-user: git
+2026-10-12T15:47:50.9305163Z   persist-credentials: true
+2026-10-12T15:47:50.9305647Z   clean: true
+2026-10-12T15:47:50.9306094Z   sparse-checkout-cone-mode: true
+2026-10-12T15:47:50.9306615Z   fetch-depth: 1
+2026-10-12T15:47:50.9307040Z   fetch-tags: false
+2026-10-12T15:47:50.9307478Z   show-progress: true
+2026-10-12T15:47:50.9307927Z   lfs: false
+2026-10-12T15:47:50.9308340Z   submodules: false
+2026-10-12T15:47:50.9308791Z   set-safe-directory: true
+2026-10-12T15:47:50.9309303Z   allow-unsafe-pr-checkout: false
+2026-10-12T15:47:50.9310070Z ##[endgroup]
+2026-10-12T15:47:51.0298462Z Syncing repository: dangerok97/DANGEROK
+2026-10-12T15:47:51.0300871Z ##[group]Getting Git version info
+2026-10-12T15:47:51.0302051Z Working directory is '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T15:47:51.0303914Z [command]/usr/bin/git version
+2026-10-12T15:47:51.0353264Z git version 2.55.0
+2026-10-12T15:47:51.0374726Z ##[endgroup]
+2026-10-12T15:47:51.0388828Z Temporarily overriding HOME='/home/runner/work/_temp/37502b4f-e071-4e00-856b-59fb658692b1' before making global git config changes
+2026-10-12T15:47:51.0391253Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T15:47:51.0394398Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:47:51.0445752Z Deleting the contents of '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T15:47:51.0450066Z ##[group]Initializing the repository
+2026-10-12T15:47:51.0454026Z [command]/usr/bin/git init /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:47:51.0560611Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T15:47:51.0562908Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T15:47:51.0564633Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T15:47:51.0565888Z hint: call:
+2026-10-12T15:47:51.0566657Z hint:
+2026-10-12T15:47:51.0567698Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T15:47:51.0568840Z hint:
+2026-10-12T15:47:51.0569930Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T15:47:51.0571649Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T15:47:51.0573339Z hint:
+2026-10-12T15:47:51.0574242Z hint: 	git branch -m <name>
+2026-10-12T15:47:51.0575078Z hint:
+2026-10-12T15:47:51.0576168Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T15:47:51.0577731Z Initialized empty Git repository in /home/runner/work/DANGEROK/DANGEROK/.git/
+2026-10-12T15:47:51.0581742Z [command]/usr/bin/git remote add origin https://github.com/dangerok97/DANGEROK
+2026-10-12T15:47:51.0628556Z ##[endgroup]
+2026-10-12T15:47:51.0629921Z ##[group]Disabling automatic garbage collection
+2026-10-12T15:47:51.0633267Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T15:47:51.0664969Z ##[endgroup]
+2026-10-12T15:47:51.0666176Z ##[group]Setting up auth
+2026-10-12T15:47:51.0670940Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T15:47:51.0702970Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T15:47:51.1100744Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T15:47:51.1139151Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T15:47:51.1376240Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T15:47:51.1410670Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T15:47:51.1630772Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T15:47:51.1670978Z ##[endgroup]
+2026-10-12T15:47:51.1680239Z ##[group]Fetching the repository
+2026-10-12T15:47:51.1682063Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +641dbaf9869e0881ffe6778ff82c0e771e6fcca4:refs/remotes/origin/ora/v162-autonomy-validation-20261012
+2026-10-12T15:47:52.3045168Z From https://github.com/dangerok97/DANGEROK
+2026-10-12T15:47:52.3051446Z  * [new ref]         641dbaf9869e0881ffe6778ff82c0e771e6fcca4 -> origin/ora/v162-autonomy-validation-20261012
+2026-10-12T15:47:52.3055840Z ##[endgroup]
+2026-10-12T15:47:52.3057321Z ##[group]Determining the checkout info
+2026-10-12T15:47:52.3059158Z ##[endgroup]
+2026-10-12T15:47:52.3060151Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T15:47:52.3115191Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T15:47:52.3148686Z ##[group]Checking out the ref
+2026-10-12T15:47:52.3188764Z [command]/usr/bin/git checkout --progress --force -B ora/v162-autonomy-validation-20261012 refs/remotes/origin/ora/v162-autonomy-validation-20261012
+2026-10-12T15:47:52.5333756Z Switched to a new branch 'ora/v162-autonomy-validation-20261012'
+2026-10-12T15:47:52.5335561Z branch 'ora/v162-autonomy-validation-20261012' set up to track 'origin/ora/v162-autonomy-validation-20261012'.
+2026-10-12T15:47:52.5342655Z ##[endgroup]
+2026-10-12T15:47:52.5395633Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T15:47:52.5424102Z 641dbaf9869e0881ffe6778ff82c0e771e6fcca4
+2026-10-12T15:47:52.5700499Z ##[group]Run actions/setup-node@v4
+2026-10-12T15:47:52.5700889Z with:
+2026-10-12T15:47:52.5701142Z   node-version: 24
+2026-10-12T15:47:52.5701402Z   cache: npm
+2026-10-12T15:47:52.5701711Z   cache-dependency-path: frontend/package-lock.json
+2026-10-12T15:47:52.5702103Z   always-auth: false
+2026-10-12T15:47:52.5702382Z   check-latest: false
+2026-10-12T15:47:52.5705248Z   token: ***
+2026-10-12T15:47:52.5705504Z ##[endgroup]
+2026-10-12T15:47:52.7086583Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+2026-10-12T15:47:52.7089929Z (node:2284) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T15:47:52.7090956Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T15:47:52.7093482Z ##[group]Environment details
+2026-10-12T15:47:53.0858843Z node: v24.21.0
+2026-10-12T15:47:53.0859594Z npm: 11.19.0
+2026-10-12T15:47:53.0860061Z yarn: 1.22.22
+2026-10-12T15:47:53.0861034Z ##[endgroup]
+2026-10-12T15:47:53.0909750Z [command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+2026-10-12T15:47:53.2041048Z /home/runner/.npm
+2026-10-12T15:47:53.2902319Z Cache hit for: node-cache-Linux-x64-npm-f9023f1f557d68d9c8c02b9182cbc8b4bd7900cf3fcd788ca7c7dd466722f330
+2026-10-12T15:47:53.3038730Z (node:2284) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-12T15:47:54.0848175Z Received 110589251 of 110589251 (100.0%), 139.1 MBs/sec
+2026-10-12T15:47:54.0853667Z Cache Size: ~105 MB (110589251 B)
+2026-10-12T15:47:54.0881595Z [command]/usr/bin/tar -xf /home/runner/work/_temp/5130657d-c54e-44d6-b4b0-ff80d69b3372/cache.tzst -P -C /home/runner/work/DANGEROK/DANGEROK --use-compress-program unzstd
+2026-10-12T15:47:54.5305338Z Cache restored successfully
+2026-10-12T15:47:54.5357373Z Cache restored from key: node-cache-Linux-x64-npm-f9023f1f557d68d9c8c02b9182cbc8b4bd7900cf3fcd788ca7c7dd466722f330
+2026-10-12T15:47:54.5590288Z ##[group]Run npm ci
+2026-10-12T15:47:54.5590602Z [36;1mnpm ci[0m
+2026-10-12T15:47:54.5859035Z shell: /usr/bin/bash -e {0}
+2026-10-12T15:47:54.5859360Z ##[endgroup]
+2026-10-12T15:47:58.6261169Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-10-12T15:47:58.7701884Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2026-10-12T15:47:58.8921382Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting [public package maintainer email omitted]
+2026-10-12T15:47:58.8959808Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting [public package maintainer email omitted]
+2026-10-12T15:47:58.8972906Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting [public package maintainer email omitted]
+2026-10-12T15:47:58.9008380Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting [public package maintainer email omitted]
+2026-10-12T15:48:00.5574816Z npm warn deprecated uuid@7.0.3: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+2026-10-12T15:48:10.8482261Z 
+2026-10-12T15:48:10.8483054Z > frontend@1.0.0 preinstall
+2026-10-12T15:48:10.8483540Z > node ./scripts/cmd-guard.js --preinstall
+2026-10-12T15:48:10.8483781Z 
+2026-10-12T15:48:10.9871618Z 
+2026-10-12T15:48:10.9872910Z added 963 packages, and audited 964 packages in 16s
+2026-10-12T15:48:10.9873506Z 
+2026-10-12T15:48:10.9874152Z 174 packages are looking for funding
+2026-10-12T15:48:10.9875060Z   run `npm fund` for details
+2026-10-12T15:48:11.1913611Z 
+2026-10-12T15:48:11.1914383Z 50 vulnerabilities (2 low, 18 moderate, 29 high, 1 critical)
+2026-10-12T15:48:11.1914922Z 
+2026-10-12T15:48:11.1915425Z To address issues that do not require attention, run:
+2026-10-12T15:48:11.1923672Z   npm audit fix
+2026-10-12T15:48:11.1923999Z 
+2026-10-12T15:48:11.1924674Z To address all issues (including breaking changes), run:
+2026-10-12T15:48:11.1925506Z   npm audit fix --force
+2026-10-12T15:48:11.1926574Z npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+2026-10-12T15:48:11.1927937Z npm warn install-scripts   unrs-resolver@1.12.2 (postinstall: node postinstall.js)
+2026-10-12T15:48:11.1928830Z npm warn install-scripts
+2026-10-12T15:48:11.1930121Z npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+2026-10-12T15:48:11.1931045Z 
+2026-10-12T15:48:11.1931553Z Run `npm audit` for details.
+2026-10-12T15:48:11.2916044Z ##[group]Run npm run test:home3
+2026-10-12T15:48:11.2916437Z [36;1mnpm run test:home3[0m
+2026-10-12T15:48:11.2916700Z [36;1mnpm run test:v3213b[0m
+2026-10-12T15:48:11.2916957Z [36;1mnpm run test:v3213c[0m
+2026-10-12T15:48:11.2917199Z [36;1mnpm run test:v3213d[0m
+2026-10-12T15:48:11.2917430Z [36;1mnpm run test:v3213e[0m
+2026-10-12T15:48:11.2917658Z [36;1mnpm run test:v322[0m
+2026-10-12T15:48:11.2920339Z [36;1mnode --test --experimental-strip-types src/components/ora/presence/presence.test.ts src/components/ora/presence/openingSession.test.ts src/components/ora/presence/scene.test.mjs src/ora/openingHandoff.test.ts src/voice/voice313.test.ts src/voice/voiceRuntime.test.ts src/components/ora/ora14.test.ts src/components/ora/navigationConfirmation.test.ts src/location/backgroundDepartureOrigin.test.ts src/life-setup/vitaLoading.test.ts src/life-setup/registrationIntro.test.ts src/components/vita/routinesPlaces.test.ts src/components/vita/mapPickerViewport.test.ts src/components/vita/googleMapsOnly.test.ts src/components/vita/placeEditorLocationLookup.test.ts src/contacts/deviceContacts.test.ts[0m
+2026-10-12T15:48:11.2989561Z shell: /usr/bin/bash -e {0}
+2026-10-12T15:48:11.2989830Z ##[endgroup]
+2026-10-12T15:48:11.3981819Z 
+2026-10-12T15:48:11.3982686Z > frontend@1.0.0 test:home3
+2026-10-12T15:48:11.3983691Z > node --experimental-strip-types src/components/home/v3/home3.test.ts
+2026-10-12T15:48:11.3984337Z 
+2026-10-12T15:48:11.4960604Z (node:2409) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/home/v3/home3.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:11.4963095Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:11.4964697Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:11.4966413Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:11.5040196Z PX1.2 Home 3.0 guards: all assertions passed
+2026-10-12T15:48:11.6173842Z 
+2026-10-12T15:48:11.6174467Z > frontend@1.0.0 test:v3213b
+2026-10-12T15:48:11.6175369Z > node --experimental-strip-types src/shell/navigazione3213b.test.ts
+2026-10-12T15:48:11.6175910Z 
+2026-10-12T15:48:11.6942280Z (node:2428) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/shell/navigazione3213b.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:11.6960173Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:11.6963624Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:11.6964990Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:11.6983830Z V3.21.3b navigation guards: tutte le asserzioni passate
+2026-10-12T15:48:11.8069908Z 
+2026-10-12T15:48:11.8070287Z > frontend@1.0.0 test:v3213c
+2026-10-12T15:48:11.8071086Z > node --experimental-strip-types src/shell/vita3213c.test.ts
+2026-10-12T15:48:11.8071537Z 
+2026-10-12T15:48:11.8771386Z (node:2447) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/shell/vita3213c.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:11.8773639Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:11.8775063Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:11.8776312Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:11.8816088Z V3.21.3c Vita guards: tutte le asserzioni passate
+2026-10-12T15:48:11.9865956Z 
+2026-10-12T15:48:11.9866245Z > frontend@1.0.0 test:v3213d
+2026-10-12T15:48:11.9867088Z > node --experimental-strip-types src/shell/vita3213d.test.ts
+2026-10-12T15:48:11.9867431Z 
+2026-10-12T15:48:12.0572874Z (node:2466) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/shell/vita3213d.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:12.0575302Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:12.0577077Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:12.0578564Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:12.0615660Z V3.21.3d Vita guards: tutte le asserzioni passate
+2026-10-12T15:48:12.1747929Z 
+2026-10-12T15:48:12.1748429Z > frontend@1.0.0 test:v3213e
+2026-10-12T15:48:12.1749056Z > node --experimental-strip-types src/shell/vita3213e.test.ts
+2026-10-12T15:48:12.1749421Z 
+2026-10-12T15:48:12.2619509Z (node:2485) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/shell/vita3213e.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:12.2621056Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:12.2622038Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:12.2623223Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:12.2658046Z V3.21.3e Vita state guards: tutte le asserzioni passate
+2026-10-12T15:48:12.3764795Z 
+2026-10-12T15:48:12.3765198Z > frontend@1.0.0 test:v322
+2026-10-12T15:48:12.3765880Z > node --experimental-strip-types src/components/calls/callLifecycle322.test.ts
+2026-10-12T15:48:12.3766322Z 
+2026-10-12T15:48:12.4430026Z (node:2504) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/calls/callLifecycle322.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:12.4433185Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:12.4434957Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:12.4436380Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:12.6105710Z (node:2517) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/navigationConfirmation.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:12.6162889Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:12.6194203Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:12.6253577Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:12.6318309Z Navigation confirmation client guards: tutte le asserzioni passate
+2026-10-12T15:48:12.6386962Z ✔ src/components/ora/navigationConfirmation.test.ts (133.320483ms)
+2026-10-12T15:48:12.6529714Z (node:2518) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/ora14.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:12.6546367Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:12.6559255Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:12.6562879Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:12.6603732Z ora14: all assertions passed
+2026-10-12T15:48:12.6793733Z ✔ src/components/ora/ora14.test.ts (169.339578ms)
+2026-10-12T15:48:12.6811264Z (node:2519) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/presence/openingSession.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:12.6814195Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:12.6815893Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:12.6817352Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:12.6819040Z ✔ entrance belongs to the conversation, survives navigation/reload, and resets on login (4.30442ms)
+2026-10-12T15:48:12.6820725Z ✔ denied storage still plays only once and cannot break chat (0.333152ms)
+2026-10-12T15:48:12.7955008Z (node:2538) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/presence/presence.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:12.7957560Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:12.7986996Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:12.8021344Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:12.8194038Z ✔ first turn focus requires a matching, fresh real signal (1.739579ms)
+2026-10-12T15:48:12.8231830Z ✔ late polling cannot roll back a newer area; unknown areas stay generic (0.231833ms)
+2026-10-12T15:48:12.8284735Z ✔ listening, processing, actual speech and idle are distinct states (0.235089ms)
+2026-10-12T15:48:12.8288235Z ✔ completed focus remains visible until expiry, then releases; new turns do not inherit it (0.510173ms)
+2026-10-12T15:48:12.8354482Z ✔ native embeds the exact renderer, independent of Metro helper closures (1.287775ms)
+2026-10-12T15:48:12.8383533Z ✔ selection bridge accepts only a known node identity and drops arbitrary content (1.642538ms)
+2026-10-12T15:48:12.8413682Z ✔ temporary memory becomes red-star geometry without changing durable semantics (0.389176ms)
+2026-10-12T15:48:12.8443582Z ✔ new and materially updated permanent stars both become spotlight candidates (0.597717ms)
+2026-10-12T15:48:12.8451564Z ✔ spotlight drives both glow and camera target (0.270075ms)
+2026-10-12T15:48:24.1295444Z (node:2539) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/presence/scene.js is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1301671Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1303660Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1305364Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1307252Z ✔ registration starts with one nucleus and reveals only completed steps (161.523206ms)
+2026-10-12T15:48:24.1309394Z ✔ the progressive introduction respects reduced motion; normal ORA still has its navigation hubs (12.632574ms)
+2026-10-12T15:48:24.1311514Z ✔ saving a new life fact moves the camera to its star and restores the resting map (199.775179ms)
+2026-10-12T15:48:24.1313624Z ✔ opening grows from one central point to the full 3D network, once (1078.144777ms)
+2026-10-12T15:48:24.1315410Z ✔ a late first-message trigger restarts at the centre after the mounted map has moved (1833.842289ms)
+2026-10-12T15:48:24.1317011Z ✔ a Home handoff starts with a point on its very first canvas frame (476.603838ms)
+2026-10-12T15:48:24.1318543Z ✔ opening respects background, reduced motion and immediate interaction (1006.747818ms)
+2026-10-12T15:48:24.1320047Z ✔ camera approaches the real selected area smoothly and returns to standby (1208.744947ms)
+2026-10-12T15:48:24.1324446Z ✔ a fast completed reply can focus each topic in idle, then release it (4659.409846ms)
+2026-10-12T15:48:24.1326659Z ✔ pause, background, reduced motion and destruction stop animation scheduling (30.64677ms)
+2026-10-12T15:48:24.1328729Z ✔ unknown activity never selects an invented region and static mode still conveys focus (17.671254ms)
+2026-10-12T15:48:24.1330644Z ✔ mouse drag rotates on both axes while pause keeps animation unscheduled (32.449691ms)
+2026-10-12T15:48:24.1332822Z ✔ hover and touch light a projected node; click reports its domain at CSS coordinates (68.567603ms)
+2026-10-12T15:48:24.1334831Z ✔ touch can rotate in reduced motion and cancelled/multiple pointers never select (27.55012ms)
+2026-10-12T15:48:24.1336935Z ✔ inspection holds the selected node still until details close, without losing work focus (562.385819ms)
+2026-10-12T15:48:24.1338888Z ✔ dialogue framing moves the drawn map and keeps node hit targets aligned (27.534439ms)
+2026-10-12T15:48:24.1340030Z ✔ empty accounts contain no invented knowledge and additions grow without replaying the session (18.578816ms)
+2026-10-12T15:48:24.1341227Z ✔ knowledge selections identify the exact saved fact, including on touch (0.936246ms)
+2026-10-12T15:48:24.1602028Z (node:2552) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/vita/googleMapsOnly.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1604358Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1605912Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1607162Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1608066Z Google Maps-only guards: tutte le asserzioni passate
+2026-10-12T15:48:24.1609091Z ✔ src/components/vita/googleMapsOnly.test.ts (142.828986ms)
+2026-10-12T15:48:24.1611251Z (node:2559) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/vita/mapPickerViewport.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1621626Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1623304Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1624228Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1624762Z Place map viewport guards: tutte le asserzioni passate
+2026-10-12T15:48:24.1625374Z ✔ src/components/vita/mapPickerViewport.test.ts (104.394661ms)
+2026-10-12T15:48:24.1627197Z (node:2565) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/vita/placeEditorLocationLookup.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1629446Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1631042Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1632353Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1634286Z Luoghi GPS + address lookup guards: tutte le asserzioni passate
+2026-10-12T15:48:24.1635549Z ✔ src/components/vita/placeEditorLocationLookup.test.ts (114.749333ms)
+2026-10-12T15:48:24.1637976Z (node:2573) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/vita/routinesPlaces.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1640220Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1641771Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1643301Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1644481Z Routine Places guards: tutte le asserzioni passate
+2026-10-12T15:48:24.1645497Z ✔ src/components/vita/routinesPlaces.test.ts (99.439881ms)
+2026-10-12T15:48:24.1647552Z (node:2580) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/contacts/deviceContacts.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1649081Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1649915Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1650600Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1651211Z ✔ device contacts payload keeps only resolution fields (1.751181ms)
+2026-10-12T15:48:24.1651825Z ✔ contacts native dependency and permission stay configured (1.064558ms)
+2026-10-12T15:48:24.1652995Z ✔ device sync is authenticated, permission-aware and never requests private extra fields (0.599159ms)
+2026-10-12T15:48:24.1654517Z (node:2587) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/life-setup/registrationIntro.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1655678Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1656473Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1657148Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1657859Z ✔ registration adds a star only after each separate name step is confirmed (232.674319ms)
+2026-10-12T15:48:24.1658736Z ✔ draft geometry contains no personal text, no blank stars and no duplicate stars while typing (45.416517ms)
+2026-10-12T15:48:24.1659642Z ✔ review can finish without personal data and exposes no persistence boundary (41.992872ms)
+2026-10-12T15:48:24.1660777Z ✔ a failed first-access save keeps the form available; pending save cannot submit twice (53.16057ms)
+2026-10-12T15:48:24.1661821Z ✔ actual login mounts introduction before credentials and sends completed tutorial with the names (162.072465ms)
+2026-10-12T15:48:24.1663510Z (node:2594) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/life-setup/vitaLoading.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1664744Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1665626Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1666393Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1667373Z ✔ profile and secondary overview start together; unresolved overview never blocks Vita (10.04262ms)
+2026-10-12T15:48:24.1668234Z ✔ secondary failure does not hide the profile or report a profile error (2.239342ms)
+2026-10-12T15:48:24.1669015Z ✔ profile failure exits the spinner even while secondary data is pending (1.742394ms)
+2026-10-12T15:48:24.1669821Z ✔ secondary data arriving first cannot prematurely declare the profile ready (2.033298ms)
+2026-10-12T15:48:24.1670636Z ✔ late responses after leaving the page cannot update its state (2.47878ms)
+2026-10-12T15:48:24.1671892Z (node:2602) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/location/backgroundDepartureOrigin.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1673784Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1675319Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1676038Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1676763Z Background departure provenance guards: tutte le asserzioni passate
+2026-10-12T15:48:24.1677456Z ✔ src/location/backgroundDepartureOrigin.test.ts (120.425595ms)
+2026-10-12T15:48:24.1678583Z (node:2609) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/ora/openingHandoff.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1679678Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1680461Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1681225Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1681906Z ✔ each first Home message reaches the real session route with an entrance (217.22332ms)
+2026-10-12T15:48:24.1683805Z ✔ continuing an existing session never advertises a new entrance (31.9813ms)
+2026-10-12T15:48:24.1684586Z ✔ failed starts never navigate or consume an entrance (24.423118ms)
+2026-10-12T15:48:24.1685226Z ✔ opening is a fixed flag, only valid with an opaque session id (32.40924ms)
+2026-10-12T15:48:24.1686040Z ✔ production URL handoff preserves the first reply focus, including replies after the entrance (70.902792ms)
+2026-10-12T15:48:24.1687289Z (node:2616) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/voice/voice313.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1688395Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1689193Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1689886Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1690898Z   ok  §11 la voce dice le stesse parole che si leggono, senza la pagina
+2026-10-12T15:48:24.1691351Z   ok  una risposta vuota non fa parlare nessuno
+2026-10-12T15:48:24.1691832Z   ok  §3 tocco, ascolto, parole: e mentre parla si vede che parla
+2026-10-12T15:48:24.1692319Z   ok  §14 silenzio: non è un errore, e non chiude niente
+2026-10-12T15:48:24.1693143Z   ok  §14 microfono negato: si può ancora scrivere, e lo dice
+2026-10-12T15:48:24.1693689Z   ok  §7 chi tocca il microfono mentre ORA parla vuole parlare, non zittirla
+2026-10-12T15:48:24.1694200Z   ok  §8 il tempo si misura tutto, e non decide niente
+2026-10-12T15:48:24.1694724Z   ok  §17 la voce non parla con il server: consegna parole a chi già ci parla
+2026-10-12T15:48:24.1695253Z   ok  §17 nessuna memoria che esiste solo perché hai parlato
+2026-10-12T15:48:24.1695681Z   ok  §17 nessun comando riconosciuto a parole
+2026-10-12T15:48:24.1696181Z   ok  §4 quello che si dice e quello che si scrive passano dalla stessa porta
+2026-10-12T15:48:24.1696695Z   ok  §16 la provenienza cambia, il comportamento no
+2026-10-12T15:48:24.1697206Z   ok  §11 il campo mostra quello che sta sentendo, e resta lo stesso campo
+2026-10-12T15:48:24.1697824Z   ok  §2 + §3 il microfono detta, l’onda conversa: due controlli distinti
+2026-10-12T15:48:24.1698276Z   ok  §2 dettare non fa parlare ORA
+2026-10-12T15:48:24.1698749Z   ok  §4 la modalità vocale usa la stessa conversazione, non una sua
+2026-10-12T15:48:24.1699282Z   ok  §5 il giro riparte da solo: parla, pensa, risponde, riascolta
+2026-10-12T15:48:24.1699859Z   ok  §7 tap-to-interrupt: mentre parla, un tocco la ferma e riapre l’ascolto
+2026-10-12T15:48:24.1700315Z   ok  §6 uscire non porta via niente
+2026-10-12T15:48:24.1700711Z   ok  §5 + §12 stati in italiano, nessuna etichetta tecnica
+2026-10-12T15:48:24.1701147Z   ok  §10 la conversazione non sa di chi sia la voce
+2026-10-12T15:48:24.1701728Z   ok  §11 recupero di sistema disponibile ma escluso dalla conversazione naturale
+2026-10-12T15:48:24.1702247Z   ok  §9 la voce non riscrive la risposta, la dice
+2026-10-12T15:48:24.1703105Z   ok  §18 la voce non può scavalcare l’autorità
+2026-10-12T15:48:24.1703628Z   ok  §14 quando la voce non si può, si scrive: il campo non si chiude mai
+2026-10-12T15:48:24.1704166Z   ok  §1 il campo prende tutta la larghezza, i comandi stanno sotto
+2026-10-12T15:48:24.1704689Z   ok  §1 il campo cresce con quello che ci si scrive, entro un limite
+2026-10-12T15:48:24.1705233Z   ok  §1 le etichette dicono cosa fanno, e i bersagli si toccano
+2026-10-12T15:48:24.1705698Z   ok  §2 «ORA sta parlando» solo quando si sente davvero
+2026-10-12T15:48:24.1706152Z   ok  §2 pausa del microfono ed errore hanno uno stato loro
+2026-10-12T15:48:24.1706662Z   ok  §4 l’errore della risposta e quello della sola voce sono due cose
+2026-10-12T15:48:24.1707151Z   ok  §4 in ascolto, senza guai, non c’è niente da leggere
+2026-10-12T15:48:24.1707640Z   ok  §3 ogni giro ha il suo numero, e le risposte in ritardo cadono
+2026-10-12T15:48:24.1708242Z   ok  §3 chiudere, mettere in pausa e interrompere invecchiano quello che c’era
+2026-10-12T15:48:24.1708809Z   ok  §4 se la risposta non arriva non si ritenta all’infinito
+2026-10-12T15:48:24.1709360Z   ok  §2 la presenza condivisa rispetta meno movimento anche nella voce
+2026-10-12T15:48:24.1710053Z   ok  §2 il testo e l’interruzione stanno fuori dalla rete che si muove
+2026-10-12T15:48:24.1710919Z   ok  §5 una data e un’ora si dicono come le direbbe qualcuno
+2026-10-12T15:48:24.1711782Z   ok  §5 una cifra si dice, e la frase tiene la sua punteggiatura
+2026-10-12T15:48:24.1712825Z   ok  §5 non si aggiunge e non si toglie niente
+2026-10-12T15:48:24.1713597Z   ok  §5 i numeri in parole, dove si sbaglia di solito
+2026-10-12T15:48:24.1714468Z   ok  §5 la voce passa dalla forma pronunciabile, e il testo no
+2026-10-12T15:48:24.1714834Z 
+2026-10-12T15:48:24.1714936Z 42/42 passati
+2026-10-12T15:48:24.1715278Z ✔ src/voice/voice313.test.ts (209.940241ms)
+2026-10-12T15:48:24.1716361Z (node:2623) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/voice/voiceRuntime.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:48:24.1717656Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:48:24.1718459Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:48:24.1719144Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:48:24.1719852Z ✔ PCM handles odd network boundaries and schedules continuous signed samples (3.602174ms)
+2026-10-12T15:48:24.1720652Z ✔ stream starts audio before response ends and avoids the availability round trip (55.640009ms)
+2026-10-12T15:48:24.1721403Z ✔ interrupt aborts the download, stops queued PCM and settles the reply (2.172335ms)
+2026-10-12T15:48:24.1722148Z ✔ partial stream failure never repeats a spoken prefix with buffered synthesis (1.968151ms)
+2026-10-12T15:48:24.1723252Z ✔ EOF without the completion marker is a failure, not a completed reply (1.476403ms)
+2026-10-12T15:48:24.1724005Z ✔ stream failure before audio can recover through natural buffered synthesis (5.072524ms)
+2026-10-12T15:48:24.1724675Z ✔ a slow failed stream does not stack another synthesis delay (2.003653ms)
+2026-10-12T15:48:24.1725320Z ✔ long answers preserve every word and have a short first phrase (0.450864ms)
+2026-10-12T15:48:24.1725881Z ✔ stop during download prevents late audio (3.245059ms)
+2026-10-12T15:48:24.1726456Z ✔ stop during playback settles even when browser never emits ended (0.66591ms)
+2026-10-12T15:48:24.1727109Z ✔ close during availability check cannot trigger system fallback (0.571789ms)
+2026-10-12T15:48:24.1727800Z ✔ next phrase is prepared while current audio plays, never played twice (0.642713ms)
+2026-10-12T15:48:24.1728450Z ✔ failure of a later phrase reads only the remaining words (2.126001ms)
+2026-10-12T15:48:24.1729063Z ✔ audio that never starts times out and yields to system voice (1.314275ms)
+2026-10-12T15:48:24.1729932Z ✔ premium fetch timeout aborts the request and does not hang (0.644556ms)
+2026-10-12T15:48:24.1730715Z ✔ natural conversation reports unavailable audio without substituting the browser voice (1.346671ms)
+2026-10-12T15:48:24.1731548Z ✔ a late successful neural response is not aborted at the former browser deadline (0.612532ms)
+2026-10-12T15:48:24.1732311Z ✔ availability recovers after a transient failure instead of caching forever (0.613844ms)
+2026-10-12T15:48:24.1733762Z ✔ system voice prefers a masculine Italian stock voice and rejects unavailable output (0.267262ms)
+2026-10-12T15:48:24.1734599Z ✔ recognition revisions do not duplicate words, and the end watchdog finishes once (0.765372ms)
+2026-10-12T15:48:24.1735359Z ✔ recognition cancellation suppresses late transcript and error callbacks (0.376303ms)
+2026-10-12T15:48:24.1735998Z ✔ a new speech onset during the pause keeps listening (0.34991ms)
+2026-10-12T15:48:24.1736366Z ℹ tests 77
+2026-10-12T15:48:24.1736570Z ℹ suites 0
+2026-10-12T15:48:24.1736788Z ℹ pass 77
+2026-10-12T15:48:24.1736994Z ℹ fail 0
+2026-10-12T15:48:24.1737207Z ℹ cancelled 0
+2026-10-12T15:48:24.1737423Z ℹ skipped 0
+2026-10-12T15:48:24.1737623Z ℹ todo 0
+2026-10-12T15:48:24.1737867Z ℹ duration_ms 11671.837633
+2026-10-12T15:48:24.1835066Z Post job cleanup.
+2026-10-12T15:48:24.3031584Z (node:2635) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T15:48:24.3032778Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T15:48:24.3036521Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-f9023f1f557d68d9c8c02b9182cbc8b4bd7900cf3fcd788ca7c7dd466722f330, not saving cache.
+2026-10-12T15:48:24.3208892Z Post job cleanup.
+2026-10-12T15:48:24.4039415Z [command]/usr/bin/git version
+2026-10-12T15:48:24.4082216Z git version 2.55.0
+2026-10-12T15:48:24.4121652Z Temporarily overriding HOME='/home/runner/work/_temp/e56e217c-1b3d-4826-ad28-4005cb1004d8' before making global git config changes
+2026-10-12T15:48:24.4123711Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T15:48:24.4126908Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:48:24.4164859Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T15:48:24.4198571Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T15:48:24.4447224Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T15:48:24.4474730Z http.https://github.com/.extraheader
+2026-10-12T15:48:24.4486231Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T15:48:24.4527292Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T15:48:24.4785441Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T15:48:24.4835796Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T15:48:24.5291126Z Cleaning up orphan processes
+2026-10-12T15:48:24.5685703Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -1,0 +1,461 @@
+﻿2026-10-12T15:39:36.5268046Z Current runner version: '2.337.0'
+2026-10-12T15:39:36.5293976Z ##[group]Runner Image Provisioner
+2026-10-12T15:39:36.5294902Z Hosted Compute Agent
+2026-10-12T15:39:36.5295635Z Version: 20261002.596
+2026-10-12T15:39:36.5296284Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T15:39:36.5296991Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T15:39:36.5297800Z Worker ID: {682df66b-7be6-48d1-8a0a-8f7074be6f4a}
+2026-10-12T15:39:36.5298501Z Region: westus2
+2026-10-12T15:39:36.5299121Z Cloud: Azure
+2026-10-12T15:39:36.5299676Z ##[endgroup]
+2026-10-12T15:39:36.5301727Z ##[group]Operating System
+2026-10-12T15:39:36.5302521Z Ubuntu
+2026-10-12T15:39:36.5303059Z 24.04.5
+2026-10-12T15:39:36.5303635Z LTS
+2026-10-12T15:39:36.5304167Z ##[endgroup]
+2026-10-12T15:39:36.5304720Z ##[group]Runner Image
+2026-10-12T15:39:36.5305443Z Image: ubuntu-24.04
+2026-10-12T15:39:36.5306016Z Version: 20261004.327.1
+2026-10-12T15:39:36.5307369Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T15:39:36.5308951Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T15:39:36.5310077Z ##[endgroup]
+2026-10-12T15:39:36.5313919Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T15:39:36.5316692Z Actions: write
+2026-10-12T15:39:36.5317342Z ArtifactMetadata: write
+2026-10-12T15:39:36.5318090Z Attestations: write
+2026-10-12T15:39:36.5318734Z Checks: write
+2026-10-12T15:39:36.5319760Z CodeQuality: write
+2026-10-12T15:39:36.5320714Z Contents: write
+2026-10-12T15:39:36.5321433Z CopilotRequests: write
+2026-10-12T15:39:36.5322138Z Deployments: write
+2026-10-12T15:39:36.5322707Z Discussions: write
+2026-10-12T15:39:36.5323330Z Drives: write
+2026-10-12T15:39:36.5323887Z Issues: write
+2026-10-12T15:39:36.5324569Z Metadata: read
+2026-10-12T15:39:36.5325258Z Models: read
+2026-10-12T15:39:36.5325799Z Packages: write
+2026-10-12T15:39:36.5326400Z Pages: write
+2026-10-12T15:39:36.5326966Z PullRequests: write
+2026-10-12T15:39:36.5327597Z RepositoryProjects: write
+2026-10-12T15:39:36.5328269Z SecurityEvents: write
+2026-10-12T15:39:36.5328847Z Statuses: write
+2026-10-12T15:39:36.5329429Z VulnerabilityAlerts: read
+2026-10-12T15:39:36.5330080Z ##[endgroup]
+2026-10-12T15:39:36.5332594Z Secret source: Actions
+2026-10-12T15:39:36.5333684Z Cache mode: write
+2026-10-12T15:39:36.5334421Z Prepare workflow directory
+2026-10-12T15:39:36.5713441Z Prepare all required actions
+2026-10-12T15:39:36.5790027Z Getting action download info
+2026-10-12T15:39:36.9287084Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T15:39:37.1172317Z Complete job name: Secret scan (full history)
+2026-10-12T15:39:37.2045101Z ##[group]Run actions/checkout@v4
+2026-10-12T15:39:37.2046008Z with:
+2026-10-12T15:39:37.2046446Z   fetch-depth: 0
+2026-10-12T15:39:37.2046909Z   repository: dangerok97/DANGEROK
+2026-10-12T15:39:37.2051069Z   token: ***
+2026-10-12T15:39:37.2051511Z   ssh-strict: true
+2026-10-12T15:39:37.2051954Z   ssh-user: git
+2026-10-12T15:39:37.2052422Z   persist-credentials: true
+2026-10-12T15:39:37.2052920Z   clean: true
+2026-10-12T15:39:37.2053380Z   sparse-checkout-cone-mode: true
+2026-10-12T15:39:37.2053903Z   fetch-tags: false
+2026-10-12T15:39:37.2054341Z   show-progress: true
+2026-10-12T15:39:37.2054781Z   lfs: false
+2026-10-12T15:39:37.2055205Z   submodules: false
+2026-10-12T15:39:37.2055651Z   set-safe-directory: true
+2026-10-12T15:39:37.2056161Z   allow-unsafe-pr-checkout: false
+2026-10-12T15:39:37.2056977Z ##[endgroup]
+2026-10-12T15:39:37.3084171Z Syncing repository: dangerok97/DANGEROK
+2026-10-12T15:39:37.3086183Z ##[group]Getting Git version info
+2026-10-12T15:39:37.3087025Z Working directory is '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T15:39:37.3088040Z [command]/usr/bin/git version
+2026-10-12T15:39:37.3202357Z git version 2.55.0
+2026-10-12T15:39:37.3232467Z ##[endgroup]
+2026-10-12T15:39:37.3249342Z Temporarily overriding HOME='/home/runner/work/_temp/618b7742-6090-4b1e-8558-81fd382c8f44' before making global git config changes
+2026-10-12T15:39:37.3252756Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T15:39:37.3256063Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:39:37.3317440Z Deleting the contents of '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T15:39:37.3322867Z ##[group]Initializing the repository
+2026-10-12T15:39:37.3329581Z [command]/usr/bin/git init /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:39:37.3454265Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T15:39:37.3456145Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T15:39:37.3457791Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T15:39:37.3458861Z hint: call:
+2026-10-12T15:39:37.3459591Z hint:
+2026-10-12T15:39:37.3460175Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T15:39:37.3461495Z hint:
+2026-10-12T15:39:37.3462119Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T15:39:37.3463080Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T15:39:37.3463807Z hint:
+2026-10-12T15:39:37.3464232Z hint: 	git branch -m <name>
+2026-10-12T15:39:37.3464705Z hint:
+2026-10-12T15:39:37.3465335Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T15:39:37.3466971Z Initialized empty Git repository in /home/runner/work/DANGEROK/DANGEROK/.git/
+2026-10-12T15:39:37.3471391Z [command]/usr/bin/git remote add origin https://github.com/dangerok97/DANGEROK
+2026-10-12T15:39:37.3535722Z ##[endgroup]
+2026-10-12T15:39:37.3536866Z ##[group]Disabling automatic garbage collection
+2026-10-12T15:39:37.3539717Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T15:39:37.3574880Z ##[endgroup]
+2026-10-12T15:39:37.3575941Z ##[group]Setting up auth
+2026-10-12T15:39:37.3584155Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T15:39:37.3633288Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T15:39:37.4049632Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T15:39:37.4087378Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T15:39:37.4317587Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T15:39:37.4354644Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T15:39:37.4588634Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T15:39:37.4631175Z ##[endgroup]
+2026-10-12T15:39:37.4632012Z ##[group]Fetching the repository
+2026-10-12T15:39:37.4641779Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-10-12T15:39:39.2558786Z From https://github.com/dangerok97/DANGEROK
+2026-10-12T15:39:39.2561097Z  * [new branch]        audit/backend-dependencies -> origin/audit/backend-dependencies
+2026-10-12T15:39:39.2563467Z  * [new branch]        audit/backend-dependencies-current -> origin/audit/backend-dependencies-current
+2026-10-12T15:39:39.2565992Z  * [new branch]        audit/backend-dependencies-final -> origin/audit/backend-dependencies-final
+2026-10-12T15:39:39.2567620Z  * [new branch]        audit/backend-dependencies-post-security -> origin/audit/backend-dependencies-post-security
+2026-10-12T15:39:39.2569138Z  * [new branch]        audit/backend-ecdsa-dependency -> origin/audit/backend-ecdsa-dependency
+2026-10-12T15:39:39.2571363Z  * [new branch]        audit/backend-security-patchset-2 -> origin/audit/backend-security-patchset-2
+2026-10-12T15:39:39.2573642Z  * [new branch]        audit/backend-security-zero-check -> origin/audit/backend-security-zero-check
+2026-10-12T15:39:39.2575648Z  * [new branch]        audit/frontend-production-deps -> origin/audit/frontend-production-deps
+2026-10-12T15:39:39.2578104Z  * [new branch]        audit/frontend-production-deps-after-fix -> origin/audit/frontend-production-deps-after-fix
+2026-10-12T15:39:39.2580353Z  * [new branch]        audit/phase1-real-ai-eval-v125 -> origin/audit/phase1-real-ai-eval-v125
+2026-10-12T15:39:39.2584494Z  * [new branch]        ci/disagreement-actionable-calendar-v47 -> origin/ci/disagreement-actionable-calendar-v47
+2026-10-12T15:39:39.2586651Z  * [new branch]        ci/ios-native-export-gate -> origin/ci/ios-native-export-gate
+2026-10-12T15:39:39.2588767Z  * [new branch]        claude/fiscal-verification-automation-yev7yy -> origin/claude/fiscal-verification-automation-yev7yy
+2026-10-12T15:39:39.2590057Z  * [new branch]        conflict_040826_1759    -> origin/conflict_040826_1759
+2026-10-12T15:39:39.2591522Z  * [new branch]        docs/siri-ora-roadmap   -> origin/docs/siri-ora-roadmap
+2026-10-12T15:39:39.2592598Z  * [new branch]        docs/siri-ora-roadmap-v2 -> origin/docs/siri-ora-roadmap-v2
+2026-10-12T15:39:39.2593624Z  * [new branch]        docs/siri-ora-roadmap-v3 -> origin/docs/siri-ora-roadmap-v3
+2026-10-12T15:39:39.2594583Z  * [new branch]        docs/siri-ora-roadmap-v4 -> origin/docs/siri-ora-roadmap-v4
+2026-10-12T15:39:39.2595625Z  * [new branch]        docs/verified-bill-market-smoke -> origin/docs/verified-bill-market-smoke
+2026-10-12T15:39:39.2596675Z  * [new branch]        feat/agent-device-contacts -> origin/feat/agent-device-contacts
+2026-10-12T15:39:39.2597719Z  * [new branch]        feat/agent-ephemeral-mail-read -> origin/feat/agent-ephemeral-mail-read
+2026-10-12T15:39:39.2598771Z  * [new branch]        feat/agent-financial-context -> origin/feat/agent-financial-context
+2026-10-12T15:39:39.2599769Z  * [new branch]        feat/agent-financial-read -> origin/feat/agent-financial-read
+2026-10-12T15:39:39.2601271Z  * [new branch]        feat/agent-real-mail-location-reads -> origin/feat/agent-real-mail-location-reads
+2026-10-12T15:39:39.2602702Z  * [new branch]        feat/agent-weather-context-v59 -> origin/feat/agent-weather-context-v59
+2026-10-12T15:39:39.2604839Z  * [new branch]        feat/ai-chosen-followup-timing-v60 -> origin/feat/ai-chosen-followup-timing-v60
+2026-10-12T15:39:39.2607235Z  * [new branch]        feat/ai-chosen-followup-timing-v60-current -> origin/feat/ai-chosen-followup-timing-v60-current
+2026-10-12T15:39:39.2609343Z  * [new branch]        feat/ai-followup-timing-v61 -> origin/feat/ai-followup-timing-v61
+2026-10-12T15:39:39.2611606Z  * [new branch]        feat/autonomous-external-followups -> origin/feat/autonomous-external-followups
+2026-10-12T15:39:39.2614052Z  * [new branch]        feat/autonomous-live-route-v64 -> origin/feat/autonomous-live-route-v64
+2026-10-12T15:39:39.2616358Z  * [new branch]        feat/autonomous-weather-context-v59 -> origin/feat/autonomous-weather-context-v59
+2026-10-12T15:39:39.2618546Z  * [new branch]        feat/autonomy-adaptive-safety-net -> origin/feat/autonomy-adaptive-safety-net
+2026-10-12T15:39:39.2620957Z  * [new branch]        feat/autonomy-adaptive-safety-net-v2 -> origin/feat/autonomy-adaptive-safety-net-v2
+2026-10-12T15:39:39.2623551Z  * [new branch]        feat/autonomy-reality-gate-v55 -> origin/feat/autonomy-reality-gate-v55
+2026-10-12T15:39:39.2625551Z  * [new branch]        feat/autonomy-resume-on-budget -> origin/feat/autonomy-resume-on-budget
+2026-10-12T15:39:39.2627575Z  * [new branch]        feat/autonomy-resume-on-budget-v2 -> origin/feat/autonomy-resume-on-budget-v2
+2026-10-12T15:39:39.2629570Z  * [new branch]        feat/autonomy-visible-pulse -> origin/feat/autonomy-visible-pulse
+2026-10-12T15:39:39.2631699Z  * [new branch]        feat/autonomy-wow-proof-of-work -> origin/feat/autonomy-wow-proof-of-work
+2026-10-12T15:39:39.2634131Z  * [new branch]        feat/background-departure-origin-v67 -> origin/feat/background-departure-origin-v67
+2026-10-12T15:39:39.2636658Z  * [new branch]        feat/calendar-disagreement-target-binding -> origin/feat/calendar-disagreement-target-binding
+2026-10-12T15:39:39.2639109Z  * [new branch]        feat/canonical-place-situation-links-v62 -> origin/feat/canonical-place-situation-links-v62
+2026-10-12T15:39:39.2641552Z  * [new branch]        feat/communication-delta-review -> origin/feat/communication-delta-review
+2026-10-12T15:39:39.2643725Z  * [new branch]        feat/connected-calendar-conflict-v72 -> origin/feat/connected-calendar-conflict-v72
+2026-10-12T15:39:39.2645949Z  * [new branch]        feat/connected-departure-context-v70 -> origin/feat/connected-departure-context-v70
+2026-10-12T15:39:39.2648163Z  * [new branch]        feat/continuous-energy-offer-monitor -> origin/feat/continuous-energy-offer-monitor
+2026-10-12T15:39:39.2650765Z  * [new branch]        feat/conversation-situation-autonomy-v58 -> origin/feat/conversation-situation-autonomy-v58
+2026-10-12T15:39:39.2653206Z  * [new branch]        feat/dedupe-opportunity-agent-work-v74 -> origin/feat/dedupe-opportunity-agent-work-v74
+2026-10-12T15:39:39.2655426Z  * [new branch]        feat/device-contacts-agent-bridge -> origin/feat/device-contacts-agent-bridge
+2026-10-12T15:39:39.2657566Z  * [new branch]        feat/disagreement-actionable-refs -> origin/feat/disagreement-actionable-refs
+2026-10-12T15:39:39.2659730Z  * [new branch]        feat/disagreement-actionable-refs-v2 -> origin/feat/disagreement-actionable-refs-v2
+2026-10-12T15:39:39.2662298Z  * [new branch]        feat/disagreement-source-ref-inheritance -> origin/feat/disagreement-source-ref-inheritance
+2026-10-12T15:39:39.2664646Z  * [new branch]        feat/exact-autonomous-checkpoints-v66 -> origin/feat/exact-autonomous-checkpoints-v66
+2026-10-12T15:39:39.2667098Z  * [new branch]        feat/exact-autonomous-checkpoints-v66-current -> origin/feat/exact-autonomous-checkpoints-v66-current
+2026-10-12T15:39:39.2669481Z  * [new branch]        feat/exact-minute-followups-v68 -> origin/feat/exact-minute-followups-v68
+2026-10-12T15:39:39.2672016Z  * [new branch]        feat/external-reply-goal-resume -> origin/feat/external-reply-goal-resume
+2026-10-12T15:39:39.2674229Z  * [new branch]        feat/external-reply-goal-resume-v57 -> origin/feat/external-reply-goal-resume-v57
+2026-10-12T15:39:39.2676473Z  * [new branch]        feat/fair-ambient-execution-v72 -> origin/feat/fair-ambient-execution-v72
+2026-10-12T15:39:39.2679325Z  * [new branch]        feat/fair-autonomy-admission-v71 -> origin/feat/fair-autonomy-admission-v71
+2026-10-12T15:39:39.2682055Z  * [new branch]        feat/generic-causal-propagation -> origin/feat/generic-causal-propagation
+2026-10-12T15:39:39.2684664Z  * [new branch]        feat/guaranteed-post-run-visibility-v69 -> origin/feat/guaranteed-post-run-visibility-v69
+2026-10-12T15:39:39.2686579Z  * [new branch]        feat/immediate-autonomous-goal-wake -> origin/feat/immediate-autonomous-goal-wake
+2026-10-12T15:39:39.2688330Z  * [new branch]        feat/linked-situation-propagation -> origin/feat/linked-situation-propagation
+2026-10-12T15:39:39.2690079Z  * [new branch]        feat/local-time-followup-reasoning-v63 -> origin/feat/local-time-followup-reasoning-v63
+2026-10-12T15:39:39.2692997Z  * [new branch]        feat/local-time-followup-reasoning-v64-current -> origin/feat/local-time-followup-reasoning-v64-current
+2026-10-12T15:39:39.2696603Z  * [new branch]        feat/local-time-followup-reasoning-v65-current -> origin/feat/local-time-followup-reasoning-v65-current
+2026-10-12T15:39:39.2698605Z  * [new branch]        feat/local-time-followup-reasoning-v65-final -> origin/feat/local-time-followup-reasoning-v65-final
+2026-10-12T15:39:39.2700811Z  * [new branch]        feat/local-time-followup-reasoning-v65-live -> origin/feat/local-time-followup-reasoning-v65-live
+2026-10-12T15:39:39.2702411Z  * [new branch]        feat/market-saving-advice -> origin/feat/market-saving-advice
+2026-10-12T15:39:39.2704610Z  * [new branch]        feat/market-watch-insurance-phone -> origin/feat/market-watch-insurance-phone
+2026-10-12T15:39:39.2707067Z  * [new branch]        feat/model-chosen-followup-timing-v60 -> origin/feat/model-chosen-followup-timing-v60
+2026-10-12T15:39:39.2709620Z  * [new branch]        feat/native-presence-runtime-truth -> origin/feat/native-presence-runtime-truth
+2026-10-12T15:39:39.2711929Z  * [new branch]        feat/ora-vision-xray    -> origin/feat/ora-vision-xray
+2026-10-12T15:39:39.2714005Z  * [new branch]        feat/ora-whatsapp-cloud-20261012 -> origin/feat/ora-whatsapp-cloud-20261012
+2026-10-12T15:39:39.2716445Z  * [new branch]        feat/pinned-place-weather-v60 -> origin/feat/pinned-place-weather-v60
+2026-10-12T15:39:39.2718927Z  * [new branch]        feat/places-visible-routine-context -> origin/feat/places-visible-routine-context
+2026-10-12T15:39:39.2721825Z  * [new branch]        feat/planner-calendar-modify-contract -> origin/feat/planner-calendar-modify-contract
+2026-10-12T15:39:39.2724372Z  * [new branch]        feat/prealpha-backup-restore -> origin/feat/prealpha-backup-restore
+2026-10-12T15:39:39.2726659Z  * [new branch]        feat/prealpha-backup-restore-v2 -> origin/feat/prealpha-backup-restore-v2
+2026-10-12T15:39:39.2729337Z  * [new branch]        feat/precise-autonomous-checkpoints-v67 -> origin/feat/precise-autonomous-checkpoints-v67
+2026-10-12T15:39:39.2732517Z  * [new branch]        feat/precise-local-followup-timing-v67 -> origin/feat/precise-local-followup-timing-v67
+2026-10-12T15:39:39.2735118Z  * [new branch]        feat/prepared-effect-replanning -> origin/feat/prepared-effect-replanning
+2026-10-12T15:39:39.2737690Z  * [new branch]        feat/proactive-delivery-recheck-v66 -> origin/feat/proactive-delivery-recheck-v66
+2026-10-12T15:39:39.2740187Z  * [new branch]        feat/public-legal-pages-v110 -> origin/feat/public-legal-pages-v110
+2026-10-12T15:39:39.2742062Z  * [new branch]        feat/recurring-memo-birthdays-v113 -> origin/feat/recurring-memo-birthdays-v113
+2026-10-12T15:39:39.2743581Z  * [new branch]        feat/routine-proactive-wakes -> origin/feat/routine-proactive-wakes
+2026-10-12T15:39:39.2745495Z  * [new branch]        feat/routine-route-context -> origin/feat/routine-route-context
+2026-10-12T15:39:39.2747790Z  * [new branch]        feat/routine-self-correction -> origin/feat/routine-self-correction
+2026-10-12T15:39:39.2749924Z  * [new branch]        feat/routines-visible-in-places -> origin/feat/routines-visible-in-places
+2026-10-12T15:39:39.2752498Z  * [new branch]        feat/shipment-competency-v109 -> origin/feat/shipment-competency-v109
+2026-10-12T15:39:39.2754799Z  * [new branch]        feat/siri-app-intents-v1 -> origin/feat/siri-app-intents-v1
+2026-10-12T15:39:39.2756890Z  * [new branch]        feat/situation-agent-context-v61 -> origin/feat/situation-agent-context-v61
+2026-10-12T15:39:39.2758396Z  * [new branch]        feat/specific-authority-handoff -> origin/feat/specific-authority-handoff
+2026-10-12T15:39:39.2759929Z  * [new branch]        feat/user-controls-running-autonomy-v73 -> origin/feat/user-controls-running-autonomy-v73
+2026-10-12T15:39:39.2761929Z  * [new branch]        feat/verify-situation-linked-refs-v63 -> origin/feat/verify-situation-linked-refs-v63
+2026-10-12T15:39:39.2763390Z  * [new branch]        feat/vision-anatomy-auto-hud-v4 -> origin/feat/vision-anatomy-auto-hud-v4
+2026-10-12T15:39:39.2764797Z  * [new branch]        feat/vision-anatomy-volume-pose-v5 -> origin/feat/vision-anatomy-volume-pose-v5
+2026-10-12T15:39:39.2766592Z  * [new branch]        feat/vision-catalog-160 -> origin/feat/vision-catalog-160
+2026-10-12T15:39:39.2769105Z  * [new branch]        feat/vision-catalog-25  -> origin/feat/vision-catalog-25
+2026-10-12T15:39:39.2771717Z  * [new branch]        feat/vision-catalog-75  -> origin/feat/vision-catalog-75
+2026-10-12T15:39:39.2774324Z  * [new branch]        feat/vision-everyday-catalog-expansion-20261012 -> origin/feat/vision-everyday-catalog-expansion-20261012
+2026-10-12T15:39:39.2777093Z  * [new branch]        feat/vision-guided-v3   -> origin/feat/vision-guided-v3
+2026-10-12T15:39:39.2779674Z  * [new branch]        feat/vision-human-atlas-and-objects-20261012 -> origin/feat/vision-human-atlas-and-objects-20261012
+2026-10-12T15:39:39.2782813Z  * [new branch]        feat/vision-multi-provider-fallback -> origin/feat/vision-multi-provider-fallback
+2026-10-12T15:39:39.2785376Z  * [new branch]        feat/vision-unknown-object-recovery -> origin/feat/vision-unknown-object-recovery
+2026-10-12T15:39:39.2787743Z  * [new branch]        feat/vision-v2-focus-mobile -> origin/feat/vision-v2-focus-mobile
+2026-10-12T15:39:39.2789866Z  * [new branch]        feat/vision-walkthroughs-25 -> origin/feat/vision-walkthroughs-25
+2026-10-12T15:39:39.2791992Z  * [new branch]        feature/adaptive-skill-plan-v89 -> origin/feature/adaptive-skill-plan-v89
+2026-10-12T15:39:39.2793496Z  * [new branch]        feature/ai-first-calendar-dialogue-v83 -> origin/feature/ai-first-calendar-dialogue-v83
+2026-10-12T15:39:39.2795442Z  * [new branch]        feature/ai-only-semantic-phone-followup-v85 -> origin/feature/ai-only-semantic-phone-followup-v85
+2026-10-12T15:39:39.2797220Z  * [new branch]        feature/ai-phone-identity-dialogue-v82 -> origin/feature/ai-phone-identity-dialogue-v82
+2026-10-12T15:39:39.2798741Z  * [new branch]        feature/autonomy-policy-renewal-v79 -> origin/feature/autonomy-policy-renewal-v79
+2026-10-12T15:39:39.2800794Z  * [new branch]        feature/autonomy-situation-handoff-v76 -> origin/feature/autonomy-situation-handoff-v76
+2026-10-12T15:39:39.2802483Z  * [new branch]        feature/autonomy-source-aware-planning-v77 -> origin/feature/autonomy-source-aware-planning-v77
+2026-10-12T15:39:39.2804834Z  * [new branch]        feature/autonomy-useful-interruption-v78 -> origin/feature/autonomy-useful-interruption-v78
+2026-10-12T15:39:39.2807676Z  * [new branch]        feature/autonomy-useful-or-silent-v78 -> origin/feature/autonomy-useful-or-silent-v78
+2026-10-12T15:39:39.2810723Z  * [new branch]        feature/autonomy-useful-silence-v78 -> origin/feature/autonomy-useful-silence-v78
+2026-10-12T15:39:39.2813480Z  * [new branch]        feature/booking-change-travel-v81 -> origin/feature/booking-change-travel-v81
+2026-10-12T15:39:39.2816241Z  * [new branch]        feature/booking-change-travel-v81-final -> origin/feature/booking-change-travel-v81-final
+2026-10-12T15:39:39.2818281Z  * [new branch]        feature/calendar-cancel-execution-v86 -> origin/feature/calendar-cancel-execution-v86
+2026-10-12T15:39:39.2819810Z  * [new branch]        feature/calendar-cancel-title-v85 -> origin/feature/calendar-cancel-title-v85
+2026-10-12T15:39:39.2822646Z  * [new branch]        feature/calendar-current-event-cancel-v85 -> origin/feature/calendar-current-event-cancel-v85
+2026-10-12T15:39:39.2825364Z  * [new branch]        feature/calendar-search-completeness-v86 -> origin/feature/calendar-search-completeness-v86
+2026-10-12T15:39:39.2827455Z  * [new branch]        feature/calendar-semantic-action-v85 -> origin/feature/calendar-semantic-action-v85
+2026-10-12T15:39:39.2830225Z  * [new branch]        feature/cockpit-chat-situation-boundary-v95 -> origin/feature/cockpit-chat-situation-boundary-v95
+2026-10-12T15:39:39.2832389Z  * [new branch]        feature/contract-renewal-reality-v80 -> origin/feature/contract-renewal-reality-v80
+2026-10-12T15:39:39.2833956Z  * [new branch]        feature/fresh-location-route-preview-v84 -> origin/feature/fresh-location-route-preview-v84
+2026-10-12T15:39:39.2835420Z  * [new branch]        feature/generic-skill-plan-v87 -> origin/feature/generic-skill-plan-v87
+2026-10-12T15:39:39.2836742Z  * [new branch]        feature/home-v2-intelligence -> origin/feature/home-v2-intelligence
+2026-10-12T15:39:39.2839351Z  * [new branch]        feature/immediate-situation-action-v88b -> origin/feature/immediate-situation-action-v88b
+2026-10-12T15:39:39.2842196Z  * [new branch]        feature/life-experience-ai -> origin/feature/life-experience-ai
+2026-10-12T15:39:39.2844781Z  * [new branch]        feature/life-experience-ai-documents -> origin/feature/life-experience-ai-documents
+2026-10-12T15:39:39.2847264Z  * [new branch]        feature/life-object-engine -> origin/feature/life-object-engine
+2026-10-12T15:39:39.2849714Z  * [new branch]        feature/life-outcome-watch-v84 -> origin/feature/life-outcome-watch-v84
+2026-10-12T15:39:39.2852656Z  * [new branch]        feature/navigation-acquire-origin-v84 -> origin/feature/navigation-acquire-origin-v84
+2026-10-12T15:39:39.2855475Z  * [new branch]        feature/navigation-fresh-origin-v84 -> origin/feature/navigation-fresh-origin-v84
+2026-10-12T15:39:39.2858279Z  * [new branch]        feature/navigation-live-origin-v84 -> origin/feature/navigation-live-origin-v84
+2026-10-12T15:39:39.2861143Z  * [new branch]        feature/ora-autonomy-push-v322 -> origin/feature/ora-autonomy-push-v322
+2026-10-12T15:39:39.2863400Z  * [new branch]        feature/ora-cockpit-chat-v91 -> origin/feature/ora-cockpit-chat-v91
+2026-10-12T15:39:39.2865802Z  * [new branch]        feature/ora-quiet-premium-design-system -> origin/feature/ora-quiet-premium-design-system
+2026-10-12T15:39:39.2867634Z  * [new branch]        feature/ora-reference-fidelity-v92 -> origin/feature/ora-reference-fidelity-v92
+2026-10-12T15:39:39.2870679Z  * [new branch]        feature/outcome-aware-skill-plans-v91 -> origin/feature/outcome-aware-skill-plans-v91
+2026-10-12T15:39:39.2873310Z  * [new branch]        feature/owner-background-budget-v79 -> origin/feature/owner-background-budget-v79
+2026-10-12T15:39:39.2876001Z  * [new branch]        feature/owner-background-budget-v79-clean -> origin/feature/owner-background-budget-v79-clean
+2026-10-12T15:39:39.2879123Z  * [new branch]        feature/owner-background-budget-v79-final -> origin/feature/owner-background-budget-v79-final
+2026-10-12T15:39:39.2881208Z  * [new branch]        feature/owner-budget-v84 -> origin/feature/owner-budget-v84
+2026-10-12T15:39:39.2882733Z  * [new branch]        feature/persistent-skill-plan-v88 -> origin/feature/persistent-skill-plan-v88
+2026-10-12T15:39:39.2884722Z  * [new branch]        feature/reference-parity-v94 -> origin/feature/reference-parity-v94
+2026-10-12T15:39:39.2887639Z  * [new branch]        feature/restore-shared-ora-navigation-v96 -> origin/feature/restore-shared-ora-navigation-v96
+2026-10-12T15:39:39.2891018Z  * [new branch]        feature/skill-catalogue-education-v86 -> origin/feature/skill-catalogue-education-v86
+2026-10-12T15:39:39.2893936Z  * [new branch]        feature/temporary-memory-stars-v90 -> origin/feature/temporary-memory-stars-v90
+2026-10-12T15:39:39.2897591Z  * [new branch]        feature/temporary-memory-visual-identity-v97 -> origin/feature/temporary-memory-visual-identity-v97
+2026-10-12T15:39:39.2901244Z  * [new branch]        feature/temporary-situation-stars-v90 -> origin/feature/temporary-situation-stars-v90
+2026-10-12T15:39:39.2904368Z  * [new branch]        feature/vision-anatomy-deep-20261012 -> origin/feature/vision-anatomy-deep-20261012
+2026-10-12T15:39:39.2907323Z  * [new branch]        fix/ambient-agent-need-recheck-v70 -> origin/fix/ambient-agent-need-recheck-v70
+2026-10-12T15:39:39.2910254Z  * [new branch]        fix/autonomous-situation-continuity-v101 -> origin/fix/autonomous-situation-continuity-v101
+2026-10-12T15:39:39.2912695Z  * [new branch]        fix/autonomy-retry-invalid-discovery -> origin/fix/autonomy-retry-invalid-discovery
+2026-10-12T15:39:39.2915462Z  * [new branch]        fix/backend-security-final-clean -> origin/fix/backend-security-final-clean
+2026-10-12T15:39:39.2917108Z  * [new branch]        fix/backend-security-framework-1 -> origin/fix/backend-security-framework-1
+2026-10-12T15:39:39.2919391Z  * [new branch]        fix/backend-security-framework-2 -> origin/fix/backend-security-framework-2
+2026-10-12T15:39:39.2922320Z  * [new branch]        fix/backend-security-jose-1 -> origin/fix/backend-security-jose-1
+2026-10-12T15:39:39.2924928Z  * [new branch]        fix/backend-security-patchset-1 -> origin/fix/backend-security-patchset-1
+2026-10-12T15:39:39.2927953Z  * [new branch]        fix/backend-security-patchset-2 -> origin/fix/backend-security-patchset-2
+2026-10-12T15:39:39.2930920Z  * [new branch]        fix/backend-security-patchset-3 -> origin/fix/backend-security-patchset-3
+2026-10-12T15:39:39.2933690Z  * [new branch]        fix/backend-security-patchset-4 -> origin/fix/backend-security-patchset-4
+2026-10-12T15:39:39.2936725Z  * [new branch]        fix/backend-security-patchset-5 -> origin/fix/backend-security-patchset-5
+2026-10-12T15:39:39.2939603Z  * [new branch]        fix/backend-security-patchset-5b -> origin/fix/backend-security-patchset-5b
+2026-10-12T15:39:39.2943020Z  * [new branch]        fix/birthday-star-group-threshold-v115 -> origin/fix/birthday-star-group-threshold-v115
+2026-10-12T15:39:39.2946710Z  * [new branch]        fix/calendar-continuation-observation-v86a -> origin/fix/calendar-continuation-observation-v86a
+2026-10-12T15:39:39.2949564Z  * [new branch]        fix/communication-delta-review-v2 -> origin/fix/communication-delta-review-v2
+2026-10-12T15:39:39.2953239Z  * [new branch]        fix/device-contacts-snapshot-safe -> origin/fix/device-contacts-snapshot-safe
+2026-10-12T15:39:39.2957580Z  * [new branch]        fix/existing-situation-responsibility-v100 -> origin/fix/existing-situation-responsibility-v100
+2026-10-12T15:39:39.2961901Z  * [new branch]        fix/focused-bill-price-search -> origin/fix/focused-bill-price-search
+2026-10-12T15:39:39.2965360Z  * [new branch]        fix/frontend-production-deps -> origin/fix/frontend-production-deps
+2026-10-12T15:39:39.2968945Z  * [new branch]        fix/frontend-production-lock-v2 -> origin/fix/frontend-production-lock-v2
+2026-10-12T15:39:39.2972932Z  * [new branch]        fix/gmail-reconnect-button-v111 -> origin/fix/gmail-reconnect-button-v111
+2026-10-12T15:39:39.2976544Z  * [new branch]        fix/google-maps-only-luoghi -> origin/fix/google-maps-only-luoghi
+2026-10-12T15:39:39.2980714Z  * [new branch]        fix/google-maps-only-luoghi-current -> origin/fix/google-maps-only-luoghi-current
+2026-10-12T15:39:39.2985013Z  * [new branch]        fix/google-maps-only-luoghi-final -> origin/fix/google-maps-only-luoghi-final
+2026-10-12T15:39:39.2989284Z  * [new branch]        fix/home-truthful-agent-updates-v108 -> origin/fix/home-truthful-agent-updates-v108
+2026-10-12T15:39:39.2993820Z  * [new branch]        fix/immediate-market-saving-advice -> origin/fix/immediate-market-saving-advice
+2026-10-12T15:39:39.2997670Z  * [new branch]        fix/live-price-query-fallback -> origin/fix/live-price-query-fallback
+2026-10-12T15:39:39.3001298Z  * [new branch]        fix/map-focus-new-stars-v114 -> origin/fix/map-focus-new-stars-v114
+2026-10-12T15:39:39.3004622Z  * [new branch]        fix/map-no-key-fallback -> origin/fix/map-no-key-fallback
+2026-10-12T15:39:39.3007790Z  * [new branch]        fix/map-starts-at-current-gps -> origin/fix/map-starts-at-current-gps
+2026-10-12T15:39:39.3011653Z  * [new branch]        fix/market-advice-without-offers -> origin/fix/market-advice-without-offers
+2026-10-12T15:39:39.3015363Z  * [new branch]        fix/market-watch-live-evidence -> origin/fix/market-watch-live-evidence
+2026-10-12T15:39:39.3019239Z  * [new branch]        fix/market-watch-prefilter-listings -> origin/fix/market-watch-prefilter-listings
+2026-10-12T15:39:39.3023538Z  * [new branch]        fix/market-watch-research-fallback -> origin/fix/market-watch-research-fallback
+2026-10-12T15:39:39.3027410Z  * [new branch]        fix/market-watch-specific-offers -> origin/fix/market-watch-specific-offers
+2026-10-12T15:39:39.3031483Z  * [new branch]        fix/mobile-conversation-first-v93 -> origin/fix/mobile-conversation-first-v93
+2026-10-12T15:39:39.3035226Z  * [new branch]        fix/mobile-generic-offers-title -> origin/fix/mobile-generic-offers-title
+2026-10-12T15:39:39.3038812Z  * [new branch]        fix/mobile-offer-listing-filter -> origin/fix/mobile-offer-listing-filter
+2026-10-12T15:39:39.3042754Z  * [new branch]        fix/mobile-situation-details-v99 -> origin/fix/mobile-situation-details-v99
+2026-10-12T15:39:39.3046530Z  * [new branch]        fix/mobile-tariff-doc-filter -> origin/fix/mobile-tariff-doc-filter
+2026-10-12T15:39:39.3050140Z  * [new branch]        fix/navigation-confirmation-handoff -> origin/fix/navigation-confirmation-handoff
+2026-10-12T15:39:39.3054860Z  * [new branch]        fix/navigation-confirmation-handoff-current -> origin/fix/navigation-confirmation-handoff-current
+2026-10-12T15:39:39.3059822Z  * [new branch]        fix/persistent-desktop-account-rail-20261012 -> origin/fix/persistent-desktop-account-rail-20261012
+2026-10-12T15:39:39.3064629Z  * [new branch]        fix/phase1-cognitive-bound-truth-v116 -> origin/fix/phase1-cognitive-bound-truth-v116
+2026-10-12T15:39:39.3068935Z  * [new branch]        fix/phase1-keep-all-required-skills-v120 -> origin/fix/phase1-keep-all-required-skills-v120
+2026-10-12T15:39:39.3073212Z  * [new branch]        fix/phase1-ready-to-act-truth-v121 -> origin/fix/phase1-ready-to-act-truth-v121
+2026-10-12T15:39:39.3077194Z  * [new branch]        fix/phase1-result-status-honesty-v118 -> origin/fix/phase1-result-status-honesty-v118
+2026-10-12T15:39:39.3081578Z  * [new branch]        fix/phase1-retryable-skill-plan-v122 -> origin/fix/phase1-retryable-skill-plan-v122
+2026-10-12T15:39:39.3085505Z  * [new branch]        fix/phase1-route-outcome-truth-v123 -> origin/fix/phase1-route-outcome-truth-v123
+2026-10-12T15:39:39.3089593Z  * [new branch]        fix/phase1-skill-release-evidence-v117 -> origin/fix/phase1-skill-release-evidence-v117
+2026-10-12T15:39:39.3094133Z  * [new branch]        fix/phase1-terminal-failure-truth-v124 -> origin/fix/phase1-terminal-failure-truth-v124
+2026-10-12T15:39:39.3097960Z  * [new branch]        fix/phone-chat-followup-loop -> origin/fix/phone-chat-followup-loop
+2026-10-12T15:39:39.3101618Z  * [new branch]        fix/phone-chat-followup-loop-v2 -> origin/fix/phone-chat-followup-loop-v2
+2026-10-12T15:39:39.3104799Z  * [new branch]        fix/place-map-viewport  -> origin/fix/place-map-viewport
+2026-10-12T15:39:39.3107764Z  * [new branch]        fix/prealpha-auth-rate-limit -> origin/fix/prealpha-auth-rate-limit
+2026-10-12T15:39:39.3111244Z  * [new branch]        fix/railway-ora-log-severity -> origin/fix/railway-ora-log-severity
+2026-10-12T15:39:39.3114461Z  * [new branch]        fix/railway-web-log-severity -> origin/fix/railway-web-log-severity
+2026-10-12T15:39:39.3117829Z  * [new branch]        fix/railway-web-log-severity-v2 -> origin/fix/railway-web-log-severity-v2
+2026-10-12T15:39:39.3121547Z  * [new branch]        fix/railway-web-log-severity-v3 -> origin/fix/railway-web-log-severity-v3
+2026-10-12T15:39:39.3125049Z  * [new branch]        fix/read-single-offer-pages -> origin/fix/read-single-offer-pages
+2026-10-12T15:39:39.3128837Z  * [new branch]        fix/recurring-memo-overdue-midnight-v115 -> origin/fix/recurring-memo-overdue-midnight-v115
+2026-10-12T15:39:39.3133016Z  * [new branch]        fix/repeat-star-spotlight-v115 -> origin/fix/repeat-star-spotlight-v115
+2026-10-12T15:39:39.3136641Z  * [new branch]        fix/research-nested-field-bounds -> origin/fix/research-nested-field-bounds
+2026-10-12T15:39:39.3140905Z  * [new branch]        fix/situation-immediate-risk-action-v90 -> origin/fix/situation-immediate-risk-action-v90
+2026-10-12T15:39:39.3144868Z  * [new branch]        fix/situation-local-clock-v107 -> origin/fix/situation-local-clock-v107
+2026-10-12T15:39:39.3148840Z  * [new branch]        fix/situation-monitoring-visibility-v103 -> origin/fix/situation-monitoring-visibility-v103
+2026-10-12T15:39:39.3153397Z  * [new branch]        fix/situation-outcome-lifecycle-v102 -> origin/fix/situation-outcome-lifecycle-v102
+2026-10-12T15:39:39.3157530Z  * [new branch]        fix/situation-time-and-actions-v106 -> origin/fix/situation-time-and-actions-v106
+2026-10-12T15:39:39.3161637Z  * [new branch]        fix/situation-useful-updates-v108 -> origin/fix/situation-useful-updates-v108
+2026-10-12T15:39:39.3165330Z  * [new branch]        fix/situation-user-outcome-v104 -> origin/fix/situation-user-outcome-v104
+2026-10-12T15:39:39.3169234Z  * [new branch]        fix/situation-watch-contract-v98 -> origin/fix/situation-watch-contract-v98
+2026-10-12T15:39:39.3173554Z  * [new branch]        fix/source-answer-before-followup-v112 -> origin/fix/source-answer-before-followup-v112
+2026-10-12T15:39:39.3178073Z  * [new branch]        fix/temporary-situation-memory-guard-v105 -> origin/fix/temporary-situation-memory-guard-v105
+2026-10-12T15:39:39.3183290Z  * [new branch]        fix/vision-anatomy-visible-navigation-20261012 -> origin/fix/vision-anatomy-visible-navigation-20261012
+2026-10-12T15:39:39.3187582Z  * [new branch]        fix/vision-held-close-shared-v2 -> origin/fix/vision-held-close-shared-v2
+2026-10-12T15:39:39.3191119Z  * [new branch]        fix/vision-observation-v2 -> origin/fix/vision-observation-v2
+2026-10-12T15:39:39.3194524Z  * [new branch]        fix/vision-provider-quota-recovery -> origin/fix/vision-provider-quota-recovery
+2026-10-12T15:39:39.3198437Z  * [new branch]        fix/vision-provider-recovery-truth -> origin/fix/vision-provider-recovery-truth
+2026-10-12T15:39:39.3202814Z  * [new branch]        fix/whatsapp-send-diagnostics-20261012 -> origin/fix/whatsapp-send-diagnostics-20261012
+2026-10-12T15:39:39.3207278Z  * [new branch]        fix/whatsapp-webhook-verify-only-20261012 -> origin/fix/whatsapp-webhook-verify-only-20261012
+2026-10-12T15:39:39.3210833Z  * [new branch]        master                  -> origin/master
+2026-10-12T15:39:39.3213730Z  * [new branch]        ora/accommodation-booking-effect -> origin/ora/accommodation-booking-effect
+2026-10-12T15:39:39.3217404Z  * [new branch]        ora/accommodation-order-preview -> origin/ora/accommodation-order-preview
+2026-10-12T15:39:39.3220961Z  * [new branch]        ora/accommodation-search -> origin/ora/accommodation-search
+2026-10-12T15:39:39.3223291Z  * [new branch]        ora/integrate-accommodation-booking-v2 -> origin/ora/integrate-accommodation-booking-v2
+2026-10-12T15:39:39.3225577Z  * [new branch]        ora/integrate-life-upgrades -> origin/ora/integrate-life-upgrades
+2026-10-12T15:39:39.3227626Z  * [new branch]        ora/integrate-life-upgrades-v2 -> origin/ora/integrate-life-upgrades-v2
+2026-10-12T15:39:39.3229527Z  * [new branch]        ora/native-location-chat -> origin/ora/native-location-chat
+2026-10-12T15:39:39.3231786Z  * [new branch]        ora/phase1-real-read-resume-20261008 -> origin/ora/phase1-real-read-resume-20261008
+2026-10-12T15:39:39.3234142Z  * [new branch]        ora/phase1-semantic-guard-20261008 -> origin/ora/phase1-semantic-guard-20261008
+2026-10-12T15:39:39.3237036Z  * [new branch]        ora/phase2-closed-app-birthday-delivery-eval-20261008 -> origin/ora/phase2-closed-app-birthday-delivery-eval-20261008
+2026-10-12T15:39:39.3240560Z  * [new branch]        ora/phase2-delivery-fair-admission-20261008 -> origin/ora/phase2-delivery-fair-admission-20261008
+2026-10-12T15:39:39.3243486Z  * [new branch]        ora/phase2-durable-goal-wake-rotation-20261008 -> origin/ora/phase2-durable-goal-wake-rotation-20261008
+2026-10-12T15:39:39.3246425Z  * [new branch]        ora/phase2-durable-home-outbox-v142-20261009 -> origin/ora/phase2-durable-home-outbox-v142-20261009
+2026-10-12T15:39:39.3249164Z  * [new branch]        ora/phase2-durable-memo-recovery-20261008 -> origin/ora/phase2-durable-memo-recovery-20261008
+2026-10-12T15:39:39.3251993Z  * [new branch]        ora/phase2-explicit-memo-delivery-20261008 -> origin/ora/phase2-explicit-memo-delivery-20261008
+2026-10-12T15:39:39.3254602Z  * [new branch]        ora/phase2-expo-receipt-audit-20261008 -> origin/ora/phase2-expo-receipt-audit-20261008
+2026-10-12T15:39:39.3257160Z  * [new branch]        ora/phase2-goal-authority-wake-gate-v137 -> origin/ora/phase2-goal-authority-wake-gate-v137
+2026-10-12T15:39:39.3259701Z  * [new branch]        ora/phase2-goal-wake-keyset-20261008 -> origin/ora/phase2-goal-wake-keyset-20261008
+2026-10-12T15:39:39.3262315Z  * [new branch]        ora/phase2-memory-reminder-rebind-20261008 -> origin/ora/phase2-memory-reminder-rebind-20261008
+2026-10-12T15:39:39.3265064Z  * [new branch]        ora/phase2-outcome-restart-gate-v140-20261009 -> origin/ora/phase2-outcome-restart-gate-v140-20261009
+2026-10-12T15:39:39.3268039Z  * [new branch]        ora/phase2-proactive-real-model-eval-20261008 -> origin/ora/phase2-proactive-real-model-eval-20261008
+2026-10-12T15:39:39.3270799Z  * [new branch]        ora/phase2-push-open-handoff-20261008 -> origin/ora/phase2-push-open-handoff-20261008
+2026-10-12T15:39:39.3273400Z  * [new branch]        ora/phase2-recurring-memory-fidelity-20261008 -> origin/ora/phase2-recurring-memory-fidelity-20261008
+2026-10-12T15:39:39.3276077Z  * [new branch]        ora/phase2-safe-push-retry-v134-20261008 -> origin/ora/phase2-safe-push-retry-v134-20261008
+2026-10-12T15:39:39.3278488Z  * [new branch]        ora/phase2-source-fence-v139-20261009 -> origin/ora/phase2-source-fence-v139-20261009
+2026-10-12T15:39:39.3281090Z  * [new branch]        ora/phase2-useful-situation-updates-v143 -> origin/ora/phase2-useful-situation-updates-v143
+2026-10-12T15:39:39.3283867Z  * [new branch]        ora/phase2-verified-result-visible-v141-20261009 -> origin/ora/phase2-verified-result-visible-v141-20261009
+2026-10-12T15:39:39.3286253Z  * [new branch]        ora/presence-wakes-autonomy -> origin/ora/presence-wakes-autonomy
+2026-10-12T15:39:39.3287869Z  * [new branch]        ora/recover-v3213e      -> origin/ora/recover-v3213e
+2026-10-12T15:39:39.3289856Z  * [new branch]        ora/update-lifecycle-provenance-20261009 -> origin/ora/update-lifecycle-provenance-20261009
+2026-10-12T15:39:39.3292581Z  * [new branch]        ora/updates-useful-situations-travel-v144 -> origin/ora/updates-useful-situations-travel-v144
+2026-10-12T15:39:39.3295456Z  * [new branch]        ora/v145-stale-calendar-disagreement-gate-20261009 -> origin/ora/v145-stale-calendar-disagreement-gate-20261009
+2026-10-12T15:39:39.3298398Z  * [new branch]        ora/v146-honest-informational-updates-20261009 -> origin/ora/v146-honest-informational-updates-20261009
+2026-10-12T15:39:39.3301276Z  * [new branch]        ora/v147-financial-source-clarity-20261009 -> origin/ora/v147-financial-source-clarity-20261009
+2026-10-12T15:39:39.3303913Z  * [new branch]        ora/v147-financial-source-grounding-20261009 -> origin/ora/v147-financial-source-grounding-20261009
+2026-10-12T15:39:39.3306558Z  * [new branch]        ora/v148-finance-source-provenance-20261009 -> origin/ora/v148-finance-source-provenance-20261009
+2026-10-12T15:39:39.3309127Z  * [new branch]        ora/v148-finance-source-timezone-20261009 -> origin/ora/v148-finance-source-timezone-20261009
+2026-10-12T15:39:39.3311932Z  * [new branch]        ora/v148b-finance-provenance-synthetic-20261009 -> origin/ora/v148b-finance-provenance-synthetic-20261009
+2026-10-12T15:39:39.3315093Z  * [new branch]        ora/v149-followup-diagnostics-and-execution-20261009 -> origin/ora/v149-followup-diagnostics-and-execution-20261009
+2026-10-12T15:39:39.3318054Z  * [new branch]        ora/v150-simulated-finance-isolation-20261009 -> origin/ora/v150-simulated-finance-isolation-20261009
+2026-10-12T15:39:39.3321037Z  * [new branch]        ora/v151-financial-source-review-honesty-20261010 -> origin/ora/v151-financial-source-review-honesty-20261010
+2026-10-12T15:39:39.3323683Z  * [new branch]        ora/v152-no-document-only-admin-focus -> origin/ora/v152-no-document-only-admin-focus
+2026-10-12T15:39:39.3325817Z  * [new branch]        ora/v153-update-list-consistency -> origin/ora/v153-update-list-consistency
+2026-10-12T15:39:39.3327657Z  * [new branch]        ora/v154-phone-turn-closure -> origin/ora/v154-phone-turn-closure
+2026-10-12T15:39:39.3329272Z  * [new branch]        ora/v155-native-calendar -> origin/ora/v155-native-calendar
+2026-10-12T15:39:39.3331254Z  * [new branch]        ora/v156-google-ios-browser-redirect -> origin/ora/v156-google-ios-browser-redirect
+2026-10-12T15:39:39.3333541Z  * [new branch]        ora/v157-situation-attention-admission -> origin/ora/v157-situation-attention-admission
+2026-10-12T15:39:39.3335751Z  * [new branch]        ora/v157-situation-watch-admission -> origin/ora/v157-situation-watch-admission
+2026-10-12T15:39:39.3337790Z  * [new branch]        ora/v158-live-qa-consistency -> origin/ora/v158-live-qa-consistency
+2026-10-12T15:39:39.3339492Z  * [new branch]        ora/v159-live-source-truth -> origin/ora/v159-live-source-truth
+2026-10-12T15:39:39.3341185Z  * [new branch]        ora/v159-release-report -> origin/ora/v159-release-report
+2026-10-12T15:39:39.3342927Z  * [new branch]        ora/v160-useful-situation-outcome -> origin/ora/v160-useful-situation-outcome
+2026-10-12T15:39:39.3344812Z  * [new branch]        ora/v161-call-contact-layout -> origin/ora/v161-call-contact-layout
+2026-10-12T15:39:39.3346578Z  * [new branch]        ora/v162-autonomy-completion -> origin/ora/v162-autonomy-completion
+2026-10-12T15:39:39.3348569Z  * [new branch]        ora/v162-autonomy-validation-20261012 -> origin/ora/v162-autonomy-validation-20261012
+2026-10-12T15:39:39.3350535Z  * [new branch]        ora/v162-memory-context -> origin/ora/v162-memory-context
+2026-10-12T15:39:39.3352287Z  * [new branch]        qa/vision-catalog-camera-prepare -> origin/qa/vision-catalog-camera-prepare
+2026-10-12T15:39:39.3354176Z  * [new branch]        qa/vision-catalog75-prepare -> origin/qa/vision-catalog75-prepare
+2026-10-12T15:39:39.3423947Z  * [new branch]        qa/vision-guided-v3-prepare -> origin/qa/vision-guided-v3-prepare
+2026-10-12T15:39:39.3427481Z  * [new branch]        qa/vision-held-close-20261011 -> origin/qa/vision-held-close-20261011
+2026-10-12T15:39:39.3430605Z  * [new branch]        qa/vision-live-check-20261011 -> origin/qa/vision-live-check-20261011
+2026-10-12T15:39:39.3433949Z  * [new branch]        qa/vision-observation-v2-prepare -> origin/qa/vision-observation-v2-prepare
+2026-10-12T15:39:39.3437720Z  * [new branch]        qa/vision-provider-recovery-prepare -> origin/qa/vision-provider-recovery-prepare
+2026-10-12T15:39:39.3441468Z  * [new branch]        qa/vision-v2-deployed-check -> origin/qa/vision-v2-deployed-check
+2026-10-12T15:39:39.3444471Z  * [new branch]        qa/vision-walkthrough25-prepare -> origin/qa/vision-walkthrough25-prepare
+2026-10-12T15:39:39.3446687Z  * [new branch]        qa/vision-walkthrough25-public-check -> origin/qa/vision-walkthrough25-public-check
+2026-10-12T15:39:39.3448608Z  * [new branch]        release/ios-identity-v1 -> origin/release/ios-identity-v1
+2026-10-12T15:39:39.3450140Z  * [new branch]        release/ios-identity-v2 -> origin/release/ios-identity-v2
+2026-10-12T15:39:39.3452184Z  * [new branch]        release/ios-preflight-metadata -> origin/release/ios-preflight-metadata
+2026-10-12T15:39:39.3454276Z  * [new branch]        release/ora-alpha-baseline-2026-10-04 -> origin/release/ora-alpha-baseline-2026-10-04
+2026-10-12T15:39:39.3456431Z  * [new branch]        security/auth-rate-limit -> origin/security/auth-rate-limit
+2026-10-12T15:39:39.3457946Z  * [new branch]        staging/cloud           -> origin/staging/cloud
+2026-10-12T15:39:39.3459443Z  * [new branch]        test/autonomy-v1-final-gate -> origin/test/autonomy-v1-final-gate
+2026-10-12T15:39:39.3461519Z  * [new branch]        test/autonomy-v1-reality-gate -> origin/test/autonomy-v1-reality-gate
+2026-10-12T15:39:39.3463301Z  * [new branch]        test/bill-best-offer-weekly -> origin/test/bill-best-offer-weekly
+2026-10-12T15:39:39.3465124Z  * [new branch]        test/neutral-signal-silence-v75 -> origin/test/neutral-signal-silence-v75
+2026-10-12T15:39:39.3467101Z  * [new branch]        test/ora-v162-live-canary-20261012 -> origin/test/ora-v162-live-canary-20261012
+2026-10-12T15:39:39.3469251Z  * [new branch]        test/phase1-multiskill-lifecycle-v119 -> origin/test/phase1-multiskill-lifecycle-v119
+2026-10-12T15:39:39.3472707Z [command]/usr/bin/git branch --list --remote origin/ora/v162-autonomy-validation-20261012
+2026-10-12T15:39:39.3474275Z   origin/ora/v162-autonomy-validation-20261012
+2026-10-12T15:39:39.3476482Z [command]/usr/bin/git rev-parse refs/remotes/origin/ora/v162-autonomy-validation-20261012
+2026-10-12T15:39:39.3477856Z 641dbaf9869e0881ffe6778ff82c0e771e6fcca4
+2026-10-12T15:39:39.3479755Z ##[endgroup]
+2026-10-12T15:39:39.3481216Z ##[group]Determining the checkout info
+2026-10-12T15:39:39.3482338Z ##[endgroup]
+2026-10-12T15:39:39.3482951Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T15:39:39.3484947Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T15:39:39.3487246Z ##[group]Checking out the ref
+2026-10-12T15:39:39.3489179Z [command]/usr/bin/git checkout --progress --force -B ora/v162-autonomy-validation-20261012 refs/remotes/origin/ora/v162-autonomy-validation-20261012
+2026-10-12T15:39:39.5295415Z Switched to a new branch 'ora/v162-autonomy-validation-20261012'
+2026-10-12T15:39:39.5302605Z branch 'ora/v162-autonomy-validation-20261012' set up to track 'origin/ora/v162-autonomy-validation-20261012'.
+2026-10-12T15:39:39.5324068Z ##[endgroup]
+2026-10-12T15:39:39.5373541Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T15:39:39.5401458Z 641dbaf9869e0881ffe6778ff82c0e771e6fcca4
+2026-10-12T15:39:39.5649066Z ##[group]Run set -euo pipefail
+2026-10-12T15:39:39.5650719Z [36;1mset -euo pipefail[0m
+2026-10-12T15:39:39.5652060Z [36;1mpython3 scripts/audit_git_history.py[0m
+2026-10-12T15:39:39.5931753Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-12T15:39:39.5933370Z ##[endgroup]
+2026-10-12T15:39:48.0037192Z FULL_HISTORY_SECRET_AUDIT=PASS historical_objects=18804 historical_document_blobs=0 high_confidence_secret_patterns=0 sensitive_paths=0
+2026-10-12T15:39:48.0233937Z Post job cleanup.
+2026-10-12T15:39:48.1091808Z [command]/usr/bin/git version
+2026-10-12T15:39:48.1132251Z git version 2.55.0
+2026-10-12T15:39:48.1173118Z Temporarily overriding HOME='/home/runner/work/_temp/ec68dbbe-cb8c-4746-9435-0cfa20665a8b' before making global git config changes
+2026-10-12T15:39:48.1177922Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T15:39:48.1179595Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:39:48.1221064Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T15:39:48.1259225Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T15:39:48.1519267Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T15:39:48.1546879Z http.https://github.com/.extraheader
+2026-10-12T15:39:48.1558708Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T15:39:48.1598086Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T15:39:48.1867458Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T15:39:48.1906204Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T15:39:48.2299039Z Cleaning up orphan processes
+2026-10-12T15:39:48.2583203Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -1,0 +1,1138 @@
+{
+  "schema_version": 1,
+  "kind": "ci_observation_and_preservation_manifest",
+  "repository": "dangerok97/DANGEROK",
+  "pull_request": 220,
+  "verdict": "all_expected_workflows_success",
+  "candidate": {
+    "sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+    "tree": "d2682060e404008a046797ca14b1e49b4a3bd27e",
+    "parents": [
+      "c8ca6d04833f0e9951c32303b1802f38bf213019"
+    ]
+  },
+  "source_identity": {
+    "handoff_test_path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+    "blob": "bc4f8d3bbb5a7c130c7bf820599495908ce0f4d9",
+    "bytes": 19337,
+    "sha256": "b60757dedaf164f5161d800701f8e5687917d5293ce8f8cea2104f2f59ac160c",
+    "fetched_at_candidate": true,
+    "readback_matches_approved_source": true
+  },
+  "pr_binding": {
+    "observed_head": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+    "metadata_base": "6e619cf64af5049fc362e904a04e4d89e6b14c76",
+    "mergeable": true,
+    "draft": true,
+    "actual_merge_commit": "4958ee9981579a734454b0a15645b344c032459f",
+    "actual_merge_tree": "553c847a705cef3e2a8b32b364df45e2da498b87",
+    "actual_parents": [
+      "9063c41bea894bba9c2b384756b040c0f9f69983",
+      "641dbaf9869e0881ffe6778ff82c0e771e6fcca4"
+    ],
+    "checkout_evidence": "All nine PR-associated job logs checkout the actual merge commit; all five push jobs checkout the candidate.",
+    "qualification": "The API PR base field differs from the actual merge's first parent. Push and PR evidence are bound to their actual checked-out commits and are not interchangeable.",
+    "push_to_merge": {
+      "status": "ahead",
+      "ahead_by": 35,
+      "behind_by": 0,
+      "total_commits": 35,
+      "files": [
+        {
+          "path": "backend/tests/test_whatsapp_cloud_bridge_v1.py",
+          "status": "modified",
+          "changes": 58
+        },
+        {
+          "path": "backend/vision_body_regions.py",
+          "status": "added",
+          "changes": 59
+        },
+        {
+          "path": "backend/vision_provider.py",
+          "status": "modified",
+          "changes": 15
+        },
+        {
+          "path": "backend/vision_tests/test_anatomy_atlas.py",
+          "status": "modified",
+          "changes": 72
+        },
+        {
+          "path": "backend/vision_xray.py",
+          "status": "modified",
+          "changes": 53
+        },
+        {
+          "path": "backend/whatsapp/cloud.py",
+          "status": "modified",
+          "changes": 28
+        },
+        {
+          "path": "backend/whatsapp/router.py",
+          "status": "modified",
+          "changes": 15
+        },
+        {
+          "path": "backend/whatsapp/service.py",
+          "status": "modified",
+          "changes": 9
+        },
+        {
+          "path": "docs/WHATSAPP_CLOUD_API_V1.md",
+          "status": "modified",
+          "changes": 9
+        },
+        {
+          "path": "frontend/e2e/vision-live.spec.ts",
+          "status": "modified",
+          "changes": 136
+        },
+        {
+          "path": "frontend/src/vision-xray/AnatomyExplorer.web.tsx",
+          "status": "modified",
+          "changes": 163
+        },
+        {
+          "path": "frontend/src/vision-xray/AnatomyVolume.web.tsx",
+          "status": "added",
+          "changes": 91
+        },
+        {
+          "path": "frontend/src/vision-xray/LiveExplorer.web.tsx",
+          "status": "modified",
+          "changes": 32
+        },
+        {
+          "path": "frontend/src/vision-xray/anatomyAtlas.ts",
+          "status": "modified",
+          "changes": 3
+        },
+        {
+          "path": "frontend/src/vision-xray/anatomyDetail.ts",
+          "status": "added",
+          "changes": 34
+        },
+        {
+          "path": "frontend/src/vision-xray/anatomyFocus.ts",
+          "status": "added",
+          "changes": 69
+        },
+        {
+          "path": "frontend/src/vision-xray/anatomyStyle.ts",
+          "status": "modified",
+          "changes": 2
+        },
+        {
+          "path": "frontend/src/vision-xray/anatomyVolume.test.mjs",
+          "status": "added",
+          "changes": 51
+        },
+        {
+          "path": "frontend/src/vision-xray/anatomyVolume.ts",
+          "status": "added",
+          "changes": 158
+        },
+        {
+          "path": "frontend/src/vision-xray/catalogApi.ts",
+          "status": "modified",
+          "changes": 5
+        },
+        {
+          "path": "scripts/vision_test_server.py",
+          "status": "modified",
+          "changes": 12
+        }
+      ],
+      "scope": "21 changed files in Vision and WhatsApp; no autonomy-loop, preparation or handoff-test path is among these differences."
+    }
+  },
+  "workflow_summary": {
+    "expected_runs": 5,
+    "observed_runs": 5,
+    "observed_jobs": 14,
+    "successful_jobs": 14,
+    "skipped_jobs": 0,
+    "failed_jobs": 0,
+    "non_success_steps": 0,
+    "attempts": "All observed workflow runs are attempt 1.",
+    "situation_push": "Not triggered by the paths filter for this test/documentation-only change; not represented as a skipped or successful extra run.",
+    "runs": [
+      {
+        "id": 38271848020,
+        "name": "Phone turn boundary checks",
+        "event": "pull_request",
+        "head_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "created_at": "2026-10-12T15:39:34Z",
+        "updated_at": "2026-10-12T15:40:33Z",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271848020"
+      },
+      {
+        "id": 38271848023,
+        "name": "Situation follow-up regressions",
+        "event": "pull_request",
+        "head_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "created_at": "2026-10-12T15:39:34Z",
+        "updated_at": "2026-10-12T15:40:43Z",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271848023"
+      },
+      {
+        "id": 38271847808,
+        "name": "CI",
+        "event": "pull_request",
+        "head_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "created_at": "2026-10-12T15:39:34Z",
+        "updated_at": "2026-10-12T15:45:34Z",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847808"
+      },
+      {
+        "id": 38271847982,
+        "name": "Mobile conversation visual QA",
+        "event": "pull_request",
+        "head_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "created_at": "2026-10-12T15:39:34Z",
+        "updated_at": "2026-10-12T15:46:07Z",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847982"
+      },
+      {
+        "id": 38271843017,
+        "name": "CI",
+        "event": "push",
+        "head_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "created_at": "2026-10-12T15:39:31Z",
+        "updated_at": "2026-10-12T15:48:26Z",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271843017"
+      }
+    ],
+    "jobs": [
+      {
+        "id": 114887745095,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Backend (compileall + pytest)",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 52,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887745371,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Secret scan (full history)",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 5,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887745562,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Frontend TypeScript",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 23,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887745767,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Telephone cloud safety",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 11,
+        "steps_non_success": []
+      },
+      {
+        "id": 114891017563,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Frontend product guards (current Vita)",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 8,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887759936,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Telephone cloud safety",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 11,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887760216,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Secret scan (full history)",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 5,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887760278,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Backend (compileall + pytest)",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 52,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887760359,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Frontend TypeScript",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 23,
+        "steps_non_success": []
+      },
+      {
+        "id": 114889858531,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Frontend product guards (current Vita)",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 8,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887759848,
+        "run_id": 38271848020,
+        "event": "pull_request",
+        "name": "bounded-phone",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 9,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887760805,
+        "run_id": 38271848023,
+        "event": "pull_request",
+        "name": "Situation checkpoint persistence and dispatch",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 12,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887761199,
+        "run_id": 38271848023,
+        "event": "pull_request",
+        "name": "Situation follow-up presentation guards",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 8,
+        "steps_non_success": []
+      },
+      {
+        "id": 114887760954,
+        "run_id": 38271847982,
+        "event": "pull_request",
+        "name": "Mobile web layout and interaction (Chromium + WebKit)",
+        "status": "completed",
+        "conclusion": "success",
+        "steps_count": 12,
+        "steps_non_success": []
+      }
+    ]
+  },
+  "backend_gates": {
+    "push": {
+      "job_id": 114887745095,
+      "v162": {
+        "line": 3644,
+        "text": "2026-10-12T15:46:28.1151844Z 1337 passed, 20388 warnings in 67.59s (0:01:07)",
+        "passed": 1337,
+        "skipped": 0,
+        "warnings": 20388,
+        "seconds": 67.59
+      },
+      "handoff_module": {
+        "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+        "command_log_line": 3494,
+        "expected_cases_from_source": 20,
+        "source_blob": "bc4f8d3bbb5a7c130c7bf820599495908ce0f4d9",
+        "source_sha256": "b60757dedaf164f5161d800701f8e5687917d5293ce8f8cea2104f2f59ac160c",
+        "proof": "The complete module is selected in the successful 1337-case invocation with no skipped cases. Quiet output does not provide a separate 20-case summary or individual timings."
+      },
+      "scripted": {
+        "summary_log_line": 3654,
+        "report_json_substring": {
+          "bytes": 97098,
+          "sha256": "2c4c7ba146f055dce20dbb8db642f3add666c6d9bc6d772caed1760539c3305a"
+        },
+        "code_revision": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "mode": "scripted",
+        "status": "passed",
+        "cases": 9,
+        "passed": 9,
+        "real_model_executed": false,
+        "model_attempts": 0,
+        "model_http_requests": 0,
+        "external_effects": 0
+      },
+      "static_visibility_v39": {
+        "line": 3694,
+        "text": "2026-10-12T15:46:36.8438554Z 3 passed, 6 warnings in 0.53s",
+        "passed": 3,
+        "skipped": 0,
+        "warnings": 6,
+        "seconds": 0.53
+      },
+      "real_mongo_process_restart": {
+        "line": 3757,
+        "text": "2026-10-12T15:46:52.6408760Z 6 passed, 6 warnings in 12.87s",
+        "passed": 6,
+        "skipped": 0,
+        "warnings": 6,
+        "seconds": 12.87,
+        "environment_log_line": 3716,
+        "PHASE2_REAL_MONGO": "1"
+      },
+      "provider_provenance_v39": {
+        "line": 3822,
+        "text": "2026-10-12T15:46:56.5538417Z 3 passed, 6 warnings in 0.41s",
+        "passed": 3,
+        "skipped": 0,
+        "warnings": 6,
+        "seconds": 0.41,
+        "selected_nodes": [
+          "test_no_calendar_is_not_an_empty_calendar",
+          "test_every_result_says_where_it_came_from",
+          "test_finding_nothing_is_a_finding_and_not_a_failure"
+        ]
+      },
+      "vision": {
+        "line": 1188,
+        "text": "2026-10-12T15:41:22.2274476Z 192 passed, 1 warning in 7.07s",
+        "passed": 192,
+        "skipped": 0,
+        "warnings": 1,
+        "seconds": 7.07
+      },
+      "legacy_skips": [
+        {
+          "line": 1254,
+          "text": "2026-10-12T15:41:27.0437942Z 22 passed, 3 skipped, 46 warnings in 1.11s",
+          "passed": 22,
+          "skipped": 3,
+          "warnings": 46,
+          "seconds": 1.11,
+          "command_log_line": 1189,
+          "command": "2026-10-12T15:41:22.8468883Z ##[group]Run python -m pytest -q -n 0 tests/test_google_browser_login_v156.py tests/test_social_auth_unit.py -x"
+        },
+        {
+          "line": 1342,
+          "text": "2026-10-12T15:41:39.3478327Z 89 passed, 5 skipped, 19 warnings in 8.40s",
+          "passed": 89,
+          "skipped": 5,
+          "warnings": 19,
+          "seconds": 8.4,
+          "command_log_line": 1255,
+          "command": "2026-10-12T15:41:27.8776147Z ##[group]Run python -m pytest -q \\"
+        }
+      ]
+    },
+    "pull_request": {
+      "job_id": 114887760278,
+      "v162": {
+        "line": 3660,
+        "text": "2026-10-12T15:44:03.8333998Z 1337 passed, 20223 warnings in 51.34s",
+        "passed": 1337,
+        "skipped": 0,
+        "warnings": 20223,
+        "seconds": 51.34
+      },
+      "handoff_module": {
+        "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+        "command_log_line": 3510,
+        "expected_cases_from_source": 20,
+        "source_blob": "bc4f8d3bbb5a7c130c7bf820599495908ce0f4d9",
+        "source_sha256": "b60757dedaf164f5161d800701f8e5687917d5293ce8f8cea2104f2f59ac160c",
+        "proof": "The complete module is selected in the successful 1337-case invocation with no skipped cases. Quiet output does not provide a separate 20-case summary or individual timings."
+      },
+      "scripted": {
+        "summary_log_line": 3670,
+        "report_json_substring": {
+          "bytes": 97098,
+          "sha256": "cb754072874f8139f372d8d5ab81862d38175f2507d9d89416cd85d4f2347232"
+        },
+        "code_revision": "4958ee9981579a734454b0a15645b344c032459f",
+        "mode": "scripted",
+        "status": "passed",
+        "cases": 9,
+        "passed": 9,
+        "real_model_executed": false,
+        "model_attempts": 0,
+        "model_http_requests": 0,
+        "external_effects": 0
+      },
+      "static_visibility_v39": {
+        "line": 3710,
+        "text": "2026-10-12T15:44:09.1478112Z 3 passed, 6 warnings in 0.30s",
+        "passed": 3,
+        "skipped": 0,
+        "warnings": 6,
+        "seconds": 0.3
+      },
+      "real_mongo_process_restart": {
+        "line": 3773,
+        "text": "2026-10-12T15:44:18.3221280Z 6 passed, 6 warnings in 7.56s",
+        "passed": 6,
+        "skipped": 0,
+        "warnings": 6,
+        "seconds": 7.56,
+        "environment_log_line": 3732,
+        "PHASE2_REAL_MONGO": "1"
+      },
+      "provider_provenance_v39": {
+        "line": 3838,
+        "text": "2026-10-12T15:44:20.3617278Z 3 passed, 6 warnings in 0.25s",
+        "passed": 3,
+        "skipped": 0,
+        "warnings": 6,
+        "seconds": 0.25,
+        "selected_nodes": [
+          "test_no_calendar_is_not_an_empty_calendar",
+          "test_every_result_says_where_it_came_from",
+          "test_finding_nothing_is_a_finding_and_not_a_failure"
+        ]
+      },
+      "vision": {
+        "line": 1204,
+        "text": "2026-10-12T15:40:52.9424953Z 202 passed, 1 warning in 6.31s",
+        "passed": 202,
+        "skipped": 0,
+        "warnings": 1,
+        "seconds": 6.31
+      },
+      "legacy_skips": [
+        {
+          "line": 1270,
+          "text": "2026-10-12T15:40:55.6661313Z 22 passed, 3 skipped, 46 warnings in 0.76s",
+          "passed": 22,
+          "skipped": 3,
+          "warnings": 46,
+          "seconds": 0.76,
+          "command_log_line": 1205,
+          "command": "2026-10-12T15:40:53.2070791Z ##[group]Run python -m pytest -q -n 0 tests/test_google_browser_login_v156.py tests/test_social_auth_unit.py -x"
+        },
+        {
+          "line": 1358,
+          "text": "2026-10-12T15:41:02.8880981Z 89 passed, 5 skipped, 19 warnings in 4.96s",
+          "passed": 89,
+          "skipped": 5,
+          "warnings": 19,
+          "seconds": 4.96,
+          "command_log_line": 1271,
+          "command": "2026-10-12T15:40:56.2984829Z ##[group]Run python -m pytest -q \\"
+        }
+      ]
+    }
+  },
+  "other_gates": {
+    "mobile": {
+      "job_id": 114887760954,
+      "passed": 40,
+      "chromium_phone": 20,
+      "webkit_phone": 20,
+      "skipped": 0,
+      "case_log_lines": [
+        1534,
+        1573
+      ],
+      "summary_log_line": 1575,
+      "summary": "40 passed (4.1m)",
+      "artifact": {
+        "id": 11756938476,
+        "name": "mobile-conversation-qa",
+        "bytes": 9727926,
+        "digest_reported_by_github": "sha256:05e091aff689f3d276eb4078e02ee5e3057992affb0a3ea7719384c3634c92e3",
+        "expired": false,
+        "zip_downloaded_or_contents_verified": false,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847982/artifacts/11756938476"
+      },
+      "scope": "Browser engines with phone-sized projects; not a signed native build or physical-device delivery proof."
+    },
+    "scanners": {
+      "push": {
+        "job_id": 114887745371,
+        "fetch_depth": 0,
+        "historical_objects": 18804,
+        "historical_document_blobs": 0,
+        "high_confidence_secret_patterns": 0,
+        "sensitive_paths": 0,
+        "result": "PASS",
+        "summary_log_line": 445
+      },
+      "pull_request": {
+        "job_id": 114887760216,
+        "fetch_depth": 0,
+        "historical_objects": 18811,
+        "historical_document_blobs": 0,
+        "high_confidence_secret_patterns": 0,
+        "sensitive_paths": 0,
+        "result": "PASS",
+        "summary_log_line": 458
+      },
+      "scope": "Actual full-history audit runs with nonzero objects; these are not empty or shallow-checkout scanner results."
+    },
+    "telephone_cloud_safety": {
+      "push": {
+        "job_id": 114887745767,
+        "passed": 294,
+        "skipped": 0,
+        "summary_log_line": 762
+      },
+      "pull_request": {
+        "job_id": 114887759936,
+        "passed": 294,
+        "skipped": 0,
+        "summary_log_line": 781
+      }
+    },
+    "bounded_phone": {
+      "job_id": 114887759848,
+      "passed": 7,
+      "skipped": 0,
+      "summary_log_line": 684
+    },
+    "situation": {
+      "backend_job_id": 114887760805,
+      "backend_batches": [
+        {
+          "passed": 111,
+          "skipped": 0,
+          "summary_log_line": 757
+        },
+        {
+          "passed": 62,
+          "skipped": 0,
+          "summary_log_line": 817
+        },
+        {
+          "passed": 116,
+          "skipped": 0,
+          "summary_log_line": 883
+        }
+      ],
+      "presentation_job_id": 114887761199,
+      "presentation_passed": 16,
+      "presentation_skipped": 0,
+      "scope": "Batches may overlap other CI groups; they are not summed into a unique project-wide test total."
+    },
+    "product_guards": {
+      "push": {
+        "job_id": 114891017563,
+        "passed": 77,
+        "skipped": 0,
+        "summary_log_line": 442
+      },
+      "pull_request": {
+        "job_id": 114889858531,
+        "passed": 77,
+        "skipped": 0,
+        "summary_log_line": 459
+      }
+    },
+    "frontend_preparation": {
+      "push_job_id": 114887745562,
+      "pr_job_id": 114887760359,
+      "typecheck": "success",
+      "public_expo_config": "success",
+      "ios_prebuild_no_install_clean": "success",
+      "ios_production_export": "success",
+      "scope": "No Xcode build, signing, IPA installation or native device execution is asserted."
+    }
+  },
+  "preservation": {
+    "complete_decoded_logs": 14,
+    "complete_decoded_log_bytes": 9452185,
+    "logs": [
+      {
+        "job_id": 114887745095,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Backend (compileall + pytest)",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271843017/job/114887745095",
+        "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "checkout_log_line": 207,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 3730723,
+        "sha256": "6620e66d5588e23f14116343d3b1eb0f183a64cade07833ec8b7640c4f15b25f",
+        "line_count": 13326,
+        "store_key": "ci641:logtext_114887745095",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "71c15f0fcd1d30ca6d5a61535e06a65a3ca2b9fa",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887745371,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Secret scan (full history)",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271843017/job/114887745371",
+        "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "checkout_log_line": 439,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 52682,
+        "sha256": "bc6c04d8fee059fe43f4372c390f58040811047cfe3f5e92445ebc97955bbbf6",
+        "line_count": 462,
+        "store_key": "ci641:logtext_114887745371",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "d5bb71285320400e3ac55f9363059ac01c1e324e",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887745562,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Frontend TypeScript",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271843017/job/114887745562",
+        "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "checkout_log_line": 124,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 59899,
+        "sha256": "0a87f9ce2e11549809ebb449e826357df65d50a8ed5d0771f772df609928c628",
+        "line_count": 637,
+        "store_key": "ci641:logtext_114887745562",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "da8e3431e6e484c3817e48f91c0a2457d240020f",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887745767,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Telephone cloud safety",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271843017/job/114887745767",
+        "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "checkout_log_line": 202,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 573890,
+        "sha256": "f8a31f531e1e5171bb0b98a245558b6ad1481ecf12ed0c31e64a40ee7d78967f",
+        "line_count": 2013,
+        "store_key": "ci641:logtext_114887745767",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "d99c38b43321dbf3535fcd3267e7263dc1bb4fc7",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114891017563,
+        "run_id": 38271843017,
+        "event": "push",
+        "name": "Frontend product guards (current Vita)",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271843017/job/114891017563",
+        "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "checkout_log_line": 124,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 47109,
+        "sha256": "24fe27bb6823e931a7b331d5826187cb4c67744e47cf38d7014f8690814d8165",
+        "line_count": 468,
+        "store_key": "ci641:logtext_114891017563",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "16e021538fc3b6b95a0710a9279857f0e05a0988",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887759936,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Telephone cloud safety",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847808/job/114887759936",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 219,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 574950,
+        "sha256": "73411d03952714f26222ba8096bb33d04259110f7fa14f24ce7c604cbb8246ce",
+        "line_count": 2032,
+        "store_key": "ci641:logtext_114887759936",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "4e5feadd994449502922a632b26f4f1f919f773d",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887760216,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Secret scan (full history)",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847808/job/114887760216",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 452,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 55483,
+        "sha256": "fd853d35dd193abdc13c9729e54fad71521956f59a9b39fcbf00ae0fedda6961",
+        "line_count": 475,
+        "store_key": "ci641:logtext_114887760216",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "addb6f9ae772c79626890abf589f3e915f70cf5c",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887760278,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Backend (compileall + pytest)",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847808/job/114887760278",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 224,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 3890355,
+        "sha256": "608faccdfdc1726a9f059c31c70c601f4d2ded244f457a9225bf4235699b9cdf",
+        "line_count": 13808,
+        "store_key": "ci641:logtext_114887760278",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "d2416d7cf56661fbae10aa3d9eb71e1649fdff23",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887760359,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Frontend TypeScript",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847808/job/114887760359",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 140,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 60524,
+        "sha256": "aa441008aa2c4e080a5c111612407d140ffeb2135c15e80bb9e6090621c6c86f",
+        "line_count": 651,
+        "store_key": "ci641:logtext_114887760359",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "ed41e9db04e2947f9bb364b2fcd40eed44cd0d06",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114889858531,
+        "run_id": 38271847808,
+        "event": "pull_request",
+        "name": "Frontend product guards (current Vita)",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847808/job/114889858531",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 140,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 48013,
+        "sha256": "5eda2812e620a3c30ca967db7336454ff46cb4c8650340352a36390799c321b4",
+        "line_count": 485,
+        "store_key": "ci641:logtext_114889858531",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "04b4cf9dbdca3a281952a86d906828c51fb7c602",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887759848,
+        "run_id": 38271848020,
+        "event": "pull_request",
+        "name": "bounded-phone",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271848020/job/114887759848",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 146,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 69362,
+        "sha256": "d2c9ae796d7a6d512b3a83bc05a17ec70a900e80cb94b8dff47de38bc922b43a",
+        "line_count": 705,
+        "store_key": "ci641:logtext_114887759848",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "5bd9cb2c5b2748fd4fc8a83a0599b0c48cf20722",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887760805,
+        "run_id": 38271848023,
+        "event": "pull_request",
+        "name": "Situation checkpoint persistence and dispatch",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271848023/job/114887760805",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 202,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 104787,
+        "sha256": "6c1bafdada86b0205b9385c938fc0413d3bc6cd24d89b28d3b470bf692edf9e6",
+        "line_count": 955,
+        "store_key": "ci641:logtext_114887760805",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "0d40f3bd9e7139da11bdcde7f1f37258a51367d3",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887761199,
+        "run_id": 38271848023,
+        "event": "pull_request",
+        "name": "Situation follow-up presentation guards",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271848023/job/114887761199",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 122,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 20607,
+        "sha256": "bf7ea5aad84c3e79026396bc22c5e1829abf731d3db0ce5cf1fd37d77aa2610c",
+        "line_count": 280,
+        "store_key": "ci641:logtext_114887761199",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "ba55e9e6b779ad2c1083fa396ce4f8cd3c7d49e5",
+        "readback_exact": true
+      },
+      {
+        "job_id": 114887760954,
+        "run_id": 38271847982,
+        "event": "pull_request",
+        "name": "Mobile web layout and interaction (Chromium + WebKit)",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38271847982/job/114887760954",
+        "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+        "checkout_log_line": 126,
+        "source": "decoded complete job log from GitHub tool",
+        "bytes": 163801,
+        "sha256": "ce86daba7eab6e25090417723e4183d53c6b25884d4ed3ac5b1bf475161d3bbb",
+        "line_count": 1628,
+        "store_key": "ci641:logtext_114887760954",
+        "strict_scan": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "blob": "f671d8eae867f974cdf518bc6d4a86569ac45abc",
+        "readback_exact": true
+      }
+    ],
+    "metadata_archive": {
+      "blob": "644d4a590adb589e17acf2ded46b5994a50db0da",
+      "bytes": 1254371,
+      "sha256": "7a6e1c03b86db2975ec6969d402178be0514d8b49356f87c2e9f1545a9c31c74",
+      "entries": 18,
+      "readback_exact": true,
+      "entry_roundtrip_exact": true,
+      "strict_scan": {
+        "private_key_pem": 0,
+        "google_api_key": 0,
+        "openai_style_key": 0,
+        "github_token": 0,
+        "mongodb_uri_with_password": 0
+      }
+    },
+    "metadata_entries": [
+      {
+        "store_key": "ci641:test_source",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 20805,
+        "sha256": "3a667f192fc7ec4c42eb0f4fb8317f3246e37012ca585c611e86f70dbf870459"
+      },
+      {
+        "store_key": "ci641:push_commit",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 3842,
+        "sha256": "1d7096635191e6ae06add1aa48f045842417f349b5d27b61c4c74f5f829202a6"
+      },
+      {
+        "store_key": "ci641:runs_0",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 139459,
+        "sha256": "1f04ba1d570eb8e37785b971e215a6b16905c50f577a5c104700c95759e5f44f"
+      },
+      {
+        "store_key": "ci641:pr_0",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 69006,
+        "sha256": "799477306bcb688e0b00c3e171449eff7f8974b595bc07cfd1a355194c8c89b9"
+      },
+      {
+        "store_key": "ci641:pr_jobs_0",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 11235,
+        "sha256": "a7c820bb63db7b23757b07854815a38a5226953131db8cce466a14241dbf98e1"
+      },
+      {
+        "store_key": "ci641:push_jobs_0",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 10332,
+        "sha256": "6a6985f6756c3ab9e28ee5d4bfa819533661c999b4b7758bda5a296ec59a2356"
+      },
+      {
+        "store_key": "ci641:mobile_jobs_0",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 1342,
+        "sha256": "5486ae688df3448360c74ea9068397ed84b0901484b0342f8da766b642820ecb"
+      },
+      {
+        "store_key": "ci641:merge_commit",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 6252,
+        "sha256": "1c46c035f47a405162770bd56b9f1e7fe94bda350df141f25af820deaabbc0f5"
+      },
+      {
+        "store_key": "ci641:phone_jobs_final",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 1075,
+        "sha256": "44fca4c54d47e7c8cecda95a64e8500d1fd185cf54cdc1351dd31d062fcc3f76"
+      },
+      {
+        "store_key": "ci641:situation_jobs_final",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 2426,
+        "sha256": "713a00e446c9f48df7df5418d8370b36f8f9cbf4bf3a6c50aa66f70dfeac6f92"
+      },
+      {
+        "store_key": "ci641:push_jobs_1",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 10367,
+        "sha256": "f4cc8c4408c3df0a90d70cc5dcae71260725a4a2919637e3a1b405b3391b224b"
+      },
+      {
+        "store_key": "ci641:pr_jobs_final",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 11335,
+        "sha256": "11e9e4b9f6cd39c143b6a6adf8e3949c0c319eb1f136c2fcafb30396e889447a"
+      },
+      {
+        "store_key": "ci641:mobile_jobs_final",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 1449,
+        "sha256": "d32675426b0d22d58b00e50807ac31794c8edecf1543bfa945a6a5f48a900576"
+      },
+      {
+        "store_key": "ci641:push_jobs_final",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 11335,
+        "sha256": "eb30832ff62982d7216deda0796fac730f26c8a88fcf3d4ebed3876d8e56839b"
+      },
+      {
+        "store_key": "ci641:push_to_merge_compare",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 543200,
+        "sha256": "08112f8b367f1deb3e00c859f6f73a5eaf1e30892adfc5016abf46128e558c49"
+      },
+      {
+        "store_key": "ci641:mobile_artifacts",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 2143,
+        "sha256": "58cd5699c8e9fe34b79d407736a3223c7b720af82cbf0774c9e3334950b57cff"
+      },
+      {
+        "store_key": "ci641:runs_1",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 139479,
+        "sha256": "6aa17a1f9b983393728e266fdb73a50047d95688acfd96c0d340fe8599ecff27"
+      },
+      {
+        "store_key": "ci641:runs_2",
+        "format": "JSON serialization of unchanged tool response object",
+        "bytes": 139489,
+        "sha256": "43e333c95189b96d362b35c4b84fb2233c106050870345ebe22206326881ecd7"
+      }
+    ],
+    "strict_scan": "All raw decoded logs and the metadata archive were scanned in full with the five high-confidence patterns, without path, size or placeholder exceptions; zero findings.",
+    "readback": "All fourteen orphan log blobs and the metadata archive were fetched again and compared byte-for-byte with the original strings. Every metadata entry round-tripped exactly.",
+    "storage_mutations": "Orphan blobs only. No commit, tree, ref, workflow, rerun or Railway mutation by this collector."
+  },
+  "limits": [
+    "These are CI and scripted results. No real-model or live-provider outcome is inferred.",
+    "The new 20-case module passed as part of the complete 1337-case invocation; quiet pytest output does not provide a separate per-module timing.",
+    "The two older backend groups report 3 and 5 skipped tests in each event. Zero skipped jobs/steps is not a claim of zero skipped tests across all legacy groups.",
+    "The original failures on 250ef7f and c8ca6d0 remain unchanged.",
+    "The Mobile artifact ZIP was not downloaded or independently unpacked; only GitHub metadata and the passing job log were verified.",
+    "Full raw job logs are the decoded UTF-8 tool output, not network wire-byte captures. Metadata archive content is a serialization of unchanged tool response objects."
+  ]
+}

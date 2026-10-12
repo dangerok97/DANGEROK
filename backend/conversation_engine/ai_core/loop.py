@@ -1606,6 +1606,10 @@ async def run_cognitive_loop(
             copy_errors = [code for code in gov.errors if code in (
                 "message_to_user_must_be_string", "question_must_be_string",
             )]
+            situation_missing_fields = [
+                field for field in ("location_label", "source_refs", "linked_object_refs")
+                if f"situation_create_missing_{field}" in gov.errors
+            ]
             raw2 = await _call_ai(
                 decision_fn=decision_fn,
                 system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction()
@@ -1613,7 +1617,11 @@ async def run_cognitive_loop(
                 + ("\nDeclaration errors: " + ", ".join(copy_errors)
                    + ". Use ordinary prose in these string fields, or null when optional; "
                    "do not nest or stringify a summary/details object. Preserve the supported "
-                   "answer and the observed tool results." if copy_errors else ""),
+                   "answer and the observed tool results." if copy_errors else "")
+                + ("\nSituation CREATE missing fields: " + ", ".join(situation_missing_fields)
+                   + ". Declare each key explicitly. location_label is a grounded string or null; "
+                   "source_refs and linked_object_refs are arrays, empty when not established. "
+                   "Do not invent a place or link." if situation_missing_fields else ""),
                 user=payload,
                 user_preference=user_llm_preference,
             )

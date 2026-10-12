@@ -94,9 +94,12 @@ export function OraCockpitContext({
   const current = star !== undefined
     ? star
     : temporary.stars.find(item => item.id === selectedStarId) || temporary.latest;
+  // Only the read that supplied the displayed star can invalidate its advice.
+  const sourceUnavailable = star !== undefined ? readError : temporary.error;
   const focus = home?.primary_focus || null;
   const currentState = firstSituationState(current);
   const followup = current?.follow_up;
+  const verifiedFollowup = sourceUnavailable ? undefined : followup;
   const followupStatus: Record<string, string> = {
     scheduled: 'Controllo programmato', due: 'Controllo in scadenza', running: 'Controllo in corso',
     review_pending: 'Valutazione presa in carico: controllo non ancora programmato',
@@ -145,10 +148,11 @@ export function OraCockpitContext({
             desiredOutcome={followup?.desired_outcome || current.desired_outcome}
             situationRevision={current.situation_revision}
             followupStatus={followup?.status}
+            readUnavailable={sourceUnavailable}
             colors={outcomeColors}
             testID="ora-cockpit-outcome"
           />
-          {readError ? <Text accessibilityRole="alert" style={styles.removeError}>
+          {sourceUnavailable ? <Text accessibilityRole="alert" style={styles.removeError}>
             Aggiornamento non riuscito: i dati mostrati sono quelli dell’ultima lettura.
           </Text> : null}
 
@@ -168,7 +172,7 @@ export function OraCockpitContext({
               </>
             ) : null}
 
-            {currentState ? (
+            {!sourceUnavailable && currentState ? (
               <>
                 <View style={styles.divider} />
                 <DetailRow
@@ -180,7 +184,7 @@ export function OraCockpitContext({
               </>
             ) : null}
 
-            {current.expected_outcome_summary ? (
+            {!sourceUnavailable && current.expected_outcome_summary ? (
               <>
                 <View style={styles.divider} />
                 <DetailRow
@@ -193,22 +197,22 @@ export function OraCockpitContext({
 
             <View style={styles.divider} />
             <DetailRow icon="eye-outline" title="Stato del controllo"
-              body={followupStatus[followup?.status || 'unavailable'] || followupStatus.unavailable} />
-            {followup?.next_check_at ? <>
+              body={followupStatus[verifiedFollowup?.status || 'unavailable'] || followupStatus.unavailable} />
+            {verifiedFollowup?.next_check_at ? <>
               <View style={styles.divider} />
-              <DetailRow icon="time-outline" title="Prossimo controllo" body={followup.next_check_label || timeLabel(followup.next_check_at)} />
+              <DetailRow icon="time-outline" title="Prossimo controllo" body={verifiedFollowup.next_check_label || timeLabel(verifiedFollowup.next_check_at)} />
             </> : null}
-            {followup?.last_checked_at ? <>
+            {verifiedFollowup?.last_checked_at ? <>
               <View style={styles.divider} />
-              <DetailRow icon="checkmark-circle-outline" title="Ultimo controllo eseguito" body={timeLabel(followup.last_checked_at)} />
+              <DetailRow icon="checkmark-circle-outline" title="Ultimo controllo eseguito" body={timeLabel(verifiedFollowup.last_checked_at)} />
             </> : null}
-            {followup?.completion_when ? <>
+            {verifiedFollowup?.completion_when ? <>
               <View style={styles.divider} />
-              <DetailRow icon="checkmark-done-outline" title="Ti avviso quando" body={followup.completion_when} />
+              <DetailRow icon="checkmark-done-outline" title="Ti avviso quando" body={verifiedFollowup.completion_when} />
             </> : null}
-            {followup?.notify_when ? <>
+            {verifiedFollowup?.notify_when ? <>
               <View style={styles.divider} />
-              <DetailRow icon="warning-outline" title="Ti avviso prima se" body={followup.notify_when} />
+              <DetailRow icon="warning-outline" title="Ti avviso prima se" body={verifiedFollowup.notify_when} />
             </> : null}
           </SituationDetails>
 
@@ -241,8 +245,10 @@ export function OraCockpitContext({
               <Ionicons name="sparkles-outline" size={19} color={palette.label} />
             </View>
             <View style={styles.primaryTitleCol}>
-              <Text style={styles.cardLabel}>NESSUNA SITUAZIONE TEMPORANEA</Text>
-              <Text style={styles.primarySubtitle}>La mappa non ha stati momentanei aperti.</Text>
+              <Text style={styles.cardLabel}>{sourceUnavailable ? 'STATO NON VERIFICABILE' : 'NESSUNA SITUAZIONE TEMPORANEA'}</Text>
+              <Text style={styles.primarySubtitle}>{sourceUnavailable
+                ? 'Non riesco a confermare le situazioni temporanee.'
+                : 'La mappa non ha stati momentanei aperti.'}</Text>
             </View>
           </View>
         </View>

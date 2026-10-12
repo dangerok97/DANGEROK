@@ -1,3 +1,29 @@
+# 12 ottobre 2026 — v162, confine CREATE e freschezza della fonte selezionata
+
+Prima di applicare i default di SituationUpdate, la governance rifiuta un CREATE JSON grezzo che omette una delle chiavi `location_label`, `source_refs`, `linked_object_refs`. `null/[]/[]` espliciti restano validi; update, none, cancel e resolve conservano il contratto precedente. Le omissioni alimentano esclusivamente il tentativo di riparazione già esistente, con una lista chiusa di nomi mancanti. Non si aggiungono riferimenti, luoghi, stadi di riparazione o aumenti ai limiti. Una dichiarazione prima accettata può ora usare quel tentativo esistente.
+
+La governance inoltra anche `display_focus_ref`, già previsto e validato da CognitiveDecision ma prima non propagato al costruttore. Il riferimento mantiene tipo e limite160, serve alla presentazione di nodi già caricati dell'owner e non popola i collegamenti Situation.
+
+Sul frontend la disponibilità del risultato segue l'origine realmente selezionata: errore KnowledgeMap quando la scheda usa quel dato, errore TemporaryMemory quando usa il dato locale. L'errore di un'altra fonte non invalida un dato fresco. Le risposte superate e i cambi di owner devono impedire la riapparizione di risultati precedenti; una lettura fallita deve escludere vecchi imperativi, finestre stimate e promesse del prossimo controllo. Nessun nuovo polling, worker o dato storico viene introdotto.
+
+La prosa integrale del modello non viene riscritta da questa modifica. Correttezza semantica del luogo, del ritiro e della pianificazione Memory restano questioni da verificare separatamente.
+
+[Contesto, visibilità e verifiche del candidato](evidence/autonomy_v162_context_and_visibility_repair_2026-10-12.json). Gli esiti originali641 restano preservati nel blocco storico seguente.
+
+---
+
+# 12 ottobre 2026 — v162, confini osservati nel live641
+
+La rilettura owned dell’handoff restituisce correttamente il controllo persistito della stessa Situation. Il live641 conferma goal e wake, ma il CREATE completo del modello omette `location_label`, `source_refs` e `linked_object_refs`; i default locali diventano `null/[]/[]`. Non è una rimozione di valori già emessi. Il SYSTEM osservato coincide per hash con il sorgente: i campi sono nel template e nelle istruzioni. La chiamata usa JSON object senza schema nativo di risposta.
+
+Nel test Memory l’ammissione e il planner ricevono fonte e perimetro interno, ma il modello aggiunge prerequisiti e sceglie `ask_user → prepare`. Il runtime conserva l’attesa richiesta. La correzione120→150 non viene raggiunta e la qualificazione della preparazione non è esercitata.
+
+La prosa piena del modello resta un limite distinto dalla correttezza dello snapshot. Una sostituzione globale potrebbe cancellare altre risposte nello stesso turno; nessun riferimento, obiettivo o piano viene ricostruito con euristiche.
+
+[Binding, diagnosi e limiti](evidence/autonomy_v162_641_results_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, traccia interna osservata dal test
 
 `public_trace` applica `_redact_coords`, che limita ogni lista ai primi 12 elementi anche quando la traccia è abilitata. Nel caso con una risposta intermedia, questa proiezione può escludere gli eventi terminali. Il fallimento c8ca non identifica quale elemento atteso manca dalla lista restituita.

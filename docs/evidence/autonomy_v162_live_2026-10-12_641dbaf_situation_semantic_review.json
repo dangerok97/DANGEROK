@@ -1,0 +1,406 @@
+{
+  "schema": "ora-situation-manual-review-v1",
+  "reviewed_at": "2026-10-12T16:01:46.920Z",
+  "source": {
+    "report_kind": "situation",
+    "code_revision": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+    "tree": "d2682060e404008a046797ca14b1e49b4a3bd27e",
+    "deployment_id": "4b7fd25b-03a5-4ccc-965e-7db76ccd8032",
+    "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+    "service_id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+    "original_blob_sha": "fc74b6b6d938b2cdd8e69971167367f372efef15",
+    "original_bytes": 60966,
+    "original_sha256": "9b60bfcd34e695cb2fd5a00be3703c19c35547b5b290afcaf0b450d6ccf63a6d",
+    "source_binding_note": "Deployment/tree supplied by parent collection; report code_revision and original bytes independently read back and verified. No Railway receipt collected by this reviewer."
+  },
+  "original_verdict": {
+    "passed": false,
+    "overall_outcome": "failed",
+    "error": "DECLARATION_PLACE_OR_START_NOT_PRESERVED",
+    "full_laundry_outcome_passed": false,
+    "semantic_review": {
+      "status": "not_run",
+      "automatically_accepted": false
+    }
+  },
+  "manual_verdict": {
+    "accepted": false,
+    "scope": "Final conversation answer and stored declaration/schedule; no worker outcome or device delivery observed.",
+    "original_report_modified": false
+  },
+  "observation_identity": {
+    "user_message": "Oggi 2026-10-12, alle 17:50:02 (Europe/Rome), ho appena steso i panni all'aperto a Tarquinia, nel luogo già salvato. Dimmi quando è il momento di ritirarli perché presumibilmente asciutti, oppure prima se il meteo richiede di metterli al riparo. Questo è un nuovo caso sintetico di valutazione, senza sensori sui panni.",
+    "answer_characters": 1066,
+    "answer_bytes": 1080,
+    "answer_sha256": "85cce837dd4414b35120e3369371481d9e74c22b0f193833fb187a6caffe6599",
+    "answer_equals_last_model_message": true,
+    "final_provider": "mistral",
+    "final_model": "ministral-8b-2512",
+    "logical_model_calls": 4,
+    "model_http_requests": 10,
+    "live_provider_reads": 1,
+    "real_notifications_sent": 0
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "kind": "missing_structured_place_binding",
+      "classification": "blocking_declaration_failure",
+      "observation": "Tarquinia è mantenuta nel testo, ma il create osservato omette location_label/source_refs; lo stato salvato ha location_label=null e linked_object_refs=[].",
+      "evidence": [
+        {
+          "report_pointer": "/model_observations/1/output",
+          "decoded_json_pointer": "/situation_update",
+          "observed_keys": [
+            "operation",
+            "situation_id",
+            "expected_revision",
+            "summary",
+            "semantic_kind",
+            "temporal_scope",
+            "attention_intent",
+            "desired_outcome",
+            "started_at",
+            "icon_key",
+            "tracking_summary"
+          ]
+        },
+        {
+          "report_pointer": "/situation_before_worker/location_label",
+          "value": null
+        },
+        {
+          "report_pointer": "/situation_before_worker/linked_object_refs",
+          "value": []
+        },
+        {
+          "report_pointer": "/situation_before_worker/started_at",
+          "value": "2026-10-12T17:50:02+02:00"
+        },
+        {
+          "report_pointer": "/error",
+          "value": "DECLARATION_PLACE_OR_START_NOT_PRESERVED"
+        }
+      ],
+      "qualification": "L'errore registrato non prova che manca un goal o un wake. Data di stesura e obiettivo asciugatura sono presenti; la causa concreta qui osservabile è il binding del luogo omesso."
+    },
+    {
+      "id": "F2",
+      "kind": "unsubstantiated_drying_window",
+      "classification": "manual_semantic_rejection",
+      "observation": "Il testo finale propone 05:00–07:00 come finestra di asciugatura senza un assessment persistito o premesse/calcolo espliciti; le ore meteo osservate si fermano alle05:00.",
+      "evidence": [
+        {
+          "report_pointer": "/conversation_answer",
+          "quote": "i panni potrebbero essere asciutti entro **domani mattina presto** (tra le 05:00 e le 07:00)"
+        },
+        {
+          "report_pointer": "/tools/2/payload/outcome",
+          "value": null
+        },
+        {
+          "report_pointer": "/tools/2/payload/assessment_at",
+          "value": null
+        },
+        {
+          "report_pointer": "/tools/0/payload/hours/11/datetime",
+          "value": "2026-10-13T05:00"
+        },
+        {
+          "report_pointer": "/research_reads",
+          "value": []
+        }
+      ],
+      "qualification": "Il testo usa 'potrebbero': è una stima non sostenuta, non una lettura fisica o una dichiarazione di asciugatura certa. L'assenza di ricerca da sola non è un oracle di scorrettezza; il problema è il salto osservato dai dati meteo a una finestra specifica e non qualificata nelle sue premesse."
+    },
+    {
+      "id": "F3",
+      "kind": "next_check_converted_to_pickup_restriction",
+      "classification": "manual_semantic_rejection",
+      "observation": "Il prossimo controllo è trasformato in un divieto temporale di ritirare i panni.",
+      "evidence": [
+        {
+          "report_pointer": "/conversation_answer",
+          "quote": "**non ritirare i panni prima delle 18:00 di oggi**"
+        },
+        {
+          "report_pointer": "/tools/2/payload/next_check_at_local",
+          "value": "2026-10-12T18:00:00+02:00"
+        },
+        {
+          "report_pointer": "/tools/2/payload/diagnosis",
+          "value": "Risulta programmato un controllo. Prossima verifica: 12 ott 2026, 18:00."
+        }
+      ],
+      "qualification": "Il tool attesta un controllo programmato alle18:00, non una raccomandazione materiale di lasciare i panni fuori fino a quell'ora. Il worker non è stato eseguito."
+    },
+    {
+      "id": "F4",
+      "kind": "forecast_promoted_to_certainty",
+      "classification": "manual_semantic_rejection",
+      "observation": "Il forecast con rain_chance_pct=0 è descritto come assenza futura certa di pioggia.",
+      "evidence": [
+        {
+          "report_pointer": "/conversation_answer",
+          "quote": "non ci sarà pioggia (rain_chance_pct = 0%)"
+        },
+        {
+          "report_pointer": "/tools/0/payload/why",
+          "value": "Dati live letti dal provider meteo configurato. observed_at e hours.datetime sono orari del provider nel fuso indicato; retrieved_at indica solo quando ORA ha letto la risposta, non l'aggiornamento dei dati. Se data o fuso mancano non inventarli. Usali per la decisione attuale; non trattarli come certi per il futuro."
+        },
+        {
+          "report_pointer": "/tools/0/payload/hours",
+          "rain_chance_pct": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "qualification": "Tutte le12 ore riportano0%, ma la risposta del provider conserva esplicitamente il limite previsionale. La revisione non afferma che in realtà abbia piovuto."
+    },
+    {
+      "id": "F5",
+      "kind": "unbounded_weather_summary_and_unsupported_window_rationale",
+      "classification": "material_qualification",
+      "observation": "Il riepilogo17–22°C e49–66% non descrive l'intera previsione usata per arrivare a domani mattina: dopo le23:00 compaiono14–16°C e fino a75% di umidità.",
+      "evidence": [
+        {
+          "report_pointer": "/conversation_answer",
+          "quote": "le temperature rimangono miti (tra 17°C e 22°C), con umidità moderata (49%-66%)"
+        },
+        {
+          "report_pointer": "/conversation_answer",
+          "quote": "quando l'umidità è leggermente più bassa e il vento diminuisce leggermente"
+        },
+        {
+          "report_pointer": "/tools/0/payload/current",
+          "value": {
+            "condition": "Quasi sereno",
+            "temperature_c": 22,
+            "humidity_pct": 49,
+            "wind_kmh": 16,
+            "precipitation_mm": 0
+          }
+        },
+        {
+          "report_pointer": "/tools/0/payload/hours",
+          "temperature_range_c": [
+            14,
+            22
+          ],
+          "humidity_range_pct": [
+            50,
+            75
+          ],
+          "last_three": [
+            {
+              "time": "03:00",
+              "datetime": "2026-10-13T03:00",
+              "temperature_c": 14,
+              "humidity_pct": 73,
+              "wind_kmh": 13,
+              "rain_chance_pct": 0
+            },
+            {
+              "time": "04:00",
+              "datetime": "2026-10-13T04:00",
+              "temperature_c": 14,
+              "humidity_pct": 75,
+              "wind_kmh": 13,
+              "rain_chance_pct": 0
+            },
+            {
+              "time": "05:00",
+              "datetime": "2026-10-13T05:00",
+              "temperature_c": 14,
+              "humidity_pct": 72,
+              "wind_kmh": 14,
+              "rain_chance_pct": 0
+            }
+          ]
+        }
+      ],
+      "qualification": "'Prossime ore' non indica un orizzonte esatto: i limiti possono descrivere un sottoinsieme iniziale. Tra04:00 e05:00 l'umidità scende75→72, quindi non si sostiene che ogni diminuzione sia falsa. Restano assenti le06:00–07:00 e la giustificazione della finestra di ritiro."
+    },
+    {
+      "id": "F6",
+      "kind": "unsupported_weather_decision_rule",
+      "classification": "manual_semantic_rejection",
+      "observation": "Il testo aggiunge una regola categorica sul ritiro anticipato che non è contenuta nei dati restituiti.",
+      "evidence": [
+        {
+          "report_pointer": "/conversation_answer",
+          "quote": "il vento può influenzare l'asciugatura, ma non è sufficiente da solo a giustificare un ritiro anticipato senza pioggia."
+        },
+        {
+          "report_pointer": "/tools/0/payload",
+          "source_kind": "current conditions and hourly weather forecast"
+        }
+      ],
+      "qualification": "Non viene affermato un pericolo di vento effettivo. La fonte osservata non stabilisce la regola generale formulata dal modello."
+    }
+  ],
+  "controls_that_worked": [
+    {
+      "kind": "invalid_schedule_rejected",
+      "evidence_pointer": "/tools/1/payload",
+      "value": {
+        "ok": false,
+        "error": "active_owned_situation_required"
+      }
+    },
+    {
+      "kind": "owned_schedule_saved",
+      "evidence_pointer": "/admission_before_worker",
+      "goal_id": "gol_sit_4982cb758a375a5dd776cf3f",
+      "source_kind": "situation_followup",
+      "situation_revision": "1",
+      "next_run_at": "2026-10-12T16:00:00+00:00",
+      "wake": {
+        "id": "wke_5ecff83cf62c4fb7",
+        "owner_id": "ora-synthetic-situation-live-v162",
+        "source_ref": "goal:gol_sit_4982cb758a375a5dd776cf3f",
+        "scheduled_for": "2026-10-12T16:00:00+00:00",
+        "status": "pending"
+      }
+    },
+    {
+      "kind": "drying_goal_preserved",
+      "evidence_pointer": "/tools/2/payload",
+      "desired_outcome": "Essere avvisato quando i panni sono asciutti o se ci sono cambiamenti nel meteo.",
+      "completion_when": "Essere avvisato quando i panni sono asciutti o se ci sono cambiamenti nel meteo.",
+      "notify_when": "Se ci sono cambiamenti nel meteo.",
+      "qualification": "notify_when è formulato solo sui cambi meteo, ma desired_outcome/completion_when includono l'asciugatura; nessuna prova che il risultato asciutto sia stato cancellato."
+    },
+    {
+      "kind": "synthetic_cancellation",
+      "evidence_pointer": "/phases/cancellation",
+      "value": {
+        "status": "passed",
+        "pending_wakes": 0,
+        "replay_admission": "no_attention",
+        "physical_collection_claimed": false
+      }
+    }
+  ],
+  "unobserved_boundaries": {
+    "phases": {
+      "conversation": {
+        "status": "failed"
+      },
+      "initial_worker": {
+        "status": "not_run"
+      },
+      "monitoring": {
+        "status": "not_run"
+      },
+      "future_check": {
+        "status": "not_run"
+      },
+      "useful_action": {
+        "status": "not_run"
+      },
+      "device_receipt": {
+        "status": "not_run"
+      },
+      "cancellation": {
+        "status": "passed",
+        "pending_wakes": 0,
+        "replay_admission": "no_attention",
+        "physical_collection_claimed": false
+      }
+    },
+    "scheduling_channel": "in_app",
+    "scheduling_delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita.",
+    "notification_qualification": "Il generico 'ti avviserà' non attesta ricezione su dispositivo e non è qui interpretato come una promessa esplicita di push.",
+    "no_current_user_laundry_modified": true
+  },
+  "completeness": {
+    "model_outputs": [
+      {
+        "index": 0,
+        "characters": 2259,
+        "truncated": false
+      },
+      {
+        "index": 1,
+        "characters": 2510,
+        "truncated": false
+      },
+      {
+        "index": 2,
+        "characters": 2495,
+        "truncated": false
+      },
+      {
+        "index": 3,
+        "characters": 1775,
+        "truncated": false
+      }
+    ],
+    "model_inputs": [
+      {
+        "index": 0,
+        "characters": 40677,
+        "truncated": true
+      },
+      {
+        "index": 1,
+        "characters": 43369,
+        "truncated": true
+      },
+      {
+        "index": 2,
+        "characters": 44981,
+        "truncated": true
+      },
+      {
+        "index": 3,
+        "characters": 46852,
+        "truncated": true
+      }
+    ],
+    "tools": [
+      {
+        "index": 0,
+        "capability": "get_weather_forecast",
+        "characters": 2307,
+        "truncated": false,
+        "redacted": false
+      },
+      {
+        "index": 1,
+        "capability": "schedule_situation_check",
+        "characters": 57,
+        "truncated": false,
+        "redacted": false
+      },
+      {
+        "index": 2,
+        "capability": "schedule_situation_check",
+        "characters": 1358,
+        "truncated": false,
+        "redacted": false
+      }
+    ],
+    "limitation": "I4 input modello sono prefissi diagnostici incompleti da9000 caratteri. Le risposte modello, il testo finale, i payload tool e lo snapshot sono interi. Non si attribuisce la causa a omissioni del prompt completo non osservato."
+  },
+  "actions": {
+    "railway_reads": 0,
+    "model_calls": 0,
+    "code_changes": 0,
+    "new_tests": 0,
+    "original_verdict_changes": 0,
+    "publication": "stored in reviewer V8 only"
+  }
+}

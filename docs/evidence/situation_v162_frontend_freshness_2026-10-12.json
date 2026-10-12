@@ -1,0 +1,564 @@
+{
+  "schema": "ora-frontend-situation-freshness-verification-v1",
+  "source_revision": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+  "source_tree": "d2682060e404008a046797ca14b1e49b4a3bd27e",
+  "repository": "dangerok97/DANGEROK",
+  "scope": "Seven proposed frontend files, orphan Git blobs only. No tree, commit, branch, deployment, APP mutation, real account, source read, schedule or notification.",
+  "problem": "After a current map read fails, retained same-revision action_now may still be displayed until expiry. The local temporary-memory hook also admitted old responses and exposed another owner's retained data before refresh.",
+  "behavior": {
+    "current_source": "A supplied star uses only readError from its supplying map; a locally selected star uses only useTemporaryMemory.error.",
+    "unavailable": "Stato non verificabile. Cached context is retained; the old imperative, estimate window and next-check/notification promises are not presented as current. An unavailable first read does not claim there are no Situations.",
+    "recovery": "Only the current owner's latest successful read restores presentation. Older requests, previous refresh generations and unmounted/disabled scopes cannot publish or clear a newer error. A current empty map removes the previous star.",
+    "unchanged": "Existing polling intervals, foreground triggers, cancellation API/owner checks, outcome expiry/revision checks, and conversation prose remain. No new historical receipt UI."
+  },
+  "files": [
+    {
+      "path": "frontend/src/components/ora/presence/useTemporaryMemory.ts",
+      "bytes": 2883,
+      "sha256": "7697faf615f4f9382d74ff4d301f09b14c108bd51bca887a4065987d35f9317b",
+      "git_blob_sha": "6371d131805608dcd5c5c462af424700f3bc0b2e",
+      "preimage_blob_sha": "cd88e4c2f3cf937292fef1599e44dbe9a7b8defc",
+      "readback_verified": true,
+      "scan": {
+        "artifact_path": "frontend/src/components/ora/presence/useTemporaryMemory.ts",
+        "content_matches": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "path_matches": [],
+        "raw_bytes_scanned": 2883,
+        "decoded_string_occurrences": 1,
+        "decoded_bytes_scanned": 2883,
+        "parsed_nodes_visited": 1,
+        "nested_json_values_decoded": 0,
+        "embedded_json_tokens_decoded": 0,
+        "creator_key_occurrences": 0,
+        "creator_key_text_occurrences": 0,
+        "size_skips": 0,
+        "binary_skips": 0,
+        "placeholder_exceptions": 0,
+        "path_exceptions": 0,
+        "decoded_failures_retained_as_raw": true,
+        "passed": true
+      },
+      "lines_added": 42,
+      "lines_removed": 11,
+      "diff_reconstruction_verified": true
+    },
+    {
+      "path": "frontend/src/components/ora/situationOutcome.ts",
+      "bytes": 3275,
+      "sha256": "713c0aed7abcbd9c07ef56990ea6be69151506e64a28a0a9512afddde7039136",
+      "git_blob_sha": "8eefbc8f6ee53ed80bc3518dd73579bca644db5e",
+      "preimage_blob_sha": "4e92793fefc0fadf0d5f201c9846c07a60e0af30",
+      "readback_verified": true,
+      "scan": {
+        "artifact_path": "frontend/src/components/ora/situationOutcome.ts",
+        "content_matches": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "path_matches": [],
+        "raw_bytes_scanned": 3275,
+        "decoded_string_occurrences": 1,
+        "decoded_bytes_scanned": 3275,
+        "parsed_nodes_visited": 1,
+        "nested_json_values_decoded": 0,
+        "embedded_json_tokens_decoded": 0,
+        "creator_key_occurrences": 0,
+        "creator_key_text_occurrences": 0,
+        "size_skips": 0,
+        "binary_skips": 0,
+        "placeholder_exceptions": 0,
+        "path_exceptions": 0,
+        "decoded_failures_retained_as_raw": true,
+        "passed": true
+      },
+      "lines_added": 10,
+      "lines_removed": 1,
+      "diff_reconstruction_verified": true
+    },
+    {
+      "path": "frontend/src/components/ora/SituationOutcomeSummary.tsx",
+      "bytes": 3836,
+      "sha256": "a271b92cf0b7228952a141c9dde0a080dfe912cc1c90f0a210490d056bf05e99",
+      "git_blob_sha": "9ed6b97dcbc4d66b2964c48945a03bfb5e8769ef",
+      "preimage_blob_sha": "aec08958f7087dc372ce6650dfb3703bdcbcb96e",
+      "readback_verified": true,
+      "scan": {
+        "artifact_path": "frontend/src/components/ora/SituationOutcomeSummary.tsx",
+        "content_matches": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "path_matches": [],
+        "raw_bytes_scanned": 3836,
+        "decoded_string_occurrences": 4,
+        "decoded_bytes_scanned": 3870,
+        "parsed_nodes_visited": 4,
+        "nested_json_values_decoded": 0,
+        "embedded_json_tokens_decoded": 3,
+        "creator_key_occurrences": 0,
+        "creator_key_text_occurrences": 0,
+        "size_skips": 0,
+        "binary_skips": 0,
+        "placeholder_exceptions": 0,
+        "path_exceptions": 0,
+        "decoded_failures_retained_as_raw": true,
+        "passed": true
+      },
+      "lines_added": 3,
+      "lines_removed": 2,
+      "diff_reconstruction_verified": true
+    },
+    {
+      "path": "frontend/src/components/ora/OraCockpitContext.tsx",
+      "bytes": 14896,
+      "sha256": "550a008dc4aee275f93bffc951326590df298b025b5118bfa80420c61f69e968",
+      "git_blob_sha": "17749fe168c04500ee4078179c122987de2e5e52",
+      "preimage_blob_sha": "dfaffa32ab7067751b22d51df758afa0e941c111",
+      "readback_verified": true,
+      "scan": {
+        "artifact_path": "frontend/src/components/ora/OraCockpitContext.tsx",
+        "content_matches": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "path_matches": [],
+        "raw_bytes_scanned": 14896,
+        "decoded_string_occurrences": 36,
+        "decoded_bytes_scanned": 15407,
+        "parsed_nodes_visited": 36,
+        "nested_json_values_decoded": 0,
+        "embedded_json_tokens_decoded": 35,
+        "creator_key_occurrences": 0,
+        "creator_key_text_occurrences": 0,
+        "size_skips": 0,
+        "binary_skips": 0,
+        "placeholder_exceptions": 0,
+        "path_exceptions": 0,
+        "decoded_failures_retained_as_raw": true,
+        "passed": true
+      },
+      "lines_added": 20,
+      "lines_removed": 14,
+      "diff_reconstruction_verified": true
+    },
+    {
+      "path": "frontend/src/components/ora/OraConversationScreen.tsx",
+      "bytes": 67368,
+      "sha256": "eb9808024741085cc9938a0a3fec73a1bf858354872a113ab635c989ea9c0e21",
+      "git_blob_sha": "c506a94a16c7220bf2e24091d31aa5f300906230",
+      "preimage_blob_sha": "e68309a671a240832ebbd2e797c5769e42c2ec5a",
+      "readback_verified": true,
+      "scan": {
+        "artifact_path": "frontend/src/components/ora/OraConversationScreen.tsx",
+        "content_matches": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "path_matches": [],
+        "raw_bytes_scanned": 67368,
+        "decoded_string_occurrences": 26,
+        "decoded_bytes_scanned": 67666,
+        "parsed_nodes_visited": 26,
+        "nested_json_values_decoded": 0,
+        "embedded_json_tokens_decoded": 25,
+        "creator_key_occurrences": 0,
+        "creator_key_text_occurrences": 0,
+        "size_skips": 0,
+        "binary_skips": 0,
+        "placeholder_exceptions": 0,
+        "path_exceptions": 0,
+        "decoded_failures_retained_as_raw": true,
+        "passed": true
+      },
+      "lines_added": 1,
+      "lines_removed": 1,
+      "diff_reconstruction_verified": true
+    },
+    {
+      "path": "frontend/src/components/ora/situationOutcome.test.ts",
+      "bytes": 10626,
+      "sha256": "b723c547a0b971b12f0533a538fbd5b5b492c678ade20efafc91896ba0629101",
+      "git_blob_sha": "a5e749a4f7e82d301d9d466dd71ccea51a0d0dfb",
+      "preimage_blob_sha": "5ec44e1ea346da4488123269c7fded3fc2a47a97",
+      "readback_verified": true,
+      "scan": {
+        "artifact_path": "frontend/src/components/ora/situationOutcome.test.ts",
+        "content_matches": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "path_matches": [],
+        "raw_bytes_scanned": 10626,
+        "decoded_string_occurrences": 1,
+        "decoded_bytes_scanned": 10626,
+        "parsed_nodes_visited": 1,
+        "nested_json_values_decoded": 0,
+        "embedded_json_tokens_decoded": 0,
+        "creator_key_occurrences": 0,
+        "creator_key_text_occurrences": 0,
+        "size_skips": 0,
+        "binary_skips": 0,
+        "placeholder_exceptions": 0,
+        "path_exceptions": 0,
+        "decoded_failures_retained_as_raw": true,
+        "passed": true
+      },
+      "lines_added": 39,
+      "lines_removed": 0,
+      "diff_reconstruction_verified": true
+    },
+    {
+      "path": "frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+      "bytes": 15508,
+      "sha256": "5d7b66cf9686b4607ac3ef9b4c3516d2da4d73470601b97d36da635b2622e504",
+      "git_blob_sha": "c0f58b2b688246daf0aa16e9c8b6c1b8c508b395",
+      "preimage_blob_sha": null,
+      "readback_verified": true,
+      "scan": {
+        "artifact_path": "frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+        "content_matches": {
+          "private_key_pem": 0,
+          "google_api_key": 0,
+          "openai_style_key": 0,
+          "github_token": 0,
+          "mongodb_uri_with_password": 0
+        },
+        "path_matches": [],
+        "raw_bytes_scanned": 15508,
+        "decoded_string_occurrences": 1,
+        "decoded_bytes_scanned": 15508,
+        "parsed_nodes_visited": 1,
+        "nested_json_values_decoded": 0,
+        "embedded_json_tokens_decoded": 0,
+        "creator_key_occurrences": 0,
+        "creator_key_text_occurrences": 0,
+        "size_skips": 0,
+        "binary_skips": 0,
+        "placeholder_exceptions": 0,
+        "path_exceptions": 0,
+        "decoded_failures_retained_as_raw": true,
+        "passed": true
+      },
+      "lines_added": 341,
+      "lines_removed": 0,
+      "diff_reconstruction_verified": true
+    }
+  ],
+  "verification": {
+    "schema": "ora-frontend-freshness-v8-verification-v1",
+    "baseline_source": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+    "executed": "V8 exact JavaScript function bodies with TypeScript annotations/imports removed; hook scheduling/API are deterministic adapters from the proposed CJS test. Node TypeScript transpilation, React/browser, and component render cases not executed here.",
+    "baseline": {
+      "hook": [
+        {
+          "name": "failure after action_now preserves context but withdraws action until a successful read",
+          "passed": false,
+          "error": "expected true, got undefined"
+        },
+        {
+          "name": "a late success cannot restore a Situation removed by a newer current read",
+          "passed": false,
+          "error": "expected 0, got 1"
+        },
+        {
+          "name": "a late success cannot erase a newer failed read",
+          "passed": false,
+          "error": "expected true, got undefined"
+        },
+        {
+          "name": "a late failure cannot invalidate newer successful data",
+          "passed": false,
+          "error": "expected false, got undefined"
+        },
+        {
+          "name": "changing owner hides cached data immediately and ignores previous owner completion",
+          "passed": false,
+          "error": "expected null, got {\"id\":\"temporary-synthetic\",\"temporary\":true,\"situation_id\":\"sit_synthetic\",\"situation_revision\":7,\"updated_at\":\"2026-10-12T15:55:00Z\",\"title\":\"Bucato sintetico\",\"statement\":\"Dichiarazione sintetica registrata.\",\"current_state_summary\":\"Intervento dalla precedente lettura\",\"expected_outcome_summary\":\"Vecchia finestra registrata\",\"follow_up\":{\"status\":\"scheduled\",\"next_check_at\":\"2026-10-12T16:30:00Z\",\"next_check_label\":\"Prossimo controllo sintetico alle 18:30\",\"completion_when\":\"Avviso secondo la precedente valutazione\",\"notify_when\":\"Rischio della precedente valutazione\",\"outcome\":{\"status\":\"action_now\",\"headline\":\"Ritira secondo la stima disponibile\",\"action_summary\":\"Indicazione sintetica della precedente lettura.\",\"valid_until\":\"2026-10-12T18:00:00Z\",\"situation_revision\":7,\"basis\":\"estimate\",\"action_reason\":\"outcome_ready\"}}}"
+        },
+        {
+          "name": "logout neither retains temporary memory nor accepts an in-flight reply",
+          "passed": false,
+          "error": "expected null, got {\"id\":\"temporary-synthetic\",\"temporary\":true,\"situation_id\":\"sit_synthetic\",\"situation_revision\":7,\"updated_at\":\"2026-10-12T15:55:00Z\",\"title\":\"Bucato sintetico\",\"statement\":\"Dichiarazione sintetica registrata.\",\"current_state_summary\":\"Intervento dalla precedente lettura\",\"expected_outcome_summary\":\"Vecchia finestra registrata\",\"follow_up\":{\"status\":\"scheduled\",\"next_check_at\":\"2026-10-12T16:30:00Z\",\"next_check_label\":\"Prossimo controllo sintetico alle 18:30\",\"completion_when\":\"Avviso secondo la precedente valutazione\",\"notify_when\":\"Rischio della precedente valutazione\",\"outcome\":{\"status\":\"action_now\",\"headline\":\"Ritira secondo la stima disponibile\",\"action_summary\":\"Indicazione sintetica della precedente lettura.\",\"valid_until\":\"2026-10-12T18:00:00Z\",\"situation_revision\":7,\"basis\":\"estimate\",\"action_reason\":\"outcome_ready\"}}}"
+        },
+        {
+          "name": "a refresh-key generation rejects a previous read without changing the cadence",
+          "passed": false,
+          "error": "expected false, got undefined"
+        },
+        {
+          "name": "inactive and unmounted readers have no late publications or new reads",
+          "passed": false,
+          "error": "expected null, got {\"id\":\"temporary-synthetic\",\"temporary\":true,\"situation_id\":\"sit_synthetic\",\"situation_revision\":7,\"updated_at\":\"2026-10-12T15:55:00Z\",\"title\":\"Bucato sintetico\",\"statement\":\"Dichiarazione sintetica registrata.\",\"current_state_summary\":\"Intervento dalla precedente lettura\",\"expected_outcome_summary\":\"Vecchia finestra registrata\",\"follow_up\":{\"status\":\"scheduled\",\"next_check_at\":\"2026-10-12T16:30:00Z\",\"next_check_label\":\"Prossimo controllo sintetico alle 18:30\",\"completion_when\":\"Avviso secondo la precedente valutazione\",\"notify_when\":\"Rischio della precedente valutazione\",\"outcome\":{\"status\":\"action_now\",\"headline\":\"Ritira secondo la stima disponibile\",\"action_summary\":\"Indicazione sintetica della precedente lettura.\",\"valid_until\":\"2026-10-12T18:00:00Z\",\"situation_revision\":7,\"basis\":\"estimate\",\"action_reason\":\"outcome_ready\"}}}"
+        },
+        {
+          "name": "the first failed read is explicit rather than a successful empty map",
+          "passed": false,
+          "error": "expected true, got undefined"
+        }
+      ],
+      "outcome": [
+        {
+          "name": "the useful estimate and the internal checkpoint remain different facts",
+          "passed": true
+        },
+        {
+          "name": "a scheduled check, temporal scope and research log do not manufacture an estimate",
+          "passed": true
+        },
+        {
+          "name": "action_now based on an estimate is actionable without claiming a direct observation",
+          "passed": true
+        },
+        {
+          "name": "early risk recommends intervention without presenting a drying window",
+          "passed": true
+        },
+        {
+          "name": "a concrete missing datum is a question, with no fabricated time",
+          "passed": true
+        },
+        {
+          "name": "at expiry a displayed estimate loses its old action and window",
+          "passed": true
+        },
+        {
+          "name": "expired action_now cannot continue recommending action on an open page",
+          "passed": true
+        },
+        {
+          "name": "missing or malformed validity never keeps an assessment actionable",
+          "passed": true
+        },
+        {
+          "name": "a changed Situation cannot reuse a previous revision’s estimate",
+          "passed": true
+        },
+        {
+          "name": "stopping alerts is not presented as proof the physical result happened",
+          "passed": true
+        },
+        {
+          "name": "a finished watch keeps its verified final action visible until expiry",
+          "passed": true
+        },
+        {
+          "name": "plain waiting does not manufacture a question for the user",
+          "passed": true
+        },
+        {
+          "name": "only an explicit direct-observation basis is presented as such",
+          "passed": true
+        },
+        {
+          "name": "the server’s local window is preserved across midnight and client timezones",
+          "passed": true
+        },
+        {
+          "name": "identical recommendation text is not duplicated below the headline",
+          "passed": true
+        },
+        {
+          "name": "an absent estimate is explicit even when no target has been saved",
+          "passed": true
+        },
+        {
+          "name": "a failed read is unavailable even while the old action is valid",
+          "passed": false,
+          "error": "expected \"unavailable\", got \"action_now\""
+        },
+        {
+          "name": "an unavailable read hides a window without pretending there was no assessment",
+          "passed": false,
+          "error": "expected \"unavailable\", got \"estimated\""
+        },
+        {
+          "name": "only a successful current read restores the assessment and revision fence",
+          "passed": false,
+          "error": "expected \"unavailable\", got \"estimated\""
+        },
+        {
+          "name": "an unavailable first read does not claim no assessment or a stopped watch",
+          "passed": false,
+          "error": "expected \"unavailable\", got \"pending\""
+        }
+      ]
+    },
+    "candidate": {
+      "hook": [
+        {
+          "name": "failure after action_now preserves context but withdraws action until a successful read",
+          "passed": true
+        },
+        {
+          "name": "a late success cannot restore a Situation removed by a newer current read",
+          "passed": true
+        },
+        {
+          "name": "a late success cannot erase a newer failed read",
+          "passed": true
+        },
+        {
+          "name": "a late failure cannot invalidate newer successful data",
+          "passed": true
+        },
+        {
+          "name": "changing owner hides cached data immediately and ignores previous owner completion",
+          "passed": true
+        },
+        {
+          "name": "logout neither retains temporary memory nor accepts an in-flight reply",
+          "passed": true
+        },
+        {
+          "name": "a refresh-key generation rejects a previous read without changing the cadence",
+          "passed": true
+        },
+        {
+          "name": "inactive and unmounted readers have no late publications or new reads",
+          "passed": true
+        },
+        {
+          "name": "the first failed read is explicit rather than a successful empty map",
+          "passed": true
+        }
+      ],
+      "outcome": [
+        {
+          "name": "the useful estimate and the internal checkpoint remain different facts",
+          "passed": true
+        },
+        {
+          "name": "a scheduled check, temporal scope and research log do not manufacture an estimate",
+          "passed": true
+        },
+        {
+          "name": "action_now based on an estimate is actionable without claiming a direct observation",
+          "passed": true
+        },
+        {
+          "name": "early risk recommends intervention without presenting a drying window",
+          "passed": true
+        },
+        {
+          "name": "a concrete missing datum is a question, with no fabricated time",
+          "passed": true
+        },
+        {
+          "name": "at expiry a displayed estimate loses its old action and window",
+          "passed": true
+        },
+        {
+          "name": "expired action_now cannot continue recommending action on an open page",
+          "passed": true
+        },
+        {
+          "name": "missing or malformed validity never keeps an assessment actionable",
+          "passed": true
+        },
+        {
+          "name": "a changed Situation cannot reuse a previous revision’s estimate",
+          "passed": true
+        },
+        {
+          "name": "stopping alerts is not presented as proof the physical result happened",
+          "passed": true
+        },
+        {
+          "name": "a finished watch keeps its verified final action visible until expiry",
+          "passed": true
+        },
+        {
+          "name": "plain waiting does not manufacture a question for the user",
+          "passed": true
+        },
+        {
+          "name": "only an explicit direct-observation basis is presented as such",
+          "passed": true
+        },
+        {
+          "name": "the server’s local window is preserved across midnight and client timezones",
+          "passed": true
+        },
+        {
+          "name": "identical recommendation text is not duplicated below the headline",
+          "passed": true
+        },
+        {
+          "name": "an absent estimate is explicit even when no target has been saved",
+          "passed": true
+        },
+        {
+          "name": "a failed read is unavailable even while the old action is valid",
+          "passed": true
+        },
+        {
+          "name": "an unavailable read hides a window without pretending there was no assessment",
+          "passed": true
+        },
+        {
+          "name": "only a successful current read restores the assessment and revision fence",
+          "passed": true
+        },
+        {
+          "name": "an unavailable first read does not claim no assessment or a stopped watch",
+          "passed": true
+        }
+      ]
+    },
+    "counts": {
+      "baseline_hook_passed": 0,
+      "baseline_hook_failed": 9,
+      "baseline_outcome_passed": 16,
+      "baseline_outcome_failed": 4,
+      "candidate_passed": 29,
+      "candidate_failed": 0,
+      "component_cases_awaiting_node_ci": 5
+    },
+    "effects": {
+      "model_calls": 0,
+      "network_calls": 0,
+      "real_user_mutations": 0
+    }
+  },
+  "cjs_syntax": {
+    "executed": "V8 parser via new Function on exact CJS content; no module execution",
+    "passed": true
+  },
+  "ci_required": {
+    "main_frontend_job": "node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+    "main_frontend_declared_tests": 34,
+    "counts": {
+      "existing_presenter": 16,
+      "new_presenter": 4,
+      "hook_async": 9,
+      "component_render": 5
+    },
+    "dependency": "The new CJS harness uses the repository's installed TypeScript devDependency. It must run only after npm ci. The Situation workflow retains its dependency-free test.ts command.",
+    "actual_ci_execution": "not_run",
+    "typecheck": "not_run",
+    "browser": "not_run",
+    "note": "The executor is offline. 29 V8 behavioral checks are evidence for the JS bodies and deterministic scheduling, not a claim that Node transpilation, React, browser or native delivery has run."
+  },
+  "diff_unified": "diff --git a/frontend/src/components/ora/presence/useTemporaryMemory.ts b/frontend/src/components/ora/presence/useTemporaryMemory.ts\n--- a/frontend/src/components/ora/presence/useTemporaryMemory.ts\n+++ b/frontend/src/components/ora/presence/useTemporaryMemory.ts\n@@ -1,32 +1,57 @@\n+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';\n-import { useCallback, useEffect, useMemo, useState } from 'react';\n import { AppState } from 'react-native';\n \n import { api } from '@/src/api/client';\n+import { useAuth } from '@/src/contexts/AuthContext';\n import type { KnowledgeStar } from './knowledge';\n \n+type TemporaryMemoryRead = { owner: string; stars: KnowledgeStar[]; error: boolean };\n+\n function stamp(star: KnowledgeStar): number {\n   const value = star.updated_at ? new Date(star.updated_at).getTime() : 0;\n   return Number.isFinite(value) ? value : 0;\n }\n \n export function useTemporaryMemory(active = true, refreshKey?: unknown) {\n+  const { user } = useAuth();\n+  const owner = user?.user_id;\n+  const [result, setResult] = useState<TemporaryMemoryRead | null>(null);\n+  const generation = useRef(0);\n+  const latestRead = useRef(0);\n+  const live = useRef(false);\n+  const scope = useRef({ owner, active });\n+  // Fence a previous owner's completion even before effect cleanup runs.\n+  scope.current = { owner, active };\n-  const [stars, setStars] = useState<KnowledgeStar[]>([]);\n \n   const refresh = useCallback(async () => {\n+    if (!owner || !active || !live.current\n+      || scope.current.owner !== owner || !scope.current.active) return;\n+    const ticket = generation.current;\n+    const readId = ++latestRead.current;\n+    const isCurrent = () => live.current && scope.current.owner === owner\n+      && scope.current.active && generation.current === ticket && readId === latestRead.current;\n-    if (!active) return;\n     try {\n       const map = await api.knowledgeMap();\n+      if (!isCurrent()) return;\n+      const stars = (map.stars || [])\n-      const next = (map.stars || [])\n         .filter((star) => star.temporary)\n         .sort((a, b) => stamp(b) - stamp(a));\n+      setResult(previous => isCurrent() ? { owner, stars, error: false } : previous);\n-      setStars(next);\n     } catch {\n+      // Keep context, but a failed current read cannot leave advice actionable.\n+      if (!isCurrent()) return;\n+      setResult(previous => isCurrent() ? {\n+        owner, stars: previous?.owner === owner ? previous.stars : [], error: true,\n+      } : previous);\n-      // Temporary memory is an enrichment. Conversation remains usable.\n     }\n+  }, [active, owner]);\n-  }, [active]);\n \n   useEffect(() => {\n+    live.current = true;\n+    ++generation.current;\n+    if (!active || !owner) {\n+      return () => { live.current = false; ++generation.current; };\n+    }\n-    if (!active) return;\n     void refresh();\n     const timer = setInterval(() => {\n       if (AppState.currentState === 'active') void refresh();\n@@ -35,13 +60,19 @@\n       if (state === 'active') void refresh();\n     });\n     return () => {\n+      live.current = false;\n+      ++generation.current;\n       clearInterval(timer);\n       app.remove();\n     };\n+  }, [active, owner, refresh, refreshKey]);\n-  }, [active, refresh, refreshKey]);\n \n+  const current = active && result?.owner === owner ? result : null;\n   return useMemo(\n+    () => ({\n+      stars: current?.stars || [], latest: current?.stars[0] || null,\n+      count: current?.stars.length || 0, error: current?.error || false, refresh,\n+    }),\n+    [current, refresh],\n-    () => ({ stars, latest: stars[0] || null, count: stars.length, refresh }),\n-    [stars, refresh],\n   );\n }\ndiff --git a/frontend/src/components/ora/situationOutcome.ts b/frontend/src/components/ora/situationOutcome.ts\n--- a/frontend/src/components/ora/situationOutcome.ts\n+++ b/frontend/src/components/ora/situationOutcome.ts\n@@ -1,7 +1,7 @@\n import type { SituationOutcome } from '@/src/api/client';\n \n export type SituationOutcomeView = {\n+  status: SituationOutcome['status'] | 'pending' | 'outdated' | 'stopped' | 'unavailable';\n-  status: SituationOutcome['status'] | 'pending' | 'outdated' | 'stopped';\n   label: string;\n   headline: string;\n   detail: string;\n@@ -15,6 +15,8 @@\n   desiredOutcome?: string | null;\n   situationRevision?: number;\n   followupStatus?: string | null;\n+  /** The last read of this assessment's source failed; null outcome means something else. */\n+  readUnavailable?: boolean;\n };\n \n /**\n@@ -22,6 +24,13 @@\n  * clock or temporal scope is promoted into an outcome estimate here.\n  */\n export function situationOutcomeView(input: OutcomeInput, now: number = Date.now()): SituationOutcomeView {\n+  if (input.readUnavailable) {\n+    return {\n+      status: 'unavailable', label: 'Ultima lettura non riuscita',\n+      headline: 'Stato non verificabile', detail: 'Le indicazioni precedenti non sono confermate.',\n+      window: null, basis: '', needsAttention: false,\n+    };\n+  }\n   const desired = String(input.desiredOutcome || '').trim();\n   const outcome = input.outcome;\n   const validUntil = outcome ? Date.parse(outcome.valid_until) : NaN;\ndiff --git a/frontend/src/components/ora/SituationOutcomeSummary.tsx b/frontend/src/components/ora/SituationOutcomeSummary.tsx\n--- a/frontend/src/components/ora/SituationOutcomeSummary.tsx\n+++ b/frontend/src/components/ora/SituationOutcomeSummary.tsx\n@@ -17,13 +17,14 @@\n \n /** The useful recommendation always precedes the machinery that checked it. */\n export function SituationOutcomeSummary({\n+  outcome, desiredOutcome, situationRevision, followupStatus, readUnavailable,\n-  outcome, desiredOutcome, situationRevision, followupStatus,\n   colors = defaultColors, compact = false, testID = 'situation-outcome',\n }: {\n   outcome?: SituationOutcome | null;\n   desiredOutcome?: string | null;\n   situationRevision?: number;\n   followupStatus?: string | null;\n+  readUnavailable?: boolean;\n   colors?: SituationOutcomeColors;\n   compact?: boolean;\n   testID?: string;\n@@ -40,7 +41,7 @@\n     return () => { if (timer !== null) clearTimeout(timer); appState.remove(); };\n   }, [outcome?.valid_until]);\n \n+  const view = situationOutcomeView({ outcome, desiredOutcome, situationRevision, followupStatus, readUnavailable });\n-  const view = situationOutcomeView({ outcome, desiredOutcome, situationRevision, followupStatus });\n   return (\n     <View style={styles.summary} testID={testID} accessibilityLiveRegion=\"polite\">\n       <Text style={[oraType.small, { color: view.needsAttention ? colors.attention : colors.secondary }]}>\ndiff --git a/frontend/src/components/ora/OraCockpitContext.tsx b/frontend/src/components/ora/OraCockpitContext.tsx\n--- a/frontend/src/components/ora/OraCockpitContext.tsx\n+++ b/frontend/src/components/ora/OraCockpitContext.tsx\n@@ -94,9 +94,12 @@\n   const current = star !== undefined\n     ? star\n     : temporary.stars.find(item => item.id === selectedStarId) || temporary.latest;\n+  // Only the read that supplied the displayed star can invalidate its advice.\n+  const sourceUnavailable = star !== undefined ? readError : temporary.error;\n   const focus = home?.primary_focus || null;\n   const currentState = firstSituationState(current);\n   const followup = current?.follow_up;\n+  const verifiedFollowup = sourceUnavailable ? undefined : followup;\n   const followupStatus: Record<string, string> = {\n     scheduled: 'Controllo programmato', due: 'Controllo in scadenza', running: 'Controllo in corso',\n     review_pending: 'Valutazione presa in carico: controllo non ancora programmato',\n@@ -145,10 +148,11 @@\n             desiredOutcome={followup?.desired_outcome || current.desired_outcome}\n             situationRevision={current.situation_revision}\n             followupStatus={followup?.status}\n+            readUnavailable={sourceUnavailable}\n             colors={outcomeColors}\n             testID=\"ora-cockpit-outcome\"\n           />\n+          {sourceUnavailable ? <Text accessibilityRole=\"alert\" style={styles.removeError}>\n-          {readError ? <Text accessibilityRole=\"alert\" style={styles.removeError}>\n             Aggiornamento non riuscito: i dati mostrati sono quelli dell’ultima lettura.\n           </Text> : null}\n \n@@ -168,7 +172,7 @@\n               </>\n             ) : null}\n \n+            {!sourceUnavailable && currentState ? (\n-            {currentState ? (\n               <>\n                 <View style={styles.divider} />\n                 <DetailRow\n@@ -180,7 +184,7 @@\n               </>\n             ) : null}\n \n+            {!sourceUnavailable && current.expected_outcome_summary ? (\n-            {current.expected_outcome_summary ? (\n               <>\n                 <View style={styles.divider} />\n                 <DetailRow\n@@ -193,22 +197,22 @@\n \n             <View style={styles.divider} />\n             <DetailRow icon=\"eye-outline\" title=\"Stato del controllo\"\n+              body={followupStatus[verifiedFollowup?.status || 'unavailable'] || followupStatus.unavailable} />\n+            {verifiedFollowup?.next_check_at ? <>\n-              body={followupStatus[followup?.status || 'unavailable'] || followupStatus.unavailable} />\n-            {followup?.next_check_at ? <>\n               <View style={styles.divider} />\n+              <DetailRow icon=\"time-outline\" title=\"Prossimo controllo\" body={verifiedFollowup.next_check_label || timeLabel(verifiedFollowup.next_check_at)} />\n-              <DetailRow icon=\"time-outline\" title=\"Prossimo controllo\" body={followup.next_check_label || timeLabel(followup.next_check_at)} />\n             </> : null}\n+            {verifiedFollowup?.last_checked_at ? <>\n-            {followup?.last_checked_at ? <>\n               <View style={styles.divider} />\n+              <DetailRow icon=\"checkmark-circle-outline\" title=\"Ultimo controllo eseguito\" body={timeLabel(verifiedFollowup.last_checked_at)} />\n-              <DetailRow icon=\"checkmark-circle-outline\" title=\"Ultimo controllo eseguito\" body={timeLabel(followup.last_checked_at)} />\n             </> : null}\n+            {verifiedFollowup?.completion_when ? <>\n-            {followup?.completion_when ? <>\n               <View style={styles.divider} />\n+              <DetailRow icon=\"checkmark-done-outline\" title=\"Ti avviso quando\" body={verifiedFollowup.completion_when} />\n-              <DetailRow icon=\"checkmark-done-outline\" title=\"Ti avviso quando\" body={followup.completion_when} />\n             </> : null}\n+            {verifiedFollowup?.notify_when ? <>\n-            {followup?.notify_when ? <>\n               <View style={styles.divider} />\n+              <DetailRow icon=\"warning-outline\" title=\"Ti avviso prima se\" body={verifiedFollowup.notify_when} />\n-              <DetailRow icon=\"warning-outline\" title=\"Ti avviso prima se\" body={followup.notify_when} />\n             </> : null}\n           </SituationDetails>\n \n@@ -241,8 +245,10 @@\n               <Ionicons name=\"sparkles-outline\" size={19} color={palette.label} />\n             </View>\n             <View style={styles.primaryTitleCol}>\n+              <Text style={styles.cardLabel}>{sourceUnavailable ? 'STATO NON VERIFICABILE' : 'NESSUNA SITUAZIONE TEMPORANEA'}</Text>\n+              <Text style={styles.primarySubtitle}>{sourceUnavailable\n+                ? 'Non riesco a confermare le situazioni temporanee.'\n+                : 'La mappa non ha stati momentanei aperti.'}</Text>\n-              <Text style={styles.cardLabel}>NESSUNA SITUAZIONE TEMPORANEA</Text>\n-              <Text style={styles.primarySubtitle}>La mappa non ha stati momentanei aperti.</Text>\n             </View>\n           </View>\n         </View>\ndiff --git a/frontend/src/components/ora/OraConversationScreen.tsx b/frontend/src/components/ora/OraConversationScreen.tsx\n--- a/frontend/src/components/ora/OraConversationScreen.tsx\n+++ b/frontend/src/components/ora/OraConversationScreen.tsx\n@@ -1590,7 +1590,7 @@\n                 {cockpitComposerBlock}\n               </View>\n             </View>\n+            <TemporarySituationToast star={temporaryMemory.error ? null : temporaryMemory.latest} inline />\n-            <TemporarySituationToast star={temporaryMemory.latest} inline />\n           </View>\n \n           <View style={styles.cockpitMap} testID=\"ora-cockpit-map\">\ndiff --git a/frontend/src/components/ora/situationOutcome.test.ts b/frontend/src/components/ora/situationOutcome.test.ts\n--- a/frontend/src/components/ora/situationOutcome.test.ts\n+++ b/frontend/src/components/ora/situationOutcome.test.ts\n@@ -190,3 +190,42 @@\n   assert.equal(view.detail, '');\n   assert.match(view.headline, /non ancora disponibile/);\n });\n+\n+test('a failed read is unavailable even while the old action is valid', () => {\n+  const outcome = assessment({ status: 'action_now', action_reason: 'early_risk', headline: 'Ritira subito' });\n+  const view = situationOutcomeView({ outcome, situationRevision: 7, readUnavailable: true }, now);\n+  assert.equal(view.status, 'unavailable');\n+  assert.equal(view.headline, 'Stato non verificabile');\n+  assert.equal(view.needsAttention, false);\n+  assert.equal(view.window, null);\n+  assert.ok(!JSON.stringify(view).includes(outcome.headline));\n+  assert.equal(outcome.status, 'action_now');\n+});\n+\n+test('an unavailable read hides a window without pretending there was no assessment', () => {\n+  const outcome = assessment();\n+  const view = situationOutcomeView({ outcome, readUnavailable: true }, now);\n+  assert.equal(view.status, 'unavailable');\n+  assert.equal(view.window, null);\n+  assert.equal(view.basis, '');\n+  assert.ok(!JSON.stringify(view).includes(outcome.window_label!));\n+  assert.ok(!JSON.stringify(view).includes('non ancora disponibile'));\n+});\n+\n+test('only a successful current read restores the assessment and revision fence', () => {\n+  const outcome = assessment();\n+  assert.equal(situationOutcomeView({ outcome, readUnavailable: true }, now).status, 'unavailable');\n+  assert.equal(situationOutcomeView({ outcome, readUnavailable: false, situationRevision: 7 }, now).status, 'estimated');\n+  assert.equal(situationOutcomeView({ outcome, readUnavailable: false, situationRevision: 8 }, now).status, 'outdated');\n+  assert.equal(situationOutcomeView({ outcome: null, readUnavailable: false, followupStatus: 'stopped' }, now).status, 'stopped');\n+});\n+\n+test('an unavailable first read does not claim no assessment or a stopped watch', () => {\n+  for (const followupStatus of [undefined, 'stopped', 'scheduled']) {\n+    const view = situationOutcomeView({ readUnavailable: true, followupStatus }, now);\n+    assert.equal(view.status, 'unavailable');\n+    assert.equal(view.headline, 'Stato non verificabile');\n+    assert.equal(view.needsAttention, false);\n+    assert.equal(view.window, null);\n+  }\n+});\ndiff --git a/frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs b/frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs\n--- /dev/null\n+++ b/frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs\n@@ -0,0 +1,341 @@\n+const test = require('node:test');\n+const assert = require('node:assert/strict');\n+const fs = require('node:fs');\n+const path = require('node:path');\n+const vm = require('node:vm');\n+const ts = require('typescript');\n+\n+// The real hook and components are transpiled. Only React scheduling, native\n+// views and API I/O are deterministic adapters; this is not a browser test.\n+function compile(file, requireModule, globals = {}) {\n+  const module = { exports: {} };\n+  const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {\n+    compilerOptions: {\n+      module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,\n+      jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,\n+    },\n+  }).outputText;\n+  vm.runInNewContext(code, {\n+    module, exports: module.exports, require: requireModule,\n+    console, setTimeout, clearTimeout, ...globals,\n+  }, { filename: file });\n+  return module.exports;\n+}\n+const now = Date.parse('2026-10-12T16:00:00Z');\n+class Clock extends Date { static now() { return now; } }\n+const outcomeView = compile(path.join(__dirname, '../situationOutcome.ts'), name => { throw Error(name); }, { Date: Clock }).situationOutcomeView;\n+function sampleStar(overrides = {}) {\n+  return {\n+    id: 'temporary-synthetic', temporary: true, situation_id: 'sit_synthetic',\n+    situation_revision: 7, updated_at: '2026-10-12T15:55:00Z',\n+    title: 'Bucato sintetico', statement: 'Dichiarazione sintetica registrata.',\n+    current_state_summary: 'Intervento dalla precedente lettura',\n+    expected_outcome_summary: 'Vecchia finestra registrata',\n+    follow_up: {\n+      status: 'scheduled', next_check_at: '2026-10-12T16:30:00Z',\n+      next_check_label: 'Prossimo controllo sintetico alle 18:30',\n+      completion_when: 'Avviso secondo la precedente valutazione',\n+      notify_when: 'Rischio della precedente valutazione',\n+      outcome: {\n+        status: 'action_now', headline: 'Ritira secondo la stima disponibile',\n+        action_summary: 'Indicazione sintetica della precedente lettura.',\n+        valid_until: '2026-10-12T18:00:00Z', situation_revision: 7,\n+        basis: 'estimate', action_reason: 'outcome_ready',\n+      },\n+    },\n+    ...overrides,\n+  };\n+}\n+\n+function temporaryHookHarness(compileHook) {\n+  let owner = 'owner-a', props = [true, 0], position = 0, pending = [];\n+  const slots = [], requests = [], listeners = new Set(), timers = new Map();\n+  let timerId = 0, value, stateWrites = 0;\n+  const equal = (a, b) => !!a && !!b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));\n+  const react = {\n+    useState(initial) {\n+      const id = position++;\n+      if (!slots[id]) slots[id] = { value: typeof initial === 'function' ? initial() : initial };\n+      return [slots[id].value, next => {\n+        stateWrites++;\n+        slots[id].value = typeof next === 'function' ? next(slots[id].value) : next;\n+      }];\n+    },\n+    useRef(initial) {\n+      const id = position++;\n+      if (!slots[id]) slots[id] = { ref: { current: initial } };\n+      return slots[id].ref;\n+    },\n+    useMemo(make, deps) {\n+      const id = position++;\n+      if (!slots[id] || !equal(slots[id].deps, deps)) slots[id] = { deps, value: make() };\n+      return slots[id].value;\n+    },\n+    useCallback(fn, deps) { return react.useMemo(() => fn, deps); },\n+    useEffect(effect, deps) {\n+      const id = position++, previous = slots[id];\n+      if (!previous || !equal(previous.deps, deps)) {\n+        slots[id] = { deps, cleanup: previous?.cleanup };\n+        pending.push(() => {\n+          slots[id].cleanup?.();\n+          slots[id].cleanup = effect();\n+        });\n+      }\n+    },\n+  };\n+  const appState = {\n+    currentState: 'active',\n+    addEventListener(_event, listener) { listeners.add(listener); return { remove: () => listeners.delete(listener) }; },\n+  };\n+  const api = {\n+    knowledgeMap() {\n+      let resolve, reject;\n+      const promise = new Promise((yes, no) => { resolve = yes; reject = no; });\n+      requests.push({ owner, resolve, reject });\n+      return promise;\n+    },\n+  };\n+  const hook = compileHook({\n+    react, AppState: appState, api, useAuth: () => ({ user: owner ? { user_id: owner } : null }),\n+    setInterval: (fn, ms) => { const id = ++timerId; timers.set(id, { fn, ms }); return id; },\n+    clearInterval: id => timers.delete(id),\n+  });\n+  const render = () => {\n+    position = 0;\n+    value = hook(...props);\n+    const effects = pending; pending = [];\n+    effects.forEach(effect => effect());\n+    return value;\n+  };\n+  return {\n+    requests, timers, listeners, render,\n+    get value() { return value; }, get stateWrites() { return stateWrites; },\n+    async settle() { await Promise.resolve(); await Promise.resolve(); return render(); },\n+    async succeed(index, stars) { requests[index].resolve({ stars }); return this.settle(); },\n+    async fail(index) { requests[index].reject(new Error('synthetic-unavailable')); return this.settle(); },\n+    setOwner(next) { owner = next; return render(); },\n+    setActive(next) { props = [next, props[1]]; return render(); },\n+    setRefreshKey(next) { props = [props[0], next]; return render(); },\n+    foreground() { for (const listener of [...listeners]) listener('active'); },\n+    unmount() { for (const slot of slots) slot?.cleanup?.(); },\n+  };\n+}\n+\n+function setup() {\n+  return temporaryHookHarness(deps => compile(path.join(__dirname, 'useTemporaryMemory.ts'), name => {\n+    if (name === 'react') return deps.react;\n+    if (name === 'react-native') return { AppState: deps.AppState };\n+    if (name === '@/src/api/client') return { api: deps.api };\n+    if (name === '@/src/contexts/AuthContext') return { useAuth: deps.useAuth };\n+    throw Error('unexpected import: ' + name);\n+  }, { setInterval: deps.setInterval, clearInterval: deps.clearInterval }).useTemporaryMemory);\n+}\n+function currentView(memory) {\n+  const star = memory.latest;\n+  return outcomeView({\n+    outcome: star?.follow_up?.outcome, situationRevision: star?.situation_revision,\n+    followupStatus: star?.follow_up?.status, readUnavailable: memory.error,\n+  }, now);\n+}\n+\n+test('failure after action_now preserves context but withdraws action until a successful read', async () => {\n+  const h = setup(), star = sampleStar(); h.render();\n+  await h.succeed(0, [star]);\n+  assert.equal(currentView(h.value).status, 'action_now');\n+  const pending = h.value.refresh(); await h.fail(1); await pending;\n+  assert.equal(h.value.latest, star);\n+  assert.equal(h.value.error, true);\n+  assert.equal(currentView(h.value).status, 'unavailable');\n+  assert.equal(currentView(h.value).needsAttention, false);\n+  const retry = h.value.refresh(); h.render();\n+  assert.equal(h.value.error, true);\n+  await h.succeed(2, [star]); await retry;\n+  assert.equal(h.value.error, false);\n+  assert.equal(currentView(h.value).status, 'action_now');\n+  assert.equal(h.requests.length, 3);\n+});\n+\n+test('a late success cannot restore a Situation removed by a newer current read', async () => {\n+  const h = setup(), star = sampleStar(); h.render(); await h.succeed(0, [star]);\n+  const older = h.value.refresh(), newer = h.value.refresh();\n+  await h.succeed(2, []); await newer;\n+  await h.succeed(1, [star]); await older; h.render();\n+  assert.equal(h.value.count, 0);\n+  assert.equal(h.value.latest, null);\n+  assert.equal(h.value.error, false);\n+});\n+\n+test('a late success cannot erase a newer failed read', async () => {\n+  const h = setup(), star = sampleStar(); h.render(); await h.succeed(0, [star]);\n+  const older = h.value.refresh(), newer = h.value.refresh();\n+  await h.fail(2); await newer;\n+  await h.succeed(1, [sampleStar({ id: 'old-response' })]); await older; h.render();\n+  assert.equal(h.value.error, true);\n+  assert.equal(h.value.latest.id, star.id);\n+  assert.equal(currentView(h.value).status, 'unavailable');\n+});\n+\n+test('a late failure cannot invalidate newer successful data', async () => {\n+  const h = setup(); h.render(); await h.succeed(0, [sampleStar()]);\n+  const older = h.value.refresh(), newer = h.value.refresh();\n+  await h.succeed(2, [sampleStar({ id: 'current-response' })]); await newer;\n+  await h.fail(1); await older; h.render();\n+  assert.equal(h.value.error, false);\n+  assert.equal(h.value.latest.id, 'current-response');\n+});\n+\n+test('changing owner hides cached data immediately and ignores previous owner completion', async () => {\n+  const h = setup(); h.render(); await h.succeed(0, [sampleStar()]);\n+  const older = h.value.refresh();\n+  h.setOwner('owner-b');\n+  assert.equal(h.value.latest, null);\n+  assert.equal(h.value.count, 0);\n+  await h.succeed(2, [sampleStar({ id: 'owner-b-star' })]);\n+  await h.succeed(1, [sampleStar({ id: 'owner-a-late' })]); await older; h.render();\n+  assert.equal(h.value.latest.id, 'owner-b-star');\n+  assert.equal(h.value.error, false);\n+});\n+\n+test('logout neither retains temporary memory nor accepts an in-flight reply', async () => {\n+  const h = setup(); h.render(); await h.succeed(0, [sampleStar()]);\n+  const older = h.value.refresh();\n+  h.setOwner(null);\n+  assert.equal(h.value.latest, null);\n+  await h.succeed(1, [sampleStar()]); await older; h.render();\n+  await h.value.refresh();\n+  assert.equal(h.value.latest, null);\n+  assert.equal(h.requests.length, 2);\n+  assert.equal(h.timers.size, 0);\n+});\n+\n+test('a refresh-key generation rejects a previous read without changing the cadence', async () => {\n+  const h = setup(); h.render();\n+  h.setRefreshKey(1);\n+  await h.succeed(1, [sampleStar({ id: 'new-generation' })]);\n+  await h.fail(0);\n+  assert.equal(h.value.latest.id, 'new-generation');\n+  assert.equal(h.value.error, false);\n+  assert.equal(h.timers.size, 1);\n+  assert.equal([...h.timers.values()][0].ms, 15000);\n+  h.foreground();\n+  assert.equal(h.requests.length, 3);\n+  await h.succeed(2, []);\n+});\n+\n+test('inactive and unmounted readers have no late publications or new reads', async () => {\n+  const h = setup(); h.render(); await h.succeed(0, [sampleStar()]);\n+  h.setActive(false);\n+  assert.equal(h.value.latest, null);\n+  await h.value.refresh();\n+  assert.equal(h.requests.length, 1);\n+  h.setActive(true);\n+  const writes = h.stateWrites;\n+  h.unmount();\n+  await h.succeed(1, [sampleStar()]);\n+  await h.value.refresh();\n+  assert.equal(h.stateWrites, writes);\n+  assert.equal(h.requests.length, 2);\n+  assert.equal(h.timers.size, 0);\n+  assert.equal(h.listeners.size, 0);\n+});\n+\n+test('the first failed read is explicit rather than a successful empty map', async () => {\n+  const h = setup(); h.render(); await h.fail(0);\n+  assert.equal(h.value.error, true);\n+  assert.equal(h.value.count, 0);\n+  assert.equal(currentView(h.value).status, 'unavailable');\n+});\n+\n+function cockpitText(props, local = {}) {\n+  const temporary = { stars: [], latest: null, count: 0, error: false, refresh: async () => {}, ...local };\n+  const react = {\n+    useState: initial => [initial, () => {}], useEffect: () => {},\n+    useReducer: (_reducer, initial) => [initial, () => {}],\n+    useCallback: fn => fn,\n+  };\n+  const jsx = { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: 'Fragment' };\n+  const native = {\n+    View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator',\n+    StyleSheet: { create: value => value, hairlineWidth: 1 },\n+    AppState: { addEventListener: () => ({ remove() {} }) },\n+  };\n+  const readModule = name => {\n+    if (name === 'react') return react;\n+    if (name === 'react/jsx-runtime') return jsx;\n+    if (name === 'react-native') return native;\n+    if (name === '@expo/vector-icons') return { Ionicons: 'Icon' };\n+    if (name === 'expo-router') return { useRouter: () => ({ push() { throw Error('unexpected navigation'); } }) };\n+    if (name === '@/src/theme/oraSurface') return { ora: {}, oraType: {} };\n+    if (name === '@/src/theme/presence') return { presencePalette: {}, presenceColors: {} };\n+    if (name === '@/src/theme/tokens') return { tokens: {} };\n+    if (name === '@/src/api/client') return { api: { getHome: async () => null } };\n+    if (name === './presence/useTemporaryMemory') return { useTemporaryMemory: () => temporary };\n+    if (name === './situationVisual') return {\n+      firstSituationState: star => star?.current_state_summary || null,\n+      situationIcon: () => 'sparkles', situationTitle: star => star.title,\n+    };\n+    if (name === './situationOutcome') return { situationOutcomeView: outcomeView };\n+    if (name === './SituationOutcomeSummary') return {\n+      ...summary,\n+      // Open only the existing collapsible wrapper to inspect every detail row.\n+      SituationDetails: ({ children }) => children,\n+    };\n+    throw Error('unexpected import: ' + name);\n+  };\n+  const summary = compile(path.join(__dirname, '../SituationOutcomeSummary.tsx'), readModule, { Date: Clock });\n+  const { OraCockpitContext } = compile(path.join(__dirname, '../OraCockpitContext.tsx'), readModule);\n+  const text = node => {\n+    if (node === null || node === undefined || typeof node === 'boolean') return '';\n+    if (Array.isArray(node)) return node.map(text).join(' ');\n+    if (typeof node !== 'object') return String(node);\n+    if (typeof node.type === 'function') return text(node.type(node.props));\n+    return text(node.props?.children);\n+  };\n+  return text(OraCockpitContext({ standalone: true, ...props }));\n+}\n+\n+test('a failed selected-map read hides action, window and next-check promises', () => {\n+  const star = sampleStar();\n+  const text = cockpitText({ star, readError: true }, { latest: star, error: false });\n+  assert.match(text, /Stato non verificabile/);\n+  for (const prior of [\n+    star.follow_up.outcome.headline, 'Prossimo controllo', 'Ti avviso quando', 'Ti avviso prima se',\n+    star.current_state_summary, star.expected_outcome_summary,\n+  ]) assert.ok(!text.includes(prior), prior);\n+  assert.ok(!text.includes('Stima non ancora disponibile'));\n+});\n+\n+test('an unrelated local-hook error cannot invalidate a fresh supplied map star', () => {\n+  const star = sampleStar();\n+  const text = cockpitText({ star, readError: false }, { error: true, latest: sampleStar({ id: 'other' }) });\n+  assert.ok(text.includes(star.follow_up.outcome.headline));\n+  assert.ok(text.includes(star.follow_up.next_check_label));\n+  assert.ok(!text.includes('Stato non verificabile'));\n+});\n+\n+test('a local panel uses its local read failure and ignores an unrelated map error', () => {\n+  const star = sampleStar();\n+  const stale = cockpitText({ readError: false }, { stars: [star], latest: star, count: 1, error: true });\n+  assert.match(stale, /Stato non verificabile/);\n+  assert.ok(!stale.includes(star.follow_up.outcome.headline));\n+  assert.ok(!stale.includes(star.follow_up.next_check_label));\n+  const fresh = cockpitText({ readError: true }, { stars: [star], latest: star, count: 1, error: false });\n+  assert.ok(fresh.includes(star.follow_up.outcome.headline));\n+  assert.ok(fresh.includes(star.follow_up.next_check_label));\n+  assert.ok(!fresh.includes('Stato non verificabile'));\n+});\n+\n+test('a failed first read cannot claim there are no temporary Situations', () => {\n+  const text = cockpitText({}, { error: true });\n+  assert.match(text, /STATO NON VERIFICABILE/);\n+  assert.ok(!text.includes('NESSUNA SITUAZIONE TEMPORANEA'));\n+  assert.ok(!text.includes('La mappa non ha stati momentanei aperti'));\n+});\n+\n+test('a current cancelled map star cannot fall back to another cached local Situation', () => {\n+  const star = sampleStar();\n+  const text = cockpitText({ star: null, readError: false }, { latest: star, stars: [star], error: true });\n+  assert.ok(text.includes('NESSUNA SITUAZIONE TEMPORANEA'));\n+  assert.ok(!text.includes(star.follow_up.outcome.headline));\n+  assert.ok(!text.includes(star.follow_up.next_check_label));\n+});\n"
+}

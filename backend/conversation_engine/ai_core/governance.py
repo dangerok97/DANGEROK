@@ -357,6 +357,17 @@ def validate_decision(
 
     situation_update = None
     raw_situation = data.get("situation_update")
+    # A raw CREATE must declare optional context explicitly before defaults are
+    # applied. Unknown values are allowed; governance must not infer a link.
+    if isinstance(raw_situation, dict) and raw_situation.get("operation") == "create":
+        missing_fields = [
+            field for field in ("location_label", "source_refs", "linked_object_refs")
+            if field not in raw_situation
+        ]
+        if missing_fields:
+            return GovernanceResult(False, errors=errors + [
+                f"situation_create_missing_{field}" for field in missing_fields
+            ])
     if raw_situation is not None:
         try:
             situation_update = SituationUpdate.model_validate(raw_situation)
@@ -464,6 +475,7 @@ def validate_decision(
         decision = CognitiveDecision(
             response_mode=mode,  # type: ignore[arg-type]
             display_area=data.get("display_area"),
+            display_focus_ref=data.get("display_focus_ref"),
             user_intent_summary=str(data.get("user_intent_summary") or "")[:400],
             active_goal_summary=(
                 str(data["active_goal_summary"])[:400]

@@ -6,13 +6,15 @@ clock advancement is used. These tests do not prove physical drying.
 """
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+import json
 
 import httpx
 import pytest
 from mongomock_motor import AsyncMongoMockClient
 
 from conversation_engine.ai_core import loop
-from conversation_engine.ai_core.models import Observation
+from conversation_engine.ai_core.governance import validate_decision
+from conversation_engine.ai_core.models import CognitiveDecision, Observation
 from conversation_engine.ai_core.tools.registry import ToolRegistry
 from conversation_engine.models import ConversationSession
 from places.models import Coordinates, LifePlace
@@ -151,6 +153,7 @@ async def exercise(monkeypatch, *, ending, after_schedule=None, model_text=None,
         "attention_intent": "Seguire l'evoluzione fino al momento utile.",
         "linked_object_refs": ["place:" + PLACE_ID],
         "location_label": "Tarquinia",
+        "source_refs": [],
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
     if model_text is not None:
@@ -378,3 +381,253 @@ def test_empty_handoff_does_not_reuse_the_historical_active_state(text, status, 
     assert loop._with_situation_handoff(text, result) == expected
     assert result == original
     assert "attive" not in expected and "asciutt" not in expected
+
+
+# Formal raw-JSON completeness is separate from the semantic choice of a place.
+_CREATE_CONTEXT_FIELDS = ("location_label", "source_refs", "linked_object_refs")
+
+
+def _raw_context_create():
+    return {
+        "response_mode": "answer", "message_to_user": "Tengo la situazione in vista.",
+        "situation_update": {
+            "operation": "create", "summary": "Una situazione temporanea è ancora in corso.",
+            "attention_intent": "Rivalutare le condizioni prima del prossimo passo.",
+            "desired_outcome": DESIRED_OUTCOME,
+            "location_label": None, "source_refs": [], "linked_object_refs": [],
+        },
+    }
+
+
+@pytest.mark.parametrize("missing", [
+    ("location_label",), ("source_refs",), ("linked_object_refs",),
+    ("location_label", "source_refs"),
+    ("location_label", "linked_object_refs"),
+    ("source_refs", "linked_object_refs"),
+    _CREATE_CONTEXT_FIELDS,
+])
+def test_raw_create_context_omissions_require_repair_before_defaults(missing):
+    raw = _raw_context_create()
+    for field in missing:
+        del raw["situation_update"][field]
+    original = deepcopy(raw)
+    result = validate_decision(raw, tools=ToolRegistry(None))
+    assert not result.ok and result.decision is None
+    assert result.errors == [f"situation_create_missing_{field}" for field in missing]
+    assert raw == original, "The validator must not invent unknowns or references"
+
+
+@pytest.mark.parametrize("typed", [False, True])
+def test_explicit_unknown_context_and_typed_defaults_keep_their_existing_meaning(typed):
+    raw = _raw_context_create()
+    if typed:
+        # Trusted typed callers already serialize all three optional defaults.
+        for field in _CREATE_CONTEXT_FIELDS:
+            del raw["situation_update"][field]
+        raw = CognitiveDecision.model_validate(raw)
+        assert all(field in raw.model_dump()["situation_update"] for field in _CREATE_CONTEXT_FIELDS)
+    original = raw.model_dump() if typed else deepcopy(raw)
+    result = validate_decision(raw, tools=ToolRegistry(None))
+    assert result.ok and result.decision is not None
+    update = result.decision.situation_update
+    assert update.operation == "create"
+    assert update.location_label is None
+    assert update.source_refs == [] and update.linked_object_refs == []
+    assert (raw.model_dump() if typed else raw) == original
+
+
+@pytest.mark.parametrize("operation", ["none", "update", "cancel", "resolve"])
+def test_non_create_declarations_do_not_require_initial_context_fields(operation):
+    update = {"operation": operation}
+    if operation != "none":
+        update.update(situation_id="sit_existing", expected_revision=3)
+    if operation == "update":
+        update["summary"] = "Una precisazione circoscritta."
+    raw = {"response_mode": "answer", "message_to_user": "Ho letto l'aggiornamento.",
+           "situation_update": update}
+    original = deepcopy(raw)
+    result = validate_decision(raw, tools=ToolRegistry(None))
+    assert result.ok and result.decision.situation_update.operation == operation
+    assert result.decision.situation_update.situation_id == update.get("situation_id")
+    assert not any(code.startswith("situation_create_missing_") for code in result.errors)
+    assert raw == original and all(field not in update for field in _CREATE_CONTEXT_FIELDS)
+
+
+@pytest.mark.parametrize("focus", ["place:" + PLACE_ID, None])
+def test_display_focus_survives_governance_without_becoming_a_situation_link(focus):
+    raw = {**_raw_context_create(), "display_focus_ref": focus}
+    original = deepcopy(raw)
+    result = validate_decision(raw, tools=ToolRegistry(None))
+    assert result.ok and result.decision.display_focus_ref == focus
+    assert loop._display_focus_ref(result.decision, [], None) == focus
+    assert result.decision.situation_update.linked_object_refs == []
+    assert result.decision.situation_update.location_label is None
+    assert raw == original
+
+
+@pytest.mark.parametrize("focus", [
+    {"ref": "place:" + PLACE_ID}, ["place:" + PLACE_ID], 123, False, "x" * 161,
+], ids=["object", "list", "number", "boolean", "too_long"])
+def test_invalid_display_focus_is_not_stringified_or_silently_discarded(focus):
+    raw = {**_raw_context_create(), "display_focus_ref": focus}
+    original = deepcopy(raw)
+    result = validate_decision(raw, tools=ToolRegistry(None))
+    assert not result.ok and result.decision is None
+    assert "pydantic_fail" in result.errors
+    assert raw == original
+
+
+def _checked_context_decision(decide):
+    async def checked(system, user):
+        try:
+            return await decide(system, user)
+        except Exception as error:
+            pytest.fail(f"Scripted declaration assertion failed: {type(error).__name__}: {error}")
+    return checked
+
+
+@pytest.mark.asyncio
+async def test_existing_single_repair_precedes_one_real_create_and_checkpoint(monkeypatch):
+    monkeypatch.setenv("AMBIENT_RUNTIME", "1")
+    monkeypatch.setenv("AI_CORE_TRACE", "1")
+    db = AsyncMongoMockClient().create_context_protocol
+    await db.agent_goals.create_index("id", unique=True)
+    await db.agent_runs.create_index("goal_id", unique=True)
+    await db.ambient_wakes.create_index("identity", unique=True)
+    await db.users.insert_one({"id": OWNER, "user_id": OWNER,
+                              "settings": {"timezone": "Europe/Rome"}})
+    session = ConversationSession(user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}})
+    complete = _raw_context_create()
+    incomplete = deepcopy(complete)
+    for field in _CREATE_CONTEXT_FIELDS:
+        del incomplete["situation_update"][field]
+    due = (datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat()
+    calls, mutations, tools = [], [], []
+    created = {}
+    original_apply, original_execute = SituationService.apply, ToolRegistry.execute
+
+    async def apply(self, **kwargs):
+        mutations.append(deepcopy(kwargs["update"].model_dump()))
+        return await original_apply(self, **kwargs)
+
+    async def execute(self, capability, arguments, *, runtime=None):
+        assert capability == "schedule_situation_check", "No implicit external read or extra tool"
+        tools.append(deepcopy(arguments))
+        return await original_execute(self, capability, arguments, runtime=runtime)
+
+    monkeypatch.setattr(SituationService, "apply", apply)
+    monkeypatch.setattr(ToolRegistry, "execute", execute)
+
+    async def decide(system, user):
+        payload = json.loads(user)
+        calls.append({"system": system, "user": user})
+        if len(calls) == 1:
+            return deepcopy(incomplete)
+        if len(calls) == 2:
+            assert user == calls[0]["user"], "The existing repair sees the same turn input"
+            assert "Situation CREATE missing fields: " + ", ".join(_CREATE_CONTEXT_FIELDS) in system
+            assert "Do not invent a place or link." in system
+            assert mutations == [] and tools == []
+            assert await db.situations.count_documents({}) == 0
+            assert await db.agent_goals.count_documents({}) == 0
+            assert await db.ambient_wakes.count_documents({}) == 0
+            return deepcopy(complete)
+        if len(calls) == 3:
+            ack = next(item for item in reversed(payload["observations"])
+                       if item["name"] == "situation_mutation")
+            assert ack["status"] == "ok" and ack["payload"]["status"] == "success"
+            created.update(ack["payload"]["situation"])
+            assert created["id"].startswith("sit_") and created["revision"] == 1
+            assert created["location_label"] is None
+            assert created["linked_object_refs"] == []
+            stored = await db.situations.find_one({"id": created["id"], "user_id": OWNER})
+            assert stored is not None and stored["source_refs"] == []
+            return {"response_mode": "tool", "tool_call": {
+                "capability": "schedule_situation_check", "arguments": {
+                    "situation_id": created["id"], "expected_revision": created["revision"],
+                    "check_at": due, "purpose": "Rivalutare le condizioni al momento utile.",
+                    "completion_when": DESIRED_OUTCOME,
+                    "notify_when": "Un rischio richiede un intervento anticipato.",
+                },
+            }}
+        assert len(calls) == 4, "One existing repair, then the same bounded loop"
+        ack = next(item for item in reversed(payload["observations"])
+                   if item["name"] == "schedule_situation_check")
+        assert ack["status"] == "ok" and ack["payload"]["next_check_at"] == due
+        return {"response_mode": "answer", "message_to_user": "Il controllo risulta registrato."}
+
+    result = await loop.run_cognitive_loop(
+        sess=session, user_message="Segui questa situazione temporanea fino al suo esito.",
+        db=db, decision_fn=_checked_context_decision(decide), max_steps=3,
+    )
+    # The fourth call is the pre-existing malformed-declaration repair, not an
+    # additional loop stage or an increase of max_steps.
+    assert result.ok and result.ai_calls == len(calls) == 4
+    assert result.tool_calls == len(tools) == 1
+    assert len(mutations) == 1
+    assert mutations[0] == SituationUpdate.model_validate(complete["situation_update"]).model_dump()
+    assert await db.situations.count_documents({"user_id": OWNER}) == 1
+    assert created["desired_outcome"] == DESIRED_OUTCOME
+    assert tools[0]["situation_id"] == created["id"]
+    current = await read_followup(db, OWNER, created["id"])
+    assert current["status"] == "scheduled" and current["next_check_at"] == due
+    assert current["last_checked_at"] is None and current["outcome"] is None
+    assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "status": {"$in": ["pending", "claimed"]},
+    }) == 1
+    assert "AI_DECISION_RETRY" in [row["event"] for row in result.trace["steps"]]
+
+
+@pytest.mark.asyncio
+async def test_still_incomplete_repair_has_no_domain_effect_or_success_claim(monkeypatch):
+    from life_memory.governance import MemoryGovernanceService
+
+    monkeypatch.setenv("AMBIENT_RUNTIME", "1")
+    monkeypatch.setenv("AI_CORE_TRACE", "1")
+    db = AsyncMongoMockClient().rejected_create_context
+    session = ConversationSession(user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}})
+    raw = _raw_context_create()
+    for field in _CREATE_CONTEXT_FIELDS:
+        del raw["situation_update"][field]
+    rejected_copy = "Ho completato la mutazione non ancora validata."
+    raw.update(
+        response_mode="tool", message_to_user=rejected_copy,
+        tool_call={"capability": "get_weather_forecast", "arguments": {"city": "Tarquinia"}},
+        state_updates=[{"path": "current_facts.note", "value": "rejected-state-marker"}],
+        memory_candidates=[{"summary": "Preferisco risposte concise.",
+                            "permanence": "durable", "authority": "user_stated"}],
+    )
+    original = deepcopy(raw)
+    calls = []
+
+    async def forbidden(*args, **kwargs):
+        pytest.fail("An invalid declaration cannot call Situation, Memory or a tool")
+
+    monkeypatch.setattr(SituationService, "apply", forbidden)
+    monkeypatch.setattr(MemoryGovernanceService, "process", forbidden)
+    monkeypatch.setattr(ToolRegistry, "execute", forbidden)
+
+    async def decide(system, user):
+        calls.append({"system": system, "user": user})
+        assert len(calls) <= 2, "There is no second repair stage"
+        if len(calls) == 2:
+            assert user == calls[0]["user"]
+            assert "Situation CREATE missing fields: " + ", ".join(_CREATE_CONTEXT_FIELDS) in system
+            assert rejected_copy not in system
+        return deepcopy(raw)
+
+    result = await loop.run_cognitive_loop(
+        sess=session, user_message="Segui la situazione descritta.", db=db,
+        decision_fn=_checked_context_decision(decide), max_steps=1,
+    )
+    assert result.ai_calls == len(calls) == 2 and result.tool_calls == 0
+    assert raw == original
+    assert rejected_copy not in (result.ora_text or "")
+    assert "rejected-state-marker" not in json.dumps(session.meta)
+    assert not (session.meta.get("ai_core") or {}).get("active_situation_ref")
+    for collection in ("situations", "agent_goals", "ambient_wakes", "memories"):
+        assert await db[collection].count_documents({}) == 0
+    events = [row["event"] for row in result.trace["steps"]]
+    assert "MALFORMED_FALLBACK" in events
+    assert "SITUATION_MUTATION" not in events and "TOOL" not in events

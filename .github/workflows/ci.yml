@@ -448,7 +448,7 @@ jobs:
         run: node --experimental-strip-types --test src/components/home/v3/preparedReview.test.ts
       - name: Situation useful time and action remain separate from internal checks
         working-directory: frontend
-        run: node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts
+        run: node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts src/components/ora/presence/temporaryMemoryFreshness.test.cjs
       - name: ORA calendar month-grid regression
         working-directory: frontend
         run: node --experimental-strip-types src/components/calendar/nativeMonth.test.ts

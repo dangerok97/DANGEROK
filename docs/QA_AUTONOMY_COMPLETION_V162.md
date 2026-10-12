@@ -1,3 +1,29 @@
+# 12 ottobre 2026 — v162, regressioni del candidato dopo641
+
+Le nuove prove backend coprono sette combinazioni di chiavi CREATE omesse, sconosciuti espliciti e modello già tipizzato, quattro operazioni non-create, focus valido/nullo e cinque tipi o lunghezze invalidi. Due prove del loop verificano la riparazione preesistente con una sola creazione/programmazione e il caso ancora invalido senza effetti di dominio. Il test positivo rilegge source_refs dal record effettivo con id e owner; non richiede un campo assente nell'ack pubblico.
+
+Sono22 nuovi casi,42 totali nel modulo; le74 asserzioni dei20 casi precedenti restano conservate dopo le sole aggiunte di import e source_refs esplicito. Le tre fixture legacy aggiungono esclusivamente valori sconosciuti già impliciti. Le verifiche statiche e di sorgente non sostituiscono pytest: nessuna esecuzione Python o TypeScript locale è dichiarata a executor offline.
+
+Le regressioni frontend dichiarano20 casi presenter e14 hook/render: errore della fonte in uso, errore irrilevante dell'altra fonte, prima lettura fallita, recupero, cancellazione letta, risposte superate e cambio owner. Le16 prove presenter precedenti sono un prefisso byte-identico del file aggiornato. L'autore ha eseguito in V8 i corpi JavaScript reali di20 presenter e9 callback del hook:29 PASS; sulla base641,16 PASS e13 FAIL. Restano da eseguire la transpilation Node/TypeScript e i5 casi di render. Il mock dello scheduling React non prova un'esecuzione React/browser. Un dato operativo rimasto in memoria non deve essere presentato come attuale dopo il fallimento noto della sua rilettura. Il comando del gate Frontend TypeScript in ci.yml seleziona ora esplicitamente anche presence/temporaryMemoryFreshness.test.cjs, dopo l'npm ci già esistente. Il workflow Situation senza dipendenze installate continua a eseguire il solo situationOutcome.test.ts. Nessun nuovo job o dipendenza; l'indice lega comandi, file e workflow.
+
+Non sono introdotti nuovi polling o gate di modello, né rilassati gli oracoli live. La completezza del CREATE permette comunque null espliciti; non prova la correttezza semantica. La prosa finale e le prove native restano aperte.
+
+[Contesto, visibilità e verifiche del candidato](evidence/autonomy_v162_context_and_visibility_repair_2026-10-12.json). Gli esiti originali641 restano preservati nel blocco storico seguente.
+
+---
+
+# 12 ottobre 2026 — v162, esiti verificati641
+
+La CI della revisione641 conclude5 workflow,14 job e tutti i relativi step con successo, attempt1. Per ciascun backend:1.337 PASS v162 senza skip, inclusi i20 casi handoff; CLI9/9 senza modello/HTTP/effetti; visibilità3 PASS, Mongo con riavvio6 PASS, provenance3 PASS. Le due selezioni legacy conservano3 e5 skip. Browser40/40,20 Chromium e20 WebKit; nessuna prova nativa. Il merge PR reale è4958ee9, con base9063c41 e tree diverso da641; la vecchia base6e619cf nei metadati API non sostituisce i parent effettivi.
+
+Il live sullo stesso641 produce due FAIL completi. Situation:4 chiamate logiche,10 HTTP modello e1 meteo Open-Meteo. L’errore `DECLARATION_PLACE_OR_START_NOT_PRESERVED` è qui dovuto al luogo; started_at è preservato. Seconda programmazione con ID reale riuscita, dopo rifiuto dell’ID inventato. Il testo finale usa18:00 come limite per il ritiro e propone05:00–07:00 senza assessment. Meteo fino alle05:00, previsione0% elevata a certezza. Worker, monitoraggio, controllo futuro, azione utile e dispositivo restano `not_run`; cancellazione sintetica PASS.
+
+Memory:4 chiamate logiche e7 HTTP. `UNFINISHED_WORK_LOST` corrisponde qui a `ask_user → prepare`, goal waiting, input necessario, nessuna lettura eseguita o bozza. Non dimostra perdita DB. La correzione a150 non è raggiunta; tutti i sei controlli finali sono `not_run`. Input storici completi e testo esatto della domanda non sono conservati: la categoria knowledge è inferita dai flag e dal codice.
+
+I report originali, le due review, la finestra di raccolta senza filtri e gli hash dei log restano disponibili nell’[indice641](evidence/autonomy_v162_641_results_2026-10-12.json). Gli esiti non vengono trasferiti a revisioni successive.
+
+---
+
 # 12 ottobre 2026 — v162, limite della traccia nella CI c8ca
 
 Push e PR si fermano entrambi sul nuovo caso `early_render[duplicate]`: **1 FAIL / 937 PASS** per ciascuna invocazione backend. Passano gli assert precedenti su letture reali, stato iniziale non programmato e finale programmato, proprietario, Situation, contatori, orario, unico obiettivo e unico wake. L’asserzione composta degli eventi fallisce nella proiezione pubblica; il log non espande la lista e non permette di attribuire l’assenza a un evento specifico.
