@@ -46,6 +46,5 @@ export const visualStyle = `
 .has-anatomy .vx-topline{display:none!important;}
 .has-anatomy .vx-status{z-index:2;left:12px;right:12px;bottom:8px;opacity:0;pointer-events:none;}
 .has-anatomy .vx-canvas{pointer-events:none;}
-.has-anatomy .vx-stage>video{visibility:visible!important;opacity:1;}
 
 `;
