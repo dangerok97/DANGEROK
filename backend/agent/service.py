@@ -273,7 +273,7 @@ class AgentService:
         a different `origin`, so nothing downstream can behave differently
         depending on who started it.
         """
-        from agent.reasoning import decide_goal
+        from agent.reasoning import decide_goal, goal_decision_invalid_fields
         from agent.source_refresh import queue_existing, context
 
         source = None
@@ -454,7 +454,18 @@ class AgentService:
             # recorded as a decision that there was nothing to do.
             return {"outcome": "unavailable"}
 
-        decision = answer["outcome"]
+        invalid_fields = goal_decision_invalid_fields(answer)
+        if invalid_fields:
+            # A malformed decision is a technical failure, never evidence
+            # that there is no useful goal. Admission already owns its retry.
+            logger.warning("goal admission invalid_goal_decision fields=%s", ",".join(invalid_fields))
+            return {
+                "outcome": "unavailable", "error_kind": "invalid_goal_decision",
+                "invalid_fields": invalid_fields,
+                "reasoning": "La valutazione ricevuta non definisce ancora un esito valido.",
+            }
+
+        decision = answer["outcome"].strip()
         if decision != "create_goal":
             return {
                 "outcome": decision,
@@ -470,11 +481,11 @@ class AgentService:
             status="active",
             next_run_at=_now().isoformat(),
             origin=origin,  # type: ignore[arg-type]
-            objective=str(answer.get("objective") or "")[:280],
-            desired_outcome=str(answer.get("desired_outcome") or "")[:400],
+            objective=answer["objective"].strip()[:280],
+            desired_outcome=answer["desired_outcome"].strip()[:400],
             why_now=str(answer.get("why_now") or "")[:400],
-            success_criteria=[str(c)[:200] for c in (answer.get("success_criteria") or [])][:6],
-            stop_conditions=[str(c)[:200] for c in (answer.get("stop_conditions") or [])][:6],
+            success_criteria=[c.strip()[:200] for c in (answer.get("success_criteria") or [])][:6],
+            stop_conditions=[c.strip()[:200] for c in (answer.get("stop_conditions") or [])][:6],
             source_kind=source_kind[:40],
             source_refs=[str(r)[:120] for r in (source_refs or [])][:8],
             opportunity_id=opportunity_id,
@@ -487,10 +498,6 @@ class AgentService:
             rationale=str(answer.get("reasoning") or "")[:300],
             decision_provenance=answer.get("decision_provenance", "model"),
         )
-        if not goal.objective or not goal.desired_outcome:
-            # A goal that cannot say what it is for is not a goal.
-            return {"outcome": "no_goal", "reasoning": "l'obiettivo non era formulabile"}
-
         created = await self.repo.create_goal(goal)
         if created is None:
             # A persistence failure is not evidence of another worker's goal.
@@ -1806,10 +1813,11 @@ class AgentService:
         answer = await verify_goal(
             await self._reasoning_goal(owner_id, goal),
             evidence={
-                "what_was_found": for_verification(evidence),
+                "what_was_found": for_verification(evidence, required_refs=goal.prepared_sources),
                 "steps": [s.for_ai() for s in plan.steps],
                 "what_was_prepared": intents,
                 "prepared_result": goal.prepared_text or None,
+                "prepared_source_refs": list(goal.prepared_sources),
                 "local_clock": await _user_clock_context(self.db, owner_id),
                 # What services said back, and the warning that goes with it.
                 "what_the_services_said": [

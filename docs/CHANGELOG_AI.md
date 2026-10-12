@@ -1,3 +1,21 @@
+## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
+
+- Esempi JSON completi per ciascun ramo dell'ammissione e validazione prima
+  dei cast; nessun completamento semantico inventato dal codice.
+- Diagnostica durevole `invalid_goal_decision` con nomi di campo ammessi e
+  pulizia al successivo esito valido. Retry e limiti applicativi invariati.
+- Protezione del testo preparato, dei criteri e delle fonti citate nella
+  verifica, senza aumentare il limite di contesto o tagliare prove essenziali.
+- Evaluator del recupero ammesso soltanto sul database sintetico e sul retry
+  persistito; osservazioni separate di proposta, audit e scarti Discovery.
+- Corretto il falso negativo sulle negazioni equivalenti della verifica
+  esterna. Dieci esempi positivi/negativi aggiunti; requisiti sostanziali e
+  fixture restano invariati.
+- Archiviato il gate reale c38b originale 2/9 e documentate diagnosi e limiti.
+- Verifica locale: **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+
+---
+
 ## 12 ottobre 2026 — v162, prerequisito leggibile e recupero persistito
 
 - Chiarita la dipendenza della preparazione dalle evidenze effettivamente

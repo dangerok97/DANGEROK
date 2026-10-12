@@ -1,3 +1,25 @@
+## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
+
+Il gate reale del head `c38b8d11f3b521a63034e7bf3d892f4ae1ad9d3f`
+rimane **2/9 PASS**, con 28 chiamate logiche e 32 HTTP osservati. Il
+[report originale](evidence/autonomy_v162_live_2026-10-12_c38b.json) conserva
+anche i fallimenti. La lettura pubblica successiva non è stata eseguita.
+
+La revisione corrente protegge il testo preparato, i criteri e le prove
+citate nel payload della verifica finale, entro il limite esistente di
+9000 caratteri. Una risposta di ammissione strutturalmente incompleta resta
+un'indisponibilità tecnica, con campi errati registrati senza contenuti del
+modello. Il recupero usa il retry durevole già presente.
+
+Verifica locale: **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni. I nuovi moduli coprono 13 casi di ammissione,
+16 di contesto della verifica e 28 di recupero/diagnostica.
+Questi conteggi sono inclusi nell'aggregato e non si sommano ad esso.
+Il prossimo gate reale deve ancora giudicare questa revisione; CI, prove
+locali e revisione manuale di un testo storico non sostituiscono quel gate.
+Dettagli e limiti nel [QA](QA_AUTONOMY_COMPLETION_V162.md).
+
+---
+
 ## 12 ottobre 2026 — v162, prerequisito della preparazione corretto
 
 La revisione successiva ad aa6bef supera **336 test su 19 moduli in 4,56

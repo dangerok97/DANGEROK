@@ -1,3 +1,22 @@
+## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
+
+**Checkpoint corrente:** **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+Le correzioni riguardano risposte incomplete dell'ammissione e dati persi
+prima della verifica finale. Il collaudo segue adesso il recupero durevole
+esistente e rende osservabili separatamente proposta e audit Discovery.
+
+Il gate reale del head `c38b8d11f3b521a63034e7bf3d892f4ae1ad9d3f`
+rimane **2/9 PASS**, con 28 chiamate logiche e 32 HTTP osservati. Il
+[report originale](evidence/autonomy_v162_live_2026-10-12_c38b.json) conserva
+anche i fallimenti. La lettura pubblica successiva non è stata eseguita.
+
+Il passo corrente è ripetere il gate completo sulla nuova revisione e poi,
+se superato, le letture pubbliche. Nessun esito storico viene riscritto.
+La pubblicazione dei servizi app e la ricezione sul dispositivo rimangono
+vincoli distinti, descritti nel [QA](QA_AUTONOMY_COMPLETION_V162.md).
+
+---
+
 ## 12 ottobre 2026 — v162, verifica completa pronta dopo il recupero
 
 Corretto il prerequisito che la diagnostica aa6bef aveva isolato: la

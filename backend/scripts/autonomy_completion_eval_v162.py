@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from contextlib import ExitStack, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import json
@@ -47,6 +48,8 @@ MAX_DIAGNOSTIC_PROPOSALS = 3
 MAX_DIAGNOSTIC_PLAN_STEPS = 6
 MAX_ASSESSMENT_REFS = 8
 ASSESSMENT_TEXT_LIMIT = 280
+MAX_DIAGNOSTIC_ADMISSIONS = 3
+MAX_DIAGNOSTIC_SCANS = 3
 FIXTURE_CONTEXT = (
     "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule "
     "e mi manca il confronto scritto di costi e vincoli. "
@@ -78,6 +81,8 @@ class Probe:
     model_http_requests: int = 0
     structured_decisions: list[dict[str, Any]] = field(default_factory=list)
     structured_decisions_omitted: int = 0
+    admission_observations: list[dict[str, Any]] = field(default_factory=list)
+    discovery_results: list[dict[str, Any]] = field(default_factory=list)
     steps: list[dict[str, str]] = field(default_factory=list)
     ticks: list[dict[str, int]] = field(default_factory=list)
     faults: list[str] = field(default_factory=list)
@@ -96,6 +101,8 @@ def model_observations(probe):
             "global_socket_dns_sandbox": False,
             "structured_decisions": probe.structured_decisions,
             "structured_decisions_omitted": probe.structured_decisions_omitted,
+            "admission_observations": probe.admission_observations,
+            "discovery_results": probe.discovery_results,
             # Failed calls may still be billable without returning usage.
             "token_usage_scope": "successful_responses_with_provider_usage_only"}
 
@@ -136,6 +143,65 @@ def _outcome_assessment(value):
     return out
 
 
+def _diagnostic_refs(value, key):
+    refs = value.get(key)
+    out = {key + "_kind": _response_kind(refs)}
+    if isinstance(refs, list):
+        out.update({key: [_safe_text(ref, 160) for ref in refs[:MAX_ASSESSMENT_REFS]
+                          if type(ref) is str],
+                    key + "_count": len(refs),
+                    key + "_omitted": max(0, len(refs) - MAX_ASSESSMENT_REFS)})
+    return out
+
+
+def _admission_fields(source):
+    from agent.reasoning import GOAL_DECISION_FIELDS
+    out = _decision_fields(source, ("id", "agent_review_revision"), limit=80)
+    for key in ("state", "outcome", "error_kind"):
+        value = source.get("agent_review_" + key)
+        # These are code-owned enum/error names, never exception messages.
+        out[key] = (_safe_text(value, 80) if type(value) is str
+                    and re.fullmatch(r"[A-Za-z_]{0,80}", value) else None)
+    attempts = source.get("agent_review_attempts")
+    out["attempts"] = attempts if type(attempts) is int and attempts >= 0 else None
+    out["has_due"] = bool(source.get("agent_review_due"))
+    out["has_question"] = bool(source.get("agent_review_question"))
+    fields = source.get("agent_review_invalid_fields")
+    out["invalid_fields"] = list(dict.fromkeys(
+        item for item in fields if type(item) is str and item in GOAL_DECISION_FIELDS
+    ))[:10] if isinstance(fields, list) else []
+    return out
+
+
+async def _synthetic_diagnostics_allowed(db, owner):
+    if owner != OWNER:
+        return False
+    try:
+        return bool(await db.eval_guards.find_one({"_id": VERSION, "owner": OWNER}))
+    except Exception:
+        return False
+
+
+def _scan_result_fields(result):
+    from opportunities.models import ScanResult
+    if not isinstance(result, ScanResult):
+        return {"response_kind": _response_kind(result)}
+    known = {"proposta non leggibile", "identità non stabile", "senza cosa o senza perché",
+             "nessun fatto reale a sostegno", "proposta fuori contratto",
+             "partenze distinte richiedono evidenze separate",
+             "routine distinte richiedono evidenze separate"}
+    known.update("già chiusa come «" + status + "»" for status in (
+        "dismissed", "suppressed", "resolved", "expired"))
+    skipped = result.skipped
+    return {"silence": result.silence, "unavailable": result.unavailable,
+            "created_count": len(result.created), "updated_count": len(result.updated),
+            "skipped_count": len(skipped),
+            "skipped": [{"reason": _safe_text(item["reason"], 160)
+                         if type(item.get("reason")) is str and item["reason"] in known else "unrecognized_reason"}
+                        for item in skipped[:MAX_ASSESSMENT_REFS]],
+            "skipped_omitted": max(0, len(skipped) - MAX_ASSESSMENT_REFS)}
+
+
 def _decision_result(stage, value):
     out = {"response_kind": _response_kind(value)}
     if not isinstance(value, dict):
@@ -155,7 +221,11 @@ def _decision_result(stage, value):
                 "step_type", "capability_needed", "intent", "expected_result",
             ), limit=160) for item in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]]
             out["steps_omitted"] = max(0, len(steps) - MAX_DIAGNOSTIC_PLAN_STEPS)
-    if stage == "opportunity_scan":
+    if stage in ("opportunity_scan", "opportunity_audit"):
+        out["verified_kind"] = ("boolean" if type(value.get("verified")) is bool
+                                else _response_kind(value.get("verified")))
+        if type(value.get("verified")) is bool:
+            out["verified"] = value["verified"]
         proposals = value.get("opportunities")
         out["opportunities_kind"] = _response_kind(proposals)
         if isinstance(proposals, list):
@@ -167,6 +237,8 @@ def _decision_result(stage, value):
                 ))
                 if isinstance(item, dict) and "outcome_assessment" in item:
                     observed["outcome_assessment"] = _outcome_assessment(item["outcome_assessment"])
+                if isinstance(item, dict):
+                    observed.update(_diagnostic_refs(item, "evidence_refs"))
                 out["opportunities"].append(observed)
             out["opportunities_omitted"] = max(0, len(proposals) - MAX_DIAGNOSTIC_PROPOSALS)
     return out
@@ -181,7 +253,7 @@ def _decision_input(stage, value, kwargs):
         return {"source_context_count": len(context) if isinstance(context, list) else None,
                 "source_context_unavailable": value.get("source_context_unavailable")
                 if type(value.get("source_context_unavailable")) is bool else None}
-    if stage != "opportunity_scan":
+    if stage not in ("opportunity_scan", "opportunity_audit"):
         out = _decision_fields(value, ("status",), limit=60)
         evidence = kwargs.get("evidence")
         out["evidence_kind"] = _response_kind(evidence)
@@ -203,11 +275,14 @@ def _decision_input(stage, value, kwargs):
         "unavailable_sources", "unavailable_memory_refs",
     ) if isinstance(value.get(key), (list, dict))}
     changes = value.get("what_changed")
-    return {"collection_counts": counts,
+    out = {"collection_counts": counts,
             "change_after_lengths": [len(item["from_to"]["after"]) for item in
                 (changes[:MAX_DIAGNOSTIC_PROPOSALS] if isinstance(changes, list) else [])
                 if isinstance(item, dict) and isinstance(item.get("from_to"), dict)
                 and type(item["from_to"].get("after")) is str]}
+    if stage == "opportunity_audit":
+        out["proposed"] = _decision_result("opportunity_scan", kwargs.get("proposed"))
+    return out
 
 
 def _prepared_text_fields(value):
@@ -233,7 +308,9 @@ async def failure_state(probe):
         rows = []
         for goal in goals:
             goal_query = {"owner_id": OWNER, "goal_id": goal["id"]}
-            row = _decision_fields(goal, ("status", "rationale"))
+            row = _decision_fields(goal, ("status", "rationale", "desired_outcome"))
+            for key in ("success_criteria", "source_refs", "prepared_sources"):
+                row.update(_diagnostic_refs(goal, key))
             row.update({
                 "requires_user_input": goal.get("requires_user_input") is True,
                 "requires_user_authority": goal.get("requires_user_authority") is True,
@@ -266,7 +343,10 @@ async def failure_state(probe):
                 row["plans"].append(item)
             row["plans_count"] = await db.agent_plans.count_documents(goal_query)
             rows.append(row)
-        return {"available": True, "goals_count": await db.agent_goals.count_documents(query), "goals": rows}
+        sources = await db.opportunities.find(query, {"_id": 0}).to_list(MAX_DIAGNOSTIC_ADMISSIONS)
+        return {"available": True, "goals_count": await db.agent_goals.count_documents(query), "goals": rows,
+                "admission_sources_count": await db.opportunities.count_documents(query),
+                "admission_sources": [_admission_fields(source) for source in sources]}
     except Exception as exc:
         return {"available": False, "reason": type(exc).__name__[:80]}
 
@@ -310,6 +390,8 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
     original_advance, original_note = AgentService.advance, DeliveryService.note_activity
     original_scan = OpportunityService.scan
     original_decide_goal, original_discover = reasoning.decide_goal, opportunity_reasoning.scan
+    original_audit = opportunity_reasoning.audit_proposals
+    scan_owner = ContextVar("autonomy_eval_scan_owner", default=None)
     base_plan = baseline.scripted_make_plan if mode == "scripted" else reasoning.make_plan
     base_verify = baseline.scripted_verify if mode == "scripted" else reasoning.verify_goal
     base_choose = baseline.scripted_choose if mode == "scripted" else reasoning.choose_next_action
@@ -340,7 +422,8 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
             boundary.scope.reset(token)
 
     async def observed_decision(stage, call, *args, **kwargs):
-        input_key = "situation" if stage == "decide_goal" else "snapshot" if stage == "opportunity_scan" else "goal"
+        input_key = ("situation" if stage == "decide_goal" else "snapshot"
+                     if stage in ("opportunity_scan", "opportunity_audit") else "goal")
         payload = args[0] if args else kwargs.get(input_key)
         observation = {"stage": stage, "model_attempts_before": probe.model_attempts,
                        "input": _decision_input(stage, payload, kwargs)}
@@ -429,10 +512,29 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         return answer
 
     async def scan(self, *args, **kwargs):
-        if scenario == "source_change_crash" and "source_scan_cancelled_once" not in probe.faults:
-            probe.faults.append("source_scan_cancelled_once")
-            raise asyncio.CancelledError()
-        return await original_scan(self, *args, **kwargs)
+        owner = args[0] if args else kwargs.get("user_id")
+        token = scan_owner.set(owner if self.db is db else None)
+        enabled = self.db is db and await _synthetic_diagnostics_allowed(db, owner)
+        try:
+            if scenario == "source_change_crash" and "source_scan_cancelled_once" not in probe.faults:
+                probe.faults.append("source_scan_cancelled_once")
+                raise asyncio.CancelledError()
+            result = await original_scan(self, *args, **kwargs)
+        except BaseException as exc:
+            if enabled and len(probe.discovery_results) < MAX_DIAGNOSTIC_SCANS:
+                probe.discovery_results.append({"response_kind": "raised", "exception_type": type(exc).__name__[:80]})
+            raise
+        else:
+            if enabled and len(probe.discovery_results) < MAX_DIAGNOSTIC_SCANS:
+                probe.discovery_results.append(_scan_result_fields(result))
+            return result
+        finally:
+            scan_owner.reset(token)
+
+    async def audit(snapshot, proposed):
+        if not await _synthetic_diagnostics_allowed(db, scan_owner.get()):
+            return await original_audit(snapshot, proposed)
+        return await observed_decision("opportunity_audit", original_audit, snapshot, proposed=proposed)
 
     async def discover(snapshot, **kwargs):
         refs = [row["ref"] for row in snapshot.get("what_changed", [])
@@ -453,6 +555,8 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
 
     async def discover_decision(*args, **kwargs):
         call = discover if mode == "scripted" else original_discover
+        if not await _synthetic_diagnostics_allowed(db, scan_owner.get()):
+            return await call(*args, **kwargs)
         return await observed_decision("opportunity_scan", call, *args, **kwargs)
 
     async def visible(goal, **kwargs):
@@ -513,6 +617,7 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         stack.enter_context(patch.object(OpportunityService, "scan", scan))
         stack.enter_context(patch.object(reasoning, "decide_goal", decide_goal))
         stack.enter_context(patch.object(opportunity_reasoning, "scan", discover_decision))
+        stack.enter_context(patch.object(opportunity_reasoning, "audit_proposals", audit))
         if mode == "scripted":
             if scenario == "memory_corrected":
                 stack.enter_context(patch.object(baseline, "DRAFT", baseline.DRAFT.replace(
@@ -620,9 +725,37 @@ async def discover_after_crash(db, probe):
     return resumed.scan.created[0].id
 
 
-async def admit(db, scenario):
-    from agent.admission import drain
-    require(await drain(db, owner_id=OWNER, limit=1) == 1, "ADMISSION_NOT_PROCESSED")
+async def admit(db, scenario, probe=None):
+    from agent.admission import MAX_ATTEMPTS, drain
+    require(await _synthetic_diagnostics_allowed(db, OWNER), "SYNTHETIC_CLOCK_GUARD_MISSING")
+    source = await db.opportunities.find_one({"owner_id": OWNER})
+    require(source and source.get("id") and source.get("agent_review_revision"), "ADMISSION_SOURCE_MISSING")
+    fence = {"owner_id": OWNER, "id": source["id"], "agent_review_revision": source["agent_review_revision"]}
+    for attempt in range(MAX_ATTEMPTS):
+        if attempt:
+            require(await _synthetic_diagnostics_allowed(db, OWNER), "SYNTHETIC_CLOCK_GUARD_MISSING")
+            due = source.get("agent_review_due")
+            try:
+                when = datetime.fromisoformat(due) if type(due) is str else None
+            except ValueError:
+                when = None
+            require(when and when.tzinfo, "DURABLE_ADMISSION_RETRY_MISSING")
+            changed = await db.opportunities.update_one({
+                **fence, "agent_review_state": "pending", "agent_review_outcome": "unavailable",
+                "agent_review_attempts": source["agent_review_attempts"], "agent_review_due": due,
+                "agent_review_token": {"$exists": False}, "agent_review_lease_until": {"$exists": False},
+            }, {"$set": {"agent_review_due": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()}})
+            require(changed.modified_count == 1, "ADMISSION_RETRY_SOURCE_CHANGED")
+        require(await drain(db, owner_id=OWNER, limit=1) == 1, "ADMISSION_NOT_PROCESSED")
+        source = await db.opportunities.find_one(fence)
+        require(source is not None, "ADMISSION_RETRY_SOURCE_CHANGED")
+        if probe is not None and len(probe.admission_observations) < MAX_DIAGNOSTIC_ADMISSIONS:
+            probe.admission_observations.append(_admission_fields(source))
+        if source.get("agent_review_outcome") != "unavailable":
+            break
+        attempts = source.get("agent_review_attempts")
+        require(type(attempts) is int and 0 < attempts < MAX_ATTEMPTS, "ADMISSION_RETRIES_EXHAUSTED")
+        require(source.get("agent_review_state") == "pending", "DURABLE_ADMISSION_RETRY_MISSING")
     goals = await db.agent_goals.find({"owner_id": OWNER}, {"_id": 0}).to_list(3)
     if scenario in NO_GOAL_SCENARIOS:
         code = "ALREADY_RESOLVED" if scenario == "already_resolved" else "IRRELEVANT"
@@ -686,7 +819,10 @@ def review_comparison(text, *, values=(180, 120, 60)):
         reasons.append("INTERNAL_SOURCE_NOT_ATTRIBUTED")
     if not re.search(r"non.{0,35}rimbors|senza.{0,20}rimborso|nessun.{0,20}rimborso", text, re.I):
         reasons.append("NONREFUNDABLE_CONSTRAINT_MISSING")
-    if not re.search(r"non\s+(?:ancora\s+)?(?:verificat\w*|confermat\w*)|"
+    if not re.search(r"non\s+(?:(?:è|sono)\s+)?(?:ancora\s+)?(?:stat\w*\s+)?"
+                     r"(?:verificat\w*|confermat\w*)|"
+                     r"non\s+(?:costituisc\w*|rappresent\w*)\s+(?:una?\s+)?"
+                     r"(?:conferma|verifica)\b|"
                      r"(?:da|senza)\s+(?:verific\w*|conferm\w*)|"
                      r"richied\w*.{0,20}(?:conferma|verifica)", text, re.I):
         reasons.append("SOURCE_VERIFICATION_LIMIT_MISSING")
@@ -788,7 +924,7 @@ async def run_case(scenario, *, mode="scripted", probe=None):
         source_id = await seed_case(db, scenario)
         if scenario == "source_change_crash":
             source_id = await discover_after_crash(db, probe)
-        goal_id = await admit(db, scenario)
+        goal_id = await admit(db, scenario, probe)
         result = {"state": "no_goal"}
         if goal_id:
             await first_read(db, goal_id, probe, planning_outage=scenario == "planning_outage")
@@ -893,6 +1029,8 @@ async def main(*, mode="scripted", scenario="all", output=""):
                               "model_calls_per_case": MAX_MODEL_CALLS,
                               "model_http_requests_per_case": MAX_MODEL_HTTP_REQUESTS,
                               "structured_decisions_per_case": MAX_DECISION_OBSERVATIONS,
+                              "admission_observations_per_case": MAX_DIAGNOSTIC_ADMISSIONS,
+                              "discovery_results_per_case": MAX_DIAGNOSTIC_SCANS,
                               "decision_text_characters": DECISION_TEXT_LIMIT,
                               "proposals_per_decision": MAX_DIAGNOSTIC_PROPOSALS,
                               "plan_steps_per_decision": MAX_DIAGNOSTIC_PLAN_STEPS,

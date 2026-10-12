@@ -1,3 +1,27 @@
+## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
+
+ORA deve giudicare il risultato completo usando i dati effettivamente letti.
+Una riduzione del contesto non può cancellare condizioni o limiti della fonte
+e poi presentare un giudizio come se avesse esaminato tutto il testo. Le
+risposte tecnicamente incomplete del modello restano lavoro da recuperare
+entro il budget esistente, senza inventare un obiettivo o una domanda.
+
+Il gate reale del head `c38b8d11f3b521a63034e7bf3d892f4ae1ad9d3f`
+rimane **2/9 PASS**, con 28 chiamate logiche e 32 HTTP osservati. Il
+[report originale](evidence/autonomy_v162_live_2026-10-12_c38b.json) conserva
+anche i fallimenti. La lettura pubblica successiva non è stata eseguita.
+
+La prima bozza storica è manualmente corretta ma è stata respinta da un
+riconoscitore lessicale troppo ristretto; la seconda omette la differenza
+numerica esplicita. La revisione corregge il riconoscitore con prove positive
+e negative, senza cambiare nota, bisogno o criteri sostanziali del collaudo.
+La nuova verifica locale conclude **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+
+L'autonomia completa non è ancora attestata. Il rilascio dei servizi app e
+la ricezione nativa restano separati dal servizio tecnico con note sintetiche.
+
+---
+
 ## 12 ottobre 2026 — v162, fonti lette prima del risultato
 
 ORA distingue l'anteprima utile a capire il lavoro dalle prove acquisite per

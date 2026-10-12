@@ -1,3 +1,107 @@
+# QA v162 — contratto, recupero e verifica senza perdita di prove
+
+## Verifica locale della revisione successiva a c38b
+
+**403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni. Il codice è congelato prima dell'aggregato. I tre nuovi moduli
+comprendono **13** prove di ammissione, **16** di conservazione
+del contesto e **28** di recupero/diagnostica. Sono già inclusi
+nel totale; le esecuzioni mirate precedenti si sovrappongono.
+
+### Correzioni e perimetro
+
+L'ammissione valida prima della creazione del goal: le stringhe vuote o
+composte soltanto da spazi non definiscono un obiettivo; un elenco restituito
+come stringa non viene spezzato in caratteri; una domanda vuota non chiude
+una decisione `clarify`. I quattro rami hanno esempi JSON completi. Il campo
+annidato nell'assessment non sostituisce il `desired_outcome` obbligatorio.
+Array opzionali assenti o vuoti restano ammessi. Il retry applicativo conserva
+tre tentativi, backoff, lease e protezione della revisione già presenti.
+
+La verifica del risultato riceve integralmente il testo, i criteri e le prove
+citate. La riduzione elimina prima copie e dettagli accessori, con lo stesso
+limite di 9000 caratteri. Riferimenti necessari fuori dalle ultime dodici
+prove vengono mantenuti; contenuti essenziali mancanti o eccessivi producono
+indisponibilità tecnica prima di chiamare il modello. La bozza non diventa
+una fonte indipendente e i controlli di proprietà/revoca non vengono rimossi.
+
+Il runner segue soltanto retry `pending/unavailable` già persistiti sul
+database sintetico marcato. Cambia solo la scadenza, con confronto atomico
+di owner, fonte, revisione, tentativi e lease. Assenza del retry, esaurimento
+e cambio di revisione restano fallimenti; `wait`, `no_goal` e `clarify` non
+sono convertiti. Il reporter separa proposta Discovery, audit e scarti, con
+contatori e riferimenti limitati, senza esportare prompt o messaggi privati.
+
+Il riconoscitore del limite della fonte accetta ora negazioni equivalenti
+come «non sono confermate» e «non costituiscono una conferma». I dieci nuovi
+esempi producono cinque fallimenti attesi prima della correzione e passano
+dopo; le cinque frasi senza negazione pertinente restano respinte. Con la
+regressione precedente sono **11 PASS** mirati. La revisione manuale continua
+a essere necessaria: questi controlli non sono un giudice semantico generale.
+
+## Gate reale c38b: 2/9, conservato integralmente
+
+Il head `c38b8d11f3b521a63034e7bf3d892f4ae1ad9d3f` viene eseguito nel
+deployment tecnico `a8cabcf3-7e4c-4c36-a2ad-c1ad6636d66b`, fra
+**03:08:43.802699 e 03:10:05.250279 UTC del 12 ottobre 2026**. Il
+[report originale](evidence/autonomy_v162_live_2026-10-12_c38b.json) attesta
+**2/9 PASS**, **28 chiamate logiche**, **32 HTTP osservati**. La fixture resta
+`personal_outcome_v1`; le letture pubbliche condizionate al superamento non
+partono. Le prime risposte arrivano da Gemini 2 `gemini-flash-lite-latest`,
+poi interviene il fallback Mistral `ministral-8b-2512`.
+
+| Caso | Esito storico | Diagnosi verificata |
+|---|---|---|
+| `completed_result` | FAIL | Bozza di 1151 caratteri manualmente valida, falso negativo lessicale sulla qualifica della fonte |
+| `planning_outage` | FAIL | Goal non completato, bozza di 1098 caratteri senza differenza esplicita di 60 euro; verifica segnala anche condizioni presenti nel testo |
+| `home_write_retry`, `source_revoked`, `memory_revoked`, `memory_corrected` | FAIL | Risposte `create_goal` incomplete; il vecchio runner pretende un goal dopo il primo tentativo |
+| `source_change_crash` | FAIL | Discovery non produce un'opportunità recuperata; il vecchio reporter non separa proposta, audit e scarti |
+| `already_resolved`, `irrelevant` | PASS | Decisione `no_goal` rispettata |
+
+La bozza del primo caso include 15×12=180 euro, annuale 120 e differenza 60,
+pagamento anticipato, annuale non rimborsabile e condizioni del mensile non
+note. La frase finale nega esplicitamente la conferma diretta o indipendente
+del fornitore. Il controllo aggiornato la accetta su riesame statico, ma
+questo **non** riclassifica il gate storico: Home e replay di quel caso non
+sono stati verificati dopo l'assert che ha fermato l'esecuzione.
+
+Nel secondo caso il testo conserva non rimborsabilità e qualifica della
+fonte. Una riproduzione sul percorso reale di lettura, evidenze e preparazione
+mostra però il payload ridotto da 10173 a 8767 caratteri e la bozza tagliata
+da 1098 a 550, perdendo quelle clausole. È una riproduzione del difetto,
+**non** il corpo HTTP storico, che non era stato conservato. La mancanza
+della differenza numerica resta un problema distinto e non viene sanata dal
+solo riconoscitore o dalla protezione del contesto.
+
+Per le quattro ammissioni incomplete, una riproduzione conferma che la
+validazione precedente lasciava la review `unavailable/pending`, con lease
+rilasciata e retry a 60 secondi. Una risposta valida al successivo drain
+crea un solo goal e una sola wake. Non è quindi dimostrata una perdita di
+lavoro in quei quattro casi; era incompleta l'osservazione del recupero.
+
+Il post-audit di Discovery dichiara `resolved` e non mostra prove di
+completamento. Il parser non usa quel campo per scartare la proposta: senza
+i riferimenti e gli scarti originali non è possibile attribuirgli la causa
+del fallimento. La nuova diagnostica registra quei passaggi distintamente.
+
+### CI c38b, separata dal gate reale
+
+**14/14 job PASS** sull'esatto head: CI principale 5/5 e Situation 2/2 sia
+sulla PR sia sul push. [CI PR](https://github.com/dangerok97/DANGEROK/actions/runs/38198568099),
+[CI push](https://github.com/dangerok97/DANGEROK/actions/runs/38198565459),
+[Situation PR](https://github.com/dangerok97/DANGEROK/actions/runs/38198568107),
+[Situation push](https://github.com/dangerok97/DANGEROK/actions/runs/38198565395).
+Entrambi i backend riportano **319 PASS v162**, scripted **9/9**, **6 prove
+Mongo senza skip** e **3 regressioni v39**. Il job PR verifica i tre gruppi
+pytest rispettivamente in 8,20, 12,50 e 0,38 secondi. Il merge tecnico
+`366315cad13f918c0d2e9f171d9b753208a574c4` ha l'albero
+`f41ad43afd44aedcbef4a6d584e5597b878584e6`, identico al head.
+
+Il nuovo gate reale e le letture pubbliche restano da eseguire sulla revisione
+corretta. Questo collaudo tecnico non rilascia i servizi app e non dimostra
+ricezione su un dispositivo nativo. I report precedenti restano di seguito.
+
+---
+
 # QA v162 — dipendenza lettura/preparazione, verifica locale conclusa
 
 La revisione successiva ad aa6bef supera **336 test su 19 moduli in 4,56

@@ -227,6 +227,9 @@ jobs:
             tests/test_discovery_outcome_contract_v162.py \
             tests/test_agent_preparation_grounding_v162.py \
             tests/test_agent_preparation_dependency_v162.py \
+            tests/test_agent_admission_contract_v162.py \
+            tests/test_agent_verification_context_v162.py \
+            tests/test_autonomy_eval_recovery_diagnostics_v162.py \
             tests/test_agent_connector_readiness_v162.py \
             tests/test_agent_planning_recovery_v162.py \
             tests/test_opportunity_discovery_recovery_v162.py \

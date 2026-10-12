@@ -1,3 +1,30 @@
+## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
+
+`AgentService.consider` controlla i campi consumati prima dei cast: obiettivo
+e risultato atteso non vuoti, domanda utilizzabile per `clarify`, array di
+stringhe per criteri e condizioni se presenti. Nessun campo viene copiato
+dall'assessment per completare una risposta mancante. L'errore tecnico
+`invalid_goal_decision` e una allowlist di nomi passano all'ammissione, che
+conserva gli stessi lease, revisioni, tre tentativi e backoff già esistenti.
+
+La verifica del risultato conserva integralmente testo, criteri e righe delle
+fonti citate. Riduce prima informazioni accessorie e copie della bozza; non
+usa una bozza come evidenza indipendente. La selezione delle prove conserva
+anche i riferimenti richiesti fuori dalle ultime dodici righe. Se il contenuto
+essenziale manca o non entra nei 9000 caratteri, la chiamata al modello non
+viene eseguita e la verifica rimane tecnicamente indisponibile. I controlli
+sulle fonti correnti, sulle versioni e sul proprietario restano operativi.
+
+Il solo evaluator accelera una scadenza di retry già persistita su database
+sintetico marcato, con confronto atomico di owner, fonte, revisione, tentativi,
+scadenza e lease. Non converte `wait`, `clarify` o `no_goal` in lavoro attivo.
+Le osservazioni distinguono proposta Discovery, audit e scarti strutturali,
+con limiti e sanificazione; non cambiano le decisioni o le eccezioni.
+
+Verifica locale: **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni. Nessun nuovo scheduler, dipendenza o migrazione.
+
+---
+
 ## 12 ottobre 2026 — v162, dipendenza fra lettura e preparazione
 
 Le istruzioni delle chiamate esistenti `make_plan`, `choose_next_action` e

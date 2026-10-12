@@ -135,6 +135,48 @@ _SITUATION_OUTCOME = (
 )
 
 
+GOAL_DECISION_FIELDS = (
+    "decision", "outcome", "objective", "desired_outcome", "question",
+    "success_criteria", "stop_conditions", "why_now", "reasoning", "decision_provenance",
+)
+
+
+def goal_decision_invalid_fields(data: Any) -> List[str]:
+    """Validate consumed fields before casts, without deciding what is useful.
+
+    Optional criteria may remain absent or empty. The diagnostic assessment
+    neither supplies missing goal fields nor changes a valid no_goal decision.
+    Only these fixed field names may enter durable error diagnostics.
+    """
+    if not isinstance(data, dict):
+        return ["decision"]
+    outcome = data.get("outcome")
+    if not isinstance(outcome, str) or outcome.strip() not in ("no_goal", "create_goal", "clarify", "wait"):
+        return ["outcome"]
+    outcome = outcome.strip()
+    invalid = []
+    for field in ("reasoning", "question"):
+        if data.get(field) is not None and not isinstance(data[field], str):
+            invalid.append(field)
+    if outcome == "clarify" and (not isinstance(data.get("question"), str) or not data["question"].strip()):
+        invalid.append("question")
+    if outcome == "create_goal":
+        for field in ("objective", "desired_outcome"):
+            if not isinstance(data.get(field), str) or not data[field].strip():
+                invalid.append(field)
+        if data.get("why_now") is not None and not isinstance(data["why_now"], str):
+            invalid.append("why_now")
+        for field in ("success_criteria", "stop_conditions"):
+            if field in data and (
+                not isinstance(data[field], list)
+                or any(not isinstance(item, str) or not item.strip() for item in data[field])
+            ):
+                invalid.append(field)
+        if "decision_provenance" in data and data["decision_provenance"] not in ("model", "user", "code"):
+            invalid.append("decision_provenance")
+    return [field for field in GOAL_DECISION_FIELDS if field in invalid]
+
+
 async def decide_goal(
     situation: Dict[str, Any],
     *,
@@ -218,18 +260,37 @@ async def decide_goal(
         "in hand before the appointment» is an outcome. «Open the website», "
         "«send an email», «check the calendar» are steps, and steps are not "
         "your business here.\n\n"
-        "Return JSON: {\"outcome_assessment\": {\"desired_outcome\": null, "
-        "\"outcome_state\": \"open|resolved|not_established\", "
+        "Return exactly one complete JSON object for the chosen branch below. "
+        "These examples specify structure, not which decision to make; fill the "
+        "assessment from the evidence using open, resolved or not_established. "
+        "All fields belong in that same object. For create_goal, objective and "
+        "the top-level desired_outcome are required nonempty strings; the nested "
+        "assessment.desired_outcome does not replace them. Criteria and stop "
+        "conditions are arrays of strings, never one string. A clarify decision "
+        "requires a nonempty question.\n"
+        "create_goal:\n"
+        "{\"outcome_assessment\": {\"desired_outcome\": \"the supported personal result\", "
+        "\"outcome_state\": \"open\", \"remaining_internal_work\": \"the useful unfinished work\", "
+        "\"supporting_refs\": [], \"completion_refs\": []}, "
+        "\"outcome\": \"create_goal\", \"reasoning\": \"one short sentence\", "
+        "\"objective\": \"the outcome in one sentence\", "
+        "\"desired_outcome\": \"what will be true when it is done\", "
+        "\"why_now\": \"why the remaining work is useful\", "
+        "\"success_criteria\": [\"how to tell whether the outcome holds\"], "
+        "\"stop_conditions\": [\"when this work should stop\"], \"evidence_refs\": []}\n\n"
+        "no_goal:\n"
+        "{\"outcome_assessment\": {\"desired_outcome\": null, \"outcome_state\": \"not_established\", "
         "\"remaining_internal_work\": null, \"supporting_refs\": [], \"completion_refs\": []}, "
-        "\"outcome\": \"no_goal|create_goal|clarify|wait\", "
-        "\"reasoning\": \"one short sentence\"}\n\n"
-        "For `create_goal` add: {\"objective\": \"the outcome, in "
-        "one sentence\", \"desired_outcome\": \"what will be true "
-        "when it is done\", \"why_now\": \"...\", "
-        "\"success_criteria\": [], \"stop_conditions\": [], "
-        "\"evidence_refs\": []}\n\n"
-        "For `clarify` add: {\"question\": \"the one thing only they "
-        "can answer\"}\n\n"
+        "\"outcome\": \"no_goal\", \"reasoning\": \"why no useful work remains or is justified\"}\n\n"
+        "wait:\n"
+        "{\"outcome_assessment\": {\"desired_outcome\": null, \"outcome_state\": \"not_established\", "
+        "\"remaining_internal_work\": null, \"supporting_refs\": [], \"completion_refs\": []}, "
+        "\"outcome\": \"wait\", \"reasoning\": \"what must change before useful work can begin\"}\n\n"
+        "clarify:\n"
+        "{\"outcome_assessment\": {\"desired_outcome\": null, \"outcome_state\": \"not_established\", "
+        "\"remaining_internal_work\": null, \"supporting_refs\": [], \"completion_refs\": []}, "
+        "\"outcome\": \"clarify\", \"reasoning\": \"why only the person can supply this fact\", "
+        "\"question\": \"the one thing only they can answer\"}\n\n"
         "Write anything a person reads in their language."
     )
 
@@ -765,6 +826,9 @@ async def verify_goal(
         "unsupported conclusion or missing premise. A useful conditional result can meet a "
         "bounded internal goal without independent third-party confirmation unless that "
         "confirmation is itself required by the goal.\n\n"
+        "verification_context_omitted names generated history or step descriptions omitted "
+        "to fit the context. The actual prepared_result and retained source evidence have "
+        "not been shortened by that reduction; their original reader limits still apply.\n\n"
         "Your choices:\n"
         "- `achieved` — it is true, and you can say why.\n"
         "- `partially_achieved` — part of it holds; say which part does not.\n"
@@ -780,9 +844,12 @@ async def verify_goal(
         "\"relied_on\": [], \"criteria_met\": []}"
     )
 
+    encoded = _verification_dump({"goal": goal, "what_was_done": evidence})
+    if encoded is None:
+        return None
     data = await _ask_model(
         _DISCIPLINE + "\n\n" + _GROUNDED_RESULT + "\n\n" + instruction + "\n\n" + _SITUATION_OUTCOME,
-        _dump({"goal": goal, "what_was_done": evidence}),
+        encoded,
     )
     if not isinstance(data, dict):
         return None
@@ -1020,6 +1087,78 @@ async def decide_visibility(
         return None
     data["outcome"] = outcome
     return data
+
+
+def _verification_dump(payload: Dict[str, Any]) -> Optional[str]:
+    """Bound verification without changing the result or its material inputs.
+
+    The generic reasoning reducer may shorten exploratory context. Doing that
+    to a result under review or its cited source changes the question being
+    judged. Keep them intact, along with the goal's criteria and authority;
+    only generated history and completed-step descriptions can make room.
+    """
+    compact = json.loads(json.dumps(payload, ensure_ascii=False, default=str))
+    goal = compact.get("goal") or {}
+    done = compact.get("what_was_done") or {}
+    rows = done.get("what_was_found") or []
+    required = done.get("prepared_source_refs")
+    if required is not None:
+        available = {row.get("evidence_id") for row in rows
+                     if isinstance(row, dict) and row.get("what_was_found")}
+        if (not isinstance(required, list)
+                or any(not isinstance(ref, str) or ref not in available for ref in required)
+                or (done.get("prepared_result") and not required)):
+            logger.info("verification context unavailable: prepared_source_missing")
+            return None
+
+    if not done.get("prepared_result"):
+        # Other outcome types keep the existing source/forecast reducer, but
+        # it must never silently weaken the criteria being judged either.
+        encoded = _dump(compact)
+        reduced_goal = json.loads(encoded).get("goal") or {}
+        for key in ("objective", "desired_outcome", "success_criteria",
+                    "stop_conditions", "user_clarifications_not_authority"):
+            if reduced_goal.get(key) != goal.get(key):
+                logger.info("verification context unavailable: goal_criteria_exceed_budget")
+                return None
+        return encoded
+
+    def encode():
+        return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+
+    encoded = encode()
+    if len(encoded) <= 9000:
+        return encoded
+    compact["context_truncated"] = True
+    omitted = compact["verification_context_omitted"] = {}
+    # The result supplied by the service is the exact current saved text.
+    # Historical generated chunks are not independent evidence. Keep any
+    # explicitly cited row even here; its origin remains visible to the model.
+    generated = [row for row in rows if isinstance(row, dict)
+                 and row.get("generated_artifact") is True
+                 and row.get("evidence_id") not in (required or [])]
+    if generated:
+        omitted["generated_artifact_evidence_ids"] = [row["evidence_id"] for row in generated]
+        done["what_was_found"] = [row for row in rows if row not in generated]
+    encoded = encode()
+    if len(encoded) <= 9000:
+        return encoded
+
+    # Plan descriptions are not proof of the result. Preserve every step's
+    # state, references, reader cursor and effect facts, including pending or
+    # failed work, while reducing descriptions of already completed steps.
+    for step in done.get("steps") or []:
+        if isinstance(step, dict) and step.get("status") in ("succeeded", "skipped"):
+            for key in ("intent", "expected_result"):
+                step.pop(key, None)
+            omitted["completed_step_descriptions"] = True
+    encoded = encode()
+    if len(encoded) <= 9000:
+        return encoded
+    # Do not drop contradictory uncited observations, qualify a claim by
+    # cutting its suffix, or send a partial target for a complete verdict.
+    logger.info("verification context unavailable: material_context_exceeds_budget")
+    return None
 
 
 def _dump(payload: Dict[str, Any]) -> str:

@@ -197,6 +197,29 @@ def test_model_cannot_claim_provider_verification_from_an_internal_note():
     assert "SOURCE_VERIFICATION_LIMIT_MISSING" in result["reasons"]
 
 
+@pytest.mark.parametrize("qualification,accepted", [
+    ("Le informazioni non sono confermate dal fornitore.", True),
+    ("I dati non sono ancora stati verificati.", True),
+    ("La nota non costituisce una verifica indipendente.", True),
+    ("I dati non costituiscono una conferma diretta o verifica indipendente da parte del fornitore.", True),
+    ("Le cifre non rappresentano una conferma indipendente del fornitore.", True),
+    ("Le informazioni sono confermate dal fornitore.", False),
+    ("La nota costituisce una conferma diretta e una verifica indipendente.", False),
+    ("Non è necessario verificare: il fornitore ha confermato i dati.", False),
+    ("Non ho modificato il contratto; ho verificato i dati con il fornitore.", False),
+    ("Le cifre non rappresentano un problema: sono confermate dal fornitore.", False),
+])
+def test_source_limit_check_preserves_negation_in_equivalent_wording(qualification, accepted):
+    # The real c38b draft used "non costituiscono una conferma diretta ...".
+    # Preserve the criterion while accepting the same explicit qualification;
+    # an affirmative verification claim or an unrelated negation must fail.
+    text = gate.baseline.DRAFT.replace("non verificata", "registrata").replace(
+        "sono da verificare", "sono documentate")
+    result = gate.review_comparison(text + " " + qualification)
+    assert result["passed"] is accepted
+    assert ("SOURCE_VERIFICATION_LIMIT_MISSING" in result["reasons"]) is not accepted
+
+
 @pytest.mark.asyncio
 async def test_live_requested_without_credentials_is_blocked_and_nonzero(monkeypatch, tmp_path, capsys):
     for key in gate.LLM_KEYS:
@@ -244,6 +267,7 @@ async def test_nonadmission_decision_survives_failed_report_without_forcing_goal
     monkeypatch, tmp_path, capsys, outcome,
 ):
     from agent import reasoning
+    from agent.admission import MAX_ATTEMPTS
 
     monkeypatch.setenv("GEMINI_API_KEY", "synthetic-diagnostic-placeholder")
     response = {"outcome": outcome, "reasoning": "La nota non contiene ancora le condizioni utili.",
@@ -261,7 +285,10 @@ async def test_nonadmission_decision_survives_failed_report_without_forcing_goal
     case = report["cases"][0]
     assert not case["passed"] and not case["real_model_executed"]
     assert case["model_attempts"] == 0  # Structured stub; no real model claimed.
-    assert len(inputs) == len(case["structured_decisions"]) == 1
+    # Technical unavailability follows the existing durable retry budget;
+    # substantive no_goal/wait/clarify decisions are never retried into a goal.
+    expected_attempts = MAX_ATTEMPTS if response is None else 1
+    assert len(inputs) == len(case["structured_decisions"]) == expected_attempts
     observed = case["structured_decisions"][0]
     assert observed["stage"] == "decide_goal"
     assert observed["input"]["source_context_count"] == len(inputs[0]["source_context"])

@@ -32,6 +32,7 @@ def fingerprint(opportunity):
 
 
 async def drain(db, *, owner_id=None, now=None, limit=2):
+    from agent.reasoning import GOAL_DECISION_FIELDS
     from agent.service import AgentService
     from opportunities.models import Opportunity
 
@@ -80,6 +81,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
                  "agent_review_token": token, "agent_review_revision": row["agent_review_revision"]}
         answer = {"outcome": "unavailable"}
         error_kind = ""
+        invalid_fields = []
         expiry = None
         try:
             opp = Opportunity.model_validate(row)
@@ -128,6 +130,12 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
         known = {"no_goal", "create_goal", "already_pursuing", "clarify", "wait", "expired", "closed", "paused", "unavailable"}
         if outcome not in known:
             outcome = "unavailable"
+        if outcome == "unavailable" and answer.get("error_kind") == "invalid_goal_decision":
+            error_kind = "invalid_goal_decision"
+            reported = answer.get("invalid_fields")
+            if isinstance(reported, list):
+                # Only fixed names, never model values or exception messages.
+                invalid_fields = [field for field in GOAL_DECISION_FIELDS if field in reported]
         attempts = int(row["agent_review_attempts"])
         due = None
         if outcome in ("unavailable", "wait") and attempts < MAX_ATTEMPTS:
@@ -144,6 +152,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
             "agent_review_reason": str(answer.get("reasoning") or "")[:400],
             "agent_review_question": str(answer.get("question") or "")[:300],
             "agent_review_error_kind": error_kind,
+            "agent_review_invalid_fields": invalid_fields,
             "agent_review_goal_id": str(answer.get("goal_id") or (answer.get("goal") or {}).get("id") or "")[:64],
             "agent_review_finished_at": datetime.now(timezone.utc).isoformat(),
         }})
@@ -185,6 +194,7 @@ async def drain(db, *, owner_id=None, now=None, limit=2):
             {"id": row["id"], "owner_id": row["owner_id"], "agent_review_token": token},
             {"$unset": {"agent_review_token": "", "agent_review_lease_until": ""}},
         )
-        logger.info("agent_admission outcome=%s state=%s attempt=%d", outcome, state, attempts)
+        logger.info("agent_admission outcome=%s state=%s attempt=%d invalid_fields=%s",
+                    outcome, state, attempts, ",".join(invalid_fields))
         handled += 1
     return handled
