@@ -1,3 +1,11 @@
+# 12 ottobre 2026 — v162, gate sulla correzione del test
+
+La priorità immediata è ottenere la CI completa sulla revisione che corregge il contratto del risultato CREATE e porta a20 i casi dell’handoff. La CI250ef7f fallita non prova la nuova revisione; il runtime resta invariato.
+
+Dopo il gate verde, resta previsto il live mirato Situation e `memory_corrected`, con nuova verifica che il servizio tecnico sia libero. Sono distinti conservazione dell’obiettivo completo, momento utile di ritiro e prova sul dispositivo. Il vecchio bucato resta chiuso e il rifiuto APP non viene aggirato. [Indice](evidence/autonomy_v162_handoff_contract_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, prossimo collaudo sul codice recuperato
 
 **L’autonomia resta da accettare:** CI 22df078 verde, ma Situation incompleta, nessuno dei cinque testi positivi Agent accettato e revisione pubblica negativa. I quattro negativi riusciti non completano l’obiettivo.

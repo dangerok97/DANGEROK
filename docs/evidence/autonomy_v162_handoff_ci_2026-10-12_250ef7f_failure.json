@@ -1,0 +1,153 @@
+{
+  "schema": "ora_ci_failure_readonly_v1",
+  "candidate": "250ef7f308feec00d3f8fe014d4307e06a8ebe96",
+  "push_tree": "001cf650ab4258a85ffa8916f0b8b3449eff66a1",
+  "parent": "22df078148612b8e83c934ffc8d15bce33eaafee",
+  "merge": {
+    "sha": "fb611701d7eb8928973d7be43853a3141026095b",
+    "tree": "c60e16446cf90aa89baa745de02192530ecd45bc",
+    "parents": [
+      "3062113d7d3720e01ffc0fd166dcd2c719cdd4c1",
+      "250ef7f308feec00d3f8fe014d4307e06a8ebe96"
+    ],
+    "checkout_verified": true,
+    "delta_files": [
+      "backend/tests/test_whatsapp_cloud_bridge_v1.py",
+      "backend/vision_body_regions.py",
+      "backend/vision_provider.py",
+      "backend/vision_tests/test_anatomy_atlas.py",
+      "backend/vision_xray.py",
+      "backend/whatsapp/cloud.py",
+      "backend/whatsapp/router.py",
+      "backend/whatsapp/service.py",
+      "docs/WHATSAPP_CLOUD_API_V1.md",
+      "frontend/e2e/vision-live.spec.ts",
+      "frontend/src/vision-xray/AnatomyExplorer.web.tsx",
+      "frontend/src/vision-xray/AnatomyVolume.web.tsx",
+      "frontend/src/vision-xray/LiveExplorer.web.tsx",
+      "frontend/src/vision-xray/anatomyAtlas.ts",
+      "frontend/src/vision-xray/anatomyDetail.ts",
+      "frontend/src/vision-xray/anatomyFocus.ts",
+      "frontend/src/vision-xray/anatomyStyle.ts",
+      "frontend/src/vision-xray/anatomyVolume.test.mjs",
+      "frontend/src/vision-xray/anatomyVolume.ts",
+      "frontend/src/vision-xray/catalogApi.ts",
+      "scripts/vision_test_server.py"
+    ]
+  },
+  "runs": [
+    {
+      "id": 38267992057,
+      "name": "Phone turn boundary checks",
+      "event": "pull_request",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38267992057"
+    },
+    {
+      "id": 38267992026,
+      "name": "Situation follow-up regressions",
+      "event": "pull_request",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38267992026"
+    },
+    {
+      "id": 38267992102,
+      "name": "Mobile conversation visual QA",
+      "event": "pull_request",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38267992102"
+    },
+    {
+      "id": 38267992132,
+      "name": "CI",
+      "event": "pull_request",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38267992132"
+    },
+    {
+      "id": 38267985452,
+      "name": "Situation follow-up regressions",
+      "event": "push",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38267985452"
+    },
+    {
+      "id": 38267985499,
+      "name": "CI",
+      "event": "push",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38267985499"
+    }
+  ],
+  "failure": {
+    "node": "tests/test_situation_in_turn_handoff_v162.py::test_terminal_reply_preserves_exact_saved_check_without_repeating_work[duplicate]",
+    "error": "KeyError: 'follow_up'",
+    "test_line": 183,
+    "step": "v162 canonical sources, planning recovery and connected autonomy acceptance",
+    "events": {
+      "pull_request": {
+        "job_id": 114874938694,
+        "passed": 935,
+        "failed": 1,
+        "seconds": 47.92
+      },
+      "push": {
+        "job_id": 114874916688,
+        "passed": 935,
+        "failed": 1,
+        "seconds": 62.2
+      }
+    }
+  },
+  "unreached": [
+    "rest of v162 after first test failure",
+    "scripted CLI9",
+    "v162 static visibility guard",
+    "v162 real Mongo restart6",
+    "v162 real Mongo v39 provenance3",
+    "downstream backend steps",
+    "dependent product guards"
+  ],
+  "raw_backend_logs": {
+    "114874938694": {
+      "bytes": 3417801,
+      "sha256": "8269477e4eadc4d0a97a10c1b7c523a7d6811464e89cc8a41811ca1436650576"
+    },
+    "114874916688": {
+      "bytes": 3257481,
+      "sha256": "000c4fec258c1c0b869193e2cbc3a1bb7d7dc8b311d6aaa5070317cf27163127"
+    }
+  },
+  "all_raw_metadata_v8_keys": [
+    "runs_0",
+    "pr_0",
+    "ci_source",
+    "push_commit",
+    "jobs_38267992057_0",
+    "jobs_38267992102_0",
+    "jobs_38267985452_0",
+    "jobs_38267992132_0",
+    "jobs_38267992026_0",
+    "jobs_38267985499_0",
+    "log_114874938694",
+    "push_jobs_1",
+    "runs_1",
+    "merge_commit",
+    "compare_push_merge",
+    "log_114874916688"
+  ],
+  "storage": "V8 only; no filesystem or repository archive written; raw tool envelopes retained",
+  "no_rerun_or_mutation": true
+}

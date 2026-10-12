@@ -1,3 +1,11 @@
+# 12 ottobre 2026 — v162, contratto di creazione e rilettura
+
+Il risultato di `SituationService.apply(create)` contiene stato, operazione e Situation; non include `follow_up`. La prova corretta conserva e confronta integralmente questo risultato storico, poi verifica la programmazione mediante il percorso reale. Non viene aggiunto uno stato fittizio alla risposta del servizio.
+
+Due regressioni aggiungono CREATE con lettura meteo → risposta intermedia rinviata dal vero gate → programmazione → finale terminale o bound. La spia delega a `read_followup` e registra lo stato non programmato iniziale e quello programmato finale. Il runtime250ef7f resta invariato; la CI del nuovo test è NOT_RUN al congelamento. [Indice e identità](evidence/autonomy_v162_handoff_contract_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, qualificazione e stato corrente
 
 Il live 22df078 mostra due confini distinti. La generazione non riceveva le qualificazioni già presenti nell’audit; quell’audit poteva comunque accettare conclusioni errate. Inoltre CREATE dentro il turno lasciava un ack `review_pending`, poi usato nella risposta anche dopo una programmazione riuscita.

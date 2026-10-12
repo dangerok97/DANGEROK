@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, regressione del test250ef7f
+
+I due backend della CI250ef7f falliscono nello stesso punto: `ack_snapshot["follow_up"]` presuppone un campo assente nel contratto CREATE. Prima del fallimento passano i controlli su risposta, contatori, unica Situation e immutabilità del risultato originale. Il manifest conserva esiti e checkout distinti di push e PR.
+
+La nuova prova asserisce l’assenza di quel campo nel risultato storico e mantiene le letture effettive del programma. Due casi ulteriori passano dal gate reale con una risposta intermedia prima di programmare, osservando lo stato iniziale non programmato e quello finale programmato. **20 casi definiti; esecuzione NOT_RUN al congelamento.** Il runtime resta quello250ef7f.
+
+Il collector mirato è verificato separatamente con40 controlli su copie dichiarate dei log22df; non esegue modelli e non promuove i loro esiti. Il suo manifest conserva il candidato annunciato al proprio congelamento; la configurazione della prossima raccolta userà il nuovo SHA e deployment. [Indice](evidence/autonomy_v162_handoff_contract_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, confini delle prove recuperate
 
 **CI 22df078: 6 workflow e 16 job SUCCESS.** Il live 68aa2564 termina CRASHED alle 14:18:59 UTC con tre report completi. Situation fallisce il gate per il riferimento al luogo mancante; la revisione rileva obiettivo ridotto alla pioggia e handoff incoerente. Agent: 4/9, soli negativi, 0/5 positivi accettati, Home/replay not_run. Pubblico: PASS tecnico ma revisione umana negativa. Le 51/51 citazioni autentiche non attestano che le conclusioni siano sostenute.

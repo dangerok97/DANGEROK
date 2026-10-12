@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, CI250ef7f negativa e correzione del test
+
+**CI250ef7f:4 workflow SUCCESS e2 FAILURE, su6.** Entrambi i backend si fermano a1FAIL/935PASS sul medesimo `KeyError: follow_up` del nuovo modulo. I controlli CLI e Mongo successivi non sono raggiunti e i due job product-guards sono SKIPPED. Questo esito non viene trasferito alla nuova revisione.
+
+La correzione modifica solo il modulo di test, che definisce20 casi e conserva tutti i controlli di stato, identità, conteggio e assenza di effetti reali. Il runtime è identico a250ef7f; la nuova CI è NOT_RUN al congelamento. [Rapporto del fallimento](evidence/autonomy_v162_handoff_ci_2026-10-12_250ef7f_failure.json) · [Indice della correzione](evidence/autonomy_v162_handoff_contract_repair_2026-10-12.json).
+
+L’APP non è stata modificata. Il rifiuto automatico della patch eb9c3870 resta valido; firma, installazione, avviso ad app chiusa e tap autenticato non sono attestati.
+
+---
+
 # 12 ottobre 2026 — v162, prove precedenti e nuova verifica
 
 **CI 22df078: 6 workflow e 16 job SUCCESS; accettazione reale non raggiunta.** Il deployment 68aa2564 termina CRASHED il 12 ottobre alle 14:18:59 UTC, con tre report completi. Una nuova raccolta recupera quei tre originali con identici byte e hash. Il successivo stato REMOVED delle 14:50:59 riguarda la sostituzione del deployment e non modifica il suo esito storico.

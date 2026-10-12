@@ -27,7 +27,8 @@ HANDOFF_TEXT = "Confermi il passaggio richiesto?"
 DESIRED_OUTCOME = "Indicare quando ritirarli o quando serve un intervento anticipato."
 
 
-async def exercise(monkeypatch, *, ending, after_schedule=None, model_text=None):
+async def exercise(monkeypatch, *, ending, after_schedule=None, model_text=None,
+                   early_reply=False, render_snapshots=None):
     monkeypatch.setenv("AMBIENT_RUNTIME", "1")
     monkeypatch.setenv("WEATHER_PROVIDER", "open_meteo")
     monkeypatch.setenv("AI_CORE_TRACE", "1")
@@ -44,6 +45,23 @@ async def exercise(monkeypatch, *, ending, after_schedule=None, model_text=None)
     session = ConversationSession(user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}})
     created, acknowledgements = {}, []
     sid = None
+    if render_snapshots is not None:
+        from situations import followup
+
+        original_read = followup.read_followup
+
+        async def read(database, owner, situation_id):
+            current = await original_read(database, owner, situation_id)
+            if database is db and situation_id == sid:
+                # Record the owned production reads, including the render/gate
+                # before scheduling. The returned snapshot stays untouched.
+                render_snapshots.append({
+                    "owner_id": owner, "situation_id": situation_id,
+                    "model_calls": model_calls, "snapshot": deepcopy(current),
+                })
+            return current
+
+        monkeypatch.setattr(followup, "read_followup", read)
     original_apply = SituationService.apply
 
     async def apply(self, **kwargs):
@@ -137,7 +155,13 @@ async def exercise(monkeypatch, *, ending, after_schedule=None, model_text=None)
     }
     if model_text is not None:
         schedule["message_to_user"] = model_text
-    answers = [{**deepcopy(weather), "situation_update": declaration}, schedule]
+    answers = [{**deepcopy(weather), "situation_update": declaration}]
+    if early_reply:
+        answers.append({
+            "response_mode": "answer", "message_to_user": "Ok.",
+            "skill_plan": deepcopy(weather["skill_plan"]),
+        })
+    answers.append(schedule)
     if ending in handoff_caps:
         final = {"response_mode": "tool", "tool_call": {
             "capability": handoff_caps[ending], "arguments": {
@@ -180,7 +204,7 @@ async def exercise(monkeypatch, *, ending, after_schedule=None, model_text=None)
     assert len(acknowledgements) == 1
     original_ack, ack_snapshot = acknowledgements[0]
     assert original_ack == ack_snapshot, "A render must not rewrite historical mutation evidence"
-    assert ack_snapshot["follow_up"]["status"] not in ("scheduled", "due", "running")
+    assert "follow_up" not in ack_snapshot
     assert created["desired_outcome"] == DESIRED_OUTCOME
     return db, response, saved, session
 
@@ -202,6 +226,44 @@ async def test_terminal_reply_preserves_exact_saved_check_without_repeating_work
     assert await db.ambient_wakes.count_documents({"status": "pending"}) == 1
     assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
     events = [row["event"] for row in response.trace["steps"]]
+    if ending == "duplicate":
+        assert "DUPLICATE_SOFT" in events and "BARE_ACK_BLOCKED_TERMINAL" in events
+        assert "SITUATION_SCHEDULE_STATUS_TERMINAL" in events
+    else:
+        assert "LOOP_BOUND" in events and response.error == "loop_bound"
+        assert "SITUATION_SCHEDULE_STATUS_BOUND" in events
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ending", ["duplicate", "tool_bound"])
+async def test_earlier_render_does_not_leave_a_stale_handoff_after_scheduling(monkeypatch, ending):
+    snapshots = []
+    db, response, saved, _ = await exercise(
+        monkeypatch, ending=ending, early_reply=True, render_snapshots=snapshots)
+    before_schedule = [item for item in snapshots if item["model_calls"] == 2]
+    assert before_schedule
+    assert snapshots[0]["snapshot"]["status"] not in ("scheduled", "due", "running")
+    assert before_schedule[0]["snapshot"]["status"] not in ("scheduled", "due", "running")
+    assert snapshots[-1]["snapshot"]["status"] == "scheduled"
+    assert snapshots[-1]["snapshot"]["next_check_at"] == saved["next_check_at"]
+    assert all(
+        item["owner_id"] == OWNER
+        and item["situation_id"] == saved["situation_id"]
+        and item["snapshot"]["situation_id"] == saved["situation_id"]
+        for item in snapshots
+    )
+    assert response.ai_calls == (4 if ending == "duplicate" else 3)
+    assert saved["next_check_label"] in response.ora_text
+    assert saved["timezone"] in response.ora_text
+    assert "non risulta" not in response.ora_text.lower()
+    assert "non riesco a verificare" not in response.ora_text.lower()
+    assert "valutazione" in response.ora_text.lower() and "non" in response.ora_text.lower()
+    assert "ti avvis" not in response.ora_text.lower() and "asciutti" not in response.ora_text.lower()
+    assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
+    assert await db.ambient_wakes.count_documents({"status": "pending"}) == 1
+    events = [row["event"] for row in response.trace["steps"]]
+    # The Situation gate runs before the generic skill-plan guard here.
+    assert "SITUATION_FOLLOWUP_NUDGE" in events
     if ending == "duplicate":
         assert "DUPLICATE_SOFT" in events and "BARE_ACK_BLOCKED_TERMINAL" in events
         assert "SITUATION_SCHEDULE_STATUS_TERMINAL" in events

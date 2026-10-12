@@ -1,0 +1,284 @@
+{
+  "schema": "ora.v162.handoff_contract_repair.v1",
+  "frozen_at_utc": "2026-10-12T15:21:56Z",
+  "repository": "dangerok97/DANGEROK",
+  "branch": "ora/v162-autonomy-validation-20261012",
+  "pull_request": "https://github.com/dangerok97/DANGEROK/pull/220",
+  "base": {
+    "commit": "250ef7f308feec00d3f8fe014d4307e06a8ebe96",
+    "tree": "001cf650ab4258a85ffa8916f0b8b3449eff66a1",
+    "ci": "failed"
+  },
+  "product": {
+    "location": "Tarquinia",
+    "timezone": "Europe/Rome",
+    "outcome": "Ho steso: notify when to collect based on estimated dryness, with an earlier risk warning distinguished from dryness.",
+    "old_laundry": "closed; no reopening"
+  },
+  "change": {
+    "runtime_changed": false,
+    "model_providers_or_budgets_changed": false,
+    "live_oracles_changed": false,
+    "test_module": "backend/tests/test_situation_in_turn_handoff_v162.py",
+    "expected_cases": 20,
+    "previous_cases": 18,
+    "cause": "The new test accessed follow_up on the historical CREATE acknowledgement, whose contract has no such field.",
+    "repair": "Assert absence of follow_up, retain complete historical acknowledgement equality, and add two real gate retry paths before scheduling.",
+    "preserved_checks": [
+      "all 18 previous cases retained",
+      "owned current read delegated to production",
+      "same Situation before and after scheduling",
+      "one goal and one pending wake",
+      "one synthetic weather HTTP request",
+      "bounded model and tool call counts",
+      "no physical-dryness or notification-delivery claim"
+    ],
+    "root_review": {
+      "all_existing_test_functions_preserved": true,
+      "existing_function_count": 7,
+      "new_function_count": 8,
+      "expected_cases": 20,
+      "reviewed_by_root": true,
+      "execution": "not_run",
+      "runtime_changes": 0,
+      "spy_delegates_to_production_read": true,
+      "historical_ack_unmodified_assert_retained": true
+    }
+  },
+  "source_files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 28622,
+      "sha256": "64813633b744a55ea8d3357b1114f89edeefff2374cfb658ebe54bf6afd9284b",
+      "git_blob": "8bfc4871754b3a5f2fe83c98674e0ef0276b9d48",
+      "previous_local_sha256": "4ee491fcf0865d3f328336481f0f5aa055c1fff456839165861ad054121c20bc",
+      "byte_identical_to_previous_local": false,
+      "unchanged_from_250ef7f": true
+    },
+    {
+      "path": "backend/agent/preparation.py",
+      "bytes": 36505,
+      "sha256": "0911a0ed9d8a9c7e4632f3dc1725d1896b887dc5bff58e67a0357a14e7d2976f",
+      "git_blob": "f0ee6408c85a91347d03ba8b5e3f17344f744305",
+      "previous_local_sha256": "0911a0ed9d8a9c7e4632f3dc1725d1896b887dc5bff58e67a0357a14e7d2976f",
+      "byte_identical_to_previous_local": true,
+      "unchanged_from_250ef7f": true
+    },
+    {
+      "path": "backend/conversation_engine/ai_core/loop.py",
+      "bytes": 235719,
+      "sha256": "60920156542972fac78d58a91c60485362b1e298ee1e61d1bdcf2e0e5003f5a0",
+      "git_blob": "619f4aaee4426222f851443e312877e7f504bcd6",
+      "previous_local_sha256": "c89eda1fb0861cb79a2809ba1a76edb6eaa5a68a4557c4b4b137dfebf5b7890a",
+      "byte_identical_to_previous_local": false,
+      "unchanged_from_250ef7f": true
+    },
+    {
+      "path": "backend/tests/test_preparation_feedback_v162.py",
+      "bytes": 18972,
+      "sha256": "dcd23c6ac8c562a6a4c23e0d47c643e177b575f9c3a96791258427dbe6fc8a8b",
+      "git_blob": "2f4deba08deb3a3437a915aba3ea9449f062793a",
+      "previous_local_sha256": "dcd23c6ac8c562a6a4c23e0d47c643e177b575f9c3a96791258427dbe6fc8a8b",
+      "byte_identical_to_previous_local": true,
+      "unchanged_from_250ef7f": true
+    },
+    {
+      "path": "backend/tests/test_preparation_recovery_v162.py",
+      "bytes": 23975,
+      "sha256": "d71f2bed5fec46952f11e36019226f657f19327a7b035a44e87ff03f614a75b7",
+      "git_blob": "becafebcdd980fbe4c121f9c37f4f982774a61b6",
+      "previous_local_sha256": "22e5167254c52b117432cb0a4f7b77afa9f48a22a2f3bd9be6b78d5e414de62f",
+      "byte_identical_to_previous_local": false,
+      "unchanged_from_250ef7f": true
+    },
+    {
+      "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+      "bytes": 18985,
+      "sha256": "133c0b62ff85f8268bf0c760e2f736047ad6bdd80c1e8959623041c64ed4e3f7",
+      "git_blob": "3ab6fd7d0ca6e8e4f0d620a73b6529aa4cdfca05",
+      "previous_local_sha256": "c8b3344cac95fdd863384e0642b5da4569c21f9c42e60ec38add814373757465",
+      "byte_identical_to_previous_local": false,
+      "previous_candidate_sha256": "071413349f0c8c5a0f8c43e8c38482335342aa689f772c304421d9dbccb2d16f",
+      "previous_candidate_git_blob": "05bf792a7ccbac643d56eae84d0c077ba9e94eb6"
+    }
+  ],
+  "docs": [
+    {
+      "path": "docs/PRODUCT.md",
+      "base_sha256": "251365a78ae9a65710621877e8ca37ba7a5be9277fd740882f2aebd0d8d93911",
+      "base_git_blob": "5f8ea8f30f259bbb6fdac67e539d1e503bb68362",
+      "prefix_bytes": 788,
+      "bytes": 190333,
+      "sha256": "84692bf5f5de55e8ef94ce86e659c5aea540577ed80b7b22e65e0135eabbb472",
+      "git_blob": "7e1c6eb28c66eb9d26bab4531fc6133de37d5acd",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "base_sha256": "8800cf5387470a1473561e430976779a139ed4fcb9dec972f2b38ff9ff12aef1",
+      "base_git_blob": "52c2c2cfcbd7c7d2fd68b7319cdab70ccee9d10a",
+      "prefix_bytes": 814,
+      "bytes": 341968,
+      "sha256": "28ecf1d8f5680287fed82af320534010b4219c7ecf08526cd65a092d1c1c3333",
+      "git_blob": "15a915f910359fcc5b7366648f20b2c0b1923cd9",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/DEVELOPMENT_STATE.md",
+      "base_sha256": "c92d239fdbafd42c63162905a4ec6b05e7b531b910dbace60758da862db8dd44",
+      "base_git_blob": "3ecc6396345b08a8cc285b96958b5cac7ebc7b22",
+      "prefix_bytes": 964,
+      "bytes": 396871,
+      "sha256": "ba355ad263badca9535f83098f8744e41366b3723c7eeb38cac5914cf6981efb",
+      "git_blob": "5b42cb36d896c5587a4befb111a4701981ff5b44",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/CHANGELOG_AI.md",
+      "base_sha256": "c5751008e9bf418a319c0e6e7ad3a9bb626b02e5c3315e56efe9dacdc6894170",
+      "base_git_blob": "6755a77f305965b41876bd7225f302a2dc589262",
+      "prefix_bytes": 832,
+      "bytes": 406425,
+      "sha256": "ff8c4d097e0863491c2f195993912cdfe9a14bfdab22de347436848632c70aa9",
+      "git_blob": "a2dcd63dd401cb5b9ebca1f4f7286e8b90b0cf79",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "base_sha256": "ab0c98c5e51e94f2f4a002d009b8ad7168e9138ccb551b5474b84ed0bb2d0766",
+      "base_git_blob": "80dd7320b5cbcc92df26476d7dfe96b641d5f86d",
+      "prefix_bytes": 677,
+      "bytes": 146164,
+      "sha256": "c4d7eb7c0bbd0a3d0ebcae560ecd05774f2e81adbc08c32aee354882e2d72497",
+      "git_blob": "9787c08e918da2b15f3e0a7738eea8ced713b224",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+      "base_sha256": "d9f23d9bff8e1df03c96749de78225801c55f552ed2d3a8f7596cc704466920a",
+      "base_git_blob": "e8adf6de8c7875ab92fbde11a91a873af7d3fc4e",
+      "prefix_bytes": 1132,
+      "bytes": 168192,
+      "sha256": "54b84344d2d98e8fd40f6ee72eb542a9aa95f90e4dd3c18faaea3f5bc490d1b0",
+      "git_blob": "cdd59eeff7917283a94d6b7b84cbc7b322da9cdf",
+      "historical_suffix_byte_exact": true
+    }
+  ],
+  "prior_failed_ci": {
+    "manifest": {
+      "path": "docs/evidence/autonomy_v162_handoff_ci_2026-10-12_250ef7f_failure.json",
+      "bytes": 4758,
+      "sha256": "f7e2c6f75331f292d633ebc3b657fa0b5295d0017b1d116656c2e19015ee7465",
+      "git_blob": "4c4813609e94294071fb1cd92cd4dda4f73f7f88"
+    },
+    "result": "6 workflows terminal: 4 success, 2 failure; 2 failed backend jobs, 2 skipped product-guard jobs.",
+    "backend_each": {
+      "passed": 935,
+      "failed": 1,
+      "error": "KeyError: 'follow_up'"
+    },
+    "skipped_or_unreached": "Remaining v162 selectors, scripted CLI, subsequent Mongo restart/provenance gates and dependent product guards were not executed.",
+    "checkout_identity": "Push and PR merge are distinct; exact merge parent/tree and 21-file delta are preserved in the prior failure manifest.",
+    "raw_logs": "Complete raw logs were read and hashed by the collector, retained in its V8 state and available at the original GitHub job URLs; they are not embedded or reconstructed here.",
+    "acceptance_transfer": false
+  },
+  "current_validation": {
+    "ci": "not_run_at_freeze",
+    "local_pytest": "unavailable: environment_offline",
+    "live": "not_run",
+    "previous_results_transfer": false
+  },
+  "targeted_collector": {
+    "artifacts": [
+      {
+        "path": "docs/evidence/autonomy_v162_targeted_collector_2026-10-12.js",
+        "bytes": 16694,
+        "sha256": "e80c6a4dea71367e3baff725d47d53a663511e85e7a2350c976442686378177d",
+        "git_blob": "100657deb68bdc7d3e3de1863fc3a581ee46c971"
+      },
+      {
+        "path": "docs/evidence/autonomy_v162_targeted_collector_2026-10-12_manifest.json",
+        "bytes": 6152,
+        "sha256": "36b6d1f4c70d78d579b5ed4b9fee96ba78ca297219ef634351d4536e16e1770c",
+        "git_blob": "7968ea1e1dc03c02fae87c108001c70288b041aa"
+      },
+      {
+        "path": "docs/evidence/autonomy_v162_targeted_collector_2026-10-12_tests.json",
+        "bytes": 4131,
+        "sha256": "7f0ae16e0044294cffd00e0711ae8ec843ccb225704712e0af80f6cdbaad7afa",
+        "git_blob": "947e87c4fa76aed7d57e1d0e4ae51f0aca634624"
+      }
+    ],
+    "checks_passed": 40,
+    "checks_failed": 0,
+    "fixture_basis": "Declared copies of original 22df logs; no new model or service execution.",
+    "scope": {
+      "required_reports": [
+        "situation",
+        "autonomy"
+      ],
+      "required_autonomy_scenarios": [
+        "memory_corrected"
+      ],
+      "public": "not required"
+    },
+    "candidate_binding": "The collector's own freeze manifest records its then-announced 250ef candidate; the later actual configuration must use the newly published source/tree and deployment.",
+    "process_status": "SUCCESS alone does not prove a running or completed process. Report collection and model pass are separate."
+  },
+  "original_goal_and_place_review": {
+    "report_sha256": "b5b4c0db14cbeaafa8c90706fdda5a4166a98a94fb516fe61a5aa136269e904f",
+    "observed_input_characters": 9000,
+    "full_input_characters": 40677,
+    "input_truncated": true,
+    "requested_dryness_and_risk_in_observed_prefix": true,
+    "canonical_place_in_observed_prefix": true,
+    "initial_output_complete": true,
+    "declared_and_saved_fields_equal": true,
+    "conclusion": "The omission is already present in the model-authored declaration. Runtime persistence reproduces it. Later autonomy uses that declaration without the original delegated wording.",
+    "deterministic_repair_performed": false,
+    "reason": "No automatic source association, goal rewrite, plan repair, domain routing, or model/provider/budget change is justified by this read-only review.",
+    "remaining": "A fresh live response must preserve the complete desired outcome and an explicitly selected owned canonical place."
+  },
+  "operational": {
+    "live_service": {
+      "project": "1264aea8-7e1e-403b-9d14-66f61135f179",
+      "environment": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "service": "d84dcca0-6372-40cc-a19e-ca32c3533fb0"
+    },
+    "reuse_gate": "Fresh exact-source successful CI; fresh service/configuration and replica observation before command/source changes.",
+    "prior_service_observation": {
+      "at": "2026-10-12T15:13:22Z",
+      "deployment": "cab47edd-d7d5-4d43-a620-3e114f7406c7",
+      "status": "SUCCESS",
+      "replica_status": {
+        "running": 0,
+        "crashed": 0,
+        "total": 1
+      },
+      "pending_work": [],
+      "interpretation": "No running replica observed; this is not a test-pass receipt and must be rechecked before mutation."
+    },
+    "new_paid_resources": false,
+    "new_real_user_effects": false,
+    "physical_clock_advanced": false,
+    "APP_patch": {
+      "id": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+      "approval_rejection": "INVALID_ARGUMENT: Cancelled — the user did not approve this action. No changes were made.",
+      "applied": false,
+      "bypassed": false
+    },
+    "native_install_display_and_authenticated_tap": "not_attested"
+  },
+  "security": {
+    "rules": "scripts/audit_git_history.py@250ef7f308feec00d3f8fe014d4307e06a8ebe96",
+    "patterns": 5,
+    "sensitive_path_rules": 5,
+    "document_storage_rule": 1,
+    "raw_and_decoded_json": true,
+    "size_skips": 0,
+    "binary_skips": 0,
+    "placeholder_exemptions": 0,
+    "expected_findings": 0,
+    "full_history_ci_required": true
+  }
+}

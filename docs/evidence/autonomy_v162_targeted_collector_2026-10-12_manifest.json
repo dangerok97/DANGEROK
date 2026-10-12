@@ -1,0 +1,136 @@
+{
+  "schema": "ora.v162.targeted_collector_freeze.v1",
+  "frozen_at": "2026-10-12T15:12:58.229Z",
+  "implementation": {
+    "runtime": "pure V8 JavaScript; no filesystem or network inside collector",
+    "function_store_key": "ora_v162_targeted_collector_function",
+    "function_bytes": 13123,
+    "function_sha256": "d21beac272d2ea4da4d6066fea219aee25b72ab1444dfbc0e9dc34401b96592e",
+    "module_store_key": "ora_v162_targeted_collector_module",
+    "module_bytes": 16694,
+    "module_sha256": "e80c6a4dea71367e3baff725d47d53a663511e85e7a2350c976442686378177d",
+    "dependency_hash_checks": {
+      "vectors": [
+        {
+          "vector": "empty",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "passed": true
+        },
+        {
+          "vector": "abc",
+          "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "sha1": "a9993e364706816aba3e25717850c26c9cd0d89d",
+          "passed": true
+        }
+      ],
+      "source": {
+        "path": "backend/agent/reasoning.py",
+        "ref": "22df078148612b8e83c934ffc8d15bce33eaafee",
+        "bytes": 99173,
+        "sha256": "89833eadd600731f3b06588a06546a587f11987ab51f371f9c992a9ea853884b",
+        "matched_frozen": true
+      },
+      "helpers_sha256": "fe3dda0a21474d37dca3653e728a8adfb89a92ae58a7e2fd869c94fe31da6db7"
+    }
+  },
+  "profile": {
+    "requiredKinds": [
+      "situation",
+      "autonomy"
+    ],
+    "requiredAutonomyScenarios": [
+      "memory_corrected"
+    ],
+    "public_deliberately_not_required": true,
+    "announced_candidate": {
+      "code_revision": "250ef7f308feec00d3f8fe014d4307e06a8ebe96",
+      "tree": "001cf650ab4258a85ffa8916f0b8b3449eff66a1"
+    },
+    "deployment_id": null,
+    "status": "await_explicit_deployment_identity_and_authorization_to_read",
+    "log_query_limit": 500
+  },
+  "input_protocol": {
+    "publication_required": [
+      "code_revision",
+      "tree",
+      "projectId",
+      "environmentId",
+      "serviceId",
+      "deploymentId",
+      "created_at"
+    ],
+    "packet": "{receipt:{requested_at,received_at,arguments},mcp:<entire CallToolResult with structuredContent>}",
+    "usage": "new Function(moduleSource)().collectTargetedReports(config, previousStateOrNull, packet)",
+    "output": "serializable state preserving every original packet, progressive unique log multiset, all report candidates and a separate summary",
+    "source_change_mid_collection": "rejected; new configuration requires a separate collection",
+    "snapshots_with_foreign_binding": "preserved as rejected packets, never merged, and permanently block completion",
+    "query": "deployment-scoped deploy logs, optional build payload preserved; limit exactly 500; explicit startDate; endDate optional",
+    "saturation": "500 rows do not prove history complete; require unsaturated timestamp-window coverage from deployment creation; history_gaps gives next bounded window",
+    "overlap": "same timestamp/message occurrences deduplicated across snapshots; duplicate multiplicity within a snapshot retained",
+    "assembly": "exact fragments concatenated without separators, then one LF appended; no report reserialization",
+    "required_report_revision": "Situation and autonomy must exactly match publication.code_revision",
+    "public": "all complete or incomplete candidates preserved outside required scope; missing public code_revision is allowed there",
+    "completion": "required reports valid, exact autonomy scenario set, no binding errors, continuous history coverage and independently observed terminal deployment state",
+    "success_status": "SUCCESS alone is not terminal",
+    "model_acceptance": "not assessed; original passed values retained, no conversion of failed or pending reports",
+    "required_report_pass_claim": "separate boolean; cannot be true without collection_complete and all required original passed values true"
+  },
+  "verification": {
+    "fixture_basis": "synthetic collector copies of recovered22df logs; no new model execution",
+    "original_report_hashes": {
+      "situation": "b5b4c0db14cbeaafa8c90706fdda5a4166a98a94fb516fe61a5aa136269e904f",
+      "autonomy": "6938debea8d44ae6739420d62204042616803de2934a4e715d8d92e0a5069696",
+      "public": "567edc7eae219be841bef1a2bf11026ab8687296de55dd82a2d80692c31e3d1c"
+    },
+    "targeted_autonomy_fixture": {
+      "declared_change": "cases copied to exactly [memory_corrected]; all selected case values and report verdict unchanged",
+      "original_autonomy_sha256": "6938debea8d44ae6739420d62204042616803de2934a4e715d8d92e0a5069696",
+      "fixture_autonomy_sha256": "575756030f2914889b31c3ce74487b853b2e1b9fe21ebef4deffc1bf327b31b9",
+      "fixture_autonomy_bytes": 113255
+    },
+    "fixtures": {
+      "with_public": {
+        "rows": 36,
+        "packet_sha256": "515f31cb221ad4001ee68bb9cdcab805f34ba8f6db20eb0399f0bb77cecac4b2"
+      },
+      "two_only": {
+        "rows": 35,
+        "packet_sha256": "e2a3936a19b8e232aa6bbd4648c7276dd3bd073e65ce33a82b7e867ad2a85bc7"
+      }
+    },
+    "tests_passed": 40,
+    "tests_failed": 0,
+    "test_results_store_key": "ora_v162_targeted_collector_tests",
+    "test_results_bytes": 4131,
+    "test_results_sha256": "7f0ae16e0044294cffd00e0711ae8ec843ccb225704712e0af80f6cdbaad7afa",
+    "progressive_case": {
+      "snapshots": 3,
+      "cached_rows": 36,
+      "all_three_texts_exact": true,
+      "required_model_pass": false
+    },
+    "saturation_case": {
+      "rows": 500,
+      "unsaturated_pages": [
+        492,
+        8
+      ],
+      "final_cached_rows": 500,
+      "complete_only_after_both_pages": true
+    },
+    "historical_reports_unchanged": true,
+    "model_or_semantic_acceptance_proved": false
+  },
+  "effects": {
+    "new_network_reads": 0,
+    "new_model_calls": 0,
+    "filesystem_writes": 0,
+    "github_mutations": 0,
+    "deployments": 0,
+    "service_changes": 0,
+    "notifications": 0
+  },
+  "remaining": "New deployment identity and permission to start reading are still required; no collector read started for250ef7f."
+}

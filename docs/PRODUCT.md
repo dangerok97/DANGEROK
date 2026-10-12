@@ -1,3 +1,11 @@
+# 12 ottobre 2026 — v162, correzione della prova dello stato del controllo
+
+La CI del candidato250ef7f ha rilevato un errore nel nuovo test: il risultato originale di creazione non contiene `follow_up`. Questo non dimostra un difetto dell’app. La correzione mantiene la verifica del programma reale e aggiunge due passaggi completi con una risposta intermedia prima della programmazione. L’obiettivo resta “Ho steso → quando ritirare” a Tarquinia; il vecchio bucato resta chiuso.
+
+Il modulo passa da18a20 casi definiti. La nuova esecuzione è **NOT_RUN al congelamento**; il codice runtime non cambia rispetto a250ef7f. Accettazione reale e prova sul dispositivo restano aperte. [Indice della correzione](evidence/autonomy_v162_handoff_contract_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, recupero cloud da collaudare
 
 **Il ritiro utile del bucato a Tarquinia non è ancora dimostrato.** La vecchia stesa reale resta chiusa. La CI della revisione 22df078 ha 6 workflow e 16 job SUCCESS; il live non è accettato. La Situation perde il riferimento al luogo e presenta un handoff incoerente; Agent supera solo quattro casi negativi su nove, con 0/5 testi positivi accettati; il pubblico passa il controllo tecnico ma non la revisione umana. Il controllo futuro e Home/replay nei cinque positivi non sono attestati.

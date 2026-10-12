@@ -1,3 +1,14 @@
+# 12 ottobre 2026 — v162, test dell’handoff corretto e ampliato
+
+- Corretto l’accesso a un `follow_up` inesistente nel risultato storico CREATE; resta l’asserzione che il rendering non lo modifichi.
+- Aggiunti due casi con risposta intermedia e gate reale prima di programmare, per20 casi complessivi. Rimangono i controlli su unico obiettivo, unico wake, una lettura HTTP sintetica e nessuna affermazione di asciugatura.
+- Conservati il manifest della CI250ef7f fallita e il collector V8 dei due report mirati, con40 controlli eseguiti su fixture dichiarate.
+- Nessun cambiamento runtime, provider, budget, scheduler, oracle live o APP rispetto a250ef7f. Nuova CI e nuovo live non eseguiti al congelamento.
+
+[Indice della correzione e degli artefatti](evidence/autonomy_v162_handoff_contract_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, recupero delle correzioni successive a 22df078
 
 Conservati i tre originali 22df078 senza modificarne i verdetti: CI con 6 workflow e 16 job SUCCESS; Situation incompleta; Agent 4/9 con soli negativi e 0/5 positivi accettati; pubblico tecnicamente PASS ma revisione umana negativa.
