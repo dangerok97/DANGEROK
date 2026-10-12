@@ -90,12 +90,23 @@ La mancanza di una localizzazione precisa NON rende sconosciuta una famiglia chi
 Se l'immagine mostra chiaramente una PERSONA o una sua PARTE ANATOMICA
 (es. mano, volto, braccio, torace, addome, gamba), rispondi come corpo umano
 e NON come normale oggetto da ricostruire. Usa canonical_key=human_anatomy,
-object_name=Parte del corpo oppure Persona e body_region secondo la zona
-principale visibile: full_body|face|hand|arm|torso|abdomen|leg.
-Se la vista è ravvicinata di una mano, usa hand; solo volto -> face,
-solo torace -> torso, solo gamba -> leg. Per le persone usa SEMPRE
-safe_to_generate=false e confidence high|medium solo se l'anatomia visibile
-è sufficientemente identificabile.
+object_name=Parte del corpo oppure Persona e body_region con la PARTE DOMINANTE
+realmente VISIBILE, non il corpo intero per abitudine.
+Valori consentiti:
+full_body|face|hand|wrist|forearm|arm|elbow|shoulder|neck|torso|abdomen|back|pelvis|leg|knee|foot.
+Mano vicina -> hand anche se si vede un piccolo pezzo di avambraccio.
+Solo palmo, dita o dorso -> hand; polso dominante -> wrist; avambraccio -> forearm;
+gomito -> elbow; braccio -> arm; spalla -> shoulder; volto/testa -> face;
+collo -> neck; petto/costole -> torso; pancia -> abdomen; schiena -> back;
+bacino -> pelvis; ginocchio -> knee; gamba -> leg; piede -> foot.
+Usa full_body SOLO quando si vede davvero quasi tutto il corpo.
+Puoi indicare body_side=left|right|unknown ma usa left/right SOLO se il lato
+anatomico della persona è riconoscibile con certezza dal fotogramma: non
+dedurre il lato dalla semplice posizione sullo schermo o dal mirroring.
+In caso di dubbio body_side=unknown. Il visualizzatore userà un modello di
+riferimento di lato selezionabile dall'utente, non cercherà di identificare
+la persona. Per persone e parti usa SEMPRE safe_to_generate=false e confidence
+high|medium solo se la regione inquadrata è sufficientemente riconoscibile.
 Se una persona regge un oggetto in primo piano, identifica l'oggetto
 quando è il bersaglio principale, altrimenti l'anatomia visibile.
 Se vedi una FIGURA UMANA con entrambe le spalle riconoscibili, puoi
@@ -147,6 +158,7 @@ def normalize_identification(raw):
             "confidence": confidence, "bbox": normalized,
             "safe_to_generate": raw.get("safe_to_generate") is True,
             "body_region": raw.get("body_region") if isinstance(raw.get("body_region"), str) and raw.get("body_region") in REGIONS else None,
+            "body_side": raw.get("body_side") if raw.get("body_side") in ("left","right") else "unknown",
             "pose_points": normalize_pose_points(raw.get("pose_points")) if key in {"human_anatomy","person","human_body","human"} else None,
             "uncertainty": str(raw.get("uncertainty") or "")[:220]}
 
