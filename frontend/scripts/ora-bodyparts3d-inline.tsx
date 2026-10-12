@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from 'react';
 import AnatomyScene from './scene';
 import {DEFAULT_VISIBLE,SYSTEMS,explanation,type Atlas,type Concept,type SystemId,type SceneState} from './anatomy';
 import {italianAtlas} from './ora-locale-it';
+import {anatomicalRegion,STUDY_LABEL,expansion,type StudyRegion,type ModelSide} from './ora-regions';
 import './ora-overlay.css';
 
 /** Transparent 3D teaching model. Never a reconstruction of the scanned person. */
@@ -18,9 +19,16 @@ const initial=():SceneState=>({
  explode:0,visible:[...INITIAL_SYSTEMS],selected:[],isolate:false,view:'front',rotate:false,reset:0
 });
 const normalized=(v:string)=>v.toLocaleLowerCase('it').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-const REGION_QUERY:Record<string,string>={
- face:'skull',hand:'hand',arm:'humerus',torso:'heart',abdomen:'stomach',leg:'femur'
+const SIDED=new Set<StudyRegion>(['hand','wrist','forearm','arm','elbow','shoulder','leg','knee','foot']);
+const REGION_SYSTEMS:Partial<Record<StudyRegion,SystemId[]>>={
+ hand:['skeletal','muscular'],wrist:['skeletal','muscular'],forearm:['skeletal','muscular'],
+ arm:['skeletal','muscular'],elbow:['skeletal','muscular'],shoulder:['skeletal','muscular'],
+ foot:['skeletal','muscular'],knee:['skeletal','muscular'],leg:['skeletal','muscular'],
+ face:['skeletal','sensory','nervous'],neck:['skeletal','muscular','nervous'],
+ torso:['skeletal','cardiac','respiratory'],abdomen:['digestive','urinary','skeletal'],
+ back:['muscular','skeletal'],pelvis:['skeletal','urinary']
 };
+const visibleFor=(region:StudyRegion):SystemId[]=>[...(REGION_SYSTEMS[region]||INITIAL_SYSTEMS)];
 export default function OraOverlay(){
  const [atlas,setAtlas]=useState<Atlas|null>(null);
  const [state,setState]=useState<SceneState>(initial);
@@ -32,8 +40,17 @@ export default function OraOverlay(){
  const [aboutOpen,setAboutOpen]=useState(false);
  const [chosen,setChosen]=useState<Concept|null>(null);
  const params=useMemo(()=>new URLSearchParams(window.location.search),[]);
- const zone=params.get('region')||'full_body';
+ const requested=params.get('region')||'full_body';
+ const detected:StudyRegion=(requested in STUDY_LABEL?requested:'full_body') as StudyRegion;
+ const [focusRegion,setFocusRegion]=useState<StudyRegion>(detected);
+ // Reference-side control, never guessed from a mirror image.
+ const observedSide=params.get('side');
+ const [modelSide,setModelSide]=useState<ModelSide>(observedSide==='left'?'left':'right');
  const focusX=Number(params.get('cx'));
+ const subset=useMemo(()=>atlas?anatomicalRegion(atlas,focusRegion,modelSide):null,
+  [atlas,focusRegion,modelSide]);
+ const permittedIds=useMemo(()=>new Set(subset?.ids||[]),[subset]);
+ const availabilityWarning=!!subset&&!subset.available;
  useEffect(()=>{
   document.documentElement.lang='it';
   if(Number.isFinite(focusX)){
@@ -50,31 +67,35 @@ export default function OraOverlay(){
      throw new Error('Il modello anatomico non corrisponde alla versione verificata.');
     const next=italianAtlas(atlasSource);
     setAtlas(next);
-    const name=REGION_QUERY[zone];
-    if(name){
-     const candidate=next.concepts.find(c=>c.originalName?.toLowerCase()===name);
-     if(candidate)setState(s=>({...s,selected:candidate.elements,isolate:false}));
-    }
+    setState(s=>({...s,visible:visibleFor(detected),selected:[],isolate:false,
+      explode:0,reset:s.reset+1}));
    })
    .catch(e=>{if(!controller.signal.aborted)setError(String(e?.message||'Atlante non disponibile.'));});
   return()=>{controller.abort();document.documentElement.style.removeProperty('--ora-person-offset');};
- },[zone,focusX]);
+ },[detected,focusX]);
  const byId=useMemo(()=>new Map(atlas?.parts.map(p=>[p.id,p])),[atlas]);
- const active=state.selected.map(id=>byId.get(id)).filter((part)=>!!part);
+ const active=state.selected.filter(id=>permittedIds.has(id)).map(id=>byId.get(id)).filter((part)=>!!part);
  const selected=active[0];
  const selectedSystem=SYSTEMS.find(s=>s.id===selected?.system);
  const results=useMemo(()=>{
   if(!atlas)return[];
   const term=normalized(query);
-  if(!term)return ['cuore','fegato','encefalo','stomaco','pancreas','aorta'].map(v=>atlas.concepts.find(c=>normalized(c.name)===v)).filter((v):v is Concept=>!!v);
-  return atlas.concepts.filter(c=>
+  const visibleConcepts=atlas.concepts.map(c=>({...c,elements:c.elements.filter(id=>permittedIds.has(id))}))
+    .filter(c=>c.elements.length>0);
+  if(!term)return ['cuore','fegato','encefalo','stomaco','pancreas','aorta','mano','femore']
+   .map(v=>visibleConcepts.find(c=>normalized(c.name)===v))
+   .filter((v):v is Concept=>!!v).slice(0,15);
+  return visibleConcepts.filter(c=>
    normalized(c.name).includes(term)||
    normalized(c.originalName||'').includes(term)||
    normalized(c.id).includes(term)
   ).slice(0,60);
- },[atlas,query]);
+ },[atlas,query,permittedIds]);
  const choose=(part:Concept)=>{
-  setChosen(part);setState(s=>({...s,selected:part.elements,isolate:false,explode:0,reset:s.reset+1}));
+  const localElements=part.elements.filter(id=>permittedIds.has(id));
+  if(!localElements.length)return;
+  setChosen({...part,elements:localElements});
+  setState(s=>({...s,selected:localElements,isolate:false,explode:0,reset:s.reset+1}));
   setSearchOpen(false);setSystemsOpen(false);
  };
  const choosePart=(id:string)=>{
@@ -86,15 +107,42 @@ export default function OraOverlay(){
   setChosen(null);setSystemsOpen(false);
  };
  const setOpening=(percent:number)=>setState(s=>({...s,explode:Math.max(0,Math.min(1,percent/100)),rotate:false}));
- const reset=()=>{setState(initial());setChosen(null);setQuery('');setSearchOpen(false);setSystemsOpen(false);};
+ const reset=()=>{setState(s=>({...s,visible:visibleFor(focusRegion),selected:[],
+  explode:0,isolate:false,view:'front',rotate:false,reset:s.reset+1}));
+  setChosen(null);setQuery('');setSearchOpen(false);setSystemsOpen(false);
+ };
+ const setRegion=(next:StudyRegion)=>{
+  if(next===focusRegion)return;
+  setFocusRegion(next);setState(s=>({...s,visible:visibleFor(next),selected:[],
+    explode:0,isolate:false,view:'front',rotate:false,reset:s.reset+1}));
+  setChosen(null);setSearchOpen(false);setSystemsOpen(false);setQuery('');
+ };
+ const changeSide=(side:ModelSide)=>{
+  setModelSide(side);setState(s=>({...s,selected:[],explode:0,isolate:false,reset:s.reset+1}));
+  setChosen(null);
+ };
  const title=chosen?.name||'Anatomia di riferimento';
  return <main className="ora-overlay" data-testid="ora-bodyparts-inline" aria-label="Anatomia 3D in sovrimpressione, modello didattico">
-   {atlas&&<AnatomyScene atlas={atlas} state={{...state,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
+   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:subset.ids,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
      onProgress={setProgress} onError={setError}/>}
    <div className="ora-overlay-header">
-    <div className="ora-overlay-label"><strong>ORA · ANATOMIA 3D</strong><span>MODELLO DIDATTICO FISSATO ALL'INQUADRATURA</span></div>
+    <div className="ora-overlay-label"><strong>ORA · {STUDY_LABEL[focusRegion].toLocaleUpperCase('it')} 3D</strong>
+     <span data-testid="ora-inline-region-label">{focusRegion===detected?'ZONA RILEVATA · MODELLO DIDATTICO':'VISTA AMPLIATA · MODELLO DIDATTICO'}</span></div>
     <button type="button" data-testid="ora-inline-search-toggle" aria-expanded={searchOpen} onClick={()=>{setSearchOpen(v=>!v);setSystemsOpen(false);}}>⌕ <span>Cerca</span></button>
     <button type="button" data-testid="ora-inline-systems-toggle" aria-expanded={systemsOpen} onClick={()=>{setSystemsOpen(v=>!v);setSearchOpen(false);}}>☷ <span>Sistemi</span></button>
+   </div>
+   <div className="ora-overlay-context" role="group" aria-label="Regione del modello anatomico">
+    <strong data-testid="ora-inline-active-region">{STUDY_LABEL[focusRegion]}</strong>
+    {SIDED.has(focusRegion)&&<div className="ora-overlay-side" aria-label="Lato del modello di riferimento">
+      <button type="button" data-testid="ora-inline-side-right" aria-pressed={modelSide==='right'} onClick={()=>changeSide('right')}>Destra</button>
+      <button type="button" data-testid="ora-inline-side-left" aria-pressed={modelSide==='left'} onClick={()=>changeSide('left')}>Sinistra</button>
+    </div>}
+    {focusRegion!=='full_body'&&<button type="button" data-testid="ora-inline-expand"
+     onClick={()=>setRegion(expansion(focusRegion))}>
+     Espandi: {STUDY_LABEL[expansion(focusRegion)]} ↗
+    </button>}
+    {focusRegion!==detected&&<button type="button" data-testid="ora-inline-back-to-part"
+     onClick={()=>setRegion(detected)}>Torna a {STUDY_LABEL[detected].toLowerCase()}</button>}
    </div>
    <div className="ora-overlay-presets" role="group" aria-label="Strutture anatomiche da mostrare">
     {PRESETS.map(p=><button type="button" key={p.key} data-testid={'ora-inline-preset-'+p.key}
@@ -113,7 +161,7 @@ export default function OraOverlay(){
       data-testid="ora-inline-search" placeholder="Cerca: cuore, fegato, femore…" aria-label="Cerca struttura anatomica"/>
     <div className="ora-overlay-search-results">{results.map(c=><button type="button" key={c.id}
       onClick={()=>choose(c)}>{c.name}<small>{c.elements.length} parti</small></button>)}
-      {results.length===0&&<p>Nessuna struttura trovata. Prova il nome scientifico originale.</p>}
+      {results.length===0&&<p>Nessuna struttura nella zona corrente. Per cercare altrove usa «Espandi».</p>}
     </div>
    </section>}
    {chosen&&selected&&<aside className="ora-overlay-detail" data-testid="ora-inline-detail">
@@ -140,6 +188,10 @@ export default function OraOverlay(){
    </div>
    {progress<100&&!error&&<div className="ora-overlay-loading" role="status" data-testid="ora-inline-loading">
     <strong>Preparo il corpo umano 3D…</strong><span>{progress}%</span>
+   </div>}
+   {availabilityWarning&&<div role="status" className="ora-overlay-loading ora-overlay-error"
+    data-testid="ora-inline-region-unavailable">
+    Non trovo sufficienti componenti BodyParts3D per questa zona. Puoi espandere la visualizzazione.
    </div>}
    {error&&<div role="alert" className="ora-overlay-loading ora-overlay-error" data-testid="ora-inline-error">{error}</div>}
    {aboutOpen&&<aside className="ora-overlay-about">

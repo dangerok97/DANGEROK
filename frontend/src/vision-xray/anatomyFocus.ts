@@ -1,12 +1,12 @@
 /** Educational focus framing over original atlas geometry (never body measurements). */
 import {regionsFor, type AtlasLayer, type AnatomyRegion, type AnatomyVariant} from './anatomyAtlas';
-export type BodyRegion = 'full_body'|'face'|'hand'|'arm'|'torso'|'abdomen'|'leg';
+export type BodyRegion = 'full_body'|'face'|'hand'|'wrist'|'forearm'|'arm'|'elbow'|'shoulder'|'neck'|'torso'|'abdomen'|'back'|'pelvis'|'leg'|'knee'|'foot';
 export const BODY_LABEL:Record<BodyRegion,string>={
  full_body:'CORPO UMANO',face:'TESTA E VOLTO',hand:'MANO E POLSO',
- arm:'ARTO SUPERIORE',torso:'TORACE',abdomen:'ADDOME E BACINO',leg:'ARTO INFERIORE'};
+ arm:'ARTO SUPERIORE',wrist:'POLSO',forearm:'AVAMBRACCIO',elbow:'GOMITO',shoulder:'SPALLA',neck:'COLLO',torso:'TORACE',abdomen:'ADDOME E BACINO',back:'SCHIENA',pelvis:'BACINO',leg:'ARTO INFERIORE',knee:'GINOCCHIO',foot:'PIEDE'};
 const VIEWS:Record<BodyRegion,string>={
  full_body:'0 10 320 586',face:'112 19 96 102',hand:'32 340 78 130',
- arm:'50 125 90 320',torso:'110 115 101 250',abdomen:'112 205 96 167',leg:'112 310 100 270'};
+ arm:'50 125 90 320',wrist:'48 351 55 90',forearm:'48 240 55 160',elbow:'52 225 65 70',shoulder:'90 120 80 95',neck:'133 88 54 70',torso:'110 115 101 250',abdomen:'112 205 96 167',back:'110 115 101 250',pelvis:'112 260 96 145',leg:'112 310 100 270',knee:'112 410 100 75',foot:'112 503 100 85'};
 const FILTER:Partial<Record<BodyRegion,Partial<Record<AtlasLayer,string[]>>>>={
  face:{skin:['epidermis'],muscles:['mimetic_muscles'],nerves:['brain','facial_nerve','trigeminal'],vessels:['carotid_arteries'],
        organs:['eyes'],bones:['skull','mandible']},
@@ -56,6 +56,8 @@ const EXTRAS:Record<string,AnatomyRegion>={
 };
 export function viewFor(region:BodyRegion){return VIEWS[region];}
 export function focusedRegions(region:BodyRegion,layer:AtlasLayer,variant:AnatomyVariant):AnatomyRegion[]{
+ const related:Partial<Record<BodyRegion,BodyRegion>>={wrist:'hand',forearm:'arm',elbow:'arm',shoulder:'arm',neck:'face',back:'torso',pelvis:'abdomen',knee:'leg',foot:'leg'};
+ if(related[region])return focusedRegions(related[region]!,layer,variant);
  const original=regionsFor(layer,variant);
  if(region==='full_body')return original;
  // Reproductive organs appear only when the pelvic area is included in the view.

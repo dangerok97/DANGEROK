@@ -22,6 +22,7 @@
     "playwright.config.ts",
     "src/**/*.test.ts",
     "scripts/ora-bodyparts3d-inline.tsx",
-    "scripts/ora-bodyparts3d-locale-it.ts"
+    "scripts/ora-bodyparts3d-locale-it.ts",
+    "scripts/ora-bodyparts3d-regions.ts"
   ]
 }

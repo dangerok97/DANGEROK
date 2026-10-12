@@ -5,7 +5,7 @@ import {ANATOMY_STYLES} from './anatomyStyle';
 import {AnatomyVolume,type VisiblePosePoints} from './AnatomyVolume.web';
 
 /** Contextual educational atlas in the live camera, not an X-ray of this person. */
-export function AnatomyExplorer({onClose,region='full_body',posePoints,anchorCenter=.5}: {onClose:()=>void;region?:BodyRegion;posePoints?:VisiblePosePoints|null;anchorCenter?:number}){
+export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',posePoints,anchorCenter=.5}: {onClose:()=>void;region?:BodyRegion;bodySide?:'left'|'right'|'unknown';posePoints?:VisiblePosePoints|null;anchorCenter?:number}){
  const [layer,setLayer]=React.useState<AtlasLayer>('skin');
  const [viewRegion,setViewRegion]=React.useState<BodyRegion>(region);
  const [search,setSearch]=React.useState('');
@@ -77,10 +77,10 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints,anchorCen
     Preparo la scomposizione anatomica 3D…
    </div>:bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
    <iframe data-testid="vision-bp3d-frame" title="BodyParts3D: modello anatomico sovrapposto alla fotocamera"
-    src={'/bodyparts3d/index.html?ora=inline&lang=it&region='+encodeURIComponent(viewRegion)+'&cx='+bodyCenter.toFixed(3)} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" loading="eager"
+    src={'/bodyparts3d/index.html?ora=inline&lang=it&region='+encodeURIComponent(viewRegion)+'&cx='+bodyCenter.toFixed(3)+'&side='+bodySide} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" loading="eager"
     onError={()=>setBp3dActive(false)} />
    <div className="vx-bp3d-caption">
-    <span>Strutture 3D illustrative sovrapposte · 2.234 mesh · non sono gli organi della persona inquadrata</span>
+    <span>Modello didattico della regione inquadrata · non mostra strutture interne reali</span>
     <a data-testid="vision-bp3d-fullscreen" href="/bodyparts3d/index.html"
       target="_blank" rel="noopener noreferrer">Apri a schermo intero ↗</a>
    </div>

@@ -48,7 +48,7 @@ const sourceFile=(p)=>readFileSync(resolve(vendorRoot,p),'utf8');
 assert.match(read('index.html'),/lang="it"/);
 assert.match(read('index.html'),/ORA · Anatomia 3D/);
 assert.match(sourceFile('app/page.tsx'),/Atlante umano/);
-assert.match(sourceFile('app/ora-overlay.tsx'),/ORA · ANATOMIA 3D/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/ORA · \{STUDY_LABEL\[focusRegion\]/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/Scomponi/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/Preparo il corpo umano 3D/);
 assert.match(sourceFile('app/scene.tsx'),/alpha:oraInline/);
@@ -57,6 +57,42 @@ assert.match(sourceFile('app/ora-overlay.css'),/background:transparent/);
 assert.match(sourceFile('app/anatomy.ts'),/SISTEMI_IT/);
 const assetFiles=await import('node:fs').then(fs=>fs.readdirSync(resolve(dist,'assets')));
 assert.ok(assetFiles.some(file=>file.endsWith('.js')),'No deployed 3D viewer JavaScript');
+
+// Check region extraction using the REAL vendor geometry, not a synthetic mock.
+const tsModule=await import((await import('node:url')).pathToFileURL(resolve(dist,'../node_modules/typescript/lib/typescript.js')).href);
+const ts=tsModule.default||tsModule,vm=await import('node:vm');
+const source=readFileSync(resolve('scripts/ora-bodyparts3d-regions.ts'),'utf8');
+const js=ts.transpileModule(source,{compilerOptions:{
+ module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022
+}}).outputText;
+const module={exports:{}};
+vm.runInNewContext(js,{module,exports:module.exports,require(name){throw Error('Unexpected dependency '+name);}});
+const result={};
+const regions=module.exports;
+for(const id of ['hand','face','torso','abdomen','arm','leg','foot','wrist','knee']){
+ const item=regions.anatomicalRegion(model,id,'right');
+ result[id]={count:item.ids.length,source:item.source,available:item.available,
+   ratio:+(item.ids.length/model.parts.length).toFixed(3)};
+ console.log('REGION_SAMPLE '+id+' '+JSON.stringify(result[id]));
+ if(['hand','face','torso','abdomen','arm','leg','foot','wrist','knee'].includes(id)){
+  assert.ok(item.available,'No usable local geometry for '+id+': '+JSON.stringify(result[id]));
+  assert.ok(item.ids.length<model.parts.length*.65,'Too much body geometry in '+id);
+ }
+}
+assert.ok(!regions.anatomicalRegion(model,'hand','right').ids.includes(
+ model.parts.find(p=>p.name.toLowerCase()==='heart')?.id||'__heart_missing__'
+ ),'Hand cannot contain heart mesh');
+const rightHand=regions.anatomicalRegion(model,'hand','right');
+const leftHand=regions.anatomicalRegion(model,'hand','left');
+const sharedHands=rightHand.ids.filter(id=>leftHand.ids.includes(id)).length;
+console.log('REGION_HAND_SIDES '+JSON.stringify({
+ right:rightHand.ids.length,left:leftHand.ids.length,shared:sharedHands
+}));
+assert.ok(leftHand.available,'Left-hand reference mesh is missing');
+assert.ok(sharedHands<Math.min(rightHand.ids.length,leftHand.ids.length)*.45,
+ 'Both hand options cannot display the same anatomical reference');
+assert.ok(regions.anatomicalRegion(model,'full_body','unknown').ids.length===2234);
+console.log('ANATOMICAL_REGION_COUNTS '+JSON.stringify(result));
 
 console.log(JSON.stringify({status:'PASS',parts:model.parts.length,concepts:model.concepts.length,
  chunks:model.chunks.length,rawBytes:bytes,source:provenance.distributor_commit}));

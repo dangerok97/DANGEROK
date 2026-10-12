@@ -47,7 +47,8 @@ OBSERVATION_SCHEMA = {
                  "description": "[ymin,xmin,ymax,xmax], 0..1000; [0,0,0,0] if not localizable."},
         "safe_to_generate": {"type": "BOOLEAN"},
         "uncertainty": {"type": "STRING"},
-        "body_region": {"type": "STRING", "enum": ["full_body","face","hand","arm","torso","abdomen","leg"]},
+        "body_region": {"type": "STRING", "enum": ["full_body","face","hand","wrist","forearm","arm","elbow","shoulder","neck","torso","abdomen","back","pelvis","leg","knee","foot"]},
+        "body_side": {"type": "STRING", "enum": ["left","right","unknown"]},
         "pose_points": {"type": "OBJECT", "properties": {
             "left_shoulder": {"type": "ARRAY", "items": {"type": "NUMBER"}, "minItems": 2, "maxItems": 2},
             "right_shoulder": {"type": "ARRAY", "items": {"type": "NUMBER"}, "minItems": 2, "maxItems": 2},
