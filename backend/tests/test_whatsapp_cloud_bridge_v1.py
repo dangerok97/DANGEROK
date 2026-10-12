@@ -187,7 +187,7 @@ async def test_wrong_account_and_unsupported_media_do_not_reach_ai(config, datab
     await svc.persist_incoming({"id": "wamid.image.02", "from": "393331112233",
                                 "type": "image", "text": ""})
     await svc.process_one()
-    assert "foto e vocali" in sent[1]
+    assert "allegato" in sent[1].lower()
 
 
 def test_disabled_without_secrets(monkeypatch):

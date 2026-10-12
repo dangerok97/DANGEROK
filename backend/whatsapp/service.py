@@ -7,6 +7,7 @@ at rest; lookup keys are keyed HMACs, not reversible phone numbers.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import secrets
@@ -16,7 +17,8 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from whatsapp.cloud import CloudConfig
-from whatsapp.formatting import render_whatsapp_answer
+from whatsapp.handoff import render_core_answer_for_whatsapp
+from whatsapp.media import MediaNotUsable, fetch_whatsapp_media, transcribe_voice
 
 log = logging.getLogger("ora.whatsapp")
 
@@ -145,6 +147,10 @@ class WhatsAppService:
                     "phone_hash": self.config.fingerprint("phone", sender),
                     "phone_enc": self.config.encrypt(sender),
                     "text_enc": self.config.encrypt(message.get("text") or ""),
+                    # Meta media ids and captions belong to this user message,
+                    # so retain only encrypted metadata until delivery.
+                    "media_enc": self.config.encrypt(json.dumps(message["media"]))
+                        if isinstance(message.get("media"), dict) else None,
                     "kind": (message.get("type") or "unknown")[:32],
                     "status": "received",
                     "attempts": 0,
@@ -193,24 +199,35 @@ class WhatsAppService:
             # Another process owns this sender. Defer without counting a failure.
             return False
 
-    async def _answer_ai(self, user_id: str, linked: dict, body: str, incoming_id: str) -> str:
+    async def _answer_ai(
+        self, user_id: str, linked: dict, body: str, incoming_id: str,
+        *, attachments: list | None = None,
+    ) -> str:
         """Use precisely the app's AI Core orchestration, not a second chatbot."""
         from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
 
         core = AICoreOrchestrator(self.db)
         session_id = linked.get("last_session_id")
         if session_id:
-            answer = await core.message(
-                user_id, session_id, text=body, response_channel="text",
-                client_message_id="wa_" + hashlib.sha256(incoming_id.encode()).hexdigest()[:48],
-            )
+            kwargs = {
+                "text": body, "response_channel": "text",
+                "client_message_id": "wa_" + hashlib.sha256(incoming_id.encode()).hexdigest()[:48],
+            }
+            if attachments:
+                kwargs["attachments"] = attachments
+            answer = await core.message(user_id, session_id, **kwargs)
             if answer.get("error") in ("not_found", "session_closed"):
                 answer = None
         else:
             answer = None
         if answer is None:
-            answer = await core.start(user_id, text=body, origin="whatsapp",
-                                      entry_point="whatsapp", response_channel="text")
+            kwargs = {
+                "text": body, "origin": "whatsapp",
+                "entry_point": "whatsapp", "response_channel": "text",
+            }
+            if attachments:
+                kwargs["attachments"] = attachments
+            answer = await core.start(user_id, **kwargs)
             if answer.get("ok") and answer.get("session_id"):
                 await self.db.whatsapp_links.update_one(
                     {"user_id": user_id, "phone_hash": linked["phone_hash"]},
@@ -218,9 +235,7 @@ class WhatsAppService:
                 )
         if not answer.get("ok"):
             raise RuntimeError("AI Core did not return a successful turn")
-        text = render_whatsapp_answer(answer.get("ora_text") or answer.get("question"))
-        if answer.get("client_actions"):
-            text = (text + "\n\nPer completare questa operazione serve aprire l'app ORA: WhatsApp non può usare i sensori o le autorizzazioni del telefono al suo posto.").strip()
+        text = render_core_answer_for_whatsapp(answer)
         return text or "Ho ricevuto il messaggio, ma non ho ancora una risposta verificata. Riprova tra poco."
 
     async def prepare_reply(self, item: dict) -> tuple[str, str | None]:
@@ -234,9 +249,69 @@ class WhatsAppService:
         if not linked:
             return ("Per parlarmi qui, apri ORA → Connessioni e servizi → WhatsApp. "
                     "Genera il codice e invia COLLEGA seguito dal codice in questa chat."), None
-        if item.get("kind") != "text":
-            return ("Per ora su WhatsApp posso leggere e rispondere ai messaggi di testo. "
-                    "Per foto e vocali usa l'app ORA."), linked["user_id"]
+        kind = str(item.get("kind") or "")
+        attachments: list[dict] = []
+        if kind in ("image", "document", "audio"):
+            try:
+                if not item.get("media_enc"):
+                    raise MediaNotUsable("missing_media_reference")
+                metadata = json.loads(self.config.decrypt(item["media_enc"]))
+                if not isinstance(metadata, dict):
+                    raise MediaNotUsable("missing_media_metadata")
+                raw, mime = await fetch_whatsapp_media(
+                    access_token=self.config.access_token,
+                    version=self.config.version,
+                    media_id=str(metadata.get("id") or ""),
+                    kind=kind,
+                    declared_mime=str(metadata.get("mime_type") or ""),
+                )
+                if kind == "audio":
+                    # Voice notes are conversational text after transcription;
+                    # the full audio is not stored permanently by WhatsApp bridge.
+                    body = await transcribe_voice(raw, mime)
+                else:
+                    from conversation_engine.ai_core.files.service import ContextFileService
+
+                    defaults = {
+                        "image/jpeg": "foto.jpg",
+                        "image/png": "foto.png",
+                        "image/webp": "foto.webp",
+                        "image/heic": "foto.heic",
+                        "application/pdf": "documento.pdf",
+                    }
+                    filename = str(metadata.get("filename") or "").strip()[:180]
+                    if not filename:
+                        filename = defaults.get(mime, "allegato")
+                    uploaded = await ContextFileService(self.db).upload_and_bind(
+                        user_id=linked["user_id"], content=raw,
+                        filename=filename, mime_type=mime,
+                    )
+                    if not uploaded.get("ok") or not uploaded.get("file_id"):
+                        raise MediaNotUsable("file_ingestion_unavailable")
+                    attachments = [{"file_id": uploaded["file_id"]}]
+                    if not body.strip():
+                        body = (
+                            "Guarda la foto che ti ho appena inviato e dimmi cosa vedi."
+                            if kind == "image"
+                            else "Leggi il documento che ti ho appena inviato e aiutami a capirlo."
+                        )
+            except MediaNotUsable as exc:
+                # Expose a human response, not a false claim of having seen
+                # the file or an endless retry of an invalid attachment.
+                if kind == "audio":
+                    return (
+                        "Non riesco a trascrivere questo vocale adesso. "
+                        "Puoi riprovare oppure scrivermi il messaggio?"
+                    ), linked["user_id"]
+                return (
+                    "Non riesco a leggere questo allegato adesso. "
+                    "Puoi reinviarlo o aprirlo direttamente nell'app ORA?"
+                ), linked["user_id"]
+        elif kind not in ("text", "location", "interactive", "button"):
+            return (
+                "Questo formato non è ancora elaborabile su WhatsApp. "
+                "Puoi descrivermelo a parole oppure aprire l'app ORA."
+            ), linked["user_id"]
         if not body.strip():
             return "Scrivimi cosa desideri fare.", linked["user_id"]
         if len(body) > 5000:
@@ -245,7 +320,10 @@ class WhatsAppService:
             {"user_id": linked["user_id"], "phone_hash": phone_hash},
             {"$set": {"last_inbound_at": now()}},
         )
-        return await self._answer_ai(linked["user_id"], linked, body, item["provider_message_id"]), linked["user_id"]
+        return await self._answer_ai(
+            linked["user_id"], linked, body, item["provider_message_id"],
+            attachments=attachments,
+        ), linked["user_id"]
 
     async def process_one(self) -> bool:
         item = await self.claim_next()
@@ -280,14 +358,14 @@ class WhatsAppService:
                 if not current:
                     await self.db.whatsapp_inbox.update_one(
                         {"_id": item_id}, {"$set": {"status": "discarded", "phone_enc": None,
-                                                "text_enc": None, "reply_enc": None}})
+                                                "text_enc": None, "media_enc": None, "reply_enc": None}})
                     return True
             recipient = self.config.decrypt(item["phone_enc"])
             await self.config.send_text(recipient, text)
             await self.db.whatsapp_inbox.update_one(
                 {"_id": item_id},
                 {"$set": {"status": "delivered", "delivered_at": now(), "phone_enc": None,
-                          "text_enc": None, "reply_enc": None}},
+                          "text_enc": None, "media_enc": None, "reply_enc": None}},
             )
         except Exception as exc:
             # Avoid all secrets, text, names and phone numbers in logs.
@@ -325,9 +403,9 @@ async def disconnect_account(db, user_id: str) -> None:
     if linked:
         await db.whatsapp_inbox.update_many(
             {"phone_hash": linked["phone_hash"], "status": {"$in": ["received", "ready", "processing"]}},
-            {"$set": {"status": "discarded", "phone_enc": None, "text_enc": None, "reply_enc": None}},
+            {"$set": {"status": "discarded", "phone_enc": None, "text_enc": None, "media_enc": None, "reply_enc": None}},
         )
     await db.whatsapp_inbox.update_many(
         {"reply_user_id": user_id, "status": {"$ne": "delivered"}},
-        {"$set": {"status": "discarded", "phone_enc": None, "text_enc": None, "reply_enc": None}},
+        {"$set": {"status": "discarded", "phone_enc": None, "text_enc": None, "media_enc": None, "reply_enc": None}},
     )

@@ -160,8 +160,44 @@ def iter_inbound_messages(payload: dict, expected_phone_number_id: str):
                     continue
                 if not isinstance(sender, str) or not re.fullmatch(r"[1-9][0-9]{6,14}", sender):
                     continue
-                kind = message.get("type")
-                body = (message.get("text") or {}).get("body") if kind == "text" and isinstance(message.get("text"), dict) else ""
+                kind = str(message.get("type") or "")[:32]
+                body = ""
+                media = None
+                if kind == "text" and isinstance(message.get("text"), dict):
+                    body = str((message["text"] or {}).get("body") or "")
+                elif kind in ("image", "document", "audio") and isinstance(message.get(kind), dict):
+                    incoming_media = message[kind]
+                    media_id = incoming_media.get("id")
+                    if isinstance(media_id, str) and re.fullmatch(r"[A-Za-z0-9_-]{8,180}", media_id):
+                        media = {
+                            "id": media_id,
+                            "mime_type": str(incoming_media.get("mime_type") or "")[:120],
+                            "filename": str(incoming_media.get("filename") or "")[:200],
+                        }
+                        body = str(incoming_media.get("caption") or "")[:2400]
+                elif kind == "location" and isinstance(message.get("location"), dict):
+                    incoming_location = message["location"]
+                    try:
+                        lat = float(incoming_location["latitude"])
+                        lon = float(incoming_location["longitude"])
+                        if -90 <= lat <= 90 and -180 <= lon <= 180:
+                            # A shared pin is user-provided, never a live GPS permission.
+                            body = (
+                                "Ti condivido un punto sulla mappa WhatsApp "
+                                f"(non posizione GPS in tempo reale): {lat:.6f}, {lon:.6f}."
+                            )
+                            label = str(incoming_location.get("name") or "").strip()[:120]
+                            if label:
+                                body += " Etichetta fornita: " + label
+                    except (ValueError, TypeError, KeyError):
+                        pass
+                elif kind == "button" and isinstance(message.get("button"), dict):
+                    body = str((message["button"] or {}).get("text") or "")[:400]
+                elif kind == "interactive" and isinstance(message.get("interactive"), dict):
+                    interactive = message["interactive"]
+                    reply = interactive.get("button_reply") or interactive.get("list_reply") or {}
+                    if isinstance(reply, dict):
+                        body = str(reply.get("title") or "")[:400]
                 if not isinstance(body, str):
                     body = ""
-                yield {"id": mid, "from": sender, "type": kind, "text": body[:8000]}
+                yield {"id": mid, "from": sender, "type": kind, "text": body[:8000], "media": media}
