@@ -290,6 +290,7 @@ jobs:
             tests/test_current_fact_provenance_v162.py \
             tests/test_public_temperature_ranges_v162.py \
             tests/test_gemini_search_grounding_v162.py \
+            tests/test_gemini_search_quota_recovery_v162.py \
             tests/test_research_snippet_origin_v162.py \
             tests/test_route_provenance_v162.py \
             tests/test_agent_route_provenance_v162.py \
