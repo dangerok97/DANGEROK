@@ -23,6 +23,51 @@ GRAPH_MAX_DEPTH = 2
 GRAPH_MAX_EDGES = 10
 GRAPH_MAX_SEEDS = 6
 
+# These parsers only validate explicit dates/names already present in a user's
+# governed Memory statement. They never infer facts from another reminder.
+_ITALIAN_MONTHS = {
+    name: index for index, name in enumerate(
+        ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+         "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"), 1
+    )
+}
+
+
+def _date_explicit_in_statement(statement: str) -> Optional[tuple[int, int]]:
+    """Return one explicit Italian calendar date, not an inferred birthday."""
+    textual = re.search(
+        r"(?<!\\d)([0-3]?\\d)\\s+(" + "|".join(_ITALIAN_MONTHS) + r")\\b",
+        str(statement or "").lower(),
+    )
+    if textual:
+        day, month = int(textual.group(1)), _ITALIAN_MONTHS[textual.group(2)]
+        if 1 <= day <= 31:
+            return month, day
+    numeric = re.search(r"(?<!\\d)([0-3]?\\d)[/-]([01]?\\d)(?!\\d)", str(statement or ""))
+    if numeric:
+        day, month = int(numeric.group(1)), int(numeric.group(2))
+        if 1 <= month <= 12 and 1 <= day <= 31:
+            return month, day
+    return None
+
+
+def _person_explicit_in_birthday_statement(statement: str) -> str:
+    """Use an explicit human label only; never fabricate a name from a date."""
+    found = re.search(
+        r"\\bcompleanno\\s+(?:di|della|del)\\s+"
+        r"((?:mia\\s+|mio\\s+)?(?:zia|zio|nonna|nonno|mamma|papà|pap[aà]|"
+        r"[A-ZÀ-ÖØ-Ý][a-zà-ÿ]+)(?:\\s+[A-ZÀ-ÖØ-Ý][a-zà-ÿ]+){0,3})",
+        str(statement or ""), flags=re.IGNORECASE,
+    )
+    if not found:
+        return ""
+    candidate = re.sub(r"^(?:mia|mio)\\s+", "", found.group(1), flags=re.IGNORECASE).strip()
+    if any(fragment in candidate.lower() for fragment in (
+        "nome non specificato", "persona non specificata", "sconosciuto"
+    )):
+        return ""
+    return candidate[:120]
+
 
 @dataclass(frozen=True)
 class ContextSource:
@@ -380,6 +425,38 @@ class ContextSourceRegistry:
                 "compleanno", "promemoria annuale",
             ):
                 label = ""
+
+            # A mismatched old date must NEVER be paired with the person's
+            # newer date or name. The scheduling record and governed Memory
+            # must agree before this can be presented as a verified birthday.
+            try:
+                structured_date = (
+                    (int(value["month"]), int(value["day"]))
+                    if value.get("month") is not None and value.get("day") is not None
+                    else None
+                )
+            except (ValueError, TypeError):
+                structured_date = None
+            stated_date = _date_explicit_in_statement(original)
+            contradiction = any(
+                source_date != (month, day)
+                for source_date in (structured_date, stated_date)
+                if source_date is not None
+            )
+            if contradiction:
+                facts.append(_fact(
+                    "Ricorrenza da verificare: la data della memoria permanente "
+                    "non coincide con quella del promemoria annuale. "
+                    "Non assegnare questa data a una persona e non correggerla "
+                    "senza verifica del dato originale.",
+                    "recurring_memos", "system-structured", "conflicting_evidence",
+                    str(row.get("updated_at") or "") or None,
+                    f"recurring_memo_read_only:{str(row.get('id') or ref)[:110]}",
+                    provenance=[f"memory:{ref[:110]}", "recurring_memo"],
+                ))
+                continue
+            if not person and category == "birthday":
+                person = _person_explicit_in_birthday_statement(original)
             if person:
                 # The canonical Memory value takes precedence over a generic
                 # cached reminder title; no new data is written in this read.
