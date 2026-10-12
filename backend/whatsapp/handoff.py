@@ -100,9 +100,20 @@ def render_core_answer_for_whatsapp(answer: dict) -> str:
             # A clickable URL needs to stand on its own line in WhatsApp.
             rendered.append(f"{label}:\n{url}")
 
-    # Client-only actions must never disappear behind three map alternatives.
-    # Put the authenticated handoff first when the device is actually needed.
-    if answer.get("client_actions"):
+    # A real open_navigation client action already contains the provider URL.
+    # WhatsApp cannot auto-launch the phone's map app, but the link itself is
+    # directly usable: never replace it with a generic ORA app deep link.
+    app_required = False
+    for action in (answer.get("client_actions") or [])[:4]:
+        if not isinstance(action, dict):
+            continue
+        link = _safe_navigation(action.get("url"))
+        if action.get("type") == "open_navigation" and link:
+            add("Apri la navigazione", link)
+        else:
+            app_required = True
+    # Other client actions still require consent or local device capabilities.
+    if app_required:
         add("Per completare sul dispositivo, apri ORA", _app_conversation_url(answer))
 
     for item in (answer.get("navigation") or [])[:3]:
@@ -125,7 +136,16 @@ def render_core_answer_for_whatsapp(answer: dict) -> str:
     # Links are only handoffs; no WhatsApp webhook may silently perform a
     # client permission, device GPS acquisition or irreversible confirmation.
     if not text:
-        text = "Ho ricevuto il messaggio, ma non ho ancora una risposta verificata."
+        if any(_safe_navigation(part.rsplit("\\n", 1)[-1]) for part in rendered):
+            text = (
+                "Ho preparato il collegamento per la navigazione. "
+                "L'app mappe userà la posizione del telefono quando la apri "
+                "e mostrerà percorso e traffico aggiornati."
+            )
+        elif rendered:
+            text = "Ho preparato il collegamento per proseguire."
+        else:
+            text = "Ho ricevuto il messaggio, ma non ho ancora una risposta verificata."
     # Do not add a URL already supplied naturally by the model's text.
     rendered = [item for item in rendered if item.split("\n")[-1] not in text]
     output = (text + "\n\n" + "\n\n".join(rendered)).strip() if rendered else text
