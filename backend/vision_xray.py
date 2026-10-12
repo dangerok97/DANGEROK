@@ -49,7 +49,7 @@ def catalog():
     return _service
 
 def can_see():
-    return any(os.environ.get(k, "").strip() for k in ("GEMINI_API_KEY", "GEMINI2_API_KEY"))
+    return any(os.environ.get(k, "").strip() for k in ("GEMINI_API_KEY", "GEMINI2_API_KEY", "OPENAI_API_KEY"))
 
 def decode_photo(mime_type, encoded):
     try:
