@@ -1467,7 +1467,8 @@ def _verification_dump(payload: Dict[str, Any]) -> Optional[str]:
         encoded = _dump(compact)
         reduced_goal = json.loads(encoded).get("goal") or {}
         for key in ("objective", "desired_outcome", "success_criteria",
-                    "stop_conditions", "user_clarifications_not_authority"):
+                    "stop_conditions", "user_clarifications_not_authority",
+                    "origin", "decision_provenance", "criteria_source"):
             if reduced_goal.get(key) != goal.get(key):
                 logger.info("verification context unavailable: goal_criteria_exceed_budget")
                 return None
@@ -1577,7 +1578,8 @@ def _dump(payload: Dict[str, Any]) -> str:
             # context explicit. A clipped object must never look complete.
             return json.dumps({
                 "goal": {key: str(goal.get(key) or "")[:400]
-                         for key in ("id", "source_kind", "desired_outcome")},
+                         for key in ("id", "source_kind", "desired_outcome",
+                                     "origin", "decision_provenance", "criteria_source")},
                 "source_context_unavailable": True, "context_truncated": True,
                 **({"preparation_feedback_truncated": True}
                    if compact.get("preparation_feedback_truncated") else {}),
