@@ -32,7 +32,7 @@ def test_exactly_75_families_without_counting_aliases_or_versions():
 def test_original_25_manifests_remain_byte_equivalent_canonically():
     previous = {m.canonical_key: fingerprint(m) for m in ALL if m.canonical_key in BASELINE}
     assert len(previous) == 25
-    assert previous == BASELINE  # Existing immutable catalog version IDs must not change.
+    assert previous == BASELINE
 
 
 @pytest.mark.parametrize('model', ADDED, ids=lambda m: m.canonical_key)
@@ -148,11 +148,14 @@ async def test_withdrawn_new_family_does_not_get_resurrected(database):
 
 
 @pytest.mark.asyncio
-async def test_recognition_prompt_includes_new_families_without_exact_model_claim(api_module):
-    assert 'manual_coffee_grinder' in api_module.IDENTIFY
-    assert 'spinning_reel' in api_module.IDENTIFY
-    for model in ADDED:
-        assert model.canonical_key in api_module.IDENTIFY
+async def test_open_recognition_preserves_all_new_families_and_unknowns(api_module):
+    assert '[VISION_OBSERVATION_V2]' in api_module.IDENTIFY
     raw = dict(recognized=True, canonical_key='mulinello', object_name='Mulinello',
                confidence='high', bbox=[100,200,900,800], safe_to_generate=True)
     assert api_module.normalize_identification(raw)['canonical_key'] == 'spinning_reel'
+    for model in ADDED:
+        assert api_module.normalize_identification({**raw, 'canonical_key': model.canonical_key})['canonical_key'] == model.canonical_key
+        for alias in METADATA[model.canonical_key]['aliases']:
+            assert api_module.normalize_identification({**raw, 'canonical_key': alias})['canonical_key'] == model.canonical_key
+    assert api_module.normalize_identification({**raw, 'canonical_key': 'new_everyday_family'})['canonical_key'] == 'new_everyday_family'
+    assert api_module.normalize_identification({**raw, 'canonical_key': 'electric_coffee_grinder'})['canonical_key'] != 'manual_coffee_grinder'
