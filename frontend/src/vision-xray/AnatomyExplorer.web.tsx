@@ -48,7 +48,7 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints,anchorCen
  const focus=(part:AnatomyRegion)=>{setSelected(part.id);setExpanded(true);};
  const onCamera=bp3dActive&&bp3dStatus==='ready';
  const bodyCenter=Number.isFinite(anchorCenter)?Math.max(.22,Math.min(.78,anchorCenter)):.5;
- return <div className={'vx-anatomy vx-anatomy-inline'+(onCamera?' vx-has-bp3d':'')} data-testid="vision-anatomy" data-visual-mode={onCamera?'camera-overlay':'schematic-overlay'} data-region={viewRegion} role="region" aria-label="Atlante anatomico contestuale, illustrativo">
+ return <div className={'vx-anatomy vx-anatomy-inline'+(onCamera?' vx-has-bp3d':bp3dStatus==='checking'?' vx-bp3d-pending':'')} data-testid="vision-anatomy" data-visual-mode={onCamera?'camera-overlay':'schematic-overlay'} data-region={viewRegion} role="region" aria-label="Atlante anatomico contestuale, illustrativo">
   <style>{ANATOMY_STYLES}</style>
   <div aria-hidden="true" className="vx-anatomy-grid"/>
   <div aria-hidden="true" className="vx-anatomy-scan"/>
