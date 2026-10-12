@@ -675,6 +675,12 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
+    try:
+        from whatsapp.worker import stop_worker as stop_whatsapp_worker
+        await stop_whatsapp_worker()
+    except Exception:
+        logger.exception("WhatsApp inbox shutdown failed (non-fatal)")
+
     # Il giro dei recuperi si cancella e basta: ogni cosa da fare è durevole
     # in Mongo, e una rivendicazione presa quando il processo muore torna
     # libera appena scade. Si perde latenza, non lavoro.
