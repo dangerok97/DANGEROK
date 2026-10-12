@@ -161,4 +161,5 @@ jobs:
         with:
           name: vision-bodyparts3d-provenance
           path: .vision-bp3d-evidence/
+          include-hidden-files: true
           retention-days: 7
