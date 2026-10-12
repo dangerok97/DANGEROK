@@ -119,3 +119,23 @@ test('mismatched or missing BodyParts3D provenance never hides the original ORA 
  await expect(page.getByTestId('vision-anatomy-volume')).toBeVisible();
  await expect(page.getByTestId('vision-bp3d-frame')).toHaveCount(0);
 });
+
+
+test('direct human atlas requires neither camera permission nor an AI image request',async({page})=>{
+ let scans=0;page.on('request',r=>{if(r.url().endsWith('/api/vision-xray/scan'))scans++;});
+ await page.addInitScript(()=>{
+  localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));
+  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:()=>{
+   throw new Error('Camera permission must not be requested for the atlas');
+  }}});
+ });
+ await page.goto('/vision-xray');
+ await page.getByTestId('vision-open-human-atlas').click();
+ await expect(page.getByTestId('vision-anatomy')).toBeVisible();
+ await expect(page.getByTestId('vision-anatomy-close')).toBeVisible();
+ expect(scans).toBe(0);
+ await page.getByTestId('vision-anatomy-close').click();
+ await expect(page.getByTestId('vision-anatomy')).toHaveCount(0);
+ await expect(page.getByTestId('vision-open-camera')).toBeVisible();
+ expect(scans).toBe(0);
+});
