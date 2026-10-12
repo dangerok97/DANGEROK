@@ -343,7 +343,8 @@ class ContextSourceRegistry:
                 continue
             memory = await self.db.memories.find_one(
                 {"user_id": user_id, "id": ref, "status": "active"},
-                {"_id": 0, "id": 1, "status": 1},
+                {"_id": 0, "id": 1, "status": 1, "kind": 1,
+                 "statement": 1, "content": 1, "value": 1},
             )
             if not memory:
                 continue
@@ -353,12 +354,51 @@ class ContextSourceRegistry:
                     continue
             except (TypeError, ValueError, KeyError):
                 continue
-            label = str(row.get("label") or row.get("person") or "Ricorrenza").strip()
-            category = str(row.get("category") or "annual").strip().lower()
-            # Bounded personal evidence, not the full memo document.
+            # The reminder title is a presentation artifact, not the full
+            # evidence. It may contain a placeholder even when the underlying
+            # governed Memory retains the actual person's name.
+            value = memory.get("value") if isinstance(memory.get("value"), dict) else {}
+            original = str(memory.get("statement") or memory.get("content") or "").strip()
+            category = str(memory.get("kind") or row.get("category") or "annual").strip().lower()
+            if category not in ("birthday", "anniversary", "annual_date", "annual_memo"):
+                category = str(row.get("category") or "annual").strip().lower()
+            person = str(value.get("person") or value.get("name") or row.get("person") or "").strip()
+            label = str(row.get("label") or "").strip()
+
+            def _unidentified(value: str) -> bool:
+                norm = " ".join(str(value or "").lower().split())
+                return not norm or any(marker in norm for marker in (
+                    "nome non specificato", "persona non specificata",
+                    "nome sconosciuto", "unknown person", "unnamed",
+                    "[nome", "[persona", "non identificat",
+                ))
+
+            if _unidentified(person):
+                person = ""
+            if _unidentified(label) or label.lower() in (
+                "ricorrenza", "ricorrenza annuale", "anniversario",
+                "compleanno", "promemoria annuale",
+            ):
+                label = ""
+            if person:
+                # The canonical Memory value takes precedence over a generic
+                # cached reminder title; no new data is written in this read.
+                label = (
+                    f"Compleanno di {person}" if category == "birthday"
+                    else f"Ricorrenza di {person}"
+                )
+            if not label:
+                label = "Ricorrenza annuale (nome non recuperato)"
+            # Preserve the authentic user-stated text for the reasoning model:
+            # it may say "13 marzo compleanno di zia Elena" even if an old
+            # memo.label was saved as "[Nome non specificato]".
+            original_evidence = ""
+            if original and not _unidentified(original):
+                original_evidence = f" Memoria originale: {original[:220]}."
             statement = (
                 f"Promemoria annuale attivo ({category}): "
-                f"{label[:180]} — ogni {day:02d}/{month:02d}."
+                f"{label[:170]} — ogni {day:02d}/{month:02d}."
+                + original_evidence
             )
             facts.append(_fact(
                 statement, "recurring_memos", "user-confirmed", "known",
