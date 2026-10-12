@@ -36,14 +36,14 @@ _ITALIAN_MONTHS = {
 def _date_explicit_in_statement(statement: str) -> Optional[tuple[int, int]]:
     """Return one explicit Italian calendar date, not an inferred birthday."""
     textual = re.search(
-        r"(?<!\\d)([0-3]?\\d)\\s+(" + "|".join(_ITALIAN_MONTHS) + r")\\b",
+        r"(?<!\d)([0-3]?\d)\s+(" + "|".join(_ITALIAN_MONTHS) + r")\b",
         str(statement or "").lower(),
     )
     if textual:
         day, month = int(textual.group(1)), _ITALIAN_MONTHS[textual.group(2)]
         if 1 <= day <= 31:
             return month, day
-    numeric = re.search(r"(?<!\\d)([0-3]?\\d)[/-]([01]?\\d)(?!\\d)", str(statement or ""))
+    numeric = re.search(r"(?<!\d)([0-3]?\d)[/-]([01]?\d)(?!\d)", str(statement or ""))
     if numeric:
         day, month = int(numeric.group(1)), int(numeric.group(2))
         if 1 <= month <= 12 and 1 <= day <= 31:
@@ -54,14 +54,14 @@ def _date_explicit_in_statement(statement: str) -> Optional[tuple[int, int]]:
 def _person_explicit_in_birthday_statement(statement: str) -> str:
     """Use an explicit human label only; never fabricate a name from a date."""
     found = re.search(
-        r"\\bcompleanno\\s+(?:di|della|del)\\s+"
-        r"((?:mia\\s+|mio\\s+)?(?:zia|zio|nonna|nonno|mamma|papà|pap[aà]|"
-        r"[A-ZÀ-ÖØ-Ý][a-zà-ÿ]+)(?:\\s+[A-ZÀ-ÖØ-Ý][a-zà-ÿ]+){0,3})",
+        r"\bcompleanno\s+(?:di|della|del)\s+"
+        r"((?:mia\s+|mio\s+)?(?:zia|zio|nonna|nonno|mamma|papà|pap[aà]|"
+        r"[A-ZÀ-ÖØ-Ý][a-zà-ÿ]+)(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-ÿ]+){0,3})",
         str(statement or ""), flags=re.IGNORECASE,
     )
     if not found:
         return ""
-    candidate = re.sub(r"^(?:mia|mio)\\s+", "", found.group(1), flags=re.IGNORECASE).strip()
+    candidate = re.sub(r"^(?:mia|mio)\s+", "", found.group(1), flags=re.IGNORECASE).strip()
     if any(fragment in candidate.lower() for fragment in (
         "nome non specificato", "persona non specificata", "sconosciuto"
     )):
