@@ -49,9 +49,30 @@ def expand_records(value):
     return rows
 
 
+def source_qualified_context_text(scenario):
+    """Keep historical capture immutable; use a safe alternative for transport QA.
+
+    The e3a long-format report asserted an unsupported absence of minimum
+    contract duration. Transport coverage needs a saved *permitted* draft,
+    while the exact original remains a permanent negative safety fixture.
+    """
+    original = recorded_text(scenario)
+    if scenario != "completed_result":
+        return original
+    corrected = original.replace(
+        "**Assunzione**: Nessun vincolo di durata minima esplicito. Verificare con il fornitore.",
+        "**Condizione sconosciuta**: La nota non specifica la durata minima; chiedere al fornitore.",
+    ).replace(
+        '"anticipato": "Nessun vincolo di durata minima"',
+        '"anticipato": "Durata minima non specificata nella nota"',
+    )
+    assert corrected != original and "Nessun vincolo di durata minima" not in corrected
+    return corrected
+
+
 async def prepared_case(scenario="completed_result", *, partial=False):
     h = await reconstruct(partial=partial)
-    draft = recorded_text(scenario)
+    draft = source_qualified_context_text(scenario)
     with gate.isolated_engine(h.db):
         service = AgentService(h.db)
         prepare = h.plan.steps[1]
