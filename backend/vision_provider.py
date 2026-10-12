@@ -90,7 +90,7 @@ def _status_code(status: int) -> str:
     return "provider_unavailable"
 
 
-async def ask_json(system: str, prompt: str, image: bytes | None = None,
+async def ask_gemini_json(system: str, prompt: str, image: bytes | None = None,
                    *, client: httpx.AsyncClient | None = None) -> dict:
     """At most four provider attempts; caller owns the overall phase deadline."""
     global _PREFERRED
@@ -167,3 +167,38 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
         if code in failures:
             raise VisionProviderError(code)
     raise VisionProviderError("provider_unavailable")
+
+# A second provider is tried only after all healthy Gemini routes fail.
+# Fallback state never contains an image, key, prompt, name or user identifier.
+_FALLBACK_COOLDOWN: dict[str, tuple[float, str]] = {}
+
+
+async def ask_json(system: str, prompt: str, image: bytes | None = None,
+                   *, client: httpx.AsyncClient | None = None) -> dict:
+    from vision_openai_fallback import ask_openai, configured
+    gemini_error = None
+    if any(os.environ.get(k, "").strip() for k in ("GEMINI_API_KEY", "GEMINI2_API_KEY")):
+        try:
+            return await ask_gemini_json(system, prompt, image, client=client)
+        except VisionProviderError as exc:
+            gemini_error = exc
+    if not configured():
+        raise gemini_error or VisionProviderError("provider_configuration")
+    key_hash = hashlib.sha256(os.environ["OPENAI_API_KEY"].strip().encode()).hexdigest()[:16]
+    block = _FALLBACK_COOLDOWN.get(key_hash)
+    if block and block[0] > time.monotonic():
+        raise VisionProviderError(block[1])
+    try:
+        # The image is sent only on explicit foreground scan and no data is stored.
+        # Do not reuse a mocked Gemini client for the OpenAI domain in production.
+        result = await ask_openai(system, prompt, image)
+        _FALLBACK_COOLDOWN.pop(key_hash, None)
+        log.info("vision_provider fallback=success provider=openai")
+        return result
+    except VisionProviderError as exc:
+        seconds = 300 if exc.code in ("provider_quota", "provider_configuration") else 15
+        _FALLBACK_COOLDOWN[key_hash] = (time.monotonic() + seconds, exc.code)
+        if len(_FALLBACK_COOLDOWN) > 24:
+            _FALLBACK_COOLDOWN.clear()
+        log.warning("vision_provider fallback=failure provider=openai code=%s", exc.code)
+        raise
