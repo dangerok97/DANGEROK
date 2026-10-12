@@ -238,6 +238,16 @@ async def test_terminal_reply_preserves_exact_saved_check_without_repeating_work
 @pytest.mark.parametrize("ending", ["duplicate", "tool_bound"])
 async def test_earlier_render_does_not_leave_a_stale_handoff_after_scheduling(monkeypatch, ending):
     snapshots = []
+    events = []
+    original_public_trace = loop.public_trace
+
+    def observe_trace(trace):
+        # The public projection keeps only the first 12 steps. Capture event
+        # names before projection and preserve the original return unchanged.
+        events[:] = [row["event"] for row in trace["steps"]]
+        return original_public_trace(trace)
+
+    monkeypatch.setattr(loop, "public_trace", observe_trace)
     db, response, saved, _ = await exercise(
         monkeypatch, ending=ending, early_reply=True, render_snapshots=snapshots)
     before_schedule = [item for item in snapshots if item["model_calls"] == 2]
@@ -261,7 +271,6 @@ async def test_earlier_render_does_not_leave_a_stale_handoff_after_scheduling(mo
     assert "ti avvis" not in response.ora_text.lower() and "asciutti" not in response.ora_text.lower()
     assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
     assert await db.ambient_wakes.count_documents({"status": "pending"}) == 1
-    events = [row["event"] for row in response.trace["steps"]]
     # The Situation gate runs before the generic skill-plan guard here.
     assert "SITUATION_FOLLOWUP_NUDGE" in events
     if ending == "duplicate":

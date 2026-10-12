@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, secondo arresto CI diagnosticato
+
+Entrambi i backend c8ca terminano a **1 FAIL / 937 PASS** sul test con risposta intermedia, nell’asserzione degli eventi. Prima del fallimento passano stato iniziale e finale, identità, orario, numero di chiamate, unico obiettivo e unico wake. Le verifiche successive non sono attestate da questo esito.
+
+La correzione riguarda l’osservabilità del test prima del limite pubblico di 12 eventi. Mantiene 20 casi e tutti i requisiti del comportamento. La nuova CI è **NOT_RUN al congelamento**; il live resta subordinato alla CI completa della nuova revisione e alla verifica che il servizio tecnico sia libero. [Fallimento c8ca](evidence/autonomy_v162_handoff_ci_2026-10-12_c8ca6d0_failure.json) · [Indice](evidence/autonomy_v162_trace_observation_repair_2026-10-12.json).
+
+Il rifiuto automatico APP eb9c3870 resta valido. Firma, installazione, avviso ad app chiusa e tap autenticato non sono attestati.
+
+---
+
 # 12 ottobre 2026 — v162, CI250ef7f negativa e correzione del test
 
 **CI250ef7f:4 workflow SUCCESS e2 FAILURE, su6.** Entrambi i backend si fermano a1FAIL/935PASS sul medesimo `KeyError: follow_up` del nuovo modulo. I controlli CLI e Mongo successivi non sono raggiunti e i due job product-guards sono SKIPPED. Questo esito non viene trasferito alla nuova revisione.

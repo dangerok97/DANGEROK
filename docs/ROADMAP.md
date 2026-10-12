@@ -1,3 +1,11 @@
+# 12 ottobre 2026 — v162, gate sulla prova corretta degli eventi
+
+Completare la CI della revisione che osserva gli eventi interni nel test, mantenendo il limite della traccia pubblica. I due backend c8ca falliti non attestano le verifiche successive né la nuova revisione.
+
+Dopo la CI completa verde: live mirato Situation e `memory_corrected`, verifica manuale dei testi completi e confronto con le fonti effettivamente lette. Il prossimo controllo programmato, il momento utile di ritiro e l’avviso sul dispositivo restano risultati distinti da provare. Il vecchio bucato resta chiuso e il rifiuto APP non viene aggirato. [Indice](evidence/autonomy_v162_trace_observation_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, gate sulla correzione del test
 
 La priorità immediata è ottenere la CI completa sulla revisione che corregge il contratto del risultato CREATE e porta a20 i casi dell’handoff. La CI250ef7f fallita non prova la nuova revisione; il runtime resta invariato.

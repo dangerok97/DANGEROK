@@ -1,3 +1,11 @@
+# 12 ottobre 2026 — v162, osservabilità della prova di programmazione
+
+La CI di c8ca conferma, prima del punto di arresto, che il controllo appena salvato viene letto con proprietario, stato e orario corretti anche dopo una risposta intermedia. Il test si ferma sui nomi degli eventi nella traccia pubblica, che conserva soltanto i primi 12 elementi. La correzione legge quegli eventi nel test prima della proiezione pubblica; il comportamento dell’app e la protezione della traccia restano invariati.
+
+I 20 casi mantengono gli stessi requisiti. La nuova CI è **NOT_RUN al congelamento**. L’accettazione reale resta “Ho steso → quando ritirare” a Tarquinia, con asciugatura presunta distinta dall’intervento per rischio pioggia e vecchio bucato chiuso. [Indice della correzione](evidence/autonomy_v162_trace_observation_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, correzione della prova dello stato del controllo
 
 La CI del candidato250ef7f ha rilevato un errore nel nuovo test: il risultato originale di creazione non contiene `follow_up`. Questo non dimostra un difetto dell’app. La correzione mantiene la verifica del programma reale e aggiunge due passaggi completi con una risposta intermedia prima della programmazione. L’obiettivo resta “Ho steso → quando ritirare” a Tarquinia; il vecchio bucato resta chiuso.

@@ -1,0 +1,300 @@
+{
+  "schema_version": 1,
+  "kind": "derived_ci_failure_record",
+  "repository": "dangerok97/DANGEROK",
+  "pull_request": 220,
+  "candidate": {
+    "sha": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+    "tree": "0da816b0f348fae4c6543b6fb913413ce891423f",
+    "parents": [
+      "250ef7f308feec00d3f8fe014d4307e06a8ebe96"
+    ]
+  },
+  "pull_request_binding": {
+    "metadata_reported_base": "6e619cf64af5049fc362e904a04e4d89e6b14c76",
+    "merge_commit": "6f09567c9f56896472b93afb1b26cc03e1a9664d",
+    "merge_tree": "6ce75addf91b059b17329e593023850f632ab965",
+    "merge_parents": [
+      "9063c41bea894bba9c2b384756b040c0f9f69983",
+      "c8ca6d04833f0e9951c32303b1802f38bf213019"
+    ],
+    "mergeable_at_snapshot": true,
+    "note": "Actual PR checkout and merge parents are authoritative for this execution; the PR metadata base differed. The PR tree is not the push tree."
+  },
+  "workflow_snapshot": {
+    "returned_total": 5,
+    "jobs_total": 14,
+    "job_conclusions": {
+      "success": 10,
+      "failure": 2,
+      "skipped": 2
+    },
+    "runs": [
+      {
+        "id": 38269793863,
+        "name": "Phone turn boundary checks",
+        "event": "pull_request",
+        "head_sha": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793863"
+      },
+      {
+        "id": 38269793883,
+        "name": "Situation follow-up regressions",
+        "event": "pull_request",
+        "head_sha": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793883"
+      },
+      {
+        "id": 38269793791,
+        "name": "CI",
+        "event": "pull_request",
+        "head_sha": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+        "status": "completed",
+        "conclusion": "failure",
+        "attempt": 1,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793791"
+      },
+      {
+        "id": 38269793783,
+        "name": "Mobile conversation visual QA",
+        "event": "pull_request",
+        "head_sha": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793783"
+      },
+      {
+        "id": 38269787152,
+        "name": "CI",
+        "event": "push",
+        "head_sha": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+        "status": "completed",
+        "conclusion": "failure",
+        "attempt": 1,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269787152"
+      }
+    ],
+    "jobs": [
+      {
+        "id": 114880932377,
+        "name": "Telephone cloud safety",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793791/job/114880932377"
+      },
+      {
+        "id": 114880932619,
+        "name": "Backend (compileall + pytest)",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793791/job/114880932619"
+      },
+      {
+        "id": 114880932795,
+        "name": "Frontend TypeScript",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793791/job/114880932795"
+      },
+      {
+        "id": 114880932908,
+        "name": "Secret scan (full history)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793791/job/114880932908"
+      },
+      {
+        "id": 114882926276,
+        "name": "Frontend product guards (current Vita)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793791/job/114882926276"
+      },
+      {
+        "id": 114880909593,
+        "name": "Frontend TypeScript",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269787152/job/114880909593"
+      },
+      {
+        "id": 114880909847,
+        "name": "Secret scan (full history)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269787152/job/114880909847"
+      },
+      {
+        "id": 114880909866,
+        "name": "Telephone cloud safety",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269787152/job/114880909866"
+      },
+      {
+        "id": 114880910419,
+        "name": "Backend (compileall + pytest)",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269787152/job/114880910419"
+      },
+      {
+        "id": 114883313850,
+        "name": "Frontend product guards (current Vita)",
+        "status": "completed",
+        "conclusion": "skipped",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269787152/job/114883313850"
+      },
+      {
+        "id": 114880931735,
+        "name": "bounded-phone",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793863/job/114880931735"
+      },
+      {
+        "id": 114880932299,
+        "name": "Situation follow-up presentation guards",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793883/job/114880932299"
+      },
+      {
+        "id": 114880932571,
+        "name": "Situation checkpoint persistence and dispatch",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793883/job/114880932571"
+      },
+      {
+        "id": 114880933137,
+        "name": "Mobile web layout and interaction (Chromium + WebKit)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793783/job/114880933137"
+      }
+    ],
+    "coverage_note": "Five workflows returned for this exact head. No push Situation workflow was returned; no sixth run or its jobs are inferred. All returned runs are terminal, attempt 1. Successful job metadata does not establish uninspected per-test counts."
+  },
+  "backend": [
+    {
+      "event": "push",
+      "run_id": 38269787152,
+      "job_id": 114880910419,
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269787152/job/114880910419",
+      "checkout_sha": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+      "checkout_log_line": 209,
+      "failing_step": {
+        "number": 42,
+        "name": "v162 canonical sources, planning recovery and connected autonomy acceptance"
+      },
+      "pytest_summary": {
+        "failed": 1,
+        "passed": 937,
+        "warnings": 14891,
+        "seconds": 56.34,
+        "at": "2026-10-12T15:28:30.7724023Z"
+      },
+      "summary_log_line": 3664,
+      "raw_decoded_log": {
+        "bytes": 3258740,
+        "sha256": "9fdc00f4f7c27e48a036cb341598d81c0e792b6e43e1d065ec4bf18222d619ba",
+        "v8_store_key": "cic8:logtext_114880910419",
+        "republished": false
+      },
+      "unreached": [
+        "remaining 17 cases in test_situation_in_turn_handoff_v162.py under pytest -x",
+        "later v162 test selectors",
+        "scripted autonomy CLI (9 cases)",
+        "static visibility guard (3 cases after main group)",
+        "real Mongo process restart (6 cases; step 43 skipped)",
+        "real Mongo consent/provenance v39 (3 cases; step 44 skipped)"
+      ]
+    },
+    {
+      "event": "pull_request",
+      "run_id": 38269793791,
+      "job_id": 114880932619,
+      "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38269793791/job/114880932619",
+      "checkout_sha": "6f09567c9f56896472b93afb1b26cc03e1a9664d",
+      "checkout_log_line": 222,
+      "failing_step": {
+        "number": 42,
+        "name": "v162 canonical sources, planning recovery and connected autonomy acceptance"
+      },
+      "pytest_summary": {
+        "failed": 1,
+        "passed": 937,
+        "warnings": 14726,
+        "seconds": 49.86,
+        "at": "2026-10-12T15:27:32.9561804Z"
+      },
+      "summary_log_line": 3678,
+      "raw_decoded_log": {
+        "bytes": 3409710,
+        "sha256": "17c5a9ca78be2c96aeb42b89bc61133e55ab61638f8e1df83539ae4bf1409d0e",
+        "v8_store_key": "cic8:logtext_114880932619",
+        "republished": false
+      },
+      "unreached": [
+        "remaining 17 cases in test_situation_in_turn_handoff_v162.py under pytest -x",
+        "later v162 test selectors",
+        "scripted autonomy CLI (9 cases)",
+        "static visibility guard (3 cases after main group)",
+        "real Mongo process restart (6 cases; step 43 skipped)",
+        "real Mongo consent/provenance v39 (3 cases; step 44 skipped)"
+      ]
+    }
+  ],
+  "failure": {
+    "node": "tests/test_situation_in_turn_handoff_v162.py::test_earlier_render_does_not_leave_a_stale_handoff_after_scheduling[duplicate]",
+    "source_line": 268,
+    "type": "AssertionError",
+    "assertion": "assert \"DUPLICATE_SOFT\" in events and \"BARE_ACK_BLOCKED_TERMINAL\" in events",
+    "observed_before_failure": "The assertions for a pre-schedule non-scheduled snapshot, final scheduled snapshot, same owner/Situation, 4 model stubs, current label/timezone, absence of stale denial or drying/notification promise, one goal, one pending wake, unchanged CREATE acknowledgement and SITUATION_FOLLOWUP_NUDGE completed before the failing assertion.",
+    "limits": "The log abbreviates the public event list. It does not prove which conjunct was absent or preserve the complete internal trace. The first two module cases passed; the other 17 were not reached under fail-fast."
+  },
+  "source_diagnosis": {
+    "trace_blob": "d483715db1eeab8f90adb4e531840e7a29c90431",
+    "trace_path": "backend/conversation_engine/ai_core/trace.py",
+    "mechanism": "public_trace calls _redact_coords(dict(trace)); the list branch takes obj[:12], including steps, even with AI_CORE_TRACE enabled.",
+    "loop_blob": "619f4aaee4426222f851443e312877e7f504bcd6",
+    "expected_event_sites": {
+      "DUPLICATE_SOFT": 1860,
+      "SITUATION_SCHEDULE_STATUS_TERMINAL": 2804,
+      "BARE_ACK_BLOCKED_TERMINAL": 2808,
+      "SITUATION_SCHEDULE_STATUS_BOUND": 4387,
+      "LOOP_BOUND": 4592
+    },
+    "qualification": "Source inspection establishes the expected branches and bounded public projection. The proposed test spy will observe the original event names; it is not evidence that the next CI passes."
+  },
+  "proposed_test_correction": {
+    "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+    "previous_blob": "3ab6fd7d0ca6e8e4f0d620a73b6529aa4cdfca05",
+    "previous_sha256": "133c0b62ff85f8268bf0c760e2f736047ad6bdd80c1e8959623041c64ed4e3f7",
+    "new_orphan_blob": "bc4f8d3bbb5a7c130c7bf820599495908ce0f4d9",
+    "bytes": 19337,
+    "sha256": "b60757dedaf164f5161d800701f8e5687917d5293ce8f8cea2104f2f59ac160c",
+    "expected_cases": 20,
+    "execution": "not_run",
+    "scope": "Only the new parametrized test observes event names before public_trace projection, calling and returning the original unchanged. All assertions and all other source bytes are unchanged. No production, workflow, scenario or budget change.",
+    "readback_exact": true,
+    "strict_scan_all_five_patterns_zero": true
+  },
+  "preservation": {
+    "original_failure_verdicts_unchanged": true,
+    "raw_logs_and_metadata_held_in_v8": true,
+    "raw_logs_republished": false,
+    "filesystem_used": false,
+    "reruns_triggered": 0,
+    "live_runs_started": 0,
+    "previous_250_failure_unchanged": true
+  }
+}

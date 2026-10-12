@@ -1,3 +1,11 @@
+# 12 ottobre 2026 — v162, traccia interna osservata dal test
+
+`public_trace` applica `_redact_coords`, che limita ogni lista ai primi 12 elementi anche quando la traccia è abilitata. Nel caso con una risposta intermedia, questa proiezione può escludere gli eventi terminali. Il fallimento c8ca non identifica quale elemento atteso manca dalla lista restituita.
+
+Una spia nel solo test registra i nomi degli eventi originali e restituisce senza modifiche il risultato della funzione reale. Gli assert sul ramo terminale restano obbligatori; non vengono ampliati il trace di produzione, i dati esposti, le chiamate cognitive o gli effetti. Runtime e workflow sono identici a c8ca/250ef7f. [Indice e identità](evidence/autonomy_v162_trace_observation_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, contratto di creazione e rilettura
 
 Il risultato di `SituationService.apply(create)` contiene stato, operazione e Situation; non include `follow_up`. La prova corretta conserva e confronta integralmente questo risultato storico, poi verifica la programmazione mediante il percorso reale. Non viene aggiunto uno stato fittizio alla risposta del servizio.

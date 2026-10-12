@@ -1,3 +1,14 @@
+# 12 ottobre 2026 — v162, osservazione completa degli eventi nel test
+
+- Diagnosticato l’arresto dei due backend c8ca: il test leggeva gli eventi terminali dalla traccia pubblica limitata ai primi 12 elementi.
+- Aggiunta nel solo test una spia che registra i nomi degli eventi prima della proiezione e restituisce il risultato originale invariato. Restano gli stessi assert dei rami e del risultato utile.
+- Conservato il manifest del fallimento c8ca con identità dei checkout e limiti delle prove raggiunte.
+- Nessun cambiamento al runtime, al workflow, ai provider, ai budget, allo scheduler, agli oracle live o all’APP. Restano 20 casi definiti; nuova CI e nuovo live **NOT_RUN al congelamento**.
+
+[Indice della correzione](evidence/autonomy_v162_trace_observation_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, test dell’handoff corretto e ampliato
 
 - Corretto l’accesso a un `follow_up` inesistente nel risultato storico CREATE; resta l’asserzione che il rendering non lo modifichi.

@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, limite della traccia nella CI c8ca
+
+Push e PR si fermano entrambi sul nuovo caso `early_render[duplicate]`: **1 FAIL / 937 PASS** per ciascuna invocazione backend. Passano gli assert precedenti su letture reali, stato iniziale non programmato e finale programmato, proprietario, Situation, contatori, orario, unico obiettivo e unico wake. L’asserzione composta degli eventi fallisce nella proiezione pubblica; il log non espande la lista e non permette di attribuire l’assenza a un evento specifico.
+
+Il sorgente mostra che `_redact_coords` tronca tutte le liste a 12 elementi. La nuova prova intercetta `loop.public_trace`, osserva soltanto i nomi degli eventi prima della proiezione e restituisce il risultato reale invariato. Le asserzioni terminali non sono rimosse. Tutti i 20 casi restano definiti; la nuova CI è **NOT_RUN al congelamento**. Runtime, limiti della traccia e oracle live restano identici.
+
+[Manifest c8ca](evidence/autonomy_v162_handoff_ci_2026-10-12_c8ca6d0_failure.json) · [Indice, hash e limiti](evidence/autonomy_v162_trace_observation_repair_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, regressione del test250ef7f
 
 I due backend della CI250ef7f falliscono nello stesso punto: `ack_snapshot["follow_up"]` presuppone un campo assente nel contratto CREATE. Prima del fallimento passano i controlli su risposta, contatori, unica Situation e immutabilità del risultato originale. Il manifest conserva esiti e checkout distinti di push e PR.

@@ -1,0 +1,290 @@
+{
+  "schema": "ora.v162.trace_observation_repair.v1",
+  "frozen_at_utc": "2026-10-12T15:38:56Z",
+  "repository": "dangerok97/DANGEROK",
+  "branch": "ora/v162-autonomy-validation-20261012",
+  "pull_request": 220,
+  "parent": {
+    "commit": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+    "tree": "0da816b0f348fae4c6543b6fb913413ce891423f"
+  },
+  "product": {
+    "place": "Tarquinia",
+    "timezone": "Europe/Rome",
+    "outcome": "Ho steso: ORA follows the evolution and says when collection is useful; presumptive dryness and earlier weather-risk shelter remain distinct.",
+    "old_real_laundry": "closed; not reopened",
+    "synthetic_only": true,
+    "autonomy_accepted": false
+  },
+  "change": {
+    "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+    "scope": "Test observation only; only the two early-render parameter cases.",
+    "mechanism": "Capture event names from the original trace, then call and return production public_trace unchanged.",
+    "expected_cases": 20,
+    "all_assert_lines_identical": true,
+    "all_test_function_signatures_identical": true,
+    "only_two_exact_source_substitutions": true,
+    "runtime_changed": false,
+    "workflow_changed": false,
+    "production_trace_list_limit": 12,
+    "production_trace_projection_unchanged": true,
+    "failed_read_review": {
+      "classification": "source inspection, not a new test run",
+      "reason": "_emit_life_change adds counters, not a step. The fake failed read changes only its Observation; FollowupTurnGate rereads the still scheduled DB state and adds no nudge. Its BARE_ACK is the12th event. No additional test change is justified.",
+      "new_assertions_or_oracle_changes": 0
+    },
+    "root_review": {
+      "parent": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+      "test": {
+        "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+        "bytes": 19337,
+        "sha256": "b60757dedaf164f5161d800701f8e5687917d5293ce8f8cea2104f2f59ac160c",
+        "git_blob_sha": "bc4f8d3bbb5a7c130c7bf820599495908ce0f4d9"
+      },
+      "all_assert_lines_identical": true,
+      "all_test_function_signatures_identical": true,
+      "only_two_exact_substitutions": true,
+      "spy_calls_original": true,
+      "spy_returns_original_unchanged": true,
+      "captures_only_event_names": true,
+      "runtime_changed": false,
+      "expected_cases": 20,
+      "execution": "not_run"
+    },
+    "trace_source_review": {
+      "source_sha": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+      "path": "backend/conversation_engine/ai_core/trace.py",
+      "sha256": "925070af9b52b14174c5552bc04f5f6a30ceafa07b51402e64fab582c24a1c68",
+      "blob_sha": "d483715db1eeab8f90adb4e531840e7a29c90431",
+      "list_limit": 12,
+      "full_original_event_names_available_to_test_spy": true,
+      "production_projection_unchanged": true,
+      "proof_scope": "The source truncates all public lists, including trace.steps, to the first12 elements; c8ca logs do not identify which expected terminal event was omitted.",
+      "root_reviewed": true
+    }
+  },
+  "source_files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 28622,
+      "sha256": "64813633b744a55ea8d3357b1114f89edeefff2374cfb658ebe54bf6afd9284b",
+      "git_blob_sha": "8bfc4871754b3a5f2fe83c98674e0ef0276b9d48",
+      "unchanged_from_parent": true
+    },
+    {
+      "path": "backend/agent/preparation.py",
+      "bytes": 36505,
+      "sha256": "0911a0ed9d8a9c7e4632f3dc1725d1896b887dc5bff58e67a0357a14e7d2976f",
+      "git_blob_sha": "f0ee6408c85a91347d03ba8b5e3f17344f744305",
+      "unchanged_from_parent": true
+    },
+    {
+      "path": "backend/conversation_engine/ai_core/loop.py",
+      "bytes": 235719,
+      "sha256": "60920156542972fac78d58a91c60485362b1e298ee1e61d1bdcf2e0e5003f5a0",
+      "git_blob_sha": "619f4aaee4426222f851443e312877e7f504bcd6",
+      "unchanged_from_parent": true
+    },
+    {
+      "path": "backend/tests/test_preparation_feedback_v162.py",
+      "bytes": 18972,
+      "sha256": "dcd23c6ac8c562a6a4c23e0d47c643e177b575f9c3a96791258427dbe6fc8a8b",
+      "git_blob_sha": "2f4deba08deb3a3437a915aba3ea9449f062793a",
+      "unchanged_from_parent": true
+    },
+    {
+      "path": "backend/tests/test_preparation_recovery_v162.py",
+      "bytes": 23975,
+      "sha256": "d71f2bed5fec46952f11e36019226f657f19327a7b035a44e87ff03f614a75b7",
+      "git_blob_sha": "becafebcdd980fbe4c121f9c37f4f982774a61b6",
+      "unchanged_from_parent": true
+    },
+    {
+      "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+      "bytes": 19337,
+      "sha256": "b60757dedaf164f5161d800701f8e5687917d5293ce8f8cea2104f2f59ac160c",
+      "git_blob_sha": "bc4f8d3bbb5a7c130c7bf820599495908ce0f4d9",
+      "unchanged_from_parent": false
+    }
+  ],
+  "docs": [
+    {
+      "path": "docs/PRODUCT.md",
+      "bytes": 191200,
+      "sha256": "98673e1d74d468bfd5bdf16f3066ea24a04b8ea41490437b45b54649bbedfb11",
+      "git_blob_sha": "52b29f502e089133ebd0bcf4a66da1839ae702ce",
+      "preserved_previous_suffix": true,
+      "prefix_bytes": 867
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "bytes": 342752,
+      "sha256": "b74aa5ea7e63015deb3dec5de600f935a91a8cc97672e405d6b3a6f3a0e7f487",
+      "git_blob_sha": "7e1294de2312003d55a2790283f1234e6f02549c",
+      "preserved_previous_suffix": true,
+      "prefix_bytes": 784
+    },
+    {
+      "path": "docs/DEVELOPMENT_STATE.md",
+      "bytes": 397849,
+      "sha256": "8c7918e7f55dedcfd7a063c7ee0a2df1cc62acae44054e22911720c3aed291ef",
+      "git_blob_sha": "ec3ce9f561e1b52dbaa7f12e440961c75de94e62",
+      "preserved_previous_suffix": true,
+      "prefix_bytes": 978
+    },
+    {
+      "path": "docs/CHANGELOG_AI.md",
+      "bytes": 407231,
+      "sha256": "f85a414527474cd283b883f13ba8d14d215050650f9a094b95db1486cfdd9231",
+      "git_blob_sha": "fa349bfdf8f9bc186f36348e55617713b3aedfd7",
+      "preserved_previous_suffix": true,
+      "prefix_bytes": 806
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "bytes": 146874,
+      "sha256": "7741b8a2121767570941f1997383702d4f84340e6a653d6f05e0eff67cf1607d",
+      "git_blob_sha": "74190278bf2dda3c7f45c3bd8c0c200b3f90a407",
+      "preserved_previous_suffix": true,
+      "prefix_bytes": 710
+    },
+    {
+      "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+      "bytes": 169318,
+      "sha256": "b04d7254c74cf4aa8dc87ff78372b5ae1f9e43e40546f1a84cf339d93f9cc192",
+      "git_blob_sha": "0aea2ea7a239f90f9dd9bc18c8b7554863eac7b1",
+      "preserved_previous_suffix": true,
+      "prefix_bytes": 1126
+    }
+  ],
+  "prior_failed_ci": {
+    "artifact": {
+      "path": "docs/evidence/autonomy_v162_handoff_ci_2026-10-12_c8ca6d0_failure.json",
+      "bytes": 12057,
+      "sha256": "6ddf555e0d0eadfd505fba2d90576b9ba1ec8a1d022cd8fd8f78ad5aae9f7dfb",
+      "git_blob_sha": "9ac402caa3400bbd4478f6955845ee24e396b434"
+    },
+    "verdict": "Both backend invocations1FAIL/937PASS at early_render[duplicate] event assertion; verdicts unchanged.",
+    "first_module_cases_passed": 2,
+    "module_cases_not_reached": 17,
+    "raw_logs_republished": false,
+    "actual_checkout_identity": "Pushc8ca/tree0da816; PR6f09567/tree6ce75add with actual base9063c41. Full values and log hashes in the failure artifact.",
+    "metadata_snapshot": "5 returned workflows,14jobs:10success,2failure,2skipped.",
+    "situation_push_absence": "Expected for this path-only change: *_v162 test and docs do not match the workflow push.paths; PR always triggers.",
+    "later_backend_gates": "NOT_REACHED; no CLI/Mongo/downstream product result is transferred."
+  },
+  "current_validation": {
+    "ci": "NOT_RUN at freeze",
+    "local_execution": "Unavailable: executor environment_offline; no new local run claimed.",
+    "expected_profile": {
+      "candidate_parent": "c8ca6d04833f0e9951c32303b1802f38bf213019",
+      "expected_workflows": [
+        {
+          "name": "CI",
+          "event": "push"
+        },
+        {
+          "name": "CI",
+          "event": "pull_request"
+        },
+        {
+          "name": "Situation follow-up regressions",
+          "event": "pull_request"
+        },
+        {
+          "name": "Phone turn boundary checks",
+          "event": "pull_request"
+        },
+        {
+          "name": "Mobile conversation visual QA",
+          "event": "pull_request"
+        }
+      ],
+      "situation_push_not_triggered_reason": "The changed test *_v162 and documentation paths do not match .github/workflows/situation-followup-regressions.yml push.paths; pull_request has no paths filter.",
+      "runtime_unchanged": true,
+      "gate": "All required triggered workflows/jobs and downstream backend gates must pass on actual candidate checkouts; older results are not transferred."
+    },
+    "candidate_identity": "The publishing commit will bind this index and source hashes; actual future CI checkout identities must be checked.",
+    "previous_local_7a65_results_transferred": false,
+    "previous22df_ci_results_transferred": false,
+    "previous_c8ca_partial_results_promote_new_revision": false
+  },
+  "targeted_live": {
+    "status": "NOT_RUN",
+    "scenarios": [
+      "situation",
+      "memory_corrected"
+    ],
+    "public_scenario_repeated": false,
+    "requires": "All actual candidate gates green, then fresh unchanged technical service configuration with0running replicas and no pending activity before exact SHA source launch.",
+    "caps": {
+      "logical_model_calls": 40,
+      "model_http_requests": 80,
+      "seconds_per_scenario": 240
+    },
+    "provider_chain": "unchanged",
+    "models_or_http_calls_in_this_correction": 0,
+    "collector": "Unchanged module100657deb68bdc7d3e3de1863fc3a581ee46c971;40/40 fixture checks, not evidence of a new live run.",
+    "collection_is_not_model_or_semantic_pass": true,
+    "manual_review_rules": {
+      "situation": {
+        "source_request_must_preserve": [
+          "Tarquinia",
+          "Europe/Rome",
+          "new synthetic hanging time",
+          "expected dry collection",
+          "earlier shelter if weather risk"
+        ],
+        "identity": "Exact owned canonical place ref, preserved through saved Situation and future goal",
+        "response": "No contradiction with the freshly saved/read follow-up",
+        "schedule": "One future check is scheduling evidence; not a dry-clothes result",
+        "future_evidence": "Separate worker execution, source freshness, useful action, notice creation, delivery and device display/tap",
+        "real_old_laundry": "closed; never reopened",
+        "physical_dryness": "Weather-based estimate only"
+      },
+      "memory_corrected": {
+        "current_annual_euros": 150,
+        "obsolete_annual_euros": 120,
+        "monthly_euros": 15,
+        "monthly_yearly_total_euros": 180,
+        "annual_difference_euros": 30,
+        "known_shared_features": [
+          "100 GB",
+          "same assistance"
+        ],
+        "upfront": "Annual payment is150; no additional initial fee is not no upfront payment.",
+        "cancellation": "Annual early cancellation has no refund; monthly exit/refund terms are unknown.",
+        "authorization": "Synthetic user report, no authority for subscription or external action.",
+        "review": "Inspect full final text, whole current source, literal quotes and claim entailment independently; do not accept authentic quotes as sufficient evidence.",
+        "final_checks": "Home, owner scope, replay, current source and no external action count only when actually reached."
+      },
+      "unchanged": "Original machine oracles and budgets; collection success does not promote a model failure."
+    }
+  },
+  "operational": {
+    "railway": {
+      "project_id": "1264aea8-7e1e-403b-9d14-66f61135f179",
+      "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "service_id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "changed_by_this_correction": false,
+      "fresh_preflight_required": true
+    },
+    "APP": {
+      "changed": false,
+      "rejection_patch_id": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+      "status": "Automatic approval rejected the APP action; no retry or merge bypass.",
+      "signed_install_display_and_tap": "NOT_PROVEN"
+    },
+    "external_effects": 0,
+    "paid_resources_changed": false,
+    "source_body_auto_read_added": false,
+    "plan_repair_added": false
+  },
+  "security": {
+    "scan": "Whole rawUTF8 and recursively decoded JSON strings/keys; all five repository patterns and forbidden path/document-storage checks; zero findings required before publication.",
+    "new_delta_exemptions": 0,
+    "creator_fields_allowed": 0,
+    "ancestry": "One parent: reviewed current remotec8ca. No local ancestry import, no force push.",
+    "original_reports": "22df Situation/autonomy/public remain byte-identical and retain their original verdicts."
+  }
+}
