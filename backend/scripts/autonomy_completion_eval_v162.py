@@ -1406,6 +1406,12 @@ async def main(*, mode="scripted", scenario="all", output=""):
                 "scenario": name, "mode": mode, "passed": case["passed"],
                 "model_attempts": probe.model_attempts,
                 "model_http_requests": probe.model_http_requests,
+                # Only a short machine-readable diagnostic: never a raw prompt,
+                # provider exception body or source text in the live log.
+                "failure_code": (
+                    re.sub(r"[^A-Z0-9_:,]", "_", str(case.get("reason") or "").upper())[:160]
+                    if not case["passed"] else None
+                ),
             }, ensure_ascii=False), flush=True)
         passed = all(case["passed"] for case in cases)
         report = {"version": VERSION, "mode": mode, "status": "passed" if passed else "failed",
