@@ -181,7 +181,7 @@ async def test_wrong_account_and_unsupported_media_do_not_reach_ai(config, datab
     await svc.persist_incoming({"id": "wamid.unlinked.01", "from": "393337778888",
                                 "type": "text", "text": "Leggi il mio calendario"})
     await svc.process_one()
-    assert "Collega" in sent[0] or "collegare" in sent[0].lower()
+    assert "collega" in sent[0].lower()
     code = (await svc.issue_pairing_code("owner"))["code"]
     await svc.pair("393331112233", code)
     await svc.persist_incoming({"id": "wamid.image.02", "from": "393331112233",
