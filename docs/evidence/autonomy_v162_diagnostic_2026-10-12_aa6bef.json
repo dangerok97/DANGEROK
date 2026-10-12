@@ -1,0 +1,783 @@
+{
+  "version": "autonomy-v162-diagnostic-evidence",
+  "code_revision": "aa6bef5078b1e6ab190dfc2886da571438589680",
+  "deployment_id": "50813148-0997-458a-b57b-1be328fe2e30",
+  "fixture_revision": "personal_outcome_v1",
+  "diagnostic_only": true,
+  "passed": false,
+  "passed_cases": 3,
+  "total_cases": 4,
+  "source_reports": [
+    {
+      "version": "autonomy-completion-v162",
+      "mode": "live",
+      "status": "passed",
+      "passed": true,
+      "real_model_executed": true,
+      "cases": [
+        {
+          "version": "autonomy-completion-v162",
+          "fixture_revision": "personal_outcome_v1",
+          "scenario": "completed_result",
+          "mode": "live",
+          "passed": true,
+          "scope": "synthetic_internal_note_to_home_no_external_effects",
+          "model_mode": "real_llm",
+          "source_mode": "synthetic_owned_record_real_reader",
+          "live_provider_reads": 0,
+          "storage": "in_memory",
+          "process_restart_tested": false,
+          "synthetic_checkpoints_expedited": true,
+          "real_model_executed": true,
+          "model_calls": [
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2105,
+                "completion_tokens": 356,
+                "total_tokens": 2461
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 3537,
+                "completion_tokens": 678,
+                "total_tokens": 4215
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 4373,
+                "completion_tokens": 284,
+                "total_tokens": 4657
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2389,
+                "completion_tokens": 43,
+                "total_tokens": 2432
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 4373,
+                "completion_tokens": 255,
+                "total_tokens": 4628
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 1997,
+                "completion_tokens": 348,
+                "total_tokens": 2345
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 1854,
+                "completion_tokens": 352,
+                "total_tokens": 2206
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 4664,
+                "completion_tokens": 327,
+                "total_tokens": 4991
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 3593,
+                "completion_tokens": 81,
+                "total_tokens": 3674
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2091,
+                "completion_tokens": 140,
+                "total_tokens": 2231
+              }
+            }
+          ],
+          "model_attempts": 10,
+          "model_http_requests": 11,
+          "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+          "global_socket_dns_sandbox": false,
+          "structured_decisions": [
+            {
+              "stage": "decide_goal",
+              "model_attempts_before": 0,
+              "input": {
+                "source_context_count": 1,
+                "source_context_unavailable": false
+              },
+              "response_kind": "object",
+              "outcome": "create_goal",
+              "reasoning": "Il confronto scritto tra le due formule di abbonamento non è ancora stato preparato per la scelta dell'utente.",
+              "objective": "Predisporre il confronto scritto di costi e vincoli per dodici mesi tra le formule di archivio.",
+              "desired_outcome": "Il prospetto chiaro dei costi totali a dodici mesi e dei relativi vincoli sarà disponibile per la scelta.",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "desired_outcome": "Un confronto scritto di costi e vincoli per dodici mesi tra le due formule di archivio digitale.",
+                "outcome_state": "open",
+                "remaining_internal_work": "Leggere la nota salvata e redigere il confronto chiaro dei costi su dodici mesi e dei vincoli contrattuali.",
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "model_attempts_after": 1,
+              "sequence": 1
+            },
+            {
+              "stage": "make_plan",
+              "model_attempts_before": 1,
+              "input": {
+                "status": "active",
+                "evidence_kind": "none"
+              },
+              "response_kind": "object",
+              "reasoning": "I dati di costo e vincoli delle due formule (mensile e annuale) sono già presenti nella memoria ORA (mem_43262246ed92296b9353). Per raggiungere l'obiettivo di predisporre il confronto scritto richiesto senza compiere pagamenti o modifiche, è sufficiente leggere la memoria con i dettagli salvati e preparare un documento di confronto strutturato.",
+              "planning_outcome": "plan",
+              "plan_summary": "Legge i dati salvati sull'archivio e predispone il confronto scritto di costi e vincoli a dodici mesi.",
+              "expected_outcome": "Il prospetto chiaro dei costi totali a dodici mesi e dei relativi vincoli sarà disponibile in un documento.",
+              "steps_kind": "array",
+              "steps_count": 2,
+              "steps": [
+                {
+                  "step_type": "inspect",
+                  "capability_needed": "information.read",
+                  "intent": "Leggere la nota salvata con i dettagli delle due formule di archivio",
+                  "expected_result": "Estrazione dei costi, vincoli e condizioni delle due opzioni di archivio digitale."
+                },
+                {
+                  "step_type": "prepare",
+                  "capability_needed": "document.create",
+                  "intent": "Predisporre il documento scritto di confronto tra costi e vincoli a dodici mesi",
+                  "expected_result": "Creato il prospetto scritto che confronta i costi totali e i vincoli delle due formule."
+                }
+              ],
+              "steps_omitted": 0,
+              "model_attempts_after": 2,
+              "sequence": 2
+            },
+            {
+              "stage": "choose_next_action",
+              "model_attempts_before": 2,
+              "input": {
+                "status": "active",
+                "evidence_kind": "array",
+                "evidence_entries": 1,
+                "plan": {
+                  "steps_count": 2,
+                  "steps": [
+                    {
+                      "id": "stp_24457ec1c3074f94",
+                      "type": "inspect",
+                      "capability_needed": "information.read",
+                      "status": "succeeded"
+                    },
+                    {
+                      "id": "stp_87dfa9e2e9fa4b59",
+                      "type": "prepare",
+                      "capability_needed": "document.create",
+                      "status": "pending"
+                    }
+                  ],
+                  "steps_omitted": 0
+                }
+              },
+              "response_kind": "object",
+              "reasoning": "La lettura della nota è completata e ORA può procedere alla redazione del confronto scritto dei costi e dei vincoli a dodici mesi.",
+              "decision": "execute",
+              "step_id": "stp_87dfa9e2e9fa4b59",
+              "model_attempts_after": 3,
+              "sequence": 3
+            },
+            {
+              "stage": "choose_next_action",
+              "model_attempts_before": 4,
+              "input": {
+                "status": "active",
+                "evidence_kind": "array",
+                "evidence_entries": 1,
+                "plan": {
+                  "steps_count": 2,
+                  "steps": [
+                    {
+                      "id": "stp_24457ec1c3074f94",
+                      "type": "inspect",
+                      "capability_needed": "information.read",
+                      "status": "succeeded"
+                    },
+                    {
+                      "id": "stp_87dfa9e2e9fa4b59",
+                      "type": "prepare",
+                      "capability_needed": "document.create",
+                      "status": "pending"
+                    }
+                  ],
+                  "steps_omitted": 0
+                }
+              },
+              "response_kind": "object",
+              "reasoning": "I dati sono stati letti correttamente e ora si procede alla redazione del confronto scritto tra i costi e i vincoli delle due formule.",
+              "decision": "execute",
+              "step_id": "stp_87dfa9e2e9fa4b59",
+              "model_attempts_after": 5,
+              "sequence": 4
+            },
+            {
+              "stage": "verify_goal",
+              "model_attempts_before": 7,
+              "input": {
+                "status": "active",
+                "evidence_kind": "object",
+                "evidence_entries": 6
+              },
+              "response_kind": "object",
+              "outcome": "achieved",
+              "reasoning": "Il confronto scritto dei costi a dodici mesi e dei relativi vincoli tra le formule di archivio è stato completato e predisposto.",
+              "what_is_missing": "",
+              "model_attempts_after": 8,
+              "sequence": 5
+            }
+          ],
+          "structured_decisions_omitted": 0,
+          "token_usage_scope": "successful_responses_with_provider_usage_only",
+          "worker_ticks": [
+            {
+              "claimed": 1,
+              "completed": 1,
+              "retried": 0,
+              "failed": 0
+            },
+            {
+              "claimed": 1,
+              "completed": 1,
+              "retried": 0,
+              "failed": 0
+            }
+          ],
+          "executed_capabilities": [
+            {
+              "capability": "information.read",
+              "status": "succeeded"
+            },
+            {
+              "capability": "document.create",
+              "status": "succeeded"
+            }
+          ],
+          "source_change_discovery_tested": false,
+          "injected_faults": [],
+          "external_effects": 0,
+          "result": {
+            "state": "completed",
+            "read_reused": true,
+            "corrected_source_reread": false,
+            "prepared": true,
+            "prepared_text": "Confronto delle formule di archivio per un orizzonte temporale di dodici mesi, basato sui dati riferiti e non confermati dal fornitore:\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale a 12 mesi: 180 euro\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguali per entrambe le opzioni\n- Vincoli e condizioni: dati riferiti dall'utente e non confermati dal fornitore.\n\n2. Formula Annuale\n- Costo: 120 euro anticipati per 12 mesi\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguali per entrambe le opzioni\n- Vincoli e condizioni: pagamento anticipato; non è previsto alcun rimborso in caso di disdetta anticipata.\n\nSintesi del confronto economico:\n- Costo totale a 12 mesi con la formula mensile: 180 euro.\n- Costo totale a 12 mesi con la formula annuale: 120 euro.\n- Differenza stimata: la formula annuale comporta un esborso inferiore di 60 euro rispetto alla formula mensile, a fronte del vincolo di pagamento anticipato e dell'assenza di rimborso in caso di disdetta anticipata.",
+            "prepared_text_truncated": false,
+            "prepared_text_characters": 1031,
+            "home_delivered": true,
+            "replay_idempotent": true,
+            "owner_isolation": true,
+            "semantic_review": {
+              "passed": true,
+              "reasons": [],
+              "status": "bounded_check",
+              "human_review_still_required": true
+            },
+            "counts": {
+              "agent_evidence": 4,
+              "agent_updates": 1,
+              "ambient_activity": 3,
+              "agent_needs": 1,
+              "agent_action_attempts": 0
+            }
+          }
+        }
+      ],
+      "fixture_revision": "personal_outcome_v1",
+      "started_at": "2026-10-12T02:49:34.910605+00:00",
+      "finished_at": "2026-10-12T02:49:48.658303+00:00",
+      "limits": {
+        "cases": 1,
+        "case_timeout_seconds": 240,
+        "model_calls_per_case": 40,
+        "model_http_requests_per_case": 80,
+        "structured_decisions_per_case": 12,
+        "decision_text_characters": 400,
+        "proposals_per_decision": 3,
+        "plan_steps_per_decision": 6,
+        "outcome_assessment_text_characters": 280,
+        "outcome_assessment_refs_per_field": 8,
+        "model_calls_total": 40,
+        "model_http_requests_total": 80
+      },
+      "code_revision": "aa6bef5078b1e6ab190dfc2886da571438589680",
+      "revision_source": "deployment_or_ci_metadata"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "mode": "live",
+      "status": "failed",
+      "passed": false,
+      "real_model_executed": true,
+      "cases": [
+        {
+          "scenario": "source_change_crash",
+          "mode": "live",
+          "passed": false,
+          "real_model_executed": true,
+          "model_calls": [
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 3697,
+                "completion_tokens": 445,
+                "total_tokens": 4142
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2262,
+                "completion_tokens": 557,
+                "total_tokens": 2819
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 2076,
+                "completion_tokens": 401,
+                "total_tokens": 2477
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 3532,
+                "completion_tokens": 772,
+                "total_tokens": 4304
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 3424,
+                "completion_tokens": 404,
+                "total_tokens": 3828
+              }
+            },
+            {
+              "provider": "gemini2",
+              "model": "gemini-flash-lite-latest",
+              "usage": {
+                "prompt_tokens": 1775,
+                "completion_tokens": 51,
+                "total_tokens": 1826
+              }
+            }
+          ],
+          "model_attempts": 6,
+          "model_http_requests": 6,
+          "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+          "global_socket_dns_sandbox": false,
+          "structured_decisions": [
+            {
+              "stage": "opportunity_scan",
+              "model_attempts_before": 0,
+              "input": {
+                "collection_counts": {
+                  "memories": 1,
+                  "documents": 0,
+                  "calendar": 0,
+                  "money": 5,
+                  "life_profile": 0,
+                  "what_changed": 1,
+                  "unavailable_sources": 0,
+                  "unavailable_memory_refs": 0
+                },
+                "change_after_lengths": [
+                  160
+                ]
+              },
+              "response_kind": "object",
+              "reason_for_silence": "",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "desired_outcome": "Confronto scritto tra le due formule di abbonamento per l'archivio digitale (mensile vs annuale)",
+                "outcome_state": "open",
+                "remaining_internal_work": "Preparare il prospetto di confronto con costi e vincoli basato sulle note salvate",
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "opportunities_kind": "array",
+              "opportunities_count": 1,
+              "opportunities": [
+                {
+                  "identity_key": "archivio_digitale_confronto_tariffe",
+                  "what": "Confronto tra le formule mensile e annuale per l'archivio digitale",
+                  "initiative": "prepare",
+                  "why_it_matters": "Manca un quadro scritto dei costi totali e dei vincoli, come il mancato rimborso dell'annuale in caso di disdetta anticipata.",
+                  "what_i_can_do": "Posso preparare un prospetto con il confronto di costi e vincoli.",
+                  "outcome_assessment": {
+                    "response_kind": "object",
+                    "desired_outcome": "Confronto scritto tra le due formule di abbonamento per l'archivio digitale (mensile vs annuale)",
+                    "outcome_state": "open",
+                    "remaining_internal_work": "Preparare il prospetto di confronto con costi e vincoli basato sulle note salvate",
+                    "supporting_refs": [
+                      "mem_43262246ed92296b9353"
+                    ],
+                    "supporting_refs_omitted": 0,
+                    "completion_refs": [],
+                    "completion_refs_omitted": 0
+                  }
+                }
+              ],
+              "opportunities_omitted": 0,
+              "model_attempts_after": 2,
+              "sequence": 1
+            },
+            {
+              "stage": "decide_goal",
+              "model_attempts_before": 2,
+              "input": {
+                "source_context_count": 1,
+                "source_context_unavailable": false
+              },
+              "response_kind": "object",
+              "outcome": "create_goal",
+              "reasoning": "Il confronto scritto tra le opzioni di abbonamento non è stato ancora prodotto e serve alla decisione sui prossimi 12 mesi.",
+              "objective": "Predisporre un prospetto scritto che confronta i costi totali e i vincoli delle formule mensile e annuale dell'archivio digitale.",
+              "desired_outcome": "Un quadro chiaro e completo dei costi e dei vincoli delle due opzioni è disponibile per la scelta.",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "desired_outcome": "Un prospetto scritto che confronta costi totali e vincoli (incluso il rimborso) tra le formule mensile e annuale dell'archivio digitale.",
+                "outcome_state": "open",
+                "remaining_internal_work": "Analizzare i dati noti e redigere il prospetto comparativo dei costi e dei vincoli per i prossimi 12 mesi.",
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "model_attempts_after": 3,
+              "sequence": 2
+            },
+            {
+              "stage": "make_plan",
+              "model_attempts_before": 3,
+              "input": {
+                "status": "active",
+                "evidence_kind": "none"
+              },
+              "response_kind": "object",
+              "reasoning": "I dati necessari per il confronto (prezzi mensili e annuali, condizioni di rimborso, durata di 12 mesi) sono già presenti nella memoria mem_43262246ed92296b9353. L'obiettivo è predisporre un prospetto scritto che confronti i costi totali e i vincoli delle due formule. Posso procedere direttamente alla preparazione del documento di confronto utilizzando document.create.",
+              "planning_outcome": "plan",
+              "plan_summary": "Preparazione di un prospetto scritto che confronta costi totali a 12 mesi e vincoli tra la formula mensile e quella annuale dell'archivio digitale.",
+              "expected_outcome": "Un documento di confronto chiaro e completo tra le formule mensile e annuale è stato creato.",
+              "steps_kind": "array",
+              "steps_count": 1,
+              "steps": [
+                {
+                  "step_type": "prepare",
+                  "capability_needed": "document.create",
+                  "intent": "Predisporre il prospetto scritto di confronto tra i costi totali e i vincoli delle formule mensile e annuale dell'archivio digitale.",
+                  "expected_result": "Il documento con il confronto dettagliato di costi e vincoli è creato con successo."
+                }
+              ],
+              "steps_omitted": 0,
+              "model_attempts_after": 4,
+              "sequence": 3
+            }
+          ],
+          "structured_decisions_omitted": 0,
+          "token_usage_scope": "successful_responses_with_provider_usage_only",
+          "failure_state": {
+            "available": true,
+            "goals_count": 1,
+            "goals": [
+              {
+                "status": "active",
+                "rationale": "Il confronto scritto tra le opzioni di abbonamento non è stato ancora prodotto e serve alla decisione sui prossimi 12 mesi.",
+                "requires_user_input": false,
+                "requires_user_authority": false,
+                "has_next_run_at": true,
+                "planning_unavailable": false,
+                "prepared_text": "",
+                "prepared_text_truncated": false,
+                "prepared_text_characters": 0,
+                "source_refs_count": 1,
+                "prepared_sources_count": 0,
+                "evidence_count": 0,
+                "current_evidence_count": 0,
+                "plans": [
+                  {
+                    "status": "active",
+                    "plan_summary": "Preparazione di un prospetto scritto che confronta costi totali a 12 mesi e vincoli tra la formula mensile e quella annuale dell'archivio digitale.",
+                    "steps_count": 1,
+                    "step_status_counts": {
+                      "failed": 1
+                    },
+                    "steps": [
+                      {
+                        "step_type": "prepare",
+                        "capability_needed": "document.create",
+                        "status": "failed",
+                        "note": "Non ho ancora prodotto una bozza verificabile."
+                      }
+                    ],
+                    "steps_omitted": 0
+                  }
+                ],
+                "plans_count": 1
+              }
+            ]
+          },
+          "reason": "OWNED_SOURCE_NOT_READ_ONCE"
+        }
+      ],
+      "fixture_revision": "personal_outcome_v1",
+      "started_at": "2026-10-12T02:49:48.659070+00:00",
+      "finished_at": "2026-10-12T02:49:57.900491+00:00",
+      "limits": {
+        "cases": 1,
+        "case_timeout_seconds": 240,
+        "model_calls_per_case": 40,
+        "model_http_requests_per_case": 80,
+        "structured_decisions_per_case": 12,
+        "decision_text_characters": 400,
+        "proposals_per_decision": 3,
+        "plan_steps_per_decision": 6,
+        "outcome_assessment_text_characters": 280,
+        "outcome_assessment_refs_per_field": 8,
+        "model_calls_total": 40,
+        "model_http_requests_total": 80
+      },
+      "code_revision": "aa6bef5078b1e6ab190dfc2886da571438589680",
+      "revision_source": "deployment_or_ci_metadata"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "mode": "live",
+      "status": "passed",
+      "passed": true,
+      "real_model_executed": true,
+      "cases": [
+        {
+          "version": "autonomy-completion-v162",
+          "fixture_revision": "personal_outcome_v1",
+          "scenario": "already_resolved",
+          "mode": "live",
+          "passed": true,
+          "scope": "synthetic_internal_note_to_home_no_external_effects",
+          "model_mode": "real_llm",
+          "source_mode": "synthetic_owned_record_real_reader",
+          "live_provider_reads": 0,
+          "storage": "in_memory",
+          "process_restart_tested": false,
+          "synthetic_checkpoints_expedited": true,
+          "real_model_executed": true,
+          "model_calls": [
+            {
+              "provider": "groq",
+              "model": "qwen/qwen3.8-27b",
+              "usage": {
+                "prompt_tokens": 2031,
+                "completion_tokens": 123
+              }
+            }
+          ],
+          "model_attempts": 1,
+          "model_http_requests": 2,
+          "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+          "global_socket_dns_sandbox": false,
+          "structured_decisions": [
+            {
+              "stage": "decide_goal",
+              "model_attempts_before": 0,
+              "input": {
+                "source_context_count": 1,
+                "source_context_unavailable": false
+              },
+              "response_kind": "object",
+              "outcome": "no_goal",
+              "reasoning": "Il confronto è già stato consegnato e la scelta è stata fatta e documentata; non restano verifiche o esiti aperti.",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "outcome_state": "resolved",
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "completion_refs_omitted": 0
+              },
+              "model_attempts_after": 1,
+              "sequence": 1
+            }
+          ],
+          "structured_decisions_omitted": 0,
+          "token_usage_scope": "successful_responses_with_provider_usage_only",
+          "worker_ticks": [],
+          "executed_capabilities": [],
+          "source_change_discovery_tested": false,
+          "injected_faults": [],
+          "external_effects": 0,
+          "result": {
+            "state": "no_goal"
+          }
+        }
+      ],
+      "fixture_revision": "personal_outcome_v1",
+      "started_at": "2026-10-12T02:49:57.901103+00:00",
+      "finished_at": "2026-10-12T02:49:59.122669+00:00",
+      "limits": {
+        "cases": 1,
+        "case_timeout_seconds": 240,
+        "model_calls_per_case": 40,
+        "model_http_requests_per_case": 80,
+        "structured_decisions_per_case": 12,
+        "decision_text_characters": 400,
+        "proposals_per_decision": 3,
+        "plan_steps_per_decision": 6,
+        "outcome_assessment_text_characters": 280,
+        "outcome_assessment_refs_per_field": 8,
+        "model_calls_total": 40,
+        "model_http_requests_total": 80
+      },
+      "code_revision": "aa6bef5078b1e6ab190dfc2886da571438589680",
+      "revision_source": "deployment_or_ci_metadata"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "mode": "live",
+      "status": "passed",
+      "passed": true,
+      "real_model_executed": true,
+      "cases": [
+        {
+          "version": "autonomy-completion-v162",
+          "fixture_revision": "personal_outcome_v1",
+          "scenario": "irrelevant",
+          "mode": "live",
+          "passed": true,
+          "scope": "synthetic_internal_note_to_home_no_external_effects",
+          "model_mode": "real_llm",
+          "source_mode": "synthetic_owned_record_real_reader",
+          "live_provider_reads": 0,
+          "storage": "in_memory",
+          "process_restart_tested": false,
+          "synthetic_checkpoints_expedited": true,
+          "real_model_executed": true,
+          "model_calls": [
+            {
+              "provider": "mistral",
+              "model": "ministral-8b-2512",
+              "usage": {
+                "prompt_tokens": 1728,
+                "completion_tokens": 101
+              }
+            }
+          ],
+          "model_attempts": 1,
+          "model_http_requests": 2,
+          "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+          "global_socket_dns_sandbox": false,
+          "structured_decisions": [
+            {
+              "stage": "decide_goal",
+              "model_attempts_before": 0,
+              "input": {
+                "source_context_count": 0,
+                "source_context_unavailable": false
+              },
+              "response_kind": "object",
+              "outcome": "no_goal",
+              "reasoning": "Non esiste un risultato personale mancante, interesse o necessità documentata per una newsletter pubblicitaria non richiesta.",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "outcome_state": "not_established",
+                "supporting_refs": [],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "model_attempts_after": 1,
+              "sequence": 1
+            }
+          ],
+          "structured_decisions_omitted": 0,
+          "token_usage_scope": "successful_responses_with_provider_usage_only",
+          "worker_ticks": [],
+          "executed_capabilities": [],
+          "source_change_discovery_tested": false,
+          "injected_faults": [],
+          "external_effects": 0,
+          "result": {
+            "state": "no_goal"
+          }
+        }
+      ],
+      "fixture_revision": "personal_outcome_v1",
+      "started_at": "2026-10-12T02:49:59.123108+00:00",
+      "finished_at": "2026-10-12T02:50:02.476122+00:00",
+      "limits": {
+        "cases": 1,
+        "case_timeout_seconds": 240,
+        "model_calls_per_case": 40,
+        "model_http_requests_per_case": 80,
+        "structured_decisions_per_case": 12,
+        "decision_text_characters": 400,
+        "proposals_per_decision": 3,
+        "plan_steps_per_decision": 6,
+        "outcome_assessment_text_characters": 280,
+        "outcome_assessment_refs_per_field": 8,
+        "model_calls_total": 40,
+        "model_http_requests_total": 80
+      },
+      "code_revision": "aa6bef5078b1e6ab190dfc2886da571438589680",
+      "revision_source": "deployment_or_ci_metadata"
+    }
+  ]
+}

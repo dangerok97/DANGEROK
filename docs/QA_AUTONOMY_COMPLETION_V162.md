@@ -1,3 +1,127 @@
+# QA v162 — dipendenza lettura/preparazione, verifica locale conclusa
+
+La revisione successiva ad aa6bef supera **336 test su 19 moduli in 4,56
+secondi** e il CLI scripted **9/9**. Tutti i nove report scripted attestano
+zero tentativi LLM, zero HTTP del modello e zero effetti esterni. La suite
+CI comprende il nuovo modulo `test_agent_preparation_dependency_v162.py`.
+
+La review indipendente ha corretto nel nuovo test la collection controllata
+per l'assenza di azioni: `agent_action_attempts`, effettivamente usata
+dall'executor. Il modulo è stato rieseguito dopo questa sola correzione:
+**10 PASS in 1,26 secondi**; il codice applicativo non è cambiato rispetto
+all'aggregato di 336 casi.
+
+Le dieci nuove prove verificano il payload fino al vero SDK con solo HTTP
+simulato, il reader reale, il riuso di evidenze correnti, una continuazione
+parziale e gli esiti del parser senza coercizione. Il recupero applicativo
+respinge una preparazione senza evidenze, persiste il nuovo piano, ricarica
+servizio e piano, esegue una lettura e salva la bozza dopo audit. Lo storico
+fallito resta conservato e il goal non viene chiuso prima della verifica.
+L'aggregato mirato di 74 casi si sovrappone a quello finale.
+
+Solo le istruzioni di `make_plan`, `choose_next_action` e `reconsider`
+cambiano. Il confronto AST lascia invariati parser, firme, altre funzioni e
+costanti. Il contesto corrente resta distinto dalle evidenze; l'assenza di
+un inventario nel payload non viene equiparata a uno store vuoto.
+
+Questi esiti locali non provano le scelte del modello reale. Il prossimo
+gate esegue direttamente tutti e nove i casi con la fixture invariata e,
+solo se superato, la lettura dei provider pubblici. Il riscontro precedente
+rimane sotto con il proprio head, report integrali e limiti.
+
+---
+
+# QA v162 — diagnostica aa6bef: risultato valido, lettura nel piano ancora aperta
+
+## Riscontro reale del 12 ottobre 2026: 3/4, diagnostica non completa
+
+Il head `aa6bef5078b1e6ab190dfc2886da571438589680` è stato eseguito nel
+deployment tecnico `50813148-0997-458a-b57b-1be328fe2e30`, fra
+**02:49:34.910 e 02:50:02.476 UTC**. La fixture resta
+`personal_outcome_v1`. Il [report diagnostico](evidence/autonomy_v162_diagnostic_2026-10-12_aa6bef.json)
+conserva i quattro report originali, incluso il fallimento: **3/4 PASS**,
+`diagnostic_only=true`, esito complessivo `passed=false`.
+
+| Caso | Esito | Riscontro |
+|---|---|---|
+| `completed_result` | PASS | Lettura completa, preparazione persistita e risultato nella Home; replay idempotente e isolamento fra owner verificati |
+| `source_change_crash` | FAIL | Discovery apre il lavoro, ma il piano contiene soltanto `prepare` e omette la lettura; `OWNED_SOURCE_NOT_READ_ONCE` |
+| `already_resolved` | PASS | `no_goal`, senza lavoro aggiunto a un risultato già ricevuto |
+| `irrelevant` | PASS | `no_goal`, senza attività sulla fonte irrilevante |
+
+Sono osservate **18 chiamate logiche e 21 richieste HTTP**. Il caso positivo
+e quello di Discovery ricevono risposte da Gemini 2
+`gemini-flash-lite-latest`; i due negativi passano rispettivamente con i
+fallback Groq `qwen/qwen3.8-27b` e Mistral `ministral-8b-2512`. Il conteggio
+HTTP mantiene il perimetro dichiarato del runner, non quello di un sandbox
+globale di socket o DNS.
+
+### Revisione manuale del risultato completato
+
+Il testo preparato, conservato integralmente nel report, contiene **1031
+caratteri** e `prepared_text_truncated=false`. La revisione manuale rispetto
+alla nota immutata non rileva errori sostanziali: attribuzione ai dati riferiti
+dall'utente e non confermati dal fornitore; orizzonte di dodici mesi; costi
+180/120 euro e differenza di 60 euro; spese iniziali nulle, spazio e assistenza
+uguali; pagamento anticipato e assenza di rimborso dell'annuale in caso di
+disdetta anticipata.
+
+Non compaiono più la flessibilità non documentata del mensile o la conclusione
+che ogni interruzione anticipata annulli il risparmio. La qualifica
+«differenza stimata» conserva la prudenza sui dati riferiti; il calcolo su
+quei dati è corretto. Nessun criterio lessicale è stato cambiato per far
+passare il testo. Home, idempotenza e isolamento sono esiti del caso
+completato; non sono attribuiti al caso fallito.
+
+### Confine ancora aperto: anteprima e prova letta
+
+Nel caso `source_change_crash`, Discovery e ammissione riconoscono ora il
+confronto ancora mancante. `make_plan` riceve però `evidence_kind=none` e
+sceglie un solo `document.create`, motivandolo con i dati già disponibili
+nella Memory. L'anteprima è così trattata come se fosse l'evidenza del reader.
+La preparazione fallisce senza salvare testo o fonti: il goal rimane attivo,
+con zero evidenze e un passo fallito. Il guard esistente conserva il
+fallimento invece di certificare una bozza priva di lettura.
+
+La correzione del contratto di pianificazione è in verifica. Questo report
+non ne dimostra l'esecuzione né il recupero del caso. Il prossimo collaudo
+è direttamente il gate completo di **nove casi**, seguito dalla lettura
+pubblica se il gate è superato. Entrambi restano da eseguire sulla revisione
+corretta. Il collaudo usa note sintetiche, reader reale e storage in memoria,
+senza letture live di provider personali o effetti esterni. La ripresa dopo
+un vero riavvio di processo resta distinta dalla prova diagnostica.
+
+### Test locali e CI, separati dal verdetto reale
+
+Confermati **326 test locali su 18 moduli** e scripted **9/9**, senza modello
+reale, HTTP del modello o effetti esterni. I 53 casi mirati della preparazione
+e i 47 di Discovery si sovrappongono all'aggregato e non vanno sommati.
+
+Sull'esatto head aa6bef, i workflow Situation della
+[PR](https://github.com/dangerok97/DANGEROK/actions/runs/38197284632) e del
+[push](https://github.com/dangerok97/DANGEROK/actions/runs/38197282001)
+concludono entrambi **2/2 PASS**. La CI principale della
+[PR](https://github.com/dangerok97/DANGEROK/actions/runs/38197284701) e del
+[push](https://github.com/dangerok97/DANGEROK/actions/runs/38197281974)
+concludono entrambe **5/5 PASS**: **14/14 job complessivi verificati**, senza
+failure. Il backend della PR riporta **309 PASS v162** in 7,68 secondi,
+scripted **9/9** senza LLM/HTTP/effetti, **sei prove Mongo senza skip** in
+12,70 secondi (`PHASE2_REAL_MONGO=1`) e **tre regressioni v39** in 0,39
+secondi. Il push conferma gli stessi conteggi; i tre tempi pytest sono
+rispettivamente 6,79, 11,26 e 0,33 secondi. I conteggi dei due workflow si
+sovrappongono e non vengono sommati come casi distinti.
+
+Il merge tecnico della PR è `a846966703ae5c931437eb7c645d83e92ff89b16`,
+con albero `0f88fda58a91da249b8bd1c1976de02f30019e55` identico al head.
+Il JSON scripted è nei log, senza artifact separati caricati. Questi verdi
+attestano la CI del codice aa6bef; la diagnostica reale resta 3/4 e non
+certifica né la futura correzione del planner né il gate completo.
+
+Gli stati storici seguenti sono conservati integralmente; questo riscontro
+aggiorna l'esito corrente senza riscrivere le prove precedenti.
+
+---
+
 # QA v162 — iniziativa, prosecuzione e risultato
 
 ## Ultima verifica locale: scoperta coerente e qualifiche fino alla verifica

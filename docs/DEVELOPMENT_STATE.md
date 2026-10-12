@@ -1,3 +1,55 @@
+## 12 ottobre 2026 — v162, prerequisito della preparazione corretto
+
+La revisione successiva ad aa6bef supera **336 test su 19 moduli in 4,56
+secondi** e il CLI scripted **9/9**, con zero LLM, HTTP del modello ed
+effetti esterni. Include dieci nuove regressioni sulla dipendenza fra
+anteprime, letture registrate e preparazione. Il loro aggregato mirato
+74 PASS si sovrappone a quello finale.
+
+La recovery verificata respinge la preparazione senza fonti, salva il nuovo
+piano, ricarica servizio e piano, legge una volta e produce una bozza auditata;
+lo storico fallito resta e il goal attende ancora la verifica finale. Solo
+le istruzioni di tre chiamate esistenti cambiano: nessuna decisione è forzata
+dal parser. La prossima esecuzione tecnica è full 9, poi lettura pubblica se
+superato. Il precedente aa6bef resta documentato come diagnostica 3/4.
+
+---
+
+## 12 ottobre 2026 — v162, risultato valido e difetto di pianificazione isolato
+
+Il head `aa6bef5078b1e6ab190dfc2886da571438589680`, eseguito nel deployment
+tecnico `50813148-0997-458a-b57b-1be328fe2e30` fra **02:49:34.910 e
+02:50:02.476 UTC**, conclude la diagnostica reale **3/4**, con 18 chiamate
+logiche e 21 HTTP osservati. La fixture `personal_outcome_v1` resta invariata;
+il [JSON archiviato](evidence/autonomy_v162_diagnostic_2026-10-12_aa6bef.json)
+contiene i quattro report originali e conserva l'esito complessivo fallito.
+
+`completed_result` supera il controllo limitato e la revisione manuale del
+testo integrale di 1031 caratteri: dati attribuiti, confronto a dodici mesi,
+costi e vincoli sostenuti dalla nota. Home, replay idempotente e isolamento
+sono PASS. Risponde Gemini 2 `gemini-flash-lite-latest`; i negativi
+`already_resolved` e `irrelevant` passano con i fallback Groq
+`qwen/qwen3.8-27b` e Mistral `ministral-8b-2512`.
+
+Discovery apre ora il lavoro nel caso `source_change_crash`. Il planner
+omette però il reader e propone soltanto preparazione: zero evidenze, testo
+vuoto e `OWNED_SOURCE_NOT_READ_ONCE`. La correzione del contratto del piano
+è in verifica, senza verdetto anticipato sul suo esito reale.
+
+Confermati **326 test locali su 18 moduli e scripted 9/9**. Sullo stesso
+head sono verificati **14/14 job CI PASS**: principale 5/5 e Situation 2/2,
+sia sulla PR sia sul push. Entrambi i backend verificano 309 PASS v162,
+scripted 9/9, sei prove Mongo senza skip e tre regressioni v39. Il merge
+tecnico della PR `a846966703ae5c931437eb7c645d83e92ff89b16` ha lo stesso
+albero del head. Link, tempi e dettaglio aggiornato sono nel
+[QA](QA_AUTONOMY_COMPLETION_V162.md).
+
+Il gate reale completo a nove casi e la lettura pubblica successiva restano
+da eseguire. Questa prova tecnica non chiude il rilascio delle app o i gate
+nativi. I risultati storici successivi rimangono conservati integralmente.
+
+---
+
 ## 12 ottobre 2026 — v162, ammissione avviata e due difetti ancora in verifica
 
 Il head `1292788` conclude 14 job CI PASS, sette sulla PR e sette sul push,

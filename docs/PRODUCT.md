@@ -1,3 +1,31 @@
+## 12 ottobre 2026 — v162, fonti lette prima del risultato
+
+ORA distingue l'anteprima utile a capire il lavoro dalle prove acquisite per
+prepararne il risultato. Il piano prevede la lettura necessaria, riusa quella
+già sufficiente e recupera una preparazione prematura senza rimandare alla
+persona un'informazione che può leggere. Restano fermi limiti della fonte e
+consenso per gli effetti esterni. Il comportamento reale dell'intero percorso
+è il prossimo gate; il solo esito locale non lo certifica.
+
+---
+
+## 12 ottobre 2026 — v162, primo risultato completo validato nella diagnostica
+
+La diagnostica con modello reale produce ora un confronto scritto utile,
+attribuito alla nota personale e corretto nei costi e nei vincoli, disponibile
+nella Home. Il risultato distingue l'orizzonte del confronto dalle condizioni
+ignote e conserva la differenza fra dati riferiti e conferma del fornitore.
+La revisione manuale non rileva le deduzioni non sostenute della prova precedente.
+
+I due casi senza bisogno aperto continuano a non generare lavoro. Resta
+invece incompleto un caso avviato dal cambiamento di una fonte: il piano deve
+portare dalla lettura effettiva al risultato, conservando la provenienza.
+Il collaudo resta **3/4 diagnostici**, con gate completo e prova pubblica
+ancora aperti; non dimostra autonomia completa o ricezione su un dispositivo.
+Evidenze e limiti in [QA_AUTONOMY_COMPLETION_V162.md](QA_AUTONOMY_COMPLETION_V162.md).
+
+---
+
 ## 12 ottobre 2026 — v162, risultati che conservano i limiti delle fonti
 
 Un risultato utile distingue ciò che la fonte dice, ciò che si può dedurre

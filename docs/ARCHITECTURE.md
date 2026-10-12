@@ -1,3 +1,47 @@
+## 12 ottobre 2026 — v162, dipendenza fra lettura e preparazione
+
+Le istruzioni delle chiamate esistenti `make_plan`, `choose_next_action` e
+`reconsider` esplicitano il contratto applicativo: `document.create` usa
+le evidenze del goal e non legge i propri `input_refs` o le anteprime.
+Il piano include il prerequisito quando non è mostrata una lettura eseguita;
+un inventario omesso non prova che lo store sia vuoto. La scelta successiva
+può riusare prove correnti, saltare la lettura già soddisfatta o proseguire
+un estratto con cursore e versione. `preparation_sources_required` guida la
+ripianificazione verso una lettura disponibile, senza retry a vuoto.
+
+Parser, runtime, capability, budget e numero delle chiamate restano invariati.
+Dieci nuove prove attraversano il vero SDK con HTTP simulato e il recupero
+persistito del servizio; l'aggregato locale è 336 PASS, scripted 9/9. La
+correttezza delle scelte reali resta soggetta al gate completo successivo.
+
+---
+
+## 12 ottobre 2026 — v162, confine osservato fra contesto e lettura eseguita
+
+La diagnostica `aa6bef` verifica il percorso completo di una nota sintetica:
+`information.read` produce evidenze persistite con provenienza; generazione
+e audit conservano `bears_on`, limiti e cursori; la verifica del risultato
+precede disponibilità nella Home, replay idempotente e controllo dell'owner.
+Il testo finale passa anche la revisione manuale sulla fonte immutata.
+
+Il caso `source_change_crash` rende visibile un confine ancora aperto nel
+contratto del planner. Discovery e ammissione producono il lavoro pertinente,
+ma `make_plan`, con `evidence_kind=none`, tratta l'anteprima Memory come base
+sufficiente per un unico `document.create`. Nessuna evidenza del reader è
+stata registrata. La preparazione rifiuta il risultato privo di fonti lette;
+la diagnostica conserva `OWNED_SOURCE_NOT_READ_ONCE`, testo vuoto e goal attivo.
+
+Le anteprime continuano a essere contesto decisionale, senza trasformarsi
+in evidenze o autorità per la preparazione. La correzione contrattuale del
+piano è in verifica: non è ancora una prosecuzione riuscita attestata dal
+report. Budget, parser, guard sulle fonti e consenso mantengono il loro ruolo.
+Il [report originale](evidence/autonomy_v162_diagnostic_2026-10-12_aa6bef.json)
+separa modello reale, note sintetiche, storage in memoria e assenza di effetti
+esterni; non documenta un riavvio reale del processo o una lettura live di
+provider personali.
+
+---
+
 ## 12 ottobre 2026 — v162, schema della scoperta e qualifiche nella preparazione
 
 Lo schema JSON effettivo di Discovery contiene `outcome_assessment` prima

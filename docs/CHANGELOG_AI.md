@@ -1,3 +1,37 @@
+## 12 ottobre 2026 — v162, prerequisito leggibile e recupero persistito
+
+- Chiarita la dipendenza della preparazione dalle evidenze effettivamente
+  acquisite, anche quando l'anteprima contiene già tutti i fatti.
+- Riutilizzo delle letture correnti e continuazione degli estratti con i
+  riferimenti restituiti; recupero da `preparation_sources_required` nel
+  riesame già esistente. Nessuna chiamata o regola di dominio aggiunta.
+- Dieci nuove prove, 336 PASS locali su 19 moduli e scripted 9/9 senza
+  modello reale o effetti esterni. Il gate reale completo segue la pubblicazione.
+- Conservato il report originale della diagnostica aa6bef, compreso il caso
+  fallito e il testo manualmente valido del caso completato.
+
+---
+
+## 12 ottobre 2026 — v162, diagnostica aa6bef con risultato manualmente valido
+
+- Archiviati i quattro report originali della diagnostica `aa6bef`: 3/4,
+  18 chiamate logiche e 21 HTTP, fixture invariata ed esito complessivo fallito.
+- `completed_result` produce un testo integrale di 1031 caratteri, attribuito
+  alla fonte e valido alla revisione manuale; Home, replay e isolamento PASS.
+- Già risolto e irrilevante restano `no_goal`, con risposte dei fallback
+  osservati e senza lavoro o effetti esterni aggiunti.
+- Discovery apre ora la fonte pertinente, ma il piano salta la lettura e
+  tenta soltanto preparazione: `OWNED_SOURCE_NOT_READ_ONCE`, nessuna bozza
+  salvata. Correzione del contratto del planner ancora in verifica.
+- Confermati 326 test locali su 18 moduli e scripted 9/9; CI aa6bef
+  **14/14 job PASS** fra PR e push, con 309 casi v162, scripted 9/9,
+  sei Mongo senza skip e tre v39 in ciascun backend. Gate completo a
+  nove casi e successiva lettura pubblica ancora aperti.
+
+Dettaglio e riferimenti in [QA_AUTONOMY_COMPLETION_V162.md](QA_AUTONOMY_COMPLETION_V162.md).
+
+---
+
 ## 12 ottobre 2026 — v162, verifica delle deduzioni e schema coerente
 
 - Riepilogo dell'esito incluso nel vero JSON di Discovery e audit, con

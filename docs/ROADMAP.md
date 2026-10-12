@@ -1,3 +1,46 @@
+## 12 ottobre 2026 — v162, verifica completa pronta dopo il recupero
+
+Corretto il prerequisito che la diagnostica aa6bef aveva isolato: la
+preparazione deve usare prove acquisite, con lettura disponibile prima del
+risultato e riuso di quelle già sufficienti. La recovery conserva il piano
+e lo storico anche dopo la preparazione prematura. Verifica locale:
+**336 PASS su 19 moduli e scripted 9/9**.
+
+Il passo corrente è il gate reale completo di nove casi, seguito dai provider
+pubblici se superato. La diagnostica precedente 3/4 e la CI 14/14 restano
+prove storiche distinte; distribuzione app e ricezione nativa conservano i
+vincoli già documentati. Nessuna chiusura dell'autonomia è anticipata.
+
+---
+
+## 12 ottobre 2026 — v162, diagnostica 3/4 e prossimo confine verificabile
+
+**Checkpoint corrente:** il head `aa6bef5078b1e6ab190dfc2886da571438589680`
+supera tre dei quattro casi diagnostici reali sulla fixture invariata.
+Il confronto scritto è semanticamente valido anche alla revisione manuale,
+arriva nella Home e conserva idempotenza e isolamento. I casi già risolto e
+irrilevante rimangono correttamente `no_goal`.
+
+Il caso di ripresa dopo cambiamento della fonte apre ora il lavoro, ma il
+piano omette la lettura e tenta direttamente la preparazione. Il fallimento
+`OWNED_SOURCE_NOT_READ_ONCE` mantiene aperto il confine fra anteprima e
+evidenza. La correzione del contratto del planner è in verifica; nessun esito
+del modello viene sostituito dal codice per chiudere il collaudo.
+
+Restano confermati 326 test locali su 18 moduli e scripted 9/9. La CI dello
+stesso head conclude **14/14 job PASS** fra PR e push; il dettaglio dei
+309 casi v162, scripted 9/9, sei Mongo e tre v39 per backend è registrato nel
+[QA](QA_AUTONOMY_COMPLETION_V162.md), insieme al
+[report con i quattro esiti originali](evidence/autonomy_v162_diagnostic_2026-10-12_aa6bef.json).
+**Non sono ancora superati il gate completo a nove casi e la successiva
+lettura pubblica.** La diagnostica parziale non chiude l'autonomia né i gate
+di distribuzione e ricezione sul dispositivo già descritti sotto.
+
+Questo checkpoint aggiorna gli stati storici conservati di seguito e
+mantiene l'ordine delle sei fasi approvate.
+
+---
+
 ## 12 ottobre 2026 — v162: autonomia fino al risultato verificabile
 
 **Checkpoint corrente:** completamento dell'autonomia su richiesta esplicita
