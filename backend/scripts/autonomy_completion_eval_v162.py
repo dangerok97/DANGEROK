@@ -50,6 +50,9 @@ MAX_ASSESSMENT_REFS = 8
 ASSESSMENT_TEXT_LIMIT = 280
 MAX_DIAGNOSTIC_ADMISSIONS = 3
 MAX_DIAGNOSTIC_SCANS = 3
+PREPARATION_TEXT_LIMIT = 4000
+MAX_PREPARATION_CLAIMS = 12
+PREPARATION_CLAIM_TEXT_LIMIT = 280
 FIXTURE_CONTEXT = (
     "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule "
     "e mi manca il confronto scritto di costi e vincoli. "
@@ -83,7 +86,7 @@ class Probe:
     structured_decisions_omitted: int = 0
     admission_observations: list[dict[str, Any]] = field(default_factory=list)
     discovery_results: list[dict[str, Any]] = field(default_factory=list)
-    steps: list[dict[str, str]] = field(default_factory=list)
+    steps: list[dict[str, Any]] = field(default_factory=list)
     ticks: list[dict[str, int]] = field(default_factory=list)
     faults: list[str] = field(default_factory=list)
     blocked_effects: int = 0
@@ -103,6 +106,9 @@ def model_observations(probe):
             "structured_decisions_omitted": probe.structured_decisions_omitted,
             "admission_observations": probe.admission_observations,
             "discovery_results": probe.discovery_results,
+            "executed_capabilities": (probe.steps if len(probe.steps) <= MAX_DECISION_OBSERVATIONS
+                                      else probe.steps[:2] + probe.steps[-(MAX_DECISION_OBSERVATIONS - 2):]),
+            "executed_capabilities_omitted": max(0, len(probe.steps) - MAX_DECISION_OBSERVATIONS),
             # Failed calls may still be billable without returning usage.
             "token_usage_scope": "successful_responses_with_provider_usage_only"}
 
@@ -151,6 +157,37 @@ def _diagnostic_refs(value, key):
                           if type(ref) is str],
                     key + "_count": len(refs),
                     key + "_omitted": max(0, len(refs) - MAX_ASSESSMENT_REFS)})
+    return out
+
+
+def _preparation_text_fields(value, key):
+    content = value.get(key)
+    out = {key + "_kind": _response_kind(content)}
+    if type(content) is str:
+        redacted = _safe_text(content, PREPARATION_TEXT_LIMIT + 1)
+        out.update({key: redacted[:PREPARATION_TEXT_LIMIT], key + "_characters": len(content),
+                    key + "_truncated": len(redacted) > PREPARATION_TEXT_LIMIT})
+    return out
+
+
+def _error_code(value):
+    return (_safe_text(value, 80) if type(value) is str
+            and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", value) else None)
+
+
+def _preparation_claim_review(value):
+    rows = value.get("claim_review")
+    out = {"claim_review_kind": _response_kind(rows)}
+    if isinstance(rows, list):
+        out.update({"claim_review_count": len(rows),
+                    "claim_review_omitted": max(0, len(rows) - MAX_PREPARATION_CLAIMS),
+                    "claim_review": []})
+        for item in rows[:MAX_PREPARATION_CLAIMS]:
+            observed = _decision_fields(item, ("claim", "premises", "support", "correction"),
+                                        limit=PREPARATION_CLAIM_TEXT_LIMIT)
+            if isinstance(item, dict):
+                observed.update(_diagnostic_refs(item, "evidence_ids"))
+            out["claim_review"].append(observed)
     return out
 
 
@@ -212,6 +249,16 @@ def _decision_result(stage, value):
     )))
     if "outcome_assessment" in value:
         out["outcome_assessment"] = _outcome_assessment(value["outcome_assessment"])
+    if stage in ("preparation_generation", "preparation_audit"):
+        out.update(_preparation_text_fields(value, "content"))
+        out.update(_diagnostic_refs(value, "evidence_ids"))
+        out["verified_kind"] = ("boolean" if type(value.get("verified")) is bool
+                                else _response_kind(value.get("verified")))
+        if type(value.get("verified")) is bool:
+            out["verified"] = value["verified"]
+        if stage == "preparation_audit":
+            out.update(_decision_fields(value, ("reason",)))
+            out.update(_preparation_claim_review(value))
     if stage == "make_plan":
         steps = value.get("steps")
         out["steps_kind"] = _response_kind(steps)
@@ -253,6 +300,19 @@ def _decision_input(stage, value, kwargs):
         return {"source_context_count": len(context) if isinstance(context, list) else None,
                 "source_context_unavailable": value.get("source_context_unavailable")
                 if type(value.get("source_context_unavailable")) is bool else None}
+    if stage in ("preparation_generation", "preparation_audit"):
+        evidence = value.get("evidence")
+        out = {"evidence_kind": _response_kind(evidence),
+               "evidence_count": len(evidence) if isinstance(evidence, list) else None,
+               "evidence_truncated": value.get("evidence_truncated")
+               if type(value.get("evidence_truncated")) is bool else None}
+        if isinstance(evidence, list):
+            out.update(_diagnostic_refs({"evidence_ids": [row.get("id") for row in evidence
+                                                         if isinstance(row, dict)]}, "evidence_ids"))
+        out.update(_decision_fields(kwargs.get("execution"), ("goal_id", "step_id"), limit=80))
+        if stage == "preparation_audit":
+            out.update(_preparation_text_fields(value, "draft"))
+        return out
     if stage not in ("opportunity_scan", "opportunity_audit"):
         out = _decision_fields(value, ("status",), limit=60)
         evidence = kwargs.get("evidence")
@@ -368,7 +428,7 @@ class BlockedPush:
 @contextmanager
 def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=None):
     """Bound effects without replacing the worker, persistence or Home handoff."""
-    from agent import reasoning
+    from agent import preparation, reasoning
     from agent.capabilities import CapabilityResolver
     from agent.execution import StepExecutor
     from agent.models import AgentBudget
@@ -392,6 +452,9 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
     original_decide_goal, original_discover = reasoning.decide_goal, opportunity_reasoning.scan
     original_audit = opportunity_reasoning.audit_proposals
     scan_owner = ContextVar("autonomy_eval_scan_owner", default=None)
+    original_prepare = preparation.prepare
+    original_prepare_model = baseline.scripted_draft if mode == "scripted" else reasoning._ask_model
+    preparation_context = ContextVar("autonomy_eval_preparation", default=None)
     base_plan = baseline.scripted_make_plan if mode == "scripted" else reasoning.make_plan
     base_verify = baseline.scripted_verify if mode == "scripted" else reasoning.verify_goal
     base_choose = baseline.scripted_choose if mode == "scripted" else reasoning.choose_next_action
@@ -453,13 +516,61 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
                  "why_not": None} for cap in sorted(ALLOWED)]
 
     async def step(self, owner_id, goal, item, **kwargs):
-        if (self.db is not db or owner_id != OWNER or goal.owner_id != OWNER
-                or item.capability_needed not in ALLOWED or item.step_type == "execute"):
+        same_owner = self.db is db and owner_id == OWNER and goal.owner_id == OWNER
+        marked = same_owner and await _synthetic_diagnostics_allowed(db, owner_id)
+        identity = (_decision_fields({"capability": item.capability_needed, "step_id": item.id,
+                                      "step_type": item.step_type},
+                                     ("capability", "step_id", "step_type"), limit=80) if marked else {})
+        local_prepare = item.step_type == "prepare" and item.capability_needed == "" and marked
+        if (not same_owner or (item.capability_needed not in ALLOWED and not local_prepare)
+                or item.step_type == "execute"):
             probe.blocked_effects += 1
+            probe.steps.append({**identity, "status": "blocked", "error_type": "STEP_EFFECT_OR_OWNER_BOUNDARY",
+                                "retryable": False, "exception_type": "EvaluationFailure"})
             raise EvaluationFailure("STEP_EFFECT_OR_OWNER_BOUNDARY")
-        result = await original_step(self, owner_id, goal, item, **kwargs)
-        probe.steps.append({"capability": item.capability_needed, "status": str(getattr(result, "status", ""))})
+        try:
+            result = await original_step(self, owner_id, goal, item, **kwargs)
+        except BaseException as exc:
+            probe.steps.append({**identity, "status": "raised", "error_type": _error_code(type(exc).__name__),
+                                "retryable": None, "exception_type": type(exc).__name__[:80]})
+            raise
+        # Existing unit callers have no evaluator marker. Keep their minimal
+        # code-owned capability/status trace; source-linked diagnostics are
+        # available only in the marked synthetic account.
+        observed = {**(identity if marked else {"capability": item.capability_needed}),
+                    "status": _safe_text(getattr(result, "status", ""), 80)}
+        if marked:
+            observed.update({"error_type": _error_code(getattr(result, "error_type", None)),
+                             "retryable": result.retryable
+                             if type(getattr(result, "retryable", None)) is bool else None})
+        probe.steps.append(observed)
         return result
+
+    async def prepare(prepare_db, owner_id, goal, item):
+        enabled = (prepare_db is db and owner_id == goal.owner_id == OWNER
+                   and await _synthetic_diagnostics_allowed(db, owner_id))
+        token = preparation_context.set({"goal_id": goal.id, "step_id": item.id} if enabled else None)
+        try:
+            return await original_prepare(prepare_db, owner_id, goal, item)
+        finally:
+            preparation_context.reset(token)
+
+    async def prepare_model(system, user):
+        context = preparation_context.get()
+        if context is None or not await _synthetic_diagnostics_allowed(db, OWNER):
+            return await original_prepare_model(system, user)
+        try:
+            payload = json.loads(user)
+        except (TypeError, ValueError):
+            payload = None
+        stage = ("preparation_audit" if isinstance(payload, dict) and "draft" in payload and "evidence" in payload
+                 else "preparation_generation" if isinstance(payload, dict)
+                 and all(key in payload for key in ("goal", "step", "evidence")) else "preparation_call")
+
+        async def call(_payload, **_kwargs):
+            return await original_prepare_model(system, user)
+
+        return await observed_decision(stage, call, payload, execution=context)
 
     async def bounded_first_read(self, owner_id, goal_id, **kwargs):
         # A documented technical interruption after one real read proves that
@@ -618,11 +729,12 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         stack.enter_context(patch.object(reasoning, "decide_goal", decide_goal))
         stack.enter_context(patch.object(opportunity_reasoning, "scan", discover_decision))
         stack.enter_context(patch.object(opportunity_reasoning, "audit_proposals", audit))
+        stack.enter_context(patch.object(preparation, "prepare", prepare))
+        stack.enter_context(patch.object(reasoning, "_ask_model", prepare_model))
         if mode == "scripted":
             if scenario == "memory_corrected":
                 stack.enter_context(patch.object(baseline, "DRAFT", baseline.DRAFT.replace(
                     "120 euro", "150 euro").replace("60 euro", "30 euro")))
-            stack.enter_context(patch.object(reasoning, "_ask_model", baseline.scripted_draft))
             stack.enter_context(patch.object(reasoning, "decide_visibility", visible))
             stack.enter_context(patch.object(delivery_reasoning, "decide_delivery", in_app))
         yield probe
@@ -782,7 +894,19 @@ async def fire_due(db, goal_id, probe):
     # A missing continuation is a failure, not something the test repairs.
     current = await db.agent_goals.find_one({"owner_id": OWNER, "id": goal_id})
     require(current and current.get("next_run_at"), "DURABLE_CONTINUATION_MISSING")
-    await db.agent_goals.update_one({"owner_id": OWNER, "id": goal_id}, {"$set": {"next_run_at": due}})
+    try:
+        saved_due = datetime.fromisoformat(current["next_run_at"])
+    except (TypeError, ValueError):
+        saved_due = None
+    require(saved_due and saved_due.tzinfo, "DURABLE_CONTINUATION_INVALID")
+    # A changed source or user decision must not have its new clock moved by
+    # an observation of the old checkpoint. Counters are never reset here.
+    fence = {"owner_id": OWNER, "id": goal_id, **{key: current.get(key) for key in (
+        "next_run_at", "status", "background_runs", "opportunity_revision",
+        "requires_user_input", "requires_user_authority", "user_deferred_until",
+    )}}
+    moved = await db.agent_goals.update_one(fence, {"$set": {"next_run_at": due}})
+    require(moved.matched_count == 1, "CONTINUATION_CHECKPOINT_CHANGED")
     await recover_due(db, now=datetime.now(timezone.utc), limit=2, admit=False)
     # Recovery may create a missing wake with the scheduler's minimum lead
     # time. Expedite it too, after production recovery has proved it exists.
@@ -792,6 +916,34 @@ async def fire_due(db, goal_id, probe):
     probe.ticks.append(out)
     require(out["claimed"] >= 1 and out["failed"] == 0, "PERSISTED_WAKE_NOT_HANDLED")
     return await db.agent_goals.find_one({"owner_id": OWNER, "id": goal_id}, {"_id": 0})
+
+
+async def complete_due_work(db, goal_id, probe):
+    """Observe existing active continuations within the production run cap.
+
+    One wake need not finish an outcome after a transient provider failure.
+    This evaluator may expedite at most three saved active checkpoints; the
+    runtime's persisted background_runs limit remains authoritative. Model
+    waits, user deferrals and requests for knowledge/authority are not clocks
+    this completion probe can advance into a different decision.
+    """
+    require(await _synthetic_diagnostics_allowed(db, OWNER), "SYNTHETIC_CLOCK_GUARD_MISSING")
+    for _ in range(3):
+        current = await db.agent_goals.find_one({"owner_id": OWNER, "id": goal_id})
+        require(current is not None, "COMPLETION_GOAL_MISSING")
+        if current.get("status") == "completed":
+            return current
+        require(current.get("status") == "active"
+                and not current.get("requires_user_input")
+                and not current.get("requires_user_authority")
+                and not current.get("user_deferred_until"), "COMPLETION_NEEDS_NEW_DECISION")
+        attempts = current.get("background_runs")
+        require(type(attempts) is int and 0 <= attempts < 3, "COMPLETION_BUDGET_EXHAUSTED")
+        require(current.get("next_run_at"), "DURABLE_CONTINUATION_MISSING")
+        await fire_due(db, goal_id, probe)
+    current = await db.agent_goals.find_one({"owner_id": OWNER, "id": goal_id})
+    require(current and current.get("status") == "completed", "COMPLETION_BUDGET_EXHAUSTED")
+    return current
 
 
 async def first_read(db, goal_id, probe, *, planning_outage=False):
@@ -847,7 +999,10 @@ async def verify_result(db, goal_id, probe, *, recover=True, source_corrected=Fa
     require(goal and goal.status == "completed", "GOAL_NOT_COMPLETED")
     plan = await AgentService(db).repo.plan_for(OWNER, goal_id)
     require(plan and plan.status == "completed", "PLAN_NOT_COMPLETED")
-    require(all(step.status in ("succeeded", "skipped") for step in plan.steps), "UNFINISHED_PLAN_STEPS")
+    # A recovered failed attempt is terminal history, not unfinished work.
+    # Goal/plan completion and the result's evidence are checked separately;
+    # pending, running, blocked and waiting steps must still be retired.
+    require(all(step.status in ("succeeded", "skipped", "failed") for step in plan.steps), "UNFINISHED_PLAN_STEPS")
     require(goal.prepared_text and goal.prepared_sources, "GROUNDED_RESULT_MISSING")
     evidence = await AgentService(db).evidence.for_goal(OWNER, goal_id)
     require(set(goal.prepared_sources).issubset({item.id for item in evidence}), "UNOWNED_RESULT_EVIDENCE")
@@ -960,13 +1115,7 @@ async def run_case(scenario, *, mode="scripted", probe=None):
             elif scenario == "memory_corrected":
                 changed = await change_memory(db, goal_id, correction=True)
                 probe.faults.append("memory_corrected_between_wakes")
-                for _ in range(3):
-                    current = await AgentService(db).repo.get_goal(OWNER, goal_id)
-                    if current.status == "completed":
-                        break
-                    require(current.is_open and current.next_run_at and not current.requires_user_input,
-                            "CORRECTED_SOURCE_DID_NOT_CONTINUE")
-                    await fire_due(db, goal_id, probe)
+                await complete_due_work(db, goal_id, probe)
                 evidence = await AgentService(db).evidence.for_goal(OWNER, goal_id)
                 reads = [row for row in evidence if row.provenance.capability == "information.read"]
                 require(reads and all(changed["current"] in row.provenance.source_refs
@@ -974,7 +1123,7 @@ async def run_case(scenario, *, mode="scripted", probe=None):
                         "SUPERSEDED_MEMORY_USED_AS_CURRENT")
                 result = await verify_result(db, goal_id, probe, source_corrected=True)
             else:
-                await fire_due(db, goal_id, probe)
+                await complete_due_work(db, goal_id, probe)
                 if scenario == "home_write_retry":
                     require(await db.agent_updates.count_documents({"owner_id": OWNER, "home_pending": True}) == 1,
                             "FAILED_HOME_HANDOFF_NOT_DURABLE")
@@ -992,7 +1141,7 @@ async def run_case(scenario, *, mode="scripted", probe=None):
                 "storage": "in_memory", "process_restart_tested": False,
                 "synthetic_checkpoints_expedited": True,
                 **model_observations(probe),
-                "worker_ticks": probe.ticks, "executed_capabilities": probe.steps,
+                "worker_ticks": probe.ticks,
                 "source_change_discovery_tested": scenario == "source_change_crash",
                 "injected_faults": probe.faults, "external_effects": 0, "result": result}
 
@@ -1031,6 +1180,10 @@ async def main(*, mode="scripted", scenario="all", output=""):
                               "structured_decisions_per_case": MAX_DECISION_OBSERVATIONS,
                               "admission_observations_per_case": MAX_DIAGNOSTIC_ADMISSIONS,
                               "discovery_results_per_case": MAX_DIAGNOSTIC_SCANS,
+                              "preparation_text_characters": PREPARATION_TEXT_LIMIT,
+                              "preparation_claims_per_audit": MAX_PREPARATION_CLAIMS,
+                              "preparation_claim_text_characters": PREPARATION_CLAIM_TEXT_LIMIT,
+                              "executor_observations_per_case": MAX_DECISION_OBSERVATIONS,
                               "decision_text_characters": DECISION_TEXT_LIMIT,
                               "proposals_per_decision": MAX_DIAGNOSTIC_PROPOSALS,
                               "plan_steps_per_decision": MAX_DIAGNOSTIC_PLAN_STEPS,

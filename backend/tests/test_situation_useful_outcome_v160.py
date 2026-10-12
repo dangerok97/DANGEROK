@@ -659,10 +659,21 @@ async def test_large_model_payload_keeps_valid_json_current_weather_baseline_and
 
     monkeypatch.setattr(reasoning, "_ask_model", model)
     if boundary == "choose":
-        await reasoning.choose_next_action(payload_goal, plan=plan.for_ai(), evidence=rows,
-            candidates=[step.for_ai() for step in plan.steps[-2:]],
-            capabilities=[{"capability": f"fixture_{n}.read", "status": "unavailable", "can_be_used_now": False,
-                           "why_not": "Non disponibile nella prova sintetica."} for n in range(22)], clock_context=clock)
+        arguments = {
+            "goal": payload_goal, "plan": plan.for_ai(), "evidence": rows,
+            "candidates": [step.for_ai() for step in plan.steps[-2:]],
+            "capabilities": [{"capability": f"fixture_{n}.read", "status": "unavailable", "can_be_used_now": False,
+                              "why_not": "Non disponibile nella prova sintetica."} for n in range(22)],
+            "clock_context": clock,
+        }
+        original = json.dumps(arguments, ensure_ascii=False)
+        # This material still exceeds 9000 after exact step deduplication.
+        # v162 must report technical unavailability instead of shortening
+        # the facts to buy a verdict. The verifier branch remains unchanged.
+        result = await reasoning.choose_next_action(**arguments)
+        assert result is None and captured == {}
+        assert json.dumps(arguments, ensure_ascii=False) == original
+        return
     else:
         await reasoning.verify_goal(payload_goal, evidence={"what_was_found": rows,
                                                             "steps": [step.for_ai() for step in plan.steps], "local_clock": clock})

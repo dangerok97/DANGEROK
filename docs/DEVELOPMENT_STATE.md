@@ -1,3 +1,24 @@
+## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
+
+Il gate reale del head `e4b68b1c9a30eda285d39b7d203a1ca897dc71fd`
+riporta **6/9 controlli limitati PASS**, con 56 chiamate logiche e 66 HTTP.
+La revisione manuale respinge inoltre `memory_corrected`: la maggiore
+flessibilità del mensile non è documentata. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e4b68b.json)
+resta conservato senza riscrivere il suo conteggio; non attesta autonomia.
+Le letture pubbliche condizionate al superamento non sono state eseguite.
+
+La revisione corrente conserva nel chooser tutte le fonti lette, eliminando
+solo definizioni di passi esattamente duplicate. L'audit esplicita premesse
+e correzioni delle affermazioni, compreso il testo che sta per restituire.
+Una preparazione fallita passa alla rivalutazione normale con la sua causa;
+la continuazione resta quella durevole già prevista dal runtime.
+
+Verifica locale su codice congelato: **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni. I quattro nuovi moduli
+comprendono 6 prove del chooser, 8 di preparazione/recupero, 32 di diagnostica
+e 14 del recupero del worker. Sono incluse nel totale, non aggiuntive.
+Il nuovo gate reale e la sua revisione manuale restano da eseguire.
+Dettagli e limiti nel [QA](QA_AUTONOMY_COMPLETION_V162.md).
+
 ## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
 
 Il gate reale del head `c38b8d11f3b521a63034e7bf3d892f4ae1ad9d3f`

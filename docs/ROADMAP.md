@@ -1,3 +1,23 @@
+## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
+
+**Checkpoint corrente:** **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+Le correzioni riguardano il contesto della scelta, le premesse dell'audit e
+il recupero della preparazione. Il collaudo segue ora tutti i tentativi
+ancora disponibili nel budget esistente e osserva generazione e audit.
+
+Il gate reale del head `e4b68b1c9a30eda285d39b7d203a1ca897dc71fd`
+riporta **6/9 controlli limitati PASS**, con 56 chiamate logiche e 66 HTTP.
+La revisione manuale respinge inoltre `memory_corrected`: la maggiore
+flessibilità del mensile non è documentata. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e4b68b.json)
+resta conservato senza riscrivere il suo conteggio; non attesta autonomia.
+Le letture pubbliche condizionate al superamento non sono state eseguite.
+
+Il passo corrente è pubblicare il candidato verificato, ripetere tutti i
+nove scenari con i modelli reali e controllare manualmente i testi. Le
+letture pubbliche seguono soltanto il superamento del gate. Rilascio dei
+servizi app e ricezione sul dispositivo rimangono vincoli distinti,
+descritti nel [QA](QA_AUTONOMY_COMPLETION_V162.md).
+
 ## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
 
 **Checkpoint corrente:** **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.

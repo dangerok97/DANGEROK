@@ -1,3 +1,114 @@
+# QA v162 — fonti integre, premesse e recupero della preparazione
+
+## Candidato successivo a e4b: verifica locale
+
+**463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni. I quattro nuovi moduli comprendono **6** casi del chooser, **8** di
+preparazione/recupero, **32** di diagnostica e **14** del recupero del worker.
+Questi 60 casi sono già inclusi nel totale; le prove mirate precedenti si
+sovrappongono. Codice congelato prima dell'aggregato, `git diff --check` pulito.
+Nessuna chiamata reale o effetto esterno è attestato dalle prove simulate.
+
+Il chooser conserva tutte le informazioni essenziali, rimuovendo soltanto
+copie esattamente identiche dei passi. Se ancora troppo grande, restituisce
+indisponibilità tecnica prima del modello; non sceglie al suo posto. Le
+prove sul trasporto SDK con HTTP finto verificano anche letture realmente
+parziali, cursori, clock e baseline meteo, senza mutare gli input.
+
+L'audit esistente richiede una revisione sintetica delle affermazioni e
+delle premesse, comprese quelle introdotte nella correzione. I parser e i
+limiti operativi non cambiano. La prova controllata verifica che si salvi
+soltanto `checked.content` con `verified is True` e riferimenti validi;
+non dimostra che un modello reale riconosca una specifica deduzione falsa.
+
+Una preparazione fallita in `_finish` raggiunge la normale rivalutazione
+con motivo, provenienza e possibilità di retry. Quattro errori del percorso
+reale di preparazione vengono riprodotti: modello indisponibile, citazione
+di generazione errata, audit negativo e citazione di audit errata. Un nuovo
+servizio rilegge lo stato persistito e prepara senza una seconda lettura
+della fonte ancora corrente; lo storico del fallimento resta conservato.
+
+Il runner osserva le continuazioni attive già presenti entro il limite di
+tre esecuzioni background, aggiornando atomicamente solo la scadenza del
+checkpoint sintetico. Non azzera contatori e non supera richieste di input,
+autorità, attese del modello o rinvii dell'utente. La prova con guasto
+temporaneo usa le esecuzioni 2 e 3 dopo la lettura nella prima, poi verifica
+Home, replay e owner. Il guasto persistente esaurisce il budget e non produce
+un falso risultato. Una riga `failed` è cronologia conclusa: è ammessa dal
+verificatore solo dopo goal e piano completati, con tutti gli altri
+controlli su testo, evidenza, consegna e idempotenza ancora operativi.
+
+Il `prepare` locale con capability vuota segue ora il comportamento già
+supportato dall'executor. È ammesso solo sul database e owner sintetici
+marcati; altri passi vuoti ed effetti restano vietati. La diagnostica dentro
+il contesto effettivo di preparazione distingue generazione e audit senza
+riconoscere parole nel prompt. Registra bozze e correzioni fino a 4000
+caratteri, 12 osservazioni, 12 affermazioni per audit con campi da 280
+caratteri e riferimenti limitati. Redazione prima del taglio; tipi, ritorni,
+eccezioni e cancellazioni invariati. Non esporta prompt di utenti reali.
+
+## Gate reale e4b: 6/9 limitati, con ulteriore rifiuto manuale
+
+Head `e4b68b1c9a30eda285d39b7d203a1ca897dc71fd`, deployment tecnico
+`ef4a2b88-8797-454d-8731-dde81fa0248a`, dalle **03:36:01.217500 alle
+03:38:40.723273 UTC del 12 ottobre 2026**. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e4b68b.json)
+riporta **6/9 PASS**, **56 chiamate logiche** e **66 HTTP osservati**. La
+revisione manuale respinge anche `memory_corrected` senza riscrivere il
+report. Fixture `personal_outcome_v1` invariata. Letture pubbliche non eseguite.
+
+| Caso | Controllo codificato | Riscontro e limite |
+|---|---|---|
+| `completed_result` | PASS | Testo di 907 caratteri manualmente valido; Home, replay e isolamento verificati |
+| `planning_outage` | FAIL | Lettura completa; preparazione fallita, goal attivo e checkpoint ancora presente; causa esatta della bozza/audit non osservata |
+| `home_write_retry` | FAIL | Richiesta di dati già letti dopo riduzione del payload chooser; guasto Home non ancora raggiunto |
+| `source_revoked` | PASS | Fonte chiusa, goal cancellato, wake rimossa e replay senza nuovo lavoro |
+| `memory_revoked` | PASS | Abbandono dopo ritiro della Memory |
+| `memory_corrected` | PASS, manualmente respinto | Rilettura e calcolo 180/150/30 corretti; testo di 1087 caratteri attribuisce al mensile maggiore flessibilità non documentata |
+| `source_change_crash` | FAIL | Discovery recupera e ammette; il guard del runner blocca erroneamente il prepare locale senza capability |
+| `already_resolved`, `irrelevant` | PASS | `no_goal` rispettato |
+
+La bozza valida del primo caso attribuisce i dati alla nota interna, conserva
+15×12=180 euro, annuale 120 e differenza 60, anticipo e annuale non rimborsabile;
+le condizioni ignote del mensile restano ignote. La bozza corretta della
+Memory dimostra invece che l'audit ha accettato o introdotto una premessa
+non sostenuta. Il report precedente non contiene gli intermedi: non è
+possibile assegnare la frase alla generazione oppure all'audit. La fonte
+completa arriva alla preparazione; questo difetto non deriva dal chooser.
+
+Per `home_write_retry`, la ricostruzione sul percorso reader/evidenze/chooser
+produce 9774 caratteri, 9396 compatti. Le copie dei passi occupano 1700
+caratteri; il riduttore precedente taglia invece fonte e anteprima da 565
+a 283, perdendo prezzo annuale e non rimborsabilità e marcando l'estratto
+come troncato. È una riproduzione deterministica, non il corpo HTTP storico.
+
+Per `planning_outage` non è documentata la causa precisa del fallimento di
+preparazione. La prova controllata del retry dimostra che il runner poteva
+osservare troppo presto un goal ancora attivo; non riclassifica il caso
+storico. Per `source_change_crash`, il difetto del guard è riprodotto prima
+della patch e le due varianti con prepare locale completano dopo la patch.
+
+### CI dell'esatto e4b, distinta dal gate reale
+
+**14/14 job PASS**: CI principale e Situation su PR e push. [CI PR](https://github.com/dangerok97/DANGEROK/actions/runs/38200268210),
+[CI push](https://github.com/dangerok97/DANGEROK/actions/runs/38200264326),
+[Situation PR](https://github.com/dangerok97/DANGEROK/actions/runs/38200268266),
+[Situation push](https://github.com/dangerok97/DANGEROK/actions/runs/38200264335).
+I due backend eseguono **386 test v162**, scripted **9/9**, **6 prove Mongo
+reale senza skip** e **3 regressioni v39**. Il merge tecnico
+`eb3cc9fef55d9e4b381628792a4b3fb0266da1a0` conserva l'albero del candidato
+`884f86ba174b595531c2cee0becc419bb5c20049`.
+
+### Stato del rilascio
+
+Nessun esito reale viene anticipato per il candidato successivo. Il servizio
+tecnico è isolato e usa note sintetiche; nessun messaggio, chiamata, notifica,
+pagamento, prenotazione o scrittura di calendario reale. Il precedente
+bucato di Tarquinia resta chiuso. L'applicazione della patch ai servizi app
+è stata rifiutata dal controllo di approvazione Railway e non viene aggirata.
+Build nativa firmata e ricezione su dispositivo rimangono prove distinte,
+non fornite da CI, web o SDK con HTTP finto.
+
+---
+
 # QA v162 — contratto, recupero e verifica senza perdita di prove
 
 ## Verifica locale della revisione successiva a c38b

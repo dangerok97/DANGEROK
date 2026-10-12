@@ -1,3 +1,37 @@
+## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
+
+`choose_next_action` usa un serializer dedicato entro gli stessi 9000
+caratteri. Se necessario, sostituisce soltanto la copia esattamente identica
+di un passo in `plan.steps` con un riferimento alla definizione completa in
+`still_to_do`. ID uguali con parametri o effetti diversi non sono duplicati.
+Goal, criteri, capability, clock, fonti, qualifiche e cursori restano integri;
+il contenuto essenziale che non entra produce indisponibilità tecnica prima
+del modello. La deduplica non simula una lettura parziale.
+
+L'audit della preparazione richiede una `claim_review` delle affermazioni
+materiali e delle premesse su entrambi i lati di un confronto. È descrittiva:
+i campi operativi restano `verified`, `content` ed `evidence_ids`, con gli
+stessi controlli. Non introduce una chiamata aggiuntiva o un giudice a regole.
+Il fallimento della preparazione generata in `_finish` conserva nota,
+provenienza, `error_type` e `retryable` e raggiunge la `_reconsider` esistente,
+entro lo stesso budget. Il suo esito viene propagato; un piano rivisto usa
+la continuazione già salvata. Cronologia e contatori non vengono azzerati.
+
+Il solo collaudo accelera continuazioni attive già persistite nel database
+sintetico marcato, con confronto atomico di proprietario, revisione, stato,
+contatore, scadenza e vincoli dell'utente. Osserva il limite applicativo di
+tre esecuzioni in background; attese decise dal modello, richieste di dati,
+autorità e rinvii dell'utente non vengono convertiti. I tentativi falliti
+restano cronologia terminale solo dopo le verifiche di goal, piano, testo,
+prove e consegna. I passi ancora pendenti restano un errore.
+
+Il guard del collaudo ammette il `prepare` locale senza capability, già
+supportato dall'executor, soltanto con database, owner e marker corretti.
+Gli altri passi vuoti o con effetti restano bloccati. Il reporter osserva
+generazione e audit dentro il contesto effettivo della preparazione e
+conserva dati sintetici limitati e redatti, senza cambiare ritorni, eccezioni
+o contatori. Verifica locale: **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+
 ## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
 
 `AgentService.consider` controlla i campi consumati prima dei cast: obiettivo

@@ -1791,6 +1791,7 @@ class AgentService:
                 may_touch_the_world=False, budget=budget)
             result_step.status = "succeeded" if result.status == "succeeded" else "failed"
             result_step.actual_result_ref = result.data_ref or (result.result_refs or [""])[0]
+            result_step.note = result.observation[:200]
             result_step.attempts = 1
             run.steps_executed += 1
             budget.steps_executed += 1
@@ -1799,8 +1800,32 @@ class AgentService:
                 source_change = await self._source_change_result(owner_id, goal, run)
                 if source_change is not None:
                     return source_change
+                # This is the same preparation as a normal plan step. Its
+                # failure must reach reconsideration with the actual cause,
+                # not disappear behind a generic pause in the final path.
+                problem = result.error_type or "preparation_result_missing"
+                await self.repo.journal(
+                    owner_id, goal.id, kind="step_done", note=result.observation,
+                    detail={"step_id": result_step.id, "status": result.status,
+                            "came_from": result.provenance.source_class,
+                            "really_happened": result.is_real,
+                            "evidence": len(result.evidence_refs),
+                            "error_type": problem, "retryable": result.retryable},
+                )
+                outcome = await self._reconsider(
+                    owner_id, goal, plan, run, budget,
+                    what_happened={"step": result_step.for_ai(), "result": {
+                        "status": result.status if result.status != "succeeded" else "unavailable",
+                        "what_happened": result.observation, "problem": problem,
+                        "worth_retrying": result.retryable, **result.provenance.for_ai(),
+                    }}, language=language,
+                )
+                if outcome is not None:
+                    return outcome
+                # A revised/continued plan is already saved. advance wrote
+                # its continuation before this pass; do not add another loop.
                 return await self._pause(owner_id, goal, plan, run,
-                    "Il risultato utile non è ancora pronto; la sola lettura non conclude il lavoro.")
+                    "La preparazione non è riuscita; ho rivalutato il piano.")
             evidence = await self.evidence.for_goal(owner_id, goal.id)
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:

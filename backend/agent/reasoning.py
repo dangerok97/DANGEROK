@@ -891,6 +891,10 @@ async def choose_next_action(
     instruction = (
         "Work is under way on this outcome. Some of the plan is done and "
         "some is not. Decide what is worth doing next.\n\n"
+        "When a plan step has details_in=still_to_do, its complete definition is "
+        "the candidate with that same id in still_to_do, including effects and "
+        "reader parameters. action_context_omitted reports only those exact "
+        "duplicates; it does not shorten source evidence or change read coverage.\n\n"
         "Use the recorded evidence to avoid redundant work. A read is satisfied "
         "when current evidence covers the same source/version and the parts needed "
         "for this outcome, with its authority and freshness limits preserved. "
@@ -962,16 +966,19 @@ async def choose_next_action(
         "it."
     )
 
+    encoded = _action_dump({
+        "goal": goal,
+        "plan": plan,
+        "local_clock": clock_context or {},
+        "still_to_do": candidates,
+        "what_has_been_found": evidence,
+        "what_ora_can_do": capabilities,
+    })
+    if encoded is None:
+        return None
     data = await _ask_model(
         _DISCIPLINE + "\n\n" + instruction + "\n\n" + _SITUATION_OUTCOME,
-        _dump({
-            "goal": goal,
-            "plan": plan,
-            "local_clock": clock_context or {},
-            "still_to_do": candidates,
-            "what_has_been_found": evidence,
-            "what_ora_can_do": capabilities,
-        }),
+        encoded,
     )
     if not isinstance(data, dict):
         return None
@@ -1087,6 +1094,44 @@ async def decide_visibility(
         return None
     data["outcome"] = outcome
     return data
+
+
+def _action_dump(payload: Dict[str, Any]) -> Optional[str]:
+    """Fit a choice by sharing exact step duplicates, never by cutting facts.
+
+    The complete pending steps occur both in plan.steps and still_to_do.
+    Reducing a claim before that duplication can make a completed read look
+    incomplete while keeping its original end-of-read cursor. Preserve the
+    goal, candidates, capabilities and all source content with its limits.
+    """
+    compact = json.loads(json.dumps(payload, ensure_ascii=False, default=str))
+
+    def encode():
+        return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+
+    encoded = encode()
+    if len(encoded) <= 9000:
+        return encoded
+    candidates = compact.get("still_to_do") or []
+    steps = (compact.get("plan") or {}).get("steps") or []
+    repeated = []
+    for index, step in enumerate(steps):
+        if (isinstance(step, dict) and isinstance(step.get("id"), str) and step["id"]
+                and any(step == candidate for candidate in candidates)):
+            # Same id alone is insufficient: revisions can retain a step id
+            # while changing its sources, parameters or effect declaration.
+            steps[index] = {key: step[key] for key in ("id", "type", "status") if key in step}
+            steps[index]["details_in"] = "still_to_do"
+            repeated.append(step["id"])
+    if repeated:
+        compact["action_context_omitted"] = {"repeated_step_details": repeated}
+    encoded = encode()
+    if len(encoded) <= 9000:
+        return encoded
+    # More material than the bounded judgement can see is unavailability,
+    # not a reason to ask for facts already read or to invent a next action.
+    logger.info("action context unavailable: material_context_exceeds_budget")
+    return None
 
 
 def _verification_dump(payload: Dict[str, Any]) -> Optional[str]:

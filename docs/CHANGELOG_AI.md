@@ -1,3 +1,21 @@
+## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
+
+- Chooser senza perdita di fonti: deduplica solo delle definizioni identiche
+  dei passi; nessuna riduzione di goal, prove, qualifiche o cursori.
+- Audit con revisione esplicita delle premesse e del testo corretto, nella
+  chiamata già esistente. Parser, citazioni e verdetto booleano invariati.
+- Fallimento della preparazione finale passato alla rivalutazione normale,
+  con diagnosi e cronologia persistite, nello stesso budget.
+- Collaudo del recupero sul successivo checkpoint già salvato, senza reset
+  dei tentativi o accelerazione di attese/decisioni riservate all'utente.
+- Corretto il guard che bloccava erroneamente il `prepare` locale senza
+  capability; effetti, owner, database e marker restano controllati.
+- Diagnostica limitata della generazione, audit, premesse e fallimento del
+  passo, con redazione prima del taglio e ritorni invariati.
+- Archiviato il gate e4b originale 6/9, con rifiuto manuale aggiuntivo del
+  confronto corretto e separazione fra errore runtime ed errore del runner.
+- Verifica locale: **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni. Quattro nuovi moduli, 60 casi inclusi nel totale.
+
 ## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
 
 - Esempi JSON completi per ciascun ramo dell'ammissione e validazione prima

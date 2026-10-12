@@ -1,3 +1,25 @@
+## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
+
+ORA deve consegnare un risultato sostenuto dai dati disponibili e gestire
+gli errori temporanei senza far ripartire la persona da capo. Una condizione
+non specificata rimane ignota: non può diventare un vantaggio dichiarato di
+una delle alternative. La revisione esplicita questo controllo anche sulle
+frasi introdotte durante la correzione della bozza.
+
+Il gate reale del head `e4b68b1c9a30eda285d39b7d203a1ca897dc71fd`
+riporta **6/9 controlli limitati PASS**, con 56 chiamate logiche e 66 HTTP.
+La revisione manuale respinge inoltre `memory_corrected`: la maggiore
+flessibilità del mensile non è documentata. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e4b68b.json)
+resta conservato senza riscrivere il suo conteggio; non attesta autonomia.
+Le letture pubbliche condizionate al superamento non sono state eseguite.
+
+Il testo di `completed_result` è manualmente valido e raggiunge la Home con
+replay idempotente e isolamento. I difetti negli altri percorsi non sono
+nascosti dal successo del primo caso. Verifica locale corrente: **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+La qualità del modello richiede una nuova prova reale; il rilascio app e la
+ricezione nativa rimangono verifiche distinte. Il precedente bucato di
+Tarquinia resta chiuso e non viene riattivato dal lavoro di collaudo.
+
 ## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
 
 ORA deve giudicare il risultato completo usando i dati effettivamente letti.
