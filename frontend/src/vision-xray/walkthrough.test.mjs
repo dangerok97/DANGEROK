@@ -131,6 +131,6 @@ test('mechanics, flow and materials do not masquerade as measured circuits',()=>
 });
 
 test('fifty additional seed families never inherit an unauthored tour',()=>{
- const added=seeds.filter(m=>!reviewed.has(m.canonical_key));assert.equal(added.length,101);
+ const added=seeds.filter(m=>!reviewed.has(m.canonical_key));assert.equal(added.length,135);
  for(const m of added){assert.equal(walkthroughFor(m,'seed'),null);assert.equal(walkthroughFor(m,'generated'),null);}
 });
