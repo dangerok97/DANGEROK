@@ -109,7 +109,10 @@ def assert_material_intact(payload, original, *, mode):
     assert actual["prepared_result"] == expected["prepared_result"]
     assert actual["prepared_source_refs"] == expected["prepared_source_refs"]
     original_sources = [row for row in expected[rows_key] if not row.get("generated_artifact")]
-    actual_sources = [row for row in actual[rows_key] if not row.get("generated_artifact")]
+    # Packed evidence rows are lossless and must reconstruct back to the
+    # exact same sources, limitations, references and reading cursors.
+    actual_sources = [row for row in expand_records(actual[rows_key])
+                      if not row.get("generated_artifact")]
     assert actual_sources == original_sources
     assert actual["local_clock"] == expected["local_clock"]
     for key in ("objective", "desired_outcome", "success_criteria", "stop_conditions",
