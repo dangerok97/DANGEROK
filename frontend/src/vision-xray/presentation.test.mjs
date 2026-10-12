@@ -73,8 +73,8 @@ test('zoom is finite and bounded; reduced motion immediately reaches target',()=
   assert.ok(Math.abs(approach(approach(0,1,16),1,16)-approach(0,1,32))<1e-9);
 });
 
-test('all 126 families fit perspective overview and focused parts at default zoom',()=>{
- assert.equal(seeds.length,126);
+test('all 160 families fit perspective overview and focused parts at default zoom',()=>{
+ assert.equal(seeds.length,160);
  for(const [w,h] of [[390,490],[844,310],[1440,800]])for(const m of seeds){
   const scene=new VisionPresentation(m);
   for(const [yaw,pitch] of [[.46,-.22],[1.1,.5],[-.8,-.6]]){

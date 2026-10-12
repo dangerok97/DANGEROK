@@ -86,6 +86,11 @@ canonical_key: nome comune inglese in snake_case, non un marchio o seriale.
 object_name: nome comune italiano. confidence: high|medium|low.
 bbox: [ymin,xmin,ymax,xmax] in 0..1000, solo oggetto, [0,0,0,0] se non localizzabile.
 La mancanza di una localizzazione precisa NON rende sconosciuta una famiglia chiara.
+Se l'immagine mostra chiaramente una figura umana, puoi restituire
+recognized=true, canonical_key=human_anatomy, object_name=Persona,
+confidence=high|medium e safe_to_generate=false. Non identificare la persona,
+non indovinare sesso, genere, organi interni, età o condizioni di salute.
+Il client userà un atlante anonimo e non salverà la fotografia.
 safe_to_generate=true solo per oggetti quotidiani innocui. Per armi, ordigni,
 persone/animali/organi, dispositivi medici, impianti alimentati, recipienti
 pressurizzati o oggetti potenzialmente pericolosi: false. Un comune contenitore
@@ -245,6 +250,11 @@ async def scan_object(body: ScanRequest, response: Response, user=Depends(get_cu
                     "error_code": "object_uncertain", "can_hint": True,
                     "reason": "Non riesco ancora a identificare questo oggetto. Puoi indicarne il nome oppure mostrare un altro lato."}
         key = identification["canonical_key"]
+        if key in {"human_anatomy", "human_body", "human", "person", "person_body"}:
+            # No shared catalog, profile inference, anatomical scan or generative job.
+            return {"status": "anatomy", "frame_id": body.frame_id,
+                    "identification": identification,
+                    "note": "Atlante anatomico generico: non è l'anatomia rilevata della persona."}
         generator = (lambda: generate_family(key)) if body.allow_generation and identification["safe_to_generate"] else None
         result = await service.resolve(key=key, title=identification["object_name"], user_id=user["user_id"], generator=generator)
         return {**result, "identification": identification, "frame_id": body.frame_id}
