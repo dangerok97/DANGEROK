@@ -55,7 +55,7 @@ test('sampled quadratic outlines become a closed organ contour, not its control-
  assert.equal(curves.length,1);assert.equal(curves[0].closed,true);
  assert.ok(curves[0].points.length>8);
  const box=boundsForPath('M10 20 Q20 0 30 20 Q20 40 10 20 Z')[0];
- assert.ok(box.y>0&&box.y<10,'true curve extrema should be sampled, not control points');
+ assert.ok(box.y>1&&box.y<=10,'true curve extrema should be sampled, not control points');
  const parts=volumeClusters([{id:'heart',label:'Cuore',d:'M10 20 Q20 0 30 20 Q20 40 10 20 Z'}],'organs');
  assert.equal(parts[0].shape,'contour');
 });
