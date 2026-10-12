@@ -1033,7 +1033,7 @@ async def choose_next_action(
         "When a plan step has details_in=still_to_do, its complete definition is "
         "the candidate with that same id in still_to_do, including effects and "
         "reader parameters. Conversely a candidate with details_in=plan.steps gets its "
-        "definition from that plan row by id. A steps or capabilities table declares common "
+        "definition from that plan row by id. A steps, capabilities or evidence table declares common "
         "fields plus columns and rows: combine common with each row's column/value pairs. "
         "A short row has absent trailing columns; missing maps row indices to absent interior "
         "column indices. Null remains null. "
@@ -1454,7 +1454,22 @@ def _fit_prepared_context(
     # Retain its count when their bookkeeping itself consumes the budget.
     if "generated_artifact_evidence_ids" in omitted:
         omitted["generated_history_rows"] = len(omitted.pop("generated_artifact_evidence_ids"))
-    return encoded if len(encoded := encode()) <= 9000 else None
+    if len(encoded := encode()) <= 9000:
+        return encoded
+
+    # Last-resort LOSSLESS encoding of evidence rows. Multiple observations
+    # often repeat provenance and time metadata; packing those common fields
+    # can preserve the entire material source even for a long saved result.
+    # No quote, authority, memory cursor or counter-evidence is removed.
+    # The model reconstructs this exactly like a plan/capability table.
+    if action:
+        packed = _record_table(holder.get(rows_key) or [])
+        if isinstance(packed, dict):
+            holder[rows_key] = packed
+            encoded = encode()
+            if len(encoded) <= 9000:
+                return encoded
+    return None
 
 
 def _verification_dump(payload: Dict[str, Any]) -> Optional[str]:
