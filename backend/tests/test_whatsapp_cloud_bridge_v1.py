@@ -328,3 +328,10 @@ async def test_whatsapp_core_bridge_unwraps_ai_locale_reply(config, database, mo
     )
     assert result == "Ho due ricorrenze:\n\n- *8 ottobre*\n- *10 ottobre*"
     assert result == render_whatsapp_answer(result)
+
+
+def test_renderer_keeps_arithmetic_and_inline_code():
+    from whatsapp.formatting import render_whatsapp_answer
+
+    assert render_whatsapp_answer("Due per tre: 2 * 3 = 6") == "Due per tre: 2 * 3 = 6"
+    assert render_whatsapp_answer("Codice: " + "\`a*b\`") == "Codice: " + "\`a*b\`"
