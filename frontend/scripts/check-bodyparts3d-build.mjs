@@ -73,6 +73,7 @@ for(const id of ['hand','face','torso','abdomen','arm','leg','foot','wrist','kne
  const item=regions.anatomicalRegion(model,id,'right');
  result[id]={count:item.ids.length,source:item.source,available:item.available,
    ratio:+(item.ids.length/model.parts.length).toFixed(3)};
+ console.log('REGION_SAMPLE '+id+' '+JSON.stringify(result[id]));
  if(['hand','face','torso','abdomen','arm','leg','foot'].includes(id)){
   assert.ok(item.available,'No usable local geometry for '+id+': '+JSON.stringify(result[id]));
   assert.ok(item.ids.length<model.parts.length*.65,'Too much body geometry in '+id);
