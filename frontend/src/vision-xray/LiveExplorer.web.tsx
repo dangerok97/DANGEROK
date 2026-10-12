@@ -27,6 +27,7 @@ export default function LiveExplorer(){
   const [mode,setMode]=useState<Mode>('idle');
   const [anatomyActive,setAnatomyActive]=useState(false);
   const [anatomyRegion,setAnatomyRegion]=useState<BodyRegion>('full_body');
+  const [anatomySide,setAnatomySide]=useState<'left'|'right'|'unknown'>('unknown');
   const [anatomyBox,setAnatomyBox]=useState<Box|null>(null);
   const [anatomyPosePoints,setAnatomyPosePoints]=useState<Record<string,[number,number]>|null>(null);
   const anatomyActiveRef=useRef(false);
@@ -163,7 +164,7 @@ export default function LiveExplorer(){
       let value=await catalogApi.scan(dataURI,String(ticket)+'-'+Date.now(),controller.signal,hintOverride??objectHintRef.current);
       const identification=value.identification;
       if(value.status==='anatomy'){
-        if(epoch.current===ticket&&alive.current) activateAtlas(value.body_region||value.identification?.body_region||'full_body',value.identification?.pose_points||null,value.identification?.bbox||null);
+        if(epoch.current===ticket&&alive.current) activateAtlas(value.body_region||value.identification?.body_region||'full_body',value.identification?.pose_points||null,value.identification?.bbox||null,value.identification?.body_side||value.body_side||'unknown');
         return;
       }
       for(let attempt=0;value.status==='building'&&attempt<12;attempt++){
@@ -219,8 +220,8 @@ export default function LiveExplorer(){
       stop();setError(e?.name==='NotAllowedError'?'Permesso negato. Abilita la fotocamera nelle impostazioni del sito.':String(e?.message||'Fotocamera non disponibile.'));
     }
   },[stop]);
-  const activateAtlas=(region:BodyRegion='full_body',posePoints:Record<string,[number,number]>|null=null,box:Box|null=null)=>{
-    setAnatomyRegion(region);setAnatomyPosePoints(posePoints);
+  const activateAtlas=(region:BodyRegion='full_body',posePoints:Record<string,[number,number]>|null=null,box:Box|null=null,bodySide:'left'|'right'|'unknown'='unknown')=>{
+    setAnatomyRegion(region);setAnatomySide(bodySide);setAnatomyPosePoints(posePoints);
     setAnatomyBox(box&&box.length===4&&box.every(n=>Number.isFinite(n))&&box[2]>.03&&box[3]>.03?box:null);
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     anatomyActiveRef.current=true;setAnatomyActive(true);scene.current=null;
@@ -392,7 +393,7 @@ export default function LiveExplorer(){
       {photoURL&&<img src={photoURL} alt="Foto scelta per l’analisi" className="vx-photo"/>}
       <div className={'vx-shade '+(result?'vx-shade-result':anatomyActive?'vx-shade-anatomy':'')}/>
       <canvas ref={canvas} className="vx-canvas" data-testid="vision-scene" tabIndex={result||live?0:-1} aria-label={result?"Scena 3D: trascina per ruotare, due dita per ingrandire i componenti.":"Fotocamera: due dita per lo zoom digitale. I comandi sono disponibili anche nei pulsanti."} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={e=>onUp(e,true)} onLostPointerCapture={e=>{gestures.current.up(e.pointerId,e.clientX,e.clientY,true);}} onKeyDown={keyboard}/>
-      {anatomyActive&&<AnatomyExplorer region={anatomyRegion} posePoints={anatomyPosePoints} anchorCenter={anatomyBox?Math.min(.78,Math.max(.22,anatomyBox[0]+anatomyBox[2]/2)):.5} onClose={closeAtlas}/>}
+      {anatomyActive&&<AnatomyExplorer region={anatomyRegion} bodySide={anatomySide} posePoints={anatomyPosePoints} anchorCenter={anatomyBox?Math.min(.78,Math.max(.22,anatomyBox[0]+anatomyBox[2]/2)):.5} onClose={closeAtlas}/>}
       <div className="vx-topline"><span className={'vx-tag '+(live?'vx-tag-live':'')}>{live?'● LIVE':mode==='photo'?'FOTO':mode==='catalog'?'CATALOGO':'VISION X-RAY'}</span><button className="vx-evidence" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}} aria-label="Informazioni sullo schema indicativo">Schema indicativo ⓘ</button></div>
       {(mode==='idle'||mode==='opening')&&!result&&!anatomyActive&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
       {result?.manifest&&<><button className="vx-close-model" data-testid="vision-close-model" aria-label="Chiudi la scomposizione e scansiona un altro oggetto" title="Scansiona un altro oggetto" onClick={newObject}>×</button><div className={'vx-object-title'+(focused&&!tourUI?' is-focus':'')}><strong>{focused&&!tourUI&&currentPart?currentPart.name:result.manifest.title}</strong><small>{tourUI?'PERCORSO DIDATTICO':focused?'COMPONENTE TIPICO':result.manifest.parts.length+' parti'}</small></div><div className="vx-zoom" aria-label="Zoom della scomposizione"><button aria-label="Riduci lo zoom" data-testid="vision-zoom-out" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom/1.25);}}>−</button><button aria-label="Aumenta lo zoom" data-testid="vision-zoom-in" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom*1.25);}}>+</button></div></>}
