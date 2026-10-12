@@ -223,6 +223,17 @@ export default function LiveExplorer(){
     setStage('Atlante anatomico didattico · scegli un livello e tocca una parte.');
     nextScan.current=Infinity;
   };
+  const openAtlasFromNavigation=()=>{
+    if(modeRef.current==='idle'||modeRef.current==='opening'){
+      // The atlas is reached from the first screen. Open camera once, then
+      // enter the educational model without sending frames for AI analysis.
+      void openCamera().then(()=>{
+        if(modeRef.current==='live'&&alive.current)activateAtlas();
+      });
+      return;
+    }
+    activateAtlas();
+  };
   const newObject=()=>{
     if(modeRef.current!=='live'){void openCamera();return;}
     // Dismiss only the model. Keep the stream and invalidate every old AI reply.
@@ -372,6 +383,7 @@ export default function LiveExplorer(){
     <header className="vx-header">
       <button aria-label="Torna a ORA" className="vx-back" onClick={()=>{stop();if(router.canGoBack())router.back();else router.replace('/ora');}}>←</button>
       <div className="vx-brand">ORA <span>VISION</span><small className="vx-version">ESPLORA L’ESSENZIALE</small></div>
+      <button className="vx-anatomy-nav" type="button" data-testid="vision-anatomy-nav" aria-label="Apri Atlante anatomico" aria-pressed={anatomyActive} onClick={openAtlasFromNavigation}>Anatomia</button>
       <button className="vx-catalog" data-testid="vision-catalog-toggle" aria-expanded={libraryOpen} onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setInfoOpen(false);setLibraryOpen(v=>!v);}}>Catalogo <span>{entries.length}</span></button>
     </header>
     <section ref={stageElement} className="vx-stage" aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
@@ -381,7 +393,7 @@ export default function LiveExplorer(){
       <canvas ref={canvas} className="vx-canvas" data-testid="vision-scene" tabIndex={result||live?0:-1} aria-label={result?"Scena 3D: trascina per ruotare, due dita per ingrandire i componenti.":"Fotocamera: due dita per lo zoom digitale. I comandi sono disponibili anche nei pulsanti."} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={e=>onUp(e,true)} onLostPointerCapture={e=>{gestures.current.up(e.pointerId,e.clientX,e.clientY,true);}} onKeyDown={keyboard}/>
       {anatomyActive&&<AnatomyExplorer onClose={newObject}/>}
       <div className="vx-topline"><span className={'vx-tag '+(live?'vx-tag-live':'')}>{live?'● LIVE':mode==='photo'?'FOTO':mode==='catalog'?'CATALOGO':'VISION X-RAY'}</span><button className="vx-evidence" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}} aria-label="Informazioni sullo schema indicativo">Schema indicativo ⓘ</button></div>
-      {(mode==='idle'||mode==='opening')&&!result&&!anatomyActive&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
+      {(mode==='idle'||mode==='opening')&&!result&&!anatomyActive&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" type="button" data-testid="vision-anatomy-welcome" onClick={openAtlasFromNavigation}>Esplora il corpo umano</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
       {result?.manifest&&<><button className="vx-close-model" data-testid="vision-close-model" aria-label="Chiudi la scomposizione e scansiona un altro oggetto" title="Scansiona un altro oggetto" onClick={newObject}>×</button><div className={'vx-object-title'+(focused&&!tourUI?' is-focus':'')}><strong>{focused&&!tourUI&&currentPart?currentPart.name:result.manifest.title}</strong><small>{tourUI?'PERCORSO DIDATTICO':focused?'COMPONENTE TIPICO':result.manifest.parts.length+' parti'}</small></div><div className="vx-zoom" aria-label="Zoom della scomposizione"><button aria-label="Riduci lo zoom" data-testid="vision-zoom-out" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom/1.25);}}>−</button><button aria-label="Aumenta lo zoom" data-testid="vision-zoom-in" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom*1.25);}}>+</button></div></>}
       {focused&&!tourUI&&<button className="vx-whole" data-testid="vision-overview" onClick={overview}>← Vista d’insieme</button>}
       {live&&<div className="vx-camera-tools" data-testid="vision-camera-controls">
