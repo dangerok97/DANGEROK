@@ -23,6 +23,59 @@ GRAPH_MAX_DEPTH = 2
 GRAPH_MAX_EDGES = 10
 GRAPH_MAX_SEEDS = 6
 
+# These parsers only validate explicit dates/names already present in a user's
+# governed Memory statement. They never infer facts from another reminder.
+_ITALIAN_MONTHS = {
+    name: index for index, name in enumerate(
+        ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+         "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"), 1
+    )
+}
+
+
+def _date_explicit_in_statement(statement: str) -> Optional[tuple[int, int]]:
+    """Return one explicit Italian calendar date, not an inferred birthday."""
+    textual = re.search(
+        r"(?<!\d)([0-3]?\d)\s+(" + "|".join(_ITALIAN_MONTHS) + r")\b",
+        str(statement or "").lower(),
+    )
+    if textual:
+        day, month = int(textual.group(1)), _ITALIAN_MONTHS[textual.group(2)]
+        if 1 <= day <= 31:
+            return month, day
+    numeric = re.search(r"(?<!\d)([0-3]?\d)[/-]([01]?\d)(?!\d)", str(statement or ""))
+    if numeric:
+        day, month = int(numeric.group(1)), int(numeric.group(2))
+        if 1 <= month <= 12 and 1 <= day <= 31:
+            return month, day
+    return None
+
+
+def _person_explicit_in_birthday_statement(statement: str) -> str:
+    """Use an explicit human label only; never fabricate a name from a date."""
+    found = re.search(
+        r"\bcompleanno\s+(?:di|della|del)\s+"
+        r"((?:mia\s+|mio\s+)?(?:zia|zio|nonna|nonno|mamma|papà|pap[aà]|"
+        r"[A-ZÀ-ÖØ-Ý][a-zà-ÿ]+)(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-ÿ]+){0,3})",
+        str(statement or ""), flags=re.IGNORECASE,
+    )
+    if not found:
+        return ""
+    # An anonymous placeholder cannot become a proper name just because
+    # a cached model-generated string starts with "Nome" or "Persona".
+    if re.search(
+        r"(?:nome|persona)\s+non\s+specificat|nome\s+sconosciut|"
+        r"\[\s*(?:nome|persona)|\bunknown\s+person\b",
+        str(statement or ""), flags=re.IGNORECASE,
+    ):
+        return ""
+    candidate = re.sub(r"^(?:mia|mio)\s+", "", found.group(1), flags=re.IGNORECASE).strip()
+    if any(fragment in candidate.lower() for fragment in (
+        "nome non specificato", "persona non specificata", "sconosciuto"
+    )):
+        return ""
+    return candidate[:120]
+
 
 @dataclass(frozen=True)
 class ContextSource:
@@ -343,7 +396,8 @@ class ContextSourceRegistry:
                 continue
             memory = await self.db.memories.find_one(
                 {"user_id": user_id, "id": ref, "status": "active"},
-                {"_id": 0, "id": 1, "status": 1},
+                {"_id": 0, "id": 1, "status": 1, "kind": 1,
+                 "statement": 1, "content": 1, "value": 1},
             )
             if not memory:
                 continue
@@ -353,12 +407,83 @@ class ContextSourceRegistry:
                     continue
             except (TypeError, ValueError, KeyError):
                 continue
-            label = str(row.get("label") or row.get("person") or "Ricorrenza").strip()
-            category = str(row.get("category") or "annual").strip().lower()
-            # Bounded personal evidence, not the full memo document.
+            # The reminder title is a presentation artifact, not the full
+            # evidence. It may contain a placeholder even when the underlying
+            # governed Memory retains the actual person's name.
+            value = memory.get("value") if isinstance(memory.get("value"), dict) else {}
+            original = str(memory.get("statement") or memory.get("content") or "").strip()
+            category = str(memory.get("kind") or row.get("category") or "annual").strip().lower()
+            if category not in ("birthday", "anniversary", "annual_date", "annual_memo"):
+                category = str(row.get("category") or "annual").strip().lower()
+            person = str(value.get("person") or value.get("name") or row.get("person") or "").strip()
+            label = str(row.get("label") or "").strip()
+
+            def _unidentified(value: str) -> bool:
+                norm = " ".join(str(value or "").lower().split())
+                return not norm or any(marker in norm for marker in (
+                    "nome non specificato", "persona non specificata",
+                    "nome sconosciuto", "unknown person", "unnamed",
+                    "[nome", "[persona", "non identificat",
+                ))
+
+            if _unidentified(person):
+                person = ""
+            if _unidentified(label) or label.lower() in (
+                "ricorrenza", "ricorrenza annuale", "anniversario",
+                "compleanno", "promemoria annuale",
+            ):
+                label = ""
+
+            # A mismatched old date must NEVER be paired with the person's
+            # newer date or name. The scheduling record and governed Memory
+            # must agree before this can be presented as a verified birthday.
+            try:
+                structured_date = (
+                    (int(value["month"]), int(value["day"]))
+                    if value.get("month") is not None and value.get("day") is not None
+                    else None
+                )
+            except (ValueError, TypeError):
+                structured_date = None
+            stated_date = _date_explicit_in_statement(original)
+            contradiction = any(
+                source_date != (month, day)
+                for source_date in (structured_date, stated_date)
+                if source_date is not None
+            )
+            if contradiction:
+                facts.append(_fact(
+                    "Ricorrenza da verificare: la data della memoria permanente "
+                    "non coincide con quella del promemoria annuale. "
+                    "Non assegnare questa data a una persona e non correggerla "
+                    "senza verifica del dato originale.",
+                    "recurring_memos", "system-structured", "conflicting_evidence",
+                    str(row.get("updated_at") or "") or None,
+                    f"recurring_memo_read_only:{str(row.get('id') or ref)[:110]}",
+                    provenance=[f"memory:{ref[:110]}", "recurring_memo"],
+                ))
+                continue
+            if not person and category == "birthday":
+                person = _person_explicit_in_birthday_statement(original)
+            if person:
+                # The canonical Memory value takes precedence over a generic
+                # cached reminder title; no new data is written in this read.
+                label = (
+                    f"Compleanno di {person}" if category == "birthday"
+                    else f"Ricorrenza di {person}"
+                )
+            if not label:
+                label = "Ricorrenza annuale (nome non recuperato)"
+            # Preserve the authentic user-stated text for the reasoning model:
+            # it may say "13 marzo compleanno di zia Elena" even if an old
+            # memo.label was saved as "[Nome non specificato]".
+            original_evidence = ""
+            if original and not _unidentified(original):
+                original_evidence = f" Memoria originale: {original[:220]}."
             statement = (
                 f"Promemoria annuale attivo ({category}): "
-                f"{label[:180]} — ogni {day:02d}/{month:02d}."
+                f"{label[:170]} — ogni {day:02d}/{month:02d}."
+                + original_evidence
             )
             facts.append(_fact(
                 statement, "recurring_memos", "user-confirmed", "known",
