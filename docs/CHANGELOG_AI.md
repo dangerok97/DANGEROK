@@ -15,6 +15,11 @@
 - Runner Gemini sul trasporto pubblico HTTPX dell'SDK, così allowlist e
   conteggio HTTP comprendono anche il modello configurato; diagnostica
   esplicita del perimetro, senza dichiarare un sandbox socket globale.
+- Comunicazione del risultato completato legata alla chiusura corrente,
+  con esclusione di aggiornamenti intermedi, vecchie domande e fonti mutate;
+  destinazione del risultato costruita dal codice sul dettaglio esistente.
+- Fixture canonica del confronto con scelta personale ancora aperta e
+  negativo già risolto, preservando il rifiuto legittimo e gli esiti precedenti.
 - Esiti della prima prova live registrati come falliti anche con CI verde.
 
 ---

@@ -15,11 +15,35 @@ la chiusura deve conservarne la cronologia e ritirare solo il lavoro superfluo.
 La diagnostica del collaudo registra decisioni strutturate con campi e
 dimensioni limitati; non cambia risposte, eccezioni o criteri di accettazione.
 
-L'aggregato finale della correzione comprende 232 test locali PASS in 15
+L'aggregato finale della correzione comprende 232 test locali PASS in 14
 moduli, inclusi lettura paginata, contesto delle fonti corrette, chiusura del
 piano e trasporto HTTP effettivo dell'SDK Gemini nel runner. La prova
 scripted e quella con modello reale restano gate distinti; il nuovo esito
 live verrà registrato sul commit esatto pubblicato.
+
+La PR #212 pubblica la correzione in `0297f86778ca909c9bd6ca8de4cf6a52770ced78`
+(albero `d5f4edaf3b18cabf2d9a1ca5d3f7b7fb89930dbd`). Il nuovo live
+`efdeacc4-6fff-45d5-afee-92f91ad50831` vede finalmente la Memory in ogni
+ammissione, ma supera solo il caso irrilevante: il modello ritiene la nota
+già informativa e non trova una scelta personale aperta. L'esame indipendente
+conferma l'ambiguità del positivo: la fixture non documentava un bisogno
+irrisolto. L'esito 1/8 resta conservato; una fonte sintetica che attesta una
+scelta ancora aperta e un negativo già risolto verificano il contratto senza
+forzare il modello né inventare urgenze.
+
+Il collaudo della consegna ha poi riprodotto un risultato finale Memory
+respinto prima della scelta del canale perché il goal era già completato.
+La correzione lega la Need al completamento visto dalla decisione originale,
+la distingue dagli aggiornamenti intermedi e rilegge prove e fonte prima
+dell'invio e dell'apertura. L'avviso apre il dettaglio del risultato; una
+vecchia domanda resta chiusa. Il ritiro esplicito dell'Opportunity originaria
+impedisce la consegna anche quando il goal era già completato.
+
+L'aggregato della revisione con nove casi e consegna finale è **280 PASS
+su 15 moduli in 3,97 secondi**; il CLI scripted è **9/9**, senza chiamate
+al modello o effetti reali. La suite dedicata alla consegna contiene 44
+casi nuovi; insieme ai quattro moduli storici pertinenti produce 118/118
+PASS. CI e prova live sono da rileggere sul nuovo commit.
 
 Il rilascio dei servizi backend e web è preparato nell'ambiente esistente;
 l'applicazione della patch Railway ha restituito «azione non approvata».

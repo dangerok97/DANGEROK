@@ -1,5 +1,27 @@
 # QA v162 — iniziativa, prosecuzione e risultato
 
+## Ultima verifica locale: fonti, completamento e consegna
+
+La revisione con `fixture_revision=personal_outcome_v1` e la correzione della
+consegna finale supera **280 test su 15 moduli in 3,97 secondi** e il CLI
+scripted **9/9**, senza modello, HTTP del modello o effetti esterni reali.
+Il modulo della consegna finale aggiunge 44 casi; un aggregato separato con
+le regressioni Situation, Memory, riesame e apertura produce 118/118 PASS.
+Questi conteggi si sovrappongono e non vanno sommati. La nuova CI e il live
+sull'esatto commit pubblicato restano distinti e sono ancora da registrare.
+
+La riproduzione attraversa offerta reale alla Delivery, scelta del canale,
+piano differito, invio a un trasporto sintetico e apertura del risultato.
+Un risultato generale completato è ora ammesso solo con legame all'esatta
+chiusura vista dalla decisione, prove reali dello stesso owner/goal e fonti
+correnti. La stessa chiusura non genera duplicati; una vecchia domanda, un
+aggiornamento intermedio, una riapertura o un nuovo completamento non ne
+eredita il legame. Consenso assente e silenzio scelto dal modello restano
+rispettati. Il ritiro dell'Opportunity dopo la normale risoluzione blocca
+l'avviso ancora in attesa. La destinazione del risultato è costruita dal
+codice sul dettaglio del goal e viene verificata anche all'apertura; il
+percorso delle domande continua a rifiutare un lavoro già chiuso.
+
 ## Riscontro live dopo l'integrazione iniziale
 
 La [PR #211](https://github.com/dangerok97/DANGEROK/pull/211) è integrata nel commit
@@ -61,10 +83,12 @@ conteggi delle evidenze. Non cambia decisioni, eccezioni o stato. La fixture
 scripted non indica più la correzione della nota come motivo automatico di
 abbandono: ciò contraddiceva il caso che richiede di proseguire con i dati nuovi.
 
-## Verifica locale della correzione successiva
+## Verifiche sulla prima revisione della PR #212
 
 Il 12 ottobre 2026, sull'albero locale congelato successivo a `da6c7456`,
-l'aggregato finale ha prodotto **232 PASS in 3,34 secondi su 15 moduli**:
+l'aggregato poi pubblicato nella [PR #212](https://github.com/dangerok97/DANGEROK/pull/212),
+head `0297f86778ca909c9bd6ca8de4cf6a52770ced78`, ha prodotto
+**232 PASS in 3,34 secondi su 14 moduli**:
 contesto e lettura delle fonti, ripianificazione, continuazione della Memory,
 chiusura dei piani, trasporto SDK, recovery, invalidazione delle fonti, OAuth,
 push, collaudo autonomo e letture Phase 1. Il comando CLI scripted finale ha
@@ -79,16 +103,65 @@ Questi conteggi si sovrappongono all'aggregato e non vanno sommati. Le
 usano l'SDK e l'adapter di produzione con HTTP simulato: verificano il
 confine di trasporto, senza chiamare un modello o un account reale.
 
-**Il live della versione corretta è ancora da eseguire.** I risultati verdi
-locali non sostituiscono i fallimenti registrati sopra. Anche la CI del nuovo
-commit, il gate Mongo e la successiva lettura pubblica devono essere verificati
-sulla revisione pubblicata; il verde della PR #211 riguarda la versione iniziale.
+Su questo head tutti i **7 job attivati sono PASS**:
+[CI](https://github.com/dangerok97/DANGEROK/actions/runs/38193889396) e
+[Situation](https://github.com/dangerok97/DANGEROK/actions/runs/38193889324).
+Il log backend verifica **215 PASS** nel gate v162, **scripted 8/8**,
+**6 PASS con Mongo reale senza skip** e **3 PASS** nei nodi v39 di consenso
+e provenienza. Il checkout CI è il merge tecnico `d43f743789784aa1a6f306bb9ac6947fdd293276`,
+con albero `d5f4edaf3b18cabf2d9a1ca5d3f7b7fb89930dbd` identico a quello del head.
+Il workflow mobile non è stato attivato: i suoi percorsi frontend sono invariati.
+
+Il live sullo stesso head, deployment tecnico
+`efdeacc4-6fff-45d5-afee-92f91ad50831`, è invece **1/8 PASS**
+(12 ottobre, 01:58:05.131–01:58:14.373 UTC). Passa il solo caso irrilevante.
+Le sei ammissioni ricevono ciascuna una Memory completa nel contesto e
+restituiscono `no_goal`; anche la scoperta vede la Memory ma decide silenzio.
+Il report registra **8 chiamate logiche e 9 tentativi HTTP osservati**:
+il precedente contatore Gemini a zero non si ripete. La lettura pubblica
+concatenata non parte, perché il primo gate è fallito.
+
+La disponibilità della fonte è ora provata, ma la fixture informativa non
+attestava un bisogno personale ancora aperto: elencava già costi e vincoli,
+senza dire che la persona stesse scegliendo o aspettasse un confronto.
+`no_goal` era quindi un esito difendibile, non una prova univoca di ammissione
+difettosa. L'assenza di urgenza, citata in alcune motivazioni, non è da sola
+una ragione sufficiente per tacere. Questo risultato rimane fallito e non
+viene convertito retroattivamente in un PASS.
+
+## Fixture con esito personale aperto e controllo già risolto
+
+La revisione `fixture_revision=personal_outcome_v1` conserva integralmente
+`baseline.FACT` di v140 e aggiunge alla sola fonte canonica v162 uno stato
+personale: la persona usa il mensile, prevede di tenere l'archivio per dodici
+mesi, valuta le due formule e non ha ancora ricevuto il confronto scritto
+di costi e vincoli. `FIXTURE_NOTE` viene usata nella governance, nel segnale
+di cambiamento e nella successiva correzione 120→150. Il bisogno resta nella
+fonte anche dopo quella correzione; summary e motivo della review derivano
+da ciò che la nota attesta. Non vengono aggiunti scadenze, autorizzazioni
+a cambiare contratto o istruzioni che impongano al modello una decisione.
+
+Il nuovo caso `already_resolved` conserva gli stessi termini economici,
+ma la fonte attesta il confronto già ricevuto, la scelta del mensile
+conclusa e l'assenza di dubbi o verifiche aperte. L'esito richiesto è
+`no_goal`, con la fonte presente e senza goal, wake o capacità eseguite.
+Questo porta il collaudo completo a **9 casi**. Entrambe le note restano
+entro il limite di preview di 600 caratteri e sono verificate nel payload
+di ammissione reale, non soltanto nei metadati dell'Opportunity.
+
+Sulla nuova fixture la suite locale autonomia/restart riporta
+**49 PASS e 1 SKIP in 2,02 secondi**, con il solo Mongo reale escluso in locale.
+Il CLI scripted eseguito successivamente riporta **9/9 PASS**, zero tentativi
+di modello, zero HTTP del modello e zero effetti esterni. Il report espone
+`fixture_revision` per distinguere questi input dai precedenti otto casi.
+**Il live e la CI della revisione con nove casi restano da eseguire**;
+i verdi della precedente revisione non li sostituiscono.
 
 ## Cosa dimostra il gate
 
 Il nuovo [harness](../backend/scripts/autonomy_completion_eval_v162.py) mantiene collegati i servizi di produzione: admission, goal, wake persistita, claim del worker Ambient, piano, lettura della fonte, preparazione, verifica, completion, visibility, outbox e lettura della Home. Il caso `source_change_crash` parte prima dell’admission, da un cambiamento registrato: passa dallo snapshot reale e da OpportunityDiscovery prima di arrivare al risultato.
 
-Il risultato atteso è un confronto utile, non la sola esistenza di un goal o di un testo. Una nota sintetica dichiara 15 euro al mese, 180 per dodici mesi, oppure 120 anticipati per l’anno, con pari capacità/assistenza e senza rimborso dell’annuale. ORA deve leggere la nota canonica, preparare il confronto con differenza 60, attribuire i dati alla nota e conservare il limite della mancata verifica presso il fornitore. Non viene autorizzato né tentato un cambio di contratto.
+Il risultato atteso è un confronto utile per la scelta personale ancora aperta, non la sola esistenza di un goal o di un testo. La nota sintetica attesta questo bisogno e dichiara 15 euro al mese, 180 per dodici mesi, oppure 120 anticipati per l’anno, con pari capacità/assistenza e senza rimborso dell’annuale. ORA deve leggere la nota canonica, preparare il confronto con differenza 60, attribuire i dati alla nota e conservare il limite della mancata verifica presso il fornitore. Non viene autorizzato né tentato un cambio di contratto. Il controllo `already_resolved` verifica che gli stessi dati non generino altro lavoro quando la scelta risulta già conclusa.
 
 La memoria viene scritta da `MemoryGovernanceService.apply`, nel formato effettivo `statement`/`content`. L’evidenza deve contenere il riferimento della memoria e la sua versione. Il vecchio seed `memories.summary` non viene riutilizzato: avrebbe nascosto la divergenza fra lo schema scritto dalla governance e quello letto dall’agente. Fonti: [test del reader canonico](../backend/tests/test_agent_memory_read_v162.py), [test del collaudo](../backend/tests/test_autonomy_completion_eval_v162.py).
 
@@ -115,6 +188,7 @@ Nessuno dei primi quattro livelli dimostra la ricezione su un telefono. La prova
 | `memory_revoked` | La memoria citata viene dimenticata dopo la lettura | L’evidenza già acquisita non produce un risultato; lavoro abbandonato e nessuna preparazione finale |
 | `memory_corrected` | La nota cambia da 120 a 150 euro annui | Stessa goal prosegue, vecchia evidenza esclusa, nuova memoria riletta, risultato 180/150/30 con provenienza corrente |
 | `source_change_crash` | Cancellazione durante il primo scan | Cambiamento ancora pending, nuova review lo elabora e lo conferma; Opportunity, goal, worker e Home arrivano poi al risultato |
+| `already_resolved` | La fonte attesta confronto ricevuto e scelta conclusa, senza verifiche residue | Decisione `no_goal` pur con la Memory presente, nessuna wake e nessuna capacità eseguita |
 | `irrelevant` | Contenuto promozionale privo di bisogno documentato | Decisione `no_goal`, nessuna wake e nessuna capacità eseguita |
 
 Il test accelera soltanto `next_run_at`, `scheduled_for` e scadenze dell’outbox nel database sintetico marcato. Prima di farlo verifica che il checkpoint esista già: non crea un retry per riparare un difetto del prodotto. La gestione delle wake resta quella di `Ambient.tick`, inclusi claim e completion.
@@ -185,17 +259,17 @@ Esiti CLI del nuovo harness:
 | `1` | Caso non raggiunto, risultato non valido, boundary tentato o errore durante la prova |
 | `3` | Live richiesto ma senza credenziali del modello: `status=blocked`, `passed=false` |
 
-Il workflow non contiene un ramo “credenziali assenti → salta e passa”. I report includono tempi di esecuzione, eventuale commit dalla metadata CI/deployment, chiamate LLM osservate, richieste HTTP del modello, capacità eseguite, tick, guasti iniettati, livello delle fonti, risultato e testo sintetico da revisionare. I conteggi delle chiamate già avvenute sopravvivono anche a un verdetto fallito. `live_provider_reads=0` nel collaudo autonomo interno è intenzionale ed esplicito.
+Il workflow non contiene un ramo “credenziali assenti → salta e passa”. I report includono tempi di esecuzione, eventuale commit dalla metadata CI/deployment, `fixture_revision`, chiamate LLM osservate, richieste HTTP del modello, capacità eseguite, tick, guasti iniettati, livello delle fonti, risultato e testo sintetico da revisionare. I conteggi delle chiamate già avvenute sopravvivono anche a un verdetto fallito. `live_provider_reads=0` nel collaudo autonomo interno è intenzionale ed esplicito.
 
 ### Ambito e budget del live
 
 | Passaggio | Numero di casi | Limiti applicati |
 |---|---|---|
-| Autonomia completa | 8: cinque completamenti utili e tre negativi | 40 chiamate `ProviderManager.chat` e 80 tentativi HTTPX async del modello per caso, incluso Gemini selezionato dal runner corretto; 240 secondi per caso |
-| Totale autonomia | 8 | 320 chiamate logiche, 640 tentativi HTTPX async del modello nel confine controllato, 32 minuti massimi di esecuzione dei casi |
+| Autonomia completa | 9: cinque completamenti utili e quattro negativi | 40 chiamate `ProviderManager.chat` e 80 tentativi HTTPX async del modello per caso, incluso Gemini selezionato dal runner corretto; 240 secondi per caso |
+| Totale autonomia | 9 | 360 chiamate logiche, 720 tentativi HTTPX async del modello nel confine controllato, 36 minuti massimi di esecuzione dei casi |
 | Lettura pubblica successiva | 1, `trip_today` | 7 passaggi cognitivi, fino a 14 chiamate logiche con il retry di JSON invalido; 12 HTTP route/weather complessivi; timeout 210 secondi |
 
-Nel runner corretto il limite comprende retry e fallback che attraversano quel confine HTTPX; il tentativo eccedente viene bloccato prima del trasporto e rende il gate non superato. Il collaudo pubblico preesistente mantiene i propri fallback: il limite di 640 riguarda soltanto le otto catene autonome, non le chiamate del modello nella prova pubblica. Il job concatenato consente quindi fino a 334 chiamate logiche al manager e 35 minuti e 30 secondi per i casi, oltre all’installazione. Sono tetti di arresto, non un numero di richieste che il runner cerca di consumare. La copertura Gemini di questi limiti è provata localmente con l'SDK reale e HTTP simulato; i live storici precedenti alla correzione non la possedevano.
+Nel runner corretto il limite comprende retry e fallback che attraversano quel confine HTTPX; il tentativo eccedente viene bloccato prima del trasporto e rende il gate non superato. Il collaudo pubblico preesistente mantiene i propri fallback: il limite di 720 riguarda soltanto le nove catene autonome, non le chiamate del modello nella prova pubblica. Il job concatenato consente quindi fino a 374 chiamate logiche al manager e 39 minuti e 30 secondi per i casi, oltre all’installazione. Sono tetti di arresto, non un numero di richieste che il runner cerca di consumare. La copertura Gemini di questi limiti è provata localmente con l'SDK reale e HTTP simulato; i live storici precedenti alla correzione non la possedevano. I report dei precedenti otto casi mantengono i loro limiti originali: non vengono ricalcolati sul nuovo numero di scenari.
 
 ### Trasporto Gemini controllato nel runner
 
@@ -263,7 +337,7 @@ Prima dell'integrazione sono stati eseguiti anche i 50 moduli locali del gate di
 
 ## Quando dichiarare dimostrato il risultato
 
-1. Suite di regressione v162 e otto casi scripted verdi sul commit in esame.
+1. Suite di regressione v162 e nove casi scripted verdi sul commit in esame, incluso `already_resolved`.
 2. Gate Mongo obbligatorio verde: quattro processi terminati, lettura non ripetuta, outbox recuperata e replay senza duplicati.
 3. Job live autonomo verde sullo stesso commit, con chiamate reali osservate in ogni caso richiesto; missing credentials o provider outage sono risultati non superati.
 4. Job pubblico verde con HTTP effettivi, fonte, orari e date coerenti; il modello deve rispettare ciò che quelle letture sostengono.

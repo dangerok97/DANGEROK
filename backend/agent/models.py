@@ -1460,6 +1460,9 @@ class CommunicationNeed(BaseModel):
     # Handles back to the work: goal, journal, evidence. Never content.
     source_refs: List[str] = Field(default_factory=list, max_length=8)
     memory_source_snapshot: str = Field(default="", max_length=64)
+    # Captured from the goal whose final visibility was judged. A delayed
+    # intermediate update cannot borrow a later completion at delivery time.
+    goal_completed_at: Optional[str] = Field(default=None, max_length=64)
     # The visibility judgement this grew out of, kept so the two can be read
     # together afterwards.
     visibility: OutcomeVisibility = "inform_user"

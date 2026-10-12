@@ -221,6 +221,7 @@ jobs:
             tests/test_agent_memory_replanning_context_v162.py \
             tests/test_agent_memory_continuation_v162.py \
             tests/test_agent_terminal_plan_v162.py \
+            tests/test_agent_completed_result_delivery_v162.py \
             tests/test_eval_gemini_transport_v162.py \
             tests/test_agent_connector_readiness_v162.py \
             tests/test_agent_planning_recovery_v162.py \

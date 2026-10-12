@@ -246,7 +246,7 @@ class DeliveryService:
             # A technical refusal, named as one. The judgement stands; the
             # channel is unavailable, so it lands on the screen instead.
             plan = await self._hold(
-                user_id, subject_id, decision, why_not, source_type=kind
+                user_id, subject_id, decision, why_not, source_type=kind, subject=subject
             )
             return DeliveryResult(
                 mode="in_app", blocked_by=why_not, plan=plan,
@@ -341,6 +341,8 @@ class DeliveryService:
         # is not necessarily the one that holds this morning.
         plan.what_decided_the_mode = decision.what_decided_the_mode
         plan.sensitivity = decision.sensitivity
+        plan.result_goal_id = getattr(subject, "result_goal_id", "")
+        plan.result_completed_at = getattr(subject, "result_completed_at", None)
         plan.deep_link = _deep_link_for(subject)
         plan.decision_provenance = "model"
         plan.rationale = decision.reason_to_interrupt[:300]
@@ -348,7 +350,7 @@ class DeliveryService:
 
     async def _hold(
         self, user_id: str, subject_id: str, decision: DeliveryDecision, why: str,
-        *, source_type: str = "opportunity",
+        *, source_type: str = "opportunity", subject: Optional[Any] = None,
     ) -> DeliveryPlan:
         existing = await self.repo.open_plan_for(
             user_id, subject_id, source_type=source_type
@@ -366,11 +368,17 @@ class DeliveryService:
         plan.deep_link = plan.deep_link or _deep_link(
             subject_id, target="opportunity" if source_type == "opportunity" else "home"
         )
+        if subject is not None:
+            plan.result_goal_id = getattr(subject, "result_goal_id", "")
+            plan.result_completed_at = getattr(subject, "result_completed_at", None)
+            plan.deep_link = _deep_link_for(subject)
         return await self.repo.save_plan(plan)
 
     # --- sending, much later ----------------------------------------------
 
-    async def _current_agent_need(self, user_id: str, need_id: str) -> Optional[Any]:
+    async def _current_agent_need(
+        self, user_id: str, need_id: str, *, allow_delivered: bool = False,
+    ) -> Optional[Any]:
         """Bind communication to its current owned work and Situation result.
 
         Completing a watch can leave its useful result to communicate. It
@@ -398,16 +406,23 @@ class DeliveryService:
             return None
 
         watched = goal.source_kind in ("situation_initial_review", "situation_followup")
-        if not goal.is_open and not (
-            watched and goal.status == "completed" and need.kind == "important_outcome"
-        ):
-            return None
+        if goal.is_open and need.goal_completed_at:
+            return None  # Reopened work is not the old verified completion.
+        final_result = False
+        if not goal.is_open:
+            if watched:
+                if goal.status != "completed" or need.kind != "important_outcome":
+                    return None
+            else:
+                if not await self._completed_result_current(user_id, goal, need):
+                    return None
+                final_result = True
         outcome = None
         if watched:
             if need.kind in ("important_outcome", "useful_result"):
                 from situations.outcomes import current_outcome, outcome_refs
 
-                if await self.db.delivery_plans.find_one({
+                if not allow_delivered and await self.db.delivery_plans.find_one({
                     "owner_id": user_id, "source_type": "agent_need",
                     "source_id": need.id, "status": "delivered",
                 }, {"_id": 0, "id": 1}):
@@ -419,6 +434,7 @@ class DeliveryService:
                     return None
                 if goal.status == "completed" and outcome["status"] != "action_now":
                     return None
+                final_result = goal.status == "completed"
             else:
                 from agent.source_refresh import changed
 
@@ -426,7 +442,15 @@ class DeliveryService:
                 # question deliverable while its source is already closed.
                 if await changed(self.db, goal):
                     return None
+        if final_result and not allow_delivered and await self.db.delivery_plans.find_one({
+            "owner_id": user_id, "source_type": "agent_need",
+            "source_id": need.id, "status": "delivered",
+        }, {"_id": 0, "id": 1}):
+            return None
         subject = need.as_subject()
+        if final_result:
+            subject["result_goal_id"] = goal.id
+            subject["result_completed_at"] = goal.completed_at
         if outcome:
             subject["semantic_summary"] = (
                 f"{outcome['headline']} {outcome['action_summary']}"
@@ -442,8 +466,59 @@ class DeliveryService:
             subject["valid_until"] = min(expiry, original).isoformat() if original else expiry.isoformat()
         return DeliverySubject.model_validate(subject)
 
+    async def _completed_result_current(self, user_id: str, goal, need) -> bool:
+        """A final result survives closure; an old update cannot inherit it."""
+        from agent.evidence import EvidenceStore, real_support
+        from agent.repository import AgentRepository
+        from agent.service import _aware_wait_until
+
+        completed_at = _aware_wait_until(goal.completed_at)
+        raised_at = _aware_wait_until(need.created_at)
+        if (goal.status != "completed" or need.kind not in ("useful_result", "important_outcome")
+                or need.requires_response or need.response_kind
+                or completed_at is None or raised_at is None or raised_at < completed_at
+                or need.goal_completed_at != goal.completed_at or not need.source_refs):
+            return False
+        try:
+            if goal.opportunity_id:
+                # Completion itself resolves its Opportunity. A later
+                # dismissal/withdrawal still outranks the unsent result;
+                # requiring an active source here would suppress every
+                # ordinary successful autonomous completion.
+                source = await self.db.opportunities.find_one({
+                    "owner_id": user_id, "id": goal.opportunity_id,
+                }, {"_id": 0, "status": 1, "valid_until": 1})
+                if not source or source.get("status") in ("dismissed", "suppressed", "expired"):
+                    return False
+                deadline = _aware_wait_until(source.get("valid_until"))
+                if deadline is not None and deadline <= _now():
+                    return False
+            evidence = await EvidenceStore(self.db).for_goal(user_id, goal.id)
+            real_ids = {item.id for item in evidence if real_support([item])}
+            if not real_ids:
+                return False
+            if not real_ids.intersection(need.source_refs):
+                # The bounded visibility refs may contain only the journal.
+                # Require a cited completion of this exact owned goal, with
+                # independently retained real evidence behind that outcome.
+                times = [ref[len("journal:"):] for ref in need.source_refs if ref.startswith("journal:")]
+                if not times or not await self.db.agent_journal.find_one({
+                    "owner_id": user_id, "goal_id": goal.id, "kind": "goal_completed",
+                    "at": {"$in": times, "$gte": goal.completed_at, "$lte": need.created_at},
+                }, {"_id": 1}):
+                    return False
+            latest = await AgentRepository(self.db).get_goal(user_id, goal.id)
+            return bool(
+                latest and latest.status == "completed" and latest.completed_at == need.goal_completed_at
+                and await memory_result_current(self.db, user_id, latest, need.memory_source_snapshot)
+            )
+        except MemorySourcesUnavailable:
+            raise
+        except Exception as exc:
+            raise MemorySourcesUnavailable("completed_result_check_unavailable") from exc
+
     async def _current_subject_for_plan(
-        self, user_id: str, plan: DeliveryPlan
+        self, user_id: str, plan: DeliveryPlan, *, allow_delivered: bool = False,
     ) -> Optional[Any]:
         """Reload the exact thing a pending notification is about.
 
@@ -486,7 +561,13 @@ class DeliveryService:
             return subject
 
         if plan.source_type == "agent_need":
-            return await self._current_agent_need(user_id, plan.source_id)
+            subject = await self._current_agent_need(user_id, plan.source_id, allow_delivered=allow_delivered)
+            if plan.result_goal_id or plan.result_completed_at:
+                if (subject is None or subject.result_goal_id != plan.result_goal_id
+                        or subject.result_completed_at != plan.result_completed_at
+                        or plan.deep_link != _deep_link_for(subject)):
+                    return None
+            return subject
 
         return None
 
@@ -682,6 +763,13 @@ class DeliveryService:
             route = _notification_open_route(plan)
             if route is None:
                 return {"ok": False, "reason": "invalid_notification_target"}
+            if plan.result_goal_id or plan.result_completed_at:
+                try:
+                    subject = await self._current_subject_for_plan(user_id, plan, allow_delivered=True)
+                except MemorySourcesUnavailable:
+                    return {"ok": False, "reason": "source_check_unavailable"}
+                if subject is None:
+                    return {"ok": False, "reason": "invalid_notification_target"}
             if plan.outcome == "opened":
                 return {
                     "ok": True, "outcome": "opened",
@@ -1163,6 +1251,11 @@ def _notification_open_route(plan: DeliveryPlan) -> Optional[str]:
         return expected if plan.deep_link == expected else None
 
     if plan.source_type == "agent_need":
+        if plan.result_goal_id or plan.result_completed_at:
+            if (not plan.result_completed_at or not _OPAQUE_ID.fullmatch(plan.result_goal_id)
+                    or plan.deep_link != _deep_link(plan.result_goal_id, target="opportunity")):
+                return None
+            return plan.deep_link
         match = re.fullmatch(
             r"/ora\?needId=([A-Za-z0-9_-]{4,80})"
             r"&goalId=([A-Za-z0-9_-]{4,80})&entry=agent_need",
@@ -1195,6 +1288,9 @@ def _deep_link_for(subject) -> str:
     goal_id = str(getattr(subject, "goal_id", "") or "")
     if not (_OPAQUE_ID.match(subject_id) and _OPAQUE_ID.match(goal_id)):
         return ALLOWED_TARGETS["home"]
+    if (getattr(subject, "result_goal_id", "") == goal_id
+            and getattr(subject, "result_completed_at", None)):
+        return _deep_link(goal_id, target="opportunity")
     return (
         ALLOWED_TARGETS["agent_need"].replace("{id}", subject_id).replace("{goal}", goal_id)
     )

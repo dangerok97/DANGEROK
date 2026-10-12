@@ -34,6 +34,16 @@ La verifica incerta e le barriere di proprietà, revoca e aggiornamento della
 fonte precedono questa chiusura. Il collaudo non richiede di eseguire un passo
 che il risultato verificato ha reso superfluo.
 
+La consegna dei risultati generali usa il completamento del goal come
+ancoraggio distinto dalla versione della Memory. La Need registra il
+completamento visto dalla decisione originale; il reader verifica lo stesso
+completamento corrente, l'owner, le prove citate, le scadenze e la versione
+delle fonti. Una Need intermedia o una vecchia domanda non può diventare
+un avviso finale. La destinazione del risultato viene costruita dal codice
+e punta al dettaglio del goal; le richieste ancora aperte conservano il
+percorso di risposta. Il gate di consegna viene riletto prima dell'invio
+differito e non concede da solo un canale o un consenso.
+
 ---
 
 ## 12 ottobre 2026 — v162: recupero, fonti correnti e consegna autonoma

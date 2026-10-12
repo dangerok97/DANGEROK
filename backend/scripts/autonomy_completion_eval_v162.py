@@ -29,10 +29,12 @@ from scripts import phase2_goal_outcome_eval_v140 as baseline
 from scripts.phase1_read_provider_eval import _ReadBoundary, _safe_text
 
 VERSION = "autonomy-completion-v162"
+FIXTURE_REVISION = "personal_outcome_v1"
 OWNER = "ora-synthetic-autonomy-owner-v162"
 SCENARIOS = ("completed_result", "planning_outage", "home_write_retry",
              "source_revoked", "memory_revoked", "memory_corrected",
-             "source_change_crash", "irrelevant")
+             "source_change_crash", "already_resolved", "irrelevant")
+NO_GOAL_SCENARIOS = frozenset({"already_resolved", "irrelevant"})
 LLM_KEYS = ("GEMINI_API_KEY", "GEMINI2_API_KEY", "GEMINI_API_KEY_2", "OPENAI_API_KEY",
             "GROQ_API_KEY", "MISTRAL_API_KEY")
 ALLOWED = frozenset(baseline.EXPECTED.values())
@@ -43,7 +45,19 @@ MAX_DECISION_OBSERVATIONS = 12
 DECISION_TEXT_LIMIT = 400
 MAX_DIAGNOSTIC_PROPOSALS = 3
 MAX_DIAGNOSTIC_PLAN_STEPS = 6
-WHY_NOW = "La nota è disponibile per un confronto interno; non è documentata una scadenza."
+FIXTURE_CONTEXT = (
+    "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule "
+    "e mi manca il confronto scritto di costi e vincoli. "
+)
+FIXTURE_NOTE = FIXTURE_CONTEXT + baseline.FACT
+RESOLVED_FIXTURE_NOTE = (
+    "Ho già ricevuto il confronto scritto dei costi e dei vincoli e ho scelto il mensile; "
+    "non ho dubbi o verifiche aperte sulle due formule. " + baseline.FACT
+)
+WHY_NOW = (
+    "Il confronto utile alla scelta sulle due formule è ancora da ricevere; "
+    "non è documentata una scadenza."
+)
 
 
 class EvaluationFailure(RuntimeError):
@@ -370,6 +384,8 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
     async def scripted_goal_decision(*args, **kwargs):
         if scenario == "irrelevant":
             return {"outcome": "no_goal", "reasoning": "Nessun bisogno documentato."}
+        if scenario == "already_resolved":
+            return {"outcome": "no_goal", "reasoning": "Confronto già ricevuto e scelta conclusa, senza lavoro residuo."}
         answer = baseline.scripted_goal()
         answer["why_now"] = WHY_NOW
         answer["stop_conditions"] = ["La nota viene ritirata o revocata", "Il confronto non è più utile"]
@@ -387,8 +403,8 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         require(len(refs) == 1, "DISCOVERY_LOST_CANONICAL_SOURCE")
         return {"opportunities": [{
             "identity_key": "v162:fictional-archive-cost-review",
-            "what": "La nota salvata riporta due opzioni per l'archivio da confrontare su dodici mesi.",
-            "why_it_matters": "Preparare un confronto interno utile dei costi e dei limiti.",
+            "what": "La persona usa il mensile e valuta le due formule su dodici mesi; manca il confronto scritto.",
+            "why_it_matters": "Rendere disponibili costi e vincoli per la scelta ancora aperta.",
             "why_now": WHY_NOW,
             "initiative": "prepare", "evidence_refs": refs,
             "what_i_can_do": "Leggere la nota e preparare un confronto, senza modificare il contratto.",
@@ -489,15 +505,16 @@ async def seed_case(db, scenario):
     await AmbientRepository(db).ensure_indexes()
     governance = MemoryGovernanceService(db)
     await governance.ensure_indexes()
+    note = RESOLVED_FIXTURE_NOTE if scenario == "already_resolved" else FIXTURE_NOTE
     memory = await governance.apply(
         user_id=OWNER, session_id="synthetic-autonomy-evaluation",
         reasoning_epoch=VERSION, candidate_index=0,
         candidate=MemoryCandidate(
-            summary=baseline.FACT, kind="service_contract_note",
+            summary=note, kind="service_contract_note",
             identity_key="v162:fictional-archive-note", confidence=0.95,
             authority="user_stated", epistemic_status="confirmed",
             provenance=["user_conversation"], permanence="indefinite",
-            reason_for_future_utility="Confrontare i costi e i vincoli indicati nella nota interna.",
+            reason_for_future_utility="Conservare costi, vincoli e stato della scelta descritti nella nota.",
             user_authorized=True,
         ),
     )
@@ -508,22 +525,31 @@ async def seed_case(db, scenario):
         await discovery.ensure_indexes()
         changed = await discovery.note(
             OWNER, source="conversation", kind="constraint.changed",
-            entity_ref=memory.memory_id, after=baseline.FACT, wake=False,
+            entity_ref=memory.memory_id, after=note, wake=False,
         )
         require(changed.get("outcome") == "accepted", "SOURCE_CHANGE_NOT_RECORDED")
         return ""
     opportunity = Opportunity(
         owner_id=OWNER, identity_key="v162:fictional-archive-cost-review", status="active",
-        semantic_summary=("Una nota interna descrive due opzioni per un archivio digitale. "
-                          "Un confronto informativo di dodici mesi può chiarire costi e vincoli, "
-                          "senza cambiare contratto."),
-        why_it_matters="Evitare una possibile spesa maggiore e rendere visibili i limiti.",
+        semantic_summary=("La persona usa il mensile e prevede di tenere l'archivio per dodici mesi. "
+                          "Sta valutando le due formule e non ha ancora ricevuto il confronto "
+                          "scritto dei costi e dei vincoli necessario alla scelta."),
+        why_it_matters="Rendere disponibili costi e vincoli per la scelta ancora aperta.",
         why_now=WHY_NOW,
         what_ora_can_do=("Leggere la nota salvata e preparare un confronto dei costi per dodici mesi "
                          "con i vincoli e i dati ancora da verificare. Nessun pagamento, invio o modifica."),
         initiative="prepare", evidence=[EvidenceRef(kind="memory", ref=memory.memory_id,
             summary="Nota interna sui costi e vincoli delle due opzioni di archivio.")],
     )
+    if scenario == "already_resolved":
+        opportunity.semantic_summary = (
+            "La persona ha già ricevuto il confronto scritto dei costi e dei vincoli "
+            "e ha scelto il mensile; non ha dubbi o verifiche aperte sulle due formule."
+        )
+        opportunity.why_it_matters = "La scelta fra le due formule risulta conclusa nella nota."
+        opportunity.why_now = "La nota attesta il confronto già ricevuto e la scelta conclusa, senza esiti aperti."
+        opportunity.what_ora_can_do = "Il confronto e la scelta sono già documentati; non risultano verifiche residue."
+        opportunity.initiative = "inform"
     if scenario == "irrelevant":
         opportunity.semantic_summary = "Newsletter pubblicitaria generica per un accessorio non richiesto."
         opportunity.why_it_matters = "Nessun bisogno, interesse, obbligo o scadenza documentato."
@@ -561,9 +587,10 @@ async def admit(db, scenario):
     from agent.admission import drain
     require(await drain(db, owner_id=OWNER, limit=1) == 1, "ADMISSION_NOT_PROCESSED")
     goals = await db.agent_goals.find({"owner_id": OWNER}, {"_id": 0}).to_list(3)
-    if scenario == "irrelevant":
-        require(not goals, "IRRELEVANT_GOAL_CREATED")
-        require(await db.ambient_wakes.count_documents({"owner_id": OWNER}) == 0, "IRRELEVANT_WAKE_CREATED")
+    if scenario in NO_GOAL_SCENARIOS:
+        code = "ALREADY_RESOLVED" if scenario == "already_resolved" else "IRRELEVANT"
+        require(not goals, code + "_GOAL_CREATED")
+        require(await db.ambient_wakes.count_documents({"owner_id": OWNER}) == 0, code + "_WAKE_CREATED")
         source = await db.opportunities.find_one({"owner_id": OWNER})
         require(source.get("agent_review_outcome") == "no_goal", "SILENCE_NOT_DECIDED")
         return None
@@ -702,12 +729,12 @@ async def change_memory(db, goal_id, *, correction=False):
         user_id=OWNER, session_id="synthetic-autonomy-evaluation",
         reasoning_epoch=VERSION + ":" + operation, candidate_index=0,
         candidate=MemoryCandidate(operation=operation,
-            summary=baseline.FACT.replace("120 euro", "150 euro") if correction else "Dimentica la nota ritirata.",
+            summary=FIXTURE_NOTE.replace("120 euro", "150 euro") if correction else "Dimentica la nota ritirata.",
             existing_memory_ref=refs[0], user_authorized=True,
             kind="service_contract_note", identity_key="v162:fictional-archive-note",
             authority="user_stated", epistemic_status="confirmed", confidence=0.95,
             permanence="indefinite", provenance=["user_conversation"],
-            reason_for_future_utility="Confrontare i costi e i vincoli indicati nella nota interna."),
+            reason_for_future_utility="Conservare costi, vincoli e stato della scelta descritti nella nota."),
     )
     require(changed.persisted, "MEMORY_CHANGE_NOT_PERSISTED")
     return {"old": refs[0], "current": changed.memory_id}
@@ -785,7 +812,8 @@ async def run_case(scenario, *, mode="scripted", probe=None):
         require(not probe.blocked_effects and not probe.push_attempts and not probe.network.blocked, "ISOLATION_BOUNDARY_ATTEMPTED")
         require(mode != "live" or bool(probe.model_calls), "LIVE_MODEL_NOT_OBSERVED")
         require(mode != "scripted" or not probe.model_attempts, "OFFLINE_MODEL_CALL")
-        return {"version": VERSION, "scenario": scenario, "mode": mode, "passed": True,
+        return {"version": VERSION, "fixture_revision": FIXTURE_REVISION,
+                "scenario": scenario, "mode": mode, "passed": True,
                 "scope": "synthetic_internal_note_to_home_no_external_effects",
                 "model_mode": "real_llm" if mode == "live" else "scripted",
                 "source_mode": "synthetic_owned_record_real_reader", "live_provider_reads": 0,
@@ -823,7 +851,8 @@ async def main(*, mode="scripted", scenario="all", output=""):
                       case.get("real_model_executed") for case in cases), "cases": cases}
         code = 0 if passed else 1
     revision = os.environ.get("RAILWAY_GIT_COMMIT_SHA") or os.environ.get("GITHUB_SHA") or ""
-    report.update({"started_at": started_at, "finished_at": datetime.now(timezone.utc).isoformat(),
+    report.update({"fixture_revision": FIXTURE_REVISION,
+                   "started_at": started_at, "finished_at": datetime.now(timezone.utc).isoformat(),
                    "limits": {"cases": len(selected), "case_timeout_seconds": CASE_TIMEOUT_SECONDS,
                               "model_calls_per_case": MAX_MODEL_CALLS,
                               "model_http_requests_per_case": MAX_MODEL_HTTP_REQUESTS,

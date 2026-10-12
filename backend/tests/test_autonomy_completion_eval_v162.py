@@ -17,6 +17,7 @@ from scripts import autonomy_completion_eval_v162 as gate
 async def test_connected_autonomy_contract(scenario):
     report = await gate.run_case(scenario)
     assert report["passed"] is True
+    assert report["fixture_revision"] == "personal_outcome_v1"
     assert report["real_model_executed"] is False
     assert report["model_attempts"] == report["model_http_requests"] == 0
     assert report["live_provider_reads"] == 0
@@ -27,7 +28,7 @@ async def test_connected_autonomy_contract(scenario):
     assert report["structured_decisions_omitted"] == 0
     assert any(row["stage"] == "decide_goal" for row in decisions)
     assert all(row["model_attempts_before"] == row["model_attempts_after"] == 0 for row in decisions)
-    if scenario == "irrelevant":
+    if scenario in gate.NO_GOAL_SCENARIOS:
         assert report["worker_ticks"] == []
         assert report["executed_capabilities"] == []
         assert report["result"]["state"] == "no_goal"
@@ -45,8 +46,9 @@ async def test_canonical_governed_memory_reaches_the_real_worker_reader():
     with gate.isolated_engine(db) as probe:
         await gate.seed_case(db, "completed_result")
         memory = await db.memories.find_one({"user_id": gate.OWNER})
-        assert memory["statement"] == gate.baseline.FACT
-        assert memory["content"] == gate.baseline.FACT
+        assert memory["statement"] == gate.FIXTURE_NOTE
+        assert memory["content"] == gate.FIXTURE_NOTE
+        assert gate.FIXTURE_NOTE.endswith(gate.baseline.FACT)
         assert "summary" not in memory  # legacy fixtures must not hide drift
         goal_id = await gate.admit(db, "completed_result")
         await gate.first_read(db, goal_id, probe)
@@ -54,7 +56,7 @@ async def test_canonical_governed_memory_reaches_the_real_worker_reader():
             "owner_id": gate.OWNER, "goal_id": goal_id,
             "provenance.capability": "information.read",
         })
-        assert evidence and evidence["claim"] == gate.baseline.FACT
+        assert evidence and evidence["claim"] == gate.FIXTURE_NOTE
         assert memory["id"] in evidence["provenance"]["source_refs"]
         assert evidence["provenance"]["source_versions"].get(memory["id"])
 
@@ -71,7 +73,7 @@ async def test_fixture_does_not_invent_renewal_urgency_outside_the_canonical_not
         memory = await db.memories.find_one({"user_id": gate.OWNER})
         source = await db.opportunities.find_one({"owner_id": gate.OWNER})
         goal = await db.agent_goals.find_one({"owner_id": gate.OWNER, "id": goal_id})
-        assert memory["statement"] == memory["content"] == gate.baseline.FACT
+        assert memory["statement"] == memory["content"] == gate.FIXTURE_NOTE
         assert all("rinnovo" not in text.lower() for text in (
             source["semantic_summary"], source["why_now"], goal["why_now"],
         ))
@@ -80,6 +82,54 @@ async def test_fixture_does_not_invent_renewal_urgency_outside_the_canonical_not
             assert "La nota viene corretta o ritirata" not in goal["stop_conditions"]
             assert all("corretta" not in condition.lower() for condition in goal["stop_conditions"])
             assert any("ritirata" in condition for condition in goal["stop_conditions"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scenario", ["completed_result", "already_resolved"])
+async def test_personal_outcome_state_is_in_the_owned_admission_source(monkeypatch, scenario):
+    inputs = []
+    original = gate._decision_input
+
+    def observe(stage, value, kwargs):
+        if stage == "decide_goal":
+            inputs.append(value)
+        return original(stage, value, kwargs)
+
+    monkeypatch.setattr(gate, "_decision_input", observe)
+    db = AsyncMongoMockClient().v162_personal_outcome_source
+    with gate.isolated_engine(db, scenario=scenario) as probe:
+        await gate.seed_case(db, scenario)
+        goal_id = await gate.admit(db, scenario)
+        expected = gate.RESOLVED_FIXTURE_NOTE if scenario == "already_resolved" else gate.FIXTURE_NOTE
+        memory = await db.memories.find_one({"user_id": gate.OWNER})
+        assert memory["statement"] == memory["content"] == expected
+        assert expected.endswith(gate.baseline.FACT) and len(expected) <= 600
+        assert len(inputs) == 1 and len(inputs[0]["source_context"]) == 1
+        preview = inputs[0]["source_context"][0]
+        assert preview["ref"] == memory["id"] and preview["statement"] == expected
+        assert not preview["excerpt_truncated"]
+        assert probe.model_attempts == 0  # Scripted oracle, observed real admission payload.
+        if scenario == "already_resolved":
+            assert goal_id is None
+            assert "già ricevuto" in preview["statement"] and "ho scelto il mensile" in preview["statement"]
+            assert await db.agent_goals.count_documents({"owner_id": gate.OWNER}) == 0
+            assert await db.ambient_wakes.count_documents({"owner_id": gate.OWNER}) == 0
+        else:
+            assert goal_id and "mi manca il confronto scritto" in preview["statement"]
+
+
+@pytest.mark.asyncio
+async def test_correction_preserves_the_unresolved_personal_outcome_and_changes_only_the_price():
+    db = AsyncMongoMockClient().v162_personal_outcome_correction
+    with gate.isolated_engine(db, scenario="memory_corrected") as probe:
+        await gate.seed_case(db, "memory_corrected")
+        goal_id = await gate.admit(db, "memory_corrected")
+        await gate.first_read(db, goal_id, probe)
+        changed = await gate.change_memory(db, goal_id, correction=True)
+        memory = await db.memories.find_one({"user_id": gate.OWNER, "id": changed["current"]})
+        assert memory["statement"] == memory["content"] == gate.FIXTURE_NOTE.replace("120 euro", "150 euro")
+        assert memory["statement"].startswith(gate.FIXTURE_CONTEXT)
+        assert "mi manca il confronto scritto" in memory["statement"]
 
 
 @pytest.mark.asyncio

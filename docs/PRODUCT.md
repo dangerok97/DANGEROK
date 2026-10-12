@@ -15,6 +15,12 @@ La prova con il modello reale ha trovato limiti che i test scripted non
 mostravano. Il suo esito resta una condizione distinta dalla CI e dalla
 distribuzione dell'app; non viene dedotto da una schermata o da un processo avviato.
 
+Il risultato concluso deve poter raggiungere la persona anche quando il
+lavoro non è più aperto. La comunicazione finale resta legata al completamento
+verificato e alle sue fonti correnti; un vecchio aggiornamento o una domanda
+non ne eredita l'autorità. Il tocco sull'avviso apre il risultato già prodotto.
+La scelta del canale e i consensi restano competenza della consegna.
+
 ---
 
 ## 12 ottobre 2026 — v162: autonomia che conserva il lavoro e verifica le fonti

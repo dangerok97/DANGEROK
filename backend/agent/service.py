@@ -2437,6 +2437,20 @@ class AgentService:
                 if outcome["status"] == "action_now":
                     kind = "important_outcome"
 
+        completed_at = (
+            goal.completed_at if goal.status == "completed"
+            and kind in ("important_outcome", "useful_result") else None
+        )
+        fingerprint = (f"situation_outcome:{outcome['id']}" if outcome else
+                       decision.fingerprint if memory_snapshot else "")
+        if completed_at and not outcome:
+            import hashlib
+            # The same final result is offered once, independently of an
+            # earlier update's wording, kind or unchanged Memory snapshot.
+            fingerprint = hashlib.sha256(
+                f"completed:{owner_id}:{goal.id}:{completed_at}".encode("utf-8")
+            ).hexdigest()
+
         need = CommunicationNeed(
             owner_id=owner_id,
             goal_id=goal.id,
@@ -2445,6 +2459,7 @@ class AgentService:
             reason=decision.reasoning[:400] or decision.headline[:400],
             source_refs=list(decision.refs)[:8],
             memory_source_snapshot=memory_snapshot,
+            goal_completed_at=completed_at,
             visibility=decision.outcome,
             requires_response=kind in ("needs_information", "needs_authority"),
             response_kind=(
@@ -2459,8 +2474,7 @@ class AgentService:
             ][:6],
             what_is_missing=_what_is_missing(goal),
             valid_until=outcome["valid_until"] if outcome else goal.valid_until,
-            fingerprint=(f"situation_outcome:{outcome['id']}" if outcome else
-                         decision.fingerprint if memory_snapshot else ""),
+            fingerprint=fingerprint,
         )
         raised = await self.needs.raise_need(need)
         await self.repo.journal(

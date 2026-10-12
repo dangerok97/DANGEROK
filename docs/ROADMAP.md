@@ -21,10 +21,16 @@ Evidenze e gate in [QA_AUTONOMY_COMPLETION_V162.md](QA_AUTONOMY_COMPLETION_V162.
 **Stato del riscontro:** PR #211 integrata e CI verde, ma il primo collaudo
 con modello reale ha superato solo 2/8 casi. Il seguito corregge il contesto
 delle Memory prima di decisione e ripianificazione, la lettura delle parti
-successive delle note e la chiusura dei passi ormai inutili. I 232 test
-locali del seguito sono PASS; la nuova prova live resta da superare. Il
+successive delle note e la chiusura dei passi ormai inutili. L’aggregato corrente conta
+280 test locali PASS e nove scenari scripted PASS; la nuova prova live
+resta da superare. Il
 rilascio app è preparato e sospeso dopo il rifiuto effettivo del controllo
 di approvazione Railway; non è considerato eseguito.
+
+Il riscontro successivo distingue anche una nota già informativa da un
+bisogno personale ancora aperto e aggiunge un caso già risolto. Il collaudo
+include il passaggio dal risultato completato alla consegna e la destinazione
+dell'avviso: la sola presenza nella Home non dimostra quel passaggio.
 
 **Gate di prodotto ancora distinti:** build nativa firmata e installata,
 ricezione effettiva dell'avviso, background del dispositivo e osservazione
