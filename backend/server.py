@@ -653,6 +653,19 @@ async def startup():
     except Exception:
         logger.exception("Post-call recovery loop failed to start (non-fatal)")
 
+    # WhatsApp inbox is optional and disabled until Meta credentials are supplied.
+    # Inbound messages are acknowledged only after durable Mongo insertion.
+    try:
+        from whatsapp.service import ensure_indexes as ensure_whatsapp_indexes
+        from whatsapp.worker import start_worker as start_whatsapp_worker
+        await ensure_whatsapp_indexes(db)
+        if start_whatsapp_worker(db):
+            logger.info("WhatsApp inbox worker started")
+        else:
+            logger.info("WhatsApp Cloud API not configured; worker inactive")
+    except Exception:
+        logger.exception("WhatsApp inbox startup failed (non-fatal)")
+
     logger.info(
         "ORA backend ready. Modules online: decision_engine, life_graph, "
         "knowledge, auto_link, context_assembler, permissions, connectors, "
