@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from 'react';
 import AnatomyScene from './scene';
 import {DEFAULT_VISIBLE,SYSTEMS,explanation,type Atlas,type Concept,type SystemId,type SceneState} from './anatomy';
 import {italianAtlas} from './ora-locale-it';
+import {systemExplanation} from './ora-anatomy-terminology-it';
 import {anatomicalRegion,STUDY_LABEL,expansion,type StudyRegion,type ModelSide} from './ora-regions';
 import './ora-overlay.css';
 
@@ -15,6 +16,8 @@ const PRESETS:{key:string;label:string;systems:SystemId[]}[]=[
  {key:'vessels',label:'Vasi',systems:['arterial','venous']},
 ];
 const INITIAL_SYSTEMS:SystemId[]=['skeletal','cardiac','respiratory','digestive'];
+const EXPLODED_PAGE_SIZE=14;
+const EXPLODED_PAGE_THRESHOLD=.64;
 const initial=():SceneState=>({
  explode:0,visible:[...INITIAL_SYSTEMS],selected:[],isolate:false,view:'front',rotate:false,reset:0
 });
@@ -39,6 +42,8 @@ export default function OraOverlay(){
  const [systemsOpen,setSystemsOpen]=useState(false);
  const [aboutOpen,setAboutOpen]=useState(false);
  const [chosen,setChosen]=useState<Concept|null>(null);
+ const [piecePage,setPiecePage]=useState(0);
+ const [beforeInspect,setBeforeInspect]=useState<{explode:number;page:number;view:SceneState['view']}|null>(null);
  const params=useMemo(()=>new URLSearchParams(window.location.search),[]);
  const requested=params.get('region')||'full_body';
  const detected:StudyRegion=(requested in STUDY_LABEL?requested:'full_body') as StudyRegion;
@@ -51,6 +56,27 @@ export default function OraOverlay(){
   [atlas,focusRegion,modelSide]);
  const permittedIds=useMemo(()=>new Set(subset?.ids||[]),[subset]);
  const availabilityWarning=!!subset&&!subset.available;
+ // An exploded skull may contain hundreds of tiny mesh fragments. Show at most
+ // fourteen selectable source parts per page so each can be inspected.
+ const exploded=state.explode>=EXPLODED_PAGE_THRESHOLD&&!state.isolate;
+ const eligiblePieces=useMemo(()=>{
+  if(!atlas)return[];
+  const visible=new Set(state.visible);
+  return atlas.parts.filter(p=>permittedIds.has(p.id)&&visible.has(p.system))
+   .sort((a,b)=>{
+    const span=(p:typeof a)=>{
+     const x=p.bounds[1][0]-p.bounds[0][0],y=p.bounds[1][1]-p.bounds[0][1];
+     const z=p.bounds[1][2]-p.bounds[0][2];
+     return Math.max(x,y,z);
+    };
+    return span(b)-span(a)||a.name.localeCompare(b.name,'it');
+   });
+ },[atlas,permittedIds,state.visible]);
+ const pageCount=Math.max(1,Math.ceil(eligiblePieces.length/EXPLODED_PAGE_SIZE));
+ const displayedPage=Math.min(piecePage,pageCount-1);
+ const currentPieces=eligiblePieces.slice(displayedPage*EXPLODED_PAGE_SIZE,(displayedPage+1)*EXPLODED_PAGE_SIZE);
+ const renderedIds=state.isolate?state.selected:
+  exploded?currentPieces.map(p=>p.id):subset?.ids||[];
  useEffect(()=>{
   document.documentElement.lang='it';
   if(Number.isFinite(focusX)){
@@ -91,39 +117,51 @@ export default function OraOverlay(){
    normalized(c.id).includes(term)
   ).slice(0,60);
  },[atlas,query,permittedIds]);
- const choose=(part:Concept)=>{
-  const localElements=part.elements.filter(id=>permittedIds.has(id));
+ const inspect=(part:Concept,onlyId?:string)=>{
+  const localElements=part.elements.filter(id=>permittedIds.has(id)&&(!onlyId||id===onlyId));
   if(!localElements.length)return;
+  if(!state.isolate)setBeforeInspect({explode:state.explode,page:displayedPage,view:state.view});
   setChosen({...part,elements:localElements});
-  setState(s=>({...s,selected:localElements,isolate:false,explode:0,reset:s.reset+1}));
+  // Isolate FIRST, then frame that structure. Do not reassemble the whole skull.
+  setState(s=>({...s,selected:localElements,isolate:true,explode:0,
+    rotate:false,reset:s.reset+1}));
   setSearchOpen(false);setSystemsOpen(false);
  };
+ const choose=(part:Concept)=>inspect(part);
  const choosePart=(id:string)=>{
   const p=byId.get(id);if(!p)return;
-  choose({id:p.conceptId,name:p.name,originalName:p.originalName,elements:[id]});
+  inspect({id:p.conceptId,name:p.name,originalName:p.originalName,elements:[id]},id);
+ };
+ const returnToExplosion=()=>{
+  const previous=beforeInspect;
+  setState(s=>({...s,selected:[],isolate:false,explode:previous?.explode??0,
+    view:previous?.view||s.view,rotate:false,reset:s.reset+1}));
+  if(previous)setPiecePage(previous.page);
+  setChosen(null);setBeforeInspect(null);
  };
  const changePreset=(systems:SystemId[])=>{
   setState(s=>({...s,visible:[...systems],selected:[],isolate:false,explode:0,reset:s.reset+1}));
-  setChosen(null);setSystemsOpen(false);
+  setChosen(null);setBeforeInspect(null);setPiecePage(0);setSystemsOpen(false);
  };
- const setOpening=(percent:number)=>setState(s=>({...s,explode:Math.max(0,Math.min(1,percent/100)),rotate:false}));
+ const setOpening=(percent:number)=>{setPiecePage(0);setState(s=>({...s,explode:Math.max(0,Math.min(1,percent/100)),rotate:false}));};
  const reset=()=>{setState(s=>({...s,visible:visibleFor(focusRegion),selected:[],
   explode:0,isolate:false,view:'front',rotate:false,reset:s.reset+1}));
-  setChosen(null);setQuery('');setSearchOpen(false);setSystemsOpen(false);
+  setChosen(null);setBeforeInspect(null);setPiecePage(0);
+  setQuery('');setSearchOpen(false);setSystemsOpen(false);
  };
  const setRegion=(next:StudyRegion)=>{
   if(next===focusRegion)return;
   setFocusRegion(next);setState(s=>({...s,visible:visibleFor(next),selected:[],
     explode:0,isolate:false,view:'front',rotate:false,reset:s.reset+1}));
-  setChosen(null);setSearchOpen(false);setSystemsOpen(false);setQuery('');
+  setChosen(null);setBeforeInspect(null);setPiecePage(0);setSearchOpen(false);setSystemsOpen(false);setQuery('');
  };
  const changeSide=(side:ModelSide)=>{
   setModelSide(side);setState(s=>({...s,selected:[],explode:0,isolate:false,reset:s.reset+1}));
-  setChosen(null);
+  setChosen(null);setBeforeInspect(null);setPiecePage(0);
  };
  const title=chosen?.name||'Anatomia di riferimento';
  return <main className="ora-overlay" data-testid="ora-bodyparts-inline" aria-label="Anatomia 3D in sovrimpressione, modello didattico">
-   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:subset.ids,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
+   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:renderedIds,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
      onProgress={setProgress} onError={setError}/>}
    <div className="ora-overlay-header">
     <div className="ora-overlay-label"><strong>ORA · {STUDY_LABEL[focusRegion].toLocaleUpperCase('it')} 3D</strong>
