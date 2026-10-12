@@ -1,6 +1,7 @@
-/** Original procedural anatomy volume - actual 3D ellipsoid surface meshes projected to Canvas2D.
- * Scientific fidelity is NOT implied. This is neither CT/MRI nor a person's internal geometry.
- * No shader downloads, WebGL fingerprints, photographs, external assets or AI calls.
+/** Educational Canvas2D-projected meshes: contour lenses, curved nerve/vessel tubes,
+ * and ellipsoids where source geometry is too schematic for contour meshing.
+ * These shapes are NOT measured human anatomy and never describe the scanned person.
+ * No external model, recording, clinical inference, or runtime provider call.
  */
 import type {AnatomyRegion, AtlasLayer} from './anatomyAtlas';
 import type {BodyRegion} from './anatomyFocus';
