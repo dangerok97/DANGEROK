@@ -11,7 +11,8 @@ const once=(body,from,to)=>{
 for(const [from,to] of [
  ['ora-bodyparts3d-inline.tsx','app/ora-overlay.tsx'],
  ['ora-bodyparts3d-inline.css','app/ora-overlay.css'],
- ['ora-bodyparts3d-locale-it.ts','app/ora-locale-it.ts']
+ ['ora-bodyparts3d-locale-it.ts','app/ora-locale-it.ts'],
+ ['ora-bodyparts3d-regions.ts','app/ora-regions.ts']
 ])copyFileSync(join(source,from),join(root,to));
 
 let anatomy=read('app/anatomy.ts');
@@ -19,6 +20,8 @@ anatomy=once(anatomy,'export interface Part {id:string;name:string;conceptId:str
  'export interface Part {id:string;name:string;originalName?:string;conceptId:string;');
 anatomy=once(anatomy,'export interface Concept {id:string;name:string;elements:string[]}',
  'export interface Concept {id:string;name:string;originalName?:string;elements:string[]}');
+anatomy=once(anatomy,'export interface SceneState {inspectorOpen?:boolean;explode:number;',
+ 'export interface SceneState {inspectorOpen?:boolean;allowed?:string[]|null;explode:number;');
 anatomy="import {SISTEMI_IT,SPIEGAZIONI_IT} from './ora-locale-it';\n"+anatomy;
 anatomy+="\nfor(const system of SYSTEMS){const it=SISTEMI_IT[system.id];if(!it)throw Error('Lingua italiana mancante');system.name=it.name;system.description=it.description;}\nObject.assign(EXPLANATIONS,SPIEGAZIONI_IT);\n";
 save('app/anatomy.ts',anatomy);
@@ -30,6 +33,11 @@ scene=once(scene,"new T.WebGLRenderer({antialias:true,alpha:false,powerPreferenc
  "new T.WebGLRenderer({antialias:true,alpha:oraInline,powerPreference:'high-performance'})");
 scene=once(scene,"renderer.setClearColor('#f2f3f3');",
  "renderer.setClearColor(oraInline?'#000000':'#f2f3f3',oraInline?0:1);");
+scene=once(scene,"const changed=lastState?.visible!==s.visible||lastState?.selected!==s.selected||lastState?.isolate!==s.isolate;","const changed=lastState?.visible!==s.visible||lastState?.selected!==s.selected||lastState?.isolate!==s.isolate||lastState?.allowed!==s.allowed;");
+scene=once(scene,"const visible=new Set(s.visible),selection=new Set(s.selected);","const visible=new Set(s.visible),selection=new Set(s.selected),permitted=s.allowed?new Set(s.allowed):null;");
+scene=once(scene,"const visibleParts=atlas.parts.filter(p=>s.isolate?selection.has(p.id):visible.has(p.system)||selection.has(p.id));","const visibleParts=atlas.parts.filter(p=>(!permitted||permitted.has(p.id))&&(s.isolate?selection.has(p.id):visible.has(p.system)||selection.has(p.id)));");
+scene=once(scene,"(s.isolate?selected:visible.has(p.system)||selected)?1:0","(!permitted||permitted.has(p.id))&&(s.isolate?selected:visible.has(p.system)||selected)?1:0");
+scene=once(scene,"const fit=(view:string,extent=0)=>{","const fit=(view:string,extent=0)=>{\n   const selectedRegion=latest.current.allowed;\n   if(selectedRegion?.length&&extent<.4&&!latest.current.isolate){\n    const regionIds=new Set(selectedRegion),area=new T.Box3();\n    const shownSystems=new Set(latest.current.visible);\n    atlas.parts.forEach((part,i)=>{if(regionIds.has(part.id)&&shownSystems.has(part.system))area.union(bounds[i]);});\n    if(area.isEmpty())atlas.parts.forEach((part,i)=>{if(regionIds.has(part.id))area.union(bounds[i]);});\n    if(!area.isEmpty()){\n     const c=area.getCenter(new T.Vector3()),dim=area.getSize(new T.Vector3());\n     const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);\n     const useW=Math.max(125,w*(w<670?.75:.84)),useH=Math.max(140,h*(h<700?.50:.61));\n     const fov=2*Math.tan(T.MathUtils.degToRad(camera.fov/2));\n     const distance=Math.max(.12,dim.y*h/(useH*fov),dim.x*w/(useW*fov*camera.aspect),dim.z*2.0)*1.30;\n     const direction=view==='back'?new T.Vector3(0,.02,-1):\n       view==='side'?new T.Vector3(1,.02,0):\n       view==='three-quarter'?new T.Vector3(.3,.03,1).normalize():\n       new T.Vector3(0,.02,1);\n     camera.clearViewOffset();controls.target.copy(c);\n     camera.position.copy(c).addScaledVector(direction,distance);\n     controls.update();dirty=true;return;\n    }\n   }");
 scene=once(scene,'ground.visible=platform.visible=ring.visible=innerRing.visible=amount<.5&&!s.isolate;',
  'ground.visible=platform.visible=ring.visible=innerRing.visible=amount<.5&&!s.isolate&&!oraInline;');
 scene=scene.replace('Interactive human anatomy. Drag to orbit, pinch or scroll to zoom, and tap a structure to inspect it.',
