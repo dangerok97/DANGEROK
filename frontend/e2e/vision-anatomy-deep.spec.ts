@@ -95,7 +95,13 @@ test('validated BodyParts3D geometry opens by default, stays sandboxed, and fall
  await launchAnatomy(page);
  const frame=page.getByTestId('vision-bp3d-frame');
  await expect(frame).toBeVisible();
- await expect(frame).toHaveAttribute('sandbox','allow-scripts');
+ await expect(frame).toHaveAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');
+ expect((await frame.getAttribute('sandbox'))).not.toContain('allow-same-origin');
+ const fullScreen=page.getByTestId('vision-bp3d-fullscreen');
+ await expect(fullScreen).toHaveAttribute('href','/bodyparts3d/index.html');
+ await expect(fullScreen).toHaveAttribute('target','_blank');
+ await expect(fullScreen).toHaveAttribute('rel','noopener noreferrer');
+ await expect(fullScreen).toBeVisible();
  await expect(page.getByTestId('vision-bp3d-toggle')).toHaveAttribute('aria-pressed','true');
  await expect(page.getByText('2.234 mesh')).toBeVisible();
  await page.getByTestId('vision-bp3d-fallback').click();
