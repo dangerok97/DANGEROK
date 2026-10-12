@@ -784,3 +784,28 @@ async def test_existing_user_database_is_not_seeded():
         await gate.seed_case(db, "completed_result")
     assert await db.memories.count_documents({}) == 0
     assert await db.eval_guards.count_documents({}) == 0
+
+@pytest.mark.asyncio
+async def test_live_case_progress_log_bounds_failure_reason(monkeypatch, capsys):
+    """Railway's per-line limit must not hide the reason for a failed case."""
+    raw_reason = "HOME_RECOVERY_FAILURE:" + "!" * 300
+
+    async def failed_case(_scenario, *, mode, probe):
+        raise gate.EvaluationFailure(raw_reason)
+
+    async def failure_snapshot(_probe):
+        return {}
+
+    monkeypatch.setattr(gate, "run_case", failed_case)
+    monkeypatch.setattr(gate, "failure_state", failure_snapshot)
+    exit_code = await gate.main(mode="scripted", scenario="home_write_retry")
+    assert exit_code == 1
+
+    case_line = next(line for line in capsys.readouterr().out.splitlines()
+                     if line.startswith("ORA_AUTONOMY_COMPLETION_CASE "))
+    record = json.loads(case_line.split(" ", 1)[1])
+    assert record["scenario"] == "home_write_retry"
+    assert record["passed"] is False
+    assert record["failure_code"] == "HOME_RECOVERY_FAILURE:" + "_" * (160 - 22)
+    assert len(record["failure_code"]) == 160
+    assert raw_reason not in case_line
