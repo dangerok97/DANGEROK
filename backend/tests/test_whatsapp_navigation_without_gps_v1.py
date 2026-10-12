@@ -233,3 +233,95 @@ async def test_ai_core_whatsapp_recovers_if_model_asks_device_gps_first(monkeypa
     assert "destination=Colosseo" in result.navigation[0]["url"]
     assert "Colosseo" in result.ora_text
     assert "awaiting_client" != get_ai_state(sess).get("pending_turn", {}).get("status")
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_does_not_invent_walking_when_user_only_says_portami(monkeypatch):
+    from mongomock_motor import AsyncMongoMockClient
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: PublicPlaces())
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    db = AsyncMongoMockClient().wa_transport_default
+    observed = await caps.open_navigation(
+        {"destination": "Colosseo", "mode": "walking"},
+        {"db": db, "user_id": "owner", "platform": "whatsapp",
+         "user_message": "Portami al Colosseo"},
+    )
+    url = observed.payload["url"]
+    params = parse_qs(urlparse(url).query)
+    assert params["travelmode"] == ["driving"], url
+    assert params["destination"] == ["Colosseo"]
+    assert "origin" not in params
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("utterance", "expected"), [
+    ("Portami al Colosseo a piedi", "walking"),
+    ("Portami al Colosseo in bici", "bicycling"),
+    ("Portami al Colosseo con i mezzi pubblici", "transit"),
+    ("Portami al Colosseo in macchina", "driving"),
+    ("Portami a piedi al Colosseo", "walking"),
+])
+async def test_whatsapp_honors_explicit_travel_mode_even_if_ai_disagrees(
+    monkeypatch, utterance, expected
+):
+    from mongomock_motor import AsyncMongoMockClient
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: PublicPlaces())
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    db = AsyncMongoMockClient()[f"wa_mode_{expected}"]
+    # This checks tool-level evidence validation, not LLM guesswork.
+    observed = await caps.open_navigation(
+        {"destination": "Colosseo", "mode": "walking" if expected == "driving" else "driving"},
+        {"db": db, "user_id": "owner", "platform": "whatsapp",
+         "user_message": utterance},
+    )
+    params = parse_qs(urlparse(observed.payload["url"]).query)
+    assert params["travelmode"] == [expected]
+
+
+@pytest.mark.asyncio
+async def test_saved_travel_preference_is_honored_for_underspecified_whatsapp_request(monkeypatch):
+    from mongomock_motor import AsyncMongoMockClient
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: PublicPlaces())
+    monkeypatch.setattr(routing, "configured_provider", lambda: "mapbox")
+    db = AsyncMongoMockClient().wa_travel_preference
+    await db.user_settings.insert_one({
+        "user_id": "owner", "navigation_mode": "cycling",
+    })
+    observed = await caps.open_navigation(
+        {"destination": "Colosseo", "mode": "walking"},
+        {"db": db, "user_id": "owner", "platform": "whatsapp",
+         "user_message": "Portami al Colosseo"},
+    )
+    assert parse_qs(urlparse(observed.payload["url"]).query)["travelmode"] == ["bicycling"]
+    other = await caps.open_navigation(
+        {"destination": "Colosseo", "mode": "walking"},
+        {"db": db, "user_id": "other", "platform": "whatsapp",
+         "user_message": "Portami al Colosseo"},
+    )
+    assert parse_qs(urlparse(other.payload["url"]).query)["travelmode"] == ["driving"]
+
+
+@pytest.mark.asyncio
+async def test_web_channel_keeps_its_existing_travel_mode_semantics(monkeypatch):
+    from mongomock_motor import AsyncMongoMockClient
+
+    monkeypatch.setattr(caps, "_service", lambda runtime: PublicPlaces())
+    monkeypatch.setattr(routing, "configured_provider", lambda: None)
+    db = AsyncMongoMockClient().web_travel_regression
+    observed = await caps.open_navigation(
+        {"destination": "Colosseo", "mode": "walking"},
+        {"db": db, "user_id": "owner", "platform": "web",
+         "user_message": "Portami al Colosseo"},
+    )
+    assert parse_qs(urlparse(observed.payload["url"]).query)["travelmode"] == ["walking"]
+
+
+def test_direct_navigation_fallback_does_not_append_travel_mode_to_place():
+    assert loop._navigation_destination("Portami al Colosseo") == "Colosseo"
+    assert loop._navigation_destination("Portami al Colosseo a piedi") == "Colosseo"
+    assert loop._navigation_destination("Portami al Colosseo in auto") == "Colosseo"
+    assert loop._navigation_destination("Portami a piedi al Colosseo") == "Colosseo"
+    assert loop._navigation_destination("Portami in auto al Colosseo") == "Colosseo"
