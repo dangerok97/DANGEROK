@@ -2,7 +2,7 @@ import {ANATOMY_DETAIL} from './anatomyDetail';
 /** Human anatomy atlas: original, schematic illustrations, never an image-derived diagnosis.
  * The body template is educational, not the photographed person's internal anatomy.
  */
-export type AtlasLayer = 'skin'|'muscles'|'nerves'|'organs'|'bones'|'reproductive';
+export type AtlasLayer = 'skin'|'muscles'|'nerves'|'vessels'|'organs'|'bones'|'reproductive';
 export type AnatomyVariant = 'neutral'|'female'|'male';
 export type AnatomyRegion = {
  id:string; label:string; detail:string; d:string; fill?:string; stroke?:string;
@@ -11,6 +11,7 @@ export const LAYERS:{key:AtlasLayer;label:string; color:string}[]=[
  {key:'skin',label:'Pelle',color:'#9be7f3'},
  {key:'muscles',label:'Muscoli',color:'#ef9277'},
  {key:'nerves',label:'Nervi',color:'#f6c97e'},
+ {key:'vessels',label:'Circolazione',color:'#ec728b'},
  {key:'organs',label:'Organi',color:'#dba3f6'},
  {key:'bones',label:'Ossa',color:'#d7ecf2'},
  {key:'reproductive',label:'Apparato riproduttivo',color:'#9fd9cf'}
@@ -39,6 +40,16 @@ const anatomy:Record<AtlasLayer,AnatomyRegion[]>={
  region('brachial','Plesso brachiale','Rete di nervi che porta segnali sensitivi e motori a spalla e arto superiore.','M154 126 Q124 136 107 165 L99 246 76 359 M166 126 Q196 136 213 165 L221 246 244 359'),
  region('radial','Nervo radiale (schema)','Partecipa al controllo di muscoli estensori del braccio e dell’avambraccio.','M115 166 Q95 218 102 273 L74 383 M205 166 Q225 218 218 273 L246 383'),
  region('sciatic','Nervo sciatico (schema)','Importante nervo dell’arto inferiore, si origina dal plesso sacrale e raggiunge i rami della gamba.','M150 302 Q129 340 128 410 L137 529 M170 302 Q191 340 192 410 L183 529')
+ ],
+ vessels:[
+ region('aorta','Aorta e biforcazione iliaca','Grande arteria che distribuisce il sangue ossigenato alla circolazione sistemica. Tracciato anteriore convenzionale, non individuale.','M161 185 Q173 207 164 224 L164 305 Q147 326 132 345 M164 305 Q181 325 190 345'),
+ region('carotid_arteries','Arterie carotidi','Irrorano testa e collo; i principali rami ascendono ai lati della trachea. Percorso illustrativo.','M159 151 Q149 132 149 112 L146 84 M162 151 Q172 132 172 112 L175 84'),
+ region('vena_cava','Vene cave','Le vene cave superiore e inferiore riportano sangue venoso al cuore. Schema della posizione generale.','M175 117 Q174 146 173 173 L167 187 M170 301 Q173 260 172 224 L169 208'),
+ region('pulmonary_vessels','Vasi polmonari','Le arterie polmonari portano il sangue ai polmoni e le vene polmonari lo riportano al cuore. Il disegno sintetizza i percorsi principali.','M161 183 Q142 168 131 181 M163 183 Q179 167 192 181 M151 203 Q141 207 137 213 M173 203 Q186 207 190 213'),
+ region('subclavian_arteries','Arterie succlavie e brachiali','Irrorano gli arti superiori attraverso rami principali. La traiettoria è indicativa, non rilevata dalla fotocamera.','M159 148 Q124 139 107 177 Q102 228 92 283 L72 385 M163 148 Q196 139 213 177 Q218 228 228 283 L248 385'),
+ region('renal_vessels','Vasi renali','Le arterie renali portano sangue ai reni e le vene renali lo drenano verso la vena cava.','M163 255 Q143 249 129 263 M163 255 Q186 249 194 263'),
+ region('portal_vein','Vena porta epatica','Trasporta al fegato sangue proveniente da diversi organi addominali. Schema semplificato.','M155 279 Q163 257 179 247 M155 279 Q145 274 141 260'),
+ region('femoral_arteries','Arterie femorali','Principali vie arteriose della coscia; il percorso illustrato prosegue schematicamente verso ginocchio e gamba.','M150 328 Q131 346 136 406 L137 454 Q129 491 138 546 M170 328 Q190 346 184 406 L183 454 Q191 491 182 546')
  ],
  organs:[
  region('lungs','Polmoni','Consentono gli scambi tra ossigeno e anidride carbonica. Questo è un posizionamento schematico.','M130 153 Q143 137 152 161 L150 230 Q119 231 122 184 Z M168 161 Q181 137 194 153 L198 184 Q201 231 170 230 Z'),
