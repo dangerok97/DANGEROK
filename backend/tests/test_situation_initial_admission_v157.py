@@ -175,7 +175,7 @@ async def test_changed_situation_rechecks_early_without_moving_old_checkpoint_or
     handled = await advance_wake(db, AmbientWake.model_validate(early))
     assert handled.result == "source_changed"
     work.assert_awaited_once()
-    assert work.await_args.args[1:] == (OWNER, gid)
+    assert work.await_args.args[:2] == (OWNER, gid)
     assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
     assert await db.agent_goals.count_documents({"owner_id": "foreign-user"}) == 0
 
