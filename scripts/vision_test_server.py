@@ -43,6 +43,16 @@ async def fixture_recognition(system, prompt, image=None):
     box = [146,406,854,578]
     with Image.open(io.BytesIO(image)) as frame:
         frame = frame.convert("RGB"); frame.thumbnail((160,160))
+        # Magenta region marker belongs ONLY to this synthetic camera fixture.
+        # Production recognition always goes to the real visual provider.
+        r,g,b = frame.getpixel((frame.width//2,frame.height//2))
+        if r > 180 and g < 95 and b > 75:
+            region = "full_body" if b > 165 else "face" if b > 120 else "hand"
+            await asyncio.sleep(.18)
+            return {"recognized":True,"canonical_key":"human_anatomy",
+                    "object_name":"Zona corporea simulata nel test",
+                    "confidence":"high","bbox":[90,220,920,800],
+                    "body_region":region,"safe_to_generate":False,"uncertainty":""}
         points = [(x,y) for y in range(frame.height) for x in range(frame.width)
                   if (lambda rgb: rgb[0]<85 and rgb[1]<110 and rgb[2]<125)(frame.getpixel((x,y)))]
         if points:
