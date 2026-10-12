@@ -19,6 +19,8 @@ log = logging.getLogger("ora.vision.provider")
 # This variation responded in the production trace; keep another alias as fallback.
 DEFAULT_MODELS = "gemini-flash-lite-latest,gemini-flash-latest"
 _BACKOFF: dict[tuple[str, str], tuple[float, str]] = {}
+# Billing failures are credential-scoped; model 404 and 429 are route-scoped.
+# All state is bounded and held in memory; no credentials or photos are stored.
 _PREFERRED: tuple[str, str] | None = None
 
 MESSAGES = {
@@ -119,16 +121,21 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
     try:
         for model, key in candidates[:4]:
             route = _route(model, key)
-            if route in _BACKOFF:
-                failures.append(_BACKOFF[route][1]); continue
+            key_block = ("*", route[1])
+            blocked = _BACKOFF.get(key_block) or _BACKOFF.get(route)
+            if blocked:
+                failures.append(blocked[1]); continue
             try:
                 response = await session.post(
                     "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
                     headers={"x-goog-api-key": key}, json=payload)
                 if response.status_code != 200:
                     code = _status_code(response.status_code)
-                    seconds = 120 if code in ("provider_configuration", "provider_quota") else 5
-                    _BACKOFF[route] = (time.monotonic() + seconds, code)
+                    seconds = 600 if response.status_code == 402 else 90 if response.status_code == 429 else 300 if code == "provider_configuration" else 15
+                    blocked_route = ("*", route[1]) if response.status_code in (401, 402) else route
+                    _BACKOFF[blocked_route] = (time.monotonic() + seconds, code)
+                    if len(_BACKOFF) > 40:
+                        _BACKOFF.clear()
                     failures.append(code)
                     log.warning("vision_provider status=%s model=%s code=%s", response.status_code, model, code)
                     continue
@@ -156,7 +163,7 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
     finally:
         if owned:
             await session.aclose()
-    for code in ("provider_invalid_response", "provider_timeout", "provider_quota", "provider_unavailable", "provider_configuration"):
+    for code in ("provider_quota", "provider_configuration", "provider_invalid_response", "provider_timeout", "provider_unavailable"):
         if code in failures:
             raise VisionProviderError(code)
     raise VisionProviderError("provider_unavailable")
