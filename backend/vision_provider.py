@@ -19,6 +19,8 @@ log = logging.getLogger("ora.vision.provider")
 # This variation responded in the production trace; keep another alias as fallback.
 DEFAULT_MODELS = "gemini-flash-lite-latest,gemini-flash-latest"
 _BACKOFF: dict[tuple[str, str], tuple[float, str]] = {}
+# Billing failures are credential-scoped; model 404 and 429 are route-scoped.
+# All state is bounded and held in memory; no credentials or photos are stored.
 _PREFERRED: tuple[str, str] | None = None
 
 MESSAGES = {
@@ -88,7 +90,7 @@ def _status_code(status: int) -> str:
     return "provider_unavailable"
 
 
-async def ask_json(system: str, prompt: str, image: bytes | None = None,
+async def ask_gemini_json(system: str, prompt: str, image: bytes | None = None,
                    *, client: httpx.AsyncClient | None = None) -> dict:
     """At most four provider attempts; caller owns the overall phase deadline."""
     global _PREFERRED
@@ -119,16 +121,21 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
     try:
         for model, key in candidates[:4]:
             route = _route(model, key)
-            if route in _BACKOFF:
-                failures.append(_BACKOFF[route][1]); continue
+            key_block = ("*", route[1])
+            blocked = _BACKOFF.get(key_block) or _BACKOFF.get(route)
+            if blocked:
+                failures.append(blocked[1]); continue
             try:
                 response = await session.post(
                     "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
                     headers={"x-goog-api-key": key}, json=payload)
                 if response.status_code != 200:
                     code = _status_code(response.status_code)
-                    seconds = 120 if code in ("provider_configuration", "provider_quota") else 5
-                    _BACKOFF[route] = (time.monotonic() + seconds, code)
+                    seconds = 600 if response.status_code == 402 else 90 if response.status_code == 429 else 300 if code == "provider_configuration" else 15
+                    blocked_route = ("*", route[1]) if response.status_code in (401, 402) else route
+                    _BACKOFF[blocked_route] = (time.monotonic() + seconds, code)
+                    if len(_BACKOFF) > 40:
+                        _BACKOFF.clear()
                     failures.append(code)
                     log.warning("vision_provider status=%s model=%s code=%s", response.status_code, model, code)
                     continue
@@ -156,7 +163,42 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
     finally:
         if owned:
             await session.aclose()
-    for code in ("provider_invalid_response", "provider_timeout", "provider_quota", "provider_unavailable", "provider_configuration"):
+    for code in ("provider_quota", "provider_configuration", "provider_invalid_response", "provider_timeout", "provider_unavailable"):
         if code in failures:
             raise VisionProviderError(code)
     raise VisionProviderError("provider_unavailable")
+
+# A second provider is tried only after all healthy Gemini routes fail.
+# Fallback state never contains an image, key, prompt, name or user identifier.
+_FALLBACK_COOLDOWN: dict[str, tuple[float, str]] = {}
+
+
+async def ask_json(system: str, prompt: str, image: bytes | None = None,
+                   *, client: httpx.AsyncClient | None = None) -> dict:
+    from vision_openai_fallback import ask_openai, configured
+    gemini_error = None
+    if any(os.environ.get(k, "").strip() for k in ("GEMINI_API_KEY", "GEMINI2_API_KEY")):
+        try:
+            return await ask_gemini_json(system, prompt, image, client=client)
+        except VisionProviderError as exc:
+            gemini_error = exc
+    if not configured():
+        raise gemini_error or VisionProviderError("provider_configuration")
+    key_hash = hashlib.sha256(os.environ["OPENAI_API_KEY"].strip().encode()).hexdigest()[:16]
+    block = _FALLBACK_COOLDOWN.get(key_hash)
+    if block and block[0] > time.monotonic():
+        raise VisionProviderError(block[1])
+    try:
+        # The image is sent only on explicit foreground scan and no data is stored.
+        # Do not reuse a mocked Gemini client for the OpenAI domain in production.
+        result = await ask_openai(system, prompt, image)
+        _FALLBACK_COOLDOWN.pop(key_hash, None)
+        log.info("vision_provider fallback=success provider=openai")
+        return result
+    except VisionProviderError as exc:
+        seconds = 300 if exc.code in ("provider_quota", "provider_configuration") else 15
+        _FALLBACK_COOLDOWN[key_hash] = (time.monotonic() + seconds, exc.code)
+        if len(_FALLBACK_COOLDOWN) > 24:
+            _FALLBACK_COOLDOWN.clear()
+        log.warning("vision_provider fallback=failure provider=openai code=%s", exc.code)
+        raise

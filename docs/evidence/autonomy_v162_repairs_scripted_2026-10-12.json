@@ -1,0 +1,3113 @@
+{
+  "version": "autonomy-completion-v162",
+  "mode": "scripted",
+  "status": "passed",
+  "passed": true,
+  "real_model_executed": false,
+  "cases": [
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "completed_result",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Una differenza potrebbe incidere sulla scelta, senza autorizzare azioni",
+          "objective": "Controllare la nota interna e preparare un confronto informativo",
+          "desired_outcome": "Confronto scritto di 12 mesi con calcolo differenza, limiti e nessun cambio piano",
+          "model_attempts_after": 0,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "plan_summary": "Leggere la nota già registrata, poi scrivere il confronto",
+          "expected_outcome": "Bozza informativa con limiti e nessuna azione sul contratto",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere il promemoria interno e le sue condizioni",
+              "expected_result": "Condizioni della nota recuperate con provenienza"
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un confronto fondato sulle condizioni della nota",
+              "expected_result": "180 euro contro 120 euro, 60 euro di differenza e limiti"
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_95a3bc4e88254ceb",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_fed6bc98964941ec",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_fed6bc98964941ec",
+          "model_attempts_after": 0,
+          "sequence": 3
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_95a3bc4e88254ceb",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_fed6bc98964941ec",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_fed6bc98964941ec",
+          "model_attempts_after": 0,
+          "sequence": 4
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_387d346869a543d4"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_69c7aec4e003415a",
+            "step_id": "stp_fed6bc98964941ec"
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_387d346869a543d4"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 0,
+          "sequence": 5
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_387d346869a543d4"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_69c7aec4e003415a",
+            "step_id": "stp_fed6bc98964941ec",
+            "draft_kind": "text",
+            "draft": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+            "draft_characters": 453,
+            "draft_truncated": false
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_387d346869a543d4"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Confronto controllato sui dati della nota sintetica, senza conferma esterna.",
+          "claim_review_kind": "array",
+          "claim_review_count": 4,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Su dodici mesi il mensile costa 180 euro e l'annuale 120, differenza 60.",
+              "premises": "Stesso orizzonte di dodici mesi, con servizio mantenuto per l'intero periodo.",
+              "support": "derived",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_387d346869a543d4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_12ceb06c5df21ebc_0_277",
+                "p_12ceb06c5df21ebc_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_12ceb06c5df21ebc_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_387d346869a543d4",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_12ceb06c5df21ebc_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_387d346869a543d4",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "L'annuale richiede pagamento anticipato e non rimborsa in caso di disdetta anticipata.",
+              "premises": "Le due condizioni si riferiscono solo alla formula annuale.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_387d346869a543d4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_12ceb06c5df21ebc_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_12ceb06c5df21ebc_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_387d346869a543d4",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Capacità e assistenza sono uguali secondo la nota.",
+              "premises": "La stessa dotazione è dichiarata per entrambe le formule.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_387d346869a543d4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_12ceb06c5df21ebc_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_12ceb06c5df21ebc_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_387d346869a543d4",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Le condizioni provengono dalla nota e non sono confermate dal fornitore.",
+              "premises": "La qualifica si applica a tutti i dati confrontati.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_387d346869a543d4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_12ceb06c5df21ebc_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_12ceb06c5df21ebc_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_387d346869a543d4",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 0,
+          "sequence": 6
+        },
+        {
+          "stage": "verify_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "La bozza di confronto esiste e cita i dati interni effettivamente letti.",
+          "what_is_missing": "",
+          "model_attempts_after": 0,
+          "sequence": 7
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_0bedab02a5d4bc81",
+          "agent_review_revision": "0d3128f6be8840c09d59fd7202b3360f",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "passed"
+        },
+        "semantic": {
+          "status": "passed",
+          "review": {
+            "passed": true,
+            "reasons": [],
+            "status": "bounded_check",
+            "human_review_still_required": true
+          }
+        },
+        "home": {
+          "status": "passed"
+        },
+        "replay": {
+          "status": "passed"
+        },
+        "owner_isolation": {
+          "status": "passed"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_95a3bc4e88254ceb",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_fed6bc98964941ec",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "completed",
+        "read_reused": true,
+        "corrected_source_reread": false,
+        "prepared": true,
+        "prepared_text": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 453,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 2,
+          "agent_updates": 1,
+          "ambient_activity": 3,
+          "agent_needs": 1,
+          "agent_action_attempts": 0
+        }
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "planning_outage",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Una differenza potrebbe incidere sulla scelta, senza autorizzare azioni",
+          "objective": "Controllare la nota interna e preparare un confronto informativo",
+          "desired_outcome": "Confronto scritto di 12 mesi con calcolo differenza, limiti e nessun cambio piano",
+          "model_attempts_after": 0,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "none",
+          "model_attempts_after": 0,
+          "sequence": 2
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "plan_summary": "Leggere la nota già registrata, poi scrivere il confronto",
+          "expected_outcome": "Bozza informativa con limiti e nessuna azione sul contratto",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere il promemoria interno e le sue condizioni",
+              "expected_result": "Condizioni della nota recuperate con provenienza"
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un confronto fondato sulle condizioni della nota",
+              "expected_result": "180 euro contro 120 euro, 60 euro di differenza e limiti"
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 3
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_f6b32b2d151d41dc",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_b390d443720e4101",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_b390d443720e4101",
+          "model_attempts_after": 0,
+          "sequence": 4
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_f6b32b2d151d41dc",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_b390d443720e4101",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_b390d443720e4101",
+          "model_attempts_after": 0,
+          "sequence": 5
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_ad950e0acce04720"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_ec15293ae5ab460b",
+            "step_id": "stp_b390d443720e4101"
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_ad950e0acce04720"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 0,
+          "sequence": 6
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_ad950e0acce04720"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_ec15293ae5ab460b",
+            "step_id": "stp_b390d443720e4101",
+            "draft_kind": "text",
+            "draft": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+            "draft_characters": 453,
+            "draft_truncated": false
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_ad950e0acce04720"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Confronto controllato sui dati della nota sintetica, senza conferma esterna.",
+          "claim_review_kind": "array",
+          "claim_review_count": 4,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Su dodici mesi il mensile costa 180 euro e l'annuale 120, differenza 60.",
+              "premises": "Stesso orizzonte di dodici mesi, con servizio mantenuto per l'intero periodo.",
+              "support": "derived",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_ad950e0acce04720"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_be50a8d839aa9be3_0_277",
+                "p_be50a8d839aa9be3_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_be50a8d839aa9be3_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_ad950e0acce04720",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_be50a8d839aa9be3_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_ad950e0acce04720",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "L'annuale richiede pagamento anticipato e non rimborsa in caso di disdetta anticipata.",
+              "premises": "Le due condizioni si riferiscono solo alla formula annuale.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_ad950e0acce04720"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_be50a8d839aa9be3_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_be50a8d839aa9be3_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_ad950e0acce04720",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Capacità e assistenza sono uguali secondo la nota.",
+              "premises": "La stessa dotazione è dichiarata per entrambe le formule.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_ad950e0acce04720"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_be50a8d839aa9be3_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_be50a8d839aa9be3_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_ad950e0acce04720",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Le condizioni provengono dalla nota e non sono confermate dal fornitore.",
+              "premises": "La qualifica si applica a tutti i dati confrontati.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_ad950e0acce04720"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_be50a8d839aa9be3_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_be50a8d839aa9be3_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_ad950e0acce04720",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 0,
+          "sequence": 7
+        },
+        {
+          "stage": "verify_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "La bozza di confronto esiste e cita i dati interni effettivamente letti.",
+          "what_is_missing": "",
+          "model_attempts_after": 0,
+          "sequence": 8
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_24b5ad41fe77fdeb",
+          "agent_review_revision": "9cf9ea3ea4104be78a97e00d74057b9f",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "passed"
+        },
+        "semantic": {
+          "status": "passed",
+          "review": {
+            "passed": true,
+            "reasons": [],
+            "status": "bounded_check",
+            "human_review_still_required": true
+          }
+        },
+        "home": {
+          "status": "passed"
+        },
+        "replay": {
+          "status": "passed"
+        },
+        "owner_isolation": {
+          "status": "passed"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_f6b32b2d151d41dc",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_b390d443720e4101",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [
+        "planning_unavailable_once"
+      ],
+      "external_effects": 0,
+      "result": {
+        "state": "completed",
+        "read_reused": true,
+        "corrected_source_reread": false,
+        "prepared": true,
+        "prepared_text": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 453,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 2,
+          "agent_updates": 1,
+          "ambient_activity": 3,
+          "agent_needs": 1,
+          "agent_action_attempts": 0
+        }
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "home_write_retry",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Una differenza potrebbe incidere sulla scelta, senza autorizzare azioni",
+          "objective": "Controllare la nota interna e preparare un confronto informativo",
+          "desired_outcome": "Confronto scritto di 12 mesi con calcolo differenza, limiti e nessun cambio piano",
+          "model_attempts_after": 0,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "plan_summary": "Leggere la nota già registrata, poi scrivere il confronto",
+          "expected_outcome": "Bozza informativa con limiti e nessuna azione sul contratto",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere il promemoria interno e le sue condizioni",
+              "expected_result": "Condizioni della nota recuperate con provenienza"
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un confronto fondato sulle condizioni della nota",
+              "expected_result": "180 euro contro 120 euro, 60 euro di differenza e limiti"
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_f46ff832d3a8464c",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_85acf9a4861244ec",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_85acf9a4861244ec",
+          "model_attempts_after": 0,
+          "sequence": 3
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_f46ff832d3a8464c",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_85acf9a4861244ec",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_85acf9a4861244ec",
+          "model_attempts_after": 0,
+          "sequence": 4
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_eb415f3cb81147a9"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_0a3811278fa64148",
+            "step_id": "stp_85acf9a4861244ec"
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_eb415f3cb81147a9"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 0,
+          "sequence": 5
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_eb415f3cb81147a9"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_0a3811278fa64148",
+            "step_id": "stp_85acf9a4861244ec",
+            "draft_kind": "text",
+            "draft": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+            "draft_characters": 453,
+            "draft_truncated": false
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_eb415f3cb81147a9"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Confronto controllato sui dati della nota sintetica, senza conferma esterna.",
+          "claim_review_kind": "array",
+          "claim_review_count": 4,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Su dodici mesi il mensile costa 180 euro e l'annuale 120, differenza 60.",
+              "premises": "Stesso orizzonte di dodici mesi, con servizio mantenuto per l'intero periodo.",
+              "support": "derived",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_eb415f3cb81147a9"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b58f2ff17ba9e7eb_0_277",
+                "p_b58f2ff17ba9e7eb_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b58f2ff17ba9e7eb_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_eb415f3cb81147a9",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b58f2ff17ba9e7eb_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_eb415f3cb81147a9",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "L'annuale richiede pagamento anticipato e non rimborsa in caso di disdetta anticipata.",
+              "premises": "Le due condizioni si riferiscono solo alla formula annuale.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_eb415f3cb81147a9"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b58f2ff17ba9e7eb_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b58f2ff17ba9e7eb_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_eb415f3cb81147a9",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Capacità e assistenza sono uguali secondo la nota.",
+              "premises": "La stessa dotazione è dichiarata per entrambe le formule.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_eb415f3cb81147a9"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b58f2ff17ba9e7eb_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b58f2ff17ba9e7eb_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_eb415f3cb81147a9",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Le condizioni provengono dalla nota e non sono confermate dal fornitore.",
+              "premises": "La qualifica si applica a tutti i dati confrontati.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_eb415f3cb81147a9"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b58f2ff17ba9e7eb_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b58f2ff17ba9e7eb_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_eb415f3cb81147a9",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 0,
+          "sequence": 6
+        },
+        {
+          "stage": "verify_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "La bozza di confronto esiste e cita i dati interni effettivamente letti.",
+          "what_is_missing": "",
+          "model_attempts_after": 0,
+          "sequence": 7
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_784f07bb69870ffa",
+          "agent_review_revision": "52a2748799194561b7146f6867c916dd",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "passed"
+        },
+        "semantic": {
+          "status": "passed",
+          "review": {
+            "passed": true,
+            "reasons": [],
+            "status": "bounded_check",
+            "human_review_still_required": true
+          }
+        },
+        "home": {
+          "status": "passed"
+        },
+        "replay": {
+          "status": "passed"
+        },
+        "owner_isolation": {
+          "status": "passed"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_f46ff832d3a8464c",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_85acf9a4861244ec",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [
+        "home_write_failed_once"
+      ],
+      "external_effects": 0,
+      "result": {
+        "state": "completed",
+        "read_reused": true,
+        "corrected_source_reread": false,
+        "prepared": true,
+        "prepared_text": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 453,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 2,
+          "agent_updates": 1,
+          "ambient_activity": 3,
+          "agent_needs": 1,
+          "agent_action_attempts": 0
+        }
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "source_revoked",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Una differenza potrebbe incidere sulla scelta, senza autorizzare azioni",
+          "objective": "Controllare la nota interna e preparare un confronto informativo",
+          "desired_outcome": "Confronto scritto di 12 mesi con calcolo differenza, limiti e nessun cambio piano",
+          "model_attempts_after": 0,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "plan_summary": "Leggere la nota già registrata, poi scrivere il confronto",
+          "expected_outcome": "Bozza informativa con limiti e nessuna azione sul contratto",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere il promemoria interno e le sue condizioni",
+              "expected_result": "Condizioni della nota recuperate con provenienza"
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un confronto fondato sulle condizioni della nota",
+              "expected_result": "180 euro contro 120 euro, 60 euro di differenza e limiti"
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_3263b927680748e3",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_f72a547bb905427d",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_f72a547bb905427d",
+          "model_attempts_after": 0,
+          "sequence": 3
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_6f2f15d141477956",
+          "agent_review_revision": "7d31dd3318184b1e982a5ea94e51599c",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_3263b927680748e3",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "cancelled",
+        "stopped_on_source_revocation": true,
+        "replay_idempotent": true
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "memory_revoked",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Una differenza potrebbe incidere sulla scelta, senza autorizzare azioni",
+          "objective": "Controllare la nota interna e preparare un confronto informativo",
+          "desired_outcome": "Confronto scritto di 12 mesi con calcolo differenza, limiti e nessun cambio piano",
+          "model_attempts_after": 0,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "plan_summary": "Leggere la nota già registrata, poi scrivere il confronto",
+          "expected_outcome": "Bozza informativa con limiti e nessuna azione sul contratto",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere il promemoria interno e le sue condizioni",
+              "expected_result": "Condizioni della nota recuperate con provenienza"
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un confronto fondato sulle condizioni della nota",
+              "expected_result": "180 euro contro 120 euro, 60 euro di differenza e limiti"
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_4bbf7394c8934768",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_f0939551c3204f25",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_f0939551c3204f25",
+          "model_attempts_after": 0,
+          "sequence": 3
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_ca4d2fd39bdb3f2c",
+          "agent_review_revision": "6c4ae062604549de97cca343bebfecda",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_4bbf7394c8934768",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "abandoned",
+        "stopped_on_memory_revocation": true
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "memory_corrected",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Una differenza potrebbe incidere sulla scelta, senza autorizzare azioni",
+          "objective": "Controllare la nota interna e preparare un confronto informativo",
+          "desired_outcome": "Confronto scritto di 12 mesi con calcolo differenza, limiti e nessun cambio piano",
+          "model_attempts_after": 0,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "plan_summary": "Leggere la nota già registrata, poi scrivere il confronto",
+          "expected_outcome": "Bozza informativa con limiti e nessuna azione sul contratto",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere il promemoria interno e le sue condizioni",
+              "expected_result": "Condizioni della nota recuperate con provenienza"
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un confronto fondato sulle condizioni della nota",
+              "expected_result": "180 euro contro 120 euro, 60 euro di differenza e limiti"
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_3257f18a8f494c63",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_6d1f0dd9c5e441c9",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_6d1f0dd9c5e441c9",
+          "model_attempts_after": 0,
+          "sequence": 3
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "plan_summary": "Leggere la nota già registrata, poi scrivere il confronto",
+          "expected_outcome": "Bozza informativa con limiti e nessuna azione sul contratto",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere il promemoria interno e le sue condizioni",
+              "expected_result": "Condizioni della nota recuperate con provenienza"
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un confronto fondato sulle condizioni della nota",
+              "expected_result": "180 euro contro 150 euro, 30 euro di differenza e limiti"
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 4
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_6983587a0b104eee",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_68b1716bb9394ce2",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_68b1716bb9394ce2",
+          "model_attempts_after": 0,
+          "sequence": 5
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_6ce4e8fbbb884dcd"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_7b5bd93874454072",
+            "step_id": "stp_68b1716bb9394ce2"
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 150 euro anticipati, con una differenza di 30 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_6ce4e8fbbb884dcd"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 0,
+          "sequence": 6
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_6ce4e8fbbb884dcd"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_7b5bd93874454072",
+            "step_id": "stp_68b1716bb9394ce2",
+            "draft_kind": "text",
+            "draft": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 150 euro anticipati, con una differenza di 30 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+            "draft_characters": 453,
+            "draft_truncated": false
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 150 euro anticipati, con una differenza di 30 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_6ce4e8fbbb884dcd"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Confronto controllato sui dati della nota sintetica, senza conferma esterna.",
+          "claim_review_kind": "array",
+          "claim_review_count": 4,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Su dodici mesi il mensile costa 180 euro e l'annuale 150, differenza 30.",
+              "premises": "Stesso orizzonte di dodici mesi, con servizio mantenuto per l'intero periodo.",
+              "support": "derived",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_6ce4e8fbbb884dcd"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_5f6c66008f4d4aae_0_277",
+                "p_5f6c66008f4d4aae_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5f6c66008f4d4aae_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_6ce4e8fbbb884dcd",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5f6c66008f4d4aae_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_6ce4e8fbbb884dcd",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "L'annuale richiede pagamento anticipato e non rimborsa in caso di disdetta anticipata.",
+              "premises": "Le due condizioni si riferiscono solo alla formula annuale.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_6ce4e8fbbb884dcd"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_5f6c66008f4d4aae_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5f6c66008f4d4aae_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_6ce4e8fbbb884dcd",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Capacità e assistenza sono uguali secondo la nota.",
+              "premises": "La stessa dotazione è dichiarata per entrambe le formule.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_6ce4e8fbbb884dcd"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_5f6c66008f4d4aae_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5f6c66008f4d4aae_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_6ce4e8fbbb884dcd",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Le condizioni provengono dalla nota e non sono confermate dal fornitore.",
+              "premises": "La qualifica si applica a tutti i dati confrontati.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_6ce4e8fbbb884dcd"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_5f6c66008f4d4aae_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5f6c66008f4d4aae_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_6ce4e8fbbb884dcd",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 0,
+          "sequence": 7
+        },
+        {
+          "stage": "verify_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "La bozza di confronto esiste e cita i dati interni effettivamente letti.",
+          "what_is_missing": "",
+          "model_attempts_after": 0,
+          "sequence": 8
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_53b8dd88d4f4fdac",
+          "agent_review_revision": "273f749f461944b7b5ebea343687baa9",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "passed"
+        },
+        "semantic": {
+          "status": "passed",
+          "review": {
+            "passed": true,
+            "reasons": [],
+            "status": "bounded_check",
+            "human_review_still_required": true
+          }
+        },
+        "home": {
+          "status": "passed"
+        },
+        "replay": {
+          "status": "passed"
+        },
+        "owner_isolation": {
+          "status": "passed"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_3257f18a8f494c63",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "information.read",
+          "step_id": "stp_6983587a0b104eee",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_68b1716bb9394ce2",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [
+        "memory_corrected_between_wakes"
+      ],
+      "external_effects": 0,
+      "result": {
+        "state": "completed",
+        "read_reused": false,
+        "corrected_source_reread": true,
+        "prepared": true,
+        "prepared_text": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 150 euro anticipati, con una differenza di 30 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 453,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 3,
+          "agent_updates": 1,
+          "ambient_activity": 3,
+          "agent_needs": 1,
+          "agent_action_attempts": 0
+        }
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "source_change_crash",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "opportunity_scan",
+          "model_attempts_before": 0,
+          "input": {
+            "collection_counts": {
+              "memories": 1,
+              "documents": 0,
+              "calendar": 0,
+              "money": 5,
+              "life_profile": 0,
+              "what_changed": 1,
+              "unavailable_sources": 0,
+              "unavailable_memory_refs": 0
+            },
+            "change_after_lengths": [
+              160
+            ]
+          },
+          "response_kind": "object",
+          "verified_kind": "none",
+          "opportunities_kind": "array",
+          "opportunities_count": 1,
+          "opportunities": [
+            {
+              "identity_key": "v162:fictional-archive-cost-review",
+              "what": "La persona usa il mensile e valuta le due formule su dodici mesi; manca il confronto scritto.",
+              "initiative": "prepare",
+              "why_it_matters": "Rendere disponibili costi e vincoli per la scelta ancora aperta.",
+              "what_i_can_do": "Leggere la nota e preparare un confronto, senza modificare il contratto.",
+              "evidence_refs_kind": "array",
+              "evidence_refs": [
+                "mem_43262246ed92296b9353"
+              ],
+              "evidence_refs_count": 1,
+              "evidence_refs_omitted": 0
+            }
+          ],
+          "opportunities_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 1
+        },
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Una differenza potrebbe incidere sulla scelta, senza autorizzare azioni",
+          "objective": "Controllare la nota interna e preparare un confronto informativo",
+          "desired_outcome": "Confronto scritto di 12 mesi con calcolo differenza, limiti e nessun cambio piano",
+          "model_attempts_after": 0,
+          "sequence": 2
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "plan_summary": "Leggere la nota già registrata, poi scrivere il confronto",
+          "expected_outcome": "Bozza informativa con limiti e nessuna azione sul contratto",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere il promemoria interno e le sue condizioni",
+              "expected_result": "Condizioni della nota recuperate con provenienza"
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un confronto fondato sulle condizioni della nota",
+              "expected_result": "180 euro contro 120 euro, 60 euro di differenza e limiti"
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 0,
+          "sequence": 3
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_0333697f629348a6",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_3a11c579a8504ae7",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_3a11c579a8504ae7",
+          "model_attempts_after": 0,
+          "sequence": 4
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_0333697f629348a6",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_3a11c579a8504ae7",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il prossimo passo ha ancora senso secondo le fonti.",
+          "decision": "execute",
+          "step_id": "stp_3a11c579a8504ae7",
+          "model_attempts_after": 0,
+          "sequence": 5
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_52f9d0fd238043fb"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_c36f4c4459cc4fc5",
+            "step_id": "stp_3a11c579a8504ae7"
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_52f9d0fd238043fb"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 0,
+          "sequence": 6
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 0,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_52f9d0fd238043fb"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_c36f4c4459cc4fc5",
+            "step_id": "stp_3a11c579a8504ae7",
+            "draft_kind": "text",
+            "draft": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+            "draft_characters": 453,
+            "draft_truncated": false
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+          "content_characters": 453,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_52f9d0fd238043fb"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Confronto controllato sui dati della nota sintetica, senza conferma esterna.",
+          "claim_review_kind": "array",
+          "claim_review_count": 4,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Su dodici mesi il mensile costa 180 euro e l'annuale 120, differenza 60.",
+              "premises": "Stesso orizzonte di dodici mesi, con servizio mantenuto per l'intero periodo.",
+              "support": "derived",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_52f9d0fd238043fb"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_5b5db85bb5bfcc23_0_277",
+                "p_5b5db85bb5bfcc23_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5b5db85bb5bfcc23_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_52f9d0fd238043fb",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5b5db85bb5bfcc23_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_52f9d0fd238043fb",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "L'annuale richiede pagamento anticipato e non rimborsa in caso di disdetta anticipata.",
+              "premises": "Le due condizioni si riferiscono solo alla formula annuale.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_52f9d0fd238043fb"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_5b5db85bb5bfcc23_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5b5db85bb5bfcc23_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_52f9d0fd238043fb",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Capacità e assistenza sono uguali secondo la nota.",
+              "premises": "La stessa dotazione è dichiarata per entrambe le formule.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_52f9d0fd238043fb"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_5b5db85bb5bfcc23_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5b5db85bb5bfcc23_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_52f9d0fd238043fb",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Le condizioni provengono dalla nota e non sono confermate dal fornitore.",
+              "premises": "La qualifica si applica a tutti i dati confrontati.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_52f9d0fd238043fb"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_5b5db85bb5bfcc23_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_5b5db85bb5bfcc23_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_52f9d0fd238043fb",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 0,
+          "sequence": 7
+        },
+        {
+          "stage": "verify_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "La bozza di confronto esiste e cita i dati interni effettivamente letti.",
+          "what_is_missing": "",
+          "model_attempts_after": 0,
+          "sequence": 8
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_816d7cb51dec8e4c",
+          "agent_review_revision": "2a8115745e2545a58fa57d9738ce6a13",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "passed"
+        },
+        "semantic": {
+          "status": "passed",
+          "review": {
+            "passed": true,
+            "reasons": [],
+            "status": "bounded_check",
+            "human_review_still_required": true
+          }
+        },
+        "home": {
+          "status": "passed"
+        },
+        "replay": {
+          "status": "passed"
+        },
+        "owner_isolation": {
+          "status": "passed"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [
+        {
+          "response_kind": "raised",
+          "exception_type": "CancelledError"
+        },
+        {
+          "silence": false,
+          "unavailable": false,
+          "created_count": 1,
+          "updated_count": 0,
+          "skipped_count": 0,
+          "skipped": [],
+          "skipped_omitted": 0
+        }
+      ],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_0333697f629348a6",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_3a11c579a8504ae7",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": true,
+      "injected_faults": [
+        "source_scan_cancelled_once"
+      ],
+      "external_effects": 0,
+      "result": {
+        "state": "completed",
+        "read_reused": true,
+        "corrected_source_reread": false,
+        "prepared": true,
+        "prepared_text": "Secondo la nota interna non verificata presso il fornitore, il mensile costa 15 x 12 = 180 euro per dodici mesi; l'annuale costa 120 euro anticipati, con una differenza di 60 euro a favore dell'annuale se si mantiene il servizio per 12 mesi. Capacita' e assistenza risultano uguali nella nota; l'annuale non rimborsa i mesi non usati. Prima di qualsiasi scelta sono da verificare le condizioni correnti. Non ho modificato il piano né disposto pagamenti.",
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 453,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 2,
+          "agent_updates": 1,
+          "ambient_activity": 3,
+          "agent_needs": 1,
+          "agent_action_attempts": 0
+        }
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "already_resolved",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Confronto già ricevuto e scelta conclusa, senza lavoro residuo.",
+          "model_attempts_after": 0,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_8965ca5f2593ecc7",
+          "agent_review_revision": "4383b4f4008d45a1a4b905017e4679e4",
+          "state": "settled",
+          "outcome": "no_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [],
+      "executed_capabilities": [],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "no_goal"
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "irrelevant",
+      "mode": "scripted",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "scripted",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": false,
+      "model_calls": [],
+      "model_call_outcomes": [],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 0,
+      "model_http_requests": 0,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 0,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Nessun bisogno documentato.",
+          "model_attempts_after": 0,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_6ab7d97edb4a2fe0",
+          "agent_review_revision": "8866d571845447799c57bbdcac6ab3da",
+          "state": "settled",
+          "outcome": "no_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "planning_observations": [],
+      "planning_observations_omitted": 0,
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "discovery_results": [],
+      "executed_capabilities": [],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "no_goal"
+      }
+    }
+  ],
+  "fixture_revision": "personal_outcome_v1",
+  "started_at": "2026-10-12T10:44:20.323738+00:00",
+  "finished_at": "2026-10-12T10:44:21.737579+00:00",
+  "limits": {
+    "cases": 9,
+    "case_timeout_seconds": 240,
+    "model_calls_per_case": 40,
+    "model_call_outcomes_per_case": 40,
+    "model_failures_reported_per_call": 8,
+    "model_http_requests_per_case": 80,
+    "structured_decisions_per_case": 12,
+    "admission_observations_per_case": 3,
+    "planning_observations_per_case": 4,
+    "result_checks_per_case": 6,
+    "discovery_results_per_case": 3,
+    "preparation_text_characters": 4000,
+    "preparation_claims_per_audit": 12,
+    "preparation_claim_text_characters": 280,
+    "preparation_source_quotes_per_claim": 3,
+    "executor_observations_per_case": 12,
+    "decision_text_characters": 400,
+    "proposals_per_decision": 3,
+    "plan_steps_per_decision": 6,
+    "outcome_assessment_text_characters": 280,
+    "outcome_assessment_refs_per_field": 8,
+    "model_calls_total": 360,
+    "model_http_requests_total": 720
+  },
+  "code_revision": null,
+  "revision_source": null
+}

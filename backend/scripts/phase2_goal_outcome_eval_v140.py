@@ -161,16 +161,32 @@ async def scripted_draft(system, user, *, response_schema=None):
         quoted = {}
         for key, passage in passages.items():
             source = next((row for row in payload["evidence"]
-                           if row.get("id") in ids[:2] and passage in row.get("claim", "")), None)
+                           if row.get("id") in ids[:2] and passage in (row.get("claim") or
+                               "".join(p["text"] for p in row.get("claim_passages", [])))), None)
             if source is None:
                 return None
             quoted[key] = {"evidence_id": source["id"], "quote": passage}
+            if "claim_passages" in source:
+                text = "".join(p["text"] for p in source["claim_passages"])
+                start, offset = text.index(passage), 0
+                selected = []
+                for item in source["claim_passages"]:
+                    end = offset + len(item["text"])
+                    if offset < start + len(passage) and end > start:
+                        selected.append(item["id"])
+                    offset = end
+                quoted[key]["source_passage_ids"] = selected
 
         def review(claim, premises, support, keys):
             quotes = [quoted[key] for key in keys]
+            citations = ({"source_passage_ids": list(dict.fromkeys(
+                            ref for row in quotes for ref in row["source_passage_ids"]))}
+                         if all("source_passage_ids" in row for row in quotes) else
+                         {"source_quotes": [{"evidence_id": row["evidence_id"], "quote": row["quote"]}
+                                            for row in quotes]})
             return {"claim": claim, "premises": premises, "support": support, "correction": "",
                     "evidence_ids": list(dict.fromkeys(row["evidence_id"] for row in quotes)),
-                    "source_quotes": quotes}
+                    **citations}
 
         return {"verified": True, "content": DRAFT, "evidence_ids": ids[:2],
                 "reason": "Confronto controllato sui dati della nota sintetica, senza conferma esterna.",

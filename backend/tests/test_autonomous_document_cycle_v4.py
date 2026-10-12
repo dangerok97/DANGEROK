@@ -5,6 +5,7 @@ This is NOT a live-model quality gate. No Home route or user command is used.
 from unittest.mock import AsyncMock
 from datetime import datetime, timedelta, timezone
 import pytest
+from test_preparation_passages_v162 import source_claim
 from mongomock_motor import AsyncMongoMockClient
 from agent import reasoning
 from agent.service import AgentService
@@ -67,7 +68,7 @@ async def test_background_document_goal_reads_and_verifies_without_home(monkeypa
         rows = json.loads(payload)["evidence"]
         assert "120 euro" in str(rows)
         quote = "Costo annuo: 120 euro." if len(text) > 4000 else "costo annuo 120 euro."
-        quoted_row = next(row for row in rows if quote in row["claim"])
+        quoted_row = next(row for row in rows if quote in source_claim(row))
         return {"verified": True, "content": "Il documento dichiara un costo annuo di 120 euro, non verificato sul mercato.",
                 "evidence_ids": [row["id"] for row in rows],
                 "claim_review": [{"claim": "Il documento dichiara 120 euro annui.",

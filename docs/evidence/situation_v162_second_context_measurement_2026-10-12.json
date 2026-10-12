@@ -1,0 +1,111 @@
+{
+  "mode": "pure offline measurement; no model/provider calls",
+  "original_path": "/tmp/ora_v162_situation_action_context_second_red.json",
+  "original_sha256": "bb5a7cff58150d1bd2b8c34ba2265088fc99fa0b9e796fc3daf922f6b9aa1873",
+  "input_characters_spaced": 12732,
+  "input_characters_compact": 12179,
+  "existing_reducer_result": null,
+  "existing_reducer_logs": [
+    "action context unavailable: material_context_exceeds_budget"
+  ],
+  "after_existing_table_reductions": 9049,
+  "after_grouped_evidence_tables": 7122,
+  "group_sizes": [
+    7,
+    1
+  ],
+  "group_identity_fields": [
+    "source_refs",
+    "capability",
+    "observed_at"
+  ],
+  "evidence_count": 8,
+  "evidence_original_size": 6650,
+  "single_table_size": 4995,
+  "grouped_tables_size": 3068,
+  "shared_fields_single_table": [
+    "where_this_came_from",
+    "really_happened",
+    "how_old"
+  ],
+  "varying_columns_single_table": [
+    "evidence_id",
+    "what_was_found",
+    "bears_on",
+    "capability",
+    "source_refs",
+    "observed_at",
+    "research_sufficient",
+    "research_valid_until",
+    "weather_valid_until",
+    "note"
+  ],
+  "record_keys": [
+    [
+      "evidence_id",
+      "what_was_found",
+      "bears_on",
+      "where_this_came_from",
+      "capability",
+      "source_refs",
+      "observed_at",
+      "really_happened",
+      "how_old",
+      "research_sufficient",
+      "research_valid_until",
+      "weather_valid_until",
+      "note"
+    ],
+    [
+      "evidence_id",
+      "what_was_found",
+      "bears_on",
+      "where_this_came_from",
+      "capability",
+      "source_refs",
+      "observed_at",
+      "really_happened",
+      "how_old",
+      "research_sufficient",
+      "research_valid_until",
+      "weather_valid_until",
+      "note"
+    ]
+  ],
+  "source_metadata_per_group": [
+    {
+      "capability": "weather.read",
+      "observed_at": "2026-10-12T12:12:00+02:00",
+      "source_refs": [
+        "place:eval-tarquinia-public-point",
+        "situation:sit_1fed386127d549e6:revision:1",
+        "place_snapshot:eval-tarquinia-public-point:2026-10-12T10:12:00.346406+00:00"
+      ],
+      "table_common": [
+        "where_this_came_from",
+        "capability",
+        "source_refs",
+        "observed_at",
+        "really_happened",
+        "how_old",
+        "research_sufficient",
+        "research_valid_until",
+        "weather_valid_until",
+        "note"
+      ]
+    },
+    {
+      "capability": "web.research",
+      "observed_at": "2026-10-12T10:12:31.437903+00:00",
+      "source_refs": [
+        "rr_1f54e1b923ca"
+      ],
+      "table_common": []
+    }
+  ],
+  "roundtrip_all_evidence_exact": true,
+  "goal_and_clock_intact": true,
+  "input_mutated": false,
+  "model_executed": false,
+  "candidate_only": true
+}

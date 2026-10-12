@@ -1,3 +1,40 @@
+# 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
+
+Il precedente head `fe2d37f` supera cinque workflow CI e tutti i 15 job,
+ma il suo gate reale resta **6/9 macchina e non accettato dalla review**:
+85 chiamate logiche e 96 HTTP. Un confronto accettato introduce condizioni
+non sostenute dalle fonti; un altro omette la differenza utile. Citazioni
+autentiche e presenza di un artefatto non dimostrano la fedeltà del risultato.
+Il report originale e il giudizio indipendente restano conservati integralmente.
+
+Verifica locale del candidato integrato: **1554 PASS, 1 SKIP, 129 moduli, 67.26 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni.
+Restano da verificare sulla revisione pubblicata: CI completa, nove casi live
+con lettura indipendente dei testi, tragitto pubblico Roma Termini → Colosseo
+e primo ciclo live Tarquinia con fonti pertinenti e follow-up persistito.
+La riuscita di questi controlli non sostituisce il collaudo futuro sul dispositivo.
+
+Tarquinia e l'obiettivo «avvisami quando devo ritirare i panni» restano
+confermati. La vecchia stesura è chiusa. Il nuovo runner usa una nuova persona e
+stesura sintetiche; attraversa conversazione, Situation, prima wake reale,
+meteo, ricerca e programmazione successiva. Non accelera il tempo e non misura
+fisicamente l'asciugatura. `followup_pending` attesta soltanto il primo ciclo:
+controllo futuro, momento utile e ricezione sul dispositivo rimangono separati.
+
+CI e prove live di questa revisione devono ancora essere osservate dopo la
+pubblicazione. Il servizio tecnico isolato non equivale all'app rilasciata.
+Il controllo automatico ha rifiutato il deploy app; il rifiuto non viene aggirato
+con un merge. Build nativa firmata e notifica ad app chiusa non sono attestate.
+Non si dichiara l'app pienamente autonoma sulla base dei test locali.
+
+Prove originali e misure sono elencate in
+[indice delle evidenze](evidence/autonomy_v162_repairs_2026-10-12.json).
+Il [report live fe2](evidence/autonomy_v162_live_2026-10-12_fe2d37f.json),
+la [review](evidence/autonomy_v162_manual_review_2026-10-12_fe2d37f.json)
+e la [CI fe2](evidence/autonomy_v162_ci_2026-10-12_fe2d37f.json)
+mantengono i verdetti e la revisione originali.
+
+---
+
 # 12 ottobre 2026 — v162, integrazione del ramo concorrente verificata
 
 La cronologia conserva il ramo concorrente fino a `06d2d9e`. Restano i suoi

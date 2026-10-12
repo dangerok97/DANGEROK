@@ -7,6 +7,7 @@ from agent.evidence import EvidenceStore, REAL_SOURCES
 from agent.models import ResultProvenance
 from agent.prepared_review import new_prepared_result_id
 from agent.preparation_schema import audit_schema, draft_schema
+from agent.preparation_passages import build_audit_passages, materialize_audit_passages
 
 
 _FEEDBACK_FIELD = "preparation_feedback_non_authoritative"
@@ -203,9 +204,10 @@ def _protocol_feedback(stage, errors):
         if (row.get("field") in ("content", "evidence_ids", "claim_review", "claim_review.claim",
                 "claim_review.premises", "claim_review.correction", "claim_review.support",
                 "claim_review.evidence_ids", "claim_review.source_quotes",
+                "claim_review.source_passage_ids",
                 "claim_review.source_quotes.evidence_id", "claim_review.source_quotes.quote")
                 and row.get("issue") in ("missing", "wrong_type", "empty", "too_long", "not_supplied",
-                                         "not_supported", "not_cited", "not_literal")
+                                         "not_supported", "not_cited", "not_literal", "ambiguous")
                 and row.get("received") in ("missing", "null", "boolean", "text", "array", "object", "number", "other")):
             kept.append({key: row[key] for key in ("field", "issue", "received")})
     if not kept:
@@ -217,8 +219,11 @@ def _protocol_feedback(stage, errors):
                   "non prova mancanza di fonti. Eventuali altri validation_errors restano distinti.")
     if any(row["field"].startswith("claim_review") for row in kept):
         reason = ("Per salvare una bozza: claim_review di 1–12 righe valide; stated/derived richiedono source_quotes. "
-                  "Massimo 3 citazioni per riga, ciascuna di 1–280 caratteri copiati letteralmente dal claim "
-                  "dell'evidence_id fornito e citato nella stessa riga. Autenticità non significa supporto semantico.")
+                  "Scegli 1–3 source_passage_ids forniti per riga: il codice ricava le citazioni letterali. "
+                  "Le fonti selezionate devono essere citate in evidence_ids della stessa riga. "
+                  "La precedente forma source_quotes resta soggetta al limite di 3 segmenti contigui di 1–280 "
+                  "caratteri esatti, senza ellissi o ricomposizione; non mescolare le due forme. "
+                  "Autenticità non significa supporto semantico.")
     return {"origin": "preparation_protocol", "stage": stage, "validation_errors": kept, "reason": reason}
 
 
@@ -426,7 +431,8 @@ async def prepare(db, owner_id, goal, step):
         "goal_origin": goal.origin, "source_update_reason": refresh_reason or None,
         "previous_interpretation_may_be_obsolete": bool(refresh_reason),
     }
-    audit_payload = {"request": request, "draft": content, "evidence": audit_rows,
+    projected_rows, passage_index = build_audit_passages(audit_rows)
+    audit_payload = {"request": request, "draft": content, "evidence": projected_rows,
                      "evidence_truncated": payload["evidence_truncated"]}
     while len(json.dumps(audit_payload, ensure_ascii=False, default=str)) > 9000:
         unused = next((index for index, row in enumerate(audit_rows) if row["id"] not in refs), None)
@@ -436,6 +442,8 @@ async def prepare(db, owner_id, goal, step):
             # problem for reconsideration, not a transient retry request.
             return unavailable("preparation_context_too_large")
         audit_rows.pop(unused)
+        projected_rows, passage_index = build_audit_passages(audit_rows)
+        audit_payload["evidence"] = projected_rows
         audit_payload["evidence_truncated"] = True
     allowed = {row["id"] for row in audit_rows}
     checked = await _ask_model(_DISCIPLINE + "\n" + _GROUNDED_RESULT + "\nAudit this draft against the supplied evidence only. "
@@ -459,22 +467,26 @@ async def prepare(db, owner_id, goal, step):
         "A list of source inputs does not complete a requested synthesis: express the "
         "supported relationships, differences and consequences that make those inputs useful. "
         "Add such a missing finding to the corrected content and review its premises and "
-        "source_quotes too. If a necessary premise is absent, identify that specific gap; "
+        "selected source passages too. If a necessary premise is absent, identify that specific gap; "
         "do not invent it from request or the model's success criteria. "
         "Before the verdict, return claim_review covering the actual material clauses, including "
         "calculations, qualitative consequences and every material clause you add, change or remove. "
         "Account for those changes against the intended result. In premises, identify the short source passages that establish "
         "each factual premise and distinguish any unstated assumption or category default. "
-        "For each stated or derived check, source_quotes must contain 1–3 verbatim passages "
-        "from the claim field of its cited evidence rows, each no longer than 280 characters. "
-        "Copy exact text with its evidence_id, never a paraphrase or an invented quote. "
-        "For a derived calculation, quote the recorded operands and necessary conditions, "
+        "Each evidence row's claim_passages contains its complete original claim in order, "
+        "with no missing characters. Read the whole source and its limits, including conditions "
+        "across adjacent passages. For each stated or derived check, source_passage_ids must "
+        "select 1–3 supplied passage IDs belonging to that check's evidence_ids. The code copies "
+        "those exact passages; do not retype quotes or invent passage IDs. "
+        "For a derived calculation, select the recorded operands and necessary conditions, "
         "then state the operation and result in premises. The calculated result need not "
         "occur literally in a source. Preserve the supported calculation in content with "
         "its baseline, horizon and limits; quoting the inputs does not replace the calculation. "
         "Authentic quotations do not by themselves establish that the conclusion follows. "
-        "An evidence ID or a category label alone does not establish the premise. Test a derived "
-        "claim against a counterexample compatible with ALL those source passages. If such a case "
+        "An evidence ID or a category label alone does not establish the premise. Before assigning "
+        "stated or derived, test EVERY material clause against a counterexample compatible with "
+        "the complete sources. Compare its subject, scope, time period and conditions with what "
+        "those passages actually establish, including qualitative clauses. If such a counterexample "
         "remains possible, record the missing premise and make it explicitly conditional or remove "
         "the claim; do not label it established or derived. A caveat cannot turn an assumed premise "
         "into a sourced one. Make minimal corrections against request: retain supported findings, "
@@ -492,8 +504,7 @@ async def prepare(db, owner_id, goal, step):
         "Return one complete JSON object, positive or negative: "
         "{\"claim_review\": [{\"claim\": \"actual material clause, short\", "
         "\"evidence_ids\": [\"supplied supporting IDs\"], "
-        "\"source_quotes\": [{\"evidence_id\": \"supplied supporting ID\", "
-        "\"quote\": \"exact passage copied from that evidence claim, max 280 characters\"}], "
+        "\"source_passage_ids\": [\"supplied literal passage IDs\"], "
         "\"premises\": \"source passages, missing premises and any compatible counterexample, short\", "
         "\"support\": \"stated|derived|conditional|unsupported\", "
         "\"correction\": \"needed correction or limitation, empty if none\"}], "
@@ -515,7 +526,7 @@ async def prepare(db, owner_id, goal, step):
         "not repeated disclaimers or headings. "
         "This checks consistency with sources, not whether sources are independently true.",
         _with_feedback(audit_payload, previous_feedback),
-        response_schema=audit_schema(row["id"] for row in audit_rows))
+        response_schema=audit_schema((row["id"] for row in audit_rows), passage_index))
     if await memory_changed():
         return unavailable("preparation_memory_changed", True)
     if not isinstance(checked, dict) or checked.get("verified") is not True:
@@ -524,7 +535,11 @@ async def prepare(db, owner_id, goal, step):
             await _remember_feedback(db, owner_id, goal.id, scope, feedback)
         return unavailable("preparation_not_supported", True, feedback=feedback)
     content, refs = checked.get("content"), checked.get("evidence_ids")
-    errors = _draft_validation_errors(checked, allowed) or _audit_review_errors(checked, audit_rows)
+    errors = _draft_validation_errors(checked, allowed)
+    if not errors:
+        checked, errors = materialize_audit_passages(checked, passage_index)
+    if not errors:
+        errors = _audit_review_errors(checked, audit_rows)
     if errors:
         feedback = _protocol_feedback("audit", errors)
         await _remember_feedback(db, owner_id, goal.id, scope, feedback)

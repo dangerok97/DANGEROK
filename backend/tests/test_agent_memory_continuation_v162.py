@@ -15,6 +15,7 @@ from agent.execution import StepExecutor
 from agent.memory_fence import inspect_memory_sources
 from agent.models import ActionStep, AgentBudget, AutonomousGoal
 from agent.providers import read_internal_state
+from test_preparation_passages_v162 import source_claim
 
 
 OWNER = "memory-continuation-v162-synthetic"
@@ -312,7 +313,8 @@ async def test_audit_budget_only_drops_uncited_rows_or_stops_without_saving(monk
         audited = captured[1]["evidence"]
         assert set(cited) <= {row["id"] for row in audited}
         originals = {row["id"]: row for row in captured[0]["evidence"]}
-        assert all(row == originals[row["id"]] for row in audited)
+        assert all({**{key: value for key, value in row.items() if key != "claim_passages"},
+                    "claim": source_claim(row)} == originals[row["id"]] for row in audited)
         assert captured[1]["evidence_truncated"] is True
         assert goal.prepared_text == draft
 

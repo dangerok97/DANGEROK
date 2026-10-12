@@ -13,7 +13,7 @@ from conversation_engine.ai_core.observations.external import (
 )
 from conversation_engine.ai_core.tools.failures import normalize_failure
 from conversation_engine.ai_core.tools.providers import brave, gemini_search, tavily
-from conversation_engine.ai_core.tools.providers.base import ProviderResult
+from conversation_engine.ai_core.tools.providers.base import ProviderResult, normalize_snippet_origin
 from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
 
 logger = logging.getLogger("ora.ai_core.tools.web_search")
@@ -103,6 +103,7 @@ async def execute_web_search(
                 title=hit.title,
                 url=hit.url,
                 snippet=hit.snippet,
+                snippet_origin=normalize_snippet_origin(getattr(hit, "snippet_origin", None)),
                 authority_hint=auth,
             )
         )

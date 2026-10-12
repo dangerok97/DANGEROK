@@ -19,6 +19,7 @@ from agent.service import AgentService
 from scripts import autonomy_completion_eval_v162 as gate
 from test_agent_preparation_dependency_v162 import OWNER, MEMORY, RESULT, comparison_claim_review, fake_gemini
 from test_pending_outcome_contract_v162 import synthetic_transport_only  # noqa: F401
+from test_preparation_passages_v162 import source_claim
 from test_preparation_recovery_v162 import seed_recovery
 
 
@@ -80,7 +81,7 @@ async def test_incomplete_verdict_reconsiders_then_repairs_after_reload_without_
         if "what_happened" in payload:
             return repair_plan()
         row, = payload["evidence"]
-        assert resumed and row["id"] == source.id and row["claim"] == text
+        assert resumed and row["id"] == source.id and source_claim(row) == text
         answer = {"content": CORRECTED, "evidence_ids": [source.id]}
         if "draft" in payload:
             answer.update(verified=True, claim_review=comparison_claim_review(source.id))

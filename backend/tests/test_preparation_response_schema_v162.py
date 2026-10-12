@@ -47,7 +47,7 @@ def reply(payload, *, content=TEXT, verified=True):
     if "draft" in payload:
         review = [{"claim": "La nota dichiara sette unità.", "premises": "Dato riportato nella nota.",
                    "support": "stated", "correction": "", "evidence_ids": list(refs),
-                   "source_quotes": [{"evidence_id": refs[0], "quote": "sette unità dichiarate."}]}] if verified else []
+                   "source_passage_ids": [payload["evidence"][-1]["claim_passages"][0]["id"]]}] if verified else []
         result.update({"claim_review": review, "verified": verified,
                        "reason": "Sintesi attribuita alla fonte." if verified else "Manca una premessa necessaria."})
     return result

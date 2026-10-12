@@ -63,3 +63,15 @@ def test_unknown_goal_state_and_untrusted_check_status_are_not_emitted():
     assert record["prepared_text_characters"] is None
     assert record["result_checks"]["home"] == "unknown"
     assert "PRIVATE_" not in json.dumps(record)
+
+
+def test_missing_or_unobserved_goal_flags_remain_unknown():
+    for goal in ({}, {"requires_user_input": "PRIVATE_FLAG", "has_next_run_at": 1}):
+        case = {"scenario": "home_write_retry", "mode": "scripted", "passed": False,
+                "reason": "FAILED_HOME_HANDOFF", "failure_state": {"goals": [goal]}}
+        record = gate._case_progress_record(case, gate.Probe())
+        assert record["requires_user_input"] is None
+        assert record["requires_user_authority"] is None
+        assert record["has_next_run_at"] is None
+        assert record["planning_unavailable"] is None
+        assert "PRIVATE_" not in json.dumps(record)

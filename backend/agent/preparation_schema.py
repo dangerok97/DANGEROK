@@ -29,24 +29,28 @@ def draft_schema(evidence_ids: Iterable[str]) -> dict[str, Any]:
     })
 
 
-def audit_schema(evidence_ids: Iterable[str]) -> dict[str, Any]:
+def audit_schema(evidence_ids: Iterable[str], passage_ids: Iterable[str] | None = None) -> dict[str, Any]:
     ids = list(evidence_ids)
     if not ids:
         raise ValueError("A preparation schema requires supplied evidence IDs")
+    passage_ids = list(passage_ids) if passage_ids is not None else None
+    citation = ({"source_passage_ids": {"type": "array", "description":
+                    "Select at most 3 supplied literal passage IDs. Stated or derived checks require at least one. "
+                    "For a calculation select its operands and conditions; its result need not be in a source.",
+                    "items": {"type": "string", "enum": list(passage_ids)}}}
+                if passage_ids is not None else
+                {"source_quotes": {"type": "array", "description":
+                    "At most 3 verbatim input premises; stated or derived checks require at least one.",
+                    "items": _object({"evidence_id": {"type": "string", "enum": list(ids)},
+                                      "quote": {"type": "string", "description":
+                                          "1–280 contiguous characters copied exactly from this evidence claim."}})}})
     return _object({
         "claim_review": {"type": "array", "description":
                          "1–12 brief checks covering material clauses, calculations, and every material change or deletion.",
                          "items": _object({
                              "claim": {"type": "string"},
                              "evidence_ids": _refs(ids),
-                             "source_quotes": {"type": "array", "description":
-                                 "At most 3 verbatim input premises; stated or derived checks require at least one. "
-                                 "For a calculation quote its operands and conditions; its result need not be in the source.",
-                                 "items": _object({
-                                     "evidence_id": {"type": "string", "enum": list(ids)},
-                                     "quote": {"type": "string", "description":
-                                         "1–280 characters copied exactly from this evidence row's claim, not its metadata."},
-                                 })},
+                             **citation,
                              "premises": {"type": "string", "description":
                                  "Short supporting premises and missing assumptions; for a calculation state its operation and result."},
                              "support": {"type": "string", "enum": ["stated", "derived", "conditional", "unsupported"]},

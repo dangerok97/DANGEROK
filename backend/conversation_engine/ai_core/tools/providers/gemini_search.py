@@ -81,6 +81,8 @@ async def search(query: str, *, max_results: int = 5) -> ProviderResult:
 
 def _extract_hits(resp: Any, *, max_results: int) -> List[RawHit]:
     hits: List[RawHit] = []
+    if max_results <= 0:
+        return hits
     try:
         cands = getattr(resp, "candidates", None) or []
         for cand in cands:
@@ -88,23 +90,38 @@ def _extract_hits(resp: Any, *, max_results: int) -> List[RawHit]:
             if not gm:
                 continue
             chunks = getattr(gm, "grounding_chunks", None) or []
-            for ch in chunks:
+            indexed_hits = {}
+            for index, ch in enumerate(chunks):
                 web = getattr(ch, "web", None)
                 if not web:
                     continue
                 uri = str(getattr(web, "uri", None) or getattr(web, "url", None) or "")
                 title = str(getattr(web, "title", None) or "")
                 if uri or title:
-                    hits.append(RawHit(title=title[:200], url=uri[:400], snippet=""))
+                    hit = RawHit(title=title[:200], url=uri[:400], snippet="")
+                    hits.append(hit)
+                    indexed_hits[index] = hit
                 if len(hits) >= max_results:
-                    return hits
+                    break
             supports = getattr(gm, "grounding_supports", None) or []
             for sup in supports:
                 seg = getattr(sup, "segment", None)
-                text = str(getattr(seg, "text", None) or "")[:400]
-                if text and hits:
-                    if not hits[0].snippet:
-                        hits[0].snippet = text
+                text = getattr(seg, "text", None)
+                indices = getattr(sup, "grounding_chunk_indices", None)
+                if type(text) is not str or not text or not isinstance(indices, list):
+                    continue
+                for index in indices:
+                    if type(index) is not int:
+                        continue
+                    # Indices address this candidate's original chunks, even
+                    # when a non-web/empty chunk was excluded from the hits.
+                    hit = indexed_hits.get(index)
+                    if hit is not None and not hit.snippet:
+                        hit.snippet = text[:400]
+                        # Grounded model output, not a literal page quotation.
+                        hit.snippet_origin = "grounded_model_segment"
+            if len(hits) >= max_results:
+                return hits
     except Exception:
         return hits
     return hits[:max_results]

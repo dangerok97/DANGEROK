@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 
 import pytest
+from test_preparation_passages_v162 import source_claim
 from mongomock_motor import AsyncMongoMockClient
 
 from agent import reasoning
@@ -272,8 +273,8 @@ async def test_near_renewal_becomes_grounded_autonomous_comparison(monkeypatch):
                 "coperture incendio e responsabilità civile; eleggibilità "
                 "e preventivo finale da confermare."
             )
-            policy = next(row for row in data["evidence"] if policy_quotes[0] in row["claim"])
-            alternative = next(row for row in data["evidence"] if alternative_quote in row["claim"])
+            policy = next(row for row in data["evidence"] if policy_quotes[0] in source_claim(row))
+            alternative = next(row for row in data["evidence"] if alternative_quote in source_claim(row))
             return {
                 "verified": True,
                 "content": prepared_content,

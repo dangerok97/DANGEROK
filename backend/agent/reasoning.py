@@ -162,7 +162,10 @@ _STEP_DECLARATION_PROTOCOL = (
     "parameters, a question, authority or source facts from a capability name or an old "
     "step. Declared effects are proposals, never permission. id, ordinal, status and note "
     "describe stored history; code assigns a new pending identity to each new step. "
-    "An ambiguous or incomplete revision cannot be applied only in part. "
+    "An ambiguous or incomplete revision cannot be applied only in part.\n\n"
+    "When supplied, step_type, effect_type and reversibility must be text values from their "
+    "declared choices, not null, objects or arrays. An unused optional effect_type may be "
+    "omitted; omitting it never declares or authorizes an external effect.\n\n"
     "A source-dependent preparation does NOT read even if its input_refs point "
     "at a Memory or document. If no current executed read is in goal evidence, "
     "the plan must contain a separate inspect/read step before source-grounded "
@@ -363,6 +366,11 @@ async def make_plan(
     """
     instruction = (
         "Work out how to reach this outcome.\n\n"
+        "context.planning_protocol_history, when present, is a code-owned record of a past "
+        "format rejection. It may predate the current sources or attempt. It is not factual "
+        "evidence, a proposed route, a new requirement or a verdict on this response. Check "
+        "the current declaration independently and address the named field/type issue while "
+        "preserving the intended outcome, current sources and authority limits.\n\n"
         "Each step says what it is FOR and what it needs to be able to do — "
         "never which service to call or which button to press. Say "
         "`capability_needed` using only the names in the list you are given. "
@@ -715,6 +723,8 @@ async def reconsider(
         "next_offset is null was read to its stated end. A truncated *display* "
         "or condensed step note does not change that coverage, and a corrected "
         "Memory is not still obsolete after a fresh current-version read. "
+        "Reaching an excerpt's end does not establish that earlier excerpts were read; "
+        "use only the recorded coverage of the same version for that conclusion. "
         "Never wait merely for an already available internal source to become "
         "readable or for a finished read to somehow complete with time. "
         "When a necessary excerpt is genuinely missing, choose modify with "
@@ -1022,6 +1032,10 @@ async def choose_next_action(
         "fields plus columns and rows: combine common with each row's column/value pairs. "
         "A short row has absent trailing columns; missing maps row indices to absent interior "
         "column indices. Null remains null. "
+        "The same table format may represent what_has_been_found: reconstruct every evidence "
+        "row with its original source text, provenance, time and read limits. "
+        "record_groups contains contiguous groups, each a table or an ordinary list of records; "
+        "expand every group and concatenate the records in their listed order. "
         "All step notes, parameters, effects and capability availability remain present. "
         "action_context_omitted names exact duplicates, generated history or completed-step "
         "descriptions, never shortened source evidence or changed read coverage. A preview's "
@@ -1293,7 +1307,7 @@ def _action_dump(payload: Dict[str, Any]) -> Optional[str]:
 
 
 def _record_table(rows: Any) -> Any:
-    """Losslessly share repeated step/capability fields, only if smaller.
+    """Losslessly share repeated step, capability or evidence fields if smaller.
 
     A short row has absent trailing columns. `missing` marks absent interior
     columns; an explicit null remains a value. No arbitrary context is packed.
@@ -1316,6 +1330,26 @@ def _record_table(rows: Any) -> Any:
     if missing:
         table["missing"] = missing
     return table if len(encode(table)) < len(encode(rows)) else rows
+
+
+def _evidence_record_groups(rows: Any) -> Any:
+    """Share exact metadata within contiguous evidence groups only if smaller."""
+    table = _record_table(rows)
+    if not isinstance(rows, list) or len(rows) < 2 or not all(isinstance(row, dict) for row in rows):
+        return table
+    encode = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    groups, previous = [], None
+    for row in rows:
+        # JSON equality distinguishes false from 0 and absent from null.
+        # Group boundaries compress records; they do not interpret a source.
+        identity = encode({key: row[key] for key in ("source_refs", "capability", "observed_at")
+                           if key in row})
+        if not groups or identity != previous:
+            groups.append([])
+        groups[-1].append(row)
+        previous = identity
+    grouped = {"record_groups": [_record_table(group) for group in groups]}
+    return grouped if len(encode(grouped)) < len(encode(table)) else table
 
 
 def _fit_prepared_context(
@@ -1416,6 +1450,16 @@ def _fit_prepared_context(
         steps_holder["steps"] = _record_table(steps)
     if len(encoded := encode()) <= 9000:
         return encoded
+
+    if action:
+        # Claims from one read often share provenance, timestamps and limits.
+        # Share only identical fields; every original evidence row is retained.
+        holder[rows_key] = _record_table(rows)
+        if len(encoded := encode()) <= 9000:
+            return encoded
+        holder[rows_key] = _evidence_record_groups(rows)
+        if len(encoded := encode()) <= 9000:
+            return encoded
 
     # IDs of omitted, uncited generated history do not support this result.
     # Retain its count when their bookkeeping itself consumes the budget.

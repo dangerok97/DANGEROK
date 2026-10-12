@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, patch
 
 from mongomock_motor import AsyncMongoMockClient
 import pytest
+from test_preparation_passages_v162 import source_claim
 
 from agent import reasoning
 from agent.evidence import EvidenceStore
@@ -88,7 +89,7 @@ async def test_finish_preserves_actual_failure_for_reconsider_and_resumes_from_c
             }
         stages.append("audit" if "draft" in payload else "generation")
         row, = payload["evidence"]
-        assert row["id"] == source.id and row["claim"] == text
+        assert row["id"] == source.id and source_claim(row) == text
         if not recovered:
             if failure == "generation_unavailable":
                 return None
@@ -186,7 +187,7 @@ async def test_claim_review_reaches_real_sdk_with_complete_sources_and_only_audi
     def reply(system, payload):
         row, = payload["evidence"]
         captured_rows.append(deepcopy(row))
-        assert row["id"] == source.id and row["claim"] == SOURCE
+        assert row["id"] == source.id and source_claim(row) == SOURCE
         assert row["bears_on"] == source.supports
         assert "user_stated" in row["bears_on"]
         assert row["source_class"] == "internal_observation"
@@ -199,7 +200,10 @@ async def test_claim_review_reaches_real_sdk_with_complete_sources_and_only_audi
         if "draft" not in payload:
             return {"content": unsupported, "evidence_ids": [source.id]}
         assert payload["draft"] == unsupported
-        assert captured_rows[0] == captured_rows[1]
+        # The audit transports a lossless passage projection of the same row.
+        restored = {k: v for k, v in captured_rows[1].items() if k != "claim_passages"}
+        restored["claim"] = source_claim(captured_rows[1])
+        assert captured_rows[0] == restored
         assert system.index('{"claim_review"') < system.index('"verified": true')
         # This controlled review proves the transport and persistence
         # contract. It does not assert that a live model finds this error.
@@ -208,11 +212,11 @@ async def test_claim_review_reaches_real_sdk_with_complete_sources_and_only_audi
                 {"claim": "Totali e differenza su quattro periodi.", "evidence_ids": [source.id],
                  "premises": "Applicazione dei prezzi annotati al medesimo periodo.",
                  "support": "derived", "correction": "",
-                 "source_quotes": comparison_claim_review(source.id)[0]["source_quotes"]},
+                 "source_passage_ids": [p["id"] for p in row["claim_passages"]]},
                 {"claim": "Assenza di vincoli per B.", "evidence_ids": [],
                  "premises": "La nota non specifica condizioni di interruzione per B.",
                  "support": "unsupported", "correction": "Rimuovere il vantaggio e mantenere il limite.",
-                 "source_quotes": []},
+                 "source_passage_ids": []},
             ],
             "verified": verified,
             "content": "" if verified is False else corrected,
@@ -326,11 +330,11 @@ async def test_audit_request_keeps_original_interpretation_qualified_after_curre
 
     def reply(_system, payload):
         row, = payload["evidence"]
-        assert row["id"] == source.id and row["claim"] == current_text
+        assert row["id"] == source.id and source_claim(row) == current_text
         assert row["memory_reads"] == source.provenance.for_ai()["memory_reads"]
         if "draft" in payload:
             audited.append(payload)
-            assert "88 crediti" in row["claim"] and "84 crediti" not in row["claim"]
+            assert "88 crediti" in source_claim(row) and "84 crediti" not in source_claim(row)
         answer = {"content": corrected, "evidence_ids": [source.id]}
         if "draft" in payload:
             answer.update(verified=True, claim_review=comparison_claim_review(source.id, price_a=88))
@@ -372,7 +376,7 @@ async def test_request_and_cited_source_overflow_stops_before_audit_without_trun
     def reply(_system, payload):
         seen.append(payload)
         row, = payload["evidence"]
-        assert row["id"] == source.id and row["claim"] == SOURCE
+        assert row["id"] == source.id and source_claim(row) == SOURCE
         if "draft" in payload:
             return {"verified": True, "content": draft, "evidence_ids": [source.id]}
         assert payload["goal"]["success_criteria"] == goal.success_criteria

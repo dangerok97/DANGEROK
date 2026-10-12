@@ -229,6 +229,7 @@ jobs:
             tests/test_agent_preparation_grounding_v162.py \
             tests/test_preparation_response_schema_v162.py \
             tests/test_preparation_source_quotes_v162.py \
+            tests/test_preparation_passages_v162.py \
             tests/test_agent_preparation_dependency_v162.py \
             tests/test_agent_admission_contract_v162.py \
             tests/test_agent_verification_context_v162.py \
@@ -241,18 +242,31 @@ jobs:
             tests/test_llm_response_schema_v162.py \
             tests/test_agent_protocol_recovery_v162.py \
             tests/test_agent_replan_protocol_v162.py \
+            tests/test_agent_wait_protocol_v162.py \
+            tests/test_agent_write_dispatch_v162.py \
             tests/test_opportunity_assessment_context_v162.py \
             tests/test_agent_action_context_v162.py \
+            tests/test_action_evidence_table_v162.py \
             tests/test_completed_result_context_v162.py \
             tests/test_preparation_recovery_v162.py \
             tests/test_preparation_feedback_v162.py \
             tests/test_autonomy_preparation_diagnostics_v162.py \
             tests/test_autonomy_result_diagnostics_v162.py \
+            tests/test_autonomy_case_progress_v162.py \
+            tests/test_autonomy_passage_diagnostics_v162.py \
             tests/test_autonomy_worker_recovery_v162.py \
             tests/test_autonomy_wait_recovery_v162.py \
             tests/test_agent_connector_readiness_v162.py \
             tests/test_agent_planning_recovery_v162.py \
+            tests/test_agent_planner_source_prerequisite_v162.py \
+            tests/test_agent_reconsider_read_coverage_v162.py \
+            tests/test_agent_bounded_comparison_verification_v162.py \
+            tests/test_agent_compact_source_draft_v162.py \
             tests/test_autonomy_planning_retry_observation_v162.py \
+            tests/test_planning_protocol_history_v162.py \
+            tests/test_situation_live_eval_v162.py \
+            tests/test_gemini_search_grounding_v162.py \
+            tests/test_research_snippet_origin_v162.py \
             tests/test_route_provenance_v162.py \
             tests/test_agent_route_provenance_v162.py \
             tests/test_situation_delivery_recovery_v162.py \

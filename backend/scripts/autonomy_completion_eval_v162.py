@@ -255,10 +255,58 @@ def _error_code(value):
             and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", value) else None)
 
 
-def _preparation_claim_review(value):
+def _preparation_passage_index(payload):
+    """Exact passages in this audit's supplied JSON; never a reconstructed source."""
+    rows = payload.get("evidence") if isinstance(payload, dict) else None
+    index = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict) or not isinstance(row.get("claim_passages"), list):
+            continue
+        for passage in row["claim_passages"]:
+            if not isinstance(passage, dict) or type(passage.get("id")) is not str:
+                continue
+            ref = passage["id"]
+            mapped = ({"evidence_id": row["id"], "quote": passage["text"]}
+                      if type(row.get("id")) is str and row["id"] and ref
+                      and type(passage.get("text")) is str else None)
+            # Even malformed/conflicting duplicates remain unknown. Matching
+            # happens before redaction or truncation, never by an ID prefix.
+            index[ref] = None if ref in index and index[ref] != mapped else mapped
+    return index
+
+
+def _preparation_passage_selections(item, index):
+    ids = item.get("source_passage_ids")
+    out = {"source_passage_ids_kind": _response_kind(ids)}
+    if not isinstance(ids, list):
+        return out
+    out.update({"source_passage_ids": [], "source_passage_ids_count": len(ids),
+                "source_passage_ids_omitted": max(0, len(ids) - MAX_PREPARATION_SOURCE_QUOTES),
+                "source_passage_selections": []})
+    for position, ref in enumerate(ids[:MAX_PREPARATION_SOURCE_QUOTES]):
+        observed = {"selection_index": position, "response_kind": _response_kind(ref),
+                    "status": "unknown" if type(ref) is str else "malformed"}
+        if type(ref) is str:
+            fields = {"source_passage_id": ref}
+            mapped = index.get(ref)
+            if mapped is not None:
+                observed.update(status="materialized", origin="code_owned_audit_input")
+                fields.update(mapped)
+            for key, raw in fields.items():
+                limit = PREPARATION_CLAIM_TEXT_LIMIT if key == "quote" else 160
+                redacted = _safe_text(raw, limit + 1)
+                observed.update({key: redacted[:limit], key + "_characters": len(raw),
+                                 key + "_truncated": len(redacted) > limit})
+            out["source_passage_ids"].append(observed["source_passage_id"])
+        out["source_passage_selections"].append(observed)
+    return out
+
+
+def _preparation_claim_review(value, *, supplied_payload=None):
     rows = value.get("claim_review")
     out = {"claim_review_kind": _response_kind(rows)}
     if isinstance(rows, list):
+        passage_index = _preparation_passage_index(supplied_payload)
         out.update({"claim_review_count": len(rows),
                     "claim_review_omitted": max(0, len(rows) - MAX_PREPARATION_CLAIMS),
                     "claim_review": []})
@@ -267,6 +315,7 @@ def _preparation_claim_review(value):
                                         limit=PREPARATION_CLAIM_TEXT_LIMIT)
             if isinstance(item, dict):
                 observed.update(_diagnostic_refs(item, "evidence_ids"))
+                observed.update(_preparation_passage_selections(item, passage_index))
                 quotes = item.get("source_quotes")
                 observed["source_quotes_kind"] = _response_kind(quotes)
                 if isinstance(quotes, list):
@@ -371,7 +420,7 @@ def _scan_result_fields(result):
             "skipped_omitted": max(0, len(skipped) - MAX_ASSESSMENT_REFS)}
 
 
-def _decision_result(stage, value):
+def _decision_result(stage, value, *, preparation_payload=None):
     out = {"response_kind": _response_kind(value)}
     if not isinstance(value, dict):
         return out
@@ -415,7 +464,7 @@ def _decision_result(stage, value):
             out["verified"] = value["verified"]
         if stage == "preparation_audit":
             out.update(_decision_fields(value, ("reason",)))
-            out.update(_preparation_claim_review(value))
+            out.update(_preparation_claim_review(value, supplied_payload=preparation_payload))
     if stage == "make_plan":
         steps = value.get("steps")
         out["steps_kind"] = _response_kind(steps)
@@ -685,7 +734,8 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
             observation.update({"response_kind": "raised", "exception_type": type(exc).__name__[:80]})
             raise
         else:
-            observation.update(_decision_result(stage, result))
+            observation.update(_decision_result(stage, result,
+                preparation_payload=payload if stage == "preparation_audit" else None))
             return result
         finally:
             observation["model_attempts_after"] = probe.model_attempts
@@ -1437,6 +1487,11 @@ def _case_progress_record(case, probe):
         status = item.get("status") if isinstance(item, dict) else None
         checked[name] = status if status in ("not_run", "passed", "failed", "interrupted") else "unknown"
     text_length = goal.get("prepared_text_characters")
+
+    def observed_flag(name):
+        value = goal.get(name)
+        return value if failed and type(value) is bool else None
+
     return {
         "scenario": case.get("scenario"),
         "mode": case.get("mode"),
@@ -1448,10 +1503,10 @@ def _case_progress_record(case, probe):
             if failed else None
         ),
         "goal_status": goal_status if failed and goal_status in allowed_goal else None,
-        "requires_user_input": bool(goal.get("requires_user_input") is True) if failed else None,
-        "requires_user_authority": bool(goal.get("requires_user_authority") is True) if failed else None,
-        "has_next_run_at": bool(goal.get("has_next_run_at") is True) if failed else None,
-        "planning_unavailable": bool(goal.get("planning_unavailable") is True) if failed else None,
+        "requires_user_input": observed_flag("requires_user_input"),
+        "requires_user_authority": observed_flag("requires_user_authority"),
+        "has_next_run_at": observed_flag("has_next_run_at"),
+        "planning_unavailable": observed_flag("planning_unavailable"),
         "prepared_text_characters": (
             text_length if failed and type(text_length) is int and 0 <= text_length <= 6000 else None
         ),

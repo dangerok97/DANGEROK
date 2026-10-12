@@ -1,0 +1,138 @@
+{
+  "reviewed_at": "2026-10-12T10:25:17.562240+00:00",
+  "base_sha": "b816d05a68b8f7f730f51fc05212a546f93539df",
+  "first_head_sha": "2f4a64f1b9b3b68fade6c1f1597a8bad698ddcbc",
+  "latest_head_sha": "79d7fc3a31f1866d7903334dc5ff9323bca1f55f",
+  "scope": "Read-only review of incoming Git objects, with archived backend copies in /tmp. No root checkout, remote, service, live model or effect was changed.",
+  "isolated_tests": [
+    {
+      "head": "2f4a64f1b9b3b68fade6c1f1597a8bad698ddcbc",
+      "passed": 15,
+      "failed": 8,
+      "seconds": 0.53,
+      "modules": [
+        "test_agent_optional_effect_protocol_v162.py",
+        "test_agent_planner_source_prerequisite_v162.py",
+        "test_agent_reconsider_read_coverage_v162.py",
+        "test_agent_source_prerequisite_v162.py"
+      ],
+      "failure": "All eight source_prerequisite cases omit the required budget argument of AgentService._next and fail before exercising runtime."
+    },
+    {
+      "head": "79d7fc3a31f1866d7903334dc5ff9323bca1f55f",
+      "passed": 0,
+      "failed": 1,
+      "seconds": 0.12,
+      "modules": [
+        "test_agent_bounded_comparison_verification_v162.py"
+      ],
+      "failure": "Assertion expects uppercase DO NOT; actual prompt says do NOT. The preceding mocked achieved response and unknown-condition instruction assertion pass."
+    }
+  ],
+  "probes": {
+    "source": "/tmp/ora_v162_2f4_review_c0gojqur/review_probe.py",
+    "kind": "Synthetic reconstruction on the exact 2f4 backend; not a historical live request capture.",
+    "fixture_after_supplying_only_budget": "AttributeError: 'types.SimpleNamespace' object has no attribute '_owned_memory_prerequisite'",
+    "code_selected_unrelated_read": {
+      "capability": "calendar.local.read",
+      "model_calls": 0,
+      "source_relation_checked": false
+    },
+    "code_inserted_read": {
+      "capability": "information.read",
+      "plan_steps_before": 1,
+      "plan_steps_after": 2,
+      "persisted_steps": 2,
+      "model_calls": 0
+    },
+    "effect_declaration": {
+      "step_type": "inspect",
+      "capability_needed": "calendar.local.write",
+      "external_effect": false,
+      "reaches_somebody_else": false,
+      "effect_target": "",
+      "effect_type": null,
+      "reversibility": null
+    },
+    "base_null": {
+      "accepted": false,
+      "error": {
+        "field": "effect_type",
+        "issue": "wrong_type"
+      }
+    },
+    "base_omitted_effect_fields": {
+      "accepted": true
+    },
+    "incoming_null": {
+      "accepted": true,
+      "resulting_effect_type": "create",
+      "resulting_reversibility": "easily"
+    },
+    "actual_dispatch_boundary": {
+      "catalog_writes": true,
+      "may_touch_the_world": true,
+      "authority_calls": 0,
+      "authority_recheck": false,
+      "background_run": true,
+      "stopped_before_touch_implementation": true,
+      "persisted_effect_attempts": 0,
+      "real_effects": 0
+    },
+    "attribution": "The capability/step-type authority gap already exists with omitted fields in b816. Incoming null compatibility expands the accepted input surface; it does not originate the whole gap."
+  },
+  "recommendations": [
+    {
+      "change": "_owned_memory_prerequisite and _next read prioritization",
+      "decision": "withdraw",
+      "reason": "Code creates/persists an information.read step or chooses a pending .read/web.research step without a model decision. Ownership checks do not make that the requested reasoning-led architecture; an unrelated planned read is also selected."
+    },
+    {
+      "change": "optional-null effect metadata and its test module",
+      "decision": "withdraw pending narrower proof",
+      "reason": "The internal_only predicate trusts labels and false flags, not the code-owned capability facts. It accepts a known write and synthesizes default effect metadata. A separate compatible subset could use existing capability_facts and only known nonwrites, without changing execution semantics."
+    },
+    {
+      "change": "planner source-read and reconsider coverage prompt hunks",
+      "decision": "eligible for selective integration",
+      "reason": "No parser, authority, decision override, new call or budget change. Positive tests prove prompt transport only; they do not prove actual-model planning quality. Retain the distinction between omitted inventory and empty evidence, full-version coverage and an individual final page."
+    },
+    {
+      "change": "79d bounded comparison verification prompt",
+      "decision": "eligible for selective integration after fixing the test assertion",
+      "reason": "Preserves the model verdict, source qualification, substantive completion and unknown terms. It is instruction-only evidence, not proof of semantic success."
+    }
+  ],
+  "authorized_followup": {
+    "files": [
+      "backend/agent/execution.py",
+      "backend/tests/test_agent_write_dispatch_v162.py"
+    ],
+    "behavior": "After the existing unknown/permission guards, resolution.writes with step_type != execute returns unavailable/write_requires_execute_step before _touch_the_world. No conversion, inferred authority or extra loop.",
+    "new_tests_before_fix": {
+      "passed": 5,
+      "failed": 10
+    },
+    "new_tests_after_fix": {
+      "passed": 15,
+      "failed": 0,
+      "seconds": 0.31
+    },
+    "focused_regression": {
+      "passed": 47,
+      "failed": 0,
+      "seconds": 1.72,
+      "modules": [
+        "test_agent_write_dispatch_v162.py",
+        "test_agent_preparation_v4.py",
+        "test_agent_protocol_recovery_v162.py"
+      ]
+    },
+    "representation_only_test_alignment": "Six existing protocol-recovery cases now reconstruct the exact source using source_claim for generation claim and audit claim_passages. Original text equality, verdict, fixture, budget, citations and recovery assertions remain unchanged."
+  },
+  "limits": [
+    "No incoming change was merged or deployed by this reviewer.",
+    "No live-model quality was inferred from the fake-response tests.",
+    "The effect probe stopped before implementation; it does not claim a real write occurred."
+  ]
+}

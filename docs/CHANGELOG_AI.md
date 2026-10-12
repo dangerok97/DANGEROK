@@ -1,3 +1,92 @@
+# 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
+
+Il riesame rifiuta attese senza tempo valido o mescolate a revisioni del
+piano. Conserva il checkpoint tecnico già salvato e i contatori, senza trasformare
+un errore di formato in una nuova attesa del mondo. Il planner può leggere una
+sola diagnosi storica del formato, filtrata per owner, goal e scadenza: la risposta
+corrente viene comunque validata senza riscrittura del piano.
+
+Nell'audit, il modello seleziona passaggi identificati dal codice, ricavati
+senza perdita dalla fonte corrente. Il codice risolve solo questi identificativi
+in citazioni letterali, che attraversano il controllo precedente. Il formato
+legacy continua a richiedere citazioni autentiche; forme ambigue o riferimenti
+non forniti falliscono. Le istruzioni chiedono di controllare ogni clausola
+sostanziale, incluse condizioni e ambito, prima di dichiararla sostenuta.
+Il giudizio semantico resta del modello e deve essere verificato nella prova live.
+
+Il chooser condivide metadati identici delle Evidence in tabelle ricostruibili;
+quando necessario usa gruppi contigui, senza cambiare ordine, testo, riferimenti,
+tempi o limiti. Le due catture reali del ciclo sintetico Tarquinia passano da
+12.381 a 6.196 e da 12.732 a 7.122 caratteri, entro lo stesso limite di 9.000.
+Il materiale che rimane troppo grande continua a essere rifiutato.
+
+Il dispatcher verifica i fatti della capability: una capacità di scrittura
+dichiarata inspect, prepare o altro tipo diverso da execute viene respinta prima
+del gestore effetti. Il riesame esistente riceve l'errore; non vengono inventati
+un tipo di azione, parametri o autorizzazioni. Il percorso execute conserva
+gli stessi controlli di autorità, consenso e idempotenza.
+
+Gemini Search associa i segmenti generati soltanto agli indici originali dei
+chunk dichiarati dal provider, separati per candidato. Non assegna più alla
+prima fonte un testo riferito a un'altra, né perde i supporti raggiunto il
+limite dei risultati. Il nuovo campo `snippet_origin` attraversa osservazione,
+Research, persistenza, valutazione, sintesi e diagnostica. Un segmento generato
+non viene presentato come citazione letterale della pagina o prova primaria
+automaticamente verificata. I record precedenti mantengono origine unknown;
+un giudizio del modello sul tipo di fonte non può modificare questo dato.
+La correzione non aggiunge ricerche, download di pagine o chiamate modello.
+Il contratto degli indici e del segmento è verificato nella
+[documentazione ufficiale GroundingSupport](https://ai.google.dev/api/generate-content#GroundingSupport).
+
+La cronologia concorrente fino a `bf8306b` è preservata. Si ritirano
+l'inserimento automatico di `information.read`, il riordino dei passi per nome
+di capability e la normalizzazione dei null basata sulle sole dichiarazioni del
+modello. La review isolata rileva 15 PASS e 8 FAIL sui quattro moduli di `2f4a64f`:
+gli otto test del prerequisito non passavano nemmeno il parametro budget; corretto
+solo questo, emergeva anche il metodo assente nel fake. Il bypass delle scritture
+esisteva già con campi omessi; la normalizzazione null ne ampliava l'ingresso.
+Restano i chiarimenti del prompt su letture, versioni e confronto qualificato.
+Il test del confronto aveva un mismatch di maiuscole, corretto senza cambiare
+fixture o verdetto. Questi test attestano trasporto e formato, non qualità live.
+L'ultimo chiarimento del prompt propone un risultato conciso per fonti brevi,
+senza imporre un nuovo limite runtime o autorizzare omissioni sostanziali.
+
+Il candidato è isolato nel ramo `ora/v162-autonomy-validation-20261012`.
+La base staging `c419e0c` incorpora le modifiche Vision concorrenti, senza
+toccare il ciclo Agent o i suoi budget; i 13 controlli Vision dedicati passano
+con il trasporto sintetico. Il ramo concorrente e la PR 212 non vengono
+riscritti. Le loro pubblicazioni successive non attestano questo candidato.
+
+Verifica locale del candidato integrato: **1554 PASS, 1 SKIP, 129 moduli, 67.26 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni.
+Il precedente head `fe2d37f` supera cinque workflow CI e tutti i 15 job,
+ma il suo gate reale resta **6/9 macchina e non accettato dalla review**:
+85 chiamate logiche e 96 HTTP. Un confronto accettato introduce condizioni
+non sostenute dalle fonti; un altro omette la differenza utile. Citazioni
+autentiche e presenza di un artefatto non dimostrano la fedeltà del risultato.
+Il report originale e il giudizio indipendente restano conservati integralmente.
+
+Tarquinia e l'obiettivo «avvisami quando devo ritirare i panni» restano
+confermati. La vecchia stesura è chiusa. Il nuovo runner usa una nuova persona e
+stesura sintetiche; attraversa conversazione, Situation, prima wake reale,
+meteo, ricerca e programmazione successiva. Non accelera il tempo e non misura
+fisicamente l'asciugatura. `followup_pending` attesta soltanto il primo ciclo:
+controllo futuro, momento utile e ricezione sul dispositivo rimangono separati.
+
+CI e prove live di questa revisione devono ancora essere osservate dopo la
+pubblicazione. Il servizio tecnico isolato non equivale all'app rilasciata.
+Il controllo automatico ha rifiutato il deploy app; il rifiuto non viene aggirato
+con un merge. Build nativa firmata e notifica ad app chiusa non sono attestate.
+Non si dichiara l'app pienamente autonoma sulla base dei test locali.
+
+Prove originali e misure sono elencate in
+[indice delle evidenze](evidence/autonomy_v162_repairs_2026-10-12.json).
+Il [report live fe2](evidence/autonomy_v162_live_2026-10-12_fe2d37f.json),
+la [review](evidence/autonomy_v162_manual_review_2026-10-12_fe2d37f.json)
+e la [CI fe2](evidence/autonomy_v162_ci_2026-10-12_fe2d37f.json)
+mantengono i verdetti e la revisione originali.
+
+---
+
 # 12 ottobre 2026 — v162, integrazione del ramo concorrente verificata
 
 La cronologia conserva il ramo concorrente fino a `06d2d9e`. Restano i suoi

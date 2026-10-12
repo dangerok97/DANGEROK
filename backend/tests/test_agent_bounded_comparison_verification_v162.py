@@ -33,7 +33,7 @@ async def test_verifier_requires_useful_supported_delta_without_unknown_contract
     assert result["outcome"] == "achieved"
     prompt, payload = calls[0]
     assert "unknown provider condition is an uncertainty to disclose" in prompt
-    assert "DO NOT mark achieved if the saved comparison omitted a material difference" in prompt
+    assert "do NOT mark achieved if the saved comparison omitted a material difference" in prompt
     assert "Do not demand knowledge of hypothetical penalties" in prompt
     assert payload["what_was_done"]["prepared_result"].endswith("differenza 60.")
     assert payload["what_was_done"]["prepared_source_refs"] == ["evd_owned"]

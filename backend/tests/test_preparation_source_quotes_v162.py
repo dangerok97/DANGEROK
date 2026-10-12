@@ -78,7 +78,7 @@ def install(monkeypatch, h, checked, *, before_audit=None):
 
 
 @pytest.mark.asyncio
-async def test_authentic_stated_and_derived_quotes_cross_native_schema_and_save_once(monkeypatch):
+async def test_previous_literal_quote_form_keeps_strict_guard_and_saves_once(monkeypatch):
     h = await seed()
     checked = audit(h)
     original = deepcopy(checked)
@@ -90,12 +90,13 @@ async def test_authentic_stated_and_derived_quotes_cross_native_schema_and_save_
     assert saved["prepared_text"] == TEXT and saved["prepared_sources"] == checked["evidence_ids"]
     schema = seen[-1][1]
     Draft202012Validator.check_schema(schema)
-    assert Draft202012Validator(schema).is_valid(checked)
+    # New calls request selections. An adapter returning the previous literal
+    # form must still meet the original authenticity guard tested below.
+    assert not Draft202012Validator(schema).is_valid(checked)
     review_schema = schema["properties"]["claim_review"]["items"]
-    assert "source_quotes" in review_schema["required"]
-    item = review_schema["properties"]["source_quotes"]["items"]
-    assert item["additionalProperties"] is False and set(item["required"]) == {"evidence_id", "quote"}
-    assert item["properties"]["evidence_id"]["enum"] == [row["id"] for row in seen[-1][0]["evidence"]]
+    assert "source_passage_ids" in review_schema["required"]
+    item = review_schema["properties"]["source_passage_ids"]["items"]
+    assert item["enum"] == [p["id"] for row in seen[-1][0]["evidence"] for p in row["claim_passages"]]
     assert checked == original
     assert await h.db.agent_action_attempts.count_documents({}) == 0
     assert all(source.claim in (A, B) for source in h.sources)

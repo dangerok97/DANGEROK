@@ -167,23 +167,6 @@ def _step_declaration(raw: Any):
         return reject("parameters", "wrong_type")
     data["parameters"] = parameters
 
-    # A non-effect step may explicitly say that effect metadata is N/A.
-    # Some providers serialize optional fields as JSON null rather than
-    # omitting them. Treat null exactly like omission ONLY when the step
-    # cannot touch anything outside ORA: the existing default effect value
-    # is then inert. No such repair is allowed for execute, an external
-    # effect, a third-party impact, or a named effect target.
-    internal_only = (
-        data.get("step_type") in ("inspect", "research", "compare", "prepare", "ask_user", "verify", "wait")
-        and data.get("external_effect") in (None, False)
-        and data.get("reaches_somebody_else") in (None, False)
-        and data.get("effect_target") in (None, "")
-    )
-    if internal_only:
-        for optional in ("effect_type", "reversibility"):
-            if optional in data and data[optional] is None:
-                data.pop(optional)
-
     enums = {
         "step_type": ("inspect", "research", "compare", "prepare", "ask_user", "execute", "verify", "wait"),
         "effect_type": ("create", "modify", "cancel", "send", "transfer", "publish", "remove"),
@@ -346,6 +329,37 @@ def _explicit_wait_target(*, wait_until=None, wait_minutes=None, wait_hours=None
         except (TypeError, ValueError, OverflowError):
             continue
     return False
+
+
+def _reconsider_wait_errors(answer: Dict[str, Any], *, now: datetime) -> List[Dict[str, str]]:
+    """Validate a model wait without manufacturing its time or another decision."""
+    errors = []
+    for field in ("revised_steps", "replace_step_ids"):
+        value = answer.get(field, [])
+        if not isinstance(value, list):
+            errors.append({"field": field, "issue": "wrong_type"})
+        elif value:
+            errors.append({"field": field, "issue": "incompatible_with_wait"})
+
+    # Match the existing scheduler's precedence. A valid absolute target
+    # already declares the time; unused legacy durations do not replace it.
+    target = _aware_wait_until(answer.get("wait_until"))
+    if target is not None and target > now:
+        return errors
+    for field in ("wait_minutes", "wait_hours"):
+        value = answer.get(field)
+        if value is None:
+            continue
+        try:
+            valid = not isinstance(value, bool) and math.isfinite(float(value)) and float(value) >= 1
+        except (TypeError, ValueError, OverflowError):
+            valid = False
+        if not valid:
+            errors.append({"field": field, "issue": "invalid_time"})
+        return errors
+    errors.append({"field": "wait_until" if answer.get("wait_until") is not None else "wait_minutes",
+                   "issue": "invalid_time" if answer.get("wait_until") is not None else "missing"})
+    return errors
 
 
 def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
@@ -1080,51 +1094,6 @@ class AgentService:
             if outcome is not None:
                 return outcome
 
-    async def _owned_memory_prerequisite(self, owner_id, goal, plan: ActionPlan):
-        """Add at most one owner-verified read required by a generated draft.
-
-        This is a code-owned, read-only dependency of an already planned
-        internal document, never authority for world-changing actions.
-        Ambiguous, missing and withdrawn sources still require replanning.
-        """
-        from agent.memory_sources import memory_source_id, read_memory_previews
-
-        if len(plan.steps) >= MAX_PLAN_STEPS:
-            return None
-        refs = list(dict.fromkeys(
-            str(ref) for ref in (getattr(goal, "source_refs", None) or [])
-            if memory_source_id(ref)
-        ))
-        if len(refs) != 1:
-            return None
-        # Do not hide a failed read under a newly minted repeated step.
-        if any(step.capability_needed == "information.read"
-               and step.step_type == "inspect" for step in plan.steps):
-            return None
-        resolution = await self.capabilities.resolve(owner_id, "information.read")
-        if not (resolution.usable and resolution.is_real and not resolution.writes):
-            return None
-        # The memory must still exist, be active and belong to this owner.
-        current = await read_memory_previews(self.db, owner_id, refs, limit=1)
-        if len(current) != 1 or current[0].get("ref") != refs[0]:
-            return None
-        step = ActionStep(
-            ordinal=len(plan.steps),
-            intent="Leggere la memoria associata prima di preparare il risultato",
-            step_type="inspect",
-            capability_needed="information.read",
-            input_refs=refs,
-            expected_result="Evidenza della lettura corrente, con versione e limiti della fonte",
-        )
-        plan.steps.append(step)
-        await self.repo.save_plan(plan)
-        await self.repo.journal(
-            owner_id, goal.id, kind="planning_prerequisite_added",
-            note="Inserita la lettura della memoria già associata al risultato.",
-            detail={"step_id": step.id, "capability": "information.read"},
-        )
-        return step
-
     async def _next(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, budget: AgentBudget,
         *, language: str,
@@ -1149,38 +1118,7 @@ class AgentService:
 
         evidence = await self.evidence.for_goal(owner_id, goal.id)
         if not evidence:
-            # An evidence-bound preparation is not itself a source read.
-            # Before any evidence exists, take an explicitly planned internal
-            # read first even when the model put the draft ahead of it.
-            # If the planner omitted that prerequisite, reject that
-            # impossible selection and let bounded reconsideration repair
-            # the route, rather than running a guaranteed-to-fail draft.
-            first = pending[0]
-            if first.step_type == "prepare" and first.capability_needed == "document.create":
-                prerequisite = next((
-                    item for item in pending
-                    if item.step_type in ("inspect", "research")
-                    and (item.capability_needed.endswith(".read")
-                         or item.capability_needed == "web.research")
-                ), None)
-                if prerequisite is not None:
-                    return ("execute", prerequisite)
-                owned_read = await self._owned_memory_prerequisite(
-                    owner_id, goal, plan,
-                )
-                if owned_read is not None:
-                    return ("execute", owned_read)
-                await self.repo.journal(
-                    owner_id, goal.id, kind="planning_prerequisite_missing",
-                    note="La preparazione richiede una lettura reale che il piano non contiene.",
-                    detail={"step_id": first.id, "reason": "preparation_sources_required"},
-                )
-                raise _InvalidNextSelection({
-                    "problem": "preparation_sources_required",
-                    "result": {"problem": "preparation_sources_required"},
-                    "selection": {"candidate_step_ids": [item.id for item in pending[:MAX_PLAN_STEPS]]},
-                })
-            return ("execute", first)
+            return ("execute", pending[0])
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             # Out of judgement for this run is NOT the same as out of work.
@@ -1670,6 +1608,9 @@ class AgentService:
             planning_context["current_source_context"] = memory_context
 
         available = await self.capabilities.available(owner_id)
+        protocol_history = await self._planning_protocol_history(owner_id, goal)
+        if protocol_history:
+            planning_context["planning_protocol_history"] = protocol_history
         error_kind = "invalid_response"
         try:
             answer = await make_plan(
@@ -1753,6 +1694,38 @@ class AgentService:
             detail={"steps": len(plan.steps)},
         )
         return plan
+
+    async def _planning_protocol_history(self, owner_id, goal):
+        """Bounded format history, never a replacement plan or source evidence.
+
+        This optional record may predate a source update or provider outage.
+        It is explicitly historical, not a claim about the current response.
+        The current declaration still passes the unchanged strict validator.
+        """
+        if goal.owner_id != owner_id or not goal.planning_unavailable or goal.planning_attempts <= 1:
+            return None
+        try:
+            row = await self.db.agent_journal.find_one({
+                "owner_id": owner_id, "goal_id": goal.id, "kind": "planning_protocol_invalid",
+                "expires_at": {"$gt": _now()},
+            }, {"_id": 0, "detail.validation_errors": 1}, sort=[("at", -1)])
+            errors = (row or {}).get("detail", {}).get("validation_errors")
+            if not isinstance(errors, list):
+                return None
+            fields = {"step", "intent", "step_type", "capability_needed", "input_refs", "parameters",
+                      "expected_result", "external_effect", "effect_type", "effect_target",
+                      "reaches_somebody_else", "reversibility", "asks", "ask_kind"}
+            issues = {"wrong_type", "missing", "empty", "unsupported_field", "conflicting_alias",
+                      "unsupported_value", "invalid_shape"}
+            kept = [{"index": item["index"], "field": item["field"], "issue": item["issue"]}
+                    for item in errors[:1] if isinstance(item, dict)
+                    and type(item.get("index")) is int and 0 <= item["index"] < MAX_PLAN_STEPS
+                    and type(item.get("field")) is str and item["field"] in fields
+                    and type(item.get("issue")) is str and item["issue"] in issues]
+            return {"origin": "code_owned_format_history", "scope": "past_declaration_only",
+                    "validation_errors": kept} if kept else None
+        except Exception:
+            return None  # Optional history never becomes a planning gate.
 
     async def _planning_fence(self, owner_id, goal, run: AgentRun) -> None:
         """Do not publish a slow planning response after its source changed."""
@@ -1928,8 +1901,8 @@ class AgentService:
 
         decision = answer["decision"]
         fresh = []
+        errors = _reconsider_wait_errors(answer, now=_now()) if decision == "wait" else []
         if decision == "modify":
-            errors = []
             raw_steps = answer.get("revised_steps")
             if not isinstance(raw_steps, list):
                 errors.append({"field": "revised_steps", "issue": "wrong_type"})
@@ -1953,17 +1926,18 @@ class AgentService:
             replace = answer.get("replace_step_ids", [])
             if not isinstance(replace, list) or any(type(ref) is not str for ref in replace):
                 errors.append({"field": "replace_step_ids", "issue": "wrong_type"})
-            if errors:
-                # A partial route is not the model's proposed route. Validate
-                # the whole modification before retiring history, publishing
-                # an assessment or calling this a successfully revised plan.
-                run.stopped_because = "replan_protocol_invalid"
-                note = "La revisione proposta non rispettava il formato atteso; nessun passo è stato modificato."
-                await self.repo.journal(owner_id, goal.id, kind="replan_protocol_invalid", note=note,
-                    detail={"validation_errors": errors[:MAX_PLAN_STEPS + 1]})
-                result = await self._pause(owner_id, goal, plan, run, note)
-                result["reason"] = "replan_protocol_invalid"
-                return result
+        if errors:
+            # A partial route or an invalid wait is not a usable decision.
+            # Preserve the technical checkpoint already saved by advance;
+            # do not turn a format error into a world wait/reset or publish
+            # an assessment before the complete declaration is valid.
+            run.stopped_because = "replan_protocol_invalid"
+            note = "La revisione proposta non rispettava il formato atteso; nessun passo è stato modificato."
+            await self.repo.journal(owner_id, goal.id, kind="replan_protocol_invalid", note=note,
+                detail={"validation_errors": errors[:MAX_PLAN_STEPS + 1]})
+            result = await self._pause(owner_id, goal, plan, run, note)
+            result["reason"] = "replan_protocol_invalid"
+            return result
 
         await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
 

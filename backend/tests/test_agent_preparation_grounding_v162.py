@@ -9,6 +9,7 @@ import json
 from unittest.mock import AsyncMock
 
 import pytest
+from test_preparation_passages_v162 import source_claim
 from mongomock_motor import AsyncMongoMockClient
 
 from agent import reasoning
@@ -127,7 +128,7 @@ async def test_source_qualifications_reach_draft_audit_and_verifier(
                 "what_is_missing": "Il risultato richiesto dipende da condizioni non stabilite.",
             }
         row, = payload["evidence"]
-        assert row["id"] == source.id and row["claim"] == source.claim
+        assert row["id"] == source.id and source_claim(row) == source.claim
         assert row.get("bears_on") == source.supports
         assert row["memory_reads"] == pages
         assert "validità attuale" in row["limits"]

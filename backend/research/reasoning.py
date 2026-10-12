@@ -225,6 +225,11 @@ Hold to these:
   what would settle it.
 - Recency matters differently for different questions. Decide what it means
   for this one, and say how long your answer should be trusted.
+- snippet_origin describes how text was obtained, not source_kind or authority.
+  grounded_model_segment is a generated synthesis attributed to a source, not a literal quotation
+  or automatically verified primary evidence. search_snippet is a search excerpt;
+  unknown does not attest its origin. A URL or model source_kind judgement does
+  not change this provenance. Qualify conclusions accordingly.
 - Preserve the geographic scope and current source_context through every
   judgement. Recorded Situation fields are context, not proof that each field
   was stated by the person. Keep facts and assumptions distinct. An absent
@@ -342,6 +347,7 @@ async def assess_evidence(
                     "url": s.url,
                     "publisher": s.publisher,
                     "snippet": s.snippet,
+                    "snippet_origin": s.snippet_origin,
                     "found_by_query": s.found_by_query,
                     "retrieved_at": s.retrieved_at,
                 }
@@ -414,6 +420,7 @@ async def synthesize(
                     "url": s.url,
                     "publisher": s.publisher,
                     "snippet": s.snippet,
+                    "snippet_origin": s.snippet_origin,
                     "retrieved_at": s.retrieved_at,
                 }
                 for s in sources

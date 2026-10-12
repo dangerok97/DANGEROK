@@ -1,3 +1,32 @@
+# 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
+
+Tarquinia e l'obiettivo «avvisami quando devo ritirare i panni» restano
+confermati. La vecchia stesura è chiusa. Il nuovo runner usa una nuova persona e
+stesura sintetiche; attraversa conversazione, Situation, prima wake reale,
+meteo, ricerca e programmazione successiva. Non accelera il tempo e non misura
+fisicamente l'asciugatura. `followup_pending` attesta soltanto il primo ciclo:
+controllo futuro, momento utile e ricezione sul dispositivo rimangono separati.
+
+CI e prove live di questa revisione devono ancora essere osservate dopo la
+pubblicazione. Il servizio tecnico isolato non equivale all'app rilasciata.
+Il controllo automatico ha rifiutato il deploy app; il rifiuto non viene aggirato
+con un merge. Build nativa firmata e notifica ad app chiusa non sono attestate.
+Non si dichiara l'app pienamente autonoma sulla base dei test locali.
+
+La scheda conserva la distinzione fra stima e stato fisico, e fra ritiro per
+asciugatura e messa al riparo anticipata. Il meteo serve a stabilire l’azione
+utile per la persona.
+
+Verifica locale del candidato integrato: **1554 PASS, 1 SKIP, 129 moduli, 67.26 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni.
+Prove originali e misure sono elencate in
+[indice delle evidenze](evidence/autonomy_v162_repairs_2026-10-12.json).
+Il [report live fe2](evidence/autonomy_v162_live_2026-10-12_fe2d37f.json),
+la [review](evidence/autonomy_v162_manual_review_2026-10-12_fe2d37f.json)
+e la [CI fe2](evidence/autonomy_v162_ci_2026-10-12_fe2d37f.json)
+mantengono i verdetti e la revisione originali.
+
+---
+
 # 12 ottobre 2026 — v162, integrazione del ramo concorrente verificata
 
 La cronologia conserva il ramo concorrente fino a `06d2d9e`. Restano i suoi

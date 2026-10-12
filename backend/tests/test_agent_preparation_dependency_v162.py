@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock
 import httpx
 from mongomock_motor import AsyncMongoMockClient
 import pytest
+from test_preparation_passages_v162 import source_claim
 
 from agent import reasoning
 from agent.models import ActionPlan, ActionStep, AgentBudget, AgentRun, AutonomousGoal
@@ -279,7 +280,7 @@ async def test_real_missing_preparation_sources_replans_then_reads_and_prepares_
                     "reasoning": "La fonte è stata letta e può sostenere il confronto."}
         stages.append("audit" if "draft" in payload else "draft")
         row, = payload["evidence"]
-        assert row["claim"] == text and row["source_refs"] == [MEMORY]
+        assert source_claim(row) == text and row["source_refs"] == [MEMORY]
         assert row["memory_reads"][0]["next_offset"] is None
         answer = {"content": RESULT, "evidence_ids": [row["id"]]}
         if "draft" in payload:
