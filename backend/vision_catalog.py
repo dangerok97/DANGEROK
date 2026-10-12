@@ -15,6 +15,7 @@ from typing import Awaitable, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pymongo import ReturnDocument
+from vision_provider import VisionProviderError
 from vision_seed_library import all_recipes, canonical_key, model_metadata
 
 SCHEMA_VERSION = 1
@@ -308,7 +309,7 @@ class CatalogService:
                          "error": "Ricostruzione non disponibile o non valida.", "updated_at": now()},
                 "$unset": {"lease_token": "", "lease_until": ""},
             })
-            if isinstance(exc, (asyncio.CancelledError, CatalogLimit)):
+            if isinstance(exc, (asyncio.CancelledError, CatalogLimit, VisionProviderError)):
                 raise
             return {"status": "unknown", "reason": "Non riesco ancora a costruire uno schema affidabile di questo oggetto."}
 

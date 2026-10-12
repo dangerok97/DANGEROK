@@ -1,3 +1,7 @@
+## 12 ottobre 2026 — Vision: errori AI distinti dal riconoscimento
+
+Se il servizio AI scade, rifiuta il modello o non ha credito, ORA non attribuisce il problema alla foto. Routing con cooldown e preferenza della combinazione funzionante; JSON di rilevamento vincolato; due tentativi visivi con budget coerente con il client. Se entrambi non identificano l’oggetto, descrizione facoltativa da verificare sulla nuova foto. Nessun seed aggiunto, nessuna foto o etichetta personale salvata nel catalogo. Test e limiti del rilascio nella PR dedicata.
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Aggiunte 50 ricette di oggetti quotidiani e rispettivi sinonimi/categorie. Preservati manifest e percorsi dei 25 oggetti precedenti. Aggiunti test di migrazione da 25 a 75, riuso senza generazione, isolamento delle vecchie voci private, mancata riattivazione dei ritirati e apertura/selezione delle 50 nuove famiglie su mobile e desktop.

@@ -32,4 +32,10 @@ export const visualStyle = `
 
 /* Native WebKit select appearance otherwise paints a white bezel under light text. */
 .vx-catalog-category{-webkit-appearance:none;appearance:none;color-scheme:dark;background-color:#122c3b;background-image:linear-gradient(45deg,transparent 50%,#b7d5e3 50%),linear-gradient(135deg,#b7d5e3 50%,transparent 50%);background-position:calc(100% - 18px) 19px,calc(100% - 13px) 19px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px;color:#e0f3f8}
+
+.vx-recovery{flex-shrink:0;padding:12px 18px;background:#0b2029;border-top:1px solid #365361;font-size:13px;color:#e0f0f3}
+.vx-recovery label{display:block;margin-bottom:8px}.vx-recovery>div{display:flex;gap:8px;flex-wrap:wrap}
+.vx-recovery input{flex:1;min-width:130px;background:#041219;border:1px solid #6d939d;border-radius:8px;color:#fff;padding:10px;font-size:16px}
+.vx-recovery button{min-height:44px;border:1px solid #8ac7d0;background:#12323d;color:#e0f8ff;border-radius:8px;padding:9px 12px}
+.vx-recovery small{display:block;margin-top:7px;font-size:11px;line-height:16px;color:#aec7ce}
 `;

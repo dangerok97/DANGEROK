@@ -25,6 +25,8 @@ export default function LiveExplorer(){
   const [stage,setStage]=useState('Inquadra. Esplora. Capisci.');
   const [error,setError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
+  const [needsHint,setNeedsHint]=useState(false);
+  const [objectHint,setObjectHint]=useState('');
   const [result,setResult]=useState<CatalogResult|null>(null);
   const [selected,setSelected]=useState('');
   const [focused,setFocused]=useState(false);
@@ -74,6 +76,7 @@ export default function LiveExplorer(){
   const changeMode=(m:Mode)=>{modeRef.current=m;if(alive.current)setMode(m);};
   const resetView=useCallback(()=>{
     endTour(false);arrival.current=null;gestures.current.clear();selectedRef.current='';
+    if(alive.current){setNeedsHint(false);setObjectHint('');}
     Object.assign(view.current,{yaw:.46,pitch:-.22,zoom:1,focus:0,focusTarget:0,progress:0,target:1});
     if(alive.current){setSelected('');setFocused(false);setDetailOpen(true);setMoreDetail(false);setOpening(100);setExpanded(true);}
   },[endTour]);
@@ -128,7 +131,7 @@ export default function LiveExplorer(){
     }
   },[]);
 
-  const captureScan=useCallback(async()=>{
+  const captureScan=useCallback(async(hint='')=>{
     if(busyRef.current||scene.current||!['live','photo'].includes(modeRef.current))return;
     const source=modeRef.current==='live'?video.current:photo.current;if(!source)return;
     const rawWidth=source instanceof HTMLVideoElement?source.videoWidth:source.naturalWidth;
@@ -146,9 +149,9 @@ export default function LiveExplorer(){
     sc.drawImage(snapshot,0,0,small.width,small.height);scanReference.current=grayFrame(sc.getImageData(0,0,small.width,small.height));
     const dataURI=snapshot.toDataURL('image/jpeg',.78),ticket=epoch.current;
     const controller=new AbortController();request.current=controller;
-    busyRef.current=true;setBusy(true);setError(null);setStage('Riconosco e cerco nel catalogo…');
+    busyRef.current=true;setBusy(true);setNeedsHint(false);setError(null);setStage('Riconosco e cerco nel catalogo…');
     try{
-      let value=await catalogApi.scan(dataURI,String(ticket)+'-'+Date.now(),controller.signal);
+      let value=await catalogApi.scan(dataURI,String(ticket)+'-'+Date.now(),controller.signal,hint);
       const identification=value.identification;
       for(let attempt=0;value.status==='building'&&attempt<12;attempt++){
         if(epoch.current!==ticket||controller.signal.aborted)return;
@@ -174,7 +177,7 @@ export default function LiveExplorer(){
         }
         apply(value,box?{box,sw,sh}:null);
       }
-      else{scene.current=null;heldResult.current=null;setResult(null);setStage(value.reason||'Ricostruzione in corso. Premi Riprova per verificarla.');nextScan.current=performance.now()+6000;}
+      else{scene.current=null;heldResult.current=null;setResult(null);setNeedsHint(value.can_describe===true);setStage(value.reason||'Ricostruzione in corso. Premi Riprova per verificarla.');nextScan.current=performance.now()+6000;}
     }catch(e:any){
       if(epoch.current!==ticket||!alive.current)return;
       setError(e?.name==='AbortError'?'Analisi scaduta. Il video non è stato interrotto.':String(e?.message||'Analisi non disponibile.'));
@@ -374,6 +377,11 @@ export default function LiveExplorer(){
       {infoOpen&&<aside className="vx-info" data-testid="vision-information" aria-label="Informazioni su Vision"><h2>Uno schema, non una radiografia</h2><p>{result?.manifest?.limitations||'Le forme e le parti interne sono indicative della famiglia di oggetti, non verificate sul tuo esemplare.'}</p><p>Per riconoscere l’oggetto invio fotogrammi all’AI. Dopo l’acquisizione l’analisi si ferma. Non registro il video e non salvo le foto nel catalogo.</p>{Boolean(result?.sources?.length)&&<div className="vx-seed-sources">Riferimenti generali, non verifica del tuo esemplare.{result!.sources!.map(s=><a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.title} ↗</a>)}</div>}<p>I nuovi schemi generici validati vengono salvati automaticamente nel catalogo comune. Le precedenti voci private restano private.</p><button onClick={()=>setInfoOpen(false)}>Torna all’oggetto</button></aside>}
     </section>
     {error&&<div className="vx-error" role="alert" data-testid="vision-error">{error}</div>}
+    {needsHint&&!result&&!busy&&<form className="vx-recovery" data-testid="vision-recovery" onSubmit={e=>{e.preventDefault();if(objectHint.trim())void captureScan(objectHint);}}>
+      <label htmlFor="vision-object-hint">Che oggetto stai inquadrando?</label>
+      <div><input id="vision-object-hint" data-testid="vision-object-hint" type="text" maxLength={100} placeholder="Per esempio: una pattumiera" autoComplete="off" value={objectHint} onChange={e=>setObjectHint(e.target.value)}/><button data-testid="vision-identify-hint" disabled={!objectHint.trim()}>Verifica nella foto</button></div>
+      <small>Il nome aiuta il riconoscimento: non viene trattato come una prova delle parti interne.</small>
+    </form>}
     {result?.manifest&&<section className={'vx-details'+(tourUI?' is-tour':'')} aria-label="Componenti dell’oggetto">
       {definition&&!tourUI&&<button className="vx-how" data-testid="vision-how-it-works" onClick={startTour}>▷ Mostrami come funziona <span>{definition.steps.length} passaggi</span></button>}
       {tourUI&&step&&definition&&<div className="vx-tour" data-testid="vision-tour">
