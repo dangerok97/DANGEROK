@@ -28,6 +28,9 @@ async def test_replanning_instructions_distinguish_source_coverage_from_wait(mon
     assert "A truncated *display*" in system
     assert "Never wait merely for an already available internal source" in system
     assert "Wait is for a future external condition" in system
+    assert "ORA-generated success_criteria and stop_conditions" in system
+    assert "Abandon a goal only when its actual useful outcome" in system
+    assert "unknown third-party terms must remain labelled unknown" in system
     assert "work.\\n\\nWhen what_happened.result.problem" not in system
     assert "work.\n\nWhen what_happened.result.problem" in system
     assert captured["user"]["goal"]["id"] == "synthetic-goal"
