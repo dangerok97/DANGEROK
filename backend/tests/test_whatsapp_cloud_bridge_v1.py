@@ -253,3 +253,78 @@ async def test_meta_send_failure_reports_only_numeric_diagnostics(config, monkey
     assert "393331112233" not in str(err)
     assert "secret_access_token" not in str(err)
 
+
+
+def test_italian_locale_reply_is_not_sent_as_python_dictionary():
+    from whatsapp.formatting import render_whatsapp_answer
+
+    # This is the exact class of malformed answer observed on the live account.
+    wrapped = r"""{'it': "Ho trovato due date:\n\n- **8 ottobre**\n- **10 ottobre**."}"""
+    result = render_whatsapp_answer(wrapped)
+    assert result == "Ho trovato due date:\n\n- *8 ottobre*\n- *10 ottobre*."
+    assert "{'it':" not in result
+    assert "\\n" not in result
+
+
+def test_renderer_accepts_json_and_actual_language_map():
+    from whatsapp.formatting import render_whatsapp_answer
+
+    json_wrapped = r'{"it": "Prima riga\n\nSeconda riga"}'
+    assert render_whatsapp_answer(json_wrapped) == "Prima riga\n\nSeconda riga"
+    actual_map = {"it": "Ciao\n\n*Bene*", "en": "Hello"}
+    assert render_whatsapp_answer(actual_map) == "Ciao\n\n*Bene*"
+    assert render_whatsapp_answer({"it-IT": {"text": "Risposta italiana"}}) == "Risposta italiana"
+
+
+def test_renderer_removes_orphan_stars_without_erasing_valid_whatsapp_bold():
+    from whatsapp.formatting import render_whatsapp_answer
+
+    result = render_whatsapp_answer(
+        "1. *Informazione senza chiusura\n"
+        "- **due volte*\n"
+        "- *nome**\n"
+        "- *grassetto corretto*"
+    )
+    assert result == (
+        "1. Informazione senza chiusura\n"
+        "- *due volte*\n"
+        "- *nome*\n"
+        "- *grassetto corretto*"
+    )
+
+
+def test_renderer_rejects_malformed_locale_repr_and_preserves_regular_code():
+    from whatsapp.formatting import render_whatsapp_answer
+
+    broken = render_whatsapp_answer("{'it': ???}")
+    assert "{" not in broken and "it" not in broken.lower()
+    # Plain messages asking about paths or code should not get decoded.
+    code_message = r"Percorso C:\nuovo\file.txt"
+    assert render_whatsapp_answer(code_message) == code_message
+    assert render_whatsapp_answer("Non è un dizionario: {'it': 'esempio'}") == (
+        "Non è un dizionario: {'it': 'esempio'}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_core_bridge_unwraps_ai_locale_reply(config, database, monkeypatch):
+    from whatsapp.formatting import render_whatsapp_answer
+    from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
+
+    svc = WhatsAppService(database, config)
+
+    async def fake_start(self, user_id, **kwargs):
+        assert user_id == "owner_account"
+        return {
+            "ok": True,
+            "session_id": "ces_it_locale",
+            "ora_text": r"""{'it': "Ho due ricorrenze:\n\n- **8 ottobre**\n- **10 ottobre**"}""",
+        }
+
+    monkeypatch.setattr(AICoreOrchestrator, "start", fake_start)
+    result = await svc._answer_ai(
+        "owner_account", {"phone_hash": "synthetic-hash"},
+        "Quali compleanni conosci?", "wamid.synthetic.123"
+    )
+    assert result == "Ho due ricorrenze:\n\n- *8 ottobre*\n- *10 ottobre*"
+    assert result == render_whatsapp_answer(result)
