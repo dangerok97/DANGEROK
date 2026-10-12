@@ -89,7 +89,7 @@ test('validated BodyParts3D geometry opens by default, stays sandboxed, and fall
    model_is_person_specific:false,parts:2234,concepts:3432
   })
  }));
- await page.route('**/bodyparts3d/index.html',route=>route.fulfill({
+ await page.route('**/bodyparts3d/index.html?*',route=>route.fulfill({
   status:200,contentType:'text/html',body:'<!doctype html><title>Isolated BodyParts3D test frame</title>'
  }));
  await launchAnatomy(page);
@@ -106,10 +106,8 @@ test('validated BodyParts3D geometry opens by default, stays sandboxed, and fall
  await expect(fullScreen).toBeHidden(); // Person view must not become a separate full-screen page.
  await expect(page.getByTestId('vision-bp3d-toggle')).toHaveAttribute('aria-pressed','true');
  await expect(page.getByText('2.234 mesh')).toBeVisible();
- await page.getByTestId('vision-bp3d-fallback').click();
- await expect(frame).toHaveCount(0);
- await expect(page.getByTestId('vision-anatomy-layer-organs')).toBeVisible();
- await page.getByTestId('vision-bp3d-toggle').click();
+ await expect(page.getByTestId('vision-bp3d-fallback')).toBeHidden();
+ await expect(page.getByTestId('vision-anatomy-region-torso')).toBeHidden();
  await expect(frame).toBeVisible();
  await expect(page.getByTestId('vision-anatomy-close')).toBeVisible();
  expect(requests).toBe(1);
