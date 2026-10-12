@@ -50,7 +50,8 @@ async def whatsapp_start_pairing(user=Depends(get_current_user)):
 
 @router.delete("/link")
 async def whatsapp_unlink(user=Depends(get_current_user)):
-    await WhatsAppService(db, _config()).disconnect(user["user_id"])
+    from whatsapp.service import disconnect_account
+    await disconnect_account(db, user["user_id"])
     return {"ok": True, "linked": False}
 
 
