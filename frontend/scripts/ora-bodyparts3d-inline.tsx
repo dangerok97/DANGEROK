@@ -165,6 +165,7 @@ export default function OraOverlay(){
   setChosen(null);setBeforeInspect(null);setPiecePage(0);
  };
  const title=chosen?.name||'Anatomia di riferimento';
+ const displayedExplosion=state.isolate&&beforeInspect?beforeInspect.explode:state.explode;
  return <main className="ora-overlay" data-testid="ora-bodyparts-inline" aria-label="Anatomia 3D in sovrimpressione, modello didattico">
    {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:renderedIds,detailZoom,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
      onProgress={setProgress} onError={setError}/>}
@@ -253,14 +254,16 @@ export default function OraOverlay(){
     <div className="ora-overlay-page-parts" role="list" aria-label="Tocca una struttura per esaminarla">
      {currentPieces.map(part=><button role="listitem" type="button" key={part.id}
       data-testid={'ora-inline-piece-'+part.id} onClick={()=>choosePart(part.id)}
-      title={part.originalName||part.name}>{part.name}</button>)}
+      title={part.name} aria-label={'Esamina '+part.name}>{part.name}</button>)}
     </div>
    </section>}
    <div className="ora-overlay-footer">
     <div className="ora-overlay-opening">
-     <label htmlFor="ora-inline-explode">Scomponi <strong>{Math.round(state.explode*100)}%</strong></label>
+     <label htmlFor="ora-inline-explode">Scomponi {chosen?'· posizione salvata':''} <strong data-testid="ora-inline-explode-percentage">{Math.round(displayedExplosion*100)}%</strong></label>
      <input id="ora-inline-explode" data-testid="ora-inline-explode" type="range" min="0" max="100" step="1"
-      value={Math.round(state.explode*100)} onChange={e=>setOpening(Number(e.target.value))}/>
+      value={Math.round(displayedExplosion*100)} disabled={Boolean(chosen)}
+      title={chosen?'Scomposizione salvata. Torna ai pezzi esplosi per modificarla.':'Trascina per scomporre'}
+      onChange={e=>setOpening(Number(e.target.value))}/>
     </div>
     <button type="button" onClick={reset} data-testid="ora-inline-reset">Ricomponi</button>
     <button type="button" onClick={()=>setAboutOpen(v=>!v)} aria-expanded={aboutOpen} aria-label="Informazioni e licenza">ⓘ</button>
