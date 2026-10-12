@@ -76,6 +76,10 @@ def _tidy_whatsapp_emphasis(text: str) -> str:
     text = re.sub(r"(?<!\*)\*([^\n*]{1,400})\*\*(?!\*)", r"*\1*", text)
 
     def clean_line(line: str) -> str:
+        # Asterisks used as arithmetic operators or in backtick code are not
+        # typography; removing them would change the factual content.
+        if "`" in line or re.search(r"\b\d+\s*\*\s*\d+\b", line):
+            return line
         if "*" not in line or line.count("*") % 2 == 0:
             return line
         # Retain only already paired emphasis. Orphan asterisks do not
