@@ -62,13 +62,15 @@ export function WhatsAppConnection() {
     }
   };
 
-  const openWhatsApp = async () => {
+  const openWhatsApp = async (linkAccount = false) => {
     const number = pairing?.display_number || status?.display_number;
-    if (!number || !pairing) return;
+    if (!number || (linkAccount && !pairing)) return;
     try {
-      await Linking.openURL(
-        'https://wa.me/' + number + '?text=' + encodeURIComponent('COLLEGA ' + pairing.code),
-      );
+      const url = 'https://wa.me/' + number
+        + (linkAccount && pairing
+            ? '?text=' + encodeURIComponent('COLLEGA ' + pairing.code)
+            : '');
+      await Linking.openURL(url);
     } catch (err) {
       setError(humanizeError(err));
     }
@@ -93,13 +95,23 @@ export function WhatsAppConnection() {
       </View>
 
       <Text style={[styles.description, { color: colors.textSecondary }]}>
-        Scrivi a ORA anche da WhatsApp: stesso account, stessa memoria e stesse competenze.
-        Al momento WhatsApp gestisce i messaggi di testo; nessun avviso automatico
-        viene inviato senza attivazione esplicita.
+        Scrivi o parla a ORA anche su WhatsApp: stesso account, stessa memoria,
+        calendario e competenze. Puoi inviare testo, vocali, foto, documenti e
+        posizioni condivise. Quando servono GPS live, fotocamera in tempo reale
+        o permessi del telefono, ORA ti dà il link per completare nell'app.
+        Nessun avviso WhatsApp automatico è attivo senza consenso esplicito.
       </Text>
 
       {status?.linked ? (
         <View style={styles.buttons}>
+          <ActionBtn
+            primary
+            icon="chatbubble-outline"
+            label="Scrivi a ORA su WhatsApp"
+            disabled={!status.display_number || busy}
+            onPress={() => void openWhatsApp()}
+            testID="whatsapp-open-linked"
+          />
           <ActionBtn
             variant="danger"
             icon="unlink-outline"
@@ -125,7 +137,7 @@ export function WhatsAppConnection() {
                   primary
                   icon="chatbubble-outline"
                   label="Apri WhatsApp"
-                  onPress={() => void openWhatsApp()}
+                  onPress={() => void openWhatsApp(true)}
                   testID="whatsapp-open"
                 />
               ) : (
