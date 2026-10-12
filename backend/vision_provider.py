@@ -114,7 +114,8 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
     candidates.sort(key=lambda mk: _route(*mk) != _PREFERRED)
     failures: list[str] = []
     owned = client is None
-    session = client or httpx.AsyncClient(timeout=httpx.Timeout(9, connect=4))
+    # Observation has an 11s caller deadline; generation keeps its separate 24s budget.
+    session = client or httpx.AsyncClient(timeout=httpx.Timeout(16, connect=4))
     try:
         for model, key in candidates[:4]:
             route = _route(model, key)
@@ -139,7 +140,7 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
                 _PREFERRED = route
                 return result
             except asyncio.CancelledError:
-                # The phase deadline must not cause its retry to select this same stalled route.
+                # Do not send the second phase straight back to its just-expired route.
                 _BACKOFF[route] = (time.monotonic() + 5, "provider_timeout")
                 raise
             except (httpx.TimeoutException, asyncio.TimeoutError):
