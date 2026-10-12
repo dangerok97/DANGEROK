@@ -82,7 +82,7 @@ def _dated(value: Any, timezone_name: str | None = None) -> datetime | None:
 
 def _safe_text(value: Any, limit: int) -> str:
     text = str(value or "")
-    for name in (*LLM_KEYS, "ROUTING_API_KEY", "WEATHER_API_KEY"):
+    for name in (*LLM_KEYS, "GEMINI_API_KEY_2", "ROUTING_API_KEY", "WEATHER_API_KEY"):
         secret = os.environ.get(name) or ""
         if len(secret) >= 8:
             text = text.replace(secret, "[credential redacted]")

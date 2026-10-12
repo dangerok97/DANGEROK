@@ -1,14 +1,37 @@
 # QA v162 — iniziativa, prosecuzione e risultato
 
-## Ultima verifica locale: fonti, completamento e consegna
+## Ultima verifica locale: stato dell'esito e report revisionabile
+
+La revisione del contratto decisionale e dell'esportazione diagnostica supera
+**311 test su 16 moduli in 4,25 secondi** e il CLI scripted **9/9**, senza
+modello reale, HTTP del modello o effetti esterni. I 26 nuovi casi verificano
+il percorso reale fino all'SDK con solo HTTP simulato e il mantenimento delle
+decisioni anche senza `outcome_assessment`. Il modulo del reporter contiene
+49 casi PASS, inclusi cinque nuovi controlli del testo esportato. I conteggi
+si sovrappongono all'aggregato e non vanno sommati.
+
+Il report conserva il testo preparato anche dopo un errore tardivo, soltanto
+nel database marcato del collaudo e per il suo owner. Successo e fallimento
+esportano al massimo 6000 caratteri, dopo redazione delle credenziali note,
+compreso l'alias `GEMINI_API_KEY_2`; il flag di taglio riguarda il testo
+sanificato e il conteggio conserva la lunghezza originale. Il testo persistito
+e tutti i criteri di accettazione restano invariati. I report falliti dei due
+head precedenti sono conservati nei JSON collegati sotto.
+
+La prossima prova reale è diagnostica e limitata a `completed_result`,
+`source_change_crash`, `already_resolved` e `irrelevant`, senza cambiare la
+fixture. Il gate completo di nove casi e la successiva lettura pubblica
+restano necessari dopo la diagnosi; la loro riuscita non è presunta.
+
+## Verifica locale precedente: fonti, completamento e consegna
 
 La revisione con `fixture_revision=personal_outcome_v1` e la correzione della
 consegna finale supera **280 test su 15 moduli in 3,97 secondi** e il CLI
 scripted **9/9**, senza modello, HTTP del modello o effetti esterni reali.
 Il modulo della consegna finale aggiunge 44 casi; un aggregato separato con
 le regressioni Situation, Memory, riesame e apertura produce 118/118 PASS.
-Questi conteggi si sovrappongono e non vanno sommati. La nuova CI e il live
-sull'esatto commit pubblicato restano distinti e sono ancora da registrare.
+Questi conteggi si sovrappongono e non vanno sommati. La CI e il live
+sull'esatto commit pubblicato sono registrati sotto e rimangono distinti.
 
 La riproduzione attraversa offerta reale alla Delivery, scelta del canale,
 piano differito, invio a un trasporto sintetico e apertura del risultato.
@@ -121,6 +144,9 @@ Il report registra **8 chiamate logiche e 9 tentativi HTTP osservati**:
 il precedente contatore Gemini a zero non si ripete. La lettura pubblica
 concatenata non parte, perché il primo gate è fallito.
 
+Il [report JSON originale di questa esecuzione](evidence/autonomy_v162_live_2026-10-12_0297.json)
+conserva decisioni e contatori del solo account sintetico.
+
 La disponibilità della fonte è ora provata, ma la fixture informativa non
 attestava un bisogno personale ancora aperto: elencava già costi e vincoli,
 senza dire che la persona stesse scegliendo o aspettasse un confronto.
@@ -154,8 +180,49 @@ Sulla nuova fixture la suite locale autonomia/restart riporta
 Il CLI scripted eseguito successivamente riporta **9/9 PASS**, zero tentativi
 di modello, zero HTTP del modello e zero effetti esterni. Il report espone
 `fixture_revision` per distinguere questi input dai precedenti otto casi.
-**Il live e la CI della revisione con nove casi restano da eseguire**;
-i verdi della precedente revisione non li sostituiscono.
+Il live e la CI della revisione con nove casi sono stati eseguiti come
+riportato nella sezione seguente; i verdi precedenti non li sostituiscono.
+
+## Seconda revisione della PR #212: trasporto integro, decisione ancora errata
+
+Il head `e2bc1322f0aa9093eeab7e6097ef07cd30d0be20`, albero
+`c97923fa916365c2445efe13b5a085a47db3e3d6`, conclude **7/7 job PASS**:
+[CI](https://github.com/dangerok97/DANGEROK/actions/runs/38195001018) e
+[Situation](https://github.com/dangerok97/DANGEROK/actions/runs/38195001003).
+Il log backend contiene **263 PASS in 4,80 secondi**, scripted **9/9**,
+**6 PASS con Mongo reale** senza skip e **3 PASS** nei nodi v39. Il checkout
+`5474f0b97704b72288cfcb682f7283b476fd3fbc` ha parent `da6c7456` e `e2bc1322`
+e lo stesso albero. Nessun artifact separato è caricato: il JSON scripted
+è nel log. Il workflow mobile non è stato attivato su questi file backend.
+
+Il live sul medesimo head, deployment
+`170e4cf3-9346-46ac-a097-9bd7f79d86ac`, resta **2/9 PASS**
+(12 ottobre 2026, 02:15:03.354–02:15:12.054 UTC). Passano soltanto
+`already_resolved` e `irrelevant`. Le sei ammissioni positive ricevono una
+Memory completa ma restituiscono `no_goal`; Discovery vede la Memory e tace.
+Sono osservate **9 chiamate logiche e 10 HTTP** con Gemini 2,
+`gemini-flash-lite-latest`. La lettura pubblica concatenata non parte.
+
+Il [report JSON originale del head e2bc](evidence/autonomy_v162_live_2026-10-12_e2bc.json)
+conserva anche i due rifiuti corretti e tutte le ammissioni mancate.
+
+La fixture `personal_outcome_v1` documenta adesso esplicitamente il confronto
+scritto mancante. Motivazioni come «confronto già disponibile» contraddicono
+quella fonte; dati completi o assenza di urgenza non provano l'esito consegnato.
+Una riproduzione senza rete attraversa `consider`, ragionamento, manager,
+adapter Gemini e SDK reali con `httpx.MockTransport`: system e payload HTTP
+sono identici a quelli passati al manager, con tutta la nota e autorità
+`user_stated`, senza troncamento. Ammissione: system 4604 e payload 1763
+caratteri; Discovery: system 12645 e payload 2416. Due risposte sintetiche,
+zero rete e zero LLM: questa prova esclude la perdita di contesto in quei
+percorsi, senza attribuire qualità semantica al modello.
+
+La correzione successiva rende esplicita la distinzione fra esito aperto,
+materiali disponibili e prova di completamento nel contratto generale.
+Il riepilogo `outcome_assessment` è solo osservabile: nessuna conversione
+automatica di `no_goal`, nessun router di dominio e nessuna nuova urgenza.
+La fixture resta invariata e le prove reali della nuova revisione devono
+ancora essere registrate prima di dichiarare superato questo limite.
 
 ## Cosa dimostra il gate
 

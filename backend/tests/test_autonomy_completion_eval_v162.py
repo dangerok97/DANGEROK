@@ -320,7 +320,13 @@ async def test_decision_observation_is_bounded_redacted_and_preserves_return_ide
     monkeypatch.setenv("GEMINI_API_KEY", credential)
     monkeypatch.setattr(gate, "MAX_DECISION_OBSERVATIONS", 2)
     response = {"outcome": "no_goal", "reasoning": credential + " " + "x" * 600,
-                "raw_provider_error": "DO_NOT_EXPORT_PROVIDER_BODY", "headers": {"secret": credential}}
+                "raw_provider_error": "DO_NOT_EXPORT_PROVIDER_BODY", "headers": {"secret": credential},
+                "outcome_assessment": {
+                    "desired_outcome": credential + " " + "y" * 600,
+                    "outcome_state": "open", "remaining_internal_work": "A qualified internal result",
+                    "supporting_refs": [credential + " " + "r" * 300] * 11,
+                    "completion_refs": [], "raw_provider_body": "DO_NOT_EXPORT_ASSESSMENT_BODY",
+                }}
 
     async def decision(*args, **kwargs):
         return response
@@ -337,8 +343,15 @@ async def test_decision_observation_is_bounded_redacted_and_preserves_return_ide
         observed = probe.structured_decisions[0]
         assert len(observed["reasoning"]) <= gate.DECISION_TEXT_LIMIT
         assert observed["truncated_fields"] == ["reasoning"]
+        assessment = observed["outcome_assessment"]
+        assert assessment["outcome_state"] == "open" and observed["outcome"] == "no_goal"
+        assert len(assessment["desired_outcome"]) <= gate.ASSESSMENT_TEXT_LIMIT
+        assert len(assessment["supporting_refs"]) == gate.MAX_ASSESSMENT_REFS
+        assert assessment["supporting_refs_omitted"] == 3
+        assert all(len(ref) <= 160 for ref in assessment["supporting_refs"])
         diagnostic = json.dumps(gate.model_observations(probe))
         assert credential not in diagnostic and "DO_NOT_EXPORT_PROVIDER_BODY" not in diagnostic
+        assert "DO_NOT_EXPORT_ASSESSMENT_BODY" not in diagnostic
         assert "raw_provider_error" not in diagnostic and "raw_input" not in diagnostic
         assert probe.model_attempts == probe.model_http_requests == 0
 
@@ -365,13 +378,18 @@ async def test_decision_exception_observation_keeps_original_error_without_its_m
 
 def test_discovery_proposal_diagnostics_do_not_export_unbounded_arrays_or_unknown_fields():
     response = {"opportunities": [{"what": "x" * 900, "initiative": "prepare",
-                                  "raw_provider_error": "DO_NOT_EXPORT_PROVIDER_BODY"}] * 9}
+                                  "raw_provider_error": "DO_NOT_EXPORT_PROVIDER_BODY",
+                                  "outcome_assessment": {"outcome_state": "open",
+                                                         "completion_refs": [{"raw": "DO_NOT_EXPORT_NESTED_BODY"}],
+                                                         "supporting_refs": ["memory:synthetic"]}}] * 9}
     observed = gate._decision_result("opportunity_scan", response)
     assert observed["opportunities_count"] == 9
     assert len(observed["opportunities"]) == gate.MAX_DIAGNOSTIC_PROPOSALS
     assert observed["opportunities_omitted"] == 9 - gate.MAX_DIAGNOSTIC_PROPOSALS
     assert len(observed["opportunities"][0]["what"]) == gate.DECISION_TEXT_LIMIT
     assert "DO_NOT_EXPORT_PROVIDER_BODY" not in json.dumps(observed)
+    assert "DO_NOT_EXPORT_NESTED_BODY" not in json.dumps(observed)
+    assert observed["opportunities"][0]["outcome_assessment"]["supporting_refs"] == ["memory:synthetic"]
     assert len(response["opportunities"]) == 9 and len(response["opportunities"][0]["what"]) == 900
 
 
@@ -409,6 +427,12 @@ async def test_failed_completion_report_preserves_pending_steps_and_source_count
 ):
     from agent.models import ActionStep
 
+    credentials = ("synthetic-result-primary-credential", "synthetic-result-alias-credential")
+    monkeypatch.setenv("GEMINI_API_KEY", credentials[0])
+    monkeypatch.setenv("GEMINI_API_KEY_2", credentials[1])
+    original_draft = gate.baseline.DRAFT
+    draft = original_draft + "\nDettagli sintetici: " + " / ".join(credentials)
+    monkeypatch.setattr(gate.baseline, "DRAFT", draft)
     original_run = gate.run_case
     captured = {}
 
@@ -431,7 +455,11 @@ async def test_failed_completion_report_preserves_pending_steps_and_source_count
     state = case["failure_state"]
     assert state["available"] and state["goals_count"] == 1
     goal = state["goals"][0]
-    assert goal["status"] == "completed" and goal["prepared_text_characters"] > 0
+    assert goal["status"] == "completed" and goal["prepared_text_characters"] == len(draft)
+    assert original_draft in goal["prepared_text"]
+    assert goal["prepared_text"].endswith("[credential redacted] / [credential redacted]")
+    assert not goal["prepared_text_truncated"]
+    assert all(credential not in output.read_text() for credential in credentials)
     assert goal["source_refs_count"] > 0 and goal["prepared_sources_count"] > 0
     assert goal["current_evidence_count"] > 0
     plan = goal["plans"][0]
@@ -439,7 +467,75 @@ async def test_failed_completion_report_preserves_pending_steps_and_source_count
     assert plan["steps"][-1]["status"] == unfinished_status
     persisted = await captured["db"].agent_plans.find_one(captured["query"])
     assert persisted["steps"][-1]["status"] == unfinished_status  # Observation cannot repair the gate.
-    assert gate.baseline.FACT not in output.read_text() and gate.baseline.DRAFT not in output.read_text()
+    persisted_goal = await captured["db"].agent_goals.find_one({"owner_id": gate.OWNER})
+    assert persisted_goal["prepared_text"] == draft  # Redact only the exported copy.
+    assert gate.baseline.FACT not in output.read_text()
+
+
+@pytest.mark.asyncio
+async def test_successful_result_text_is_redacted_without_changing_acceptance(monkeypatch):
+    credentials = ("synthetic-success-primary-credential", "synthetic-success-alias-credential")
+    monkeypatch.setenv("GEMINI_API_KEY", credentials[0])
+    monkeypatch.setenv("GEMINI_API_KEY_2", credentials[1])
+    original_draft = gate.baseline.DRAFT
+    draft = original_draft + "\nDettagli sintetici: " + " / ".join(credentials)
+    monkeypatch.setattr(gate.baseline, "DRAFT", draft)
+    probe = gate.Probe()
+
+    report = await gate.run_case("completed_result", probe=probe)
+
+    assert report["passed"] and report["result"]["semantic_review"]["passed"]
+    assert original_draft in report["result"]["prepared_text"]
+    assert report["result"]["prepared_text"].endswith("[credential redacted] / [credential redacted]")
+    assert len(report["result"]["prepared_text"]) <= 6000
+    assert not report["result"]["prepared_text_truncated"]
+    assert all(credential not in json.dumps(report) for credential in credentials)
+    persisted = await probe.database.agent_goals.find_one({"owner_id": gate.OWNER})
+    assert persisted["prepared_text"] == draft
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("redaction_expands", [False, True])
+async def test_failed_result_text_is_bounded_and_only_exports_the_guarded_owner(monkeypatch, redaction_expands):
+    credential = "fake-key" if redaction_expands else "synthetic-bounded-alias-credential"
+    monkeypatch.setenv("GEMINI_API_KEY_2", credential)
+    db = AsyncMongoMockClient().v162_bounded_prepared_diagnostic
+    await db.eval_guards.insert_one({"_id": gate.VERSION, "owner": gate.OWNER})
+    draft = "Confronto sintetico: " + ((credential + " ") * 400 if redaction_expands
+                                       else credential + " " + "x" * 6500)
+    await db.agent_goals.insert_many([
+        {"id": "synthetic-owned-goal", "owner_id": gate.OWNER, "status": "completed", "prepared_text": draft},
+        {"id": "synthetic-foreign-goal", "owner_id": "another-synthetic-owner", "status": "completed",
+         "prepared_text": "FOREIGN_PREPARED_TEXT_MUST_NOT_BE_EXPORTED"},
+    ])
+
+    state = await gate.failure_state(gate.Probe(database=db))
+
+    assert state["available"] and state["goals_count"] == 1
+    row = state["goals"][0]
+    assert row["prepared_text_characters"] == len(draft)
+    assert row["prepared_text_truncated"] and len(row["prepared_text"]) == 6000
+    assert row["prepared_text"].startswith("Confronto sintetico: [credential redacted] ")
+    assert credential not in json.dumps(state)
+    assert "FOREIGN_PREPARED_TEXT_MUST_NOT_BE_EXPORTED" not in json.dumps(state)
+    assert (await db.agent_goals.find_one({"id": "synthetic-owned-goal"}))["prepared_text"] == draft
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("guard_owner", [None, "another-synthetic-owner"])
+async def test_failed_result_text_is_not_exported_without_the_evaluator_owner_guard(guard_owner):
+    db = AsyncMongoMockClient().v162_untrusted_prepared_diagnostic
+    if guard_owner is not None:
+        await db.eval_guards.insert_one({"_id": gate.VERSION, "owner": guard_owner})
+    await db.agent_goals.insert_one({
+        "id": "synthetic-goal", "owner_id": gate.OWNER, "status": "completed",
+        "prepared_text": "UNGUARDED_PREPARED_TEXT_MUST_NOT_BE_EXPORTED",
+    })
+
+    state = await gate.failure_state(gate.Probe(database=db))
+
+    assert state == {"available": False, "reason": "SYNTHETIC_DIAGNOSTIC_GUARD_MISSING"}
+    assert "UNGUARDED_PREPARED_TEXT_MUST_NOT_BE_EXPORTED" not in json.dumps(state)
 
 
 @pytest.mark.asyncio

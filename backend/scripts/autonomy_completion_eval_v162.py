@@ -45,6 +45,8 @@ MAX_DECISION_OBSERVATIONS = 12
 DECISION_TEXT_LIMIT = 400
 MAX_DIAGNOSTIC_PROPOSALS = 3
 MAX_DIAGNOSTIC_PLAN_STEPS = 6
+MAX_ASSESSMENT_REFS = 8
+ASSESSMENT_TEXT_LIMIT = 280
 FIXTURE_CONTEXT = (
     "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule "
     "e mi manca il confronto scritto di costi e vincoli. "
@@ -116,6 +118,24 @@ def _decision_fields(value, fields, *, limit=DECISION_TEXT_LIMIT):
     return out
 
 
+def _outcome_assessment(value):
+    """Observe a bounded decision summary without interpreting or enforcing it."""
+    out = {"response_kind": _response_kind(value)}
+    if not isinstance(value, dict):
+        return out
+    out.update(_decision_fields(value, (
+        "desired_outcome", "outcome_state", "remaining_internal_work",
+    ), limit=ASSESSMENT_TEXT_LIMIT))
+    for key in ("supporting_refs", "completion_refs"):
+        refs = value.get(key)
+        if not isinstance(refs, list):
+            continue
+        out[key] = [_safe_text(ref, 160) for ref in refs[:MAX_ASSESSMENT_REFS]
+                    if type(ref) is str]
+        out[key + "_omitted"] = max(0, len(refs) - MAX_ASSESSMENT_REFS)
+    return out
+
+
 def _decision_result(stage, value):
     out = {"response_kind": _response_kind(value)}
     if not isinstance(value, dict):
@@ -124,6 +144,8 @@ def _decision_result(stage, value):
         "outcome", "reasoning", "objective", "desired_outcome", "question", "reason_for_silence",
         "planning_outcome", "plan_summary", "expected_outcome", "what_is_missing", "decision", "step_id",
     )))
+    if "outcome_assessment" in value:
+        out["outcome_assessment"] = _outcome_assessment(value["outcome_assessment"])
     if stage == "make_plan":
         steps = value.get("steps")
         out["steps_kind"] = _response_kind(steps)
@@ -138,9 +160,14 @@ def _decision_result(stage, value):
         out["opportunities_kind"] = _response_kind(proposals)
         if isinstance(proposals, list):
             out["opportunities_count"] = len(proposals)
-            out["opportunities"] = [_decision_fields(item, (
-                "identity_key", "what", "initiative", "why_it_matters", "what_i_can_do",
-            )) for item in proposals[:MAX_DIAGNOSTIC_PROPOSALS]]
+            out["opportunities"] = []
+            for item in proposals[:MAX_DIAGNOSTIC_PROPOSALS]:
+                observed = _decision_fields(item, (
+                    "identity_key", "what", "initiative", "why_it_matters", "what_i_can_do",
+                ))
+                if isinstance(item, dict) and "outcome_assessment" in item:
+                    observed["outcome_assessment"] = _outcome_assessment(item["outcome_assessment"])
+                out["opportunities"].append(observed)
             out["opportunities_omitted"] = max(0, len(proposals) - MAX_DIAGNOSTIC_PROPOSALS)
     return out
 
@@ -183,6 +210,16 @@ def _decision_input(stage, value, kwargs):
                 and type(item["from_to"].get("after")) is str]}
 
 
+def _prepared_text_fields(value):
+    original = value if isinstance(value, str) else ""
+    # Redact before the boundary; one extra character tells whether the
+    # exported copy was cut even if redaction expanded a short credential.
+    redacted = _safe_text(original, 6001)
+    return {"prepared_text": redacted[:6000],
+            "prepared_text_truncated": len(redacted) > 6000,
+            "prepared_text_characters": len(original)}
+
+
 async def failure_state(probe):
     """Read bounded synthetic state after a gate fails; never change that state."""
     db = probe.database
@@ -202,7 +239,7 @@ async def failure_state(probe):
                 "requires_user_authority": goal.get("requires_user_authority") is True,
                 "has_next_run_at": bool(goal.get("next_run_at")),
                 "planning_unavailable": goal.get("planning_unavailable") is True,
-                "prepared_text_characters": len(goal.get("prepared_text") or ""),
+                **_prepared_text_fields(goal.get("prepared_text")),
                 "source_refs_count": len(goal.get("source_refs") or []),
                 "prepared_sources_count": len(goal.get("prepared_sources") or []),
                 "evidence_count": await db.agent_evidence.count_documents(goal_query),
@@ -703,8 +740,7 @@ async def verify_result(db, goal_id, probe, *, recover=True, source_corrected=Fa
     require(foreign.get("reason") == "unknown_goal", "CROSS_OWNER_ACCESS")
     return {"state": goal.status, "read_reused": not source_corrected,
             "corrected_source_reread": source_corrected, "prepared": True,
-            "prepared_text": goal.prepared_text[:6000],
-            "prepared_text_truncated": len(goal.prepared_text) > 6000,
+            **_prepared_text_fields(goal.prepared_text),
             "home_delivered": True, "replay_idempotent": True, "owner_isolation": True,
             "semantic_review": semantic, "counts": before}
 
@@ -860,6 +896,8 @@ async def main(*, mode="scripted", scenario="all", output=""):
                               "decision_text_characters": DECISION_TEXT_LIMIT,
                               "proposals_per_decision": MAX_DIAGNOSTIC_PROPOSALS,
                               "plan_steps_per_decision": MAX_DIAGNOSTIC_PLAN_STEPS,
+                              "outcome_assessment_text_characters": ASSESSMENT_TEXT_LIMIT,
+                              "outcome_assessment_refs_per_field": MAX_ASSESSMENT_REFS,
                               "model_calls_total": len(selected) * MAX_MODEL_CALLS,
                               "model_http_requests_total": len(selected) * MAX_MODEL_HTTP_REQUESTS},
                    "code_revision": revision if re.fullmatch(r"[0-9a-fA-F]{40}", revision) else None,

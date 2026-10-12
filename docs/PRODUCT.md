@@ -1,3 +1,17 @@
+## 12 ottobre 2026 — v162, riconoscere il risultato ancora mancante
+
+Disporre dei materiali non significa aver ricevuto il risultato utile. Se una
+fonte personale corrente attesta un esito ancora aperto, ORA deve valutare il
+lavoro interno che può completarlo anche senza una scadenza. Se lo stesso
+esito risulta già raggiunto, la presenza dei dati non giustifica un nuovo lavoro.
+
+Una nota dell'utente può documentare il suo bisogno senza confermare fatti
+del fornitore o autorizzare azioni esterne. Un risultato interno può usare quei
+dati con la loro attribuzione e i loro limiti, quando questo soddisfa il bisogno.
+La distinzione resta una decisione del modello e richiede una prova reale.
+
+---
+
 ## 12 ottobre 2026 — v162, verifica live: leggere prima di decidere
 
 Prima di decidere se un lavoro è utile, ORA deve leggere le memorie citate

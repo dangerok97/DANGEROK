@@ -1,3 +1,24 @@
+## 12 ottobre 2026 — v162, stato dell'esito nel contratto decisionale
+
+Ammissione e Discovery distinguono bisogno personale aperto, materiali
+disponibili e prove di completamento. Il riepilogo `outcome_assessment`
+rimane nello stesso JSON della decisione: stato dell'esito, lavoro interno
+residuo e riferimenti. Non è un nuovo gate, non converte `no_goal` in attività
+e non aggiunge richieste al modello. Provenienza e permessi restano separati.
+
+La diagnostica del runner osserva questo riepilogo anche sulle proposte e
+sul silenzio, con campi consentiti, testo limitato e otto riferimenti per
+campo. Una risposta contraddittoria resta osservabile e non viene corretta
+dal reporter. La verifica del confine attraversa manager, adapter e SDK
+reali con il solo HTTP simulato; non prova la qualità semantica del modello.
+
+Il reporter conserva inoltre il testo preparato sui fallimenti tardivi,
+con la stessa guard del database sintetico e lo stesso filtro owner. La
+redazione precede il limite di 6000 caratteri sia nel successo sia nel
+fallimento; la copia persistita e i criteri del gate non vengono modificati.
+
+---
+
 ## 12 ottobre 2026 — v162, verifica live: contesto citato e conclusione del piano
 
 L'ammissione e lo snapshot della scoperta condividono `read_memory_previews`:

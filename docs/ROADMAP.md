@@ -32,6 +32,16 @@ bisogno personale ancora aperto e aggiunge un caso già risolto. Il collaudo
 include il passaggio dal risultato completato alla consegna e la destinazione
 dell'avviso: la sola presenza nella Home non dimostra quel passaggio.
 
+Sul head `e2bc1322` la CI conclude sette job verdi, ma il live con bisogno
+personale esplicito resta 2/9: passano soltanto già risolto e irrilevante.
+Il bisogno arriva integro fino all'HTTP dell'SDK. Il passo corrente corregge
+la distinzione decisionale fra materiali disponibili e risultato ancora
+mancante, conservando la fixture e i negativi; occorre poi ripetere il gate
+reale e la lettura pubblica prima di integrare questa revisione.
+La revisione locale del contratto e del report è verificata con 311 PASS
+su 16 moduli e scripted 9/9; il prossimo live diagnostico usa quattro casi
+selezionati, seguito dal gate completo a nove senza modifica della fixture.
+
 **Gate di prodotto ancora distinti:** build nativa firmata e installata,
 ricezione effettiva dell'avviso, background del dispositivo e osservazione
 longitudinale. Il config corrente non dimostra un progetto EAS o un canale

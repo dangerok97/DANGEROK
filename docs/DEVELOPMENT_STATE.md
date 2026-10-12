@@ -1,3 +1,26 @@
+## 12 ottobre 2026 — v162, CI verde e limite decisionale ancora aperto
+
+Il head `e2bc1322f0aa9093eeab7e6097ef07cd30d0be20` della PR #212 ha tutti
+i sette job CI verdi: 263 test nel gate v162, scripted 9/9, sei prove con
+Mongo reale senza skip e tre regressioni v39. Il checkout tecnico ha albero
+`c97923fa916365c2445efe13b5a085a47db3e3d6`, identico a quello pubblicato.
+
+Il live `170e4cf3-9346-46ac-a097-9bd7f79d86ac` sullo stesso head supera
+solo i due negativi su nove. Anche con `personal_outcome_v1`, il modello
+scambia i dati disponibili per un confronto già ricevuto o richiede urgenza.
+Il corpo HTTP dell'SDK conserva interamente bisogno, fonte e istruzioni:
+la nuova correzione riguarda il contratto decisionale generale, mantenendo
+la fixture invariata. Il nuovo live resta obbligatorio; l'app non è dichiarata
+autonoma e la prova pubblica concatenata non è ancora partita.
+
+La revisione successiva del contratto e del report supera **311 test locali
+su 16 moduli in 4,25 secondi**, più CLI scripted **9/9**. Include 26 nuove
+prove del contratto/SDK e cinque della copia diagnostica del testo, mantenuta
+anche dopo un errore tardivo con guard e redazione. Il live diagnostico a
+quattro casi e quello completo rimangono da verificare sul codice pubblicato.
+
+---
+
 ## 12 ottobre 2026 — v162, riscontro del modello reale e correzione successiva
 
 La PR #211 è integrata in `da6c7456efebe5f21f4bd9ea55491236a0d9512a`.

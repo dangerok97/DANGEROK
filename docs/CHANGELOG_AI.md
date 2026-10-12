@@ -1,3 +1,19 @@
+## 12 ottobre 2026 — v162, esito personale distinto dai materiali disponibili
+
+- Contratto generale di ammissione e Discovery: stato personale aperto,
+  lavoro interno residuo e prove che il risultato sia già stato ricevuto.
+- Riepilogo limitato della decisione nello stesso JSON, senza coercizione
+  del risultato, nuova chiamata o autorizzazioni implicite.
+- Verifica del contenuto fino al corpo HTTP del vero SDK con trasporto
+  simulato; osservazione limitata del riepilogo nel collaudo.
+- Conservati i sette job CI verdi e il live 2/9 fallito di `e2bc1322`:
+  il successo tecnico non sostituisce la prova cognitiva ancora aperta.
+- Testo sintetico preparato conservato anche nei report di errore tardivo,
+  con redazione prima del limite e guard owner invariata; report storici
+  archiviati. Aggregato finale 311 PASS su 16 moduli e scripted 9/9.
+
+---
+
 ## 12 ottobre 2026 — v162, correzioni emerse dal collaudo live
 
 - Contesto Memory citato condiviso fra ammissione e scoperta, con proprietà,

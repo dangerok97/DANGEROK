@@ -1,0 +1,401 @@
+{
+  "version": "autonomy-completion-v162",
+  "mode": "live",
+  "status": "failed",
+  "passed": false,
+  "real_model_executed": true,
+  "cases": [
+    {
+      "scenario": "completed_result",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1460,
+            "completion_tokens": 42,
+            "total_tokens": 1502
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 2,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "La nota interna fornisce già un quadro comparativo chiaro e informativo senza scadenze o azioni urgenti richieste.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "planning_outage",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1460,
+            "completion_tokens": 40,
+            "total_tokens": 1500
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "L'analisi dei costi e dei vincoli tra le due opzioni è già interamente contenuta e disponibile nella nota informativa.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "home_write_retry",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1460,
+            "completion_tokens": 58,
+            "total_tokens": 1518
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "La nota interna fornisce già le informazioni di base sulle due opzioni dell'archivio digitale e non c'è una scadenza immediata o un'azione contrattuale da compiere.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "source_revoked",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1460,
+            "completion_tokens": 44,
+            "total_tokens": 1504
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "L'analisi comparativa dei costi tra le due opzioni dell'archivio digitale è già descritta nella nota e non richiede ulteriori azioni.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "memory_revoked",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1460,
+            "completion_tokens": 50,
+            "total_tokens": 1510
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "La nota interna fornisce già un quadro comparativo informativo e completo delle due opzioni senza scadenze urgenti o modifiche contrattuali richieste.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "memory_corrected",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1460,
+            "completion_tokens": 45,
+            "total_tokens": 1505
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "La nota interna fornisce già le informazioni di base sulle due opzioni senza una scadenza imminente o una decisione richiesta.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "source_change_crash",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 3432,
+            "completion_tokens": 51,
+            "total_tokens": 3483
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "opportunity_scan",
+          "model_attempts_before": 0,
+          "input": {
+            "collection_counts": {
+              "memories": 1,
+              "documents": 0,
+              "calendar": 0,
+              "money": 5,
+              "life_profile": 0,
+              "what_changed": 1,
+              "unavailable_sources": 0,
+              "unavailable_memory_refs": 0
+            },
+            "change_after_lengths": [
+              160
+            ]
+          },
+          "response_kind": "object",
+          "reason_for_silence": "Ho esaminato la nota salvata sul piano dell'archivio digitale: non ci sono scadenze imminenti, conflitti o decisioni urgenti da prendere oggi.",
+          "opportunities_kind": "array",
+          "opportunities_count": 0,
+          "opportunities": [],
+          "opportunities_omitted": 0,
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "SOURCE_DISCOVERY_DID_NOT_RECOVER"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "scenario": "irrelevant",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1149,
+            "completion_tokens": 39,
+            "total_tokens": 1188
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 0,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Si tratta di una newsletter pubblicitaria non richiesta e priva di qualsiasi interesse o urgenza.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [],
+      "executed_capabilities": [],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "no_goal"
+      }
+    }
+  ],
+  "started_at": "2026-10-12T01:58:05.131485+00:00",
+  "finished_at": "2026-10-12T01:58:14.373046+00:00",
+  "limits": {
+    "cases": 8,
+    "case_timeout_seconds": 240,
+    "model_calls_per_case": 40,
+    "model_http_requests_per_case": 80,
+    "structured_decisions_per_case": 12,
+    "decision_text_characters": 400,
+    "proposals_per_decision": 3,
+    "plan_steps_per_decision": 6,
+    "model_calls_total": 320,
+    "model_http_requests_total": 640
+  },
+  "code_revision": "0297f86778ca909c9bd6ca8de4cf6a52770ced78",
+  "revision_source": "deployment_or_ci_metadata"
+}
