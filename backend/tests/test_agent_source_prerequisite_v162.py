@@ -83,3 +83,60 @@ async def test_missing_read_does_not_start_unrelated_external_effect():
                                  SimpleNamespace(), language="it")
     assert effect.status == "pending"
     journal.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_single_current_owned_memory_gets_one_readonly_prerequisite(monkeypatch):
+    service, goal, plan, read, journal = fixture(prepared())
+    goal.source_refs = ["mem_owned"]
+    service.db = object()
+    service.capabilities = SimpleNamespace(resolve=AsyncMock(return_value=SimpleNamespace(
+        usable=True, is_real=True, writes=False,
+    )))
+    service.repo.save_plan = AsyncMock()
+
+    async def owned_preview(db, owner_id, refs, *, limit):
+        assert db is service.db and owner_id == "synthetic-owner"
+        assert refs == ["mem_owned"] and limit == 1
+        return [{"ref": "mem_owned", "status": "active"}]
+
+    monkeypatch.setattr("agent.memory_sources.read_memory_previews", owned_preview)
+    decision, step = await AgentService._next(service, "synthetic-owner", goal, plan,
+                                             SimpleNamespace(), language="it")
+    assert decision == "execute" and step.step_type == "inspect"
+    assert step.capability_needed == "information.read"
+    assert step.input_refs == ["mem_owned"] and step.external_effect is False
+    assert len(plan.steps) == 2 and plan.steps[-1].id == step.id
+    service.repo.save_plan.assert_awaited_once_with(plan)
+    journal.assert_awaited_once()
+    assert journal.await_args.kwargs["kind"] == "planning_prerequisite_added"
+    read.assert_awaited_once()
+    assert (await AgentService._owned_memory_prerequisite(
+        service, "synthetic-owner", goal, plan
+    )) is None
+    assert len(plan.steps) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["withdrawn", "unavailable", "ambiguous"])
+async def test_missing_or_unusable_memory_cannot_be_auto_read(monkeypatch, case):
+    service, goal, plan, _, journal = fixture(prepared())
+    goal.source_refs = ["mem_owned"] if case != "ambiguous" else ["mem_a", "mem_b"]
+    service.db = object()
+    service.capabilities = SimpleNamespace(resolve=AsyncMock(return_value=SimpleNamespace(
+        usable=(case != "unavailable"), is_real=True, writes=False,
+    )))
+    service.repo.save_plan = AsyncMock()
+    preview = AsyncMock(return_value=[])
+    monkeypatch.setattr("agent.memory_sources.read_memory_previews", preview)
+    with pytest.raises(_InvalidNextSelection):
+        await AgentService._next(service, "synthetic-owner", goal, plan,
+                                 SimpleNamespace(), language="it")
+    assert len(plan.steps) == 1
+    service.repo.save_plan.assert_not_awaited()
+    journal.assert_awaited_once()
+    assert journal.await_args.kwargs["kind"] == "planning_prerequisite_missing"
+    if case == "withdrawn":
+        preview.assert_awaited_once()
+    else:
+        preview.assert_not_awaited()
