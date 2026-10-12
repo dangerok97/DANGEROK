@@ -1,0 +1,50 @@
+name: Prepare Vision catalog75
+on:
+  push:
+    branches: [qa/vision-catalog75-prepare]
+    paths: ['.github/workflows/prepare-vision-catalog75.yml']
+permissions:
+  contents: write
+concurrency:
+  group: prepare-vision-catalog75
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply explicit source-only integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/prepare_vision_catalog75.py /tmp/prepare_vision_catalog75.py
+          git fetch origin feat/vision-catalog-75
+          test "$(git rev-parse FETCH_HEAD)" = "b5427f868b46a05961a1b5e5ab950ab33f1e9a58"
+          git switch -c prepared-catalog75 FETCH_HEAD
+          python -m pip install 'pydantic==2.13.4' 'pymongo==4.6.3'
+          python /tmp/prepare_vision_catalog75.py
+          python -m compileall -q backend/vision_catalog.py backend/vision_seed_library.py backend/vision_catalog_extended
+          git diff --check
+          git add backend/vision_catalog.py backend/vision_seed_library.py backend/vision_catalog_extended/home_desk.py backend/vision_tests/test_seed_pack.py backend/vision_tests/fixtures/legacy25_sha256.json frontend/src/vision-xray/walkthrough.test.mjs frontend/e2e/vision-catalog-camera.spec.ts frontend/e2e/vision-walkthrough25.spec.ts frontend/playwright.vision.config.ts .github/workflows/vision-catalog-live.yml docs/PRODUCT.md docs/ARCHITECTURE.md docs/DEVELOPMENT_STATE.md docs/CHANGELOG_AI.md docs/VISION_CATALOG_75_INVENTORY.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(vision): integrate 75-family catalog preserving original models and tours'
+          git push origin HEAD:refs/heads/feat/vision-catalog-75
+      - name: Archive reproducible catalog source and preflight results
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p .catalog75-prepare
+          tar -czf .catalog75-prepare/source.tar.gz backend/vision_catalog.py backend/vision_xray.py backend/vision_seed_library.py backend/vision_catalog_extended backend/vision_tests frontend/src/vision-xray frontend/e2e/vision* frontend/playwright.vision.config.ts scripts/vision_test_server.py
+          git rev-parse HEAD > .catalog75-prepare/commit.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: catalog75-prepare
+          path: .catalog75-prepare/
+          include-hidden-files: true
+          retention-days: 7
