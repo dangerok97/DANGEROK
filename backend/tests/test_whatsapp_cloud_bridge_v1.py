@@ -334,4 +334,4 @@ def test_renderer_keeps_arithmetic_and_inline_code():
     from whatsapp.formatting import render_whatsapp_answer
 
     assert render_whatsapp_answer("Due per tre: 2 * 3 = 6") == "Due per tre: 2 * 3 = 6"
-    assert render_whatsapp_answer("Codice: " + "\`a*b\`") == "Codice: " + "\`a*b\`"
+    assert render_whatsapp_answer("Codice: " + "`a*b`") == "Codice: " + "`a*b`"
