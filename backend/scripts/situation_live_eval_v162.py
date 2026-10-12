@@ -86,6 +86,67 @@ _CONVERSATION_EVENTS = frozenset({
 })
 
 
+# Stable, non-sensitive checkpoint summary for Railway logs. The full JSON
+# remains available separately; these fields say what was actually observed,
+# rather than treating a saved alarm as a delivered useful outcome.
+_FIRST_CYCLE_PHASE_NAMES = (
+    "conversation", "initial_worker", "monitoring", "future_check",
+    "useful_action", "device_receipt", "cancellation",
+)
+_FIRST_CYCLE_PHASE_STATUSES = frozenset({
+    "not_run", "running", "passed", "failed",
+    "observed_pending_human_review",
+})
+_FIRST_CYCLE_OUTCOMES = frozenset({
+    "not_run", "failed", "initial_check_pending", "followup_pending_unobserved",
+    "followup_pending", "monitoring_failed", "action_assessment_requires_review",
+})
+
+
+def first_cycle_status(report):
+    """Project the test verdict without user prose, IDs, raw model or HTTP data.
+
+    A scheduled check is not an executed check; an internal outbox is not a
+    device receipt; neither implies a measured physical outcome.
+    """
+    phases = report.get("phases") if isinstance(report.get("phases"), dict) else {}
+    statuses = {}
+    for name in _FIRST_CYCLE_PHASE_NAMES:
+        phase = phases.get(name)
+        observed = phase.get("status") if isinstance(phase, dict) else None
+        statuses[name] = observed if observed in _FIRST_CYCLE_PHASE_STATUSES else "unavailable"
+    admission = report.get("admission_before_worker")
+    followup = admission.get("follow_up") if isinstance(admission, dict) else None
+    instant = moment(followup.get("next_check_at")) if isinstance(followup, dict) else None
+    code = report.get("code_revision")
+    outcome = report.get("overall_outcome")
+    raw_reads = report.get("provider_reads")
+    providers = []
+    if isinstance(raw_reads, list):
+        for entry in raw_reads[:MAX_PROVIDER_READS]:
+            if not isinstance(entry, dict):
+                continue
+            kind, status = entry.get("capability"), entry.get("http_status")
+            if kind in ("weather", "research", "grounded_search") and type(status) is int and 100 <= status <= 599:
+                providers.append({"capability": kind, "http_status": status})
+    notifications = report.get("real_notifications_sent")
+    return {
+        "version": VERSION,
+        "revision": code if isinstance(code, str) and re.fullmatch(r"[0-9a-f]{40}", code) else None,
+        "mode": report.get("mode") if report.get("mode") in ("scripted", "live") else "unknown",
+        "passed": report.get("passed") is True,
+        "outcome": outcome if outcome in _FIRST_CYCLE_OUTCOMES else "unavailable",
+        "phases": statuses,
+        "scheduled_check_at": instant.isoformat() if instant else None,
+        "scheduled_check_is_not_completed_outcome": True,
+        "model_executed": report.get("real_model_executed") is True,
+        "provider_http_statuses": providers,
+        "notifications_sent": notifications if type(notifications) is int and 0 <= notifications <= 100 else None,
+        "device_receipt_verified": False,
+        "physical_outcome_verified": False,
+    }
+
+
 class EvaluationFailure(RuntimeError):
     """Only code-owned diagnostics, never request bodies or provider errors."""
 
@@ -1118,6 +1179,8 @@ async def main(*, mode="scripted", output=""):
         path = Path(output)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(encoded + "\n", encoding="utf-8")
+    print("ORA_SITUATION_STATUS " + json.dumps(first_cycle_status(report),
+        ensure_ascii=False, allow_nan=False), flush=True)
     print("ORA_SITUATION_FIRST_CYCLE " + encoded, flush=True)
     return 0 if report["passed"] else 1
 
