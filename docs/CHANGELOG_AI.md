@@ -1,3 +1,20 @@
+## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
+
+- Conservato il checkpoint tecnico nel risveglio anche con giudizio assente
+  o JSON non valido; ripresa verificata con un nuovo worker.
+- Critiche bounded di preparazione/verifica riutilizzabili dal tentativo
+  successivo, con scope corrente e senza trasformarle in evidenze.
+- Rivalutazione della verifica incompleta per un risultato interno già
+  preparato, entro budget e con le decisioni del modello conservate.
+- Contesto della decisione e della verifica capace di conservare il
+  risultato e le fonti mediante riduzioni esplicite delle ripetizioni.
+- Controllo Opportunity condiviso fra Home e Delivery, compresi revoca
+  durante la consegna, lettura successiva e worker concorrente.
+- Progresso tecnico per singolo scenario, senza contenuti personali.
+- Archiviato il gate e3a originale: 4/9, 67 chiamate logiche, 98 HTTP;
+  CI della stessa revisione 14/14 job PASS.
+- Verifica locale del nuovo candidato: **569 PASS su 34 moduli in 7,68 secondi**, più CLI scripted **9/9**, con zero chiamate LLM reali, HTTP del modello ed effetti esterni.
+
 ## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
 
 - Richiesta e criteri del risultato aggiunti all'audit, con limite e fonti

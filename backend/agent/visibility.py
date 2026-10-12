@@ -43,6 +43,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from agent.models import VisibilityDecision
+from agent.result_sources import opportunity_result_current
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +337,13 @@ class VisibilityService:
             f"{owner_id}|{decision.fingerprint}".encode("utf-8")
         ).hexdigest()[:24]
         try:
+            if await self.db[UPDATES].find_one({
+                "owner_id": owner_id, "goal_id": goal.id,
+                "fingerprint": decision.fingerprint, "home_skipped": {"$exists": True},
+            }, {"_id": 1}):
+                # A delayed worker cannot revive a handoff already closed by
+                # a known revocation, even if the source is later reopened.
+                return False
             from agent.memory_fence import memory_result_current
             if not await memory_result_current(self.db, owner_id, goal, decision.memory_source_snapshot):
                 await self.db[UPDATES].update_one(
@@ -343,6 +351,8 @@ class VisibilityService:
                     {"$set": {"home_pending": False, "home_skipped": "memory_sources_changed"},
                      "$unset": {"home_due_at": ""}},
                 )
+                return False
+            if not await self._opportunity_current_for_home(owner_id, goal, decision):
                 return False
             if not await self._situation_decision_current(owner_id, goal, decision):
                 await self.db[UPDATES].update_one(
@@ -365,19 +375,32 @@ class VisibilityService:
                     "visibility": decision.outcome,
                     "goal": goal.id,
                     "memory_source_snapshot": decision.memory_source_snapshot,
+                    "home_outbox_fingerprint": decision.fingerprint,
                 },
                 visible=True,
                 activity_id=activity_id,
             )
+            # The source may be withdrawn while the Activity write awaits
+            # storage. Keep its historical proof, but never acknowledge or
+            # expose that handoff as a current result after the withdrawal.
+            if not await self._opportunity_current_for_home(owner_id, goal, decision):
+                return False
             # This may fail after the Activity insert. Pending stays durable;
             # a future pass repeats the same idempotent write.
-            await self.db[UPDATES].update_one(
+            acknowledgement = await self.db[UPDATES].update_one(
                 {"owner_id": owner_id, "fingerprint": decision.fingerprint,
                  "home_pending": True},
                 {"$set": {"home_pending": False,
                           "home_delivered_at": _now().isoformat()},
                  "$unset": {"home_due_at": ""}},
             )
+            if not acknowledgement.matched_count and await self.db[UPDATES].find_one({
+                "owner_id": owner_id, "goal_id": goal.id,
+                "fingerprint": decision.fingerprint, "home_skipped": {"$exists": True},
+            }, {"_id": 1}):
+                # Another worker may have closed the outbox while this one
+                # awaited its final acknowledgement. That closure wins.
+                return False
             return True
         except Exception as exc:
             logger.info("visibility surface recoverable: %s", type(exc).__name__)
@@ -390,6 +413,17 @@ class VisibilityService:
             except Exception:
                 pass  # DB outage: the original pending outbox entry remains.
             return False
+
+    async def _opportunity_current_for_home(self, owner_id, goal, decision) -> bool:
+        if await opportunity_result_current(self.db, owner_id, goal, now=_now()):
+            return True
+        await self.db[UPDATES].update_one(
+            {"owner_id": owner_id, "goal_id": goal.id,
+             "fingerprint": decision.fingerprint, "home_pending": True},
+            {"$set": {"home_pending": False, "home_skipped": "opportunity_no_longer_current"},
+             "$unset": {"home_due_at": ""}},
+        )
+        return False
 
     async def recover_pending_home(self, *, limit: int = 4) -> Dict[str, int]:
         """Bounded, owner-scoped Home outbox recovery in the existing lane.
@@ -433,7 +467,8 @@ class VisibilityService:
                 else:
                     skipped = await self.db[UPDATES].find_one(
                         {"owner_id": owner, "fingerprint": fingerprint,
-                         "home_skipped": {"$in": ["situation_no_longer_current", "memory_sources_changed"]}}, {"_id": 1},
+                         "home_skipped": {"$in": ["situation_no_longer_current", "memory_sources_changed",
+                                                  "opportunity_no_longer_current"]}}, {"_id": 1},
                     )
                     results["stale" if skipped else "deferred"] += 1
             except Exception as exc:

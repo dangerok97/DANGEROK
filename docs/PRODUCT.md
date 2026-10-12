@@ -1,3 +1,26 @@
+## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
+
+ORA deve finire il lavoro utile, usare una critica per correggerlo e
+consegnarlo soltanto mentre resta pertinente. Il nuovo recupero evita che
+un errore momentaneo perda la prosecuzione o che la stessa bozza incompleta
+venga ricontrollata senza una strada per correggerla. Una fonte revocata
+impedisce di riproporre il vecchio risultato in Home.
+
+Il collaudo reale della revisione `e3a843c2730d4a35708777f81e403b8b5f89868a`
+ha ottenuto **4/9 PASS**, con **67 chiamate logiche e 98 HTTP**. I cinque
+casi positivi non hanno completato il percorso. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e3a843c.json)
+conserva i risultati effettivi, compresi i testi persistiti ma non consegnati.
+La CI della stessa revisione è invece tutta verde: **14/14 job**. Le due
+prove attestano proprietà diverse; l'autonomia non è ancora dimostrata.
+
+La revisione manuale ha trovato anche condizioni non sostenute e differenze
+di costo mancanti nei testi del collaudo. Questi testi non sono stati
+consegnati; i nuovi test controllati attestano il trasporto e il recupero,
+non la qualità di una decisione reale. Verifica locale: **569 PASS su 34 moduli in 7,68 secondi**, più CLI scripted **9/9**, con zero chiamate LLM reali, HTTP del modello ed effetti esterni.
+Il precedente bucato di Tarquinia resta chiuso. Il risultato futuro atteso
+resta un avviso utile per ritirare i panni, distinguendo stima di asciugatura
+e necessità di proteggerli da condizioni sfavorevoli.
+
 ## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
 
 Un confronto deve conservare i risultati utili e le condizioni realmente

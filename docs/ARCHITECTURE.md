@@ -1,3 +1,39 @@
+## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
+
+Il recupero conserva il checkpoint già persistito prima di un risveglio,
+anche quando il giudizio successivo non è disponibile. Le critiche di una
+preparazione respinta e di una verifica finale incompleta raggiungono la
+rivalutazione e il successivo tentativo, anche dopo la ricreazione del
+servizio. Sono diagnostica non autorevole, vincolata a owner, requisiti e
+fonti correnti; non diventano nuove prove o autorizzazioni.
+
+La decisione successiva e la verifica finale ricevono il risultato e il
+materiale necessario entro lo stesso limite di contesto. Le riduzioni
+riguardano copie e storia generata, con riferimenti espliciti: fonti,
+vincoli, criteri, copertura delle letture e testo da verificare restano
+controllabili. La Home e la consegna finale condividono il controllo della
+fonte: una revoca nota blocca il risultato superato, mentre un guasto del
+database conserva una consegna riprovabile.
+
+`_next` passa testo salvato e citazioni correnti al chooser e dà priorità alle Evidence citate. Entro gli stessi 9.000 caratteri, i serializer dedicati eliminano soltanto frammenti generati non citati e `intent`/`expected_result` dei passi conclusi; tutte le note operative rimangono. Testo di anteprima e `why_now` vengono condivisi soltanto quando identici, con riferimenti espliciti e metadati separati. Tabelle limitate a passi e capability conservano campi comuni, colonne, righe e indici dei campi assenti, distinguendo assenza, null, booleani e numeri. I candidati fanno riferimento al piano soltanto con una definizione unica e identica. Fonti, risultato, criteri, limiti, effetti e cursori restano ricostruibili; materiale essenziale ancora eccedente o citazione mancante produce indisponibilità prima del modello. Le 14 prove includono i testi originali e3a: chooser 11.409→8.968 e 18.115→8.952 caratteri, verifier 9.992→8.225 e 16.698→8.554, su ricostruzioni dichiarate. Il contratto comune descrive `current_source_situation` come snapshot che può includere interpretazioni dell'AI: i suoi riepiloghi non attestano una lettura eseguita o un risultato già salvato. Questa qualificazione non aggiunge campi ai payload.
+
+La diagnosi conserva solo `reason` e campi tipizzati di `claim_review`, fino a 1.400 caratteri nel journal esistente e 600 nell'osservazione immediata. Owner, goal, scadenza e hash di requisiti, Evidence e snapshot Memory delimitano il riuso dopo reload. Fonti corrette, requisiti cambiati o una preparazione riuscita ritirano la critica precedente. `reconsider` e la nuova preparazione la ricevono separatamente come contesto fallibile; la diagnosi facoltativa viene omessa prima di sacrificare materiale corrente quando supera il budget. Un journal indisponibile non blocca il risultato né elimina la critica immediata. Le 16 prove attraversano i percorsi ordinario e fallback, isolamenti, TTL, versioni, forme malformate e overflow; nessuna bozza respinta viene salvata come risultato o Evidence. La provenienza di ogni tentativo `unavailable` dichiara ora che quel tentativo non ha salvato una nuova bozza; l'errore `preparation_sources_required` precisa l'assenza di Evidence utilizzabili per il goal. Restano invariati provider, classe e retryable. Cinque prove esistenti erano rosse sulla vecchia nota di successo e ora verificano il resoconto coerente che raggiunge la rivalutazione.
+
+Nel solo risultato interno già preparato, senza intenti o ricevute esterne, i verdetti `partially_achieved` e `uncertain` raggiungono `_reconsider` con motivo, mancanza e critica persistita. Il budget resta quello esistente: al limite la prosecuzione è salvata senza chiamate extra. `wait`, `ask`, `continue` e piano modificato conservano i loro esiti; una nuova preparazione deve passare nuovamente audit e verifica. I rami di completamento, fallimento e attesa esterna rimangono invariati. Le 15 prove verificano recupero dopo reload, limiti e revoche. Le sei compatibilità dei test precedenti isolano soltanto la rivalutazione successiva fuori dal loro contratto, lasciando integro il primo recupero reale. Il percorso principale controllato rende la visibilità silenziosa: non attesta un nuovo veto globale di Delivery sulle bozze attive.
+
+Il checkpoint conservato in `_resume_due_wait` è quello già salvato da
+`advance`; i rami esistenti di attesa, richiesta alla persona, chiusura e
+limite background continuano a sostituirlo o cancellarlo. Il controllo
+Opportunity di Home e Delivery ammette la risoluzione dovuta al completamento,
+ma rifiuta revoca, soppressione, scadenza o assenza della fonte dello stesso
+owner. Un'indisponibilità di lettura non è una revoca. L'outbox definitivamente
+saltata non può essere riaperta da un worker tardivo.
+
+Il runner emette ora un progresso per caso con sola identità dello scenario,
+modalità, esito e contatori. Nessun prompt, testo di fonte o dato di utente
+reale viene aggiunto a quelle righe. Limiti, fixture e giudizi del runner
+non cambiano. Verifica locale: **569 PASS su 34 moduli in 7,68 secondi**, più CLI scripted **9/9**, con zero chiamate LLM reali, HTTP del modello ed effetti esterni.
+
 ## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
 
 L'audit riceve anche obiettivo, risultato atteso e criteri del lavoro,

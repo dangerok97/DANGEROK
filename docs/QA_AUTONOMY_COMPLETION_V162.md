@@ -1,3 +1,132 @@
+# QA v162 — recupero fino alla correzione e consegna corrente
+
+## Candidato successivo a e3a: verifica locale
+
+**569 PASS su 34 moduli in 7,68 secondi**, più CLI scripted **9/9**, con zero chiamate LLM reali, HTTP del modello ed effetti esterni.
+
+Le nuove prove coprono il risveglio, le critiche persistite, la verifica
+finale incompleta, il contesto dopo la preparazione e la revoca della fonte
+durante il passaggio in Home. La CLI conserva nove scenari e la fixture
+`personal_outcome_v1`. I risultati delle prove mirate sono inclusi nel totale;
+il trasporto SDK con HTTP finto non è una prova di qualità del modello reale.
+
+### Correzioni e prova del difetto precedente
+
+**Risveglio.** Due riproduzioni iniziali fallivano precisamente perché
+`next_run_at` diventava `None` dopo un giudizio assente o un JSON non valido.
+Il nuovo modulo verifica il checkpoint persistito, `recover_due`, un nuovo
+worker e il completamento senza rilettura superflua. Attesa deliberata,
+richiesta di informazioni/autorità, cap background e revoca prevalgono.
+
+**Critica disponibile al recupero.** La diagnosi conserva solo `reason` e campi tipizzati di `claim_review`, fino a 1.400 caratteri nel journal esistente e 600 nell'osservazione immediata. Owner, goal, scadenza e hash di requisiti, Evidence e snapshot Memory delimitano il riuso dopo reload. Fonti corrette, requisiti cambiati o una preparazione riuscita ritirano la critica precedente. `reconsider` e la nuova preparazione la ricevono separatamente come contesto fallibile; la diagnosi facoltativa viene omessa prima di sacrificare materiale corrente quando supera il budget. Un journal indisponibile non blocca il risultato né elimina la critica immediata. Le 16 prove attraversano i percorsi ordinario e fallback, isolamenti, TTL, versioni, forme malformate e overflow; nessuna bozza respinta viene salvata come risultato o Evidence. La provenienza di ogni tentativo `unavailable` dichiara ora che quel tentativo non ha salvato una nuova bozza; l'errore `preparation_sources_required` precisa l'assenza di Evidence utilizzabili per il goal. Restano invariati provider, classe e retryable. Cinque prove esistenti erano rosse sulla vecchia nota di successo e ora verificano il resoconto coerente che raggiunge la rivalutazione.
+Le riproduzioni iniziali dei percorsi ordinario e fallback fallivano perché
+la rivalutazione riceveva solo `preparation_not_supported` e un messaggio
+generico. Non vengono salvati come risultato né come fonte i testi respinti.
+
+**Verifica finale.** Nel solo risultato interno già preparato, senza intenti o ricevute esterne, i verdetti `partially_achieved` e `uncertain` raggiungono `_reconsider` con motivo, mancanza e critica persistita. Il budget resta quello esistente: al limite la prosecuzione è salvata senza chiamate extra. `wait`, `ask`, `continue` e piano modificato conservano i loro esiti; una nuova preparazione deve passare nuovamente audit e verifica. I rami di completamento, fallimento e attesa esterna rimangono invariati. Le 15 prove verificano recupero dopo reload, limiti e revoche. Le sei compatibilità dei test precedenti isolano soltanto la rivalutazione successiva fuori dal loro contratto, lasciando integro il primo recupero reale. Il percorso principale controllato rende la visibilità silenziosa: non attesta un nuovo veto globale di Delivery sulle bozze attive.
+Il verdetto negativo non viene cambiato per ottenere un completamento:
+un'eventuale nuova bozza attraversa nuovamente preparazione, audit e verifica.
+
+**Contesto.** `_next` passa testo salvato e citazioni correnti al chooser e dà priorità alle Evidence citate. Entro gli stessi 9.000 caratteri, i serializer dedicati eliminano soltanto frammenti generati non citati e `intent`/`expected_result` dei passi conclusi; tutte le note operative rimangono. Testo di anteprima e `why_now` vengono condivisi soltanto quando identici, con riferimenti espliciti e metadati separati. Tabelle limitate a passi e capability conservano campi comuni, colonne, righe e indici dei campi assenti, distinguendo assenza, null, booleani e numeri. I candidati fanno riferimento al piano soltanto con una definizione unica e identica. Fonti, risultato, criteri, limiti, effetti e cursori restano ricostruibili; materiale essenziale ancora eccedente o citazione mancante produce indisponibilità prima del modello. Le 14 prove includono i testi originali e3a: chooser 11.409→8.968 e 18.115→8.952 caratteri, verifier 9.992→8.225 e 16.698→8.554, su ricostruzioni dichiarate. Il contratto comune descrive `current_source_situation` come snapshot che può includere interpretazioni dell'AI: i suoi riepiloghi non attestano una lettura eseguita o un risultato già salvato. Questa qualificazione non aggiunge campi ai payload.
+La ricostruzione controllata del percorso reader/store/executor, usando i
+testi originali e3a, mostrava un chooser di 10533 caratteri per il testo Home
+di 790 e di 14986 per quello di 2813, entrambi rifiutati prima del modello.
+Il secondo payload di verifica misurava 16698 caratteri ed era a sua volta
+rifiutato. Non sono catture delle richieste HTTP storiche: obiettivo e
+descrizioni del piano sono una ricostruzione esplicita. Gli input essenziali
+rimangono interi; l'eccedenza realmente non comprimibile resta indisponibile.
+
+**Home.** Tre riproduzioni iniziali confermavano consegna o visibilità dopo
+revoca/soppressione. Il controllo corrente è condiviso con Delivery e viene
+ripetuto dopo gli await pertinenti. La lettura Home controlla anche l'outbox
+saltata. Le prove coprono fonte mancante, altro owner, scadenza, guasto del
+database, replay dopo revoca e chiusura dell'outbox da un altro worker prima
+dell'ack. Il goal completato non viene falsificato per chiudere l'outbox.
+
+## Collaudo reale e3a: report originale
+
+Revisione `e3a843c2730d4a35708777f81e403b8b5f89868a`, albero
+`c18c4300513a101fae5f03ac6d409e95c39c8dcc`, deployment tecnico
+`9080e411-301f-4f4f-82dc-33004332dd57`. Esecuzione dalle
+**04:15:51.987508 alle 04:26:10.832990 UTC del 12 ottobre 2026**:
+**4/9 PASS**, **67 chiamate logiche e 98 HTTP**. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e3a843c.json)
+è stato recuperato da due frammenti consecutivi, JSON valido di 132322
+caratteri e revisione esatta verificata. Le letture pubbliche non sono state
+eseguite, perché successive al superamento di questo gate.
+
+| Caso | Esito effettivo | Revisione del risultato e punto di arresto |
+|---|---|---|
+| `completed_result` | FAIL, budget esaurito | Prima bozza valida respinta; secondo audit salva 2813 caratteri con un vincolo annuale inventato. Verifica finale non raggiunge il modello |
+| `planning_outage` | FAIL, budget esaurito | Testo di 1172 caratteri con disdetta mensile non sostenuta; chooser finale indisponibile prima del modello |
+| `home_write_retry` | FAIL, budget esaurito | Testo di 790 caratteri fattualmente valido ma senza differenza 60; nessuna consegna Home raggiunta |
+| `source_revoked` | PASS | Revoca della fonte e arresto del lavoro |
+| `memory_revoked` | PASS | Ritiro della Memory e arresto del lavoro |
+| `memory_corrected` | FAIL, budget esaurito | Rilegge la fonte corretta a 150; testo di 776 caratteri conserva il prezzo corrente ma non esplicita la differenza 30 |
+| `source_change_crash` | FAIL, fonte non letta | Prepara senza Evidence, riceve `preparation_sources_required`; rivalutazione `continue` fondata sull'anteprima |
+| `already_resolved`, `irrelevant` | PASS | `no_goal` coerente con assenza di lavoro utile aperto |
+
+### Riscontri manuali dagli intermedi osservati
+
+In `completed_result` la prima generazione Gemini di 1060 caratteri contiene
+totali, differenza, periodo, condizione ignota e qualifica della fonte.
+L'audit Mistral la respinge per verifica del fornitore e costi non documentati,
+che non sono requisiti del confronto attribuito. La seconda generazione
+Mistral di 1923 caratteri inventa il non-rimborso mensile. Il secondo audit
+corregge quel punto, ma aggiunge all'annuale «Nessun vincolo di durata minima»,
+non sostenuto. Quel testo di 2813 caratteri è persistito con `verified=true`,
+ma il goal resta attivo e non viene consegnato. I calcoli sono corretti;
+questo non rende valida la clausola inventata.
+
+In `planning_outage` generazione, audit e testo salvato coincidono. La
+clausola «disdetta gestibile secondo la cadenza mensile» non è sostenuta e
+non compare nelle cinque righe dell'audit, senza righe omesse dal report.
+Nel caso Home la generazione di 859 caratteri viene ridotta a 790: condizioni
+ignote e qualifica restano corrette, ma il delta manca già nella generazione.
+Nel caso di Memory corretta la generazione di 987 caratteri viene ridotta a
+776; il testo usa 150 e non il vecchio 120, ma non esplicita il delta 30.
+Nessuno di questi testi è stato consegnato.
+
+Per Discovery l'audit iniziale modifica un'offerta di preparare in una
+affermazione di avere già preparato, pur lasciando il bisogno aperto e senza
+prove di completamento. Il piano successivo usa l'anteprima come se fosse
+già una lettura: `prepare` fallisce correttamente senza Evidence. La
+rivalutazione interpreta erroneamente il fallimento come estraneo ai dati.
+Il report non mostra generazione o audit di preparazione per quel caso.
+
+Nei tre chooser finali e nei due verifier del caso ordinario il contatore
+delle chiamate non aumenta fra ingresso e ritorno `None`: il giudizio si
+ferma prima del modello. La ricostruzione dei payload descritta sopra
+conferma un limite di contesto, distinto dalla qualità semantica dei testi.
+
+### CI e3a: verde sul codice esatto
+
+**4/4 workflow e 14/14 job PASS**, senza step saltati:
+[CI PR](https://github.com/dangerok97/DANGEROK/actions/runs/38203018472),
+[CI push](https://github.com/dangerok97/DANGEROK/actions/runs/38203014619),
+[Situation PR](https://github.com/dangerok97/DANGEROK/actions/runs/38203018512),
+[Situation push](https://github.com/dangerok97/DANGEROK/actions/runs/38203014589).
+Nei backend: **464 PASS** per il gruppo v162 (PR 11,50 s; push 11,67 s),
+scripted **9/9** con tutti i contatori esterni a zero, **6 PASS su Mongo e
+processi separati** (PR 12,53 s; push 12,46 s), **3 PASS v39** (0,37/0,38 s).
+I gate Mongo hanno `PHASE2_REAL_MONGO=1` e nessun test saltato.
+
+Il checkout PR è il merge tecnico
+`1ec3f8e48b12a568b0013835c565e3d1d9b33f22`, parent da6c/e3a, con lo stesso
+albero c18c del candidato. Il push verifica direttamente e3a. Anche frontend
+TypeScript/export iOS, product guard, sicurezza telefonica e scansione dei
+segreti sono verdi. La verifica del nuovo candidato è distinta da questa CI.
+
+### Confini della prova
+
+Record, account e clock di collaudo sono sintetici. Nessun messaggio, chiamata,
+notifica, pagamento, prenotazione o scrittura di calendario reale viene
+eseguito. Il bucato precedente di Tarquinia resta chiuso. Il rilascio sui
+servizi app è stato rifiutato dal controllo automatico Railway; il servizio
+tecnico isolato non equivale a quel rilascio. Build nativa firmata e ricevuta
+del dispositivo non sono attestate da questi test.
+
+---
+
 # QA v162 — premesse documentate e risultato preservato nell'audit
 
 ## Candidato successivo a f188: verifica locale

@@ -960,9 +960,11 @@ class AgentService:
             await self._reasoning_goal(owner_id, goal),
             plan=plan.for_ai(),
             candidates=[s.for_ai() for s in pending],
-            evidence=for_verification(evidence),
+            evidence=for_verification(evidence, required_refs=goal.prepared_sources),
             capabilities=await self.capabilities.available(owner_id),
             clock_context=await _user_clock_context(self.db, owner_id),
+            prepared_result=goal.prepared_text or None,
+            prepared_source_refs=list(goal.prepared_sources),
             language=language,
         )
         if answer is None:
@@ -1932,7 +1934,38 @@ class AgentService:
                 owner_id, goal, plan, run, "failed", verification.reasoning
             )
 
-        # `partially_achieved` and `uncertain` are not endings.
+        # An incomplete internal result may need a different preparation,
+        # not repeated verification of the same text on every wake. Retain
+        # the review as fallible feedback; only the existing reconsideration
+        # can choose a repair, and only a real preparation may change the draft.
+        if (verification.outcome in ("partially_achieved", "uncertain")
+                and goal.prepared_text and not intents and not receipts):
+            from agent.preparation import remember_preparation_feedback
+
+            observation = await remember_preparation_feedback(
+                self.db, owner_id, goal,
+                reason="\n".join(value for value in (
+                    verification.what_is_missing, verification.reasoning,
+                ) if value),
+                origin="goal_verification",
+            )
+            outcome = await self._reconsider(
+                owner_id, goal, plan, run, budget,
+                what_happened={"result": {
+                    "status": "partial" if verification.outcome == "partially_achieved" else "unavailable",
+                    "verification_outcome": verification.outcome,
+                    "what_is_missing": verification.what_is_missing,
+                    "reasoning": verification.reasoning,
+                    "what_happened": observation or "La verifica non ha confermato la bozza; il giudizio resta da valutare contro le fonti.",
+                    "problem": "prepared_result_verification_incomplete",
+                    "worth_retrying": True,
+                }}, language=language,
+            )
+            if outcome is not None:
+                return outcome
+
+        # A revised plan and its existing continuation are already durable.
+        # Other partial/uncertain outcomes retain the previous pause behavior.
         return await self._pause(
             owner_id, goal, plan, run,
             verification.what_is_missing or verification.reasoning,
@@ -2002,7 +2035,9 @@ class AgentService:
 
         plan.status = "active"
         goal.status = "active"
-        goal.next_run_at = None
+        # advance already persisted a technical retry before this wake. Keep
+        # it if judgement is unavailable; a new wait, person request, closure
+        # or the background cap replaces/clears it through the usual paths.
         goal.user_deferred_until = None
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)

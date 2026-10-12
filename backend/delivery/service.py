@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional
 from agent.memory_fence import (
     MemorySourcesUnavailable, memory_result_current, opportunity_memories_current,
 )
+from agent.result_sources import opportunity_result_current
 from delivery import context as delivery_context
 from delivery.models import (
     DeliverySubject,
@@ -480,19 +481,8 @@ class DeliveryService:
                 or need.goal_completed_at != goal.completed_at or not need.source_refs):
             return False
         try:
-            if goal.opportunity_id:
-                # Completion itself resolves its Opportunity. A later
-                # dismissal/withdrawal still outranks the unsent result;
-                # requiring an active source here would suppress every
-                # ordinary successful autonomous completion.
-                source = await self.db.opportunities.find_one({
-                    "owner_id": user_id, "id": goal.opportunity_id,
-                }, {"_id": 0, "status": 1, "valid_until": 1})
-                if not source or source.get("status") in ("dismissed", "suppressed", "expired"):
-                    return False
-                deadline = _aware_wait_until(source.get("valid_until"))
-                if deadline is not None and deadline <= _now():
-                    return False
+            if not await opportunity_result_current(self.db, user_id, goal, now=_now()):
+                return False
             evidence = await EvidenceStore(self.db).for_goal(user_id, goal.id)
             real_ids = {item.id for item in evidence if real_support([item])}
             if not real_ids:
@@ -1158,10 +1148,25 @@ class DeliveryService:
 
         goal = AutonomousGoal.model_validate(rows[0])
         try:
+            fingerprint = latest.cognitive_provenance.get("home_outbox_fingerprint")
+            if fingerprint:
+                try:
+                    skipped = await self.db.agent_updates.find_one({
+                        "owner_id": user_id, "goal_id": goal.id, "fingerprint": fingerprint,
+                        "home_skipped": {"$exists": True},
+                    }, {"_id": 1})
+                except Exception as exc:
+                    raise MemorySourcesUnavailable("home_handoff_check_unavailable") from exc
+                if skipped:
+                    return None
             if not await memory_result_current(
                 self.db, user_id, goal,
                 str(latest.cognitive_provenance.get("memory_source_snapshot") or ""),
             ):
+                return None
+            # Do not use an Opportunity snapshot taken before the awaited
+            # Memory checks: the person may have dismissed it during those.
+            if not await opportunity_result_current(self.db, user_id, goal, now=now):
                 return None
         except MemorySourcesUnavailable:
             return None

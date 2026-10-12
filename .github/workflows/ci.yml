@@ -222,6 +222,7 @@ jobs:
             tests/test_agent_memory_continuation_v162.py \
             tests/test_agent_terminal_plan_v162.py \
             tests/test_agent_completed_result_delivery_v162.py \
+            tests/test_autonomy_home_revocation_v162.py \
             tests/test_eval_gemini_transport_v162.py \
             tests/test_pending_outcome_contract_v162.py \
             tests/test_discovery_outcome_contract_v162.py \
@@ -229,11 +230,15 @@ jobs:
             tests/test_agent_preparation_dependency_v162.py \
             tests/test_agent_admission_contract_v162.py \
             tests/test_agent_verification_context_v162.py \
+            tests/test_verification_recovery_v162.py \
             tests/test_autonomy_eval_recovery_diagnostics_v162.py \
             tests/test_agent_action_context_v162.py \
+            tests/test_completed_result_context_v162.py \
             tests/test_preparation_recovery_v162.py \
+            tests/test_preparation_feedback_v162.py \
             tests/test_autonomy_preparation_diagnostics_v162.py \
             tests/test_autonomy_worker_recovery_v162.py \
+            tests/test_autonomy_wait_recovery_v162.py \
             tests/test_agent_connector_readiness_v162.py \
             tests/test_agent_planning_recovery_v162.py \
             tests/test_opportunity_discovery_recovery_v162.py \

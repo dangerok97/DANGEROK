@@ -1215,6 +1215,13 @@ async def main(*, mode="scripted", scenario="all", output=""):
                         "failure_state": await failure_state(probe),
                         "reason": str(exc) if isinstance(exc, EvaluationFailure) else type(exc).__name__}
             cases.append(case)
+            # Emit only fixed case identity/outcome and bounded counters while
+            # the remaining real-model cases run. No source text or prompts.
+            print("ORA_AUTONOMY_COMPLETION_CASE " + json.dumps({
+                "scenario": name, "mode": mode, "passed": case["passed"],
+                "model_attempts": probe.model_attempts,
+                "model_http_requests": probe.model_http_requests,
+            }, ensure_ascii=False), flush=True)
         passed = all(case["passed"] for case in cases)
         report = {"version": VERSION, "mode": mode, "status": "passed" if passed else "failed",
                   "passed": passed, "real_model_executed": mode == "live" and all(

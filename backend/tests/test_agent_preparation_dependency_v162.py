@@ -272,6 +272,13 @@ async def test_real_missing_preparation_sources_replans_then_reads_and_prepares_
         failed_history = deepcopy(failed_step.model_dump())
         assert failed_step.status == "failed" and failed_step.attempts == 1
         assert stages == ["reconsider"]  # The rejected preparation never calls the drafter.
+        observed = transported[0]["payload"]["what_happened"]["result"]
+        # A real failed attempt is an observation, not a generated artifact.
+        # This is the exact result received through the model's SDK boundary.
+        assert observed["note"] == "Questo tentativo non ha salvato una nuova bozza verificata."
+        assert observed["what_happened"] == "Non ci sono evidenze utilizzabili registrate per questo obiettivo."
+        assert observed["where_this_came_from"] == "internal_observation"
+        assert observed["capability"] == "document.create" and observed["source_refs"] == []
         assert await db.agent_evidence.count_documents({}) == 0
         assert not goal.prepared_text and goal.is_open
         assert [step.status for step in plan.steps] == ["failed", "pending", "pending"]

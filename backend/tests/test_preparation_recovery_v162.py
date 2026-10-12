@@ -114,6 +114,9 @@ async def test_finish_preserves_actual_failure_for_reconsider_and_resumes_from_c
         assert failure_payload["result"]["worth_retrying"] is retryable
         assert failure_payload["result"]["where_this_came_from"] == "internal_observation"
         assert failure_payload["result"]["capability"] == "document.create"
+        # Generation, citation and audit failures must not describe the
+        # attempted draft as a new artifact successfully saved from sources.
+        assert failure_payload["result"]["note"] == "Questo tentativo non ha salvato una nuova bozza verificata."
         assert budget.cognitive_calls <= budget.max_cognitive_calls
         assert not goal.prepared_text and goal.next_run_at == original_due
         failed = plan.steps[2]
@@ -136,10 +139,16 @@ async def test_finish_preserves_actual_failure_for_reconsider_and_resumes_from_c
             latest = await service.repo.get_goal(OWNER, goal.id)
             return {"decision": "verify"} if latest.prepared_text else {"decision": "execute", "step_id": target.id}
 
-        with patch.object(reasoning, "choose_next_action", choose), patch.object(reasoning, "verify_goal", AsyncMock(
+        # The uncertain verdict only stops this preparation-recovery test.
+        # Isolate its subsequent repair decision, preserving the first real
+        # reconsideration above; verification_recovery covers that next cycle.
+        final_reconsider = AsyncMock(return_value=None)
+        with patch.object(service, "_reconsider", final_reconsider), patch.object(reasoning, "choose_next_action", choose), patch.object(reasoning, "verify_goal", AsyncMock(
             return_value={"outcome": "uncertain", "what_is_missing": "Giudizio controllato: nessuna qualità live attestata."},
         )):
             await service.advance(OWNER, goal.id)
+        assert final_reconsider.await_count == 1
+        assert final_reconsider.await_args.kwargs["what_happened"]["result"]["verification_outcome"] == "uncertain"
         current = await service.repo.get_goal(OWNER, goal.id)
         current_plan = await service.repo.plan_for(OWNER, goal.id)
         assert current.prepared_text == RESULT and current.prepared_sources == [source.id]

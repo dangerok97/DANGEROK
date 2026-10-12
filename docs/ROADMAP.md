@@ -1,3 +1,36 @@
+## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
+
+**Candidato corrente:** **569 PASS su 34 moduli in 7,68 secondi**, più CLI scripted **9/9**, con zero chiamate LLM reali, HTTP del modello ed effetti esterni.
+Il collaudo reale della revisione `e3a843c2730d4a35708777f81e403b8b5f89868a`
+ha ottenuto **4/9 PASS**, con **67 chiamate logiche e 98 HTTP**. I cinque
+casi positivi non hanno completato il percorso. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e3a843c.json)
+conserva i risultati effettivi, compresi i testi persistiti ma non consegnati.
+La CI della stessa revisione è invece tutta verde: **14/14 job**. Le due
+prove attestano proprietà diverse; l'autonomia non è ancora dimostrata.
+
+Il recupero conserva il checkpoint già persistito prima di un risveglio,
+anche quando il giudizio successivo non è disponibile. Le critiche di una
+preparazione respinta e di una verifica finale incompleta raggiungono la
+rivalutazione e il successivo tentativo, anche dopo la ricreazione del
+servizio. Sono diagnostica non autorevole, vincolata a owner, requisiti e
+fonti correnti; non diventano nuove prove o autorizzazioni.
+
+La decisione successiva e la verifica finale ricevono il risultato e il
+materiale necessario entro lo stesso limite di contesto. Le riduzioni
+riguardano copie e storia generata, con riferimenti espliciti: fonti,
+vincoli, criteri, copertura delle letture e testo da verificare restano
+controllabili. La Home e la consegna finale condividono il controllo della
+fonte: una revoca nota blocca il risultato superato, mentre un guasto del
+database conserva una consegna riprovabile.
+
+Passaggi ancora necessari: pubblicare questa revisione, verificarne la CI
+e i nove scenari reali con lettura manuale dei risultati; poi il collaudo
+separato delle letture pubbliche se il gate passa. Il rilascio dei servizi
+app rimane distinto dal servizio tecnico isolato: il controllo automatico
+Railway ha già rifiutato l'applicazione della patch e non viene aggirato.
+Build nativa firmata e ricevuta del dispositivo restano verifiche distinte
+dal codice backend/web e dall'SDK con HTTP finto.
+
 ## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
 
 **Checkpoint corrente:** **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni.

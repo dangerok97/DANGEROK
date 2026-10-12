@@ -209,10 +209,17 @@ async def test_finish_binds_current_saved_result_and_citation_through_real_sdk_h
         service = AgentService(h.db)
         pause = AsyncMock(return_value={"state": "verification_remains_open"})
         monkeypatch.setattr(service, "_pause", pause)
-        result = await service._finish(OWNER, h.goal, h.plan,
-            AgentRun(owner_id=OWNER, goal_id=h.goal.id), AgentBudget(), language="it")
+        # This test covers the complete verification payload, not the later
+        # repair decision. Its partial verdict now reaches reconsideration;
+        # real repair after that boundary is covered by verification_recovery.
+        reconsider = AsyncMock(return_value=None)
+        with patch.object(service, "_reconsider", reconsider):
+            result = await service._finish(OWNER, h.goal, h.plan,
+                AgentRun(owner_id=OWNER, goal_id=h.goal.id), AgentBudget(), language="it")
         assert result == {"state": "verification_remains_open"}
         assert pause.await_args.args[-1] == "Manca una conclusione richiesta nel risultato scritto."
+        assert reconsider.await_count == 1
+        assert reconsider.await_args.kwargs["what_happened"]["result"]["what_is_missing"] == pause.await_args.args[-1]
         assert len(transported) == probe.model_attempts == probe.model_http_requests == 1
         assert not probe.network.blocked and not probe.blocked_effects
         assert await h.db.agent_goals.count_documents({"owner_id": OWNER, "status": "completed"}) == 0
