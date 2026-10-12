@@ -183,17 +183,23 @@ def map_focused_box(identified: dict) -> dict:
 
 async def recognize_with_recovery(image: bytes) -> dict | None:
     """One automatic retry before failing; never treat a name alone as detection."""
-    raw = await ask_json(IDENTIFY, "Identifica l'oggetto principale e il suo riquadro.", image)
-    found = normalize_identification(raw)
+    try:
+        raw = await asyncio.wait_for(
+            ask_json(IDENTIFY, "Identifica l'oggetto principale e il suo riquadro.", image),
+            timeout=12)
+        found = normalize_identification(raw)
+    except asyncio.TimeoutError:
+        found = None
     if found:
         return {**found, "recognition_method": "primary"}
     try:
-        retried = await ask_json(FOCUSED_IDENTIFY,
-                                 "Identifica l'oggetto centrale anche quando non è nel catalogo; se incerto, rifiuta.",
-                                 focused_object_crop(image))
+        retried = await asyncio.wait_for(
+            ask_json(FOCUSED_IDENTIFY,
+                     "Identifica l'oggetto centrale anche quando non è nel catalogo; se incerto, rifiuta.",
+                     focused_object_crop(image)), timeout=10)
         focused = normalize_identification(retried)
         return map_focused_box(focused) if focused else None
-    except (ValueError, OSError):
+    except (ValueError, OSError, asyncio.TimeoutError):
         return None
 
 
@@ -276,7 +282,7 @@ async def scan_object(body: ScanRequest, response: Response, user=Depends(get_cu
     try:
         await asyncio.wait_for(_SCAN_LIMIT.acquire(), timeout=2)
         acquired = True
-        identification = await asyncio.wait_for(recognize_with_recovery(image), timeout=43)
+        identification = await asyncio.wait_for(recognize_with_recovery(image), timeout=23)
         if not identification:
             return {"status": "unknown", "frame_id": body.frame_id,
                     "reason": "Non distinguo bene un oggetto. Avvicinati e tienilo al centro."}
