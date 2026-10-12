@@ -96,3 +96,66 @@ html:has(.ora-overlay),body:has(.ora-overlay),#root:has(.ora-overlay){
  .ora-overlay-context>strong{font-size:10px;max-width:22%;padding:3px 5px;}
  .ora-overlay-context button{min-height:29px;padding:4px 6px;font-size:10px;}
 }
+
+
+/* Exploded atlas studio: never shrink 500 anatomical pieces into one unreadable
+   grid. Only a short page of visible 3D meshes is shown at a time. */
+.ora-overlay-pager{position:absolute;z-index:10;bottom:78px;left:9px;right:9px;
+ padding:6px 9px;max-height:113px;background:rgba(4,27,43,.88);
+ border:1px solid rgba(100,200,223,.7);border-radius:12px;
+ backdrop-filter:blur(12px);box-shadow:0 7px 18px #0008;
+ display:flex;flex-direction:column;gap:5px;overflow:hidden;}
+.ora-overlay-pager-top{display:flex;align-items:center;gap:8px;min-height:30px;}
+.ora-overlay-pager-top strong{font-weight:700;letter-spacing:.1px;font-size:12px;}
+.ora-overlay-pager-top>span{white-space:nowrap;color:#b9dce5;font-size:11px;}
+.ora-overlay-pager-top>span:first-of-type{margin-left:auto;}
+.ora-overlay-pager-top button{min-width:35px;min-height:30px;padding:2px 6px;
+ font-size:19px;line-height:1;border-color:#84cde0;}
+.ora-overlay-pager-top button:disabled{opacity:.35;cursor:not-allowed;}
+.ora-overlay-page-parts{display:flex;gap:6px;overflow-x:auto;
+ max-height:44px;padding:1px 1px 4px;scrollbar-color:#5c9fb2 transparent;
+ scroll-snap-type:x proximity;}
+.ora-overlay-page-parts button{flex:0 0 auto;max-width:220px;overflow:hidden;
+ text-overflow:ellipsis;white-space:nowrap;scroll-snap-align:start;
+ font-size:11px;min-height:32px;line-height:1.2;padding:4px 9px;
+ background:rgba(26,66,81,.94);border-color:#78b6c9;}
+.ora-overlay-page-parts button:hover{background:rgba(53,112,135,.99);
+ border-color:#b4eefb;}
+.ora-overlay-inspector{width:min(380px,42%);max-height:68%;
+ bottom:78px;border-color:#f4c58e;overflow-y:auto;}
+.ora-overlay-inspector .ora-overlay-detail-top strong{font-size:19px;}
+.ora-overlay-inspector .ora-overlay-detail-top small{color:#f9cc96;
+ text-transform:uppercase;letter-spacing:.5px;}
+.ora-overlay-inspector p{line-height:1.5;margin:11px 0;}
+.ora-inline-terminology{display:flex;flex-direction:column;gap:4px;
+ padding:9px;background:rgba(8,44,60,.86);border:1px solid #6c9eac;
+ border-radius:9px;margin-bottom:9px;overflow-wrap:anywhere;}
+.ora-inline-terminology strong{font-size:11px;color:#cff2fc;}
+.ora-inline-terminology span{font-size:10px;color:#a1cfdf;}
+.ora-inline-terminology small{font-size:10px;color:#dfebf2;}
+.ora-overlay-inspector .ora-overlay-detail-actions{display:flex;align-items:center;
+ justify-content:flex-start;gap:7px;margin:7px 0;}
+.ora-overlay-inspector .ora-overlay-detail-actions button{min-width:41px;
+ min-height:36px;font-size:14px;}
+.ora-overlay-inspector .ora-overlay-detail-actions span{min-width:52px;
+ text-align:center;font-weight:600;color:#f8cfab;}
+.ora-overlay-inspector .ora-inline-return{display:block;width:100%;
+ margin-top:8px;border-color:#d5ac85;color:#fff6ea;
+ min-height:40px;font-size:13px;background:rgba(88,49,29,.85);}
+.ora-overlay-inspector .ora-inline-return:hover{background:#8d4b2c;}
+@media(max-width:650px){
+ .ora-overlay-pager{left:4px;right:4px;bottom:71px;max-height:105px;
+ padding:5px 6px;gap:3px;}
+ .ora-overlay-pager-top{gap:5px;}
+ .ora-overlay-pager-top strong{font-size:10px;min-width:0;overflow:hidden;
+ text-overflow:ellipsis;white-space:nowrap;}
+ .ora-overlay-pager-top>span{font-size:10px;}
+ .ora-overlay-pager-top button{min-width:30px;min-height:28px;font-size:18px;}
+ .ora-overlay-page-parts button{min-height:31px;font-size:10px;max-width:160px;}
+ .ora-overlay-inspector{left:5px;right:5px;bottom:75px;width:auto;
+ max-height:37%;padding:10px;overflow:auto;}
+ .ora-overlay-inspector .ora-overlay-detail-top strong{font-size:15px;}
+ .ora-overlay-inspector p{font-size:11px;margin:6px 0;}
+ .ora-inline-terminology{gap:3px;padding:6px;margin-bottom:5px;}
+ .ora-overlay-inspector .ora-inline-return{min-height:36px;}
+}

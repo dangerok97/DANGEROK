@@ -12,7 +12,8 @@ for(const [from,to] of [
  ['ora-bodyparts3d-inline.tsx','app/ora-overlay.tsx'],
  ['ora-bodyparts3d-inline.css','app/ora-overlay.css'],
  ['ora-bodyparts3d-locale-it.ts','app/ora-locale-it.ts'],
- ['ora-bodyparts3d-regions.ts','app/ora-regions.ts']
+ ['ora-bodyparts3d-regions.ts','app/ora-regions.ts'],
+ ['ora-anatomy-terminology-it.ts','app/ora-anatomy-terminology-it.ts']
 ])copyFileSync(join(source,from),join(root,to));
 
 let anatomy=read('app/anatomy.ts');
@@ -20,8 +21,14 @@ anatomy=once(anatomy,'export interface Part {id:string;name:string;conceptId:str
  'export interface Part {id:string;name:string;originalName?:string;conceptId:string;');
 anatomy=once(anatomy,'export interface Concept {id:string;name:string;elements:string[]}',
  'export interface Concept {id:string;name:string;originalName?:string;elements:string[]}');
+anatomy=once(anatomy,
+ 'export interface Part {id:string;name:string;originalName?:string;conceptId:string;',
+ 'export interface Part {id:string;name:string;originalName?:string;translationReviewed?:boolean;conceptId:string;');
+anatomy=once(anatomy,
+ 'export interface Concept {id:string;name:string;originalName?:string;elements:string[]}',
+ 'export interface Concept {id:string;name:string;originalName?:string;translationReviewed?:boolean;elements:string[]}');
 anatomy=once(anatomy,'export interface SceneState {inspectorOpen?:boolean;explode:number;',
- 'export interface SceneState {inspectorOpen?:boolean;allowed?:string[]|null;explode:number;');
+ 'export interface SceneState {inspectorOpen?:boolean;allowed?:string[]|null;detailZoom?:number;explode:number;');
 anatomy="import {SISTEMI_IT,SPIEGAZIONI_IT} from './ora-locale-it';\n"+anatomy;
 anatomy+="\nfor(const system of SYSTEMS){const it=SISTEMI_IT[system.id];if(!it)throw Error('Lingua italiana mancante');system.name=it.name;system.description=it.description;}\nObject.assign(EXPLANATIONS,SPIEGAZIONI_IT);\n";
 save('app/anatomy.ts',anatomy);
@@ -46,6 +53,10 @@ scene=scene.replace('The 3D session was paused by your device. Reload to continu
  'La sessione 3D è stata interrotta dal dispositivo. Riaprila per continuare.');
 scene=scene.replace('This browser could not start the 3D viewer. Please try a browser with WebGL enabled.',
  'Questo browser non riesce ad avviare la visualizzazione 3D. Usa un browser con WebGL.');
+scene=once(scene,"const distance=T.MathUtils.lerp(normalDistance,Math.max(.2,atlasDistance),extent);if(extent>.8)view='front';","const distance=T.MathUtils.lerp(normalDistance,Math.max(.2,atlasDistance),extent)*(oraInline&&extent>.4?.82:1);if(extent>.8)view='front';");
+scene=once(scene,"const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect:'';","const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect+':'+(s.detailZoom||1):'';");
+scene=once(scene,"if(s.inspectorOpen){if(landscape){right=w-335;top=100;bottom=h-125;}","if(oraInline){left=15;right=w>900?w-365:w-15;top=w<768?95:110;bottom=h-(w<768?220:100);}\n     else if(s.inspectorOpen){if(landscape){right=w-335;top=100;bottom=h-125;}");
+scene=once(scene,"const distance=Math.max(.07,Math.max(size.y*h/availableHeight,size.x*w/availableWidth/camera.aspect,size.z)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.35);","const distance=Math.max(.07,Math.max(size.y*h/availableHeight,size.x*w/availableWidth/camera.aspect,size.z)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.35)/(oraInline?Math.max(1,Math.min(3,s.detailZoom||1)):1);");
 save('app/scene.tsx',scene);
 
 let page=read('app/page.tsx');

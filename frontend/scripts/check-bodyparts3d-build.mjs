@@ -94,5 +94,52 @@ assert.ok(sharedHands<Math.min(rightHand.ids.length,leftHand.ids.length)*.45,
 assert.ok(regions.anatomicalRegion(model,'full_body','unknown').ids.length===2234);
 console.log('ANATOMICAL_REGION_COUNTS '+JSON.stringify(result));
 
+// The Italian nomenclature must be dependable: no half-Italian hybrids.
+const terminologySource=sourceFile('app/ora-anatomy-terminology-it.ts');
+const terminologyJs=ts.transpileModule(terminologySource,{compilerOptions:{
+ module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022
+}}).outputText;
+const terminologyModule={exports:{}};
+vm.runInNewContext(terminologyJs,{module:terminologyModule,exports:terminologyModule.exports});
+const it=terminologyModule.exports;
+for(const [en,expected] of [
+ ['Right anterior temporal artery','Arteria temporale anteriore destra'],
+ ['Left inferior frontal gyrus','Giro frontale inferiore sinistro'],
+ ['Gingiva of upper jaw','Gengiva della mascella superiore'],
+ ['Left lower first secondary molar tooth','Primo molare permanente inferiore sinistro'],
+ ['Left lower central secondary incisor tooth','Incisivo centrale permanente inferiore sinistro'],
+ ['Left lateral nasal cartilage','Cartilagine nasale laterale sinistra'],
+ ['Left frontal nerve','Nervo frontale sinistro'],
+ ['Left supra-orbital nerve','Nervo sovraorbitario sinistro'],
+ ['Right common carotid artery','Arteria carotide comune destra'],
+ ['Left choroid','Coroide sinistra']
+]){
+ const got=it.anatomyNameIt(en);
+ assert.equal(got.name,expected,'Incorrect Italian term for '+en);
+ assert.equal(got.reviewed,true);
+}
+assert.deepEqual(Object.keys(it.anatomyNameIt('Unlisted mysterious tissue of foobar')).sort(),['name','reviewed']);
+assert.equal(it.anatomyNameIt('Unlisted mysterious tissue of foobar').reviewed,false);
+const candidates=[...model.parts,...model.concepts];
+const translated=candidates.filter(p=>it.anatomyNameIt(p.name).reviewed);
+const untranslated=candidates.filter(p=>!it.anatomyNameIt(p.name).reviewed);
+console.log('ANATOMY_ITALIAN_TERMINOLOGY '+JSON.stringify({
+ covered:translated.length,total:candidates.length,
+ percentage:+(translated.length/candidates.length*100).toFixed(1),
+ originalTerms:untranslated.slice(0,18).map(p=>p.name)
+}));
+assert.ok(translated.length/candidates.length>.40,
+ 'Medical Italian terminology coverage regressed unexpectedly');
+// Ensure exploded meshes do not collapse into hundreds of unreadable fragments,
+// and tapping an individual piece isolates it while remembering the prior page.
+const oraOverlay=sourceFile('app/ora-overlay.tsx');
+assert.match(oraOverlay,/const EXPLODED_PAGE_SIZE=14/);
+assert.match(oraOverlay,/data-testid="ora-inline-explosion-pager"/);
+assert.match(oraOverlay,/data-testid="ora-inline-return-explosion"/);
+assert.match(oraOverlay,/isolate:true,explode:0/);
+assert.match(oraOverlay,/setState\(s=>\(\{\.\.\.s,selected:\[\],isolate:false,explode:previous\?\.explode/);
+assert.match(oraOverlay,/data-testid="ora-inline-zoom-in"/);
+assert.match(sourceFile('app/scene.tsx'),/detailZoom\|\|1/);
+
 console.log(JSON.stringify({status:'PASS',parts:model.parts.length,concepts:model.concepts.length,
  chunks:model.chunks.length,rawBytes:bytes,source:provenance.distributor_commit}));

@@ -4,6 +4,7 @@
  * This is not an automatic clinical terminology certification.
  */
 import type {Atlas} from './anatomy';
+import {anatomyNameIt} from './ora-anatomy-terminology-it';
 
 export const SISTEMI_IT:Record<string,{name:string;description:string}>={
  skeletal:{name:'Scheletro',description:'Le ossa sostengono il corpo, proteggono gli organi e offrono punti di inserzione ai muscoli.'},
@@ -106,14 +107,23 @@ export function italianName(name:string):string {
  const source=name.trim();if(!source)return source;
  const key=source.toLowerCase();
  if(exact[key])return exact[key];
- let output=source;
- for(const [pattern,value] of terms)output=output.replace(pattern,value);
- // If the source contains unfamiliar terms, preserve them for scientific traceability.
- return capitalize(output);
+ // The old word-by-word replacements produced half-Italian, anatomically
+ // misleading expressions; use a reviewed glossary/grammar or keep source intact.
+ return anatomyNameIt(source).name;
 }
 export function italianAtlas(atlas:Atlas):Atlas{
  return {...atlas,
-  parts:atlas.parts.map(p=>({...p,originalName:p.name,name:italianName(p.name)})),
-  concepts:atlas.concepts.map(c=>({...c,originalName:c.name,name:italianName(c.name)})),
+  parts:atlas.parts.map(p=>{
+   const localized=anatomyNameIt(p.name);
+   const local=exact[p.name.toLowerCase()];
+   return {...p,originalName:p.name,name:local||localized.name,
+    translationReviewed:Boolean(local)||localized.reviewed};
+  }),
+  concepts:atlas.concepts.map(c=>{
+   const localized=anatomyNameIt(c.name);
+   const local=exact[c.name.toLowerCase()];
+   return {...c,originalName:c.name,name:local||localized.name,
+    translationReviewed:Boolean(local)||localized.reviewed};
+  }),
  };
 }
