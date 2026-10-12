@@ -282,6 +282,7 @@ jobs:
             tests/test_situation_live_eval_v162.py \
             tests/test_situation_estimate_schedule_truth_v162.py \
             tests/test_situation_terminal_schedule_truth_v162.py \
+            tests/test_situation_in_turn_handoff_v162.py \
             tests/test_situation_conversation_diagnostics_v162.py \
             tests/test_situation_creation_protocol_v162.py \
             tests/test_pre_reply_grounding_recovery_v162.py \

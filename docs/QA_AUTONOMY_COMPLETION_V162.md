@@ -1,3 +1,15 @@
+# 12 ottobre 2026 — v162, confini delle prove recuperate
+
+**CI 22df078: 6 workflow e 16 job SUCCESS.** Il live 68aa2564 termina CRASHED alle 14:18:59 UTC con tre report completi. Situation fallisce il gate per il riferimento al luogo mancante; la revisione rileva obiettivo ridotto alla pioggia e handoff incoerente. Agent: 4/9, soli negativi, 0/5 positivi accettati, Home/replay not_run. Pubblico: PASS tecnico ma revisione umana negativa. Le 51/51 citazioni autentiche non attestano che le conclusioni siano sostenute.
+
+Il locale 7a65f40 conserva 1.890 PASS, 1 SKIP, 0 FAIL e CLI 9/9. Dopo `409 environment_offline`, qualificazione runtime recuperata identica per hash, loop e test ricostruiti: **nuova CI NOT_RUN al congelamento**, nessun trasferimento dei risultati. I 18 casi nuovi sono stati letti e revisionati, non eseguiti in questo ambiente. La raccolta cloud recupera tre report byte per byte e una nuova ricevuta; non ricostruisce i vecchi poll o archivi locali.
+
+Resta il rifiuto APP eb9c3870, senza aggiramento via staging/cloud; firma, installazione, visualizzazione e tap non sono attestati.
+
+[Situation](evidence/autonomy_v162_live_2026-10-12_22df078_situation.json) · [Autonomia](evidence/autonomy_v162_live_2026-10-12_22df078_autonomy.json) · [Pubblico](evidence/autonomy_v162_live_2026-10-12_22df078_public.json) · [Binding e limiti](evidence/autonomy_v162_cloud_recovery_2026-10-12.json)
+
+---
+
 # 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
 
 ## Identità e CI osservata

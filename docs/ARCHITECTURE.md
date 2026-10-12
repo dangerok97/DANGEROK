@@ -1,3 +1,15 @@
+# 12 ottobre 2026 — v162, qualificazione e stato corrente
+
+Il live 22df078 mostra due confini distinti. La generazione non riceveva le qualificazioni già presenti nell’audit; quell’audit poteva comunque accettare conclusioni errate. Inoltre CREATE dentro il turno lasciava un ack `review_pending`, poi usato nella risposta anche dopo una programmazione riuscita.
+
+La correzione qualifica soltanto la proiezione locale della generazione. Il checkpoint e la nota finale usano lo stesso snapshot corrente dello stesso owner e della stessa Situation, preservando l’ack originale. Una risposta vuota con controllo terminato o indisponibile descrive quel limite senza dichiarare la Situation ancora attiva. Non vengono riparati automaticamente luogo, obiettivo o criteri; non è attestata una soluzione semantica.
+
+Il runtime della qualificazione è recuperato con hash identico 0911a0ed; loop e test sono ricostruiti dopo `409 environment_offline`. Il locale 7a65f40 conserva 1.890 PASS, 1 SKIP, 0 FAIL e CLI 9/9, **senza trasferimento al nuovo tree: nuova CI NOT_RUN al congelamento**. Restano separati push 22df078/tree 29d10 e merge PR 1825c9d/tree 49e2a. Nessuna nuova base o policy provider è integrata; il rifiuto APP specifico non è aggirato.
+
+[Autonomia 22df078](evidence/autonomy_v162_live_2026-10-12_22df078_autonomy.json) · [Indice del recupero](evidence/autonomy_v162_cloud_recovery_2026-10-12.json)
+
+---
+
 # 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
 
 **I confini di esecuzione, verifica del contenuto e consegna mantengono esiti distinti.** CI e collaudo reale 650 sono legati al medesimo SHA `650a6f404be52829c983cf49c0b612a96e6a4a11` e tree `fb5a9bb2fa8d3a593815481a66767a5d3cca2f89`. Il merge tecnico PR `96565463674bf8b58d1b3e693f01f3a2a30f4e62`, sulla base `6e619cf`, ha lo stesso tree. Le modifiche locali successive non ereditano questi risultati.

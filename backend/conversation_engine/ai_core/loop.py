@@ -685,31 +685,39 @@ def _local_hhmm(iso_value: str, timezone_name: str) -> Optional[str]:
         return None
 
 
-async def _current_scheduled_check_copy(db, owner: str, observations) -> Optional[str]:
-    """Preserve a saved check when an unsupported physical estimate is blocked.
+async def _current_situation_handoff(
+    db, owner: str, observations, situation_result: Optional[Dict[str, Any]] = None,
+) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """Render a checkpoint and a mutation handoff from the same owned snapshot.
 
-    A successful earlier tool observation is only a lookup hint: cancellation,
-    ownership changes and a later failed read must defeat a stale promise.
-    This read neither schedules work nor claims a notification or an outcome.
+    Earlier observations are lookup hints, never a current schedule promise.
+    Copy the handoff projection so the original mutation acknowledgement stays
+    historical evidence. This read does not schedule or complete any work.
     """
     observed = _latest_situation_schedule(observations)
-    sid = (observed or {}).get("situation_id")
-    if db is None or not owner or not isinstance(sid, str) or not sid:
-        return None
-    from situations.followup import read_followup
+    result = situation_result if isinstance(situation_result, dict) else None
+    persisted = (result or {}).get("situation") or {}
+    sid = (persisted.get("id") if isinstance(persisted, dict) else None) or (observed or {}).get("situation_id")
+    current = {"status": "unavailable", "situation_id": sid}
+    if db is not None and owner and isinstance(sid, str) and sid:
+        from situations.followup import read_followup
 
-    try:
-        current = await read_followup(db, owner, sid)
-    except Exception:
-        return None
-    if (current.get("situation_id") != sid
+        try:
+            snapshot = await read_followup(db, owner, sid)
+        except Exception:
+            snapshot = None
+        if (isinstance(snapshot, dict) and snapshot.get("situation_id") == sid
+                and snapshot.get("ok") is not False):
+            current = snapshot
+    handoff = {**result, "follow_up": current} if result is not None else None
+    if (not observed or observed.get("situation_id") != sid
             or current.get("status") not in ("scheduled", "due")
             or not current.get("next_check_at")):
-        return None
+        return None, handoff
     label, zone = current.get("next_check_label"), current.get("timezone")
     if not isinstance(label, str) or not label or not isinstance(zone, str) or not zone:
-        return None
-    return f"Il prossimo controllo è programmato per {label} ({zone})."
+        return None, handoff
+    return f"Il prossimo controllo è programmato per {label} ({zone}).", handoff
 
 
 def _claims_wrong_situation_check_time(text: str, actual_hhmm: Optional[str]) -> bool:
@@ -2155,9 +2163,9 @@ async def run_cognitive_loop(
         if mode in ("answer", "ask", "finish", "act"):
             persisted = (situation_result or {}).get("situation") or {}
             if persisted.get("id") and not phone_owns_turn:
-                from situations.followup import read_followup
-                followup = await read_followup(db, sess.user_id, persisted["id"])
-                situation_result["follow_up"] = followup
+                _, situation_result = await _current_situation_handoff(
+                    db, sess.user_id, observations[turn_start:], situation_result
+                )
             if (
                 "tool_without_call" in (gov.errors or [])
                 and decision.message_to_user == "Non riesco a usare lo strumento richiesto."
@@ -2444,8 +2452,8 @@ async def run_cognitive_loop(
                     "Non ho abbastanza evidenza verificata per darti una stima "
                     "quantitativa attendibile in questo momento."
                 )
-                check_copy = await _current_scheduled_check_copy(
-                    db, sess.user_id, observations[turn_start:]
+                check_copy, situation_result = await _current_situation_handoff(
+                    db, sess.user_id, observations[turn_start:], situation_result
                 )
                 if check_copy:
                     decision.message_to_user = f"{check_copy} {decision.message_to_user}"
@@ -2786,8 +2794,8 @@ async def run_cognitive_loop(
                 )
                 if (step + 1 >= max_steps and not phone_owns_turn
                         and not _observations_wait_for_user(observations[turn_start:])):
-                    check_copy = await _current_scheduled_check_copy(
-                        db, sess.user_id, observations[turn_start:]
+                    check_copy, situation_result = await _current_situation_handoff(
+                        db, sess.user_id, observations[turn_start:], situation_result
                     )
                     if check_copy:
                         decision.message_to_user = (
@@ -4365,15 +4373,15 @@ async def run_cognitive_loop(
         or (last_decision.question if last_decision else None)
         or "Non ho completato la richiesta in questo turno. Non considero eseguita alcuna azione senza una conferma verificata."
     )
+    check_copy, situation_result = await _current_situation_handoff(
+        db, sess.user_id, observations[turn_start:], situation_result
+    )
     if (not (last_decision and (last_decision.message_to_user or last_decision.question))
             and not _has_phone_observation(observations[turn_start:])
             and not _observations_wait_for_user(observations[turn_start:])):
         # A final tool call can leave no prose while a real check is saved.
-        # Preserve that current state; later action/confirmation guards retain
-        # their precedence, and this does not turn the bound into completion.
-        check_copy = await _current_scheduled_check_copy(
-            db, sess.user_id, observations[turn_start:]
-        )
+        # The handoff note uses that same snapshot, including with model prose.
+        # Later action/confirmation guards retain their precedence.
         if check_copy:
             ora = f"{check_copy} Non ho ancora completato la valutazione."
             add_step(trace, event="SITUATION_SCHEDULE_STATUS_BOUND")
@@ -4968,6 +4976,10 @@ def _with_situation_handoff(
 
     base = (text or "").strip()
     if not base or _BARE_ACK_RE.fullmatch(base):
+        if followup.get("status") == "stopped":
+            return "Il controllo di questa situazione è terminato. Non sono previsti altri controlli."
+        if followup.get("status") == "unavailable":
+            return "Non riesco a verificare la programmazione del controllo."
         return sentence
 
     # When the runtime actually checked, surface a missing/failed schedule

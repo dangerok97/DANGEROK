@@ -1,3 +1,15 @@
+# 12 ottobre 2026 — v162, prossimo collaudo sul codice recuperato
+
+**L’autonomia resta da accettare:** CI 22df078 verde, ma Situation incompleta, nessuno dei cinque testi positivi Agent accettato e revisione pubblica negativa. I quattro negativi riusciti non completano l’obiettivo.
+
+1. Vincolare la ricostruzione al nuovo SHA/tree e alla sua CI, NOT_RUN al congelamento. Il locale 7a65f40 conserva 1.890 PASS, 1 SKIP, 0 FAIL e CLI 9/9; dopo `409 environment_offline`, loop e test sono ricostruiti, mentre la qualificazione runtime è identica per hash.
+2. Collaudare il nuovo handoff e il ricordo corretto senza attribuire ai test di trasporto una correzione semantica. Conservare luogo e intero obiettivo del bucato a Tarquinia, seguendo il checkpoint reale senza anticipare l’orologio. La vecchia stesa resta chiusa. Il prossimo live mirato non ripete la lettura pubblica invariata né può promuovere gli altri scenari.
+3. Verificare separatamente firma, installazione, consenso OS, visualizzazione ad app chiusa e tap autenticato. Il rifiuto automatico APP eb9c3870 resta valido e non viene aggirato via staging/cloud.
+
+[Indice del recupero e delle verifiche](evidence/autonomy_v162_cloud_recovery_2026-10-12.json)
+
+---
+
 # 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
 
 **La CI del candidato650 è chiusa; l’obiettivo di autonomia resta aperto.** Sono verificati **6 workflow, 16 job e 40 prove browser**, mentre il collaudo reale conserva **4/9 automatici e 0/5 testi positivi accettabili manualmente**. Il pubblico finale è accettabile nel singolo caso, ma non risolve gli altri esiti.

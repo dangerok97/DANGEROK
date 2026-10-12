@@ -198,6 +198,11 @@ async def test_claim_review_reaches_real_sdk_with_complete_sources_and_only_audi
         assert page["end"] == page["total"] == len(SOURCE) and page["next_offset"] is None
         assert payload["evidence_truncated"] is False
         if "draft" not in payload:
+            assert payload["goal"] == {
+                **goal.for_ai(),
+                "goal_origin": goal.origin,
+                "previous_interpretation_may_be_obsolete": False,
+            }
             return {"content": unsupported, "evidence_ids": [source.id]}
         assert payload["draft"] == unsupported
         # The audit transports a lossless passage projection of the same row.
@@ -336,6 +341,12 @@ async def test_audit_request_keeps_original_interpretation_qualified_after_curre
         row, = payload["evidence"]
         assert row["id"] == source.id and source_claim(row) == current_text
         assert row["memory_reads"] == source.provenance.for_ai()["memory_reads"]
+        if "draft" not in payload:
+            assert payload["goal"] == {
+                **goal.for_ai(),
+                "goal_origin": goal.origin,
+                "previous_interpretation_may_be_obsolete": True,
+            }
         if "draft" in payload:
             audited.append(payload)
             assert "88 crediti" in source_claim(row) and "84 crediti" not in source_claim(row)

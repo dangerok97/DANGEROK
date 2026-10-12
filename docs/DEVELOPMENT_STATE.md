@@ -1,3 +1,17 @@
+# 12 ottobre 2026 — v162, prove precedenti e nuova verifica
+
+**CI 22df078: 6 workflow e 16 job SUCCESS; accettazione reale non raggiunta.** Il deployment 68aa2564 termina CRASHED il 12 ottobre alle 14:18:59 UTC, con tre report completi. Una nuova raccolta recupera quei tre originali con identici byte e hash. Il successivo stato REMOVED delle 14:50:59 riguarda la sostituzione del deployment e non modifica il suo esito storico.
+
+Situation: unico gate di dichiarazione fallito per riferimento al luogo mancante; la revisione rileva anche obiettivo ridotto alla pioggia e handoff obsoleto. Agent: 4/9, soli negativi, 0/5 positivi accettati e controlli finali not_run. Pubblico: PASS tecnico originale, revisione umana negativa.
+
+Il locale 7a65f40/tree 0aced9d conserva **1.890 PASS, 1 SKIP, 0 FAIL e CLI 9/9**. Dopo `409 environment_offline`, la qualificazione runtime è recuperata identica per hash, mentre loop e test sono ricostruiti. **La nuova CI è NOT_RUN al congelamento** e non eredita quei test. Lo stato successivo è vincolato allo SHA nella PR 220.
+
+Resta il rifiuto della revisione automatica per la patch APP eb9c3870-6835-4c5a-bcbb-24d34b6dd627: `INVALID_ARGUMENT`, “Cancelled — the user did not approve this action. No changes were made.” Firma, installazione, visualizzazione ad app chiusa e tap autenticato non sono attestati; nessun aggiramento via staging/cloud.
+
+[Indice e binding delle prove](evidence/autonomy_v162_cloud_recovery_2026-10-12.json)
+
+---
+
 # 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
 
 **Stato: CI 650 completa; accettazione autonoma non raggiunta.** Revisione `650a6f404be52829c983cf49c0b612a96e6a4a11`, tree `fb5a9bb2fa8d3a593815481a66767a5d3cca2f89`. La CI PR usa il merge tecnico `96565463674bf8b58d1b3e693f01f3a2a30f4e62`, con tree identico e base `6e619cf`.

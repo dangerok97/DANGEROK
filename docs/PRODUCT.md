@@ -1,3 +1,15 @@
+# 12 ottobre 2026 — v162, recupero cloud da collaudare
+
+**Il ritiro utile del bucato a Tarquinia non è ancora dimostrato.** La vecchia stesa reale resta chiusa. La CI della revisione 22df078 ha 6 workflow e 16 job SUCCESS; il live non è accettato. La Situation perde il riferimento al luogo e presenta un handoff incoerente; Agent supera solo quattro casi negativi su nove, con 0/5 testi positivi accettati; il pubblico passa il controllo tecnico ma non la revisione umana. Il controllo futuro e Home/replay nei cinque positivi non sono attestati.
+
+Il precedente codice locale 7a65f40 ha 1.890 PASS, 1 SKIP, 0 FAIL e CLI 9/9. L’errore `409 environment_offline` ha richiesto il recupero dai file pubblicati: qualificazione runtime identica per hash, loop e test ricostruiti. **Al congelamento di questo aggiornamento la nuova CI è NOT_RUN; le prove precedenti non vengono trasferite al nuovo codice.** Gli esiti successivi sono registrati nella PR 220 con lo SHA verificato.
+
+Il rifiuto automatico della specifica patch APP eb9c3870 resta invariato. Firma, installazione, notifica ad app chiusa e tap autenticato non sono provati.
+
+[Situation 22df078](evidence/autonomy_v162_live_2026-10-12_22df078_situation.json) · [Indice del recupero](evidence/autonomy_v162_cloud_recovery_2026-10-12.json)
+
+---
+
 # 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
 
 **L’obiettivo lavanderia non è ancora dimostrato.** Una nuova dichiarazione «ho steso i panni» a Tarquinia deve portare a un avviso utile per il ritiro, distinguendo asciugatura stimata e necessità di mettere al riparo il bucato. La stesa precedente resta chiusa e non deve essere riaperta.

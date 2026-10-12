@@ -1,3 +1,15 @@
+# 12 ottobre 2026 — v162, recupero delle correzioni successive a 22df078
+
+Conservati i tre originali 22df078 senza modificarne i verdetti: CI con 6 workflow e 16 job SUCCESS; Situation incompleta; Agent 4/9 con soli negativi e 0/5 positivi accettati; pubblico tecnicamente PASS ma revisione umana negativa.
+
+Il delta aggiunge `goal_origin` e `previous_interpretation_may_be_obsolete` alla sola generazione e collega checkpoint e nota finale alla stessa rilettura corrente. Le risposte vuote rispettano anche controllo terminato o indisponibile. Diciotto casi nuovi riproducono CREATE nello stesso turno, i finali del loop, le revoche e le precedenze delle azioni. Nessuna modifica a criteri, fonti, budget, provider, oracoli o APP; nessuna soluzione semantica attestata.
+
+Il locale 7a65f40 ha concluso 1.890 PASS, 1 SKIP, 0 FAIL e CLI 9/9 prima dell’errore `409 environment_offline`. Il recupero conserva la qualificazione runtime con identico hash 0911a0ed; loop e test sono ricostruiti. **Al congelamento la nuova CI è NOT_RUN.** Il vecchio aggregato non è una prova del nuovo tree. Il rifiuto APP eb9c3870 e i limiti di firma, installazione e notifica restano invariati.
+
+[Originale autonomia 22df078](evidence/autonomy_v162_live_2026-10-12_22df078_autonomy.json) · [Indice del recupero](evidence/autonomy_v162_cloud_recovery_2026-10-12.json)
+
+---
+
 # 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
 
 **Registrati gli esiti reali650 senza modificare i verdetti storici.** Il candidato ha CI **6/6 workflow e 16/16 job PASS**, ma resta non accettato come autonomia: **4/9 automatico e 0/5 testi positivi accettabili alla revisione manuale**.

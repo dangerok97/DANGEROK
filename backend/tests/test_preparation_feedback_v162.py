@@ -286,7 +286,10 @@ async def test_full_preparation_context_omits_optional_feedback_before_any_sourc
     assert result.status == "succeeded" and len(transported) == 2
     generation = transported[0]["payload"]
     assert FEEDBACK not in generation and generation["preparation_feedback_truncated"] is True
-    assert generation["goal"] == goal.for_ai()
+    assert generation["goal"] == {
+        **goal.for_ai(), "goal_origin": goal.origin,
+        "previous_interpretation_may_be_obsolete": False,
+    }
     assert generation["evidence"][0]["claim"] == text and generation["evidence_truncated"] is False
     assert transported[1]["payload"][FEEDBACK]["origin"] == "goal_verification"
 

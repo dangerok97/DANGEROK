@@ -383,6 +383,12 @@ async def prepare(db, owner_id, goal, step):
         return unavailable("preparation_calendar_changed", True)
     rows = _source_rows(evidence)
     payload = {"goal": goal.for_ai(), "step": step.for_ai(), "evidence": rows, "evidence_truncated": False}
+    generation_source = payload["goal"].get("current_source_situation") or {}
+    payload["goal"].update({
+        "goal_origin": goal.origin,
+        "previous_interpretation_may_be_obsolete": bool(
+            str(generation_source.get("memory_refresh_reason") or "")[:300]),
+    })
     # Bind diagnostic history to the source snapshots and intended outcome,
     # not to a transient step id/status that changes when work resumes.
     scope = _feedback_scope(goal, rows, memory.snapshot)
