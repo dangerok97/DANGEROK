@@ -1,3 +1,4 @@
+import {ANATOMY_DETAIL} from './anatomyDetail';
 /** Human anatomy atlas: original, schematic illustrations, never an image-derived diagnosis.
  * The body template is educational, not the photographed person's internal anatomy.
  */
@@ -75,6 +76,6 @@ export const reproductiveMale:AnatomyRegion[]=[
  region('penis','Pene (schema esterno)','Organo genitale esterno tipico del modello selezionato, qui rappresentato schematicamente.','M155 369 L165 369 165 417 155 417 Z')
 ];
 export function regionsFor(layer:AtlasLayer, variant:AnatomyVariant):AnatomyRegion[]{
- return layer==='reproductive' ? [...anatomy.reproductive,...(variant==='male'?reproductiveMale:variant==='female'?reproductiveFemale:[])] : anatomy[layer];
+ return layer==='reproductive' ? [...anatomy.reproductive,...(variant==='male'?reproductiveMale:variant==='female'?reproductiveFemale:[])] : [...anatomy[layer],...(ANATOMY_DETAIL[layer]||[])];
 }
 export const silhouettePath='M139 45 Q158 24 181 45 Q190 64 183 89 L174 101 174 116 Q215 119 225 149 L241 222 260 360 273 425 263 452 252 432 241 402 225 334 216 261 209 227 207 304 198 357 207 433 201 524 196 570 185 579 171 571 166 490 161 389 157 389 152 490 148 571 136 579 125 570 119 524 113 433 121 357 112 304 110 227 103 261 94 334 78 402 67 432 56 452 46 425 59 360 78 222 95 149 Q104 119 145 116 L145 101 136 89 Q131 64 139 45 Z';
