@@ -205,6 +205,7 @@ class AICoreOrchestrator:
                     "proactive",
                     "life_setup",
                     "memoria",
+                    "whatsapp",
                 )
                 else "text"
             ),

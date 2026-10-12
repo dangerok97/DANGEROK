@@ -4158,3 +4158,9 @@ Riferimenti API: https://www.w3.org/TR/image-capture/ e
 https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
 Lo zoom qui è digitale, non un comando hardware o zoom ottico. Le sorgenti
 generali per i seed sono elencate nel modulo; nessun CAD o immagine è copiato.
+
+
+
+## WhatsApp Cloud API transport (2026-10-12)
+
+backend/whatsapp/ is an optional signed webhook adapter, durable encrypted Mongo inbox, account phone pairing, and async sender worker. The provider-signed phone maps to an authenticated ORA user only after a short-lived pairing code. All cognition routes to conversation_engine.ai_core.orchestrator.AICoreOrchestrator, sharing the normal account's life graph and memory. Webhook delivery is acknowledged after persistence. No WhatsApp-specific LLM or permissions bypass is introduced. See docs/WHATSAPP_CLOUD_API_V1.md.
