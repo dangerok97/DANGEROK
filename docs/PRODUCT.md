@@ -1,3 +1,42 @@
+# 12 ottobre 2026 — v162, calcoli conservati e qualificazione delle fonti
+
+Il candidato chiarisce che un calcolo derivato cita gli operandi e le
+condizioni della fonte: il risultato non deve essere già scritto nella fonte.
+L'audit deve conservare i calcoli sostenuti e rendere conto delle eliminazioni
+materiali. La diagnosi `preparation_protocol` descrive il precedente difetto di
+formato, distinto dal supporto fattuale e dal contenuto della nuova bozza.
+La richiesta di concisione evita ripetizioni senza troncare il testo nel codice.
+
+La provenienza viene espressa in italiano comprensibile e le istruzioni della
+conversazione conservano tipo, precisione, tempo e limiti del dato anche se il
+provider è autorevole. Una lettura effettiva attesta la risposta ricevuta;
+non trasforma una stima in osservazione fisica o il clock ORA nel tempo del provider.
+
+La prova reale del padre `96e8513` termina **6/9 macchina**, con **74 chiamate
+logiche e 84 HTTP**. Dei quattro testi salvati come completati, due confronti
+sono utili e sostenuti e due perdono una differenza necessaria durante l'audit.
+La correzione Memory non produce un nuovo risultato: una clausola senza supporto
+viene respinta, poi due bozze superano il limite locale. La CI dello stesso padre
+è **15/15 job**, su cinque workflow, con **927 PASS v162**, **6 PASS Mongo reale**
+e **36 PASS nei browser mobili**. Questi esiti non attestano il nuovo candidato.
+
+Verifica locale del candidato: **1.407 PASS, 1 SKIP, 114 moduli, 36,59 s**; scripted **9/9**, zero LLM/HTTP/effetti.
+
+Nessun nuovo modello/default, campo operativo, chiamata, scheduler,
+dipendenza, budget o modifica degli oracoli. Controlli di citazione, revisione,
+owner, revoca e consenso invariati. Le modifiche alle istruzioni devono ancora
+essere accettate sulla nuova revisione con modelli reali.
+
+Tarquinia resta la località confermata e la precedente stesura resta chiusa.
+Il verticale del bucato usa motore reale e risposte sintetiche; una prova unica
+con frase, meteo/ricerca reali, attesa fisica e notifica nativa non è ancora
+attestata. La patch app Railway `eb9c3870` resta bloccata dal rifiuto automatico;
+non viene aggirata tramite il merge, che attiverebbe già il deployment dell'app.
+L'ultima lettura primaria app delle 08:03 UTC attesta backend `389f38a` e web
+`b159d8c`. Export e browser non attestano firma, installazione o ricezione nativa.
+
+---
+
 # 12 ottobre 2026 — v162, fonti autentiche e continuità della consegna
 
 Il risultato richiesto resta un avviso utile: dopo “ho steso i panni” ORA deve

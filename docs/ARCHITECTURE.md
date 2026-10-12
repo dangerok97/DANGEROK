@@ -1,3 +1,32 @@
+# 12 ottobre 2026 — v162, calcoli conservati e qualificazione delle fonti
+
+Il candidato chiarisce che un calcolo derivato cita gli operandi e le
+condizioni della fonte: il risultato non deve essere già scritto nella fonte.
+L'audit deve conservare i calcoli sostenuti e rendere conto delle eliminazioni
+materiali. La diagnosi `preparation_protocol` descrive il precedente difetto di
+formato, distinto dal supporto fattuale e dal contenuto della nuova bozza.
+La richiesta di concisione evita ripetizioni senza troncare il testo nel codice.
+
+La provenienza viene espressa in italiano comprensibile e le istruzioni della
+conversazione conservano tipo, precisione, tempo e limiti del dato anche se il
+provider è autorevole. Una lettura effettiva attesta la risposta ricevuta;
+non trasforma una stima in osservazione fisica o il clock ORA nel tempo del provider.
+
+Restano due chiamate per preparazione e audit, payload di 9.000 caratteri,
+bozza di 4.000, 1–12 righe di revisione e massimo tre citazioni da 280 caratteri
+per riga. Lo schema nativo cambia solo nelle descrizioni. Il limite stringa
+resta verificato localmente: il sottoinsieme documentato di `responseJsonSchema`
+nel canale Gemini attuale non attesta un enforcement portabile di `maxLength`.
+La verifica letterale continua a certificare solo l'autenticità della citazione.
+Il recupero di risultato e consegna già presente conserva gli stessi due slot,
+lease, tre tentativi, backoff e controlli di validità.
+
+Verifica locale del candidato: **1.407 PASS, 1 SKIP, 114 moduli, 36,59 s**; scripted **9/9**, zero LLM/HTTP/effetti.
+
+Dettagli e fonti: `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
 # 12 ottobre 2026 — v162, autenticità delle citazioni e provenienza temporale
 
 ## Confine dell'audit

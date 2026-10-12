@@ -1,3 +1,97 @@
+# 12 ottobre 2026 — v162, calcoli conservati e qualificazione delle fonti
+
+La prova reale del padre `96e8513` termina **6/9 macchina**, con **74 chiamate
+logiche e 84 HTTP**. Dei quattro testi salvati come completati, due confronti
+sono utili e sostenuti e due perdono una differenza necessaria durante l'audit.
+La correzione Memory non produce un nuovo risultato: una clausola senza supporto
+viene respinta, poi due bozze superano il limite locale. La CI dello stesso padre
+è **15/15 job**, su cinque workflow, con **927 PASS v162**, **6 PASS Mongo reale**
+e **36 PASS nei browser mobili**. Questi esiti non attestano il nuovo candidato.
+
+## Riscontri reali preservati
+
+| Scenario | Verdetto originale | Riscontro indipendente |
+| --- | --- | --- |
+| completed_result | FAIL | Il risparmio di 60 è nella generation ma sparisce nell'audit; goal completed. L'etichetta user_stated non soddisfa il matcher italiano di attribuzione. |
+| planning_outage | PASS | Confronto utile con 180/120/60 e solo annuale non rimborsabile; Home e replay verificati. |
+| home_write_retry | FAIL | Tre rifiuti strutturali del piano, poi lettura e preparazione. L'audit elimina 60; il controllo semantico interrompe prima della verifica completa del recupero Home. |
+| source_revoked | PASS | Arresto e replay dopo revoca della fonte. |
+| memory_revoked | PASS | Arresto dopo revoca Memory. |
+| memory_corrected | FAIL | 150 corrente riletto; audit respinto per la clausola di flessibilità con citazioni vuote; bozze successive di 4.379/4.135 caratteri respinte. Nessun risultato salvato. |
+| source_change_crash | PASS | Scan recuperato, lettura, confronto 180/120/60, Home e replay verificati. |
+| already_resolved | PASS | Nessun goal riaperto. |
+| irrelevant | PASS | Nessun goal creato. |
+
+Le 24 citazioni presenti negli audit sono autentiche rispetto alla nota pertinente.
+Nel ramo corretto, la riga sul calcolo di 30 cita correttamente 180 e 150;
+la riga senza citazioni riguarda invece una flessibilità mensile non documentata.
+Il controllo ha quindi respinto correttamente una conclusione non sostenuta.
+Le bozze troppo lunghe sono rifiutate prima dell'audit; le code oltre i 4.000
+caratteri non sono esportate dal runner e non sono ricostruite nella review.
+
+La prova pubblica del medesimo head esegue due HTTP reali e sei chiamate al
+modello. Mapbox restituisce 687 secondi e 2.765 metri; Open-Meteo 19 °C correnti
+e fino a 23–24 °C nel pomeriggio. I numeri nella risposta hanno riscontro.
+Il matcher legge il range `23-24°C` come `-24` e produce TEMPERATURE_MISMATCH:
+quel FAIL rimane nell'originale. La review respinge separatamente la
+«certezza da osservazione live» del traffico e la conclusione sulle condizioni
+stradali favorevoli. I metadati di stima e tempo arrivavano già al modello.
+
+## Correzione e confini
+
+Il candidato chiarisce che un calcolo derivato cita gli operandi e le
+condizioni della fonte: il risultato non deve essere già scritto nella fonte.
+L'audit deve conservare i calcoli sostenuti e rendere conto delle eliminazioni
+materiali. La diagnosi `preparation_protocol` descrive il precedente difetto di
+formato, distinto dal supporto fattuale e dal contenuto della nuova bozza.
+La richiesta di concisione evita ripetizioni senza troncare il testo nel codice.
+
+La provenienza viene espressa in italiano comprensibile e le istruzioni della
+conversazione conservano tipo, precisione, tempo e limiti del dato anche se il
+provider è autorevole. Una lettura effettiva attesta la risposta ricevuta;
+non trasforma una stima in osservazione fisica o il clock ORA nel tempo del provider.
+
+Verifica locale del candidato: **1.407 PASS, 1 SKIP, 114 moduli, 36,59 s**; scripted **9/9**, zero LLM/HTTP/effetti.
+
+I gruppi mirati da 126 e 60 test sono inclusi o sovrapposti alla verifica finale;
+non si sommano. Lo skip finale riguarda un arricchimento opzionale senza chiave locale. Un primo comando mirato non ha avviato prove perché conteneva
+un nome di modulo inesistente; corretto l'elenco, il gruppo è passato.
+Il test clock falliva anche con i due moduli originali di 1505e5f: il fake usava
+ora invece di message_to_user, causando il retry per empty_message. Allineato
+quel solo campo, mantenendo due chiamate, timezone e clock aggiornato come assert.
+Nessun nuovo test replica il testo delle istruzioni: la loro efficacia semantica
+rimane affidata al successivo collaudo reale, con i criteri originari.
+
+Fonti primarie consultate sul limite nativo, senza cambiare canale o provider:
+
+- https://ai.google.dev/api/generate-content?hl=en — GenerationConfig, responseJsonSchema.
+- https://ai.google.dev/gemini-api/docs/structured-output#json-schema-support — sottoinsieme documentato e validazione applicativa.
+
+Nessun nuovo modello/default, campo operativo, chiamata, scheduler,
+dipendenza, budget o modifica degli oracoli. Controlli di citazione, revisione,
+owner, revoca e consenso invariati. Le modifiche alle istruzioni devono ancora
+essere accettate sulla nuova revisione con modelli reali.
+
+Tarquinia resta la località confermata e la precedente stesura resta chiusa.
+Il verticale del bucato usa motore reale e risposte sintetiche; una prova unica
+con frase, meteo/ricerca reali, attesa fisica e notifica nativa non è ancora
+attestata. La patch app Railway `eb9c3870` resta bloccata dal rifiuto automatico;
+non viene aggirata tramite il merge, che attiverebbe già il deployment dell'app.
+L'ultima lettura primaria app delle 08:03 UTC attesta backend `389f38a` e web
+`b159d8c`. Export e browser non attestano firma, installazione o ricezione nativa.
+
+## Artefatti e integrità
+
+- [File originale o review: autonomy_v162_live_2026-10-12_96e8513.json](evidence/autonomy_v162_live_2026-10-12_96e8513.json) — SHA-256 `23c1588cae43ddf4e65c1af933930c47940651e63220b23a62e3dc9940b3169e`.
+- [File originale o review: autonomy_v162_manual_review_2026-10-12_96e8513.json](evidence/autonomy_v162_manual_review_2026-10-12_96e8513.json) — SHA-256 `916fb62fd2a0df7ddfa5cff5917b29bc231c81932785c67eadef7838cd056fe6`.
+- [File originale o review: public_read_v162_live_2026-10-12_96e8513.json](evidence/public_read_v162_live_2026-10-12_96e8513.json) — SHA-256 `c8adb3312eff810dccd4c24f9981175937375da9f15958cc2f9e8327bf0ae55f`.
+- [File originale o review: public_read_v162_manual_review_2026-10-12_96e8513.json](evidence/public_read_v162_manual_review_2026-10-12_96e8513.json) — SHA-256 `ad5328e66e862562326430bce68dc0ac2ddd61f65b8e23ce890e807ba5df7d59`.
+- [File originale o review: ci_v162_2026-10-12_96e8513.json](evidence/ci_v162_2026-10-12_96e8513.json) — SHA-256 `5d5cd0cab7704cf4a0bf99f6b26d68e452a7802a75ff0be9aae4fef022a81c1b`.
+
+Il file locale della nuova verifica è `evidence/autonomy_v162_local_derived_2026-10-12.json`.
+
+---
+
 # 12 ottobre 2026 — v162, citazioni e tempi verificabili; consegna recuperabile
 
 ## Candidato locale

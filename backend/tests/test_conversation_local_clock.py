@@ -50,7 +50,7 @@ def test_loop_delivers_fresh_clock_on_every_turn():
             payload = json.loads(user)
             seen.append(payload['current_clock'])
             assert payload['today'] == payload['current_clock']['local_date']
-            return {'response_mode': 'answer', 'ora': 'Sono le ' + payload['current_clock']['local_time'], 'confidence': 1.0}
+            return {'response_mode': 'answer', 'message_to_user': 'Sono le ' + payload['current_clock']['local_time'], 'confidence': 1.0}
         with patch('timezone_service.user_clock_context', wraps=user_clock_context) as resolve:
             await run_cognitive_loop(sess=sess, user_message='Che ore sono?', db=db, decision_fn=respond)
             await run_cognitive_loop(sess=sess, user_message='E adesso?', db=db, decision_fn=respond)
