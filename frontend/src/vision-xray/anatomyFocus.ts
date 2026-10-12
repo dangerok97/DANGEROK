@@ -8,18 +8,18 @@ const VIEWS:Record<BodyRegion,string>={
  full_body:'0 10 320 586',face:'112 19 96 102',hand:'32 340 78 130',
  arm:'50 125 90 320',torso:'110 115 101 250',abdomen:'112 205 96 167',leg:'112 310 100 270'};
 const FILTER:Partial<Record<BodyRegion,Partial<Record<AtlasLayer,string[]>>>>={
- face:{skin:['epidermis'],muscles:['mimetic_muscles'],nerves:['brain','facial_nerve'],
-       organs:['eyes'],bones:['skull']},
- hand:{skin:['hand_skin'],muscles:['hand_tendons'],nerves:['median_nerve'],
+ face:{skin:['epidermis'],muscles:['mimetic_muscles'],nerves:['brain','facial_nerve','trigeminal'],vessels:['carotid_arteries'],
+       organs:['eyes'],bones:['skull','mandible']},
+ hand:{skin:['hand_skin'],muscles:['hand_tendons'],nerves:['median_nerve'],vessels:['subclavian_arteries'],
        organs:['hand_vessels'],bones:['finger_bones','carpal_bones']},
- arm:{skin:['arm_skin'],muscles:['shoulder','biceps','forearm'],nerves:['brachial','radial'],
+ arm:{skin:['arm_skin'],muscles:['shoulder','biceps','forearm'],nerves:['brachial','radial','ulnar_nerve'],vessels:['subclavian_arteries'],
       organs:['arm_artery'],bones:['humerus','forearm_bones']},
- torso:{skin:['torso_skin'],muscles:['pectorals','abdominals'],nerves:['spinal'],
-       organs:['lungs','heart','liver','stomach','kidneys'],bones:['ribs','spine']},
- abdomen:{skin:['torso_skin'],muscles:['abdominals'],nerves:['spinal'],
-          organs:['stomach','liver','intestine','kidneys','bladder'],bones:['pelvis','spine']},
- leg:{skin:['leg_skin'],muscles:['quadriceps','calves'],nerves:['sciatic'],
-      organs:['leg_artery'],bones:['femur','lower_leg']},
+ torso:{skin:['torso_skin'],muscles:['pectorals','abdominals','trapezius','serratus'],nerves:['spinal','vagus'],vessels:['aorta','vena_cava','pulmonary_vessels','subclavian_arteries'],
+       organs:['lungs','heart','trachea','diaphragm','esophagus','liver','stomach','kidneys'],bones:['ribs','spine','clavicles','sternum','scapula']},
+ abdomen:{skin:['torso_skin'],muscles:['abdominals','obliques'],nerves:['spinal','vagus'],vessels:['aorta','vena_cava','renal_vessels','portal_vein'],
+          organs:['stomach','liver','intestine','small_intestine','large_intestine','pancreas','spleen','kidneys','bladder'],bones:['pelvis','spine']},
+ leg:{skin:['leg_skin'],muscles:['quadriceps','calves','tibialis'],nerves:['sciatic','femoral_nerve'],vessels:['femoral_arteries'],
+      organs:['leg_artery'],bones:['femur','lower_leg','patella']},
 };
 const extra=(id:string,label:string,detail:string,d:string):AnatomyRegion=>({id,label,detail,d});
 const EXTRAS:Record<string,AnatomyRegion>={
