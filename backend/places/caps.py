@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
+import re
 
 import logging
 
@@ -349,6 +350,59 @@ def _navigation_needs_location(
     )
 
 
+_TRAVEL_MODES = frozenset(("driving", "walking", "transit", "cycling"))
+# A tool argument is a proposal from the model, not proof of how the person
+# intends to travel. These cues are explicit user words, not destination
+# classification rules; do not infer walking from a "nearby" destination.
+_EXPLICIT_TRAVEL_CUES = (
+    ("walking", re.compile(r"\b(?:a\s+piedi|camminando|passeggiando|on\s+foot)\b", re.I)),
+    ("cycling", re.compile(r"\b(?:in\s+bici|in\s+bicicletta|pedalando|by\s+bike)\b", re.I)),
+    ("transit", re.compile(r"\b(?:con\s+(?:i\s+|il\s+)?mezzi(?:\s+pubblici)?|in\s+(?:metro|autobus|bus|treno)|by\s+transit)\b", re.I)),
+    ("driving", re.compile(r"\b(?:in\s+(?:auto|macchina|automobile)|con\s+(?:l['’]\s*)?auto|con\s+la\s+macchina|guidando|by\s+car)\b", re.I)),
+)
+
+
+def _mode_explicitly_requested(user_message: str) -> str | None:
+    observed = [
+        mode for mode, matcher in _EXPLICIT_TRAVEL_CUES
+        if matcher.search(str(user_message or ""))
+    ]
+    # Ambiguous multi-mode requests should not be silently "resolved" by
+    # the LLM's arbitrary enum. They default to a saved preference or driving.
+    return observed[0] if len(observed) == 1 else None
+
+
+async def _navigation_travel_mode(arguments: Dict[str, Any], runtime: Dict[str, Any], uid: str) -> str:
+    """Bound transport mode to user evidence on WhatsApp.
+
+    The app keeps its existing behavior. WhatsApp, without device-side trip
+    selection controls, must not silently switch from driving to walking
+    because the AI hallucinated a travel mode for a bare navigation request.
+    """
+    proposed = str(arguments.get("mode") or "driving").strip().lower()
+    proposed = proposed if proposed in _TRAVEL_MODES else "driving"
+    if str(runtime.get("platform") or "").lower() != "whatsapp":
+        return proposed
+    user_words = str(runtime.get("user_message") or "").strip()
+    if not user_words:
+        # Direct API calls with no model/user utterance preserve their explicit
+        # arguments; regular WhatsApp AI turns always carry user_message.
+        return proposed
+    explicit = _mode_explicitly_requested(user_words)
+    if explicit is not None:
+        return explicit
+    try:
+        setting = await runtime["db"].user_settings.find_one(
+            {"user_id": uid}, {"_id": 0, "navigation_mode": 1}
+        )
+        saved = str((setting or {}).get("navigation_mode") or "").strip().lower()
+        if saved in _TRAVEL_MODES:
+            return saved
+    except Exception:
+        pass
+    return "driving"
+
+
 async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
     """
     Everything needed to start navigating, or the question of which app.
@@ -361,6 +415,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
 
     service = _service(runtime)
     platform = str(runtime.get("platform") or "web").lower()
+    navigation_mode = await _navigation_travel_mode(arguments, runtime, uid)
     spoken = str(arguments.get("destination") or arguments.get("name") or "").strip()
     resolution = await service.resolve_destination(uid, spoken)
     if not resolution.resolved or resolution.place is None:
@@ -419,7 +474,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                     "Userà la posizione del dispositivo e mostrerà percorso e traffico aggiornati. "
                     "Controlla che abbia trovato la destinazione giusta."
                 ),
-                **(preview["handoff"] if preview else search_handoff(spoken, str(arguments.get("mode") or "driving"))),
+                **(preview["handoff"] if preview else search_handoff(spoken, navigation_mode)),
             }, uid, status="needs_client")
         return _ok(
             "open_navigation",
@@ -470,7 +525,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         # ORA presence can support an estimate but must not pin the start of
         # turn-by-turn guidance to a place the person has since left.
         origin=None,
-        mode=str(arguments.get("mode") or "driving"),
+        mode=navigation_mode,
         preferred_app=preferred_app,
         platform=platform,
     )
@@ -486,7 +541,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     route_weather: List[Dict[str, Any]] = []
     destination_weather = None
     route_provider = None
-    requested_mode = _travel_mode(arguments.get("mode"))
+    requested_mode = _travel_mode(navigation_mode)
     if origin is not None:
         from places import briefing
 
