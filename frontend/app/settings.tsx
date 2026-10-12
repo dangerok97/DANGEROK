@@ -35,6 +35,7 @@ import { useInflight } from '@/src/shell';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { DevDiagnostics } from '@/src/components/dev/DevDiagnostics';
+import { WhatsAppConnection } from '@/src/components/account/WhatsAppConnection';
 import {
   BoundaryNote,
   CALENDAR_WRITE_BOUNDARY,
