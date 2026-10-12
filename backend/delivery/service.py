@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional
 from agent.memory_fence import (
     MemorySourcesUnavailable, memory_result_current, opportunity_memories_current,
 )
+from agent.result_sources import opportunity_result_current
 from delivery import context as delivery_context
 from delivery.models import (
     DeliverySubject,
@@ -67,10 +68,35 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class DeliveryReviewSuperseded(RuntimeError):
+    """A different worker now owns this delivery judgement."""
+
+
 class DeliveryService:
-    def __init__(self, db):
+    def __init__(self, db, *, admission_fence: Optional[Dict[str, str]] = None):
         self.db = db
         self.repo = DeliveryRepository(db)
+        self._admission_fence = dict(admission_fence) if admission_fence is not None else None
+
+    async def _check_admission_lease(self, owner_id: str, kind: str, source_id: str) -> None:
+        """A late judgement cannot materialise or send under a lost claim.
+
+        Only the internal Need admission lane supplies this fence. Existing
+        plan rechecks and Opportunity calls retain their current lifecycle.
+        """
+        fence = self._admission_fence
+        if fence is None:
+            return
+        if kind != "agent_need" or (owner_id, source_id) != (fence["owner_id"], fence["id"]):
+            raise DeliveryReviewSuperseded("delivery_review_subject_changed")
+        try:
+            current = await self.db["agent_needs"].find_one({
+                **fence, "delivery_review_lease_until": {"$gt": _now().isoformat()},
+            }, {"_id": 1})
+        except Exception as exc:
+            raise MemorySourcesUnavailable("delivery_review_check_unavailable") from exc
+        if current is None:
+            raise DeliveryReviewSuperseded("delivery_review_claim_lost")
 
     # --- deciding ---------------------------------------------------------
 
@@ -133,6 +159,7 @@ class DeliveryService:
 
         kind = source_of(subject)
         subject_id = getattr(subject, "id", "")
+        await self._check_admission_lease(user_id, kind, subject_id)
         if kind == "agent_need":
             try:
                 current = await self._current_agent_need(user_id, subject_id)
@@ -219,6 +246,7 @@ class DeliveryService:
             self.db, user_id, subject=subject, app_state=app_state
         )
         answer = await decide_delivery(moment, language=language)
+        await self._check_admission_lease(user_id, kind, subject_id)
 
         if answer is None:
             # No judgement was available. Nothing is sent, nothing is
@@ -246,7 +274,7 @@ class DeliveryService:
             # A technical refusal, named as one. The judgement stands; the
             # channel is unavailable, so it lands on the screen instead.
             plan = await self._hold(
-                user_id, subject_id, decision, why_not, source_type=kind
+                user_id, subject_id, decision, why_not, source_type=kind, subject=subject
             )
             return DeliveryResult(
                 mode="in_app", blocked_by=why_not, plan=plan,
@@ -341,14 +369,17 @@ class DeliveryService:
         # is not necessarily the one that holds this morning.
         plan.what_decided_the_mode = decision.what_decided_the_mode
         plan.sensitivity = decision.sensitivity
+        plan.result_goal_id = getattr(subject, "result_goal_id", "")
+        plan.result_completed_at = getattr(subject, "result_completed_at", None)
         plan.deep_link = _deep_link_for(subject)
         plan.decision_provenance = "model"
         plan.rationale = decision.reason_to_interrupt[:300]
+        await self._check_admission_lease(user_id, kind, subject.id)
         return await self.repo.save_plan(plan)
 
     async def _hold(
         self, user_id: str, subject_id: str, decision: DeliveryDecision, why: str,
-        *, source_type: str = "opportunity",
+        *, source_type: str = "opportunity", subject: Optional[Any] = None,
     ) -> DeliveryPlan:
         existing = await self.repo.open_plan_for(
             user_id, subject_id, source_type=source_type
@@ -366,11 +397,18 @@ class DeliveryService:
         plan.deep_link = plan.deep_link or _deep_link(
             subject_id, target="opportunity" if source_type == "opportunity" else "home"
         )
+        if subject is not None:
+            plan.result_goal_id = getattr(subject, "result_goal_id", "")
+            plan.result_completed_at = getattr(subject, "result_completed_at", None)
+            plan.deep_link = _deep_link_for(subject)
+        await self._check_admission_lease(user_id, source_type, subject_id)
         return await self.repo.save_plan(plan)
 
     # --- sending, much later ----------------------------------------------
 
-    async def _current_agent_need(self, user_id: str, need_id: str) -> Optional[Any]:
+    async def _current_agent_need(
+        self, user_id: str, need_id: str, *, allow_delivered: bool = False,
+    ) -> Optional[Any]:
         """Bind communication to its current owned work and Situation result.
 
         Completing a watch can leave its useful result to communicate. It
@@ -381,11 +419,16 @@ class DeliveryService:
         from agent.repository import AgentRepository
         from agent.service import AgentService, _aware_wait_until
 
-        need = await NeedService(self.db).get(user_id, need_id)
+        try:
+            need = await NeedService(self.db).get(user_id, need_id)
+            goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id) if need else None
+        except Exception as exc:
+            raise MemorySourcesUnavailable("agent_need_check_unavailable") from exc
         if need is None or not need.is_open:
             return None
-        goal = await AgentRepository(self.db).get_goal(user_id, need.goal_id)
         if goal is None:
+            return None
+        if not await self._prepared_need_current(user_id, need):
             return None
         if not await memory_result_current(self.db, user_id, goal, need.memory_source_snapshot):
             return None
@@ -398,16 +441,23 @@ class DeliveryService:
             return None
 
         watched = goal.source_kind in ("situation_initial_review", "situation_followup")
-        if not goal.is_open and not (
-            watched and goal.status == "completed" and need.kind == "important_outcome"
-        ):
-            return None
+        if goal.is_open and need.goal_completed_at:
+            return None  # Reopened work is not the old verified completion.
+        final_result = False
+        if not goal.is_open:
+            if watched:
+                if goal.status != "completed" or need.kind != "important_outcome":
+                    return None
+            else:
+                if not await self._completed_result_current(user_id, goal, need):
+                    return None
+                final_result = True
         outcome = None
         if watched:
             if need.kind in ("important_outcome", "useful_result"):
                 from situations.outcomes import current_outcome, outcome_refs
 
-                if await self.db.delivery_plans.find_one({
+                if not allow_delivered and await self.db.delivery_plans.find_one({
                     "owner_id": user_id, "source_type": "agent_need",
                     "source_id": need.id, "status": "delivered",
                 }, {"_id": 0, "id": 1}):
@@ -419,6 +469,7 @@ class DeliveryService:
                     return None
                 if goal.status == "completed" and outcome["status"] != "action_now":
                     return None
+                final_result = goal.status == "completed"
             else:
                 from agent.source_refresh import changed
 
@@ -426,7 +477,15 @@ class DeliveryService:
                 # question deliverable while its source is already closed.
                 if await changed(self.db, goal):
                     return None
+        if final_result and not allow_delivered and await self.db.delivery_plans.find_one({
+            "owner_id": user_id, "source_type": "agent_need",
+            "source_id": need.id, "status": "delivered",
+        }, {"_id": 0, "id": 1}):
+            return None
         subject = need.as_subject()
+        if final_result:
+            subject["result_goal_id"] = goal.id
+            subject["result_completed_at"] = goal.completed_at
         if outcome:
             subject["semantic_summary"] = (
                 f"{outcome['headline']} {outcome['action_summary']}"
@@ -440,10 +499,72 @@ class DeliveryService:
             expiry = _aware_wait_until(outcome["valid_until"])
             original = _aware_wait_until(subject.get("valid_until"))
             subject["valid_until"] = min(expiry, original).isoformat() if original else expiry.isoformat()
+        # The review or preparation can change during source/evidence reads.
+        # This is also the final awaited source check before an agent send.
+        if not await self._prepared_need_current(user_id, need):
+            return None
         return DeliverySubject.model_validate(subject)
 
+    async def _prepared_need_current(self, user_id, need) -> bool:
+        from agent.prepared_review import PreparedReviewUnavailable
+        from agent.visibility import prepared_communication_current
+
+        question = bool(
+            need.requires_response and (
+                (need.kind == "needs_information" and need.response_kind == "information")
+                or (need.kind == "needs_authority" and need.response_kind == "authority")
+            )
+        )
+        try:
+            return await prepared_communication_current(
+                self.db, user_id, need.goal_id, need.prepared_result_ref,
+                question=question, response_kind=need.response_kind,
+            )
+        except PreparedReviewUnavailable as exc:
+            raise MemorySourcesUnavailable("prepared_result_check_unavailable") from exc
+
+    async def _completed_result_current(self, user_id: str, goal, need) -> bool:
+        """A final result survives closure; an old update cannot inherit it."""
+        from agent.evidence import EvidenceStore, real_support
+        from agent.repository import AgentRepository
+        from agent.service import _aware_wait_until
+
+        completed_at = _aware_wait_until(goal.completed_at)
+        raised_at = _aware_wait_until(need.created_at)
+        if (goal.status != "completed" or need.kind not in ("useful_result", "important_outcome")
+                or need.requires_response or need.response_kind
+                or completed_at is None or raised_at is None or raised_at < completed_at
+                or need.goal_completed_at != goal.completed_at or not need.source_refs):
+            return False
+        try:
+            if not await opportunity_result_current(self.db, user_id, goal, now=_now()):
+                return False
+            evidence = await EvidenceStore(self.db).for_goal(user_id, goal.id)
+            real_ids = {item.id for item in evidence if real_support([item])}
+            if not real_ids:
+                return False
+            if not real_ids.intersection(need.source_refs):
+                # The bounded visibility refs may contain only the journal.
+                # Require a cited completion of this exact owned goal, with
+                # independently retained real evidence behind that outcome.
+                times = [ref[len("journal:"):] for ref in need.source_refs if ref.startswith("journal:")]
+                if not times or not await self.db.agent_journal.find_one({
+                    "owner_id": user_id, "goal_id": goal.id, "kind": "goal_completed",
+                    "at": {"$in": times, "$gte": goal.completed_at, "$lte": need.created_at},
+                }, {"_id": 1}):
+                    return False
+            latest = await AgentRepository(self.db).get_goal(user_id, goal.id)
+            return bool(
+                latest and latest.status == "completed" and latest.completed_at == need.goal_completed_at
+                and await memory_result_current(self.db, user_id, latest, need.memory_source_snapshot)
+            )
+        except MemorySourcesUnavailable:
+            raise
+        except Exception as exc:
+            raise MemorySourcesUnavailable("completed_result_check_unavailable") from exc
+
     async def _current_subject_for_plan(
-        self, user_id: str, plan: DeliveryPlan
+        self, user_id: str, plan: DeliveryPlan, *, allow_delivered: bool = False,
     ) -> Optional[Any]:
         """Reload the exact thing a pending notification is about.
 
@@ -486,7 +607,13 @@ class DeliveryService:
             return subject
 
         if plan.source_type == "agent_need":
-            return await self._current_agent_need(user_id, plan.source_id)
+            subject = await self._current_agent_need(user_id, plan.source_id, allow_delivered=allow_delivered)
+            if plan.result_goal_id or plan.result_completed_at:
+                if (subject is None or subject.result_goal_id != plan.result_goal_id
+                        or subject.result_completed_at != plan.result_completed_at
+                        or plan.deep_link != _deep_link_for(subject)):
+                    return None
+            return subject
 
         return None
 
@@ -560,14 +687,17 @@ class DeliveryService:
     async def _send(self, user_id: str, plan: DeliveryPlan) -> None:
         from delivery.provider import get_provider
 
+        await self._check_admission_lease(user_id, plan.source_type, plan.source_id)
         # A source can close after the re-judgement but before the provider
         # call. Re-read it at the last possible boundary; no old plan gets to
         # outlive the fact that justified it.
         try:
             subject = await self._current_subject_for_plan(user_id, plan)
         except MemorySourcesUnavailable:
+            await self._check_admission_lease(user_id, plan.source_type, plan.source_id)
             await self._defer_source_check(plan)
             return
+        await self._check_admission_lease(user_id, plan.source_type, plan.source_id)
         if subject is None:
             await self._cancel(
                 plan, "la sorgente si è chiusa prima dell'invio", "code_cancel"
@@ -592,6 +722,7 @@ class DeliveryService:
                 )
                 return
 
+        await self._check_admission_lease(user_id, plan.source_type, plan.source_id)
         public = plan.words.public()
         outcome = await get_provider().send(
             owner_id=user_id,
@@ -682,6 +813,13 @@ class DeliveryService:
             route = _notification_open_route(plan)
             if route is None:
                 return {"ok": False, "reason": "invalid_notification_target"}
+            if plan.result_goal_id or plan.result_completed_at:
+                try:
+                    subject = await self._current_subject_for_plan(user_id, plan, allow_delivered=True)
+                except MemorySourcesUnavailable:
+                    return {"ok": False, "reason": "source_check_unavailable"}
+                if subject is None:
+                    return {"ok": False, "reason": "invalid_notification_target"}
             if plan.outcome == "opened":
                 return {
                     "ok": True, "outcome": "opened",
@@ -1056,26 +1194,55 @@ class DeliveryService:
         bindings = {ref for ref in refs if ref.startswith((
             "situation:", "situation_outcome:", "situation_revision:",
         ))}
-        rows = await self.db.agent_goals.find({
-            "owner_id": user_id, "id": {"$in": list(goal_ids)},
-        }, {"_id": 0}).to_list(2) if goal_ids else []
+        try:
+            rows = await self.db.agent_goals.find({
+                "owner_id": user_id, "id": {"$in": list(goal_ids)},
+            }, {"_id": 0}).to_list(2) if goal_ids else []
+        except Exception:
+            return None
         if not rows:
-            return None if bindings or latest.cognitive_provenance.get("goal") else latest.for_home()
+            return None if (bindings or latest.cognitive_provenance.get("goal")
+                            or latest.cognitive_provenance.get("prepared_result_ref")) else latest.for_home()
         if len(rows) != 1:
             return None
 
         from agent.models import AutonomousGoal
         from agent.source_refresh import changed
         from situations.outcomes import current_outcome, moment, situation_id
+        from agent.prepared_review import PreparedReviewUnavailable
+        from agent.visibility import prepared_communication_current
 
         goal = AutonomousGoal.model_validate(rows[0])
         try:
+            fingerprint = latest.cognitive_provenance.get("home_outbox_fingerprint")
+            if fingerprint:
+                try:
+                    skipped = await self.db.agent_updates.find_one({
+                        "owner_id": user_id, "goal_id": goal.id, "fingerprint": fingerprint,
+                        "home_skipped": {"$exists": True},
+                    }, {"_id": 1})
+                except Exception as exc:
+                    raise MemorySourcesUnavailable("home_handoff_check_unavailable") from exc
+                if skipped:
+                    return None
             if not await memory_result_current(
                 self.db, user_id, goal,
                 str(latest.cognitive_provenance.get("memory_source_snapshot") or ""),
             ):
                 return None
-        except MemorySourcesUnavailable:
+            # Do not use an Opportunity snapshot taken before the awaited
+            # Memory checks: the person may have dismissed it during those.
+            if not await opportunity_result_current(self.db, user_id, goal, now=now):
+                return None
+            if not await prepared_communication_current(
+                self.db, user_id, goal.id,
+                latest.cognitive_provenance.get("prepared_result_ref"),
+                question=latest.cognitive_provenance.get("visibility") in (
+                    "ask_user", "requires_attention",
+                ),
+            ):
+                return None
+        except (MemorySourcesUnavailable, PreparedReviewUnavailable):
             return None
         if goal.source_kind not in ("situation_initial_review", "situation_followup"):
             return latest.for_home() if goal.status not in ("cancelled", "abandoned") else None
@@ -1163,6 +1330,11 @@ def _notification_open_route(plan: DeliveryPlan) -> Optional[str]:
         return expected if plan.deep_link == expected else None
 
     if plan.source_type == "agent_need":
+        if plan.result_goal_id or plan.result_completed_at:
+            if (not plan.result_completed_at or not _OPAQUE_ID.fullmatch(plan.result_goal_id)
+                    or plan.deep_link != _deep_link(plan.result_goal_id, target="opportunity")):
+                return None
+            return plan.deep_link
         match = re.fullmatch(
             r"/ora\?needId=([A-Za-z0-9_-]{4,80})"
             r"&goalId=([A-Za-z0-9_-]{4,80})&entry=agent_need",
@@ -1195,6 +1367,9 @@ def _deep_link_for(subject) -> str:
     goal_id = str(getattr(subject, "goal_id", "") or "")
     if not (_OPAQUE_ID.match(subject_id) and _OPAQUE_ID.match(goal_id)):
         return ALLOWED_TARGETS["home"]
+    if (getattr(subject, "result_goal_id", "") == goal_id
+            and getattr(subject, "result_completed_at", None)):
+        return _deep_link(goal_id, target="opportunity")
     return (
         ALLOWED_TARGETS["agent_need"].replace("{id}", subject_id).replace("{goal}", goal_id)
     )

@@ -35,6 +35,8 @@ prompt.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
 import uuid
@@ -84,6 +86,143 @@ class _PlanNotPossible(Exception):
 
 class _PlanningStopped(Exception):
     """The source or the person's control changed while planning."""
+
+
+class _InvalidNextSelection(Exception):
+    """A model selected no pending step; reconsider without doing other work."""
+
+    def __init__(self, context):
+        super().__init__("action_selection_invalid")
+        self.context = context
+
+
+def _prepared_review_key(goal) -> str:
+    """Identify one persisted negative review of one unchanged preparation."""
+    from agent.prepared_review import current_prepared_review, prepared_result_ref
+
+    review = current_prepared_review(goal)
+    if review is None:
+        return ""
+    payload = json.dumps([prepared_result_ref(goal), review], ensure_ascii=False,
+                         sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _step_declaration(raw: Any):
+    """Normalize only supplied, unambiguous aliases from ActionStep.for_ai.
+
+    The display view is partial, not a serialized ActionStep. Its history
+    cannot confer a new id, completion, evidence or authority. Missing values
+    are never recovered from a capability name or an older step.
+    """
+    def reject(field, issue):
+        return None, {"field": field, "issue": issue}
+
+    def same(left, right):
+        return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+
+    def json_types(value):
+        if value is None or type(value) in (str, bool, int, float):
+            return True
+        if type(value) is list:
+            return all(json_types(item) for item in value)
+        if type(value) is dict:
+            return all(type(key) is str and json_types(item) for key, item in value.items())
+        return False
+
+    if not isinstance(raw, dict):
+        return reject("step", "wrong_type")
+    canonical = {
+        "intent", "step_type", "capability_needed", "input_refs", "expected_result",
+        "external_effect", "effect_type", "effect_target", "reaches_somebody_else",
+        "parameters", "reversibility", "asks", "ask_kind",
+    }
+    aliases = {"type": "step_type", "what_kind_of_change": "effect_type"}
+    parameter_aliases = (
+        "document_offset", "document_version", "memory_offset", "memory_version",
+        "wait_until", "wait_minutes", "wait_hours",
+    )
+    history = {"id", "ordinal", "status", "note"}
+    if set(raw) - canonical - set(aliases) - set(parameter_aliases) - history - {"execution_parameters"}:
+        return reject("step", "unsupported_field")
+    data = {key: value for key, value in raw.items() if key in canonical}
+    try:
+        for alias, field in aliases.items():
+            if alias in raw:
+                if field in data and not same(data[field], raw[alias]):
+                    return reject(field, "conflicting_alias")
+                data[field] = raw[alias]
+
+        parameters = data.get("parameters", {})
+        if not isinstance(parameters, dict):
+            return reject("parameters", "wrong_type")
+        parameters = dict(parameters)
+        displayed = raw.get("execution_parameters")
+        if displayed is not None:
+            if not isinstance(displayed, dict):
+                return reject("parameters", "wrong_type")
+            for key, value in displayed.items():
+                if key in parameters and not same(parameters[key], value):
+                    return reject("parameters", "conflicting_alias")
+                parameters[key] = value
+        for key in parameter_aliases:
+            if key in raw:
+                if key in parameters and not same(parameters[key], raw[key]):
+                    return reject("parameters", "conflicting_alias")
+                # Null in for_ai is a display placeholder for an absent value.
+                if raw[key] is not None:
+                    parameters[key] = raw[key]
+        # Check finiteness/cycles before the recursive JSON type check.
+        json.dumps(parameters, allow_nan=False)
+        if not json_types(parameters):
+            return reject("parameters", "wrong_type")
+    except (TypeError, ValueError, RecursionError):
+        return reject("parameters", "wrong_type")
+    data["parameters"] = parameters
+
+    enums = {
+        "step_type": ("inspect", "research", "compare", "prepare", "ask_user", "execute", "verify", "wait"),
+        "effect_type": ("create", "modify", "cancel", "send", "transfer", "publish", "remove"),
+        "reversibility": ("easily", "with_effort", "hardly", "irreversible"),
+    }
+    for field, values in enums.items():
+        if field not in data:
+            if field == "step_type":
+                return reject(field, "missing")
+            continue
+        value = data[field]
+        if type(value) is not str:
+            return reject(field, "wrong_type")
+        if value.strip() not in values:
+            return reject(field, "unsupported_value")
+        data[field] = value.strip()
+    if type(data.get("intent")) is not str:
+        return reject("intent", "wrong_type" if "intent" in data else "missing")
+    if not data["intent"].strip():
+        return reject("intent", "empty")
+    for field in ("capability_needed", "expected_result", "effect_target", "asks"):
+        if data.get(field) is not None and type(data[field]) is not str:
+            return reject(field, "wrong_type")
+    for field in ("external_effect", "reaches_somebody_else"):
+        if field in data and type(data[field]) is not bool:
+            return reject(field, "wrong_type")
+    if "input_refs" in data and (not isinstance(data["input_refs"], list)
+            or any(type(ref) is not str for ref in data["input_refs"])):
+        return reject("input_refs", "wrong_type")
+    if data.get("ask_kind") is not None and data["ask_kind"] not in ("knowledge", "authority"):
+        return reject("ask_kind", "unsupported_value")
+    if "step_type" not in raw:
+        # for_ai omits these values. Accepting its type alias must not invent
+        # a person's question/authority or the parameters of an unseen write.
+        if data["step_type"] == "ask_user" and (not data.get("asks") or not data.get("ask_kind")):
+            return reject("asks", "missing")
+        if data["step_type"] == "execute":
+            if "parameters" not in raw and displayed is None:
+                return reject("parameters", "missing")
+            for field in ("effect_type", "effect_target", "external_effect", "reaches_somebody_else", "reversibility"):
+                if field not in data:
+                    return reject(field, "missing")
+    return data, None
 
 # A model may choose a clock minute now. Keep one hard lower/upper bound so
 # precision cannot turn into polling and a typo cannot schedule a year away.
@@ -205,6 +344,37 @@ def _explicit_wait_target(*, wait_until=None, wait_minutes=None, wait_hours=None
     return False
 
 
+def _reconsider_wait_errors(answer: Dict[str, Any], *, now: datetime) -> List[Dict[str, str]]:
+    """Validate a model wait without manufacturing its time or another decision."""
+    errors = []
+    for field in ("revised_steps", "replace_step_ids"):
+        value = answer.get(field, [])
+        if not isinstance(value, list):
+            errors.append({"field": field, "issue": "wrong_type"})
+        elif value:
+            errors.append({"field": field, "issue": "incompatible_with_wait"})
+
+    # Match the existing scheduler's precedence. A valid absolute target
+    # already declares the time; unused legacy durations do not replace it.
+    target = _aware_wait_until(answer.get("wait_until"))
+    if target is not None and target > now:
+        return errors
+    for field in ("wait_minutes", "wait_hours"):
+        value = answer.get(field)
+        if value is None:
+            continue
+        try:
+            valid = not isinstance(value, bool) and math.isfinite(float(value)) and float(value) >= 1
+        except (TypeError, ValueError, OverflowError):
+            valid = False
+        if not valid:
+            errors.append({"field": field, "issue": "invalid_time"})
+        return errors
+    errors.append({"field": "wait_until" if answer.get("wait_until") is not None else "wait_minutes",
+                   "issue": "invalid_time" if answer.get("wait_until") is not None else "missing"})
+    return errors
+
+
 def _wait_hours_for(step: Optional[ActionStep], default: int = 6) -> int:
     """Legacy helper kept for v60 callers; new runtime uses _wait_schedule."""
     value = ((step.parameters or {}).get("wait_hours") if step is not None else default)
@@ -273,7 +443,7 @@ class AgentService:
         a different `origin`, so nothing downstream can behave differently
         depending on who started it.
         """
-        from agent.reasoning import decide_goal
+        from agent.reasoning import decide_goal, goal_decision_invalid_fields
         from agent.source_refresh import queue_existing, context
 
         source = None
@@ -333,6 +503,7 @@ class AgentService:
         # boundary as discovery; never infer completeness from a summary.
         source_context = []
         context_unavailable = False
+        unavailable_memory_refs = []
         doc_ids = [ref[9:] for ref in (source_refs or []) if ref.startswith("document:")][:8]
         if doc_ids:
             try:
@@ -341,6 +512,20 @@ class AgentService:
                 context_unavailable = len(source_context) < len(set(doc_ids))
             except Exception:
                 context_unavailable = True
+        from agent.memory_sources import memory_source_id, read_memory_previews
+        memory_refs = list(dict.fromkeys(
+            str(ref).strip() for ref in (source_refs or []) if memory_source_id(ref)
+        ))[:8]
+        if memory_refs:
+            try:
+                memories = await read_memory_previews(self.db, owner_id, memory_refs)
+                source_context.extend(memories)
+                observed = {memory_source_id(row["ref"]) for row in memories}
+                unavailable_memory_refs = [ref for ref in memory_refs if memory_source_id(ref) not in observed]
+            except Exception as exc:
+                logger.info("admission memory preview unavailable: %s", type(exc).__name__)
+                unavailable_memory_refs = memory_refs
+            context_unavailable = context_unavailable or bool(unavailable_memory_refs)
         profile_refs = {ref for ref in (source_refs or []) if ref.startswith("life_profile:")}
         if profile_refs:
             try:
@@ -430,14 +615,27 @@ class AgentService:
         else:
             answer = await decide_goal(
                 {**situation, "who_asked": origin, "source_context": source_context,
-                 "source_context_unavailable": context_unavailable}, language=language
+                 "source_context_unavailable": context_unavailable,
+                 **({"unavailable_memory_refs": unavailable_memory_refs} if unavailable_memory_refs else {})},
+                language=language
             )
         if answer is None:
             # No judgement was available. Nothing is created and nothing is
             # recorded as a decision that there was nothing to do.
             return {"outcome": "unavailable"}
 
-        decision = answer["outcome"]
+        invalid_fields = goal_decision_invalid_fields(answer)
+        if invalid_fields:
+            # A malformed decision is a technical failure, never evidence
+            # that there is no useful goal. Admission already owns its retry.
+            logger.warning("goal admission invalid_goal_decision fields=%s", ",".join(invalid_fields))
+            return {
+                "outcome": "unavailable", "error_kind": "invalid_goal_decision",
+                "invalid_fields": invalid_fields,
+                "reasoning": "La valutazione ricevuta non definisce ancora un esito valido.",
+            }
+
+        decision = answer["outcome"].strip()
         if decision != "create_goal":
             return {
                 "outcome": decision,
@@ -453,11 +651,11 @@ class AgentService:
             status="active",
             next_run_at=_now().isoformat(),
             origin=origin,  # type: ignore[arg-type]
-            objective=str(answer.get("objective") or "")[:280],
-            desired_outcome=str(answer.get("desired_outcome") or "")[:400],
+            objective=answer["objective"].strip()[:280],
+            desired_outcome=answer["desired_outcome"].strip()[:400],
             why_now=str(answer.get("why_now") or "")[:400],
-            success_criteria=[str(c)[:200] for c in (answer.get("success_criteria") or [])][:6],
-            stop_conditions=[str(c)[:200] for c in (answer.get("stop_conditions") or [])][:6],
+            success_criteria=[c.strip()[:200] for c in (answer.get("success_criteria") or [])][:6],
+            stop_conditions=[c.strip()[:200] for c in (answer.get("stop_conditions") or [])][:6],
             source_kind=source_kind[:40],
             source_refs=[str(r)[:120] for r in (source_refs or [])][:8],
             opportunity_id=opportunity_id,
@@ -470,10 +668,6 @@ class AgentService:
             rationale=str(answer.get("reasoning") or "")[:300],
             decision_provenance=answer.get("decision_provenance", "model"),
         )
-        if not goal.objective or not goal.desired_outcome:
-            # A goal that cannot say what it is for is not a goal.
-            return {"outcome": "no_goal", "reasoning": "l'obiettivo non era formulabile"}
-
         created = await self.repo.create_goal(goal)
         if created is None:
             # A persistence failure is not evidence of another worker's goal.
@@ -556,6 +750,11 @@ class AgentService:
                 goal.status, goal.next_run_at = "waiting", None
                 goal.requires_user_input = True
                 await self.repo.save_goal(goal)
+                import hashlib
+                from agent.needs import fingerprint as need_fingerprint
+                from agent.prepared_review import prepared_result_ref
+                prepared_reference = prepared_result_ref(goal)
+                question_fingerprint = need_fingerprint(goal.id, "needs_information", question)
                 need = await self.needs.raise_need(CommunicationNeed(
                     owner_id=owner_id,
                     goal_id=goal.id,
@@ -566,6 +765,10 @@ class AgentService:
                         "prossimo passo; serve la tua scelta prima di cambiare qualcosa."
                     ),
                     source_refs=list(dict.fromkeys(goal.source_refs))[:8],
+                    prepared_result_ref=prepared_reference,
+                    fingerprint=hashlib.sha256(
+                        f"{question_fingerprint}|{prepared_reference}".encode("utf-8")
+                    ).hexdigest(),
                     requires_response=True,
                     response_kind="information",
                     work_already_done=[
@@ -794,9 +997,24 @@ class AgentService:
                 return await self._continue_later(owner_id, goal, plan, run, "iterations")
 
             run.iterations += 1
-            decision, step = await self._next(
-                owner_id, goal, plan, run, budget, language=language
-            )
+            review_key = _prepared_review_key(goal)
+            if review_key and review_key != plan.prepared_review_reconsidered:
+                outcome = await self._reconsider_prepared_result(
+                    owner_id, goal, plan, run, budget, language=language,
+                )
+                if outcome is not None:
+                    return outcome
+                continue
+            invalid_selection = None
+            try:
+                decision, step = await self._next(
+                    owner_id, goal, plan, run, budget, language=language
+                )
+            except _InvalidNextSelection as invalid:
+                # The existing reconsideration owns the next decision and
+                # consumes the same run budget as any other changed finding.
+                decision, step = "replan", None
+                invalid_selection = invalid.context
             source_change = await self._source_change_result(owner_id, goal, run)
             if source_change is not None:
                 return source_change
@@ -838,7 +1056,9 @@ class AgentService:
                         "what_was_found": for_verification(
                             await self.evidence.for_goal(owner_id, goal.id)
                         ),
-                        "problem": "quello che si è scoperto cambia la strada",
+                        **(invalid_selection or {
+                            "problem": "quello che si è scoperto cambia la strada",
+                        }),
                     },
                     language=language,
                 )
@@ -936,18 +1156,39 @@ class AgentService:
             await self._reasoning_goal(owner_id, goal),
             plan=plan.for_ai(),
             candidates=[s.for_ai() for s in pending],
-            evidence=for_verification(evidence),
+            evidence=for_verification(evidence, required_refs=goal.prepared_sources),
             capabilities=await self.capabilities.available(owner_id),
             clock_context=await _user_clock_context(self.db, owner_id),
+            prepared_result=goal.prepared_text or None,
+            prepared_source_refs=list(goal.prepared_sources),
             language=language,
         )
         if answer is None:
             return ("stalled", None)
 
-        await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
-
         decision = answer["decision"]
-        chosen = next((s for s in pending if s.id == str(answer.get("step_id") or "")), None)
+        requested_id = answer.get("step_id")
+        chosen = next((s for s in pending if isinstance(requested_id, str) and s.id == requested_id), None)
+        if decision in ("execute", "skip") and chosen is None:
+            known = next((s for s in plan.steps if isinstance(requested_id, str) and s.id == requested_id), None)
+            issue = ("missing_step_id" if requested_id is None or requested_id == "" else
+                     "wrong_type" if not isinstance(requested_id, str) else
+                     "not_pending" if known else "unknown_step")
+            invalid = {"problem": "action_selection_invalid", "selection": {
+                "decision": decision, "issue": issue,
+                # Only identifiers already in this owned plan enter the
+                # diagnosis; an arbitrary model value is not operational data.
+                "requested_step_id": known.id if known else None,
+                "candidate_step_ids": [s.id for s in pending[:MAX_PLAN_STEPS]],
+            }}
+            await self.repo.journal(
+                owner_id, goal.id, kind="chose_next",
+                note="La scelta non identifica un passo ancora eseguibile.",
+                detail={"decision": decision, "step_id": "", **invalid},
+            )
+            raise _InvalidNextSelection(invalid)
+
+        await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
         await self.repo.journal(
             owner_id, goal.id, kind="chose_next",
             note=str(answer.get("reasoning") or "")[:300],
@@ -955,9 +1196,7 @@ class AgentService:
         )
 
         if decision in ("execute", "skip"):
-            # A step id that names nothing is not a reason to improvise. The
-            # first thing still to do is the honest fallback.
-            return (decision, chosen or pending[0])
+            return (decision, chosen)
 
         if decision == "complete":
             return ("finish", None)
@@ -1297,49 +1536,121 @@ class AgentService:
         """Re-read bounded governed context behind opaque goal refs.
 
         Goals deliberately persist handles, not copies of somebody's private
-        life. Planning still needs to know what those handles mean. For
-        conversational Situations we can safely re-read the current
-        owner-scoped preview: no transcript/history, no cross-user fallback,
-        and no semantic routing by keywords. Missing refs are reported as
-        unavailable rather than guessed around.
-
-        Other source kinds keep their existing goal/opportunity summaries and
-        capability reads; this bridge exists because a Situation's meaning is
-        otherwise lost between goal admission and planning.
+        life. Planning still needs to know what those handles mean, including
+        after a source correction. Previews preserve ownership, current status
+        and limitations; they never replace capability reads as evidence.
         """
+        from agent.memory_sources import memory_source_id, read_memory_previews
+
+        source_refs = list(getattr(goal, "source_refs", None) or [])[:8]
         refs = [
             str(ref)
-            for ref in list(goal.source_refs or [])[:8]
+            for ref in source_refs
             if str(ref).startswith("situation:") and ":" in str(ref)
         ]
-        if not refs:
-            return [], False
+        out: List[Dict[str, Any]] = []
+        unavailable = False
+        if refs:
+            try:
+                from situations.repository import SituationRepository
 
+                repository = SituationRepository(self.db)
+                matched = 0
+                for ref in refs:
+                    sid = ref.split(":", 1)[1]
+                    state = await repository.get(owner_id, sid)
+                    if state is None:
+                        continue
+                    out.append({
+                        "ref": ref,
+                        "source": "situation",
+                        **state.context_preview(),
+                    })
+                    matched += 1
+                out = out[:4]
+                unavailable = matched < len(refs)
+            except Exception as exc:
+                logger.info("planning situation context soft-fail goal=%s error=%s", goal.id, type(exc).__name__)
+                out, unavailable = [], True
+        memory_refs = [ref for ref in source_refs if memory_source_id(ref)]
+        if memory_refs:
+            try:
+                memories = await read_memory_previews(self.db, owner_id, memory_refs)
+                out.extend(memories)
+                observed = {memory_source_id(row["ref"]) for row in memories}
+                unavailable = unavailable or any(memory_source_id(ref) not in observed for ref in memory_refs)
+            except Exception as exc:
+                logger.info("planning memory context soft-fail goal=%s error=%s", goal.id, type(exc).__name__)
+                unavailable = True
+        return out, unavailable
+
+    @staticmethod
+    def _current_memory_context(goal, source_context, unavailable):
+        from agent.memory_sources import memory_source_id
+
+        if not any(memory_source_id(ref) for ref in (getattr(goal, "source_refs", None) or [])):
+            return None
+        reason = str((getattr(goal, "source_situation", None) or {}).get("memory_refresh_reason") or "")[:300]
+        return {
+            "sources": [row for row in source_context if row.get("source") == "memory"],
+            "unavailable": unavailable,
+            "source_update_reason": reason or None,
+            "previous_interpretation_may_be_obsolete": bool(reason),
+            "goal_origin": str(getattr(goal, "origin", "") or "")[:40],
+        }
+
+    async def _planning_evidence_inventory(self, owner_id, goal):
+        """Describe recorded work in the existing bounded owner/goal window.
+
+        Distinguish recorded results from planning previews without certifying
+        source truth or substituting for a claim. Keep whole provenance/cursor
+        records; omitting metadata never changes the attested read coverage.
+        """
+        scope = {
+            "owner_goal_only": True, "non_superseded_only": True,
+            "selection_limit": 40, "not_complete": True,
+            "may_omit": ["outside_selected_window", "invalid_documents"],
+            "metadata_only": True,
+        }
+        if getattr(goal, "owner_id", None) != owner_id:
+            return {"available": False, "scope": scope, "reason": "owner_mismatch"}
         try:
-            from situations.repository import SituationRepository
-
-            repository = SituationRepository(self.db)
-            out: List[Dict[str, Any]] = []
-            matched = 0
-            for ref in refs:
-                sid = ref.split(":", 1)[1]
-                state = await repository.get(owner_id, sid)
-                if state is None:
-                    continue
-                out.append({
-                    "ref": ref,
-                    "source": "situation",
-                    **state.context_preview(),
-                })
-                matched += 1
-            return out[:4], matched < len(refs)
+            selected = await self.evidence.for_goal(owner_id, goal.id, limit=40)
+            rows = for_verification(selected, limit=max(1, len(selected)))
         except Exception as exc:
-            logger.info(
-                "planning situation context soft-fail goal=%s error=%s",
-                goal.id,
-                type(exc).__name__,
+            logger.info("planning evidence inventory unavailable error=%s", type(exc).__name__)
+            return {"available": False, "scope": scope, "reason": "store_unavailable"}
+
+        generated = sum(bool(row.get("generated_artifact")) for row in rows)
+        ages = {"fresh": 0, "recent": 1, "stale": 2}
+        records = []
+        # Preserve the newest whole metadata rows, up to four / 2400 chars.
+        # for_goal has already selected its bounded recent/baseline window.
+        for item, row in reversed(list(zip(selected, rows))):
+            if row.get("generated_artifact"):
+                continue
+            metadata = {key: value for key, value in row.items() if key != "what_was_found"}
+            # Age may weaken a recorded assessment; a recent retrieval time
+            # cannot upgrade the provider's unknown/stale qualifications.
+            recorded_age, current_age = item.provenance.freshness, row["how_old"]
+            metadata["how_old"] = (
+                "unknown" if "unknown" in (recorded_age, current_age)
+                else max((recorded_age, current_age), key=ages.__getitem__)
             )
-            return [], True
+            metadata.update({"step_id": item.step_id, "kind": item.kind})
+            candidate = [metadata, *records]
+            if len(candidate) <= 4 and len(json.dumps(
+                candidate, ensure_ascii=False, separators=(",", ":"),
+            )) <= 2400:
+                records = candidate
+        source_count = len(selected) - generated
+        return {
+            "available": True, "scope": scope,
+            "selected_evidence_count": len(selected), "generated_record_count": generated,
+            "non_generated_record_count": source_count, "records": records,
+            "omitted_record_count": source_count - len(records),
+            "metadata_record_limit": 4, "metadata_char_limit": 2400,
+        }
 
     async def _build_plan(
         self, owner_id, goal, run: AgentRun, budget: AgentBudget, *, language: str
@@ -1358,15 +1669,23 @@ class AgentService:
             goal.background_runs = max(0, goal.background_runs - 1)
         await self.repo.save_goal(goal)
         planning_context = await _user_clock_context(self.db, owner_id)
+        planning_context["executed_evidence"] = await self._planning_evidence_inventory(owner_id, goal)
         source_context, source_context_unavailable = await self._planning_source_context(
             owner_id, goal
         )
-        if source_context:
-            planning_context["source_context"] = source_context
-        if source_context_unavailable:
+        situation_context = [row for row in source_context if row.get("source") == "situation"]
+        if situation_context:
+            planning_context["source_context"] = situation_context
+        if source_context_unavailable and any(str(ref).startswith("situation:") for ref in goal.source_refs):
             planning_context["source_context_unavailable"] = True
+        memory_context = self._current_memory_context(goal, source_context, source_context_unavailable)
+        if memory_context is not None:
+            planning_context["current_source_context"] = memory_context
 
         available = await self.capabilities.available(owner_id)
+        protocol_history = await self._planning_protocol_history(owner_id, goal)
+        if protocol_history:
+            planning_context["planning_protocol_history"] = protocol_history
         error_kind = "invalid_response"
         try:
             answer = await make_plan(
@@ -1402,11 +1721,24 @@ class AgentService:
 
         steps: List[ActionStep] = []
         for ordinal, raw in enumerate(answer["steps"][:MAX_PLAN_STEPS]):
+            errors = []
             try:
-                step = self._read_step(raw, ordinal)
+                step = self._read_step(raw, ordinal, validation_errors=errors)
             except (TypeError, ValueError):
                 step = None
             if step is None:
+                # The declaration stays rejected. Keep only code-owned field
+                # names and issues so a durable retry can be diagnosed without
+                # retaining the model's possibly sensitive invalid values.
+                await self.repo.journal(
+                    owner_id, goal.id, kind="planning_protocol_invalid",
+                    note="Il piano proposto non rispettava il formato atteso; nessun passo è stato salvato.",
+                    detail={"run_id": run.id, "attempt": goal.planning_attempts, "validation_errors": [{
+                        "index": ordinal, **(errors[0] if errors else {
+                            "field": "step", "issue": "invalid_shape",
+                        }),
+                    }]},
+                )
                 steps = []
                 break
             steps.append(step)
@@ -1437,6 +1769,38 @@ class AgentService:
             detail={"steps": len(plan.steps)},
         )
         return plan
+
+    async def _planning_protocol_history(self, owner_id, goal):
+        """Bounded format history, never a replacement plan or source evidence.
+
+        This optional record may predate a source update or provider outage.
+        It is explicitly historical, not a claim about the current response.
+        The current declaration still passes the unchanged strict validator.
+        """
+        if goal.owner_id != owner_id or not goal.planning_unavailable or goal.planning_attempts <= 1:
+            return None
+        try:
+            row = await self.db.agent_journal.find_one({
+                "owner_id": owner_id, "goal_id": goal.id, "kind": "planning_protocol_invalid",
+                "expires_at": {"$gt": _now()},
+            }, {"_id": 0, "detail.validation_errors": 1}, sort=[("at", -1)])
+            errors = (row or {}).get("detail", {}).get("validation_errors")
+            if not isinstance(errors, list):
+                return None
+            fields = {"step", "intent", "step_type", "capability_needed", "input_refs", "parameters",
+                      "expected_result", "external_effect", "effect_type", "effect_target",
+                      "reaches_somebody_else", "reversibility", "asks", "ask_kind"}
+            issues = {"wrong_type", "missing", "empty", "unsupported_field", "conflicting_alias",
+                      "unsupported_value", "invalid_shape"}
+            kept = [{"index": item["index"], "field": item["field"], "issue": item["issue"]}
+                    for item in errors[:1] if isinstance(item, dict)
+                    and type(item.get("index")) is int and 0 <= item["index"] < MAX_PLAN_STEPS
+                    and type(item.get("field")) is str and item["field"] in fields
+                    and type(item.get("issue")) is str and item["issue"] in issues]
+            return {"origin": "code_owned_format_history", "scope": "past_declaration_only",
+                    "validation_errors": kept} if kept else None
+        except Exception:
+            return None  # Optional history never becomes a planning gate.
 
     async def _planning_fence(self, owner_id, goal, run: AgentRun) -> None:
         """Do not publish a slow planning response after its source changed."""
@@ -1515,30 +1879,32 @@ class AgentService:
             await AmbientRepository(self.db).cancel_for(owner_id, source_ref=f"goal:{goal.id}")
 
     async def _reasoning_goal(self, owner_id, goal):
-        """Carry the current useful outcome and physical start across checkpoints."""
+        """Carry current source context across planning, decisions and verification."""
+        from agent.memory_sources import memory_source_id
+
         payload = goal.for_ai()
-        if not any(str(ref).startswith("situation:")
-                   for ref in (getattr(goal, "source_refs", None) or [])):
+        refs = getattr(goal, "source_refs", None) or []
+        situation_refs = any(str(ref).startswith("situation:") for ref in refs)
+        if not situation_refs and not any(memory_source_id(ref) for ref in refs):
             return payload
         context, unavailable = await self._planning_source_context(owner_id, goal)
-        if context or unavailable:
-            payload["source_context"] = context
+        if situation_refs and (context or unavailable):
+            payload["source_context"] = [row for row in context if row.get("source") == "situation"]
             payload["source_context_unavailable"] = unavailable
+        memory_context = self._current_memory_context(goal, context, unavailable)
+        if memory_context is not None:
+            payload["current_source_context"] = memory_context
         return payload
 
     @staticmethod
-    def _read_step(raw: Any, ordinal: int) -> Optional[ActionStep]:
-        if not isinstance(raw, dict):
+    def _read_step(raw: Any, ordinal: int, *, validation_errors=None) -> Optional[ActionStep]:
+        raw, error = _step_declaration(raw)
+        if error:
+            if validation_errors is not None:
+                validation_errors.append(error)
             return None
-        step_type = str(raw.get("step_type") or "").strip()
-        if step_type not in (
-            "inspect", "research", "compare", "prepare", "ask_user", "execute",
-            "verify", "wait",
-        ):
-            return None
-        intent = str(raw.get("intent") or "").strip()
-        if not intent:
-            return None
+        step_type = raw["step_type"]
+        intent = raw["intent"].strip()
         ask_kind = raw.get("ask_kind")
         return ActionStep(
             ordinal=ordinal,
@@ -1573,7 +1939,7 @@ class AgentService:
 
     async def _reconsider(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, budget: AgentBudget,
-        *, what_happened: Dict[str, Any], language: str,
+        *, what_happened: Dict[str, Any], language: str, review_key: str = "",
     ) -> Optional[Dict[str, Any]]:
         """
         Something happened. Change as little of the plan as accounts for it.
@@ -1582,6 +1948,10 @@ class AgentService:
         source_change = await self._source_change_result(owner_id, goal, run)
         if source_change is not None:
             return source_change
+        if review_key:
+            changed_review = await self._prepared_review_changed(owner_id, goal, run, review_key)
+            if changed_review is not None:
+                return changed_review
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             # Nothing left to think with. Stopping here is honest; carrying
@@ -1601,35 +1971,73 @@ class AgentService:
             clock_context=await _user_clock_context(self.db, owner_id),
             language=language,
         )
-        if answer is None:
-            return await self._pause(owner_id, goal, plan, run, "il giudizio non era disponibile")
-
         source_change = await self._source_change_result(owner_id, goal, run)
         if source_change is not None:
             return source_change
+        if review_key:
+            changed_review = await self._prepared_review_changed(owner_id, goal, run, review_key)
+            if changed_review is not None:
+                return changed_review
+        if answer is None:
+            return await self._pause(owner_id, goal, plan, run, "il giudizio non era disponibile")
+
+        decision = answer["decision"]
+        fresh = []
+        errors = _reconsider_wait_errors(answer, now=_now()) if decision == "wait" else []
+        if decision == "modify":
+            raw_steps = answer.get("revised_steps")
+            if not isinstance(raw_steps, list):
+                errors.append({"field": "revised_steps", "issue": "wrong_type"})
+            elif not raw_steps:
+                errors.append({"field": "revised_steps", "issue": "empty"})
+            elif len(raw_steps) > MAX_PLAN_STEPS - len(plan.steps):
+                errors.append({"field": "revised_steps", "issue": "step_limit"})
+            else:
+                for index, raw in enumerate(raw_steps):
+                    step_errors = []
+                    try:
+                        step = self._read_step(raw, len(plan.steps) + index, validation_errors=step_errors)
+                    except (TypeError, ValueError):
+                        step = None
+                    if step is None:
+                        errors.append({"index": index, **(step_errors[0] if step_errors else {
+                            "field": "step", "issue": "invalid_shape",
+                        })})
+                    else:
+                        fresh.append(step)
+            replace = answer.get("replace_step_ids", [])
+            if not isinstance(replace, list) or any(type(ref) is not str for ref in replace):
+                errors.append({"field": "replace_step_ids", "issue": "wrong_type"})
+        if errors:
+            # A partial route or an invalid wait is not a usable decision.
+            # Preserve the technical checkpoint already saved by advance;
+            # do not turn a format error into a world wait/reset or publish
+            # an assessment before the complete declaration is valid.
+            run.stopped_because = "replan_protocol_invalid"
+            note = "La revisione proposta non rispettava il formato atteso; nessun passo è stato modificato."
+            await self.repo.journal(owner_id, goal.id, kind="replan_protocol_invalid", note=note,
+                detail={"validation_errors": errors[:MAX_PLAN_STEPS + 1]})
+            result = await self._pause(owner_id, goal, plan, run, note)
+            result["reason"] = "replan_protocol_invalid"
+            return result
 
         await self._record_situation_outcome(owner_id, goal, answer.get("situation_outcome"), run)
 
-        decision = answer["decision"]
         note = str(answer.get("reasoning") or "")[:300]
         plan.revisions += 1
         await self.repo.journal(
             owner_id, goal.id, kind="replanned", note=note, detail={"decision": decision}
         )
+        if review_key:
+            # Saved atomically with the chosen plan below. None/invalid
+            # replies and exhausted budgets leave the review still owed.
+            plan.prepared_review_reconsidered = review_key
 
         if decision == "continue":
             await self.repo.save_plan(plan)
             return None
 
         if decision == "modify":
-            revised = [
-                self._read_step(raw, len(plan.steps) + n)
-                for n, raw in enumerate(answer.get("revised_steps") or [])
-            ]
-            fresh = [s for s in revised if s is not None][: MAX_PLAN_STEPS - len(plan.steps)]
-            if not fresh:
-                return await self._pause(owner_id, goal, plan, run, note or "senza altra strada")
-
             # A replan is not an append-only log. If the model explicitly says
             # a pending step has been replaced, retire exactly that step so the
             # obsolete route cannot wake up again after the revised one succeeds.
@@ -1683,6 +2091,51 @@ class AgentService:
             return await self._close(owner_id, goal, plan, run, "abandoned", note)
 
         return await self._finish(owner_id, goal, plan, run, budget, language=language)
+
+    async def _prepared_review_changed(self, owner_id, goal, run, review_key):
+        """An old review cannot replan a newer artifact or override a person."""
+        from agent.prepared_review import current_prepared_result, PreparedReviewUnavailable
+
+        current = await current_prepared_result(self.db, owner_id, goal.id)
+        if current is None:
+            raise PreparedReviewUnavailable("prepared_goal_missing")
+        deferred = (current.goal.user_deferred_until or "") > _now().isoformat()
+        if (current.goal.is_open and not current.goal.requires_user_input
+                and not current.goal.requires_user_authority and not deferred
+                and _prepared_review_key(current.goal) == review_key):
+            return None
+        for field in type(current.goal).model_fields:
+            setattr(goal, field, getattr(current.goal, field))
+        run.stopped_because = "prepared_result_changed"
+        state = ("waiting_for_person" if goal.requires_user_input or goal.requires_user_authority
+                 else "waiting" if deferred else "in_progress" if goal.is_open else goal.status)
+        return {"ok": True, "state": state, "goal": goal.for_human()}
+
+    async def _reconsider_prepared_result(self, owner_id, goal, plan, run, budget, *, language):
+        from agent.prepared_review import current_prepared_review
+        from agent.preparation import remember_preparation_feedback
+
+        review = current_prepared_review(goal)
+        if review is None:
+            return None
+        observation = await remember_preparation_feedback(
+            self.db, owner_id, goal,
+            reason="\n".join(value for value in (
+                review["what_is_missing"], review["reasoning"],
+            ) if value), origin="goal_verification",
+        )
+        return await self._reconsider(
+            owner_id, goal, plan, run, budget, review_key=_prepared_review_key(goal),
+            what_happened={"result": {
+                "status": "partial" if review["outcome"] == "partial" else "unavailable",
+                "verification_outcome": "partially_achieved" if review["outcome"] == "partial" else "uncertain",
+                "what_is_missing": review["what_is_missing"],
+                "reasoning": review["reasoning"],
+                "what_happened": observation or "La verifica non ha confermato la bozza; il giudizio resta da valutare contro le fonti.",
+                "problem": "prepared_result_verification_incomplete",
+                "worth_retrying": True,
+            }}, language=language,
+        )
 
     # --- ends --------------------------------------------------------------
 
@@ -1738,6 +2191,7 @@ class AgentService:
                 may_touch_the_world=False, budget=budget)
             result_step.status = "succeeded" if result.status == "succeeded" else "failed"
             result_step.actual_result_ref = result.data_ref or (result.result_refs or [""])[0]
+            result_step.note = result.observation[:200]
             result_step.attempts = 1
             run.steps_executed += 1
             budget.steps_executed += 1
@@ -1746,8 +2200,32 @@ class AgentService:
                 source_change = await self._source_change_result(owner_id, goal, run)
                 if source_change is not None:
                     return source_change
+                # This is the same preparation as a normal plan step. Its
+                # failure must reach reconsideration with the actual cause,
+                # not disappear behind a generic pause in the final path.
+                problem = result.error_type or "preparation_result_missing"
+                await self.repo.journal(
+                    owner_id, goal.id, kind="step_done", note=result.observation,
+                    detail={"step_id": result_step.id, "status": result.status,
+                            "came_from": result.provenance.source_class,
+                            "really_happened": result.is_real,
+                            "evidence": len(result.evidence_refs),
+                            "error_type": problem, "retryable": result.retryable},
+                )
+                outcome = await self._reconsider(
+                    owner_id, goal, plan, run, budget,
+                    what_happened={"step": result_step.for_ai(), "result": {
+                        "status": result.status if result.status != "succeeded" else "unavailable",
+                        "what_happened": result.observation, "problem": problem,
+                        "worth_retrying": result.retryable, **result.provenance.for_ai(),
+                    }}, language=language,
+                )
+                if outcome is not None:
+                    return outcome
+                # A revised/continued plan is already saved. advance wrote
+                # its continuation before this pass; do not add another loop.
                 return await self._pause(owner_id, goal, plan, run,
-                    "Il risultato utile non è ancora pronto; la sola lettura non conclude il lavoro.")
+                    "La preparazione non è riuscita; ho rivalutato il piano.")
             evidence = await self.evidence.for_goal(owner_id, goal.id)
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
@@ -1757,13 +2235,16 @@ class AgentService:
 
         budget.cognitive_calls += 1
         run.model_calls = budget.cognitive_calls
+        from agent.prepared_review import capture_prepared_result
+        prepared_snapshot = capture_prepared_result(goal)
         answer = await verify_goal(
             await self._reasoning_goal(owner_id, goal),
             evidence={
-                "what_was_found": for_verification(evidence),
+                "what_was_found": for_verification(evidence, required_refs=list(prepared_snapshot.sources) if prepared_snapshot else []),
                 "steps": [s.for_ai() for s in plan.steps],
                 "what_was_prepared": intents,
-                "prepared_result": goal.prepared_text or None,
+                "prepared_result": prepared_snapshot.text if prepared_snapshot else None,
+                "prepared_source_refs": list(prepared_snapshot.sources) if prepared_snapshot else [],
                 "local_clock": await _user_clock_context(self.db, owner_id),
                 # What services said back, and the warning that goes with it.
                 "what_the_services_said": [
@@ -1788,6 +2269,25 @@ class AgentService:
             what_is_missing=str(answer.get("what_is_missing") or "")[:300],
             revisit_in_hours=answer.get("revisit_in_hours"),
         )
+        if (verification.outcome in ("partially_achieved", "uncertain")
+                and prepared_snapshot is not None and not intents and not receipts):
+            from agent.prepared_review import (
+                current_prepared_result, persist_prepared_review, PreparedReviewUnavailable,
+            )
+            if not await persist_prepared_review(
+                self.db, owner_id, goal, prepared_snapshot, verification,
+            ):
+                # The verifier saw a prior artifact. Do not attach its critique
+                # or replan against it, and do not let advance save that older
+                # in-memory draft over a newer preparation or user control.
+                current = await current_prepared_result(self.db, owner_id, goal.id)
+                if current is None:
+                    raise PreparedReviewUnavailable("prepared_goal_missing")
+                for field in type(current.goal).model_fields:
+                    setattr(goal, field, getattr(current.goal, field))
+                run.stopped_because = "prepared_result_changed"
+                return {"ok": True, "state": "in_progress" if goal.is_open else goal.status,
+                        "goal": goal.for_human()}
         await self.repo.journal(
             owner_id, goal.id, kind="verified", note=verification.reasoning,
             detail={
@@ -1832,11 +2332,15 @@ class AgentService:
                     "quello che è stato fatto non prova che sia davvero risolto",
                 )
 
-            await self.executor.mark_verified(owner_id, goal.id)
+            internal_preparation = prepared_snapshot if not intents and not receipts else None
+            if internal_preparation is None:
+                await self.executor.mark_verified(owner_id, goal.id)
             result = await self._close(
-                owner_id, goal, plan, run, "completed", verification.reasoning
+                owner_id, goal, plan, run, "completed", verification.reasoning,
+                visibility_budget=budget, language=language,
+                **({"prepared_snapshot": internal_preparation} if internal_preparation else {}),
             )
-            if result.get("state") == "completed":
+            if result.get("state") == "completed" and not result.get("verification_superseded"):
                 await self._observe_life_change(owner_id, goal, verification, evidence)
             return result
 
@@ -1853,7 +2357,20 @@ class AgentService:
                 owner_id, goal, plan, run, "failed", verification.reasoning
             )
 
-        # `partially_achieved` and `uncertain` are not endings.
+        # An incomplete internal result may need a different preparation,
+        # not repeated verification of the same text on every wake. Retain
+        # the review as fallible feedback; only the existing reconsideration
+        # can choose a repair, and only a real preparation may change the draft.
+        if (verification.outcome in ("partially_achieved", "uncertain")
+                and goal.prepared_text and not intents and not receipts):
+            outcome = await self._reconsider_prepared_result(
+                owner_id, goal, plan, run, budget, language=language,
+            )
+            if outcome is not None:
+                return outcome
+
+        # A revised plan and its existing continuation are already durable.
+        # Other partial/uncertain outcomes retain the previous pause behavior.
         return await self._pause(
             owner_id, goal, plan, run,
             verification.what_is_missing or verification.reasoning,
@@ -1923,7 +2440,9 @@ class AgentService:
 
         plan.status = "active"
         goal.status = "active"
-        goal.next_run_at = None
+        # advance already persisted a technical retry before this wake. Keep
+        # it if judgement is unavailable; a new wait, person request, closure
+        # or the background cap replaces/clears it through the usual paths.
         goal.user_deferred_until = None
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
@@ -2213,7 +2732,8 @@ class AgentService:
         return {"ok": False, "state": "failed", "reason": note}
 
     async def _close(
-        self, owner_id, goal, plan: ActionPlan, run: AgentRun, status: str, note: str
+        self, owner_id, goal, plan: ActionPlan, run: AgentRun, status: str, note: str,
+        *, prepared_snapshot=None, visibility_budget=None, language="it",
     ) -> Dict[str, Any]:
         from agent.source_refresh import changed, refresh
         if await changed(self.db, goal):
@@ -2227,10 +2747,43 @@ class AgentService:
         goal.status = status  # type: ignore[assignment]
         goal.rationale = note[:300]
         goal.completed_at = _now().isoformat()
-        plan.status = "completed" if status == "completed" else "cancelled"
-        await self.repo.save_goal(goal)
+        if status == "completed" and isinstance(goal, AutonomousGoal):
+            from agent.completion_handoff import stage, HandoffUnavailable
+            if not await stage(self.db, owner_id, goal, run,
+                               visibility_budget or AgentBudget(), language=language):
+                current = await self.repo.get_goal(owner_id, goal.id)
+                if current is None:
+                    raise HandoffUnavailable("completion_goal_missing")
+                for field in type(current).model_fields:
+                    setattr(goal, field, getattr(current, field))
+                return {"ok": True, "state": goal.status, "goal": goal.for_human()}
+        if status == "completed" and prepared_snapshot is not None:
+            from agent.prepared_review import (
+                complete_prepared_result, current_prepared_result, PreparedReviewUnavailable,
+            )
+            goal.touch()
+            if not await complete_prepared_result(self.db, owner_id, goal, prepared_snapshot):
+                current = await current_prepared_result(self.db, owner_id, goal.id)
+                if current is None:
+                    raise PreparedReviewUnavailable("prepared_goal_missing")
+                for field in type(current.goal).model_fields:
+                    setattr(goal, field, getattr(current.goal, field))
+                run.stopped_because = "prepared_result_changed"
+                return {"ok": True, "state": "in_progress" if goal.is_open else goal.status,
+                        "goal": goal.for_human(), "verification_superseded": True}
+        else:
+            await self.repo.save_goal(goal)
         if goal.status != status:
             return {"ok": True, "state": goal.status}
+        plan.status = "completed" if status == "completed" else "cancelled"
+        if status == "completed":
+            # Verification can establish the outcome before every planned
+            # step is needed. Retire only unfinished work after the goal's
+            # closure was accepted; past attempts and results remain history.
+            for step in plan.steps:
+                if step.status in ("pending", "running", "blocked", "waiting"):
+                    step.status = "skipped"
+                    step.note = "L'esito è stato verificato; questo passo non è più necessario."
         await self.repo.save_plan(plan)
         await self.repo.journal(owner_id, goal.id, kind=f"goal_{status}", note=note)
         # A goal that ended has no use for the question it was going to ask.
@@ -2281,7 +2834,7 @@ class AgentService:
 
     async def _consider_visibility(
         self, owner_id: str, goal_id: str, run: AgentRun, budget: AgentBudget,
-        *, language: str = "it",
+        *, language: str = "it", _handoff=None, offer_delivery=True,
     ) -> Optional[Any]:
         """
         Ask whether the work just done is worth showing.
@@ -2299,6 +2852,12 @@ class AgentService:
         goal = await self.repo.get_goal(owner_id, goal_id)
         if goal is None:
             return None
+        if _handoff is None and goal.status == "completed":
+            from agent.completion_handoff import FIELD, resume_initial
+            if await self.db.agent_goals.find_one(
+                {"id": goal_id, "owner_id": owner_id, FIELD: {"$exists": True}}, {"_id": 1},
+            ):
+                return await resume_initial(self, owner_id, goal_id, budget)
 
         what_happened = await self._run_facts(owner_id, goal, run)
         if goal.status == "cancelled":
@@ -2308,17 +2867,28 @@ class AgentService:
             # with proof behind it. Not a decision that it was uninteresting.
             return None
 
-        if budget.visibility_calls >= budget.max_visibility_calls:
+        cached = _handoff and (_handoff.state.get("candidate") or _handoff.state.get("decision"))
+        if not cached and budget.visibility_calls >= budget.max_visibility_calls:
             logger.info("visibility skipped: visibility budget spent goal=%s", goal_id)
             return None
 
-        budget.visibility_calls += 1
+        if not cached:
+            budget.visibility_calls += 1
         # Keep run.model_calls as a total count of model judgements this run,
         # while leaving work-budget accounting untouched.
         run.model_calls = budget.cognitive_calls + budget.visibility_calls
-        decision = await self.visibility.consider(
-            owner_id, goal, what_happened=what_happened, language=language
-        )
+        if _handoff:
+            await _handoff.check()
+            what_happened["_completion_handoff"] = _handoff
+        if _handoff and _handoff.state.get("decision"):
+            from agent.models import VisibilityDecision
+            decision = VisibilityDecision.model_validate(_handoff.state["decision"])
+        else:
+            decision = await self.visibility.consider(
+                owner_id, goal, what_happened=what_happened, language=language
+            )
+            if _handoff:
+                await _handoff.save(decision=decision.model_dump())
         latest = await self.repo.get_goal(owner_id, goal_id)
         from agent.source_refresh import changed
         if latest is None or latest.status == "cancelled" or (goal.is_open and await changed(self.db, goal)):
@@ -2333,12 +2903,16 @@ class AgentService:
             },
         )
         if decision.is_visible:
+            if _handoff:
+                await _handoff.check()
             await self.visibility.show(owner_id, goal, decision)
-            await self._raise_need(owner_id, goal, decision, what_happened)
+            await self._raise_need(owner_id, goal, decision, what_happened,
+                                   offer_delivery=offer_delivery, _handoff=_handoff)
         return decision
 
     async def _raise_need(
-        self, owner_id: str, goal, decision, what_happened: Dict[str, Any]
+        self, owner_id: str, goal, decision, what_happened: Dict[str, Any],
+        *, offer_delivery=True, _handoff=None,
     ) -> Optional[CommunicationNeed]:
         """
         Turn a judgement that this is worth showing into a need that can reach
@@ -2356,12 +2930,29 @@ class AgentService:
         one existed, somebody would write `if requires_attention: push()`
         underneath it.
         """
+        if goal.owner_id != owner_id or decision.goal_id != goal.id:
+            return None
         kind = _need_kind(decision.outcome, goal)
         if kind is None:
             return None
         from agent.memory_fence import memory_result_current
         memory_snapshot = getattr(decision, "memory_source_snapshot", "")
         if not await memory_result_current(self.db, owner_id, goal, memory_snapshot):
+            return None
+        from agent.visibility import prepared_communication_current
+        prepared_reference = getattr(decision, "prepared_result_ref", None)
+        if prepared_reference is None and "_prepared_result_ref" in what_happened:
+            # This reference was captured with the facts judged by Visibility.
+            # Never bind a delayed judgement to a preparation loaded later.
+            prepared_reference = what_happened["_prepared_result_ref"]
+        response_kind = (
+            "authority" if kind == "needs_authority"
+            else "information" if kind == "needs_information" else None
+        )
+        if not await prepared_communication_current(
+            self.db, owner_id, goal.id, prepared_reference,
+            question=response_kind is not None, response_kind=response_kind,
+        ):
             return None
 
         outcome = None
@@ -2383,6 +2974,29 @@ class AgentService:
                 if outcome["status"] == "action_now":
                     kind = "important_outcome"
 
+        completed_at = (
+            goal.completed_at if goal.status == "completed"
+            and kind in ("important_outcome", "useful_result") else None
+        )
+        fingerprint = (f"situation_outcome:{outcome['id']}" if outcome else
+                       decision.fingerprint if memory_snapshot else "")
+        if completed_at and not outcome:
+            import hashlib
+            # The same final result is offered once, independently of an
+            # earlier update's wording, kind or unchanged Memory snapshot.
+            fingerprint = hashlib.sha256(
+                f"completed:{owner_id}:{goal.id}:{completed_at}".encode("utf-8")
+            ).hexdigest()
+        if prepared_reference:
+            import hashlib
+            from agent.needs import fingerprint as need_fingerprint
+            base = fingerprint or need_fingerprint(
+                goal.id, kind, _what_is_missing(goal) or decision.headline,
+            )
+            fingerprint = hashlib.sha256(
+                f"{base}|{prepared_reference}".encode("utf-8")
+            ).hexdigest()
+
         need = CommunicationNeed(
             owner_id=owner_id,
             goal_id=goal.id,
@@ -2391,13 +3005,11 @@ class AgentService:
             reason=decision.reasoning[:400] or decision.headline[:400],
             source_refs=list(decision.refs)[:8],
             memory_source_snapshot=memory_snapshot,
+            prepared_result_ref=prepared_reference,
+            goal_completed_at=completed_at,
             visibility=decision.outcome,
             requires_response=kind in ("needs_information", "needs_authority"),
-            response_kind=(
-                "authority" if kind == "needs_authority"
-                else "information" if kind == "needs_information"
-                else None
-            ),
+            response_kind=response_kind,
             work_already_done=[
                 str(row.get("what") or "")[:200]
                 for row in (what_happened.get("what_ora_did_this_time") or [])
@@ -2405,10 +3017,37 @@ class AgentService:
             ][:6],
             what_is_missing=_what_is_missing(goal),
             valid_until=outcome["valid_until"] if outcome else goal.valid_until,
-            fingerprint=(f"situation_outcome:{outcome['id']}" if outcome else
-                         decision.fingerprint if memory_snapshot else ""),
+            fingerprint=fingerprint,
         )
+        if not await prepared_communication_current(
+            self.db, owner_id, goal.id, prepared_reference,
+            question=need.requires_response, response_kind=need.response_kind,
+        ):
+            return None
+        if _handoff:
+            from agent.completion_handoff import HandoffUnavailable
+            await _handoff.check()
+            # The same completion cannot create a second Need after a crash,
+            # even when the first one has already been answered or closed.
+            need.id = "ned_" + _handoff.id
+            persisted = await self.needs.get(owner_id, need.id)
+            if persisted is not None and not persisted.is_open:
+                return persisted
+            if persisted is not None:
+                offer_delivery = False  # Registration-only replay never re-offers a settled intent.
         raised = await self.needs.raise_need(need)
+        if _handoff:
+            if raised.id != need.id:
+                offer_delivery = False
+            persisted = await self.needs.get(owner_id, raised.id)
+            if persisted is None:
+                raise HandoffUnavailable("completion_need_not_persisted")
+            raised = persisted
+            await _handoff.save(need_id=raised.id)
+            if raised.is_open:
+                from delivery.admission import register_need
+                if not await register_need(self.db, owner_id, raised.id):
+                    raise HandoffUnavailable("completion_need_not_registered")
         await self.repo.journal(
             owner_id, goal.id, kind="need_raised", note=raised.summary,
             detail={"need_id": raised.id, "need_kind": raised.kind,
@@ -2417,7 +3056,8 @@ class AgentService:
 
         # And now it is out of the agent's hands. Silence is one of the
         # answers, and it changes nothing about the need.
-        await self.needs.offer_to_delivery(owner_id, raised)
+        if offer_delivery:
+            await self.needs.offer_to_delivery(owner_id, raised)
         return raised
 
     async def _run_facts(self, owner_id: str, goal, run: AgentRun) -> Dict[str, Any]:
@@ -2429,6 +3069,7 @@ class AgentService:
         here weighs any of it — weighing is what is being bought.
         """
         from agent.memory_fence import inspect_memory_sources
+        from agent.prepared_review import prepared_result_ref, current_prepared_review
         memory = await inspect_memory_sources(self.db, owner_id, goal)
         if memory.status != "current":
             return {"refs": []}
@@ -2463,6 +3104,8 @@ class AgentService:
             # Stripped before the model call; the outbox must bind the same
             # Memory versions as these already-assembled facts.
             "_memory_source_snapshot": memory.snapshot,
+            "_prepared_result_ref": prepared_result_ref(goal),
+            "prepared_review": current_prepared_review(goal),
             "situation_outcome": outcome,
             "what_ora_did_this_time": did[-8:],
             "what_it_found": found,
@@ -2826,6 +3469,13 @@ class AgentService:
             plan.status = "waiting"
             await self.repo.save_goal(goal)
             await self.repo.save_plan(plan)
+            import hashlib
+            from agent.needs import fingerprint as need_fingerprint
+            from agent.prepared_review import prepared_result_ref
+            prepared_reference = prepared_result_ref(goal)
+            question_fingerprint = need_fingerprint(
+                goal_id, "needs_information", continuation.asks or continuation.intent,
+            )
             raised = await self.needs.raise_need(CommunicationNeed(
                 owner_id=owner_id,
                 goal_id=goal_id,
@@ -2833,6 +3483,10 @@ class AgentService:
                 summary=continuation.asks or continuation.intent,
                 reason="Serve un dettaglio in più prima di cambiare il calendario.",
                 source_refs=list(dict.fromkeys(goal.source_refs))[:8],
+                prepared_result_ref=prepared_reference,
+                fingerprint=hashlib.sha256(
+                    f"{question_fingerprint}|{prepared_reference}".encode("utf-8")
+                ).hexdigest(),
                 requires_response=True,
                 response_kind="information",
                 what_is_missing=continuation.asks or continuation.intent,

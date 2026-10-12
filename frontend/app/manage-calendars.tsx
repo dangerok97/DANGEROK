@@ -95,7 +95,7 @@ export default function ManageCalendars() {
           <Text style={styles.title}>Gestisci calendari</Text>
           <View style={{ width: 32 }} />
         </View>
-  
+
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 120, gap: 12 }}
@@ -104,14 +104,14 @@ export default function ManageCalendars() {
           <Text style={styles.subtitle}>
             Scegli quali calendari ORA deve sincronizzare. Puoi cambiare in qualsiasi momento.
           </Text>
-  
+
           {error ? (
             <Animated.View entering={FadeIn.duration(180)} style={styles.errorBanner} accessibilityRole="alert">
               <Ionicons name="alert-circle" size={16} color={tokens.color.error} />
               <Text style={styles.errorText}>{error}</Text>
             </Animated.View>
           ) : null}
-  
+
           {items === null ? (
             <View style={{ paddingVertical: 40, alignItems: 'center' }}>
               <ActivityIndicator color={tokens.color.onSurfaceMuted} />
@@ -155,7 +155,7 @@ export default function ManageCalendars() {
               );
             })
           )}
-  
+
           {saved ? (
             <Animated.View entering={FadeIn.duration(200)} style={styles.savedBanner}>
               <Ionicons name="checkmark-circle" size={16} color={tokens.color.success} />
@@ -163,7 +163,7 @@ export default function ManageCalendars() {
             </Animated.View>
           ) : null}
         </ScrollView>
-  
+
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <ActionBtn
             primary

@@ -1,0 +1,865 @@
+{
+  "collector_scope": "offline log parsing only; completeness is not test acceptance",
+  "expected_code_revision": "636c0f72b374bff95039ad2b3e017ed2974c77db",
+  "source": {
+    "id": "36307263-cdff-441e-9980-30d5ab755e43",
+    "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+    "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+    "commitHash": "636c0f72b374bff95039ad2b3e017ed2974c77db",
+    "branch": "ora/v162-autonomy-validation-20261012",
+    "createdAt": "2026-10-12T11:59:14.024Z",
+    "status": "CRASHED",
+    "verified_at": "2026-10-12T12:14:32.036Z"
+  },
+  "source_evidence_path": "/tmp/ora_v162_636_deployment_binding.json",
+  "source_evidence_sha256": "4d1cf50ab188d6524ae81f80772aaf8793fa6827e0500f4e513bcdcd73ee23e9",
+  "original_logs": [
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_001.json",
+      "sha256": "059215e609cf02f5b4b653f2126136422167fecfb48bf06b9b384ed29143ab56",
+      "bytes": 8806,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_059215e609cf02f5.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_002.json",
+      "sha256": "a7eb2edbff0441a3017d4fae01634f273a05ff2a7c27c0dbb0435dde99d08b4d",
+      "bytes": 110182,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_a7eb2edbff0441a3.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_003.json",
+      "sha256": "ec2ff8bb2eeda29c18974b3426f53962de514f874ee6bccf8ab4c47ba97a4ea4",
+      "bytes": 110182,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_ec2ff8bb2eeda29c.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_004.json",
+      "sha256": "af1dffd33391b0e98975adc9e2ff9994bbc268bc1009cd64b30f5e33254f36fe",
+      "bytes": 110790,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_af1dffd33391b0e9.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_005.json",
+      "sha256": "0baa19d4cff6fce8a69097dfb8044088db82a05e9cf8ec163d57da2455b82e6f",
+      "bytes": 110790,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_0baa19d4cff6fce8.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_006.json",
+      "sha256": "d00b0983492f21ca6138e2ff8bf6d73820aeb07dd070fa2c6916c0fb3de8c48e",
+      "bytes": 110790,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_d00b0983492f21ca.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_007.json",
+      "sha256": "48d1351da4bf87ba4485bae238adc0335ec02c9f6a45dfef6b4778ebbfbe1249",
+      "bytes": 110790,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_48d1351da4bf87ba.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_008.json",
+      "sha256": "b7efbc6a33f6a2e14a33bc737a6e639e5acb683fc3acad63ff01e1909f9199e4",
+      "bytes": 111622,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_b7efbc6a33f6a2e1.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_009.json",
+      "sha256": "5131a5e3bd7ad57dcaad78de3ac05f2983e8460cfbf0d9e1ce4253a19c37c827",
+      "bytes": 111622,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_5131a5e3bd7ad57d.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_010.json",
+      "sha256": "6f85f48a42db39c5f2a0b0f952c4c9a52d08716888508eb2f66749df11bf52e4",
+      "bytes": 111622,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_6f85f48a42db39c5.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_011.json",
+      "sha256": "cbbfa1080682bfeff2bcd4f3b36beebe56756cf788c92995cc90c8ffd952881f",
+      "bytes": 112433,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_cbbfa1080682bfef.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_012.json",
+      "sha256": "b413265436b690498bce9e8b9b40739aa9a1e18f30ae73e8640abc5c75e123b4",
+      "bytes": 113037,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_b413265436b69049.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_013.json",
+      "sha256": "1e8265ebbb3b51386bcced90c12554c0c128d53509bb43c2057346b35563d44d",
+      "bytes": 113641,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_1e8265ebbb3b5138.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_014.json",
+      "sha256": "56f3a91863a8c41d757f979bc92323721f0bf75abe16303f42adcfad39c7ce2f",
+      "bytes": 113641,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_56f3a91863a8c41d.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_015.json",
+      "sha256": "1b5a4f4fa6a290a796d82ac0ad8e443bca8eb05746088b6415780888aa2fbcaf",
+      "bytes": 114452,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_1b5a4f4fa6a290a7.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_016.json",
+      "sha256": "37603b2908aadb7d9a2ffd0a16e81e4b5ba294e26e15e4c3b4da59576bf9621f",
+      "bytes": 114452,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_37603b2908aadb7d.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_017.json",
+      "sha256": "ae71e8b7661b3b12c44f448101c096fa8e8e126e2b6edaf28b02689ab96b2612",
+      "bytes": 505506,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_ae71e8b7661b3b12.json"
+    },
+    {
+      "input_path": "/tmp/ora_v162_636_live_logs_batch_018.json",
+      "sha256": "f2d38efbbd54d9cb1e8150a107b7a6c6fddd2e788fcd53967038b38d961f7e4e",
+      "bytes": 514117,
+      "preserved_path": "/tmp/ora_v162_636_collection/raw_logs_f2d38efbbd54d9cb.json"
+    }
+  ],
+  "batches": [
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:00:38.002Z",
+      "row_count": 25,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:02:09.744Z",
+      "row_count": 30,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:02:55.805Z",
+      "row_count": 30,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:03:41.631Z",
+      "row_count": 31,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:04:28.326Z",
+      "row_count": 31,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:05:14.605Z",
+      "row_count": 31,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:06:00.564Z",
+      "row_count": 31,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:06:47.004Z",
+      "row_count": 32,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:07:33.125Z",
+      "row_count": 32,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:08:19.284Z",
+      "row_count": 32,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:09:05.525Z",
+      "row_count": 33,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:09:51.398Z",
+      "row_count": 34,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:10:37.415Z",
+      "row_count": 35,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:11:23.318Z",
+      "row_count": 35,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:12:11.465Z",
+      "row_count": 36,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:12:57.260Z",
+      "row_count": 36,
+      "at_tool_limit": false
+    },
+    {
+      "status": "SUCCESS",
+      "fetched_at": "2026-10-12T12:13:43.714Z",
+      "row_count": 44,
+      "at_tool_limit": false
+    },
+    {
+      "status": "CRASHED",
+      "fetched_at": "2026-10-12T12:14:30.030Z",
+      "row_count": 45,
+      "at_tool_limit": false
+    }
+  ],
+  "merged_logs_path": "/tmp/ora_v162_636_live_logs_final.json",
+  "merged_log_rows": 45,
+  "log_limit_observed": false,
+  "progress": [
+    {
+      "timestamp": "2026-10-12T12:03:24.897131789Z",
+      "value": {
+        "scenario": "completed_result",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 11,
+        "model_http_requests": 16,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    },
+    {
+      "timestamp": "2026-10-12T12:06:05.236882636Z",
+      "value": {
+        "scenario": "planning_outage",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 16,
+        "model_http_requests": 17,
+        "failure_code": "SEMANTIC_RESULT_REJECTED:MISSING_COMPARISON_VALUE_60",
+        "goal_status": "completed",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": false,
+        "planning_unavailable": false,
+        "prepared_text_characters": 1824,
+        "result_checks": {
+          "preconditions": "passed",
+          "semantic": "failed",
+          "home": "passed",
+          "replay": "passed",
+          "owner_isolation": "passed",
+          "isolation": "passed"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T12:08:55.085749205Z",
+      "value": {
+        "scenario": "home_write_retry",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 17,
+        "model_http_requests": 21,
+        "failure_code": "COMPLETION_BUDGET_EXHAUSTED",
+        "goal_status": "active",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": false,
+        "planning_unavailable": false,
+        "prepared_text_characters": 2272,
+        "result_checks": {
+          "preconditions": "not_run",
+          "semantic": "not_run",
+          "home": "not_run",
+          "replay": "not_run",
+          "owner_isolation": "not_run",
+          "isolation": "not_run"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T12:09:25.087224826Z",
+      "value": {
+        "scenario": "source_revoked",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 5,
+        "model_http_requests": 5,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    },
+    {
+      "timestamp": "2026-10-12T12:09:55.210429862Z",
+      "value": {
+        "scenario": "memory_revoked",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 5,
+        "model_http_requests": 5,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    },
+    {
+      "timestamp": "2026-10-12T12:12:05.109568096Z",
+      "value": {
+        "scenario": "memory_corrected",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 19,
+        "model_http_requests": 20,
+        "failure_code": "COMPLETION_BUDGET_EXHAUSTED",
+        "goal_status": "active",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": false,
+        "planning_unavailable": false,
+        "prepared_text_characters": 2682,
+        "result_checks": {
+          "preconditions": "not_run",
+          "semantic": "not_run",
+          "home": "not_run",
+          "replay": "not_run",
+          "owner_isolation": "not_run",
+          "isolation": "not_run"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T12:13:05.121731175Z",
+      "value": {
+        "scenario": "source_change_crash",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 7,
+        "model_http_requests": 10,
+        "failure_code": "OWNED_SOURCE_NOT_READ_ONCE",
+        "goal_status": "active",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": true,
+        "planning_unavailable": false,
+        "prepared_text_characters": 0,
+        "result_checks": {
+          "preconditions": "not_run",
+          "semantic": "not_run",
+          "home": "not_run",
+          "replay": "not_run",
+          "owner_isolation": "not_run",
+          "isolation": "not_run"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T12:13:05.121736025Z",
+      "value": {
+        "scenario": "already_resolved",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 1,
+        "model_http_requests": 1,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    },
+    {
+      "timestamp": "2026-10-12T12:13:06.530551828Z",
+      "value": {
+        "scenario": "irrelevant",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 1,
+        "model_http_requests": 1,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    }
+  ],
+  "reports": [
+    {
+      "kind": "situation",
+      "first_row": 28,
+      "last_row": 29,
+      "fragments": 2,
+      "first_at": "2026-10-12T12:01:54.861363497Z",
+      "last_at": "2026-10-12T12:01:54.864098020Z",
+      "path": "/tmp/ora_v162_636_collection/situation_live.json",
+      "bytes": 92861,
+      "sha256": "502e5e6692f3c21914116e44d407cfe984ff6db0b85a7097d6ce4b0c6e415584",
+      "code_revision": "636c0f72b374bff95039ad2b3e017ed2974c77db",
+      "binding": "report_and_deployment",
+      "levels": {
+        "passed": false,
+        "overall_outcome": "failed",
+        "error": "EXACTLY_ONE_NEW_SITUATION_REQUIRED",
+        "phases": {
+          "conversation": {
+            "status": "failed"
+          },
+          "initial_worker": {
+            "status": "not_run"
+          },
+          "monitoring": {
+            "status": "not_run"
+          },
+          "future_check": {
+            "status": "not_run"
+          },
+          "useful_action": {
+            "status": "not_run"
+          },
+          "device_receipt": {
+            "status": "not_run"
+          },
+          "cancellation": {
+            "status": "not_run"
+          }
+        },
+        "semantic_review": {
+          "status": "not_run",
+          "automatically_accepted": false
+        },
+        "logical_model_calls": 7,
+        "model_http_requests": 14,
+        "live_provider_reads": 1,
+        "intercepted_notification_attempts": [],
+        "real_notifications_sent": 0,
+        "full_laundry_outcome_passed": false,
+        "source_appropriateness_accepted": false,
+        "physical_clock_advanced": false,
+        "process_restart_tested": false,
+        "persistence": "in_memory_only_cancelled_after_snapshot",
+        "isolation": "HTTPX_scope_allowlist_not_process_socket_sandbox",
+        "scope_note": "First-cycle monitoring only; deferred/unobserved phases retain their original status."
+      }
+    },
+    {
+      "kind": "autonomy",
+      "first_row": 39,
+      "last_row": 43,
+      "fragments": 5,
+      "first_at": "2026-10-12T12:13:06.562894417Z",
+      "last_at": "2026-10-12T12:13:06.612167631Z",
+      "path": "/tmp/ora_v162_636_collection/autonomy_live.json",
+      "bytes": 358802,
+      "sha256": "abc43f64c0e504b6191da2cdbb5fb6cb0525a1d8f4401ba04a10c05944b30f7e",
+      "code_revision": "636c0f72b374bff95039ad2b3e017ed2974c77db",
+      "binding": "report_and_deployment",
+      "levels": {
+        "passed": false,
+        "status": "failed",
+        "case_count": 9,
+        "case_pass_count": 5,
+        "model_attempts": 82,
+        "model_http_requests": 96,
+        "final_provider_records": [
+          {
+            "provider": "groq",
+            "model": "qwen/qwen3.8-27b",
+            "records": 2
+          },
+          {
+            "provider": "mistral",
+            "model": "ministral-8b-2512",
+            "records": 76
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "records": 4
+          }
+        ],
+        "cases": [
+          {
+            "scenario": "completed_result",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "passed"
+              },
+              "semantic": {
+                "status": "passed",
+                "review": {
+                  "passed": true,
+                  "reasons": [],
+                  "status": "bounded_check",
+                  "human_review_still_required": true
+                }
+              },
+              "home": {
+                "status": "passed"
+              },
+              "replay": {
+                "status": "passed"
+              },
+              "owner_isolation": {
+                "status": "passed"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 11,
+            "model_http_requests": 16,
+            "external_effects": 0
+          },
+          {
+            "scenario": "planning_outage",
+            "passed": false,
+            "reason": "SEMANTIC_RESULT_REJECTED:MISSING_COMPARISON_VALUE_60",
+            "result_checks": {
+              "preconditions": {
+                "status": "passed"
+              },
+              "semantic": {
+                "status": "failed",
+                "review": {
+                  "passed": false,
+                  "reasons": [
+                    "MISSING_COMPARISON_VALUE_60"
+                  ],
+                  "status": "bounded_check",
+                  "human_review_still_required": true
+                }
+              },
+              "home": {
+                "status": "passed"
+              },
+              "replay": {
+                "status": "passed"
+              },
+              "owner_isolation": {
+                "status": "passed"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 16,
+            "model_http_requests": 17
+          },
+          {
+            "scenario": "home_write_retry",
+            "passed": false,
+            "reason": "COMPLETION_BUDGET_EXHAUSTED",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 17,
+            "model_http_requests": 21
+          },
+          {
+            "scenario": "source_revoked",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 5,
+            "model_http_requests": 5,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_revoked",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 5,
+            "model_http_requests": 5,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_corrected",
+            "passed": false,
+            "reason": "COMPLETION_BUDGET_EXHAUSTED",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 19,
+            "model_http_requests": 20
+          },
+          {
+            "scenario": "source_change_crash",
+            "passed": false,
+            "reason": "OWNED_SOURCE_NOT_READ_ONCE",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 7,
+            "model_http_requests": 10
+          },
+          {
+            "scenario": "already_resolved",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 1,
+            "model_http_requests": 1,
+            "external_effects": 0
+          },
+          {
+            "scenario": "irrelevant",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 1,
+            "model_http_requests": 1,
+            "external_effects": 0
+          }
+        ],
+        "scope_note": "Original automatic verdicts; six result checks remain independent. Missing effect fields are not zero."
+      }
+    },
+    {
+      "kind": "public",
+      "first_row": 44,
+      "last_row": 44,
+      "fragments": 1,
+      "first_at": "2026-10-12T12:13:56.626144421Z",
+      "last_at": "2026-10-12T12:13:56.626144421Z",
+      "path": "/tmp/ora_v162_636_collection/public_live.json",
+      "bytes": 7634,
+      "sha256": "e4f286a1381c25eedab6bba17fd4f1e50f1722ee2b9f2e69e8651020b0e0a3ce",
+      "code_revision": null,
+      "binding": "external_deployment_metadata",
+      "levels": {
+        "verdict": {
+          "technical_passed": true,
+          "semantic_gate_passed": false,
+          "passed": false,
+          "reasons": [
+            "semantic:UNVERIFIED_FORECAST_INTENSITY",
+            "semantic:MODEL_CLAIM_REWRITTEN"
+          ],
+          "verified_reads": [
+            "get_route",
+            "get_weather_forecast"
+          ],
+          "required_reads": [
+            "get_route",
+            "get_weather_forecast"
+          ],
+          "model_decisions": 4,
+          "ai_calls": 4,
+          "tool_calls": 2,
+          "elapsed_ms": 43471,
+          "final_mode": "answer",
+          "semantic_acceptance": "pending_human_review"
+        },
+        "semantic_review": {
+          "status": "failed",
+          "passed": false,
+          "reasons": [
+            "UNVERIFIED_FORECAST_INTENSITY",
+            "MODEL_CLAIM_REWRITTEN"
+          ],
+          "automatically_accepted": false,
+          "human_review_still_required": true,
+          "grounding_rewrites": 1,
+          "time_metadata_limit": "Weather dates/timezone reach the model; routing HTTP retrieval time is not a provider as-of timestamp."
+        },
+        "live_provider_reads": 2,
+        "model_call_records": 4,
+        "final_provider_records": [
+          {
+            "provider": "mistral",
+            "model": "ministral-8b-2512",
+            "records": 4
+          }
+        ],
+        "http_read_records": 2,
+        "blocked_operations": [],
+        "scope_note": "Technical, bounded semantic, and human acceptance remain separate; no internal revision field is fabricated."
+      }
+    }
+  ],
+  "incomplete": [],
+  "missing_reports": [],
+  "duplicate_summaries": [],
+  "collection_complete": true,
+  "manual_acceptance": "not_assessed_by_collector",
+  "network_calls": 0,
+  "model_calls_started_by_collector": 0,
+  "external_mutations": 0,
+  "terminal": true,
+  "observed_status": "CRASHED",
+  "terminal_verified_at": "2026-10-12T12:14:32.036Z",
+  "raw_batches_path": "/tmp/ora_v162_636_live_log_batches.json",
+  "source_binding": "exact deployment/service/environment, immutable commit metadata, internal report revision when present; public bound externally",
+  "mutating_operations": 0,
+  "model_or_provider_calls_started_by_monitor": 0
+}

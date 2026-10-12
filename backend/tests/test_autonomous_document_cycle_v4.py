@@ -5,6 +5,7 @@ This is NOT a live-model quality gate. No Home route or user command is used.
 from unittest.mock import AsyncMock
 from datetime import datetime, timedelta, timezone
 import pytest
+from test_preparation_passages_v162 import source_claim
 from mongomock_motor import AsyncMongoMockClient
 from agent import reasoning
 from agent.service import AgentService
@@ -62,12 +63,18 @@ async def test_background_document_goal_reads_and_verifies_without_home(monkeypa
         assert "document:d1" in found
         return {"outcome":"achieved", "reasoning":"Il documento dichiara 120 euro annui; non è un confronto di mercato."}
     monkeypatch.setattr(reasoning,"verify_goal",AsyncMock(side_effect=verify))
-    async def draft(system, payload):
+    async def draft(system, payload, *, response_schema=None):
         import json
         rows = json.loads(payload)["evidence"]
         assert "120 euro" in str(rows)
+        quote = "Costo annuo: 120 euro." if len(text) > 4000 else "costo annuo 120 euro."
+        quoted_row = next(row for row in rows if quote in source_claim(row))
         return {"verified": True, "content": "Il documento dichiara un costo annuo di 120 euro, non verificato sul mercato.",
-                "evidence_ids": [row["id"] for row in rows]}
+                "evidence_ids": [row["id"] for row in rows],
+                "claim_review": [{"claim": "Il documento dichiara 120 euro annui.",
+                    "premises": "Costo riportato nel documento; nessuna verifica di mercato.",
+                    "support": "stated", "correction": "", "evidence_ids": [quoted_row["id"]],
+                    "source_quotes": [{"evidence_id": quoted_row["id"], "quote": quote}]}]}
     monkeypatch.setattr(reasoning, "_ask_model", draft)
     await recover_due(db)
     await recover_due(db)

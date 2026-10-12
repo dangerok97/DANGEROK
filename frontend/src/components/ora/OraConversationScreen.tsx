@@ -1590,7 +1590,7 @@ function OraConversationBody({
                 {cockpitComposerBlock}
               </View>
             </View>
-            <TemporarySituationToast star={temporaryMemory.latest} inline />
+            <TemporarySituationToast star={temporaryMemory.error ? null : temporaryMemory.latest} inline />
           </View>
 
           <View style={styles.cockpitMap} testID="ora-cockpit-map">

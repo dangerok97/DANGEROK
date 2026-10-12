@@ -446,7 +446,7 @@ export function SubpageShell({
               <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
               <Text style={[styles.backLabel, { color: colors.textSecondary }]}>Profilo</Text>
             </Pressable>
-  
+
             <Text
               style={[styles.subpageTitle, { color: colors.textPrimary }]}
               accessibilityRole="header"
@@ -457,7 +457,7 @@ export function SubpageShell({
             {subtitle ? (
               <Text style={[styles.subpageSub, { color: colors.textSecondary }]}>{subtitle}</Text>
             ) : null}
-  
+
             <View style={styles.subpageBody}>{children}</View>
           </View>
         </ScrollView>

@@ -61,12 +61,14 @@ class MistralProvider(BaseLLMProvider):
         user: str,
         session_id: Optional[str] = None,
         json_mode: bool = False,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         api_key = (os.environ.get("MISTRAL_API_KEY") or "").strip()
         if not api_key:
             raise LLMNotConfigured("MISTRAL_API_KEY mancante")
         model = self.model_name() or "mistral-small-latest"
         timeout_s = float(os.environ.get("MISTRAL_TIMEOUT_S") or os.environ.get("LLM_TIMEOUT_S") or "60")
+        schema_kwargs = {"response_schema": response_schema} if response_schema is not None else {}
 
         try:
             return await self._chat_openai_sdk(
@@ -76,6 +78,7 @@ class MistralProvider(BaseLLMProvider):
                 user=user,
                 json_mode=json_mode,
                 timeout_s=timeout_s,
+                **schema_kwargs,
             )
         except ImportError:
             return await self._chat_httpx(
@@ -85,6 +88,7 @@ class MistralProvider(BaseLLMProvider):
                 user=user,
                 json_mode=json_mode,
                 timeout_s=timeout_s,
+                **schema_kwargs,
             )
 
     async def _chat_openai_sdk(
@@ -96,6 +100,7 @@ class MistralProvider(BaseLLMProvider):
         user: str,
         json_mode: bool,
         timeout_s: float,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         from openai import APIStatusError, APITimeoutError, AsyncOpenAI, RateLimitError
 
@@ -108,7 +113,11 @@ class MistralProvider(BaseLLMProvider):
             ],
             "temperature": 0.2 if json_mode else 0.4,
         }
-        if json_mode:
+        if response_schema is not None:
+            kwargs["response_format"] = {"type": "json_schema", "json_schema": {
+                "name": "ora_response", "strict": True, "schema": response_schema,
+            }}
+        elif json_mode:
             kwargs["response_format"] = {"type": "json_object"}
         try:
             resp = await client.chat.completions.create(**kwargs)
@@ -153,6 +162,7 @@ class MistralProvider(BaseLLMProvider):
         user: str,
         json_mode: bool,
         timeout_s: float,
+        response_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResult:
         import httpx
 
@@ -164,7 +174,11 @@ class MistralProvider(BaseLLMProvider):
             ],
             "temperature": 0.2 if json_mode else 0.4,
         }
-        if json_mode:
+        if response_schema is not None:
+            payload["response_format"] = {"type": "json_schema", "json_schema": {
+                "name": "ora_response", "strict": True, "schema": response_schema,
+            }}
+        elif json_mode:
             payload["response_format"] = {"type": "json_object"}
         headers = {
             "Authorization": f"Bearer {api_key}",

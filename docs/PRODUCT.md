@@ -1,6 +1,715 @@
+# 12 ottobre 2026 — v162, verifiche del momento utile e del primo controllo
+
+Sul candidato848 la CI Node conferma tutti i34 casi del presenter e del hook/render: il momento utile al ritiro rimane distinto dal prossimo controllo; un errore noto nella rilettura impedisce di mostrare come attuale il precedente risultato operativo. Le40 prove web Chromium/WebKit passano. Questo non certifica né la prosa del modello né una notifica ricevuta con app chiusa.
+
+L'accettazione autonoma resta aperta: la CI generale si ferma nel simulatore del primo controllo, il cui CREATE omette source_refs, e un guard statico usa ancora il vecchio nome della variabile. La riparazione aggiunge il solo elenco vuoto al fake scripted e allinea la sola aspettativa statica. Runtime di produzione e modalità live restano invariati rispetto a848/f1. La vecchia stesura reale resta chiusa; il prossimo caso ammesso è sintetico, Tarquinia, Europe/Rome, dopo CI verde della revisione effettiva.
+
+[CI848 completa](evidence/autonomy_v162_ci_2026-10-12_848a379_failure.json) · [Riparazione e limiti](evidence/autonomy_v162_scripted_context_and_guard_repair_2026-10-12.json).
+
+---
+
+# 12 ottobre 2026 — v162, verifica completa ancora aperta
+
+La scheda aggiornata supera le cinque prove di rendering della CI f1: dopo una lettura fallita della fonte usata ritira le indicazioni operative; una fonte diversa in errore non invalida quella corrente. Le40 prove browser mobile passano. Queste prove non attestano ancora l'avviso utile ricevuto su un telefono con app chiusa.
+
+La CI complessiva è negativa per tre problemi nei test. Il candidato successivo corregge soltanto quelle verifiche; il comportamento dell'app resta identico a f1. L'accettazione «Ho steso → quando ritirare» resta aperta e la precedente stesura reale resta chiusa.
+
+[Evidenze della CI f1](evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json) · [Correzione dei tre test](evidence/autonomy_v162_ci_fixture_repairs_2026-10-12.json).
+
+---
+
+# 12 ottobre 2026 — v162, risultato sospeso quando lo stato non è verificabile
+
+Il candidato successivo a641 affronta un rischio concreto: dopo una lettura fallita ORA poteva continuare a mostrare il vecchio «Ritira adesso». La scheda deve invece indicare **«Stato non verificabile»**, sospendere l'indicazione operativa e recuperarla soltanto dopo una lettura riuscita della fonte effettivamente usata. Lo stesso criterio vale se la prima lettura fallisce senza dati. Il cambio account non deve conservare il risultato del precedente account.
+
+Quando il modello dichiara una nuova Situation, luogo e riferimenti devono essere espliciti prima dei default. Valori sconosciuti restano ammessi: questa completezza formale non garantisce che il modello conservi correttamente Tarquinia o produca una stima attendibile di asciugatura. Prossimo controllo e ora di ritiro mantengono significati distinti.
+
+**Autonomia non ancora accettata.** Le modifiche del candidato richiedono nuova CI e verifica pertinente; i risultati verdi641 non si trasferiscono al nuovo codice. La vecchia stesura reale resta chiusa.
+
+[Contesto, visibilità e verifiche del candidato](evidence/autonomy_v162_context_and_visibility_repair_2026-10-12.json). Gli esiti originali641 restano preservati nel blocco storico seguente.
+
+---
+
+# 12 ottobre 2026 — v162, risultato utile ancora da dimostrare
+
+**ORA non è ancora accettata come autonoma per “Ho steso → quando ritirare”.** Il collaudo reale641 conserva l’obiettivo asciugatura e registra un controllo alle18:00 a Tarquinia, ma il modello omette il collegamento strutturato con il luogo. Il controllo programmato non è un’ora di ritiro. La risposta finale propone una finestra05:00–07:00 senza valutazione sufficiente e impone impropriamente di non ritirare prima del controllo.
+
+La CI641 è verde; la prova con modelli reali resta negativa. Monitoraggio successivo, indicazione utile e avviso sul dispositivo non sono stati raggiunti. La vecchia stesura reale resta chiusa. La prova riguarda esclusivamente una nuova fixture sintetica.
+
+[Esiti641 e originali](evidence/autonomy_v162_641_results_2026-10-12.json).
+
+---
+
+# 12 ottobre 2026 — v162, osservabilità della prova di programmazione
+
+La CI di c8ca conferma, prima del punto di arresto, che il controllo appena salvato viene letto con proprietario, stato e orario corretti anche dopo una risposta intermedia. Il test si ferma sui nomi degli eventi nella traccia pubblica, che conserva soltanto i primi 12 elementi. La correzione legge quegli eventi nel test prima della proiezione pubblica; il comportamento dell’app e la protezione della traccia restano invariati.
+
+I 20 casi mantengono gli stessi requisiti. La nuova CI è **NOT_RUN al congelamento**. L’accettazione reale resta “Ho steso → quando ritirare” a Tarquinia, con asciugatura presunta distinta dall’intervento per rischio pioggia e vecchio bucato chiuso. [Indice della correzione](evidence/autonomy_v162_trace_observation_repair_2026-10-12.json).
+
+---
+
+# 12 ottobre 2026 — v162, correzione della prova dello stato del controllo
+
+La CI del candidato250ef7f ha rilevato un errore nel nuovo test: il risultato originale di creazione non contiene `follow_up`. Questo non dimostra un difetto dell’app. La correzione mantiene la verifica del programma reale e aggiunge due passaggi completi con una risposta intermedia prima della programmazione. L’obiettivo resta “Ho steso → quando ritirare” a Tarquinia; il vecchio bucato resta chiuso.
+
+Il modulo passa da18a20 casi definiti. La nuova esecuzione è **NOT_RUN al congelamento**; il codice runtime non cambia rispetto a250ef7f. Accettazione reale e prova sul dispositivo restano aperte. [Indice della correzione](evidence/autonomy_v162_handoff_contract_repair_2026-10-12.json).
+
+---
+
+# 12 ottobre 2026 — v162, recupero cloud da collaudare
+
+**Il ritiro utile del bucato a Tarquinia non è ancora dimostrato.** La vecchia stesa reale resta chiusa. La CI della revisione 22df078 ha 6 workflow e 16 job SUCCESS; il live non è accettato. La Situation perde il riferimento al luogo e presenta un handoff incoerente; Agent supera solo quattro casi negativi su nove, con 0/5 testi positivi accettati; il pubblico passa il controllo tecnico ma non la revisione umana. Il controllo futuro e Home/replay nei cinque positivi non sono attestati.
+
+Il precedente codice locale 7a65f40 ha 1.890 PASS, 1 SKIP, 0 FAIL e CLI 9/9. L’errore `409 environment_offline` ha richiesto il recupero dai file pubblicati: qualificazione runtime identica per hash, loop e test ricostruiti. **Al congelamento di questo aggiornamento la nuova CI è NOT_RUN; le prove precedenti non vengono trasferite al nuovo codice.** Gli esiti successivi sono registrati nella PR 220 con lo SHA verificato.
+
+Il rifiuto automatico della specifica patch APP eb9c3870 resta invariato. Firma, installazione, notifica ad app chiusa e tap autenticato non sono provati.
+
+[Situation 22df078](evidence/autonomy_v162_live_2026-10-12_22df078_situation.json) · [Indice del recupero](evidence/autonomy_v162_cloud_recovery_2026-10-12.json)
+
+---
+
+# 12 ottobre 2026 — v162, CI 650 verde e accettazione reale ancora aperta
+
+**L’obiettivo lavanderia non è ancora dimostrato.** Una nuova dichiarazione «ho steso i panni» a Tarquinia deve portare a un avviso utile per il ritiro, distinguendo asciugatura stimata e necessità di mettere al riparo il bucato. La stesa precedente resta chiusa e non deve essere riaperta.
+
+Il candidato `650a6f4` supera la CI completa: **6 workflow e 16 job PASS**, comprese **40 prove browser, 20 Chromium e 20 WebKit**. Il collaudo con modelli e fonti reali resta però insufficiente: autonomia **4/9 automatica**, con soli quattro casi negativi superati e **0/5 testi dei casi positivi accettabili alla revisione manuale**. Un risultato salvato, una citazione autentica o il verde dei test non bastano a rendere utile e corretto il contenuto consegnato.
+
+Nella prova sintetica Tarquinia nasce la Situation e viene salvato un controllo futuro, ma il risultato è **`followup_pending_unobserved`, `passed=false`**. Worker, monitoraggio, controllo futuro, azione utile e ricevuta sul dispositivo non sono osservati. La successiva cancellazione sintetica è verificata e lascia zero wake pendenti; non rappresenta il ritiro fisico dei panni.
+
+La risposta finale del tragitto pubblico Roma Termini–Colosseo è accettabile nel singolo caso: distanza, durata stimata e meteo nelle ore indicate corrispondono alle due fonti lette. La review distingue un precedente messaggio intermedio scorretto, che non coincide con il finale. Questo risultato non chiude l’accettazione dell’autonomia.
+
+Le modifiche successive alla risposta terminale e alla diagnostica sono congelate nello snapshot locale `0604fd9` e non sono state provate dal collaudo reale 650. La risposta terminale può riferire il controllo già persistito dopo rilettura corrente, conservando l’esito incompleto; la diagnostica rende osservabili più confini effettivi del turno e della verifica, entro i limiti del reporter. L’esempio astratto X/A/B nell’audit sostituisce due ripetizioni del prompt: è un’ipotesi da valutare, non una correzione semantica dimostrata. Le 40 regressioni locali dell’esperimento verificano compatibilità di protocollo, trasporto e fonti; non provano la qualità della prossima risposta reale. Schema, parser, numero di chiamate e budget restano invariati.
+
+L’autorizzazione generale della persona a proseguire resta valida. La revisione automatica dell’approvazione ha però respinto la specifica patch APP `eb9c3870-6835-4c5a-bcbb-24d34b6dd627` (`INVALID_ARGUMENT`; `Cancelled — the user did not approve this action. No changes were made.`). Quella modifica APP non è stata eseguita e non è stato effettuato un merge su `staging/cloud` per aggirare il blocco. Firma, installazione e ricezione di una notifica sul telefono ad app chiusa restano non attestate.
+
+**Verifica locale successiva, separata dalla CI 650:** snapshot `0604fd9`, **1.874 PASS / 1 SKIP / 0 FAIL**, 152 moduli e 154 selezioni in 71,38 s, con gli otto file sorgente invariati durante la prova. **CLI scripted 9/9**, zero tentativi modello, HTTP modello ed effetti esterni. Il report CLI conserva `code_revision=null`, con collegamento esterno allo snapshot; non viene rinominato 650. L’unico SKIP è `tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional`, perché `GEMINI_API_KEY` è stata deliberatamente lasciata vuota nel run isolato; non descrive le credenziali dei servizi.
+
+La selezione separata della risposta terminale ha **54 PASS e 3 FAIL legacy di navigazione**, riprodotti anche caricando il sorgente HEAD di confronto. I tre nodi sono rimasti invariati e sono fuori dall’aggregato di 152 moduli; il totale integrato non ne dichiara la risoluzione.
+
+[CI 650](evidence/autonomy_v162_ci_2026-10-12_650a6f4.json) · [Manifest dei tre collaudi e archivio](evidence/autonomy_v162_live_2026-10-12_650a6f4_manifest.json) · [Review dei cinque testi positivi](evidence/autonomy_v162_live_2026-10-12_650a6f4_semantic_review.json) · [Revisione separata del pubblico](evidence/autonomy_v162_live_2026-10-12_650a6f4_public_review.json) · [Seguito locale e log](evidence/autonomy_v162_followthrough_2026-10-12.json). Gli originali e i suffissi documentali storici restano invariati.
+
+---
+
+# 12 ottobre 2026 — v162, recupero dopo il collaudo 636 e integrazione della base 6e619
+
+**Il risultato richiesto resta un avviso utile al ritiro.** Per una nuova dichiarazione «ho steso i panni» a Tarquinia, ORA deve seguire le condizioni, conservare il controllo futuro e distinguere un’asciugatura stimata dall’esigenza di ritirare prima per il meteo. La precedente stesa è chiusa e non viene riaperta.
+
+Il collaudo reale di `636c0f7` non soddisfa ancora l’obiettivo: **5/9 casi superano i controlli automatici, ma la revisione semantica non accetta il risultato complessivo**. Anche `completed_result` contiene condizioni mensili non sostenute dalla nota. Nel testo Home di 2.272 caratteri una condizione mensile è dichiarata come ipotesi da confermare, ma la raccomandazione ne dipende; non è un risultato affidabile già consegnato. A Tarquinia la creazione della Situation fallisce prima del worker perché manca il riepilogo obbligatorio; una lettura meteo riuscita non prova il monitoraggio.
+
+Le correzioni successive permettono al modello di riparare una risposta malformata o non fedele alle letture entro i passaggi già disponibili, rendono esplicito il contratto per creare la Situation e conservano l’operazione di revisione ancora dovuta dopo una verifica incompleta. L’audit della bozza separa le premesse presenti nelle fonti dalle conseguenze, dalle ipotesi e dai controesempi. I nuovi campi sono ragionamento fallibile: non certificano la correttezza del contenuto.
+
+**Verifica locale della versione integrata:** Codice locale `a11b2e36`: **1.831 PASS / 1 SKIP**, 149 moduli e 151 selezioni in 70,52 s. **CLI scripted 9/9**, con zero tentativi del modello, richieste HTTP al modello ed effetti esterni. TypeScript ed export web PASS; Chromium **20/20 PASS**. Le 20 prove WebKit non sono partite per librerie del sistema mancanti: la CI remota deve verificarle.
+
+La pubblicazione del nuovo candidato, la sua CI completa e un nuovo collaudo reale restano da verificare. L’aggiornamento delle due app Railway resta subordinato all’approvazione della patch `eb9c3870-6835-4c5a-bcbb-24d34b6dd627`, precedentemente respinta dalla revisione automatica; l’integrazione Git non aggira quel limite. Firma, installazione e ricezione su un telefono ad app chiusa non sono attestate.
+
+[Indice delle evidenze e delle verifiche locali](evidence/autonomy_v162_recovery_2026-10-12.json). Gli originali `636c0f7` e i loro verdetti restano immutati; il seguito conserva integralmente la documentazione storica.
+
+---
+
+# 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
+
+L'obiettivo resta quello indicato dalla persona: a Tarquinia, dopo una **nuova**
+dichiarazione «ho steso i panni», ORA deve arrivare a un avviso utile per il
+ritiro, distinguendo asciugatura stimata e messa al riparo per un rischio
+anticipato. La stesura precedente è chiusa. Le prove riguardano una persona e
+una stesura sintetiche; non riaprono il caso reale.
+
+**L'autonomia completa non è ancora accettata.** La [CI originale 630](evidence/autonomy_v162_ci_2026-10-12_6300201.json) supera cinque
+workflow e tutti i quindici job, ma i [nove scenari originali](evidence/autonomy_v162_live_2026-10-12_6300201_original.json) superano soltanto tre casi su
+nove. Nessun caso positivo di risultato consegnato ha ottenuto l'accettazione.
+La bozza salvata nello scenario Home contiene una contraddizione sui costi e
+una condizione di flessibilità non sostenuta dalle fonti: il verdetto positivo
+dell'audit non la rende affidabile. Home e replay non sono stati eseguiti in
+quel caso. La [review del testo Home](evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json) conserva il testo completo e il giudizio.
+
+Il [Tarquinia originale](evidence/situation_v162_live_2026-10-12_6300201_original.json) rimane FAIL. Una [ricostruzione isolata della programmazione](evidence/situation_v162_2026-10-12_schedule_transition_diagnostic.json) dimostra un limite del runner:
+la conversazione aveva validamente promosso il lavoro iniziale a un controllo
+futuro, mentre il test accettava solo il tipo iniziale. Il runner corretto
+rappresenta un controllo oltre il limite di osservazione come
+`followup_pending_unobserved`, con `passed=false` e risultato completo falso.
+Un appuntamento persistito non dimostra che i panni siano asciutti né che
+l'avviso sia arrivato. Il ripiego conversazionale può descrivere il controllo
+solo dopo averne riletto lo stato corrente.
+
+Le correzioni locali conservano meglio provenienza, programmazione e
+diagnostica. Devono ancora essere valutate sul nuovo candidato con modelli e
+fonti reali; non dimostrano che gli errori semantici osservati siano risolti.
+Build firmata, installazione e ricezione utile ad app chiusa restano non
+attestate. Il servizio tecnico isolato non è una prova di rilascio dell'app.
+
+Riferimenti, hash e limiti: [indice delle evidenze e delle correzioni](evidence/autonomy_v162_followup_2026-10-12.json).
+
+## Verifica locale della versione integrata
+
+Codice locale verificato: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee`, tree `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+Suite integrata: **1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s**. CLI separata: **9/9 SCRIPTED**, senza
+modelli reali, HTTP del modello o effetti esterni. Le due incompatibilità della
+diagnostica e quella dell'esempio calendario sono corrette; i log dei tentativi
+falliti e riusciti restano nell'archivio. I gruppi mirati sovrapposti non si sommano
+al totale. Questa registrazione precede la pubblicazione: gli SHA sopra identificano
+lo snapshot locale, non una nuova CI o una nuova prova reale già completata.
+
+---
+
+# 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
+
+Tarquinia e l'obiettivo «avvisami quando devo ritirare i panni» restano
+confermati. La vecchia stesura è chiusa. Il nuovo runner usa una nuova persona e
+stesura sintetiche; attraversa conversazione, Situation, prima wake reale,
+meteo, ricerca e programmazione successiva. Non accelera il tempo e non misura
+fisicamente l'asciugatura. `followup_pending` attesta soltanto il primo ciclo:
+controllo futuro, momento utile e ricezione sul dispositivo rimangono separati.
+
+CI e prove live di questa revisione devono ancora essere osservate dopo la
+pubblicazione. Il servizio tecnico isolato non equivale all'app rilasciata.
+Il controllo automatico ha rifiutato il deploy app; il rifiuto non viene aggirato
+con un merge. Build nativa firmata e notifica ad app chiusa non sono attestate.
+Non si dichiara l'app pienamente autonoma sulla base dei test locali.
+
+La scheda conserva la distinzione fra stima e stato fisico, e fra ritiro per
+asciugatura e messa al riparo anticipata. Il meteo serve a stabilire l’azione
+utile per la persona.
+
+Verifica locale del candidato integrato: **1554 PASS, 1 SKIP, 129 moduli, 67.26 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni.
+Prove originali e misure sono elencate in
+[indice delle evidenze](evidence/autonomy_v162_repairs_2026-10-12.json).
+Il [report live fe2](evidence/autonomy_v162_live_2026-10-12_fe2d37f.json),
+la [review](evidence/autonomy_v162_manual_review_2026-10-12_fe2d37f.json)
+e la [CI fe2](evidence/autonomy_v162_ci_2026-10-12_fe2d37f.json)
+mantengono i verdetti e la revisione originali.
+
+---
+
+# 12 ottobre 2026 — v162, integrazione del ramo concorrente verificata
+
+La cronologia conserva il ramo concorrente fino a `06d2d9e`. Restano i suoi
+log diagnostici compatti e il relativo test, integrati con i controlli separati
+di risultato, Home, replay, owner e isolamento del candidato locale `e624015`.
+
+La trasformazione automatica introdotta da `7c28019` viene ritirata dopo due
+review indipendenti e controprove sul suo blob esatto. Associava tutti gli importi
+a tutti i periodi della frase: due durate diverse diventavano falsamente comuni.
+Un canone mensile precedente all'importo veniva trattato come totale; separatori
+delle migliaia, componenti del costo e attribuzioni fra fonti producevano altri
+errori. Quattro controprove sono state riprodotte anche dal root, senza modello,
+HTTP, esecuzione dell'app o dati dell'utente. L'audit successivo era presente:
+non si afferma che ogni aggiunta errata sia stata salvata. Il risultato utile
+resta responsabilità dei contratti di preparazione, audit e verifica sulle fonti.
+
+Verifica dell'integrazione: **1.416 PASS, 1 SKIP, 115 moduli, 37,60 s**;
+scripted **9/9**, zero chiamate modello, HTTP modello ed effetti esterni.
+La produzione coincide con il candidato già verificato: il solo nuovo codice
+mantenuto è il diagnostico nel runner, con il suo test. Configurazione nativa e
+TypeScript sono invariati rispetto alle verifiche precedenti. Il test del log
+attesta formato e limite, non una troncatura reale o un redattore di dati arbitrari.
+CI e prove reali devono ancora attestare l'head integrato dopo la pubblicazione.
+
+Evidenze: `docs/evidence/autonomy_v162_concurrent_math_review_2026-10-12_7c28019.json`
+e `docs/evidence/autonomy_v162_local_integration_2026-10-12.json`.
+Tarquinia e l'obiettivo del ritiro restano confermati; la vecchia stesura è chiusa.
+Il limite già documentato sul deploy dell'app e sulla verifica nativa resta aperto.
+
+---
+
+# 12 ottobre 2026 — v162, completezza del risultato e collegamento nativo
+
+L'audit della preparazione controlla ora anche i risultati sostanziali mancanti
+rispetto al bisogno attestato. Deve integrare le conclusioni sostenute dalle fonti
+correnti e verificarne premesse e citazioni. Il verifier confronta il contenuto con
+l'esito personale: un criterio generato che dice soltanto «documento disponibile»
+non sostituisce il confronto richiesto. Requisiti derivati e richiesta non sono
+promossi a prove; non si inventano premesse o condizioni.
+
+Il promemoria accanto alle osservazioni degli strumenti conserva natura, precisione,
+tempo e limiti dei dati. Una lettura riuscita non sostiene qualsiasi conclusione,
+una stima non è certezza fisica e un aggregato non dimostra assenza di criticità.
+La sezione di sistema precedente era già inoltrata: non è stata trovata una perdita
+del prompt. Questa è una precisazione delle istruzioni, da collaudare sul modello.
+
+Il runner registra separatamente i controlli di risultato, Home, replay, owner e
+isolamento anche quando il testo non supera il matcher. Il controllo semantico
+originale e il suo FAIL restano obbligatori; un controllo non eseguito resta tale.
+Non è una modifica al percorso di consegna dell'app o alle fonti sintetiche.
+
+La configurazione Expo usa `EXPO_PUBLIC_EAS_PROJECT_ID` quando non è già presente
+`extra.eas.projectId`, preservando gli altri campi. Sei verifiche sul resolver
+effettivo passano; nessun ID, account o credenziale è stato inventato. Occorrono
+l'UUID del progetto reale e un backend raggiungibile dal telefono per la build.
+
+La prova reale del padre `5b4efd5` termina **5/9 macchina**, con **84 chiamate
+logiche e 90 HTTP**. La revisione indipendente considera completi e fedeli quattro
+dei cinque testi salvati. Tre di essi sono respinti da un matcher che non riconosce
+attribuzioni italiane effettive; i loro controlli successivi Home/replay non sono
+stati eseguiti e non vengono promossi. Nel quinto testo manca la differenza utile
+già nell'ultima generation: l'audit e il verifier accettano il confronto incompleto.
+La correzione Memory a 150 euro, differenza 30, supera anche Home e replay.
+
+La prova pubblica dello stesso padre supera il controllo automatico con due HTTP
+reali e quattro chiamate Gemini. La review la respinge per certezza attribuita alla
+stima e assenza di rallentamenti non sostenuta dai dati. La CI del padre è **15/15
+job** su cinque workflow: **927 PASS v162**, **6 PASS Mongo reale**, **36 PASS browser**.
+Queste evidenze riguardano il padre e il suo merge tecnico originario, non questo candidato.
+
+Verifica locale del candidato: **1.415 PASS, 1 SKIP, 115 moduli, 38,78 s**; scripted **9/9**, zero chiamate modello, HTTP modello ed effetti esterni.
+
+La nuova base `c59db28` (Vision PR 215) è integrata: i dodici file interessati
+restano identici a quel commit. Non cambiano provider predefiniti, budget di
+esecuzione, scheduler, dipendenze o schema del database. I limiti locali della
+bozza e l'autenticazione letterale delle citazioni restano invariati; autenticità
+non significa automaticamente supporto della conclusione.
+
+Tarquinia resta la località confermata e la vecchia stesura resta chiusa. Il percorso
+del bucato è coperto da motore reale con risposte sintetiche; non è ancora attestata
+una prova unica con meteo/ricerca reali, attesa fisica e notifica nativa osservata.
+La patch app Railway `eb9c3870` è bloccata dal rifiuto automatico precedente e non
+viene aggirata tramite merge. La lettura primaria delle 09:22 UTC attesta backend
+e web su `c59db28` (Vision), mentre la patch resta STAGED con cinque modifiche.
+Il candidato di autonomia non è applicato all'app; il servizio tecnico è distinto.
+Export e browser non provano firma, installazione o comparsa della notifica ad app chiusa.
+
+---
+
+# 12 ottobre 2026 — v162, calcoli conservati e qualificazione delle fonti
+
+Il candidato chiarisce che un calcolo derivato cita gli operandi e le
+condizioni della fonte: il risultato non deve essere già scritto nella fonte.
+L'audit deve conservare i calcoli sostenuti e rendere conto delle eliminazioni
+materiali. La diagnosi `preparation_protocol` descrive il precedente difetto di
+formato, distinto dal supporto fattuale e dal contenuto della nuova bozza.
+La richiesta di concisione evita ripetizioni senza troncare il testo nel codice.
+
+La provenienza viene espressa in italiano comprensibile e le istruzioni della
+conversazione conservano tipo, precisione, tempo e limiti del dato anche se il
+provider è autorevole. Una lettura effettiva attesta la risposta ricevuta;
+non trasforma una stima in osservazione fisica o il clock ORA nel tempo del provider.
+
+La prova reale del padre `96e8513` termina **6/9 macchina**, con **74 chiamate
+logiche e 84 HTTP**. Dei quattro testi salvati come completati, due confronti
+sono utili e sostenuti e due perdono una differenza necessaria durante l'audit.
+La correzione Memory non produce un nuovo risultato: una clausola senza supporto
+viene respinta, poi due bozze superano il limite locale. La CI dello stesso padre
+è **15/15 job**, su cinque workflow, con **927 PASS v162**, **6 PASS Mongo reale**
+e **36 PASS nei browser mobili**. Questi esiti non attestano il nuovo candidato.
+
+Verifica locale del candidato: **1.407 PASS, 1 SKIP, 114 moduli, 36,59 s**; scripted **9/9**, zero LLM/HTTP/effetti.
+
+Nessun nuovo modello/default, campo operativo, chiamata, scheduler,
+dipendenza, budget o modifica degli oracoli. Controlli di citazione, revisione,
+owner, revoca e consenso invariati. Le modifiche alle istruzioni devono ancora
+essere accettate sulla nuova revisione con modelli reali.
+
+Tarquinia resta la località confermata e la precedente stesura resta chiusa.
+Il verticale del bucato usa motore reale e risposte sintetiche; una prova unica
+con frase, meteo/ricerca reali, attesa fisica e notifica nativa non è ancora
+attestata. La patch app Railway `eb9c3870` resta bloccata dal rifiuto automatico;
+non viene aggirata tramite il merge, che attiverebbe già il deployment dell'app.
+L'ultima lettura primaria app delle 08:03 UTC attesta backend `389f38a` e web
+`b159d8c`. Export e browser non attestano firma, installazione o ricezione nativa.
+
+---
+
+# 12 ottobre 2026 — v162, fonti autentiche e continuità della consegna
+
+Il risultato richiesto resta un avviso utile: dopo “ho steso i panni” ORA deve
+seguire il bisogno fino al momento del ritiro. Tarquinia è la località confermata;
+il bucato precedente è chiuso e non viene riattivato. Asciugatura stimata e ritiro
+anticipato per rischio restano esiti distinti; non si dichiara una misurazione
+che l'app non ha eseguito.
+
+Il candidato aggiunge un controllo delle citazioni prima del salvataggio:
+l'audit deve copiare passaggi realmente presenti nelle fonti ricevute. Il codice
+autentica quei passaggi, ma una citazione autentica non dimostra da sola la
+correttezza della conclusione. La revisione del testo resta necessaria.
+
+Le stime di viaggio conservano questa natura anche quando includono il traffico.
+L'ora in cui ORA legge la risposta è distinta dall'istante delle misure sottostanti,
+che rimane sconosciuto se il provider non lo fornisce. Il limite arriva anche al
+percorso di lavoro autonomo.
+
+Il controllo del caso bucato ha inoltre riprodotto due interruzioni di consegna:
+giudizio iniziale indisponibile senza recupero e cancellazione dopo un errore
+temporaneo nel rileggere il luogo. Il recupero deve restare durevole senza inviare
+un esito con fonte non verificabile; revoche e stime scadute continuano a bloccarlo.
+
+Verifica locale del candidato: **1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**, più **9/9 scripted** senza modelli reali
+o effetti esterni. L'ultimo collaudo reale `01ef500` ha **7/9 esiti macchina**, ma
+solo due dei tre testi finali resi disponibili nella Home sintetica sono
+accettati manualmente. L'altro
+aggiunge una clausola assente. La CI del successivo merge Vision `6e6e5b7` è
+**13/13**, senza attestare queste nuove modifiche. CI e live del candidato che
+contiene questa nota restano da completare sul commit esatto.
+
+L'osservazione delle 08:03 UTC trova il backend su Vision `389f38a` e il web sul
+precedente `b159d8c`, non sulla PR autonomia. La patch Railway resta in attesa dopo
+il rifiuto del controllo automatico. Consegna nativa visibile ad app chiusa ancora
+non attestata. Dettagli: `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Il catalogo iniziale Vision passa da 25 a 75 famiglie, con cinquanta nuovi oggetti di cucina, casa, scrivania, elettronica, utensili e tempo libero. Ricerca per nome, sinonimo e categoria. Le nuove voci hanno parti selezionabili e spiegazioni; i percorsi didattici restano i 25 già pubblicati. Sono gruppi illustrativi, non interni verificati.
+
+---
+
+# 12 ottobre 2026 — v162, recupero del piano e preparazione verificabile
+
+Il candidato che contiene questa nota corregge due ostacoli al completamento: i
+passi restituiti durante una rivalutazione conservano tutti i parametri dichiarati,
+e generazione e audit della bozza richiedono al provider una risposta strutturata.
+Una risposta formalmente valida resta soggetta ai controlli locali sulle fonti e
+alla revisione del contenuto; lo schema non dimostra la verità delle affermazioni.
+
+La verifica locale è **1.088 PASS, 1 SKIP, 95 moduli**, con **9/9 scenari scripted**
+e zero chiamate al modello o effetti esterni. La prova reale del precedente commit
+`3b7c4d7` è **4/9**: passano soltanto i quattro controlli che devono interrompere o
+non avviare il lavoro. Nessun caso positivo di completamento è accettabile.
+CI e prova reale del nuovo candidato restano da eseguire sul suo commit esatto.
+
+Il risultato richiesto continua a guidare il prodotto: dopo “ho steso i panni” ORA
+deve seguire il bisogno fino a un avviso utile di ritiro. Il vecchio caso di
+Tarquinia è chiuso; una stima di asciugatura non diventa una misurazione e un
+avviso per pioggia non dichiara i panni asciutti. Nessuna nuova prova usa dati o
+notifiche di utenti reali. Il rilascio dell'app e la consegna su dispositivo
+rimangono non dimostrati. Dettagli e limiti: `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
+# 12 ottobre 2026 — v162, decisioni valide e contesto conservato
+
+Verifica locale congelata: **811 PASS, 1 SKIP, 47 moduli, 28.88 s**. CLI scripted **9/9**, zero chiamate LLM/HTTP del modello ed effetti esterni. Lo skip resta il solo `test_real_gemini_enrichment`, opzionale senza chiave locale. Frontend: **14/14 Node** (calendario e review), **18/18 Chromium** su export di produzione, guard Home3, TypeScript, lint mirato ed export riusciti. WebKit e il gate dei 36 scenari sono da verificare nella CI del nuovo candidato.
+
+Le scelte execute/skip riferite a passi mancanti o non più eseguibili non possono
+eseguire o saltare un altro passo per fallback. La decisione invalida ritorna alla
+rivalutazione ordinaria con una diagnosi bounded, entro gli stessi budget.
+Il modello mantiene la scelta di continuare, modificare, chiedere o attendere.
+
+Le risposte di preparazione con tipi/citazioni non validi continuano a essere
+rifiutate. Il recupero conserva una diagnosi strutturale specifica al contesto,
+senza convertire oggetti in testo, inventare una bozza o trattare feedback come
+fonte. La valutazione precedente dell'esito di un'opportunità resta disponibile
+all'ammissione come contesto del modello non autorevole: è separata dalle fonti
+correnti e non impone la creazione del goal né annulla un no_goal valido.
+Il binding riguarda la revisione della proposta, owner e riferimenti citati;
+non introduce un nuovo digest delle Memory. AgentService.consider continua
+a rileggere le fonti correnti e a mostrarle separatamente al modello.
+
+La scelta successiva tenta ora la condivisione esatta di testo e tabelle
+ricostruibili anche quando non esiste ancora una preparazione corrente.
+In quel percorso non sono consentite omissioni di storia generata o descrizioni
+dei passi conclusi; fonti, cursori, limiti, criteri e orologio restano integrali.
+Un contesto materiale ancora troppo grande resta indisponibile. Il confronto
+di copie distingue anche booleani e numeri, che Python considera altrimenti uguali.
+
+Il rapporto 14B mostra tre scelte senza risposta e senza una nuova chiamata al
+modello dopo la lettura riuscita nel caso source_change_crash. Non conserva
+il payload integrale. La riproduzione locale è quindi dichiaratamente sintetica,
+costruita da repository e reader reali: dimostra che il solo dedup dei candidati
+può eccedere 9.000 caratteri mentre la condivisione esatta consente di consegnare
+le medesime informazioni allo SDK. Non viene presentata come cattura HTTP storica.
+
+Il calendario Home normalizza la risposta dei giorni prima di usarla come array.
+Un payload oggetto non crea eventi né provoca il crash del dettaglio. La prova
+browser attende ora il callback Home effettivo prima della navigazione; la fixture
+malformata e l'asserzione sugli errori restano intatte. I vecchi 4/4 locali avevano
+lasciato sfuggire questo problema di tempi. Le fixture v141 persistono il goal
+prima del controllo della concorrenza o dell'assenza di prove, mantenendo gli assert.
+Il vecchio test unitario v4 che prescriveva il fallback su un altro passo viene
+aggiornato a verificare il rifiuto della scelta invalida e gli stati immutati.
+Il vecchio test di contesto con stesso id e definizioni diverse non richiede
+più indisponibilità quando le informazioni entrano senza perdite: richiede
+il ripristino integrale e tipizzato di entrambe le definizioni e la decisione
+invariata. L'overflow materiale distinto continua a impedire la chiamata.
+
+## Esiti conservati e limiti della prova
+
+Il candidato `2e848b6` ha **5/9 PASS automatici**, 69 chiamate logiche e 88 HTTP;
+**non è accettato alla lettura manuale**. Il testo di completed_result contiene
+calcoli 180/120/60 corretti, ma inventa condizioni mensili di disdetta, rimborso
+e assenza di vincoli. La generazione introduce parte dell'errore e l'audit lo
+conferma/aggrava. Il PASS bounded non copre queste clausole. I tre casi
+planning_outage/home_write_retry/memory_corrected esauriscono il budget;
+source_change_crash recupera Discovery ma riceve un no_goal non sostenuto.
+Le 69 risposte riuscite sono 59 Mistral e 10 Groq, nessuna Gemini: disponibilità
+della risposta e completamento utile sono misure distinte.
+
+La CI `2e848b6` è **10 PASS / 3 FAIL / 2 SKIP**, cinque workflow. I Backend si
+fermano sulla fixture v141 prima dei gate v162/Mongo successivi. Mobile è
+34/36 (17/18 per motore); i due fallimenti malformati nascono dal calendario
+Home. Questi sono esiti della revisione precedente, non CI verde del candidato.
+
+Le letture pubbliche separate sullo stesso `2e848b6` eseguono due HTTP reali
+(Mapbox/Open-Meteo), cinque chiamate LLM e 68.520 ms di loop. Tecnico PASS,
+semantico FAIL per MODEL_CLAIM_REWRITTEN. Il rapporto non conserva il messaggio
+originale prima della riscrittura: la sola risposta finale non permette di
+ricostruire quella frase. Il primo avvio separato aveva omesso la dipendenza
+mongomock-motor dal comando e si è fermato con ModuleNotFoundError; il comando
+corretto installa la medesima versione 0.0.36 già usata nella prova completa.
+
+**Rettifica dell'interpretazione del vecchio rapporto pubblico d5:** il pattern
+`intensi` intercetta l'inizio di «intensità» nella corretta negazione «non è una
+misura dell'intensità». UNVERIFIED_FORECAST_INTENSITY è un falso positivo su
+quel testo. MODEL_CLAIM_REWRITTEN include anche il rendering di messaggi
+strutturati e il rapporto non conserva l'originale: non dimostra da solo una
+specifica affermazione meteo falsa del modello. Il vecchio report resta FAIL;
+fixture, oracle e risultati originali non vengono riscritti.
+
+Il confronto diagnostico con LLM_PROVIDER=mistral e
+MISTRAL_MODEL=ministral-14b-2512 usa sempre il codice `2e848b6`, gli stessi
+nove scenari, budget e confini: **5/9 PASS automatici,
+53 chiamate logiche / 65 HTTP**. È una configurazione del
+solo servizio di collaudo: la catena ha usato anche fallback Groq e OpenAI,
+quindi non tutte le risposte sono del modello 14B. Non dimostra da sola
+il comportamento dei servizi app né sostituisce la lettura delle risposte
+o il collaudo del codice successivo. Le preferenze free-first restano valide:
+nessun default dell'app, account, fatturazione o servizio a pagamento viene
+attivato o cambiato da questa prova.
+
+Anche i due risultati positivi di questa diagnostica non sono accettati
+alla revisione manuale. completed_result conserva flessibilità e costi
+proporzionali non documentati, oltre a soglie temporali incoerenti: generazione
+14B, audit GPT-4o-mini. memory_corrected usa correttamente la nuova cifra
+150 e la differenza 30, ma confronta il rischio sulla base di vincoli mensili
+assenti dalla fonte: generazione Groq/Qwen, audit GPT-4o-mini.
+La correzione della fonte e il salvataggio funzionano; la fedeltà semantica
+non è dimostrata e non viene certificata dai controlli di formato o citazioni.
+
+Nei tre casi planning_outage/home_write_retry/memory_revoked della diagnostica
+14B, il fallback propone una preparazione senza lettura. Nei casi Home e
+revoca il gate si ferma prima di quelle iniezioni; il guasto di pianificazione
+è già stato iniettato nel suo caso. I goal conservano una scadenza di recupero. Il vecchio report non esporta revised_steps e non consente
+di dedurre perché modify non abbia aggiunto passi. La diagnostica del prossimo
+collaudo registra separatamente formato e passi di rivalutazione, entro gli
+stessi limiti e guard del solo owner sintetico, senza cambiare il verdetto.
+
+Report e annotazione separata:
+
+- [Collaudo originale 2e](evidence/autonomy_v162_live_2026-10-12_2e848b6.json)
+- [Revisione manuale 2e](evidence/autonomy_v162_manual_review_2026-10-12_2e848b6.json)
+- [Letture pubbliche 2e](evidence/public_read_v162_live_2026-10-12_2e848b6.json)
+- [Diagnostica Ministral 14B](evidence/autonomy_v162_ministral14b_live_2026-10-12_2e848b6.json)
+- [Revisione manuale della diagnostica 14B](evidence/autonomy_v162_ministral14b_manual_review_2026-10-12_2e848b6.json)
+
+## Confine del rilascio
+
+Merge soltanto con CI verde e risultati reali accettabili sul candidato.
+Nessun dominio/keyword router, nuovo scheduler, reset dei budget o azione esterna
+reale nel collaudo. Il bucato precedente di Tarquinia resta chiuso. Un nuovo
+bucato deve condurre all'avviso utile di ritiro, distinguendo stima di asciugatura
+e ritiro anticipato per rischio.
+
+I servizi app non sono stati aggiornati: la patch Railway è preparata ma
+l'applicazione è stata rifiutata dal controllo automatico. Il servizio isolato
+di valutazione non applica quella patch. Backend resta al commit 9e1a2f0,
+web a 9dc0d65. Configurazione/prebuild/export iOS in CI non sono firma,
+installazione o ricezione su dispositivo. Mancano accesso al progetto EAS e
+credenziali native; registrazione, app chiusa, avviso visibile e apertura del
+risultato sul dispositivo restano da verificare. Nessun push reale inviato.
+
+---
+
+## 12 ottobre 2026 — v162, giudizio del risultato e consegna della preparazione corrente
+
+Una verifica parziale o incerta di un risultato interno viene conservata sul
+preciso artefatto che il verificatore ha letto. Una nuova preparazione riceve
+una nuova identità anche se il testo è identico. Testo, citazioni e contesto
+vincolano il giudizio; una risposta tardiva non può sovrascrivere una nuova
+bozza. Una successiva verifica positiva dello stesso artefatto ritira la
+critica insieme alla chiusura autorizzata, prima del cleanup.
+
+Home, comunicazioni in coda e apertura di un vecchio avviso rispettano la
+preparazione corrente e il suo giudizio. Le domande su informazioni o autorità
+rimangono possibili quando il goal corrente ne ha davvero bisogno. Un errore
+di lettura conserva la possibilità di riprovare. Il dettaglio mostra
+«Bozza da rivedere» oppure «Verifica ancora incerta», con ciò che manca sopra
+il testo, senza nascondere le bozze da approvare.
+
+Il gate reale d5b5e1e è **4/9 PASS**, con **80 chiamate logiche e 106 HTTP**.
+La precedente CI d5 è **10 PASS / 2 FAIL / 2 SKIPPED**: i due Backend si sono
+fermati sulla firma obsoleta del fake v55 (1 failed / 282 passed), prima dei gate
+v162 e Mongo. Questa compatibilità è corretta nel candidato successivo; non
+si attribuisce a d5 una CI verde. Il [report originale](evidence/autonomy_v162_live_2026-10-12_d5b5e1e.json)
+rimane integralmente disponibile. L'autonomia dell'app non è ancora dimostrata.
+
+La nuova UI è verificata con dati sintetici e componenti reali; non certifica
+la qualità del modello. Le prove con fonti pubbliche hanno verificato entrambe
+le letture reali, ma il risultato semantico è fallito per un'affermazione meteo
+non sostenuta, riscritta dalla protezione finale. Anche una risposta corretta
+dopo una riscrittura resta un esito negativo del collaudo originario.
+
+La patch di rilascio dei servizi app rimane preparata ma non applicata:
+il controllo automatico Railway ha rifiutato l'azione e non viene aggirato.
+Il servizio di valutazione isolato non equivale all'app rilasciata.
+Build nativa firmata e ricezione su un dispositivo rimangono prove distinte.
+Il precedente bucato di Tarquinia resta chiuso; per un nuovo bucato il risultato
+atteso è il momento utile per ritirarlo, con stima e rischio anticipato distinti.
+
+
+## 12 ottobre 2026 — v162, prosecuzione e correzione fino al risultato
+
+ORA deve finire il lavoro utile, usare una critica per correggerlo e
+consegnarlo soltanto mentre resta pertinente. Il nuovo recupero evita che
+un errore momentaneo perda la prosecuzione o che la stessa bozza incompleta
+venga ricontrollata senza una strada per correggerla. Una fonte revocata
+impedisce di riproporre il vecchio risultato in Home.
+
+Il collaudo reale della revisione `e3a843c2730d4a35708777f81e403b8b5f89868a`
+ha ottenuto **4/9 PASS**, con **67 chiamate logiche e 98 HTTP**. I cinque
+casi positivi non hanno completato il percorso. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e3a843c.json)
+conserva i risultati effettivi, compresi i testi persistiti ma non consegnati.
+La CI della stessa revisione è invece tutta verde: **14/14 job**. Le due
+prove attestano proprietà diverse; l'autonomia non è ancora dimostrata.
+
+La revisione manuale ha trovato anche condizioni non sostenute e differenze
+di costo mancanti nei testi del collaudo. Questi testi non sono stati
+consegnati; i nuovi test controllati attestano il trasporto e il recupero,
+non la qualità di una decisione reale. Verifica locale: **569 PASS su 34 moduli in 7,68 secondi**, più CLI scripted **9/9**, con zero chiamate LLM reali, HTTP del modello ed effetti esterni.
+Il precedente bucato di Tarquinia resta chiuso. Il risultato futuro atteso
+resta un avviso utile per ritirare i panni, distinguendo stima di asciugatura
+e necessità di proteggerli da condizioni sfavorevoli.
+
+## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
+
+Un confronto deve conservare i risultati utili e le condizioni realmente
+note. Una proprietà associata abitualmente a un'etichetta non può diventare
+una promessa dell'app. Se la fonte non specifica una condizione, ORA deve
+mantenerla ignota anche nel testo corretto; la revisione non può cancellare
+un calcolo valido mentre corregge un'altra frase.
+
+Il gate reale `f188b4bb0f0a3eaad4042761eac11130e709e7db` riporta
+**6/9 controlli limitati PASS**, 64 chiamate logiche e 73 HTTP. La revisione
+manuale respinge inoltre il testo di `home_write_retry`. Il [report originale](evidence/autonomy_v162_live_2026-10-12_f188b4b.json)
+rimane invariato. Il collaudo pubblico successivo non è stato eseguito.
+
+Il recupero della Home funziona tecnicamente nel caso col guasto iniettato,
+ma il suo testo viene respinto per una proprietà inventata. Il caso ordinario
+produce invece un testo valido e recuperabile nella Home. L'app non è ancora
+attestata come completamente autonoma. Verifica locale corrente: **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni.
+Il precedente bucato di Tarquinia resta chiuso; il collaudo non lo riattiva.
+
+## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
+
+ORA deve consegnare un risultato sostenuto dai dati disponibili e gestire
+gli errori temporanei senza far ripartire la persona da capo. Una condizione
+non specificata rimane ignota: non può diventare un vantaggio dichiarato di
+una delle alternative. La revisione esplicita questo controllo anche sulle
+frasi introdotte durante la correzione della bozza.
+
+Il gate reale del head `e4b68b1c9a30eda285d39b7d203a1ca897dc71fd`
+riporta **6/9 controlli limitati PASS**, con 56 chiamate logiche e 66 HTTP.
+La revisione manuale respinge inoltre `memory_corrected`: la maggiore
+flessibilità del mensile non è documentata. Il [report originale](evidence/autonomy_v162_live_2026-10-12_e4b68b.json)
+resta conservato senza riscrivere il suo conteggio; non attesta autonomia.
+Le letture pubbliche condizionate al superamento non sono state eseguite.
+
+Il testo di `completed_result` è manualmente valido e raggiunge la Home con
+replay idempotente e isolamento. I difetti negli altri percorsi non sono
+nascosti dal successo del primo caso. Verifica locale corrente: **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+La qualità del modello richiede una nuova prova reale; il rilascio app e la
+ricezione nativa rimangono verifiche distinte. Il precedente bucato di
+Tarquinia resta chiuso e non viene riattivato dal lavoro di collaudo.
+
+## 12 ottobre 2026 — v162, contratto delle decisioni e contesto della verifica
+
+ORA deve giudicare il risultato completo usando i dati effettivamente letti.
+Una riduzione del contesto non può cancellare condizioni o limiti della fonte
+e poi presentare un giudizio come se avesse esaminato tutto il testo. Le
+risposte tecnicamente incomplete del modello restano lavoro da recuperare
+entro il budget esistente, senza inventare un obiettivo o una domanda.
+
+Il gate reale del head `c38b8d11f3b521a63034e7bf3d892f4ae1ad9d3f`
+rimane **2/9 PASS**, con 28 chiamate logiche e 32 HTTP osservati. Il
+[report originale](evidence/autonomy_v162_live_2026-10-12_c38b.json) conserva
+anche i fallimenti. La lettura pubblica successiva non è stata eseguita.
+
+La prima bozza storica è manualmente corretta ma è stata respinta da un
+riconoscitore lessicale troppo ristretto; la seconda omette la differenza
+numerica esplicita. La revisione corregge il riconoscitore con prove positive
+e negative, senza cambiare nota, bisogno o criteri sostanziali del collaudo.
+La nuova verifica locale conclude **403 PASS su 22 moduli in 4.73 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.
+
+L'autonomia completa non è ancora attestata. Il rilascio dei servizi app e
+la ricezione nativa restano separati dal servizio tecnico con note sintetiche.
+
+---
+
+## 12 ottobre 2026 — v162, fonti lette prima del risultato
+
+ORA distingue l'anteprima utile a capire il lavoro dalle prove acquisite per
+prepararne il risultato. Il piano prevede la lettura necessaria, riusa quella
+già sufficiente e recupera una preparazione prematura senza rimandare alla
+persona un'informazione che può leggere. Restano fermi limiti della fonte e
+consenso per gli effetti esterni. Il comportamento reale dell'intero percorso
+è il prossimo gate; il solo esito locale non lo certifica.
+
+---
+
+## 12 ottobre 2026 — v162, primo risultato completo validato nella diagnostica
+
+La diagnostica con modello reale produce ora un confronto scritto utile,
+attribuito alla nota personale e corretto nei costi e nei vincoli, disponibile
+nella Home. Il risultato distingue l'orizzonte del confronto dalle condizioni
+ignote e conserva la differenza fra dati riferiti e conferma del fornitore.
+La revisione manuale non rileva le deduzioni non sostenute della prova precedente.
+
+I due casi senza bisogno aperto continuano a non generare lavoro. Resta
+invece incompleto un caso avviato dal cambiamento di una fonte: il piano deve
+portare dalla lettura effettiva al risultato, conservando la provenienza.
+Il collaudo resta **3/4 diagnostici**, con gate completo e prova pubblica
+ancora aperti; non dimostra autonomia completa o ricezione su un dispositivo.
+Evidenze e limiti in [QA_AUTONOMY_COMPLETION_V162.md](QA_AUTONOMY_COMPLETION_V162.md).
+
+---
+
+## 12 ottobre 2026 — v162, risultati che conservano i limiti delle fonti
+
+Un risultato utile distingue ciò che la fonte dice, ciò che si può dedurre
+e ciò che rimane ignoto. Una condizione non descritta non diventa un vantaggio
+né un divieto. Una conclusione valida per un periodo o una premessa non può
+essere estesa a tutti gli scenari senza sostegno.
+
+Le qualifiche della fonte accompagnano il lavoro fino al testo e alla verifica.
+Il collaudo reale mantiene una revisione del contenuto: creare un documento
+e chiudere il piano non ne dimostra la correttezza.
+
+---
+
+## 12 ottobre 2026 — v162, riconoscere il risultato ancora mancante
+
+Disporre dei materiali non significa aver ricevuto il risultato utile. Se una
+fonte personale corrente attesta un esito ancora aperto, ORA deve valutare il
+lavoro interno che può completarlo anche senza una scadenza. Se lo stesso
+esito risulta già raggiunto, la presenza dei dati non giustifica un nuovo lavoro.
+
+Una nota dell'utente può documentare il suo bisogno senza confermare fatti
+del fornitore o autorizzare azioni esterne. Un risultato interno può usare quei
+dati con la loro attribuzione e i loro limiti, quando questo soddisfa il bisogno.
+La distinzione resta una decisione del modello e richiede una prova reale.
+
+---
+
+## 12 ottobre 2026 — v162, verifica live: leggere prima di decidere
+
+Prima di decidere se un lavoro è utile, ORA deve leggere le memorie citate
+con il loro contenuto e i loro limiti. Il breve segnale che una nota è cambiata
+non sostituisce la nota. La presenza di una fonte non obbliga a creare attività:
+un'informazione già sufficiente o priva di un bisogno concreto può restare tale.
+
+Una nota lunga richiede una lettura riconoscibile come parziale e la possibilità
+di proseguire dalla parte mancante, sulla stessa versione. Il risultato deve
+conservare le condizioni che cambiano il significato del confronto. Quando
+l'esito è verificato, i passaggi divenuti superflui vengono chiusi come saltati;
+una verifica incerta conserva il lavoro aperto.
+
+La prova con il modello reale ha trovato limiti che i test scripted non
+mostravano. Il suo esito resta una condizione distinta dalla CI e dalla
+distribuzione dell'app; non viene dedotto da una schermata o da un processo avviato.
+
+Il risultato concluso deve poter raggiungere la persona anche quando il
+lavoro non è più aperto. La comunicazione finale resta legata al completamento
+verificato e alle sue fonti correnti; un vecchio aggiornamento o una domanda
+non ne eredita l'autorità. Il tocco sull'avviso apre il risultato già prodotto.
+La scelta del canale e i consensi restano competenza della consegna.
 
 ---
 

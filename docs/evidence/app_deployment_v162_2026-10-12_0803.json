@@ -1,0 +1,184 @@
+{
+  "version": "ora-v162-app-effective-deployment-evidence-v1",
+  "observed_at": "2026-10-12T08:03:15+00:00",
+  "sources": [
+    "Railway list-deployments (limit 2, each APP service)",
+    "Railway describe-service (each APP service)",
+    "GitHub staging/cloud ref and comparison b159d8c...389f38a"
+  ],
+  "services": [
+    {
+      "service": {
+        "id": "c408cff6-d695-4ea9-bb57-7bd753241781",
+        "name": "ora-backend",
+        "state": "live-with-staged-changes"
+      },
+      "effective_deployment": {
+        "id": "609c4857-8581-4434-8b64-49d86ff6f6fb",
+        "status": "SUCCESS",
+        "createdAt": "2026-10-12T07:40:53.760Z",
+        "updatedAt": "2026-10-12T07:41:42.233Z",
+        "serviceId": "c408cff6-d695-4ea9-bb57-7bd753241781",
+        "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+        "snapshotId": "479641f6-4b30-4ecd-b0fb-3ef147185170",
+        "commitHash": "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+        "branch": "staging/cloud",
+        "commitMessage": "fix(vision): recover recognition of unknown everyday objects (#214)\n\nfix(vision): second focused recognition pass for objects outside catalog"
+      },
+      "recent_deployments": [
+        {
+          "id": "609c4857-8581-4434-8b64-49d86ff6f6fb",
+          "status": "SUCCESS",
+          "createdAt": "2026-10-12T07:40:53.760Z",
+          "updatedAt": "2026-10-12T07:41:42.233Z",
+          "serviceId": "c408cff6-d695-4ea9-bb57-7bd753241781",
+          "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+          "snapshotId": "479641f6-4b30-4ecd-b0fb-3ef147185170",
+          "commitHash": "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+          "branch": "staging/cloud",
+          "commitMessage": "fix(vision): recover recognition of unknown everyday objects (#214)\n\nfix(vision): second focused recognition pass for objects outside catalog"
+        },
+        {
+          "id": "1f8e8671-8abb-4292-84f0-242ab192da8c",
+          "status": "REMOVED",
+          "createdAt": "2026-10-12T06:38:34.376Z",
+          "updatedAt": "2026-10-12T07:41:44.725Z",
+          "serviceId": "c408cff6-d695-4ea9-bb57-7bd753241781",
+          "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+          "snapshotId": "7787cdfb-1672-4349-a9bd-895df5ba6a1e",
+          "commitHash": "b159d8c37fa6bf245eb0d7f01025c7a5ae068a17",
+          "branch": "staging/cloud",
+          "commitMessage": "feat(vision): expand catalog to 75 illustrative object families (#213)\n\nfeat(vision): expand catalog from 25 to 75 illustrative object families"
+        }
+      ],
+      "staged": {
+        "patchId": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+        "status": "STAGED",
+        "changeCount": 5,
+        "message": null,
+        "createdAt": "2026-10-12T01:27:28.213Z",
+        "updatedAt": "2026-10-12T01:27:33.675Z"
+      },
+      "staged_changes": [
+        {
+          "path": "services.c408cff6-d695-4ea9-bb57-7bd753241781.source.branch",
+          "displayName": "Branch",
+          "type": "added",
+          "from": "",
+          "to": "staging/cloud",
+          "destructive": false
+        }
+      ]
+    },
+    {
+      "service": {
+        "id": "0db9c41c-8a01-42db-a87d-b4083821610d",
+        "name": "ora-web",
+        "state": "live-with-staged-changes"
+      },
+      "effective_deployment": {
+        "id": "9fe7187b-7d81-494a-9ccc-f433a463a926",
+        "status": "SUCCESS",
+        "createdAt": "2026-10-12T06:38:37.047Z",
+        "updatedAt": "2026-10-12T06:39:51.277Z",
+        "serviceId": "0db9c41c-8a01-42db-a87d-b4083821610d",
+        "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+        "snapshotId": "96c277c1-ab6e-4faa-9dc6-7d1df0796a63",
+        "commitHash": "b159d8c37fa6bf245eb0d7f01025c7a5ae068a17",
+        "branch": "staging/cloud",
+        "commitMessage": "feat(vision): expand catalog to 75 illustrative object families (#213)\n\nfeat(vision): expand catalog from 25 to 75 illustrative object families"
+      },
+      "recent_deployments": [
+        {
+          "id": "f13ac4be-10eb-4752-87b3-3ce225904b77",
+          "status": "SKIPPED",
+          "createdAt": "2026-10-12T07:40:57.311Z",
+          "updatedAt": "2026-10-12T07:41:03.248Z",
+          "serviceId": "0db9c41c-8a01-42db-a87d-b4083821610d",
+          "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+          "snapshotId": "a6d73be2-7166-48b6-96ff-3148eefb61b3",
+          "commitHash": "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+          "branch": "staging/cloud",
+          "commitMessage": "fix(vision): recover recognition of unknown everyday objects (#214)\n\nfix(vision): second focused recognition pass for objects outside catalog"
+        },
+        {
+          "id": "9fe7187b-7d81-494a-9ccc-f433a463a926",
+          "status": "SUCCESS",
+          "createdAt": "2026-10-12T06:38:37.047Z",
+          "updatedAt": "2026-10-12T06:39:51.277Z",
+          "serviceId": "0db9c41c-8a01-42db-a87d-b4083821610d",
+          "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+          "snapshotId": "96c277c1-ab6e-4faa-9dc6-7d1df0796a63",
+          "commitHash": "b159d8c37fa6bf245eb0d7f01025c7a5ae068a17",
+          "branch": "staging/cloud",
+          "commitMessage": "feat(vision): expand catalog to 75 illustrative object families (#213)\n\nfeat(vision): expand catalog from 25 to 75 illustrative object families"
+        }
+      ],
+      "staged": {
+        "patchId": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+        "status": "STAGED",
+        "changeCount": 5,
+        "message": null,
+        "createdAt": "2026-10-12T01:27:28.213Z",
+        "updatedAt": "2026-10-12T01:27:33.675Z"
+      },
+      "staged_changes": [
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.branch",
+          "displayName": "Branch",
+          "type": "added",
+          "from": "",
+          "to": "staging/cloud",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.commitSha",
+          "displayName": "Commit Sha",
+          "type": "removed",
+          "from": "",
+          "to": "",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.image",
+          "displayName": "Image",
+          "type": "removed",
+          "from": "",
+          "to": "",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.repo",
+          "displayName": "Repo",
+          "type": "updated",
+          "from": "dangerok97/DANGEROK",
+          "to": "dangerok97/DANGEROK",
+          "destructive": false
+        }
+      ]
+    }
+  ],
+  "git_base": {
+    "branch": "staging/cloud",
+    "sha": "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+    "change": "Vision PR #214",
+    "files": [
+      "backend/vision_xray.py",
+      "backend/vision_tests/test_catalog.py"
+    ]
+  },
+  "conclusions": {
+    "backend_effective_commit": "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+    "web_effective_commit": "b159d8c37fa6bf245eb0d7f01025c7a5ae068a17",
+    "web_newer_event": "389f38a was SKIPPED and is not the active web deployment",
+    "autonomy_pr_applied": false,
+    "app_actions_performed_by_this_observation": [],
+    "staged_patch_applied": false,
+    "merge_implication": "The staging/cloud branch already triggers APP deployment; a merge must not be used to bypass the rejected APP patch action."
+  },
+  "limits": [
+    "describe-service includes staged overlays; the active code is attested by SUCCESS deployment metadata and latestDeployment.",
+    "The 07:38 observation remains historical evidence, not the current backend head.",
+    "No native installation, signed build, real notification or delivery receipt is attested by this read."
+  ]
+}

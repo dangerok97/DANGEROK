@@ -1,0 +1,50 @@
+{
+  "observed_at": "2026-10-12T11:36:15.243709+00:00",
+  "status": "qa_hunks_frozen",
+  "ownership": [
+    "backend/scripts/autonomy_completion_eval_v162.py: context observer only; root owns declaration diagnostics",
+    "backend/tests/test_autonomy_context_diagnostics_v162.py"
+  ],
+  "script_sha256_at_observation": "939aefda4097e688d0b5971b1734cf07c11bc731a3349c21599691219dd726e8",
+  "test_sha256": "16f7a6f5862fdcd1ee534ab7c7f3375671021fff9bbd873e68684fbe85868217",
+  "owned_function_sha256": {
+    "model_observations": "4f2e3dee8867ec544afa16f73afd362507e33d9d73ff1ee22e62abe4a40cfb3a",
+    "_action_context_observation": "39129f5af2d95ffec2d6fe5e2a15800719caa2741e162544d2c14cd3936aea21",
+    "service_next": "e9ca6e3fbb68efa3524bb51a9fefe7f17011cba329c873a0e7e0621fd2726607",
+    "action_dump": "97207b64d2a428543c19cd6ab9aaf6a95112141d080df7e3f48495704b9dbd38",
+    "choose": "8faa7959a30d64cd6985356029b7e93b5041b6ab77418e195e05ae8b52c76612"
+  },
+  "red": {
+    "failed": 5,
+    "passed": 10,
+    "log": "/tmp/ora_v162_autonomy_context_diagnostics_RED.log"
+  },
+  "new_module": {
+    "passed": 15,
+    "failed": 0,
+    "log": "/tmp/ora_v162_autonomy_context_diagnostics_module_GREEN.log"
+  },
+  "integration": {
+    "passed": 142,
+    "failed": 2,
+    "status": "red_pending_root_diagnostic_assert_alignment",
+    "log": "/tmp/ora_v162_autonomy_context_diagnostics_integration_RED.log",
+    "failures": [
+      "test_autonomy_completion_eval_v162.py::test_reconsider_revised_steps_and_replacements_are_bounded_redacted_and_typed",
+      "test_autonomy_completion_eval_v162.py::test_reconsider_revision_trace_preserves_identity_and_the_synthetic_guard[owned]"
+    ]
+  },
+  "compile": "passed",
+  "diff_check": "passed",
+  "test_command": "env PYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only JWT_SECRET=ora-v162-synthetic-test-only CONTINUITY_REAL_MONGO=0 PYTHONPATH=. /workspace/scratch/ee708e10d9bd/ora-resume/.venv/bin/python -m pytest -q -n0 --disable-warnings --tb=short tests/test_autonomy_context_diagnostics_v162.py",
+  "cwd": "/workspace/scratch/abe5c63b5e73/ora/backend",
+  "limits": {
+    "context_observations_per_case": 12,
+    "context_input_characters": 9000
+  },
+  "scope": "Observed only inside exact evaluator DB + owner + goal.owner AgentService._next, with eval_guards checked immediately before choose; original _action_dump output and known logged causes. No retrospective attribution to live630.",
+  "new_model_provider_calls": 0,
+  "external_effects": 0,
+  "historical_live_reports_changed": false,
+  "followup_validation_owner": "root"
+}

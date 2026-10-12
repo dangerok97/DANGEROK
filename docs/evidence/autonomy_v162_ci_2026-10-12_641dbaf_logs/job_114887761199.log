@@ -1,0 +1,279 @@
+﻿2026-10-12T15:39:38.5211256Z Current runner version: '2.337.0'
+2026-10-12T15:39:38.5248099Z ##[group]Runner Image Provisioner
+2026-10-12T15:39:38.5249644Z Hosted Compute Agent
+2026-10-12T15:39:38.5250673Z Version: 20261002.596
+2026-10-12T15:39:38.5251900Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T15:39:38.5253137Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T15:39:38.5254596Z Worker ID: {3fb02726-b5bf-486a-953c-094bb80cc5d2}
+2026-10-12T15:39:38.5255915Z Region: eastus2
+2026-10-12T15:39:38.5256850Z Cloud: Azure
+2026-10-12T15:39:38.5257984Z ##[endgroup]
+2026-10-12T15:39:38.5260437Z ##[group]Operating System
+2026-10-12T15:39:38.5261648Z Ubuntu
+2026-10-12T15:39:38.5262629Z 24.04.5
+2026-10-12T15:39:38.5263775Z LTS
+2026-10-12T15:39:38.5264835Z ##[endgroup]
+2026-10-12T15:39:38.5265780Z ##[group]Runner Image
+2026-10-12T15:39:38.5266869Z Image: ubuntu-24.04
+2026-10-12T15:39:38.5267854Z Version: 20261004.327.1
+2026-10-12T15:39:38.5270110Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T15:39:38.5273042Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T15:39:38.5275262Z ##[endgroup]
+2026-10-12T15:39:38.5277191Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T15:39:38.5280544Z Contents: read
+2026-10-12T15:39:38.5281611Z Metadata: read
+2026-10-12T15:39:38.5282835Z ##[endgroup]
+2026-10-12T15:39:38.5286277Z Secret source: Actions
+2026-10-12T15:39:38.5287973Z Cache mode: write
+2026-10-12T15:39:38.5289934Z Prepare workflow directory
+2026-10-12T15:39:38.5790613Z Prepare all required actions
+2026-10-12T15:39:38.5865817Z Getting action download info
+2026-10-12T15:39:38.7738540Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T15:39:38.8854505Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T15:39:39.0901907Z Complete job name: Situation follow-up presentation guards
+2026-10-12T15:39:39.1680349Z ##[group]Run actions/checkout@v4
+2026-10-12T15:39:39.1681245Z with:
+2026-10-12T15:39:39.1681715Z   repository: dangerok97/DANGEROK
+2026-10-12T15:39:39.1686038Z   token: ***
+2026-10-12T15:39:39.1686500Z   ssh-strict: true
+2026-10-12T15:39:39.1686981Z   ssh-user: git
+2026-10-12T15:39:39.1687470Z   persist-credentials: true
+2026-10-12T15:39:39.1687970Z   clean: true
+2026-10-12T15:39:39.1688430Z   sparse-checkout-cone-mode: true
+2026-10-12T15:39:39.1688962Z   fetch-depth: 1
+2026-10-12T15:39:39.1689417Z   fetch-tags: false
+2026-10-12T15:39:39.1689883Z   show-progress: true
+2026-10-12T15:39:39.1690364Z   lfs: false
+2026-10-12T15:39:39.1690791Z   submodules: false
+2026-10-12T15:39:39.1691249Z   set-safe-directory: true
+2026-10-12T15:39:39.1691778Z   allow-unsafe-pr-checkout: false
+2026-10-12T15:39:39.1692722Z ##[endgroup]
+2026-10-12T15:39:39.2734395Z Syncing repository: dangerok97/DANGEROK
+2026-10-12T15:39:39.2736972Z ##[group]Getting Git version info
+2026-10-12T15:39:39.2738212Z Working directory is '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T15:39:39.2739866Z [command]/usr/bin/git version
+2026-10-12T15:39:39.2801343Z git version 2.55.0
+2026-10-12T15:39:39.2824496Z ##[endgroup]
+2026-10-12T15:39:39.2854231Z Temporarily overriding HOME='/home/runner/work/_temp/a6177936-7c84-4137-b71e-14ebcd184e8c' before making global git config changes
+2026-10-12T15:39:39.2861543Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T15:39:39.2863956Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:39:39.2907898Z Deleting the contents of '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T15:39:39.2912886Z ##[group]Initializing the repository
+2026-10-12T15:39:39.2918284Z [command]/usr/bin/git init /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:39:39.3014207Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T15:39:39.3015617Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T15:39:39.3016903Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T15:39:39.3017653Z hint: call:
+2026-10-12T15:39:39.3018065Z hint:
+2026-10-12T15:39:39.3018604Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T15:39:39.3019232Z hint:
+2026-10-12T15:39:39.3019821Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T15:39:39.3020762Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T15:39:39.3021517Z hint:
+2026-10-12T15:39:39.3021941Z hint: 	git branch -m <name>
+2026-10-12T15:39:39.3022494Z hint:
+2026-10-12T15:39:39.3023138Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T15:39:39.3027256Z Initialized empty Git repository in /home/runner/work/DANGEROK/DANGEROK/.git/
+2026-10-12T15:39:39.3039689Z [command]/usr/bin/git remote add origin https://github.com/dangerok97/DANGEROK
+2026-10-12T15:39:39.3091613Z ##[endgroup]
+2026-10-12T15:39:39.3093055Z ##[group]Disabling automatic garbage collection
+2026-10-12T15:39:39.3097081Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T15:39:39.3132138Z ##[endgroup]
+2026-10-12T15:39:39.3133559Z ##[group]Setting up auth
+2026-10-12T15:39:39.3141075Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T15:39:39.3178708Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T15:39:39.3546126Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T15:39:39.3587698Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T15:39:39.3831024Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T15:39:39.3869707Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T15:39:39.4097682Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T15:39:39.4138729Z ##[endgroup]
+2026-10-12T15:39:39.4139549Z ##[group]Fetching the repository
+2026-10-12T15:39:39.4148651Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +4958ee9981579a734454b0a15645b344c032459f:refs/remotes/pull/220/merge
+2026-10-12T15:39:40.5468602Z From https://github.com/dangerok97/DANGEROK
+2026-10-12T15:39:40.5470979Z  * [new ref]         4958ee9981579a734454b0a15645b344c032459f -> pull/220/merge
+2026-10-12T15:39:40.5477299Z ##[endgroup]
+2026-10-12T15:39:40.5479505Z ##[group]Determining the checkout info
+2026-10-12T15:39:40.5482196Z ##[endgroup]
+2026-10-12T15:39:40.5483981Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T15:39:40.5535920Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T15:39:40.5570648Z ##[group]Checking out the ref
+2026-10-12T15:39:40.5574254Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/220/merge
+2026-10-12T15:39:40.7736467Z Note: switching to 'refs/remotes/pull/220/merge'.
+2026-10-12T15:39:40.7737538Z 
+2026-10-12T15:39:40.7738293Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-12T15:39:40.7739746Z changes and commit them, and you can discard any commits you make in this
+2026-10-12T15:39:40.7741694Z state without impacting any branches by switching back to a branch.
+2026-10-12T15:39:40.7742281Z 
+2026-10-12T15:39:40.7742642Z If you want to create a new branch to retain commits you create, you may
+2026-10-12T15:39:40.7743746Z do so (now or later) by using -c with the switch command. Example:
+2026-10-12T15:39:40.7744251Z 
+2026-10-12T15:39:40.7744540Z   git switch -c <new-branch-name>
+2026-10-12T15:39:40.7745187Z 
+2026-10-12T15:39:40.7745413Z Or undo this operation with:
+2026-10-12T15:39:40.7745735Z 
+2026-10-12T15:39:40.7745934Z   git switch -
+2026-10-12T15:39:40.7746196Z 
+2026-10-12T15:39:40.7746615Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-12T15:39:40.7747197Z 
+2026-10-12T15:39:40.7747837Z HEAD is now at 4958ee9 Merge 641dbaf9869e0881ffe6778ff82c0e771e6fcca4 into 9063c41bea894bba9c2b384756b040c0f9f69983
+2026-10-12T15:39:40.7764352Z ##[endgroup]
+2026-10-12T15:39:40.7811278Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T15:39:40.7840655Z 4958ee9981579a734454b0a15645b344c032459f
+2026-10-12T15:39:40.8172586Z ##[group]Run actions/setup-node@v4
+2026-10-12T15:39:40.8172945Z with:
+2026-10-12T15:39:40.8173195Z   node-version: 22
+2026-10-12T15:39:40.8173668Z   always-auth: false
+2026-10-12T15:39:40.8173943Z   check-latest: false
+2026-10-12T15:39:40.8176748Z   token: ***
+2026-10-12T15:39:40.8177001Z ##[endgroup]
+2026-10-12T15:39:40.9677170Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-12T15:39:40.9681778Z (node:2311) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T15:39:40.9682763Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T15:39:40.9685331Z ##[group]Environment details
+2026-10-12T15:39:41.3387445Z node: v22.23.3
+2026-10-12T15:39:41.3388154Z npm: 10.9.9
+2026-10-12T15:39:41.3388678Z yarn: 1.22.22
+2026-10-12T15:39:41.3389724Z ##[endgroup]
+2026-10-12T15:39:41.3529551Z ##[group]Run node --experimental-strip-types src/components/ora/ora14.test.ts
+2026-10-12T15:39:41.3530206Z [36;1mnode --experimental-strip-types src/components/ora/ora14.test.ts[0m
+2026-10-12T15:39:41.3798894Z shell: /usr/bin/bash -e {0}
+2026-10-12T15:39:41.3799262Z ##[endgroup]
+2026-10-12T15:39:41.4917996Z ora14: all assertions passed
+2026-10-12T15:39:41.4941115Z (node:2345) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/ora14.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:39:41.4943685Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:39:41.4945541Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:39:41.4946993Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:39:41.5076706Z ##[group]Run node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts
+2026-10-12T15:39:41.5077495Z [36;1mnode --experimental-strip-types --test src/components/ora/situationOutcome.test.ts[0m
+2026-10-12T15:39:41.5143061Z shell: /usr/bin/bash -e {0}
+2026-10-12T15:39:41.5143513Z ##[endgroup]
+2026-10-12T15:39:41.5655829Z TAP version 13
+2026-10-12T15:39:41.6692775Z # (node:2359) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/situationOutcome.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T15:39:41.6695785Z # Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T15:39:41.6698118Z # To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T15:39:41.6699847Z # (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T15:39:41.6774214Z # Subtest: the useful estimate and the internal checkpoint remain different facts
+2026-10-12T15:39:41.6784466Z ok 1 - the useful estimate and the internal checkpoint remain different facts
+2026-10-12T15:39:41.6816709Z   ---
+2026-10-12T15:39:41.6844616Z   duration_ms: 2.128734
+2026-10-12T15:39:41.6874518Z   type: 'test'
+2026-10-12T15:39:41.6883303Z   ...
+2026-10-12T15:39:41.6894552Z # Subtest: a scheduled check, temporal scope and research log do not manufacture an estimate
+2026-10-12T15:39:41.6896589Z ok 2 - a scheduled check, temporal scope and research log do not manufacture an estimate
+2026-10-12T15:39:41.6898824Z   ---
+2026-10-12T15:39:41.6899544Z   duration_ms: 0.28912
+2026-10-12T15:39:41.6900179Z   type: 'test'
+2026-10-12T15:39:41.6901095Z   ...
+2026-10-12T15:39:41.6902486Z # Subtest: action_now based on an estimate is actionable without claiming a direct observation
+2026-10-12T15:39:41.6904218Z ok 3 - action_now based on an estimate is actionable without claiming a direct observation
+2026-10-12T15:39:41.6904976Z   ---
+2026-10-12T15:39:41.6905312Z   duration_ms: 0.285724
+2026-10-12T15:39:41.6905722Z   type: 'test'
+2026-10-12T15:39:41.6906044Z   ...
+2026-10-12T15:39:41.6906793Z # Subtest: early risk recommends intervention without presenting a drying window
+2026-10-12T15:39:41.6907893Z ok 4 - early risk recommends intervention without presenting a drying window
+2026-10-12T15:39:41.6908535Z   ---
+2026-10-12T15:39:41.6908930Z   duration_ms: 0.328252
+2026-10-12T15:39:41.6909302Z   type: 'test'
+2026-10-12T15:39:41.6909626Z   ...
+2026-10-12T15:39:41.6910326Z # Subtest: a concrete missing datum is a question, with no fabricated time
+2026-10-12T15:39:41.6911302Z ok 5 - a concrete missing datum is a question, with no fabricated time
+2026-10-12T15:39:41.6911897Z   ---
+2026-10-12T15:39:41.6912214Z   duration_ms: 0.415927
+2026-10-12T15:39:41.6912579Z   type: 'test'
+2026-10-12T15:39:41.6912903Z   ...
+2026-10-12T15:39:41.6913754Z # Subtest: at expiry a displayed estimate loses its old action and window
+2026-10-12T15:39:41.6914733Z ok 6 - at expiry a displayed estimate loses its old action and window
+2026-10-12T15:39:41.6915387Z   ---
+2026-10-12T15:39:41.6915712Z   duration_ms: 0.237063
+2026-10-12T15:39:41.6916113Z   type: 'test'
+2026-10-12T15:39:41.6916446Z   ...
+2026-10-12T15:39:41.6917260Z # Subtest: expired action_now cannot continue recommending action on an open page
+2026-10-12T15:39:41.6918482Z ok 7 - expired action_now cannot continue recommending action on an open page
+2026-10-12T15:39:41.6919222Z   ---
+2026-10-12T15:39:41.6919581Z   duration_ms: 1.319964
+2026-10-12T15:39:41.6919998Z   type: 'test'
+2026-10-12T15:39:41.6920385Z   ...
+2026-10-12T15:39:41.6921478Z # Subtest: missing or malformed validity never keeps an assessment actionable
+2026-10-12T15:39:41.6922693Z ok 8 - missing or malformed validity never keeps an assessment actionable
+2026-10-12T15:39:41.6923800Z   ---
+2026-10-12T15:39:41.6924151Z   duration_ms: 0.2948
+2026-10-12T15:39:41.6924793Z   type: 'test'
+2026-10-12T15:39:41.6925178Z   ...
+2026-10-12T15:39:41.6927300Z # Subtest: a changed Situation cannot reuse a previous revision’s estimate
+2026-10-12T15:39:41.6928976Z ok 9 - a changed Situation cannot reuse a previous revision’s estimate
+2026-10-12T15:39:41.6929932Z   ---
+2026-10-12T15:39:41.6930278Z   duration_ms: 0.539387
+2026-10-12T15:39:41.6931158Z   type: 'test'
+2026-10-12T15:39:41.6933039Z   ...
+2026-10-12T15:39:41.6933890Z # Subtest: stopping alerts is not presented as proof the physical result happened
+2026-10-12T15:39:41.6935140Z ok 10 - stopping alerts is not presented as proof the physical result happened
+2026-10-12T15:39:41.6935826Z   ---
+2026-10-12T15:39:41.6936152Z   duration_ms: 0.538396
+2026-10-12T15:39:41.6936534Z   type: 'test'
+2026-10-12T15:39:41.6936852Z   ...
+2026-10-12T15:39:41.6937589Z # Subtest: a finished watch keeps its verified final action visible until expiry
+2026-10-12T15:39:41.6938657Z ok 11 - a finished watch keeps its verified final action visible until expiry
+2026-10-12T15:39:41.6939298Z   ---
+2026-10-12T15:39:41.6939633Z   duration_ms: 0.356787
+2026-10-12T15:39:41.6940015Z   type: 'test'
+2026-10-12T15:39:41.6940336Z   ...
+2026-10-12T15:39:41.6940979Z # Subtest: plain waiting does not manufacture a question for the user
+2026-10-12T15:39:41.6941896Z ok 12 - plain waiting does not manufacture a question for the user
+2026-10-12T15:39:41.6942476Z   ---
+2026-10-12T15:39:41.6942792Z   duration_ms: 0.27857
+2026-10-12T15:39:41.6943161Z   type: 'test'
+2026-10-12T15:39:41.6943667Z   ...
+2026-10-12T15:39:41.6944721Z # Subtest: only an explicit direct-observation basis is presented as such
+2026-10-12T15:39:41.6946125Z ok 13 - only an explicit direct-observation basis is presented as such
+2026-10-12T15:39:41.6946745Z   ---
+2026-10-12T15:39:41.6947077Z   duration_ms: 0.212257
+2026-10-12T15:39:41.6947463Z   type: 'test'
+2026-10-12T15:39:41.6947786Z   ...
+2026-10-12T15:39:41.6948754Z # Subtest: the server’s local window is preserved across midnight and client timezones
+2026-10-12T15:39:41.6950158Z ok 14 - the server’s local window is preserved across midnight and client timezones
+2026-10-12T15:39:41.6950847Z   ---
+2026-10-12T15:39:41.6951178Z   duration_ms: 0.174957
+2026-10-12T15:39:41.6951556Z   type: 'test'
+2026-10-12T15:39:41.6951876Z   ...
+2026-10-12T15:39:41.6952603Z # Subtest: identical recommendation text is not duplicated below the headline
+2026-10-12T15:39:41.6954087Z ok 15 - identical recommendation text is not duplicated below the headline
+2026-10-12T15:39:41.6954743Z   ---
+2026-10-12T15:39:41.6955066Z   duration_ms: 0.166962
+2026-10-12T15:39:41.6955574Z   type: 'test'
+2026-10-12T15:39:41.6955925Z   ...
+2026-10-12T15:39:41.6956628Z # Subtest: an absent estimate is explicit even when no target has been saved
+2026-10-12T15:39:41.6957638Z ok 16 - an absent estimate is explicit even when no target has been saved
+2026-10-12T15:39:41.6958248Z   ---
+2026-10-12T15:39:41.6958570Z   duration_ms: 0.153436
+2026-10-12T15:39:41.6958940Z   type: 'test'
+2026-10-12T15:39:41.6959276Z   ...
+2026-10-12T15:39:41.7018465Z 1..16
+2026-10-12T15:39:41.7024959Z # tests 16
+2026-10-12T15:39:41.7025962Z # suites 0
+2026-10-12T15:39:41.7026667Z # pass 16
+2026-10-12T15:39:41.7027588Z # fail 0
+2026-10-12T15:39:41.7028287Z # cancelled 0
+2026-10-12T15:39:41.7029000Z # skipped 0
+2026-10-12T15:39:41.7029738Z # todo 0
+2026-10-12T15:39:41.7030511Z # duration_ms 148.663585
+2026-10-12T15:39:41.7193813Z Post job cleanup.
+2026-10-12T15:39:41.8473004Z (node:2366) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T15:39:41.8474886Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T15:39:41.8729401Z Post job cleanup.
+2026-10-12T15:39:41.9631335Z [command]/usr/bin/git version
+2026-10-12T15:39:41.9673880Z git version 2.55.0
+2026-10-12T15:39:41.9713991Z Temporarily overriding HOME='/home/runner/work/_temp/8e99cc9f-56a0-4d0b-91bb-4c7b79586371' before making global git config changes
+2026-10-12T15:39:41.9715607Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T15:39:41.9719291Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T15:39:41.9760393Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T15:39:41.9796141Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T15:39:42.0051687Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T15:39:42.0080380Z http.https://github.com/.extraheader
+2026-10-12T15:39:42.0101089Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T15:39:42.0142011Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T15:39:42.0412464Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T15:39:42.0455459Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T15:39:42.0933179Z Cleaning up orphan processes
+2026-10-12T15:39:42.1221932Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

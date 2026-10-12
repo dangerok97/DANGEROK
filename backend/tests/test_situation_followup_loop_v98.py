@@ -33,7 +33,8 @@ async def test_saved_attention_is_reconsidered_and_real_tool_schedules_it(monkey
                     'situation_update': {'operation': 'create',
                         'summary': 'Una situazione temporanea è ancora in corso.',
                         'attention_intent': 'Rivalutare le condizioni prima del prossimo passo.',
-                        'source_refs': ['user_conversation']}}
+                        'source_refs': ['user_conversation'],
+                        'location_label': None, 'linked_object_refs': []}}
         if len(calls) == 2:
             assert 'situation_followup_required' in str(payload)
             state = await db.situations.find_one({'user_id': session.user_id}, {'_id': 0})

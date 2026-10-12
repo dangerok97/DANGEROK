@@ -39,6 +39,8 @@ async def test_successful_temporary_situation_is_not_rewritten_as_memory_failure
                     "attention_intent": "capire quando arriva il momento utile per intervenire",
                     "expected_outcome_summary": "raggiungere il momento utile per concludere",
                     "source_refs": ["user_conversation"],
+                    "location_label": None,
+                    "linked_object_refs": [],
                 },
             }
         if calls == 2:

@@ -1,0 +1,46 @@
+{
+  "source_report": "/tmp/ora_v162_630_public_live.json",
+  "source_sha256": "b53dd53de9a0fc2a4398697686c4c845eb4637cb7c2927944e780e100dd38bfc",
+  "original_verdict": {
+    "technical_passed": true,
+    "semantic_gate_passed": false,
+    "passed": false,
+    "reasons": [
+      "semantic:TEMPERATURE_MISMATCH"
+    ],
+    "verified_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "required_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "model_decisions": 4,
+    "ai_calls": 4,
+    "tool_calls": 2,
+    "elapsed_ms": 62700,
+    "final_mode": "answer",
+    "semantic_acceptance": "pending_human_review"
+  },
+  "offline_replay_numeric_discrepancies": [],
+  "source_numbers": {
+    "current_temperature_c": 23,
+    "initial_forecast_temperatures_c": [
+      23,
+      24,
+      24,
+      24,
+      23
+    ],
+    "route_duration_seconds": 659,
+    "rounded_route_minutes": 11
+  },
+  "scope": "Local numerical parser regression only; no reclassification of the original live verdict and no semantic acceptance.",
+  "human_review_still_required": true,
+  "qualitative_limitation": {
+    "exact_answer_claim": "senza possibilità di pioggia",
+    "source": "Forecast probabilities are 0%; this is not a guarantee of physical impossibility."
+  },
+  "additional_model_or_provider_calls": 0
+}

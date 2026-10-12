@@ -1,0 +1,625 @@
+{
+  "scope": "Read-only collection of three original evaluation reports; semantic acceptance is not performed here.",
+  "code_revision": "650a6f404be52829c983cf49c0b612a96e6a4a11",
+  "tree": "fb5a9bb2fa8d3a593815481a66767a5d3cca2f89",
+  "project_id": "1264aea8-7e1e-403b-9d14-66f61135f179",
+  "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+  "service_id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+  "deployment_id": "d32cdee9-64f2-4d40-90be-4d907fe7f036",
+  "collection_complete": true,
+  "reports_collected": 3,
+  "platform_terminal_status": "CRASHED",
+  "platform_terminal_updated_at": "2026-10-12T13:18:27.613Z",
+  "platform_terminal_verified_at": "2026-10-12T13:20:53.059Z",
+  "report_results": [
+    {
+      "kind": "situation",
+      "path": "/tmp/ora_v162_650_collection/situation_live.json",
+      "bytes": 101039,
+      "sha256": "25fb74340f538d5037a67ce891e6d63665388202913ea6515466de5a0a9a84b7",
+      "fragments": 2,
+      "started_at": "2026-10-12T13:08:33.508784+00:00",
+      "finished_at": "2026-10-12T13:09:45.793530+00:00",
+      "revision_binding": "report_and_deployment",
+      "levels": {
+        "passed": false,
+        "overall_outcome": "followup_pending_unobserved",
+        "entry_route": "conversation_scheduled",
+        "phases": {
+          "conversation": {
+            "status": "passed",
+            "situation_id": "sit_07cbc03e93df40f7",
+            "goal_id": "gol_sit_1afc00a59ac11a2f29000f3e"
+          },
+          "initial_worker": {
+            "status": "not_run"
+          },
+          "monitoring": {
+            "status": "not_run"
+          },
+          "future_check": {
+            "status": "not_run"
+          },
+          "useful_action": {
+            "status": "not_run"
+          },
+          "device_receipt": {
+            "status": "not_run"
+          },
+          "cancellation": {
+            "status": "passed",
+            "pending_wakes": 0,
+            "replay_admission": "no_attention",
+            "physical_collection_claimed": false
+          }
+        },
+        "semantic_review": {
+          "status": "not_run",
+          "automatically_accepted": false
+        },
+        "logical_model_calls": 7,
+        "model_http_requests": 11,
+        "live_provider_reads": 1,
+        "intercepted_notification_attempts": [],
+        "real_notifications_sent": 0,
+        "full_laundry_outcome_passed": false,
+        "source_appropriateness_accepted": false,
+        "physical_clock_advanced": false,
+        "process_restart_tested": false,
+        "persistence": "in_memory_only_cancelled_after_snapshot",
+        "isolation": "HTTPX_scope_allowlist_not_process_socket_sandbox",
+        "scope_note": "First-cycle monitoring only; deferred/unobserved phases retain their original status."
+      }
+    },
+    {
+      "kind": "autonomy",
+      "path": "/tmp/ora_v162_650_collection/autonomy_live.json",
+      "bytes": 434748,
+      "sha256": "4a9dd9218cb4cddad16f527466188a7509dec341c5dc140c94c81501a455d45d",
+      "fragments": 6,
+      "started_at": "2026-10-12T13:09:47.648187+00:00",
+      "finished_at": "2026-10-12T13:17:33.728734+00:00",
+      "revision_binding": "report_and_deployment",
+      "levels": {
+        "passed": false,
+        "status": "failed",
+        "case_count": 9,
+        "case_pass_count": 4,
+        "model_attempts": 90,
+        "model_http_requests": 97,
+        "final_provider_records": [
+          {
+            "provider": "groq",
+            "model": "qwen/qwen3.8-27b",
+            "records": 2
+          },
+          {
+            "provider": "mistral",
+            "model": "ministral-8b-2512",
+            "records": 88
+          }
+        ],
+        "cases": [
+          {
+            "scenario": "completed_result",
+            "passed": false,
+            "reason": "SEMANTIC_RESULT_REJECTED:MISSING_COMPARISON_VALUE_60",
+            "result_checks": {
+              "preconditions": {
+                "status": "passed"
+              },
+              "semantic": {
+                "status": "failed",
+                "review": {
+                  "passed": false,
+                  "reasons": [
+                    "MISSING_COMPARISON_VALUE_60"
+                  ],
+                  "status": "bounded_check",
+                  "human_review_still_required": true
+                }
+              },
+              "home": {
+                "status": "passed"
+              },
+              "replay": {
+                "status": "passed"
+              },
+              "owner_isolation": {
+                "status": "passed"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 11,
+            "model_http_requests": 14
+          },
+          {
+            "scenario": "planning_outage",
+            "passed": false,
+            "reason": "COMPLETION_BUDGET_EXHAUSTED",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 17,
+            "model_http_requests": 18
+          },
+          {
+            "scenario": "home_write_retry",
+            "passed": false,
+            "reason": "COMPLETION_BUDGET_EXHAUSTED",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 19,
+            "model_http_requests": 19
+          },
+          {
+            "scenario": "source_revoked",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 5,
+            "model_http_requests": 5,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_revoked",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 5,
+            "model_http_requests": 8,
+            "external_effects": 0
+          },
+          {
+            "scenario": "memory_corrected",
+            "passed": false,
+            "reason": "COMPLETION_NEEDS_NEW_DECISION",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 14,
+            "model_http_requests": 14
+          },
+          {
+            "scenario": "source_change_crash",
+            "passed": false,
+            "reason": "COMPLETION_BUDGET_EXHAUSTED",
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "not_run"
+              }
+            },
+            "model_attempts": 17,
+            "model_http_requests": 17
+          },
+          {
+            "scenario": "already_resolved",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 1,
+            "model_http_requests": 1,
+            "external_effects": 0
+          },
+          {
+            "scenario": "irrelevant",
+            "passed": true,
+            "result_checks": {
+              "preconditions": {
+                "status": "not_run"
+              },
+              "semantic": {
+                "status": "not_run"
+              },
+              "home": {
+                "status": "not_run"
+              },
+              "replay": {
+                "status": "not_run"
+              },
+              "owner_isolation": {
+                "status": "not_run"
+              },
+              "isolation": {
+                "status": "passed"
+              }
+            },
+            "model_attempts": 1,
+            "model_http_requests": 1,
+            "external_effects": 0
+          }
+        ],
+        "scope_note": "Original automatic verdicts; six result checks remain independent. Missing effect fields are not zero."
+      }
+    },
+    {
+      "kind": "public",
+      "path": "/tmp/ora_v162_650_collection/public_live.json",
+      "bytes": 12934,
+      "sha256": "7992d04ff3d80580046761d09a6da41b4d1d4394a89b33058a032a8c9702cb8c",
+      "fragments": 1,
+      "started_at": null,
+      "finished_at": null,
+      "revision_binding": "external_deployment_metadata",
+      "levels": {
+        "verdict": {
+          "technical_passed": true,
+          "semantic_gate_passed": true,
+          "passed": true,
+          "reasons": [],
+          "verified_reads": [
+            "get_route",
+            "get_weather_forecast"
+          ],
+          "required_reads": [
+            "get_route",
+            "get_weather_forecast"
+          ],
+          "model_decisions": 4,
+          "ai_calls": 4,
+          "tool_calls": 2,
+          "elapsed_ms": 49310,
+          "final_mode": "answer",
+          "semantic_acceptance": "pending_human_review"
+        },
+        "semantic_review": {
+          "status": "bounded_pass",
+          "passed": true,
+          "reasons": [],
+          "automatically_accepted": false,
+          "human_review_still_required": true,
+          "grounding_rewrites": 0,
+          "time_metadata_limit": "Weather dates/timezone reach the model; routing HTTP retrieval time is not a provider as-of timestamp."
+        },
+        "live_provider_reads": 2,
+        "model_call_records": 4,
+        "final_provider_records": [
+          {
+            "provider": "mistral",
+            "model": "ministral-8b-2512",
+            "records": 3
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "records": 1
+          }
+        ],
+        "http_read_records": 2,
+        "blocked_operations": [],
+        "scope_note": "Technical, bounded semantic, and human acceptance remain separate; no internal revision field is fabricated."
+      }
+    }
+  ],
+  "autonomy_progress": [
+    {
+      "timestamp": "2026-10-12T13:10:55.976141392Z",
+      "value": {
+        "scenario": "completed_result",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 11,
+        "model_http_requests": 14,
+        "failure_code": "SEMANTIC_RESULT_REJECTED:MISSING_COMPARISON_VALUE_60",
+        "goal_status": "completed",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": false,
+        "planning_unavailable": false,
+        "prepared_text_characters": 1822,
+        "result_checks": {
+          "preconditions": "passed",
+          "semantic": "failed",
+          "home": "passed",
+          "replay": "passed",
+          "owner_isolation": "passed",
+          "isolation": "passed"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T13:12:46.614527208Z",
+      "value": {
+        "scenario": "planning_outage",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 17,
+        "model_http_requests": 18,
+        "failure_code": "COMPLETION_BUDGET_EXHAUSTED",
+        "goal_status": "active",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": false,
+        "planning_unavailable": false,
+        "prepared_text_characters": 3528,
+        "result_checks": {
+          "preconditions": "not_run",
+          "semantic": "not_run",
+          "home": "not_run",
+          "replay": "not_run",
+          "owner_isolation": "not_run",
+          "isolation": "not_run"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T13:14:26.972536083Z",
+      "value": {
+        "scenario": "home_write_retry",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 19,
+        "model_http_requests": 19,
+        "failure_code": "COMPLETION_BUDGET_EXHAUSTED",
+        "goal_status": "active",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": false,
+        "planning_unavailable": false,
+        "prepared_text_characters": 618,
+        "result_checks": {
+          "preconditions": "not_run",
+          "semantic": "not_run",
+          "home": "not_run",
+          "replay": "not_run",
+          "owner_isolation": "not_run",
+          "isolation": "not_run"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T13:14:46.971272892Z",
+      "value": {
+        "scenario": "source_revoked",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 5,
+        "model_http_requests": 5,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    },
+    {
+      "timestamp": "2026-10-12T13:14:56.116332525Z",
+      "value": {
+        "scenario": "memory_revoked",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 5,
+        "model_http_requests": 8,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    },
+    {
+      "timestamp": "2026-10-12T13:16:16.521390389Z",
+      "value": {
+        "scenario": "memory_corrected",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 14,
+        "model_http_requests": 14,
+        "failure_code": "COMPLETION_NEEDS_NEW_DECISION",
+        "goal_status": "abandoned",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": false,
+        "planning_unavailable": false,
+        "prepared_text_characters": 2123,
+        "result_checks": {
+          "preconditions": "not_run",
+          "semantic": "not_run",
+          "home": "not_run",
+          "replay": "not_run",
+          "owner_isolation": "not_run",
+          "isolation": "not_run"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T13:17:36.951988362Z",
+      "value": {
+        "scenario": "source_change_crash",
+        "mode": "live",
+        "passed": false,
+        "model_attempts": 17,
+        "model_http_requests": 17,
+        "failure_code": "COMPLETION_BUDGET_EXHAUSTED",
+        "goal_status": "active",
+        "requires_user_input": false,
+        "requires_user_authority": false,
+        "has_next_run_at": false,
+        "planning_unavailable": false,
+        "prepared_text_characters": 2220,
+        "result_checks": {
+          "preconditions": "not_run",
+          "semantic": "not_run",
+          "home": "not_run",
+          "replay": "not_run",
+          "owner_isolation": "not_run",
+          "isolation": "not_run"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-12T13:17:36.951994202Z",
+      "value": {
+        "scenario": "already_resolved",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 1,
+        "model_http_requests": 1,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    },
+    {
+      "timestamp": "2026-10-12T13:17:36.951999472Z",
+      "value": {
+        "scenario": "irrelevant",
+        "mode": "live",
+        "passed": true,
+        "model_attempts": 1,
+        "model_http_requests": 1,
+        "failure_code": null,
+        "goal_status": null,
+        "requires_user_input": null,
+        "requires_user_authority": null,
+        "has_next_run_at": null,
+        "planning_unavailable": null,
+        "prepared_text_characters": null,
+        "result_checks": null
+      }
+    }
+  ],
+  "manual_acceptance": "not_assessed_by_collector",
+  "warnings": [
+    "Collection exit 0 means complete extraction, not evaluation success.",
+    "CRASHED is the observed platform status; no precise process exit code or causal attribution is reconstructed from it.",
+    "Situation future/worker/useful-action/device phases remain not_run; this is not a drying or notification success.",
+    "Autonomy reasons are unchanged automatic verdicts, not independent semantic findings.",
+    "Public technical/bounded-semantic success retains pending human acceptance.",
+    "Missing external_effects fields are not assumed to be zero."
+  ]
+}

@@ -1,0 +1,1060 @@
+{
+  "schema": "ora_ci_frontend_evidence_v1",
+  "source": {
+    "sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+    "tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+    "pr": 220
+  },
+  "scope": "Four assigned frontend/presentation jobs only. Whole workflow acceptance is handled separately; these two successful frontend jobs do not make candidate CI green.",
+  "verdicts": {
+    "frontend_push": "success",
+    "frontend_pull_request": "success",
+    "situation_presentation_push": "failure",
+    "situation_presentation_pull_request": "failure"
+  },
+  "logs": {
+    "total": 4,
+    "storage": "Full logs are archived by the parent in the existing 14-log collection; this manifest references those paths and does not duplicate their content.",
+    "original_logs_independently_acquired": true,
+    "archived_copy_readback": "Performed separately by the parent; this collector did not re-read the repository archive.",
+    "records": [
+      {
+        "run": {
+          "id": 38281281145,
+          "name": "CI",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "failure",
+          "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "head_branch": "ora/v162-autonomy-validation-20261012",
+          "run_attempt": 1,
+          "created_at": "2026-10-12T17:00:08Z",
+          "updated_at": "2026-10-12T17:05:30Z",
+          "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281281145",
+          "path": ".github/workflows/ci.yml",
+          "source_tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+          "base_snapshots": [
+            {
+              "number": 220,
+              "base_ref": "staging/cloud",
+              "base_sha": "6e619cf64af5049fc362e904a04e4d89e6b14c76",
+              "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600"
+            }
+          ]
+        },
+        "job": {
+          "id": 114918903714,
+          "name": "Frontend TypeScript",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 38281281145,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Install",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "tsc",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Auth provider regressions",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "v162 session transitions, cleanup and device registration lifecycle",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Google login iOS browser redirect and blank-button fallback",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Home update lifecycle regression",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Home calendar excludes task deadlines and review checkpoints",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Prepared result review remains explicit in the update detail",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Situation useful time and action remain separate from internal checks",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 12
+            },
+            {
+              "name": "ORA calendar month-grid regression",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Calendar connector state and selected account consistency",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Device location consent and native background presence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Push installation identity across two devices",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Notification tap origin and navigation guards",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            },
+            {
+              "name": "Resolve Expo iOS configuration",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 18
+            },
+            {
+              "name": "Generate native iOS project",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 19
+            },
+            {
+              "name": "Export production iOS bundle",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 20
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 39
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 40
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 41
+            }
+          ],
+          "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281281145/job/114918903714"
+        },
+        "checkout": {
+          "sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "technical_merge": false,
+          "tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+          "tree_note": null
+        },
+        "observation": {
+          "typescript": "success",
+          "outcome_step": "success",
+          "tests": 34,
+          "passed": 34,
+          "failed": 0,
+          "split": {
+            "presenter": 20,
+            "async_hook": 9,
+            "render": 5
+          },
+          "summary_lines": [
+            "2026-10-12T17:00:49.9362515Z ℹ tests 34",
+            "2026-10-12T17:00:49.9362771Z ℹ suites 0",
+            "2026-10-12T17:00:49.9363034Z ℹ pass 34",
+            "2026-10-12T17:00:49.9363325Z ℹ fail 0",
+            "2026-10-12T17:00:49.9363589Z ℹ cancelled 0",
+            "2026-10-12T17:00:49.9363864Z ℹ skipped 0",
+            "2026-10-12T17:00:49.9364139Z ℹ todo 0",
+            "2026-10-12T17:00:49.9364427Z ℹ duration_ms 716.624997"
+          ],
+          "native_config_prebuild_export": "success",
+          "signed_build_or_device_receipt": "not_run"
+        },
+        "log": {
+          "repository_path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918903714.log",
+          "acquisition": {
+            "tool": "github_fetch_workflow_job_logs",
+            "request": {
+              "repo_full_name": "dangerok97/DANGEROK",
+              "job_id": 114918903714
+            },
+            "whole_content_received": true
+          },
+          "original_log_identity": {
+            "bytes": 62085,
+            "sha256": "796c4474656feca79607dd0d85c65302b94fc5964bfa0b0c2914523a3c5422d5",
+            "git_blob_sha": "a948b7af49458942027de1de1719bbe5f3d9ffe6"
+          },
+          "line_count": 654,
+          "third_party_contacts": {
+            "occurrences": 4,
+            "locations": [
+              {
+                "line": 157,
+                "occurrences": 1,
+                "replacement": "[CONTACT_REDACTED]",
+                "context": "npm deprecated glob support notice"
+              },
+              {
+                "line": 158,
+                "occurrences": 1,
+                "replacement": "[CONTACT_REDACTED]",
+                "context": "npm deprecated glob support notice"
+              },
+              {
+                "line": 159,
+                "occurrences": 1,
+                "replacement": "[CONTACT_REDACTED]",
+                "context": "npm deprecated glob support notice"
+              },
+              {
+                "line": 160,
+                "occurrences": 1,
+                "replacement": "[CONTACT_REDACTED]",
+                "context": "npm deprecated glob support notice"
+              }
+            ],
+            "archived_copy_requires_redaction": true
+          }
+        }
+      },
+      {
+        "run": {
+          "id": 38281288880,
+          "name": "CI",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "head_branch": "ora/v162-autonomy-validation-20261012",
+          "run_attempt": 1,
+          "created_at": "2026-10-12T17:00:11Z",
+          "updated_at": "2026-10-12T17:06:24Z",
+          "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281288880",
+          "path": ".github/workflows/ci.yml",
+          "source_tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+          "base_snapshots": [
+            {
+              "number": 220,
+              "base_ref": "staging/cloud",
+              "base_sha": "6e619cf64af5049fc362e904a04e4d89e6b14c76",
+              "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600"
+            }
+          ]
+        },
+        "job": {
+          "id": 114918927135,
+          "name": "Frontend TypeScript",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 38281288880,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Install",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "tsc",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Auth provider regressions",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "v162 session transitions, cleanup and device registration lifecycle",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Google login iOS browser redirect and blank-button fallback",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Home update lifecycle regression",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Home calendar excludes task deadlines and review checkpoints",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Prepared result review remains explicit in the update detail",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Situation useful time and action remain separate from internal checks",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 12
+            },
+            {
+              "name": "ORA calendar month-grid regression",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Calendar connector state and selected account consistency",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Device location consent and native background presence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Push installation identity across two devices",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Notification tap origin and navigation guards",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            },
+            {
+              "name": "Resolve Expo iOS configuration",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 18
+            },
+            {
+              "name": "Generate native iOS project",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 19
+            },
+            {
+              "name": "Export production iOS bundle",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 20
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 39
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 40
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 41
+            }
+          ],
+          "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281288880/job/114918927135"
+        },
+        "checkout": {
+          "sha": "e7ddc35f30bde22e7ab88dfd21fc287292b1493c",
+          "technical_merge": true,
+          "tree": null,
+          "tree_note": "Not queried in this collection; API run source tree is not treated as the merge checkout tree."
+        },
+        "observation": {
+          "typescript": "success",
+          "outcome_step": "success",
+          "tests": 34,
+          "passed": 34,
+          "failed": 0,
+          "split": {
+            "presenter": 20,
+            "async_hook": 9,
+            "render": 5
+          },
+          "summary_lines": [
+            "2026-10-12T17:00:55.2442739Z ℹ tests 34",
+            "2026-10-12T17:00:55.2442924Z ℹ suites 0",
+            "2026-10-12T17:00:55.2443102Z ℹ pass 34",
+            "2026-10-12T17:00:55.2443291Z ℹ fail 0",
+            "2026-10-12T17:00:55.2443675Z ℹ cancelled 0",
+            "2026-10-12T17:00:55.2443931Z ℹ skipped 0",
+            "2026-10-12T17:00:55.2444185Z ℹ todo 0",
+            "2026-10-12T17:00:55.2444480Z ℹ duration_ms 517.669797"
+          ],
+          "native_config_prebuild_export": "success",
+          "signed_build_or_device_receipt": "not_run"
+        },
+        "log": {
+          "repository_path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918927135.log",
+          "acquisition": {
+            "tool": "github_fetch_workflow_job_logs",
+            "request": {
+              "repo_full_name": "dangerok97/DANGEROK",
+              "job_id": 114918927135
+            },
+            "whole_content_received": true
+          },
+          "original_log_identity": {
+            "bytes": 62862,
+            "sha256": "5bcc66bc816f4c90a48ed1d7ca4f54b2c23252f7f54c18b7e6246f1a64e5b41b",
+            "git_blob_sha": "900dde67debb8fa88d18a4ae66433e0ac5a8d72f"
+          },
+          "line_count": 670,
+          "third_party_contacts": {
+            "occurrences": 4,
+            "locations": [
+              {
+                "line": 174,
+                "occurrences": 1,
+                "replacement": "[CONTACT_REDACTED]",
+                "context": "npm deprecated glob support notice"
+              },
+              {
+                "line": 175,
+                "occurrences": 1,
+                "replacement": "[CONTACT_REDACTED]",
+                "context": "npm deprecated glob support notice"
+              },
+              {
+                "line": 176,
+                "occurrences": 1,
+                "replacement": "[CONTACT_REDACTED]",
+                "context": "npm deprecated glob support notice"
+              },
+              {
+                "line": 177,
+                "occurrences": 1,
+                "replacement": "[CONTACT_REDACTED]",
+                "context": "npm deprecated glob support notice"
+              }
+            ],
+            "archived_copy_requires_redaction": true
+          }
+        }
+      },
+      {
+        "run": {
+          "id": 38281280832,
+          "name": "Situation follow-up regressions",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "failure",
+          "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "head_branch": "ora/v162-autonomy-validation-20261012",
+          "run_attempt": 1,
+          "created_at": "2026-10-12T17:00:08Z",
+          "updated_at": "2026-10-12T17:01:34Z",
+          "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281280832",
+          "path": ".github/workflows/situation-followup-regressions.yml",
+          "source_tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+          "base_snapshots": [
+            {
+              "number": 220,
+              "base_ref": "staging/cloud",
+              "base_sha": "6e619cf64af5049fc362e904a04e4d89e6b14c76",
+              "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600"
+            }
+          ]
+        },
+        "job": {
+          "id": 114918902013,
+          "name": "Situation follow-up presentation guards",
+          "status": "completed",
+          "conclusion": "failure",
+          "run_id": 38281280832,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Check conversation controls and absence of false active reminders",
+              "status": "completed",
+              "conclusion": "failure",
+              "number": 4
+            },
+            {
+              "name": "Estimate, action, expiry and current source presentation",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 5
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 9
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            }
+          ],
+          "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281280832/job/114918902013"
+        },
+        "checkout": {
+          "sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "technical_merge": false,
+          "tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+          "tree_note": null
+        },
+        "observation": {
+          "guard_step": "failure",
+          "failed_assertion": {
+            "path": "frontend/src/components/ora/ora14.test.ts",
+            "line": 403,
+            "expression": "assert.ok(rail.includes('followup.next_check_label || timeLabel(followup.next_check_at)'))"
+          },
+          "subsequent_presenter_step": "skipped",
+          "misleading_intermediate_log": "The source prints 'all assertions passed' before later assertions. The job still failed; this intermediate line is not used as the verdict."
+        },
+        "log": {
+          "repository_path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918902013.log",
+          "acquisition": {
+            "tool": "github_fetch_workflow_job_logs",
+            "request": {
+              "repo_full_name": "dangerok97/DANGEROK",
+              "job_id": 114918902013
+            },
+            "whole_content_received": true
+          },
+          "original_log_identity": {
+            "bytes": 12784,
+            "sha256": "3c7dbf59690ec2caaa38aa583275ba5027578f19295b2d24325610f3548860f9",
+            "git_blob_sha": "3d1316cd6d64a011499804f695e51838ba93f3a8"
+          },
+          "line_count": 165,
+          "third_party_contacts": {
+            "occurrences": 0,
+            "locations": [],
+            "archived_copy_requires_redaction": false
+          }
+        }
+      },
+      {
+        "run": {
+          "id": 38281288767,
+          "name": "Situation follow-up regressions",
+          "event": "pull_request",
+          "status": "completed",
+          "conclusion": "failure",
+          "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "head_branch": "ora/v162-autonomy-validation-20261012",
+          "run_attempt": 1,
+          "created_at": "2026-10-12T17:00:11Z",
+          "updated_at": "2026-10-12T17:01:53Z",
+          "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281288767",
+          "path": ".github/workflows/situation-followup-regressions.yml",
+          "source_tree": "4d192388eb24b58c1905aaf3055a8ba595acd751",
+          "base_snapshots": [
+            {
+              "number": 220,
+              "base_ref": "staging/cloud",
+              "base_sha": "6e619cf64af5049fc362e904a04e4d89e6b14c76",
+              "head_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600"
+            }
+          ]
+        },
+        "job": {
+          "id": 114918925630,
+          "name": "Situation follow-up presentation guards",
+          "status": "completed",
+          "conclusion": "failure",
+          "run_id": 38281288767,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Check conversation controls and absence of false active reminders",
+              "status": "completed",
+              "conclusion": "failure",
+              "number": 4
+            },
+            {
+              "name": "Estimate, action, expiry and current source presentation",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 5
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 9
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            }
+          ],
+          "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38281288767/job/114918925630"
+        },
+        "checkout": {
+          "sha": "e7ddc35f30bde22e7ab88dfd21fc287292b1493c",
+          "technical_merge": true,
+          "tree": null,
+          "tree_note": "Not queried in this collection; API run source tree is not treated as the merge checkout tree."
+        },
+        "observation": {
+          "guard_step": "failure",
+          "failed_assertion": {
+            "path": "frontend/src/components/ora/ora14.test.ts",
+            "line": 403,
+            "expression": "assert.ok(rail.includes('followup.next_check_label || timeLabel(followup.next_check_at)'))"
+          },
+          "subsequent_presenter_step": "skipped",
+          "misleading_intermediate_log": "The source prints 'all assertions passed' before later assertions. The job still failed; this intermediate line is not used as the verdict."
+        },
+        "log": {
+          "repository_path": "docs/evidence/autonomy_v162_ci_2026-10-12_848a379_logs/job_114918925630.log",
+          "acquisition": {
+            "tool": "github_fetch_workflow_job_logs",
+            "request": {
+              "repo_full_name": "dangerok97/DANGEROK",
+              "job_id": 114918925630
+            },
+            "whole_content_received": true
+          },
+          "original_log_identity": {
+            "bytes": 13624,
+            "sha256": "82a141ea1f12576a63a560ad37a14527f98220f2f2657924b843913423d7bce6",
+            "git_blob_sha": "5d080f9d89e088e664d65ba996cc9c2b6bc8d284"
+          },
+          "line_count": 181,
+          "third_party_contacts": {
+            "occurrences": 0,
+            "locations": [],
+            "archived_copy_requires_redaction": false
+          }
+        }
+      }
+    ]
+  },
+  "correction": {
+    "path": "frontend/src/components/ora/ora14.test.ts",
+    "preimage": {
+      "bytes": 20546,
+      "sha256": "31ec9acaf60d17db8a57c51b3f3687a3bc81dec8ad873512093e5e24a3ab504b",
+      "git_blob_sha": "b9da0e0c6703a4305e20610a9067d543031e5a3f"
+    },
+    "postimage": {
+      "bytes": 20562,
+      "sha256": "5b96a85646e98ef07c98db66aee8ac8f81daa5b9bd3aa923c29b0d30129a51fe",
+      "git_blob_sha": "0aa4c5cda560afe8f00e1821c15ab4fe66601d57"
+    },
+    "scan": {
+      "artifact_path": "frontend/src/components/ora/ora14.test.ts",
+      "content_matches": {
+        "private_key_pem": 0,
+        "google_api_key": 0,
+        "openai_style_key": 0,
+        "github_token": 0,
+        "mongodb_uri_with_password": 0
+      },
+      "path_matches": [],
+      "raw_bytes_scanned": 20562,
+      "decoded_string_occurrences": 21,
+      "decoded_bytes_scanned": 21018,
+      "parsed_nodes_visited": 21,
+      "nested_json_values_decoded": 0,
+      "embedded_json_tokens_decoded": 20,
+      "creator_key_occurrences": 0,
+      "creator_key_text_occurrences": 0,
+      "size_skips": 0,
+      "binary_skips": 0,
+      "placeholder_exceptions": 0,
+      "path_exceptions": 0,
+      "decoded_failures_retained_as_raw": true,
+      "passed": true
+    },
+    "readback": {
+      "byteExact": true,
+      "bytes": 20562,
+      "sha256": "5b96a85646e98ef07c98db66aee8ac8f81daa5b9bd3aa923c29b0d30129a51fe",
+      "git_blob_sha": "0aa4c5cda560afe8f00e1821c15ab4fe66601d57"
+    },
+    "diff": {
+      "line": 403,
+      "before": "  assert.ok(rail.includes('followup.next_check_label || timeLabel(followup.next_check_at)'));",
+      "after": "  assert.ok(rail.includes('verifiedFollowup.next_check_label || timeLabel(verifiedFollowup.next_check_at)'));"
+    },
+    "runtime_changed": false,
+    "assertions_removed": 0,
+    "assertion_operator_or_semantics_changed": false,
+    "reason": "The existing guard references the actual current-data variable used by the rail. The localized server label and timestamp fallback remain required.",
+    "verification": {
+      "red": {
+        "completed": false,
+        "assertions": 118,
+        "reads": [
+          "frontend/app/ora/index.tsx",
+          "frontend/app/ora/[sessionId].tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraTurns.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/app/ora/index.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraChrome.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraTurns.tsx",
+          "frontend/src/components/ora/OraCockpitContext.tsx",
+          "frontend/src/shell/navItems.ts",
+          "frontend/src/components/ora/situationVisual.ts",
+          "frontend/src/components/ora/TemporarySituationToast.tsx",
+          "frontend/src/components/ora-ai/RichOraText.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraCockpitContext.tsx",
+          "frontend/src/components/ora/presence/knowledge.ts",
+          "frontend/src/components/ora/OraCockpitContext.tsx"
+        ],
+        "messages": [
+          "ora14: all assertions passed"
+        ],
+        "error": {
+          "message": "Assertion 118 failed",
+          "actual": false,
+          "expected": true,
+          "stack": [
+            "Error: Assertion 118 failed",
+            "    at requireAssertion (exec_main.mjs:17:21)",
+            "    at Object.ok (exec_main.mjs:24:29)",
+            "    at eval (eval at runOra14 (exec_main.mjs:62:5), <anonymous>:399:10)",
+            "    at runOra14 (exec_main.mjs:63:119)",
+            "    at exec_main.mjs:83:13"
+          ]
+        }
+      },
+      "green": {
+        "completed": true,
+        "assertions": 130,
+        "reads": [
+          "frontend/app/ora/index.tsx",
+          "frontend/app/ora/[sessionId].tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraTurns.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/app/ora/index.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraChrome.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraTurns.tsx",
+          "frontend/src/components/ora/OraCockpitContext.tsx",
+          "frontend/src/shell/navItems.ts",
+          "frontend/src/components/ora/situationVisual.ts",
+          "frontend/src/components/ora/TemporarySituationToast.tsx",
+          "frontend/src/components/ora-ai/RichOraText.tsx",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/OraCockpitContext.tsx",
+          "frontend/src/components/ora/presence/knowledge.ts",
+          "frontend/src/components/ora/OraCockpitContext.tsx",
+          "frontend/src/components/ora/presence/OraPresence.tsx",
+          "frontend/src/components/ora/presence/knowledge.ts",
+          "frontend/src/components/ora/OraConversationScreen.tsx",
+          "frontend/src/components/ora/presence/OraPresence.tsx",
+          "frontend/src/components/ora/presence/OraPresence.web.tsx"
+        ],
+        "messages": [
+          "ora14: all assertions passed"
+        ]
+      },
+      "source_sha": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+      "qualification": "Complete existing static guard and exact imported pure helper bodies executed in V8 with declared fs/path/assert/URLSearchParams adapters; not Node, tsc or browser execution. No assertion or runtime change except the single source variable reference.",
+      "dependencies": [
+        {
+          "path": "frontend/src/components/ora/OraTurns.tsx",
+          "bytes": 14764,
+          "sha256": "80da4800bc340e99d2d8a8e8367d02dea9ea73f4f0b80f3290584207cc06887d",
+          "git_blob_sha": "49aa60be0e2a076547bf1e2868b4d5a9d2bec64f",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/OraChrome.tsx",
+          "bytes": 18962,
+          "sha256": "02e52274adea3afafd5c9e221502bf95d320d93a202cee4b2dbaa56dbdc1d606",
+          "git_blob_sha": "9ddc9010cf7d8b73ecd2025a5ad28b58e7422709",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/OraCockpitContext.tsx",
+          "bytes": 14896,
+          "sha256": "550a008dc4aee275f93bffc951326590df298b025b5118bfa80420c61f69e968",
+          "git_blob_sha": "17749fe168c04500ee4078179c122987de2e5e52",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/shell/navItems.ts",
+          "bytes": 5414,
+          "sha256": "80cf01e4d2892798a8a59acf6aa44a398a3ced9f11379ee054b73691cf6c7e39",
+          "git_blob_sha": "8f8899cd46f7ba995e669d45fdc9cd44b8029de1",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/situationVisual.ts",
+          "bytes": 1792,
+          "sha256": "cba14e9ca436f9c18148ae7e7a93fb437e4dcbb4acff0de45683d7fbe845a68c",
+          "git_blob_sha": "5c0bf5e7bfc4bcff6736330f1be68c9ea5eb2efb",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/TemporarySituationToast.tsx",
+          "bytes": 4901,
+          "sha256": "d77d5ca219794fdffbc56ff22c870fc7050058fe28ea5e31a109a1565af09069",
+          "git_blob_sha": "0586ae83be5f38ea21365222dcba689d0a8be466",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora-ai/RichOraText.tsx",
+          "bytes": 7573,
+          "sha256": "35823141fd0cac4bb593b7340216b3ec661bf84d193c482b31a94a40ed08dfa9",
+          "git_blob_sha": "65c81436927646aa9cef9c001cdd4c51ecad44d1",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/presence/knowledge.ts",
+          "bytes": 4487,
+          "sha256": "a03d455addb6eb30e0b8f763f217bef0441a7058e70422f554ea7d0459bf5e5f",
+          "git_blob_sha": "845e9cd6079123739256094b8c4642f1b487d1ec",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/presence/OraPresence.tsx",
+          "bytes": 28226,
+          "sha256": "b620ba2476a9a26736d03811e1a971e43407bbb66840d1b3423b23eee9b4acac",
+          "git_blob_sha": "0edf5d5d650d7450c6a91be78ffdfecdeb62eb80",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/presence/OraPresence.web.tsx",
+          "bytes": 14505,
+          "sha256": "1cbd79c799d60ffb3087c780dfd7123b6ce5f753f7b19a372eb3495a43ecdfd2",
+          "git_blob_sha": "a95bd38ce6e84c0adf19dde2000b51dfdfe810f5",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/OraConversationScreen.tsx",
+          "bytes": 67368,
+          "sha256": "eb9808024741085cc9938a0a3fec73a1bf858354872a113ab635c989ea9c0e21",
+          "git_blob_sha": "c506a94a16c7220bf2e24091d31aa5f300906230",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/app/ora/index.tsx",
+          "bytes": 2038,
+          "sha256": "2cef24aa74737bd6c6ec8c2eb013b8aeb17939166a6faa1288e20dc25ad9bac0",
+          "git_blob_sha": "89c79ffd441e4b58d374849647ed6fd8ae9d928c",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/app/ora/[sessionId].tsx",
+          "bytes": 1198,
+          "sha256": "f59abbb040e731c3271663a212e949d5cddf9868b004654c934a525ca9581e36",
+          "git_blob_sha": "3bfde9d94a308da10566f73e3e488b70c425784b",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/components/ora/contextView.ts",
+          "bytes": 3363,
+          "sha256": "e602c9a1f035fad54f454a21d5f63a22ae7915a078fc5639bf543adb31a9df5a",
+          "git_blob_sha": "1620c26809488c48a2f5e0dbf110a2497413a4b0",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        },
+        {
+          "path": "frontend/src/ora/oraNav.ts",
+          "bytes": 4194,
+          "sha256": "08f23d1c635f4a266af1627d258cf1680c409ba83b091733e10e03937f3b38fd",
+          "git_blob_sha": "3ce265a4f18abdb26d85d5cb6ec232f16ea4ac24",
+          "requested_ref": "848a379555b4b20382ec8b90bb85b79a58d1a600",
+          "git_api_identity_verified": true
+        }
+      ],
+      "test_js_identity": {
+        "bytes": 20245,
+        "sha256": "3a6dcedcb639a4eea18ac52588bafae95e5dcb52d051456554e20de40497674c",
+        "git_blob_sha": "a7496d8c6acff061f9cb51a8363593a7a6b84a67"
+      },
+      "helper_js_identity": {
+        "bytes": 4982,
+        "sha256": "ca032bd418d3ddbb3b83f77bc08da2e3790f02216b9965c9cac63f6b9bb9704a",
+        "git_blob_sha": "b94fc157d79c4eee9d36209cb66c202cdfb17db2"
+      },
+      "adapter_function": "function runOra14(testJS, helpersJS, sources) {\n  let assertions = 0;\n  const reads = [];\n  const messages = [];\n  function strictEqual(a, b) {\n    if (Object.is(a, b)) return true;\n    if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;\n    if (Array.isArray(a) !== Array.isArray(b)) return false;\n    if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) return false;\n    const ka = Reflect.ownKeys(a), kb = Reflect.ownKeys(b);\n    if (ka.length !== kb.length) return false;\n    return ka.every(k => Object.hasOwn(b, k) && strictEqual(a[k], b[k]));\n  }\n  function requireAssertion(ok, message, actual, expected) {\n    assertions += 1;\n    if (!ok) {\n      const error = new Error(message || `Assertion ${assertions} failed`);\n      error.actual = actual;\n      error.expected = expected;\n      throw error;\n    }\n  }\n  const assert = {\n    ok: (value, message) => requireAssertion(Boolean(value), message, value, true),\n    equal: (a, b, message) => requireAssertion(Object.is(a, b), message, a, b),\n    deepEqual: (a, b, message) => requireAssertion(strictEqual(a, b), message, a, b),\n  };\n  const pathResolve = (...parts) => {\n    let output = [];\n    for (const part of parts) {\n      if (part.startsWith('/')) output = [];\n      for (const token of part.split('/')) {\n        if (!token || token === '.') continue;\n        if (token === '..') output.pop(); else output.push(token);\n      }\n    }\n    return '/' + output.join('/');\n  };\n  const readFileSync = (absolute, encoding) => {\n    if (encoding !== 'utf8' || !absolute.startsWith('/source/')) throw new Error('Unexpected file read contract');\n    const path = absolute.slice('/source/'.length);\n    if (!Object.hasOwn(sources, path)) throw new Error('Missing exact dependency: ' + path);\n    reads.push(path);\n    return sources[path];\n  };\n  const dirname = value => value.slice(0, value.lastIndexOf('/'));\n  const fileURLToPath = value => {\n    if (value !== 'file:///source/frontend/src/components/ora/ora14.test.ts') throw new Error('Unexpected module URL');\n    return value.slice('file://'.length);\n  };\n  class SearchParamsAdapter {\n    constructor() { this.entries = new Map(); }\n    set(key, value) { this.entries.set(String(key), String(value)); }\n    toString() {\n      const encode = value => encodeURIComponent(value).replace(/[!'()~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, '+');\n      return Array.from(this.entries, ([key, value]) => encode(key) + '=' + encode(value)).join('&');\n    }\n  }\n  try {\n    const helpers = new Function('URLSearchParams', helpersJS +\n      '\\nreturn {contextFromPlanBundle,oraErrorSentence,buildOraConversationHref,oraEntryPointFrom};')(SearchParamsAdapter);\n    new Function('assert', 'readFileSync', 'fileURLToPath', 'dirname', 'resolve',\n      'contextFromPlanBundle', 'oraErrorSentence', 'buildOraConversationHref', 'oraEntryPointFrom', 'console', testJS)(\n      assert, readFileSync, fileURLToPath, dirname, pathResolve,\n      helpers.contextFromPlanBundle, helpers.oraErrorSentence, helpers.buildOraConversationHref,\n      helpers.oraEntryPointFrom, {log: value => messages.push(String(value))}\n    );\n    return {completed: true, assertions, reads, messages};\n  } catch (error) {\n    return {completed: false, assertions, reads, messages, error: {\n      message: String(error.message), actual: error.actual, expected: error.expected,\n      stack: String(error.stack).split('\\n').slice(0, 8),\n    }};\n  }\n}",
+      "helper_js": "/**\n * Pure shaping for the ORA conversation surface.\n *\n * Deliberately free of imports: this is the part that decides what a person\n * reads, and it should be checkable without a network, a theme or a bundler.\n */\n\n\n/**\n * The header for a conversation opened on a document.\n *\n * The title is read from the document itself rather than carried in the URL:\n * a filename can say a great deal about a person, and the route is not the\n * place for it. Nothing is invented — with no readable title there is no\n * header, and the conversation simply opens without one.\n */\nfunction contextFromDocument(doc) {\n  const title = String(\n    doc?.display_title || doc?.user_title || doc?.original_filename || doc?.filename || '',\n  ).trim();\n  if (!title) return null;\n  return { goal: title, step: null, material: null };\n}\n\n/**\n * What ORA already has in hand, read off the plan bundle that already exists.\n *\n * Returns null rather than a placeholder: a header that says nothing real is\n * worse than no header, because it teaches the user to ignore the space where\n * the real thing appears.\n */\nfunction contextFromPlanBundle(\n  bundle,\n  { objectId, planItemId },\n) {\n  const goal = String(bundle?.plan?.summary || '').trim();\n  if (!goal) return null;\n\n  const objects = Array.isArray(bundle?.objects) ? bundle.objects : [];\n  const material = objectId\n    ? String(objects.find((o) => o?.id === objectId)?.title || '').trim() || null\n    : null;\n\n  const items = Array.isArray(bundle?.plan?.items) ? bundle.plan.items : [];\n  const named = planItemId ? items.find((i) => i?.id === planItemId) : null;\n  // Fall back to whatever the plan itself considers next — the same step the\n  // Workspace shows under ADESSO, so the two surfaces agree.\n  const step = String(named?.title || bundle?.next_item?.title || '').trim() || null;\n\n  return { goal, step, material };\n}\n\n/**\n * The conversation's own words for a failure, or null when it has no opinion.\n *\n * The app-wide translator serves setup screens and dev surfaces, where \"check\n * EXPO_PUBLIC_BACKEND_URL\" is genuinely the right advice. In a conversation it\n * is not: the user cannot start a backend, and being told to is worse than\n * being told nothing. Connectivity and server failures get one plain sentence\n * here; anything else falls through to the shared translation.\n */\nfunction oraErrorSentence(err) {\n  const code = String(err?.code || '').toLowerCase();\n  const raw = String(err?.message || '').toLowerCase();\n  const offline =\n    code === 'network_unreachable' ||\n    code === 'backend_url_missing' ||\n    Boolean(err?.network) ||\n    /failed to fetch|network request failed|load failed|networkerror|offline/.test(raw);\n  if (offline) return 'Non riesco a raggiungere ORA in questo momento. Riprova fra poco.';\n  if (Number(err?.status || 0) >= 500) return 'ORA ha avuto un problema nel rispondere. Riprova fra poco.';\n  return null;\n}\n\nconst ENTRY_POINTS = [\n  'home',\n  'ora',\n  'goal_workspace',\n  'continue',\n  'focus',\n  'object',\n  'vita',\n  'document',\n  'question',\n  'opportunity',\n  'notification',\n];\n\n/** Read an entry point off a URL, falling back to a plain ORA opening. */\nfunction oraEntryPointFrom(raw) {\n  const v = Array.isArray(raw) ? raw[0] : raw;\n  return ENTRY_POINTS.includes(String(v || ''))\n    ? (String(v))\n    : 'ora';\n}\n\nconst OPAQUE_ID = /^[A-Za-z0-9_-]{4,80}$/;\n\nfunction opaque(id) {\n  if (!id) return undefined;\n  const s = String(id).trim();\n  return OPAQUE_ID.test(s) ? s : undefined;\n}\n\n/** Build production ORA conversation href (never /ora-ai). */\nfunction buildOraConversationHref(p) {\n  const sessionId = opaque(p.sessionId);\n  const base = sessionId ? `/ora/${sessionId}` : '/ora';\n  const q = new URLSearchParams();\n  if (sessionId && p.opening) q.set('opening', '1');\n  const planId = opaque(p.planId);\n  const objectId = opaque(p.objectId);\n  const planItemId = opaque(p.planItemId);\n  const documentId = opaque(p.documentId);\n  const questionId = opaque(p.questionId);\n  const opportunityId = opaque(p.opportunityId);\n  const entry = p.entryPoint;\n  if (planId) q.set('planId', planId);\n  if (objectId) q.set('objectId', objectId);\n  if (planItemId) q.set('planItemId', planItemId);\n  if (documentId) q.set('documentId', documentId);\n  if (questionId) q.set('questionId', questionId);\n  if (opportunityId) q.set('opportunityId', opportunityId);\n  if (entry) q.set('entry', entry);\n  const qs = q.toString();\n  return qs ? `${base}?${qs}` : base;\n}\n\nfunction buildGoalWorkspaceHref(planId) {\n  const id = opaque(planId);\n  if (!id) return '/ora';\n  return `/goal-workspace/${id}`;\n}\n\n/** True if href is the DEV AI harness (must not be used by production nav). */\nfunction isDevOraAiHref(href) {\n  return href === '/ora-ai' || href.startsWith('/ora-ai/');\n}\n\nfunction assertNoSensitiveQuery(href) {\n  const lower = href.toLowerCase();\n  const banned = ['name=', 'job=', 'exam=', 'location=', 'email=', 'phone='];\n  return !banned.some((b) => lower.includes(b));\n}\n",
+      "transforms": [
+        "One-line imports removed from the test; import.meta.url mapped to a fixed synthetic absolute module URL; the read helper string parameter annotation removed.",
+        "Type declarations, parameter/return annotations, exports, and type assertions erased from the exact two imported pure helper sources. Function bodies and data retained.",
+        "Filesystem adapter reads only the exact Git-verified candidate files. URLSearchParams adapter covers ordered set/toString used by the existing opaque-identifier case."
+      ],
+      "complete_green_assertions": 130,
+      "green_whole_test_reached_end": true,
+      "node_test_of_new_guard": "not_run",
+      "ci_of_new_guard": "not_run"
+    },
+    "independent_review": {
+      "reviewer_role": "peer read-only",
+      "verdict": "no concrete blocker",
+      "execution_performed": false,
+      "scope": "Single changed assertion at line403 against the unchanged verifiedFollowup renderer"
+    }
+  },
+  "limitations": [
+    "No local Node, TypeScript, browser or model execution was performed for the one-line static guard adjustment; the executor is unavailable.",
+    "The original failing CI verdicts remain unchanged. V8 completed all130 assertions after the adjustment; CI confirmation is pending.",
+    "Native configuration/prebuild/export success is not a signed install or a notification received on a device.",
+    "Run metadata base snapshots are preserved as observed. Actual PR checkout is read from the job log; merge tree was not inferred from head_commit.tree_id.",
+    "Original full log content is retained in memory and hashed here. Parent-owned repository paths contain two exact Situation log copies and two copies with third-party npm support contact addresses redacted; consult the parent's archive manifest for saved-copy hashes."
+  ]
+}

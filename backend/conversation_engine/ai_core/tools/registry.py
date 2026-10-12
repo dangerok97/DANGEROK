@@ -1044,8 +1044,8 @@ class ToolRegistry:
             CapabilitySpec(
                 capability="get_route",
                 description=(
-                    "Live journey time from their current position to one of "
-                    "their places, from a routing service. Prefer the exact "
+                    "Current provider estimate of journey time from their current "
+                    "position to one of their places. Prefer the exact "
                     "place:<id> ref supplied by context or a place read; an existing "
                     "place_id or exact saved label also works. Do not append a "
                     "locality to a saved label or invent a reference. Returns "

@@ -17,13 +17,14 @@ const defaultColors: SituationOutcomeColors = {
 
 /** The useful recommendation always precedes the machinery that checked it. */
 export function SituationOutcomeSummary({
-  outcome, desiredOutcome, situationRevision, followupStatus,
+  outcome, desiredOutcome, situationRevision, followupStatus, readUnavailable,
   colors = defaultColors, compact = false, testID = 'situation-outcome',
 }: {
   outcome?: SituationOutcome | null;
   desiredOutcome?: string | null;
   situationRevision?: number;
   followupStatus?: string | null;
+  readUnavailable?: boolean;
   colors?: SituationOutcomeColors;
   compact?: boolean;
   testID?: string;
@@ -40,7 +41,7 @@ export function SituationOutcomeSummary({
     return () => { if (timer !== null) clearTimeout(timer); appState.remove(); };
   }, [outcome?.valid_until]);
 
-  const view = situationOutcomeView({ outcome, desiredOutcome, situationRevision, followupStatus });
+  const view = situationOutcomeView({ outcome, desiredOutcome, situationRevision, followupStatus, readUnavailable });
   return (
     <View style={styles.summary} testID={testID} accessibilityLiveRegion="polite">
       <Text style={[oraType.small, { color: view.needsAttention ? colors.attention : colors.secondary }]}>

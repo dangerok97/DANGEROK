@@ -29,6 +29,7 @@ from opportunities.models import (
     Opportunity,
     OpportunityCandidate,
     OpportunityDecision,
+    OpportunityOutcomeAssessment,
     ScanResult,
 )
 from opportunities.repository import CLOSED, OpportunityRepository
@@ -214,8 +215,8 @@ class OpportunityService:
                 # volta non c'era — non una frase riscritta meglio — e
                 # `suppressed` resta chiuso comunque, perche' quello vuol
                 # dire «mai piu'», non «non ora».
-                self._apply_candidate(existing, candidate)
                 existing.status = "active"
+                self._apply_candidate(existing, candidate)
                 existing.surface_state = "hidden"
                 existing.deferred_until = None
                 existing.decision_provenance = "model"
@@ -265,6 +266,7 @@ class OpportunityService:
                 valid_until=candidate.valid_until,
                 decision_provenance="model",
             )
+            opportunity.bind_outcome_assessment(candidate.outcome_assessment)
             await self.repo.save(opportunity)
             if claim_is_current is None:
                 await self._look_before_asking(user_id, opportunity, language)
@@ -389,6 +391,9 @@ class OpportunityService:
                 evidence=[
                     EvidenceRef(kind=allowed_refs[r], ref=r) for r in grounded[:8]
                 ],
+                outcome_assessment=OpportunityOutcomeAssessment.from_proposal(
+                    raw.get("outcome_assessment"), set(grounded[:8])
+                ),
                 requires_clarification=bool(raw.get("requires_clarification")),
                 clarifying_question=str(raw.get("clarifying_question") or "")[:300],
                 needs_research=bool(raw.get("needs_research")),
@@ -415,6 +420,9 @@ class OpportunityService:
         existing.needs_research = candidate.needs_research
         existing.research_question = candidate.research_question
         existing.valid_until = candidate.valid_until
+        # A new scan replaces the previous judgment, including explicit
+        # absence. It cannot silently inherit an old completion assessment.
+        existing.bind_outcome_assessment(candidate.outcome_assessment)
 
     # --- review ----------------------------------------------------------
 

@@ -113,21 +113,25 @@ async def need(need_id: str, user=Depends(get_current_user)):
 
     from agent.service import AgentService
 
-    found = await NeedService(db).get(user["user_id"], need_id)
+    try:
+        found = await NeedService(db).get(user["user_id"], need_id)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="source_check_unavailable") from exc
     if found is None:
         raise HTTPException(status_code=404, detail="unknown_need")
     # A deep link may be opened days after the notification was generated.
     # It is not an invitation to confirm a September event in October.
-    from datetime import datetime, timezone
-    from agent.service import _aware_wait_until
     service = AgentService(db)
-    goal = await service.repo.get_goal(user["user_id"], found.goal_id)
-    expired_at = _aware_wait_until(goal.valid_until) if goal else None
-    if (
-        not found.is_open or not goal or not goal.is_open
-        or (expired_at is not None and expired_at <= datetime.now(timezone.utc))
-        or await service._legacy_event_alert_expired(user["user_id"], goal)
-    ):
+    from delivery.service import DeliveryService
+
+    try:
+        goal = await service.repo.get_goal(user["user_id"], found.goal_id)
+        current = await DeliveryService(db)._current_agent_need(
+            user["user_id"], need_id, allow_delivered=True,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="source_check_unavailable") from exc
+    if not found.is_open or not goal or not goal.is_open or current is None:
         raise HTTPException(status_code=410, detail="expired_source_event")
     # What saying yes for the future would mean here, in one sentence, or
     # nothing at all. Computed rather than assumed: most needs cannot be

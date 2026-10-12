@@ -1,0 +1,275 @@
+{
+  "recorded_at": "2026-10-12T11:05:40.679Z",
+  "project_id": "1264aea8-7e1e-403b-9d14-66f61135f179",
+  "service_id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+  "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+  "authorized_source": {
+    "repo": "dangerok97/DANGEROK",
+    "branch": "ora/v162-autonomy-validation-20261012",
+    "commitSha": "630020147223ada63430a11870209494dc35cc22"
+  },
+  "authorized_start_command": "env PYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only AMBIENT_RUNTIME=0 CALENDAR_PROVIDER_MODE=fake DOCUMENT_AI_ENABLED=0 RESEARCH_ENABLED=0 sh -c 'if [ \"$RAILWAY_GIT_COMMIT_SHA\" != \"630020147223ada63430a11870209494dc35cc22\" ]; then echo ORA_EVAL_SOURCE_MISMATCH >&2; exit 2; fi; python -m pip install mongomock-motor==0.0.36 || exit $?; ora_eval_status=0; RESEARCH_ENABLED=1 WEATHER_PROVIDER=open_meteo python -m scripts.situation_live_eval_v162 --mode live --output /tmp/ora-situation-v162-live.json || ora_eval_status=1; python -m scripts.autonomy_completion_eval_v162 --mode live --output /tmp/ora-autonomy-v162-live.json || ora_eval_status=1; python -m scripts.phase1_read_provider_eval --mode live --max-steps 7 --output /tmp/ora-public-read-v162-live.json || ora_eval_status=1; exit \"$ora_eval_status\"'",
+  "app_touched": false,
+  "variables_touched": false,
+  "staged_changes_committed": false,
+  "prior_observation": {
+    "deployment_id": "cb33222a-e94b-4667-b230-0ac539fe5954",
+    "source": {
+      "repo": "dangerok97/DANGEROK",
+      "branch": "ora/v162-memory-context",
+      "commitSha": "6941d221760b63296d351ccc58c404cfe11fc0a5",
+      "rootDirectory": "/backend"
+    },
+    "log_status": "CRASHED",
+    "summary_observed": true
+  },
+  "phase": "launch_observed",
+  "mutations": [
+    {
+      "operation": "update_service",
+      "fields": [
+        "startCommand"
+      ],
+      "result": {
+        "service": {
+          "id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+          "name": "phase1-read-eval-v126"
+        },
+        "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+        "updatedFields": [
+          "startCommand"
+        ],
+        "staged": null
+      },
+      "at": "2026-10-12T11:05:42.249Z"
+    },
+    {
+      "operation": "connect_service_source",
+      "result": {
+        "service": {
+          "id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+          "name": "phase1-read-eval-v126"
+        },
+        "source": {
+          "repo": "dangerok97/DANGEROK",
+          "branch": "ora/v162-autonomy-validation-20261012",
+          "commitSha": "630020147223ada63430a11870209494dc35cc22",
+          "image": null
+        },
+        "staged": null
+      },
+      "at": "2026-10-12T11:05:45.123Z"
+    }
+  ],
+  "environment_scope": [
+    {
+      "id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "name": "production"
+    }
+  ],
+  "preflight": {
+    "observed_at": "2026-10-12T11:05:41.823Z",
+    "service": {
+      "id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "name": "phase1-read-eval-v126",
+      "state": "live"
+    },
+    "environment": {
+      "id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "name": "production"
+    },
+    "source": {
+      "repo": "dangerok97/DANGEROK",
+      "branch": "ora/v162-memory-context",
+      "commitSha": "6941d221760b63296d351ccc58c404cfe11fc0a5",
+      "rootDirectory": "/backend"
+    },
+    "deploy": {
+      "startCommand": "env PYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only AMBIENT_RUNTIME=0 CALENDAR_PROVIDER_MODE=fake DOCUMENT_AI_ENABLED=0 RESEARCH_ENABLED=0 sh -c 'python -m pip install mongomock-motor==0.0.36 && status=0; for case in planning_outage home_write_retry memory_corrected; do python -m scripts.autonomy_completion_eval_v162 --mode live --scenario \"$case\" --output \"/tmp/ora-diag-${case}.json\" || status=1; done; exit \"$status\"'",
+      "limitOverride": {
+        "containers": {
+          "cpu": 1,
+          "memoryBytes": 1000000000
+        }
+      },
+      "restartPolicyType": "NEVER",
+      "useLegacyStacker": false,
+      "ipv6EgressEnabled": false,
+      "runtime": "V2",
+      "multiRegionConfig": {
+        "sfo": {
+          "numReplicas": 1
+        }
+      }
+    },
+    "latest_deployment": {
+      "id": "cb33222a-e94b-4667-b230-0ac539fe5954",
+      "status": "CRASHED",
+      "createdAt": "2026-10-12T10:51:13.926Z",
+      "url": null
+    },
+    "staged_service_changes": [],
+    "volumes": [],
+    "domains": {
+      "serviceDomains": [],
+      "customDomains": []
+    }
+  },
+  "after_command": {
+    "observed_at": "2026-10-12T11:05:42.680Z",
+    "service": {
+      "id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "name": "phase1-read-eval-v126",
+      "state": "live"
+    },
+    "environment": {
+      "id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "name": "production"
+    },
+    "source": {
+      "repo": "dangerok97/DANGEROK",
+      "branch": "ora/v162-memory-context",
+      "commitSha": "6941d221760b63296d351ccc58c404cfe11fc0a5",
+      "rootDirectory": "/backend"
+    },
+    "deploy": {
+      "startCommand": "env PYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only AMBIENT_RUNTIME=0 CALENDAR_PROVIDER_MODE=fake DOCUMENT_AI_ENABLED=0 RESEARCH_ENABLED=0 sh -c 'if [ \"$RAILWAY_GIT_COMMIT_SHA\" != \"630020147223ada63430a11870209494dc35cc22\" ]; then echo ORA_EVAL_SOURCE_MISMATCH >&2; exit 2; fi; python -m pip install mongomock-motor==0.0.36 || exit $?; ora_eval_status=0; RESEARCH_ENABLED=1 WEATHER_PROVIDER=open_meteo python -m scripts.situation_live_eval_v162 --mode live --output /tmp/ora-situation-v162-live.json || ora_eval_status=1; python -m scripts.autonomy_completion_eval_v162 --mode live --output /tmp/ora-autonomy-v162-live.json || ora_eval_status=1; python -m scripts.phase1_read_provider_eval --mode live --max-steps 7 --output /tmp/ora-public-read-v162-live.json || ora_eval_status=1; exit \"$ora_eval_status\"'",
+      "limitOverride": {
+        "containers": {
+          "cpu": 1,
+          "memoryBytes": 1000000000
+        }
+      },
+      "restartPolicyType": "NEVER",
+      "useLegacyStacker": false,
+      "ipv6EgressEnabled": false,
+      "runtime": "V2",
+      "multiRegionConfig": {
+        "sfo": {
+          "numReplicas": 1
+        }
+      }
+    },
+    "latest_deployment": {
+      "id": "cb33222a-e94b-4667-b230-0ac539fe5954",
+      "status": "CRASHED",
+      "createdAt": "2026-10-12T10:51:13.926Z",
+      "url": null
+    },
+    "staged_service_changes": [],
+    "volumes": [],
+    "domains": {
+      "serviceDomains": [],
+      "customDomains": []
+    }
+  },
+  "readback": {
+    "observed_at": "2026-10-12T11:05:45.611Z",
+    "service": {
+      "id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "name": "phase1-read-eval-v126",
+      "state": "live"
+    },
+    "environment": {
+      "id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "name": "production"
+    },
+    "source": {
+      "repo": "dangerok97/DANGEROK",
+      "branch": "ora/v162-autonomy-validation-20261012",
+      "commitSha": "630020147223ada63430a11870209494dc35cc22",
+      "rootDirectory": "/backend"
+    },
+    "deploy": {
+      "startCommand": "env PYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only AMBIENT_RUNTIME=0 CALENDAR_PROVIDER_MODE=fake DOCUMENT_AI_ENABLED=0 RESEARCH_ENABLED=0 sh -c 'if [ \"$RAILWAY_GIT_COMMIT_SHA\" != \"630020147223ada63430a11870209494dc35cc22\" ]; then echo ORA_EVAL_SOURCE_MISMATCH >&2; exit 2; fi; python -m pip install mongomock-motor==0.0.36 || exit $?; ora_eval_status=0; RESEARCH_ENABLED=1 WEATHER_PROVIDER=open_meteo python -m scripts.situation_live_eval_v162 --mode live --output /tmp/ora-situation-v162-live.json || ora_eval_status=1; python -m scripts.autonomy_completion_eval_v162 --mode live --output /tmp/ora-autonomy-v162-live.json || ora_eval_status=1; python -m scripts.phase1_read_provider_eval --mode live --max-steps 7 --output /tmp/ora-public-read-v162-live.json || ora_eval_status=1; exit \"$ora_eval_status\"'",
+      "limitOverride": {
+        "containers": {
+          "cpu": 1,
+          "memoryBytes": 1000000000
+        }
+      },
+      "restartPolicyType": "NEVER",
+      "useLegacyStacker": false,
+      "ipv6EgressEnabled": false,
+      "runtime": "V2",
+      "multiRegionConfig": {
+        "sfo": {
+          "numReplicas": 1
+        }
+      }
+    },
+    "latest_deployment": {
+      "id": "068a3ef3-729b-4690-871a-ec36667ce513",
+      "status": "INITIALIZING",
+      "createdAt": "2026-10-12T11:05:44.883Z",
+      "url": null
+    },
+    "staged_service_changes": [],
+    "volumes": [],
+    "domains": {
+      "serviceDomains": [],
+      "customDomains": []
+    }
+  },
+  "deployment_readback": [
+    {
+      "id": "068a3ef3-729b-4690-871a-ec36667ce513",
+      "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "status": "INITIALIZING",
+      "createdAt": "2026-10-12T11:05:44.883Z",
+      "updatedAt": "2026-10-12T11:05:44.983Z",
+      "meta": {
+        "reason": "deploy",
+        "commitMessage": "fix(autonomy): preserve evidence and resume the Tarquinia monitoring cycle\n\nReject invalid waits and non-execute writes, retain current-source literal audits, and pass lossless evidence context. Bind grounded search segments to their indexed sources and preserve snippet origin through research. Keep original failed live reports and exact local validation.\n\nLocal equivalent f043c2be4c396bbba0519b00646a83bb97e89ee0, tree 0878f56d49f120c7b97ce93e49fa9076398c43c2. 1554 passed, 1 skipped; 9 scripted cases passed. Live candidate acceptance and device delivery remain pending.",
+        "commitHash": "630020147223ada63430a11870209494dc35cc22",
+        "branch": "ora/v162-autonomy-validation-20261012"
+      }
+    },
+    {
+      "id": "cb33222a-e94b-4667-b230-0ac539fe5954",
+      "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "status": "CRASHED",
+      "createdAt": "2026-10-12T10:51:13.926Z",
+      "updatedAt": "2026-10-12T11:04:17.717Z",
+      "meta": {
+        "reason": "deploy",
+        "commitMessage": "test(autonomy): bounded literal quote hints preserve strict audit provenance",
+        "commitHash": "6941d221760b63296d351ccc58c404cfe11fc0a5",
+        "branch": "ora/v162-memory-context"
+      }
+    },
+    {
+      "id": "4754bad6-5bc9-4e42-988a-390f9e64dd81",
+      "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "status": "REMOVED",
+      "createdAt": "2026-10-12T10:41:13.783Z",
+      "updatedAt": "2026-10-12T10:51:43.902Z",
+      "meta": {
+        "reason": "deploy",
+        "commitMessage": "test(autonomy): protect origin provenance in bounded contexts",
+        "commitHash": "77f7995b3f48db6ba585ab30f99992b09839bde4",
+        "branch": "ora/v162-memory-context"
+      }
+    }
+  ],
+  "source_verified": true,
+  "command_verified": true,
+  "new_deployment": {
+    "id": "068a3ef3-729b-4690-871a-ec36667ce513",
+    "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+    "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+    "status": "INITIALIZING",
+    "createdAt": "2026-10-12T11:05:44.883Z",
+    "updatedAt": "2026-10-12T11:05:44.983Z",
+    "meta": {
+      "reason": "deploy",
+      "commitMessage": "fix(autonomy): preserve evidence and resume the Tarquinia monitoring cycle\n\nReject invalid waits and non-execute writes, retain current-source literal audits, and pass lossless evidence context. Bind grounded search segments to their indexed sources and preserve snippet origin through research. Keep original failed live reports and exact local validation.\n\nLocal equivalent f043c2be4c396bbba0519b00646a83bb97e89ee0, tree 0878f56d49f120c7b97ce93e49fa9076398c43c2. 1554 passed, 1 skipped; 9 scripted cases passed. Live candidate acceptance and device delivery remain pending.",
+      "commitHash": "630020147223ada63430a11870209494dc35cc22",
+      "branch": "ora/v162-autonomy-validation-20261012"
+    }
+  },
+  "finished_at": "2026-10-12T11:05:46.044Z"
+}

@@ -3389,6 +3389,14 @@ export type MonitoredSituation = {
   purpose?: string | null;
 };
 
+/** Only projected when the review belongs to the current saved preparation. */
+export type PreparedReview = {
+  outcome: 'partial' | 'uncertain';
+  what_is_missing: string;
+  reasoning: string;
+  reviewed_at: string;
+};
+
 export type HomeAgentWork = {
   planning_unavailable?: boolean;
   retry_available?: boolean;
@@ -3396,6 +3404,7 @@ export type HomeAgentWork = {
   created_at?: string | null;
   valid_until?: string | null;
   prepared_text?: string | null;
+  prepared_review?: PreparedReview | null;
   action?: HomeActionDef;
   id: string;
   what: string;

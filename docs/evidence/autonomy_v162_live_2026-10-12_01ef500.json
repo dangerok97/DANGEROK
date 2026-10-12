@@ -1,0 +1,3074 @@
+{
+  "version": "autonomy-completion-v162",
+  "mode": "live",
+  "status": "failed",
+  "passed": false,
+  "real_model_executed": true,
+  "cases": [
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "completed_result",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2464,
+            "completion_tokens": 346,
+            "total_tokens": 2810
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4109,
+            "completion_tokens": 674,
+            "total_tokens": 4783
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4109,
+            "completion_tokens": 586,
+            "total_tokens": 4695
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4609,
+            "completion_tokens": 186,
+            "total_tokens": 4795
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2485,
+            "completion_tokens": 47,
+            "total_tokens": 2532
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4609,
+            "completion_tokens": 181,
+            "total_tokens": 4790
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2111,
+            "completion_tokens": 412,
+            "total_tokens": 2523
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2612,
+            "completion_tokens": 903,
+            "total_tokens": 3515
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4623,
+            "completion_tokens": 127,
+            "total_tokens": 4750
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 3607,
+            "completion_tokens": 87,
+            "total_tokens": 3694
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2075,
+            "completion_tokens": 208,
+            "total_tokens": 2283
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1885.9,
+          "fallbacks": [
+            {
+              "provider": "gemini",
+              "failure_kind": "quota"
+            }
+          ]
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 2149.4,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1620.8,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1482.8,
+          "fallbacks": []
+        },
+        {
+          "sequence": 5,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 810.6,
+          "fallbacks": []
+        },
+        {
+          "sequence": 6,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1036.9,
+          "fallbacks": []
+        },
+        {
+          "sequence": 7,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1823.3,
+          "fallbacks": []
+        },
+        {
+          "sequence": 8,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 2401.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 9,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 959.9,
+          "fallbacks": []
+        },
+        {
+          "sequence": 10,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 946.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 11,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1130,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 11,
+      "model_http_requests": 12,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "L'utente sta valutando due formule per l'archivio digitale e manca un confronto scritto dei costi e dei vincoli per il periodo di dodici mesi.",
+          "objective": "Predisporre un confronto scritto dei costi totali e dei vincoli per dodici mesi tra le due formule di abbonamento.",
+          "desired_outcome": "Il confronto scritto tra le due formule di archivio digitale per dodici mesi è disponibile per la valutazione dell'utente.",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "desired_outcome": "Un confronto scritto di costi e vincoli per dodici mesi tra le due formule dell'archivio digitale, basato sui dati forniti dall'utente.",
+            "outcome_state": "open",
+            "remaining_internal_work": "Preparare il confronto scritto dei costi e dei vincoli per dodici mesi secondo i dati salvati nella memoria.",
+            "supporting_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 1,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 1,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "reasoning": "Leggo la memoria esistente per acquisire i dettagli delle due formule di abbonamento e successivamente preparo un documento scritto di confronto dei costi totali e dei vincoli per dodici mesi.",
+          "planning_outcome": "plan",
+          "plan_summary": "Lettura dei dettagli salvati e predisposizione del documento di confronto tra le due formule.",
+          "expected_outcome": "Il confronto scritto tra le due formule di archivio digitale per dodici mesi è disponibile per la valutazione dell'utente.",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere i dettagli della memoria sull'archivio digitale e sulle due formule",
+              "expected_result": "Acquisizione dei costi, dei vincoli e delle condizioni delle due formule di abbonamento."
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare il confronto scritto dei costi totali e dei vincoli per dodici mesi",
+              "expected_result": "Documento di confronto scritto pronto per l'utente."
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 3,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 3,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_e107028eff2044e0",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_7bba735b54354fc9",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il confronto scritto è stato preparato e le informazioni raccolte coprono tutti i criteri di successo richiesti.",
+          "decision": "verify",
+          "model_attempts_after": 4,
+          "sequence": 3
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 5,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_e107028eff2044e0",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_7bba735b54354fc9",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il confronto scritto è stato preparato e la lettura dei dati è completa; è possibile verificare se l'esito è raggiunto.",
+          "decision": "verify",
+          "model_attempts_after": 6,
+          "sequence": 4
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 6,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_50abb90881cf4b25"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_ee08b147e1af4f07",
+            "step_id": "stp_19e3bfb691164d9d"
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Confronto delle due formule di abbonamento per l'archivio digitale su un orizzonte di 12 mesi, basato sui dati riferiti dall'utente (da verificare con il fornitore):\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale per 12 mesi: 180 euro (15 euro x 12)\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguale all'altra opzione\n- Vincoli e condizioni: non specificati ulteriori vincoli nella nota, con pagamento mensile\n\n2. Formula Annuale\n- Costo totale anticipato per 12 mesi: 120 euro\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguale all'altra opzione\n- Vincoli e condizioni: pagamento anticipato di 120 euro; la nota indica che l'annuale non prevede rimborso in caso di disdetta anticipata\n\nSintesi del confronto e conseguenze:\n- Differenza di costo nominale: la formula annuale comporta un esborso totale inferiore di 60 euro rispetto alla formula mensile su un periodo di 12 mesi (120 euro contro 180 euro).\n- Vincoli: la formula annuale richiede il pagamento anticipato e non prevede rimborso in caso di disdetta anticipata, esponendo al rischio di perdere la quota non goduta in caso di interruzione anticipata dell'archivio, che invece con il mensile non è preventivamente vincolata per l'intero anno.",
+          "content_characters": 1262,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_50abb90881cf4b25"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 7,
+          "sequence": 5
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 7,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_50abb90881cf4b25"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_ee08b147e1af4f07",
+            "step_id": "stp_19e3bfb691164d9d",
+            "draft_kind": "text",
+            "draft": "Confronto delle due formule di abbonamento per l'archivio digitale su un orizzonte di 12 mesi, basato sui dati riferiti dall'utente (da verificare con il fornitore):\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale per 12 mesi: 180 euro (15 euro x 12)\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguale all'altra opzione\n- Vincoli e condizioni: non specificati ulteriori vincoli nella nota, con pagamento mensile\n\n2. Formula Annuale\n- Costo totale anticipato per 12 mesi: 120 euro\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguale all'altra opzione\n- Vincoli e condizioni: pagamento anticipato di 120 euro; la nota indica che l'annuale non prevede rimborso in caso di disdetta anticipata\n\nSintesi del confronto e conseguenze:\n- Differenza di costo nominale: la formula annuale comporta un esborso totale inferiore di 60 euro rispetto alla formula mensile su un periodo di 12 mesi (120 euro contro 180 euro).\n- Vincoli: la formula annuale richiede il pagamento anticipato e non prevede rimborso in caso di disdetta anticipata, esponendo al rischio di perdere la quota non goduta in caso di interruzione anticipata dell'archivio, che invece con il mensile non è preventivamente vincolata per l'intero anno.",
+            "draft_characters": 1262,
+            "draft_truncated": false
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Confronto delle due formule di abbonamento per l'archivio digitale su un orizzonte di 12 mesi, basato sui dati riferiti dall'utente (da verificare con il fornitore):\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale per 12 mesi: 180 euro\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguale all'altra opzione\n- Vincoli e condizioni: pagamento mensile\n\n2. Formula Annuale\n- Costo totale anticipato per 12 mesi: 120 euro\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguale all'altra opzione\n- Vincoli e condizioni: pagamento anticipato di 120 euro; la formula annuale non prevede rimborso in caso di disdetta anticipata\n\nSintesi del confronto e conseguenze:\n- Differenza di costo nominale: la formula annuale comporta un esborso totale inferiore di 60 euro rispetto alla formula mensile su un periodo di 12 mesi (120 euro contro 180 euro).\n- Vincoli: la formula annuale richiede il pagamento anticipato e non prevede rimborso in caso di disdetta anticipata.",
+          "content_characters": 1008,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_50abb90881cf4b25"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Il confronto scritto riflette fedelmente i costi e i vincoli riportati nella fonte.",
+          "claim_review_kind": "array",
+          "claim_review_count": 5,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Formula Mensile: costo mensile 15 euro, totale 180 euro per 12 mesi",
+              "premises": "il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_50abb90881cf4b25"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Formula Annuale: costo totale anticipato di 120 euro per 12 mesi",
+              "premises": "La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_50abb90881cf4b25"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Spazio, assistenza e spese iniziali identiche per entrambe le opzioni",
+              "premises": "In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_50abb90881cf4b25"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Vincoli e rimborso: l'annuale non prevede rimborso in caso di disdetta anticipata",
+              "premises": "L'annuale non prevede rimborso in caso di disdetta anticipata",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_50abb90881cf4b25"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Differenza di costo nominale: 120 euro contro 180 euro (risparmio di 60 euro con l'annuale)",
+              "premises": "12 mesi costano 180 euro e la seconda opzione costa 120 euro anticipati per 12 mesi",
+              "support": "derived",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_50abb90881cf4b25"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            }
+          ],
+          "model_attempts_after": 8,
+          "sequence": 6
+        },
+        {
+          "stage": "verify_goal",
+          "model_attempts_before": 8,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "Il confronto scritto dei costi e dei vincoli per dodici mesi è stato preparato ed è disponibile per la valutazione dell'utente.",
+          "what_is_missing": "",
+          "model_attempts_after": 9,
+          "sequence": 7
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_fccb1ed748b93526",
+          "agent_review_revision": "b1457397186443eaab0508664ae3d080",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_e107028eff2044e0",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_19e3bfb691164d9d",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "completed",
+        "read_reused": true,
+        "corrected_source_reread": false,
+        "prepared": true,
+        "prepared_text": "Confronto delle due formule di abbonamento per l'archivio digitale su un orizzonte di 12 mesi, basato sui dati riferiti dall'utente (da verificare con il fornitore):\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale per 12 mesi: 180 euro\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguale all'altra opzione\n- Vincoli e condizioni: pagamento mensile\n\n2. Formula Annuale\n- Costo totale anticipato per 12 mesi: 120 euro\n- Spese iniziali: nulle\n- Spazio e assistenza: 100 GB e assistenza uguale all'altra opzione\n- Vincoli e condizioni: pagamento anticipato di 120 euro; la formula annuale non prevede rimborso in caso di disdetta anticipata\n\nSintesi del confronto e conseguenze:\n- Differenza di costo nominale: la formula annuale comporta un esborso totale inferiore di 60 euro rispetto alla formula mensile su un periodo di 12 mesi (120 euro contro 180 euro).\n- Vincoli: la formula annuale richiede il pagamento anticipato e non prevede rimborso in caso di disdetta anticipata.",
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 1008,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 4,
+          "agent_updates": 1,
+          "ambient_activity": 3,
+          "agent_needs": 1,
+          "agent_action_attempts": 0
+        }
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "planning_outage",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2464,
+            "completion_tokens": 296,
+            "total_tokens": 2760
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4085,
+            "completion_tokens": 630,
+            "total_tokens": 4715
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4609,
+            "completion_tokens": 87,
+            "total_tokens": 4696
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2455,
+            "completion_tokens": 54,
+            "total_tokens": 2509
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4628,
+            "completion_tokens": 309
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2148,
+            "completion_tokens": 472
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2691,
+            "completion_tokens": 1420
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4585,
+            "completion_tokens": 493
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 3845,
+            "completion_tokens": 104
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2045,
+            "completion_tokens": 289
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1134.8,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1981,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 769.8,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 791.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 5,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 4912.4,
+          "fallbacks": [
+            {
+              "provider": "gemini2",
+              "failure_kind": "rate_limit"
+            },
+            {
+              "provider": "groq",
+              "failure_kind": "quota"
+            }
+          ]
+        },
+        {
+          "sequence": 6,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 4301.6,
+          "fallbacks": []
+        },
+        {
+          "sequence": 7,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 11376.8,
+          "fallbacks": []
+        },
+        {
+          "sequence": 8,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 5023.2,
+          "fallbacks": []
+        },
+        {
+          "sequence": 9,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 1416.6,
+          "fallbacks": []
+        },
+        {
+          "sequence": 10,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 3509.1,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 10,
+      "model_http_requests": 12,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "La persona non ha ancora ricevuto il confronto scritto di costi e vincoli necessario per scegliere tra le due formule.",
+          "objective": "Predisporre il confronto scritto di costi e vincoli per dodici mesi tra le due formule di archivio.",
+          "desired_outcome": "Il prospetto chiaro di costi e vincoli per un anno relativo alle due opzioni è pronto per la consultazione.",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "desired_outcome": "Un confronto scritto di costi e vincoli per dodici mesi tra le due formule di archivio digitale",
+            "outcome_state": "open",
+            "remaining_internal_work": "Preparare il confronto strutturato dei costi e dei vincoli basato sulla nota salvata",
+            "supporting_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 1,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 1,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "none",
+          "model_attempts_after": 1,
+          "sequence": 2
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 1,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "reasoning": "I dati necessari per il confronto a dodici mesi tra la formula mensile e quella annuale sono già presenti nella memoria salvata (mem_43262246ed92296b9353). Procedo direttamente alla lettura della memoria per consolidare i dettagli e alla preparazione del documento di confronto scritto.",
+          "planning_outcome": "plan",
+          "plan_summary": "Lettura dei dettagli dalla memoria e preparazione del prospetto scritto di confronto tra le due formule.",
+          "expected_outcome": "Il prospetto chiaro di costi e vincoli per un anno relativo alle due opzioni è pronto per la consultazione.",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere i dettagli delle formule di archivio dalla nota salvata",
+              "expected_result": "Estrazione dei dati di costo (15 euro/mese vs 120 euro anticipati) e dei vincoli delle due opzioni."
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Predisporre il documento scritto con il confronto a dodici mesi di costi e vincoli",
+              "expected_result": "Il documento di confronto tra le due opzioni è pronto per la consultazione."
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 2,
+          "sequence": 3
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 2,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_2382de69719c45cc",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_3b98ca04d75f46de",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "I dati dalla memoria sono stati letti correttamente e ora posso procedere alla preparazione del documento di confronto.",
+          "decision": "execute",
+          "step_id": "stp_3b98ca04d75f46de",
+          "model_attempts_after": 3,
+          "sequence": 4
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 4,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_2382de69719c45cc",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_3b98ca04d75f46de",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "I dati necessari per il confronto sono stati estratti e confermati; è possibile preparare il prospetto scritto.",
+          "decision": "execute",
+          "step_id": "stp_3b98ca04d75f46de",
+          "model_attempts_after": 5,
+          "sequence": 5
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 5,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_cad7abd6ed794cfe"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_79c289ed219849a3",
+            "step_id": "stp_3b98ca04d75f46de"
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Confronto tra le due formule di archivio per 12 mesi (100 GB, assistenza uguale, spese iniziali nulle, dati riferiti dall'utente e non confermati dal fornitore):\n\n**1. Formula a pagamento mensile**\n- Costo mensile: **15 €**\n- Costo totale per 12 mesi: **180 €** (15 € × 12)\n- Vincoli:\n  - Nessun rimborso in caso di disdetta anticipata.\n  - Pagamento rateizzato mensile.\n\n**2. Formula a pagamento anticipato**\n- Costo totale per 12 mesi: **120 €** (pagamento unico anticipato)\n- Vincoli:\n  - Nessun rimborso in caso di disdetta anticipata.\n  - Pagamento unico all’inizio del contratto.\n\n**Confronto sintetico**\n- **Risparmio totale**: La formula anticipata costa **60 € in meno** rispetto al pagamento mensile (120 € vs. 180 €).\n- **Flessibilità finanziaria**: La formula mensile consente di sospendere il pagamento in caso di necessità (se il servizio lo permette, non confermato dal fornitore).\n- **Rimborso**: Nessuna delle due opzioni prevede rimborso in caso di disdetta anticipata.\n\n**Note**:\n- Entrambe le formule includono **100 GB di spazio** e **assistenza uguale**.\n- I dati sono basati sulla memoria salvata (non verificati con il fornitore).\n- Nessun pagamento o modifica contrattuale è autorizzato senza conferma esterna.\n\n**Raccomandazione**: La scelta dipende dalla preferenza tra risparmio immediato (pagamento anticipato) o flessibilità finanziaria (pagamento mensile).",
+          "content_characters": 1387,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_cad7abd6ed794cfe"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 6,
+          "sequence": 6
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 6,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_cad7abd6ed794cfe"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_79c289ed219849a3",
+            "step_id": "stp_3b98ca04d75f46de",
+            "draft_kind": "text",
+            "draft": "Confronto tra le due formule di archivio per 12 mesi (100 GB, assistenza uguale, spese iniziali nulle, dati riferiti dall'utente e non confermati dal fornitore):\n\n**1. Formula a pagamento mensile**\n- Costo mensile: **15 €**\n- Costo totale per 12 mesi: **180 €** (15 € × 12)\n- Vincoli:\n  - Nessun rimborso in caso di disdetta anticipata.\n  - Pagamento rateizzato mensile.\n\n**2. Formula a pagamento anticipato**\n- Costo totale per 12 mesi: **120 €** (pagamento unico anticipato)\n- Vincoli:\n  - Nessun rimborso in caso di disdetta anticipata.\n  - Pagamento unico all’inizio del contratto.\n\n**Confronto sintetico**\n- **Risparmio totale**: La formula anticipata costa **60 € in meno** rispetto al pagamento mensile (120 € vs. 180 €).\n- **Flessibilità finanziaria**: La formula mensile consente di sospendere il pagamento in caso di necessità (se il servizio lo permette, non confermato dal fornitore).\n- **Rimborso**: Nessuna delle due opzioni prevede rimborso in caso di disdetta anticipata.\n\n**Note**:\n- Entrambe le formule includono **100 GB di spazio** e **assistenza uguale**.\n- I dati sono basati sulla memoria salvata (non verificati con il fornitore).\n- Nessun pagamento o modifica contrattuale è autorizzato senza conferma esterna.\n\n**Raccomandazione**: La scelta dipende dalla preferenza tra risparmio immediato (pagamento anticipato) o flessibilità finanziaria (pagamento mensile).",
+            "draft_characters": 1387,
+            "draft_truncated": false
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Confronto tra le due formule di archivio per 12 mesi (100 GB, assistenza uguale, spese iniziali nulle). **Dati riferiti dall'utente e non confermati dal fornitore**.\n\n**1. Formula a pagamento mensile**\n- Costo mensile: **15 €**\n- Costo totale per 12 mesi: **180 €** (15 € × 12)\n- Vincoli:\n  - Nessun rimborso in caso di disdetta anticipata.\n  - Pagamento rateizzato mensile.\n\n**2. Formula a pagamento anticipato**\n- Costo totale per 12 mesi: **120 €** (pagamento unico anticipato)\n- Vincoli:\n  - Nessun rimborso in caso di disdetta anticipata.\n  - Pagamento unico all’inizio del contratto.\n\n**Confronto sintetico**\n- **Risparmio totale**: La formula anticipata costa **60 € in meno** rispetto al pagamento mensile (120 € vs. 180 €).\n- **Rimborso**: Nessuna delle due opzioni prevede rimborso in caso di disdetta anticipata.\n\n**Note**:\n- Entrambe le formule includono **100 GB di spazio** e **assistenza uguale**.\n- **Flessibilità finanziaria**: *Non confermata dal fornitore*.\n- **Dati non verificati**: I valori sono basati su memoria salvata (non confermata dal fornitore).\n- **Autorizzazione**: Nessun pagamento o modifica contrattuale è valida senza conferma esterna.\n\n**Raccomandazione**: La scelta dipende dalla preferenza tra risparmio immediato (pagamento anticipato) o necessità di conferma da parte del fornitore per eventuali condizioni aggiuntive (es. flessibilità).",
+          "content_characters": 1378,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_cad7abd6ed794cfe"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Il prospetto confronta correttamente costi e vincoli per 12 mesi, evidenziando il risparmio della formula anticipata (60 €) e i vincoli comuni (assenza di rimborso). La clausola sulla flessibilità finanziaria è stata corretta per riflettere l'assenza di evidenza, mantenendo il focus sui dati confermati dall'utente. Il draft soddisfa i criteri di successo.",
+          "claim_review_kind": "array",
+          "claim_review_count": 8,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Costo totale formula mensile a 12 mesi è 180 € (15 €/mese × 12)",
+              "premises": "Dati utente: costo mensile 15 € per 12 mesi (memoria salvata, non confermata dal fornitore). Assenza di spese iniziali. Nessuna menzione di sconti o variazioni.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_cad7abd6ed794cfe"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Costo totale formula anticipata a 12 mesi è 120 € (pagamento unico)",
+              "premises": "Dati utente: costo anticipato 120 € per 12 mesi (memoria salvata, non confermata dal fornitore).",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_cad7abd6ed794cfe"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Risparmio formula anticipata rispetto a quella mensile è 60 €",
+              "premises": "Differenza calcolata da 180 € (mensile) - 120 € (anticipato). Assenza di condizioni aggiuntive (es. promozioni).",
+              "support": "derived",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_cad7abd6ed794cfe"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Entrambe le formule includono 100 GB di spazio e assistenza uguale",
+              "premises": "Dati utente: specificato in memoria (non confermato dal fornitore).",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_cad7abd6ed794cfe"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Nessun rimborso in caso di disdetta anticipata per entrambe le formule",
+              "premises": "Dati utente: menzionato esplicitamente per entrambe le opzioni (memoria salvata).",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_cad7abd6ed794cfe"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Formula mensile consente flessibilità finanziaria (es. sospensione pagamenti)",
+              "premises": "Assunto non supportato dalle fonti disponibili: memoria non conferma né smentisce la possibilità di sospensione. **Limite**: Assenza di evidenza sul servizio effettivo.",
+              "support": "unsupported",
+              "correction": "Rimuovere la frase sulla flessibilità finanziaria o aggiungere una nota esplicita: *‘Flessibilità finanziaria non confermata dal fornitore’*.",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [],
+              "evidence_ids_count": 0,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Dati basati su memoria salvata (non verificati con il fornitore)",
+              "premises": "Limite esplicitato nella memoria e nel draft originale.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_cad7abd6ed794cfe"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Nessun pagamento o modifica contrattuale autorizzato senza conferma esterna",
+              "premises": "Nota esplicita nella memoria e nel draft.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_cad7abd6ed794cfe"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            }
+          ],
+          "model_attempts_after": 7,
+          "sequence": 7
+        },
+        {
+          "stage": "verify_goal",
+          "model_attempts_before": 7,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "Il prospetto di confronto tra le due formule di archivio è stato preparato con costi totali a dodici mesi e vincoli esplicitati, soddisfacendo il criterio principale.",
+          "what_is_missing": "",
+          "model_attempts_after": 8,
+          "sequence": 8
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_a98ba60bc563b828",
+          "agent_review_revision": "43806b8bbcf64e8185c6a3cf875cfa49",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_2382de69719c45cc",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_3b98ca04d75f46de",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [
+        "planning_unavailable_once"
+      ],
+      "external_effects": 0,
+      "result": {
+        "state": "completed",
+        "read_reused": true,
+        "corrected_source_reread": false,
+        "prepared": true,
+        "prepared_text": "Confronto tra le due formule di archivio per 12 mesi (100 GB, assistenza uguale, spese iniziali nulle). **Dati riferiti dall'utente e non confermati dal fornitore**.\n\n**1. Formula a pagamento mensile**\n- Costo mensile: **15 €**\n- Costo totale per 12 mesi: **180 €** (15 € × 12)\n- Vincoli:\n  - Nessun rimborso in caso di disdetta anticipata.\n  - Pagamento rateizzato mensile.\n\n**2. Formula a pagamento anticipato**\n- Costo totale per 12 mesi: **120 €** (pagamento unico anticipato)\n- Vincoli:\n  - Nessun rimborso in caso di disdetta anticipata.\n  - Pagamento unico all’inizio del contratto.\n\n**Confronto sintetico**\n- **Risparmio totale**: La formula anticipata costa **60 € in meno** rispetto al pagamento mensile (120 € vs. 180 €).\n- **Rimborso**: Nessuna delle due opzioni prevede rimborso in caso di disdetta anticipata.\n\n**Note**:\n- Entrambe le formule includono **100 GB di spazio** e **assistenza uguale**.\n- **Flessibilità finanziaria**: *Non confermata dal fornitore*.\n- **Dati non verificati**: I valori sono basati su memoria salvata (non confermata dal fornitore).\n- **Autorizzazione**: Nessun pagamento o modifica contrattuale è valida senza conferma esterna.\n\n**Raccomandazione**: La scelta dipende dalla preferenza tra risparmio immediato (pagamento anticipato) o necessità di conferma da parte del fornitore per eventuali condizioni aggiuntive (es. flessibilità).",
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 1378,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 4,
+          "agent_updates": 1,
+          "ambient_activity": 3,
+          "agent_needs": 1,
+          "agent_action_attempts": 0
+        }
+      }
+    },
+    {
+      "scenario": "home_write_retry",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2474,
+            "completion_tokens": 705
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4198,
+            "completion_tokens": 1004
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 6074.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 12537.7,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 2,
+      "model_http_requests": 2,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "l'utente ha bisogno di un confronto scritto per scegliere tra le due formule, ma i dati forniti non sono confermati dal fornitore e manca una sintesi strutturata dei vincoli.",
+          "objective": "preparare un confronto scritto dei costi e vincoli delle due formule per 12 mesi, evidenziando eventuali differenze e la necessità di ulteriore verifica esterna.",
+          "desired_outcome": "un documento che elenca i costi totali (180€ vs 120€), i vincoli (assenza di rimborso per l'opzione annuale) e le caratteristiche uguali (100 GB, assistenza), con una nota esplicita che i dati devono essere confermati dal fornitore per avere autorità.",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "desired_outcome": "un confronto scritto e verificato dei costi e vincoli delle due formule di archivio digitale per 12 mesi, con dati confermati e vincoli chiariti per supportare la scelta dell'utente",
+            "outcome_state": "open",
+            "remaining_internal_work": "sintetizzare i dati forniti dall'utente (15€/mese vs 120€ anticipati per 12 mesi, entrambi con 100 GB e assistenza uguale, senza spese iniziali) e verificare la coerenza dei vincoli (assenza di rimborso in caso di disdetta anticipata per l'opzione annuale) in un formato confronta",
+            "truncated_fields": [
+              "remaining_internal_work"
+            ],
+            "supporting_refs": [
+              "mem_43262246ed92296b9353: dati utente su costi e vincoli delle due formule (15€/mese vs 120€ anticipati, 100 GB, assistenza uguale, nessuna spesa iniziale, asse"
+            ],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 1,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 1,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "reasoning": "La nota salvata in memoria contiene già i dati necessari per preparare un confronto scritto tra le due formule (mensile e annuale) per 12 mesi. I costi totali (180€ vs 120€), i vincoli (assenza di rimborso per l'opzione annuale) e le caratteristiche uguali (100 GB, assistenza) sono esplicitati. Il passo successivo è leggere la nota per estrarre i dati e preparare un documento strutturato che evide",
+          "planning_outcome": "plan",
+          "plan_summary": "Leggere la nota salvata e preparare un documento comparativo dei costi e vincoli per 12 mesi, evidenziando differenze e la necessità di verifica esterna.",
+          "expected_outcome": "Un documento scritto che elenca i costi totali, i vincoli e le caratteristiche uguali delle due formule, con una nota esplicita sulla necessità di conferma dal fornitore.",
+          "truncated_fields": [
+            "reasoning"
+          ],
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Recuperare i dati dettagliati sulle due formule (costi, vincoli, caratteristiche) dalla nota salvata per preparare il confronto scritto.",
+              "expected_result": "Contenuto completo della nota con i dettagli sulle due formule (costi, vincoli, caratteristiche) per 12 mesi."
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare un documento comparativo che elenchi i costi totali (180€ vs 120€), i vincoli (assenza di rimborso per l'opzione annuale) e le caratteristiche uguali ",
+              "expected_result": "Documento creato con il confronto scritto dei costi e vincoli, pronto per essere consegnato all'utente.",
+              "truncated_fields": [
+                "intent"
+              ]
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 2,
+          "sequence": 2
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_c65bf057f5ed06ec",
+          "agent_review_revision": "1dd6b665515745b5b6c7082a91281ff2",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [],
+      "executed_capabilities": [],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 1,
+        "goals": [
+          {
+            "status": "active",
+            "rationale": "Non riesco ancora a preparare il lavoro per un problema temporaneo. Riproverò automaticamente.",
+            "desired_outcome": "un documento che elenca i costi totali (180€ vs 120€), i vincoli (assenza di rimborso per l'opzione annuale) e le caratteristiche uguali (100 GB, assistenza), con una nota esplicita che i dati devono essere confermati dal fornitore per avere autorità.",
+            "success_criteria_kind": "array",
+            "success_criteria": [
+              "elenco dei costi totali per 12 mesi per entrambe le opzioni",
+              "riassunto dei vincoli (es. assenza di rimborso per l'opzione annuale)",
+              "confronto delle caratteristiche uguali (es. spazio e assistenza)",
+              "avviso esplicito che i dati devono essere confermati dal fornitore"
+            ],
+            "success_criteria_count": 4,
+            "success_criteria_omitted": 0,
+            "source_refs_kind": "array",
+            "source_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "source_refs_count": 1,
+            "source_refs_omitted": 0,
+            "prepared_sources_kind": "array",
+            "prepared_sources": [],
+            "prepared_sources_count": 0,
+            "prepared_sources_omitted": 0,
+            "requires_user_input": false,
+            "requires_user_authority": false,
+            "has_next_run_at": true,
+            "planning_unavailable": true,
+            "prepared_text": "",
+            "prepared_text_truncated": false,
+            "prepared_text_characters": 0,
+            "evidence_count": 0,
+            "current_evidence_count": 0,
+            "plans": [],
+            "plans_count": 0
+          }
+        ],
+        "admission_sources_count": 1,
+        "admission_sources": [
+          {
+            "id": "opp_c65bf057f5ed06ec",
+            "agent_review_revision": "1dd6b665515745b5b6c7082a91281ff2",
+            "state": "settled",
+            "outcome": "create_goal",
+            "error_kind": "",
+            "attempts": 1,
+            "has_due": false,
+            "has_question": false,
+            "invalid_fields": []
+          }
+        ]
+      },
+      "reason": "OWNED_SOURCE_NOT_READ_ONCE"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "source_revoked",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2474,
+            "completion_tokens": 706
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4264,
+            "completion_tokens": 756,
+            "total_tokens": 5020
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4782,
+            "completion_tokens": 87,
+            "total_tokens": 4869
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2688,
+            "completion_tokens": 43,
+            "total_tokens": 2731
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 8585.5,
+          "fallbacks": [
+            {
+              "provider": "gemini",
+              "failure_kind": "quota"
+            }
+          ]
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 2248.5,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 788.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 832.2,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 4,
+      "model_http_requests": 5,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "l'utente ha bisogno di un confronto scritto per scegliere tra le due formule, ma i dati forniti non sono confermati dal fornitore e manca una sintesi strutturata",
+          "objective": "preparare un confronto scritto dei costi e vincoli delle due formule per 12 mesi, evidenziando le assunzioni non confermate",
+          "desired_outcome": "un documento interno che riassuma i costi totali (180€ vs 120€), i vincoli tecnici (100GB, assistenza), le spese iniziali (nulle) e le differenze chiave (assenza rimborso disdetta anticipata per l'opzione annuale), con segnalazione esplicita dei dati non verificati",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "desired_outcome": "un confronto scritto e verificato dei costi e vincoli delle due formule di archivio digitale per 12 mesi, utile alla scelta dell'utente",
+            "outcome_state": "open",
+            "remaining_internal_work": "sintesi dei dati forniti dall'utente (15€/mese vs 120€ anticipati per 12 mesi, uguali vincoli tecnici e assistenza, nessuna spesa iniziale, nessuna clausola di rimborso anticipato per l'opzione annuale) e segnalazione esplicita delle assunzioni non confermate dal fornitore (es. a",
+            "truncated_fields": [
+              "remaining_internal_work"
+            ],
+            "supporting_refs": [
+              "mem_43262246ed92296b9353: dati utente su costi e vincoli delle due formule (15€/mese vs 120€ anticipati, 100GB, assistenza uguale, spese iniziali nulle, assenza"
+            ],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 1,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 1,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "reasoning": "La memoria salvata contiene già tutti i dettagli necessari (costi, vincoli, spese e assunzioni non confermate). L'obiettivo richiede di preparare un documento interno di confronto basato su questi dati.",
+          "planning_outcome": "plan",
+          "plan_summary": "Legge la memoria salvata con i dettagli e crea un documento interno di confronto tra le due formule.",
+          "expected_outcome": "Un documento interno creato in ORA che riassume la comparazione dei costi e dei vincoli per 12 mesi, evidenziando le assunzioni non confermate.",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere i dettagli della nota salvata in ORA",
+              "expected_result": "Contenuto dettagliato della nota sui costi e vincoli."
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Creare il documento interno con il confronto scritto",
+              "expected_result": "Documento interno creato con il confronto comparativo e la segnalazione delle assunzioni non confermate."
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 2,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 2,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_3516b25a2b7d4c60",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_145edf1af5be4dae",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "La lettura dei dettagli della nota è completata ed è ora possibile creare il documento interno di confronto tra le due formule.",
+          "decision": "execute",
+          "step_id": "stp_145edf1af5be4dae",
+          "model_attempts_after": 3,
+          "sequence": 3
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_8f6caded30d1599b",
+          "agent_review_revision": "ced0652d7b0b4a04bc9784d9e5e22a31",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_3516b25a2b7d4c60",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "cancelled",
+        "stopped_on_source_revocation": true,
+        "replay_idempotent": true
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "memory_revoked",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2464,
+            "completion_tokens": 315,
+            "total_tokens": 2779
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4108,
+            "completion_tokens": 725,
+            "total_tokens": 4833
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4667,
+            "completion_tokens": 61,
+            "total_tokens": 4728
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2482,
+            "completion_tokens": 54,
+            "total_tokens": 2536
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1336.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 2206,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 990,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 703.2,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 4,
+      "model_http_requests": 4,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Il confronto scritto dei costi e dei vincoli per la scelta tra le due formule non è ancora stato preparato.",
+          "objective": "Preparare il confronto scritto dei costi e dei vincoli per la scelta tra le due formule per un periodo di dodici mesi.",
+          "desired_outcome": "Il confronto scritto dei costi e dei vincoli a dodici mesi è disponibile per la valutazione della persona.",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "desired_outcome": "Un confronto scritto di costi e vincoli per dodici mesi tra le due formule di archivio digitale",
+            "outcome_state": "open",
+            "remaining_internal_work": "Preparare il confronto scritto basato sui dati salvati nella memoria",
+            "supporting_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 1,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 1,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "reasoning": "La memoria salvata contiene già tutti i dettagli necessari sulle due formule (mensile e annuale a 120 euro, condizioni, vincoli di rimborso e costi a 12 mesi). L'obiettivo è preparare il confronto scritto senza effettuare modifiche esterne.",
+          "planning_outcome": "plan",
+          "plan_summary": "Leggere la memoria di riferimento e preparare il documento di confronto scritto dei costi e dei vincoli per dodici mesi.",
+          "expected_outcome": "Il confronto scritto dei costi e dei vincoli per le due formule a dodici mesi è pronto in forma di documento interno.",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere i dettagli della nota salvata per estrarre costi e vincoli delle due formule.",
+              "expected_result": "Dettagli completi dei costi e dei vincoli delle due formule a dodici mesi."
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare il confronto scritto dei costi e dei vincoli basato sulle informazioni lette.",
+              "expected_result": "Il documento scritto contenente il confronto dei costi e dei vincoli è pronto."
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 2,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 2,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_6d0e578e266140f3",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_21b3b79b13fc47e7",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il passaggio di lettura è completato e ora posso procedere a preparare il confronto scritto dei costi e dei vincoli.",
+          "decision": "execute",
+          "step_id": "stp_21b3b79b13fc47e7",
+          "model_attempts_after": 3,
+          "sequence": 3
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_b1fee9d54af0df31",
+          "agent_review_revision": "d265eba365884e4ead97d3d95b5543bf",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_6d0e578e266140f3",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "abandoned",
+        "stopped_on_memory_revocation": true
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "memory_corrected",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2464,
+            "completion_tokens": 308,
+            "total_tokens": 2772
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4094,
+            "completion_tokens": 732,
+            "total_tokens": 4826
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4724,
+            "completion_tokens": 111,
+            "total_tokens": 4835
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2475,
+            "completion_tokens": 42,
+            "total_tokens": 2517
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 3971,
+            "completion_tokens": 738,
+            "total_tokens": 4709
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4486,
+            "completion_tokens": 60,
+            "total_tokens": 4546
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1963,
+            "completion_tokens": 326,
+            "total_tokens": 2289
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2505,
+            "completion_tokens": 962,
+            "total_tokens": 3467
+          }
+        },
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 4863,
+            "completion_tokens": 348,
+            "total_tokens": 5211
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 3442,
+            "completion_tokens": 98
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2099,
+            "completion_tokens": 165
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1268.4,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 2207.4,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 861.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 700,
+          "fallbacks": []
+        },
+        {
+          "sequence": 5,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 2032.4,
+          "fallbacks": []
+        },
+        {
+          "sequence": 6,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 725,
+          "fallbacks": []
+        },
+        {
+          "sequence": 7,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1442.6,
+          "fallbacks": []
+        },
+        {
+          "sequence": 8,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 2314,
+          "fallbacks": []
+        },
+        {
+          "sequence": 9,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1155.9,
+          "fallbacks": []
+        },
+        {
+          "sequence": 10,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 1784.7,
+          "fallbacks": [
+            {
+              "provider": "gemini2",
+              "failure_kind": "rate_limit"
+            }
+          ]
+        },
+        {
+          "sequence": 11,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 2021.9,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 11,
+      "model_http_requests": 12,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "Il confronto scritto dei costi e dei vincoli per la scelta tra le due formule non è ancora stato preparato.",
+          "objective": "Preparare il confronto scritto dei costi totali per dodici mesi e dei vincoli contrattuali per la scelta tra le due formule.",
+          "desired_outcome": "Il confronto scritto tra le due opzioni di archiviazione per un orizzonte di dodici mesi è disponibile per la valutazione.",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "desired_outcome": "Confronto scritto di costi e vincoli per il mantenimento dell'archivio digitale per 12 mesi tra le due formule.",
+            "outcome_state": "open",
+            "remaining_internal_work": "Preparare il confronto scritto basato sui dati dichiarati nella memoria.",
+            "supporting_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 1,
+          "sequence": 1
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 1,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "reasoning": "La memoria salvata contiene già i dati numerici e le condizioni delle due opzioni (mensile a 15 euro/mese, totale 180 euro per 12 mesi; annuale a 120 euro anticipati per 12 mesi senza rimborso). Non servono ulteriori ricerche o letture di file esterni perché l'informazione necessaria è disponibile in mem_43262246ed92296b9353. Possiamo quindi preparare direttamente il documento di confronto scritto",
+          "planning_outcome": "plan",
+          "plan_summary": "Prepara il confronto scritto dei costi totali per dodici mesi e dei vincoli contrattuali delle due formule di archiviazione sulla base dei dati salvati.",
+          "expected_outcome": "Il documento scritto che confronta i costi e i vincoli delle due opzioni di archiviazione per dodici mesi è stato creato e reso disponibile per la valutazione.",
+          "truncated_fields": [
+            "reasoning"
+          ],
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere la nota salvata con i dettagli delle tariffe e dei vincoli contrattuali delle due formule.",
+              "expected_result": "I dettagli dei costi e dei vincoli delle due opzioni vengono letti dalla memoria."
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Creare il confronto scritto dei costi totali per dodici mesi e dei vincoli delle due opzioni di archiviazione.",
+              "expected_result": "Il documento di confronto dei costi e dei vincoli contrattuali viene creato e reso disponibile."
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 2,
+          "sequence": 2
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 2,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_914aba67294b473e",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_3e458690f1f94cf3",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "La lettura della nota è completata e i dati necessari per redigere il confronto scritto dei costi e dei vincoli sono disponibili.",
+          "decision": "execute",
+          "step_id": "stp_3e458690f1f94cf3",
+          "model_attempts_after": 3,
+          "sequence": 3
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 4,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "reasoning": "Il promemoria contiene già tutti i dettagli numerici e contrattuali sulle due formule (mensile e annuale per 12 mesi, costi e vincoli di disdetta). Avendo letto direttamente la memoria di riferimento con information.read, posso procedere immediatamente alla preparazione del documento di confronto scritto richiesto usando document.create.",
+          "planning_outcome": "plan",
+          "plan_summary": "Legge i dettagli dalla memoria e redige il confronto scritto dei costi e dei vincoli per la scelta tra le due formule.",
+          "expected_outcome": "Il confronto scritto tra le due opzioni di archiviazione per un orizzonte di dodici mesi è disponibile per la valutazione.",
+          "steps_kind": "array",
+          "steps_count": 2,
+          "steps": [
+            {
+              "step_type": "inspect",
+              "capability_needed": "information.read",
+              "intent": "Leggere i dettagli delle opzioni di archiviazione memorizzati",
+              "expected_result": "Contenuto della memoria letto con costi e vincoli delle due opzioni."
+            },
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare il documento scritto di confronto tra i costi totali e i vincoli contrattuali delle due formule",
+              "expected_result": "Il documento di confronto scritto è creato e pronto per la consultazione."
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 5,
+          "sequence": 4
+        },
+        {
+          "stage": "choose_next_action",
+          "model_attempts_before": 5,
+          "input": {
+            "status": "active",
+            "evidence_kind": "array",
+            "evidence_entries": 1,
+            "plan": {
+              "steps_count": 2,
+              "steps": [
+                {
+                  "id": "stp_f3c64d2afc214456",
+                  "type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded"
+                },
+                {
+                  "id": "stp_f04c0e0bd6194897",
+                  "type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "pending"
+                }
+              ],
+              "steps_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "reasoning": "Il dettaglio delle opzioni di archiviazione è stato letto e ora si procede alla creazione del documento di confronto scritto.",
+          "decision": "execute",
+          "step_id": "stp_f04c0e0bd6194897",
+          "model_attempts_after": 6,
+          "sequence": 5
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 6,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_e947b35d3d3942a4"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_7ec1e294782f4075",
+            "step_id": "stp_f04c0e0bd6194897"
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Confronto delle opzioni di archiviazione digitale per un orizzonte di 12 mesi sulla base dei dati riferiti dall'utente (non confermati direttamente dal fornitore).\n\nCaratteristiche comuni a entrambe le opzioni:\n- Spazio: 100 GB\n- Assistenza: uguali prestazioni\n- Spese iniziali: nulle\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale per 12 mesi: 180 euro\n- Vincoli e condizioni: basato su pagamento mensile.\n\n2. Formula Annuale\n- Costo anticipato per 12 mesi: 150 euro\n- Vincoli e condizioni: non prevede rimborso in caso di disdetta anticipata.\n\nSintesi del confronto:\n- Differenza di costo nominale sul periodo di 12 mesi: la formula annuale comporta un risparmio di 30 euro rispetto al totale della formula mensile (150 euro contro 180 euro).\n- Vincoli: la formula annuale richiede il pagamento anticipato e non offre alcun rimborso in caso di recesso anticipato, mentre la formula mensile non presenta tale vincolo di pagamento anticipato.",
+          "content_characters": 955,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_e947b35d3d3942a4"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 7,
+          "sequence": 6
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 7,
+          "input": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_e947b35d3d3942a4"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_7ec1e294782f4075",
+            "step_id": "stp_f04c0e0bd6194897",
+            "draft_kind": "text",
+            "draft": "Confronto delle opzioni di archiviazione digitale per un orizzonte di 12 mesi sulla base dei dati riferiti dall'utente (non confermati direttamente dal fornitore).\n\nCaratteristiche comuni a entrambe le opzioni:\n- Spazio: 100 GB\n- Assistenza: uguali prestazioni\n- Spese iniziali: nulle\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale per 12 mesi: 180 euro\n- Vincoli e condizioni: basato su pagamento mensile.\n\n2. Formula Annuale\n- Costo anticipato per 12 mesi: 150 euro\n- Vincoli e condizioni: non prevede rimborso in caso di disdetta anticipata.\n\nSintesi del confronto:\n- Differenza di costo nominale sul periodo di 12 mesi: la formula annuale comporta un risparmio di 30 euro rispetto al totale della formula mensile (150 euro contro 180 euro).\n- Vincoli: la formula annuale richiede il pagamento anticipato e non offre alcun rimborso in caso di recesso anticipato, mentre la formula mensile non presenta tale vincolo di pagamento anticipato.",
+            "draft_characters": 955,
+            "draft_truncated": false
+          },
+          "response_kind": "object",
+          "content_kind": "text",
+          "content": "Confronto delle opzioni di archiviazione digitale per un orizzonte di 12 mesi sulla base dei dati riferiti dall'utente (non confermati direttamente dal fornitore).\n\nCaratteristiche comuni a entrambe le opzioni:\n- Spazio: 100 GB\n- Assistenza: uguali prestazioni\n- Spese iniziali: nulle\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale per 12 mesi: 180 euro\n- Vincoli e condizioni: basato su pagamento mensile.\n\n2. Formula Annuale\n- Costo anticipato per 12 mesi: 150 euro\n- Vincoli e condizioni: non prevede rimborso in caso di disdetta anticipata.\n\nSintesi del confronto:\n- Differenza di costo nominale sul periodo di 12 mesi: la formula annuale comporta un risparmio di 30 euro rispetto al totale della formula mensile (150 euro contro 180 euro).\n- Vincoli: la formula annuale richiede il pagamento anticipato e non offre alcun rimborso in caso di recesso anticipato, mentre la formula mensile non presenta tale vincolo di pagamento anticipato.",
+          "content_characters": 955,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_e947b35d3d3942a4"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Il documento scritto confronta accuratamente i costi per 12 mesi e i vincoli contrattuali delle due opzioni, basandosi interamente sulle fonti fornite.",
+          "claim_review_kind": "array",
+          "claim_review_count": 5,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Confronto delle opzioni di archiviazione digitale per un orizzonte di 12 mesi sulla base dei dati riferiti dall'utente.",
+              "premises": "evd_e947b35d3d3942a4",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_e947b35d3d3942a4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Spazio 100 GB, assistenza uguali prestazioni, spese iniziali nulle per entrambe le opzioni.",
+              "premises": "evd_e947b35d3d3942a4",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_e947b35d3d3942a4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Formula Mensile: 15 euro mensili, costo totale per 12 mesi pari a 180 euro.",
+              "premises": "evd_e947b35d3d3942a4",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_e947b35d3d3942a4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Formula Annuale: 150 euro anticipati per 12 mesi, non prevede rimborso in caso di disdetta anticipata.",
+              "premises": "evd_e947b35d3d3942a4",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_e947b35d3d3942a4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            },
+            {
+              "claim": "Differenza di costo nominale: risparmio di 30 euro con la formula annuale rispetto alla mensile (150 euro contro 180 euro).",
+              "premises": "evd_e947b35d3d3942a4",
+              "support": "derived",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_e947b35d3d3942a4"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0
+            }
+          ],
+          "model_attempts_after": 8,
+          "sequence": 7
+        },
+        {
+          "stage": "verify_goal",
+          "model_attempts_before": 8,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "Il confronto scritto dei costi totali per dodici mesi e dei vincoli contrattuali è stato preparato correttamente ed è disponibile.",
+          "what_is_missing": "",
+          "model_attempts_after": 9,
+          "sequence": 8
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_00d9daf311aab0d2",
+          "agent_review_revision": "8411080e2dc1456fa72f9e27d4c5d20c",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_914aba67294b473e",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "information.read",
+          "step_id": "stp_f3c64d2afc214456",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_f04c0e0bd6194897",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        },
+        {
+          "claimed": 1,
+          "completed": 1,
+          "retried": 0,
+          "failed": 0
+        }
+      ],
+      "source_change_discovery_tested": false,
+      "injected_faults": [
+        "memory_corrected_between_wakes"
+      ],
+      "external_effects": 0,
+      "result": {
+        "state": "completed",
+        "read_reused": false,
+        "corrected_source_reread": true,
+        "prepared": true,
+        "prepared_text": "Confronto delle opzioni di archiviazione digitale per un orizzonte di 12 mesi sulla base dei dati riferiti dall'utente (non confermati direttamente dal fornitore).\n\nCaratteristiche comuni a entrambe le opzioni:\n- Spazio: 100 GB\n- Assistenza: uguali prestazioni\n- Spese iniziali: nulle\n\n1. Formula Mensile\n- Costo mensile: 15 euro\n- Costo totale per 12 mesi: 180 euro\n- Vincoli e condizioni: basato su pagamento mensile.\n\n2. Formula Annuale\n- Costo anticipato per 12 mesi: 150 euro\n- Vincoli e condizioni: non prevede rimborso in caso di disdetta anticipata.\n\nSintesi del confronto:\n- Differenza di costo nominale sul periodo di 12 mesi: la formula annuale comporta un risparmio di 30 euro rispetto al totale della formula mensile (150 euro contro 180 euro).\n- Vincoli: la formula annuale richiede il pagamento anticipato e non offre alcun rimborso in caso di recesso anticipato, mentre la formula mensile non presenta tale vincolo di pagamento anticipato.",
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 955,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 4,
+          "agent_updates": 1,
+          "ambient_activity": 3,
+          "agent_needs": 1,
+          "agent_action_attempts": 0
+        }
+      }
+    },
+    {
+      "scenario": "source_change_crash",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 3734,
+            "completion_tokens": 780
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2693,
+            "completion_tokens": 790
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2972,
+            "completion_tokens": 619
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4315,
+            "completion_tokens": 1816
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 6883.8,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 7435.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 5683.5,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 16380.6,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 4,
+      "model_http_requests": 4,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "opportunity_audit",
+          "model_attempts_before": 1,
+          "input": {
+            "collection_counts": {
+              "memories": 1,
+              "documents": 0,
+              "calendar": 0,
+              "money": 5,
+              "life_profile": 0,
+              "what_changed": 1,
+              "unavailable_sources": 0,
+              "unavailable_memory_refs": 0
+            },
+            "change_after_lengths": [
+              160
+            ],
+            "proposed": {
+              "response_kind": "object",
+              "outcome_assessment": {
+                "response_kind": "object",
+                "desired_outcome": "un confronto scritto e dettagliato tra le due formule di archiviazione digitale (15€/mese vs 120€ anticipati per 12 mesi) per aiutare la decisione, evidenziando costi totali, vincoli e eventuali differenze nascoste (es. rimborso disdetta, spese aggiuntive)",
+                "outcome_state": "open",
+                "remaining_internal_work": "preparare un confronto strutturato tra le due opzioni (costi totali, vincoli, assistenza, rimborso disdetta, spese nascoste) utilizzando i dati già disponibili nella memoria e verificando eventuali implicazioni non esplicitate (es. condizioni di disdetta, penalità)",
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "verified_kind": "none",
+              "opportunities_kind": "array",
+              "opportunities_count": 1,
+              "opportunities": [
+                {
+                  "identity_key": "confronta-formule-archivio-digitale",
+                  "what": "Ecco un confronto scritto tra le due formule di archiviazione digitale che stai valutando: 15€ al mese per 12 mesi (180€ totali) vs 120€ anticipati per 12 mesi. Ti segnalo anche le differenze sui vincoli e l’assenza di rimborso in caso di disdetta anticipata per la seconda opzione.",
+                  "initiative": "prepare",
+                  "why_it_matters": "Questo confronto ti aiuta a decidere quale formula conviene di più in base ai tuoi bisogni: costi totali, flessibilità e eventuali rischi nascosti (es. disdetta prematura).",
+                  "what_i_can_do": "Posso preparare una tabella comparativa dettagliata tra le due opzioni, includendo costi totali, vincoli contrattuali e eventuali differenze nascoste (es. rimborso disdetta, assistenza). Vuoi che includa anche una valutazione su quale opzione potrebbe essere più adatta alla tua situazione?",
+                  "outcome_assessment": {
+                    "response_kind": "object",
+                    "desired_outcome": "un confronto scritto tra le due formule di archiviazione digitale, evidenziando costi totali, vincoli e differenze chiave",
+                    "outcome_state": "open",
+                    "remaining_internal_work": "null",
+                    "supporting_refs": [
+                      "mem_43262246ed92296b9353"
+                    ],
+                    "supporting_refs_omitted": 0,
+                    "completion_refs": [],
+                    "completion_refs_omitted": 0
+                  },
+                  "evidence_refs_kind": "array",
+                  "evidence_refs": [
+                    "mem_43262246ed92296b9353"
+                  ],
+                  "evidence_refs_count": 1,
+                  "evidence_refs_omitted": 0
+                }
+              ],
+              "opportunities_omitted": 0
+            }
+          },
+          "response_kind": "object",
+          "verified_kind": "boolean",
+          "verified": true,
+          "opportunities_kind": "array",
+          "opportunities_count": 1,
+          "opportunities": [
+            {
+              "identity_key": "confronta-formule-archivio-digitale",
+              "what": "Posso preparare una tabella comparativa dettagliata tra le due formule di archiviazione digitale, includendo i seguenti punti chiave:\n- **Costi totali**: 15€/mese × 12 mesi = 180€ vs 120€ anticipati per 12 mesi.\n- **Vincoli**: Nessuna spesa iniziale in entrambi i casi, ma la formula annuale (120€) non prevede rimborso in caso di disdetta anticipata.\n- **Assistenza**: Uguale per entrambe le opzioni",
+              "initiative": "prepare",
+              "why_it_matters": "Questo confronto ti aiuta a valutare quale opzione si adatta meglio ai tuoi bisogni: la formula mensile offre flessibilità ma costi totali più alti, mentre quella annuale riduce il costo complessivo ma vincola il pagamento anticipato senza possibilità di rimborso in caso di disdetta prematura.",
+              "what_i_can_do": "Preparerò una sintesi scritta con la tabella comparativa e una breve analisi delle implicazioni pratiche (es. convenienza economica vs flessibilità). Vuoi che includa anche una valutazione su quale opzione potrebbe essere più adatta in base a scenari specifici (es. budget limitato, necessità di disdetta anticipata)?",
+              "truncated_fields": [
+                "what"
+              ],
+              "outcome_assessment": {
+                "response_kind": "object",
+                "desired_outcome": "un confronto scritto e dettagliato tra le due formule di archiviazione digitale (15€/mese vs 120€ anticipati per 12 mesi) evidenziando costi totali, vincoli e differenze nascoste (es. rimborso disdetta, assistenza, penalità)",
+                "outcome_state": "open",
+                "remaining_internal_work": "preparare una tabella comparativa strutturata con i seguenti elementi: costi totali (180€ vs 120€), vincoli contrattuali (assenza di rimborso disdetta anticipata per la seconda opzione), assistenza (uguale in entrambi i casi), spese nascoste (nessune menzionate), e una sintesi de",
+                "truncated_fields": [
+                  "remaining_internal_work"
+                ],
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "evidence_refs_kind": "array",
+              "evidence_refs": [
+                "mem_43262246ed92296b9353"
+              ],
+              "evidence_refs_count": 1,
+              "evidence_refs_omitted": 0
+            }
+          ],
+          "opportunities_omitted": 0,
+          "model_attempts_after": 2,
+          "sequence": 1
+        },
+        {
+          "stage": "opportunity_scan",
+          "model_attempts_before": 0,
+          "input": {
+            "collection_counts": {
+              "memories": 1,
+              "documents": 0,
+              "calendar": 0,
+              "money": 5,
+              "life_profile": 0,
+              "what_changed": 1,
+              "unavailable_sources": 0,
+              "unavailable_memory_refs": 0
+            },
+            "change_after_lengths": [
+              160
+            ]
+          },
+          "response_kind": "object",
+          "verified_kind": "boolean",
+          "verified": true,
+          "opportunities_kind": "array",
+          "opportunities_count": 1,
+          "opportunities": [
+            {
+              "identity_key": "confronta-formule-archivio-digitale",
+              "what": "Posso preparare una tabella comparativa dettagliata tra le due formule di archiviazione digitale, includendo i seguenti punti chiave:\n- **Costi totali**: 15€/mese × 12 mesi = 180€ vs 120€ anticipati per 12 mesi.\n- **Vincoli**: Nessuna spesa iniziale in entrambi i casi, ma la formula annuale (120€) non prevede rimborso in caso di disdetta anticipata.\n- **Assistenza**: Uguale per entrambe le opzioni",
+              "initiative": "prepare",
+              "why_it_matters": "Questo confronto ti aiuta a valutare quale opzione si adatta meglio ai tuoi bisogni: la formula mensile offre flessibilità ma costi totali più alti, mentre quella annuale riduce il costo complessivo ma vincola il pagamento anticipato senza possibilità di rimborso in caso di disdetta prematura.",
+              "what_i_can_do": "Preparerò una sintesi scritta con la tabella comparativa e una breve analisi delle implicazioni pratiche (es. convenienza economica vs flessibilità). Vuoi che includa anche una valutazione su quale opzione potrebbe essere più adatta in base a scenari specifici (es. budget limitato, necessità di disdetta anticipata)?",
+              "truncated_fields": [
+                "what"
+              ],
+              "outcome_assessment": {
+                "response_kind": "object",
+                "desired_outcome": "un confronto scritto e dettagliato tra le due formule di archiviazione digitale (15€/mese vs 120€ anticipati per 12 mesi) evidenziando costi totali, vincoli e differenze nascoste (es. rimborso disdetta, assistenza, penalità)",
+                "outcome_state": "open",
+                "remaining_internal_work": "preparare una tabella comparativa strutturata con i seguenti elementi: costi totali (180€ vs 120€), vincoli contrattuali (assenza di rimborso disdetta anticipata per la seconda opzione), assistenza (uguale in entrambi i casi), spese nascoste (nessune menzionate), e una sintesi de",
+                "truncated_fields": [
+                  "remaining_internal_work"
+                ],
+                "supporting_refs": [
+                  "mem_43262246ed92296b9353"
+                ],
+                "supporting_refs_omitted": 0,
+                "completion_refs": [],
+                "completion_refs_omitted": 0
+              },
+              "evidence_refs_kind": "array",
+              "evidence_refs": [
+                "mem_43262246ed92296b9353"
+              ],
+              "evidence_refs_count": 1,
+              "evidence_refs_omitted": 0
+            }
+          ],
+          "opportunities_omitted": 0,
+          "model_attempts_after": 2,
+          "sequence": 2
+        },
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 2,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "create_goal",
+          "reasoning": "I dati necessari per il confronto sono già disponibili e confermati dall'utente, senza bisogno di ulteriori ricerche o autorizzazioni esterne.",
+          "objective": "Generare una tabella comparativa dettagliata e una sintesi delle implicazioni pratiche tra le due formule di archiviazione digitale.",
+          "desired_outcome": "una tabella comparativa chiara e una sintesi delle implicazioni pratiche tra le due formule di archiviazione digitale, pronta per la valutazione dell'utente.",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "desired_outcome": "una tabella comparativa dettagliata e una sintesi delle implicazioni pratiche tra le due formule di archiviazione digitale (15€/mese vs 120€ anticipati per 12 mesi), evidenziando costi totali, vincoli contrattuali e differenze chiave (rimborso disdetta, assistenza, flessibilità)",
+            "outcome_state": "open",
+            "remaining_internal_work": "creare una tabella comparativa strutturata con i seguenti elementi: costi totali (180€ vs 120€), vincoli contrattuali (assenza di rimborso disdetta anticipata per l'opzione annuale), assistenza (uguale in entrambi i casi), spese nascoste (nessune menzionate), e una sintesi delle ",
+            "truncated_fields": [
+              "remaining_internal_work"
+            ],
+            "supporting_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 3,
+          "sequence": 3
+        },
+        {
+          "stage": "make_plan",
+          "model_attempts_before": 3,
+          "input": {
+            "status": "active",
+            "evidence_kind": "none"
+          },
+          "response_kind": "object",
+          "reasoning": "I dati necessari per la tabella comparativa sono già disponibili nella memoria utente (mem_43262246ed92296b9353). È possibile procedere direttamente alla preparazione di una tabella comparativa dettagliata e di una sintesi delle implicazioni pratiche senza ulteriori passaggi di ricerca o verifica esterna. La sintesi includerà anche una valutazione basata su scenari generici (budget limitato vs fle",
+          "planning_outcome": "plan",
+          "plan_summary": "Preparerò una tabella comparativa dettagliata e una sintesi delle implicazioni pratiche tra le due formule di archiviazione digitale, inclusa una raccomandazione basata su scenari generici.",
+          "expected_outcome": "Una tabella comparativa chiara e una sintesi delle implicazioni pratiche tra le due formule di archiviazione digitale, pronta per la valutazione dell'utente.",
+          "truncated_fields": [
+            "reasoning"
+          ],
+          "steps_kind": "array",
+          "steps_count": 3,
+          "steps": [
+            {
+              "step_type": "prepare",
+              "capability_needed": "document.create",
+              "intent": "Preparare una tabella comparativa dettagliata tra le due formule di archiviazione digitale basata sui dati forniti dall'utente.",
+              "expected_result": "Un documento con una tabella comparativa dettagliata e una sintesi delle implicazioni pratiche tra le due formule di archiviazione digitale, pronto per la verif",
+              "truncated_fields": [
+                "expected_result"
+              ]
+            },
+            {
+              "step_type": "verify",
+              "capability_needed": "information.read",
+              "intent": "Verificare che la tabella comparativa e la sintesi siano complete e corrette secondo i dati forniti dall'utente.",
+              "expected_result": "Conferma che la tabella e la sintesi siano complete e coerenti con le informazioni fornite dall'utente (mem_43262246ed92296b9353)."
+            },
+            {
+              "step_type": "ask_user",
+              "intent": "Chiedere all'utente se la tabella e la sintesi soddisfano le sue esigenze o se sono necessarie modifiche specifiche.",
+              "expected_result": "Risposta dell'utente sulla completezza e accuratezza della tabella e della sintesi."
+            }
+          ],
+          "steps_omitted": 0,
+          "model_attempts_after": 4,
+          "sequence": 4
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_f33da938c2f07e59",
+          "agent_review_revision": "eab0d780a7cf4e95911fa8b1a601d185",
+          "state": "settled",
+          "outcome": "create_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [
+        {
+          "response_kind": "raised",
+          "exception_type": "CancelledError"
+        },
+        {
+          "silence": false,
+          "unavailable": false,
+          "created_count": 1,
+          "updated_count": 0,
+          "skipped_count": 0,
+          "skipped": [],
+          "skipped_omitted": 0
+        }
+      ],
+      "executed_capabilities": [],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 1,
+        "goals": [
+          {
+            "status": "active",
+            "rationale": "Non riesco ancora a preparare il lavoro per un problema temporaneo. Riproverò automaticamente.",
+            "desired_outcome": "una tabella comparativa chiara e una sintesi delle implicazioni pratiche tra le due formule di archiviazione digitale, pronta per la valutazione dell'utente.",
+            "success_criteria_kind": "array",
+            "success_criteria": [
+              "Tabella comparativa con colonne: Costi totali, Vincoli contrattuali, Assistenza, Spese nascoste, Flessibilità.",
+              "Sintesi delle implicazioni pratiche (es. convenienza economica vs flessibilità).",
+              "Raccomandazione basata su scenari generici (budget limitato vs necessità di flessibilità)."
+            ],
+            "success_criteria_count": 3,
+            "success_criteria_omitted": 0,
+            "source_refs_kind": "array",
+            "source_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "source_refs_count": 1,
+            "source_refs_omitted": 0,
+            "prepared_sources_kind": "array",
+            "prepared_sources": [],
+            "prepared_sources_count": 0,
+            "prepared_sources_omitted": 0,
+            "requires_user_input": false,
+            "requires_user_authority": false,
+            "has_next_run_at": true,
+            "planning_unavailable": true,
+            "prepared_text": "",
+            "prepared_text_truncated": false,
+            "prepared_text_characters": 0,
+            "evidence_count": 0,
+            "current_evidence_count": 0,
+            "plans": [],
+            "plans_count": 0
+          }
+        ],
+        "admission_sources_count": 1,
+        "admission_sources": [
+          {
+            "id": "opp_f33da938c2f07e59",
+            "agent_review_revision": "eab0d780a7cf4e95911fa8b1a601d185",
+            "state": "settled",
+            "outcome": "create_goal",
+            "error_kind": "",
+            "attempts": 1,
+            "has_due": false,
+            "has_question": false,
+            "invalid_fields": []
+          }
+        ]
+      },
+      "reason": "OWNED_SOURCE_NOT_READ_ONCE"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "already_resolved",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2427,
+            "completion_tokens": 126,
+            "total_tokens": 2553
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 867.8,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "La scelta fra le formule è già conclusa e documentata nella nota, senza verifiche residue o risultati mancanti da produrre.",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "outcome_state": "resolved",
+            "supporting_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [
+              "mem_43262246ed92296b9353"
+            ],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_4ec355b79a4e7c5d",
+          "agent_review_revision": "3d1c56cca60443da9158b887f94200d4",
+          "state": "settled",
+          "outcome": "no_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [],
+      "executed_capabilities": [],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "no_goal"
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "irrelevant",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2102,
+            "completion_tokens": 84,
+            "total_tokens": 2186
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 721,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "model_call_elapsed_scope": "logical_call_including_fallbacks_and_pacing",
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 0,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Il contenuto segnalato è una newsletter pubblicitaria generica e non richiesta, priva di qualsiasi bisogno o interesse personale documentato.",
+          "outcome_assessment": {
+            "response_kind": "object",
+            "outcome_state": "not_established",
+            "supporting_refs": [],
+            "supporting_refs_omitted": 0,
+            "completion_refs": [],
+            "completion_refs_omitted": 0
+          },
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "admission_observations": [
+        {
+          "id": "opp_eb55078b6bdae53e",
+          "agent_review_revision": "f49065551c0d4c01a5a377d6eee2d438",
+          "state": "settled",
+          "outcome": "no_goal",
+          "error_kind": "",
+          "attempts": 1,
+          "has_due": false,
+          "has_question": false,
+          "invalid_fields": []
+        }
+      ],
+      "discovery_results": [],
+      "executed_capabilities": [],
+      "executed_capabilities_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "no_goal"
+      }
+    }
+  ],
+  "fixture_revision": "personal_outcome_v1",
+  "started_at": "2026-10-12T07:10:44.195873+00:00",
+  "finished_at": "2026-10-12T07:13:08.469117+00:00",
+  "limits": {
+    "cases": 9,
+    "case_timeout_seconds": 240,
+    "model_calls_per_case": 40,
+    "model_call_outcomes_per_case": 40,
+    "model_failures_reported_per_call": 8,
+    "model_http_requests_per_case": 80,
+    "structured_decisions_per_case": 12,
+    "admission_observations_per_case": 3,
+    "discovery_results_per_case": 3,
+    "preparation_text_characters": 4000,
+    "preparation_claims_per_audit": 12,
+    "preparation_claim_text_characters": 280,
+    "executor_observations_per_case": 12,
+    "decision_text_characters": 400,
+    "proposals_per_decision": 3,
+    "plan_steps_per_decision": 6,
+    "outcome_assessment_text_characters": 280,
+    "outcome_assessment_refs_per_field": 8,
+    "model_calls_total": 360,
+    "model_http_requests_total": 720
+  },
+  "code_revision": "01ef5002847eef852b46fffeeacedb3799d41e5c",
+  "revision_source": "deployment_or_ci_metadata"
+}

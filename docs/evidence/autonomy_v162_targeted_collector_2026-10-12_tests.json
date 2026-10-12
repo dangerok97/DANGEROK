@@ -1,0 +1,180 @@
+[
+  {
+    "name": "two_required_reports_complete_with_public_out_of_scope_without_revision",
+    "passed": true,
+    "detail": {
+      "required_complete": true,
+      "model_pass": false,
+      "public_preserved": true
+    }
+  },
+  {
+    "name": "exactly_two_reports_complete_without_public",
+    "passed": true
+  },
+  {
+    "name": "raw_text_one_appended_lf_no_fragment_separators_and_exact_sha",
+    "passed": true
+  },
+  {
+    "name": "original_nine_case_report_rejected_by_targeted_scope_but_recovered_exactly",
+    "passed": true
+  },
+  {
+    "name": "missing_required_situation_never_complete",
+    "passed": true
+  },
+  {
+    "name": "missing_required_autonomy_never_complete",
+    "passed": true
+  },
+  {
+    "name": "missing_continuation_never_complete",
+    "passed": true
+  },
+  {
+    "name": "duplicate_required_situation_never_complete",
+    "passed": true
+  },
+  {
+    "name": "duplicate_required_autonomy_never_complete",
+    "passed": true
+  },
+  {
+    "name": "duplicate_identical_marker_in_same_snapshot_not_hidden_by_dedup",
+    "passed": true
+  },
+  {
+    "name": "wrong_request_binding_projectId_never_complete",
+    "passed": true
+  },
+  {
+    "name": "wrong_request_binding_environmentId_never_complete",
+    "passed": true
+  },
+  {
+    "name": "wrong_request_binding_serviceId_never_complete",
+    "passed": true
+  },
+  {
+    "name": "wrong_request_binding_deploymentId_never_complete",
+    "passed": true
+  },
+  {
+    "name": "wrong_response_binding_environmentId_never_complete",
+    "passed": true
+  },
+  {
+    "name": "wrong_response_binding_serviceId_never_complete",
+    "passed": true
+  },
+  {
+    "name": "wrong_response_binding_deploymentId_never_complete",
+    "passed": true
+  },
+  {
+    "name": "mixed_binding_after_valid_snapshot_remains_blocked",
+    "passed": true
+  },
+  {
+    "name": "autonomy_missing_revision_rejected",
+    "passed": true
+  },
+  {
+    "name": "autonomy_wrong_revision_rejected",
+    "passed": true
+  },
+  {
+    "name": "autonomy_other_scenario_set_rejected",
+    "passed": true
+  },
+  {
+    "name": "autonomy_duplicate_scenario_set_rejected",
+    "passed": true
+  },
+  {
+    "name": "autonomy_empty_scenario_set_rejected",
+    "passed": true
+  },
+  {
+    "name": "wrong_progress_scenario_is_not_hidden",
+    "passed": true
+  },
+  {
+    "name": "container_success_is_running_not_terminal_or_collection_pass",
+    "passed": true
+  },
+  {
+    "name": "out_of_scope_public_duplicate_preserved_without_changing_required_scope",
+    "passed": true
+  },
+  {
+    "name": "configuration_change_between_polls_rejected",
+    "passed": true
+  },
+  {
+    "name": "publication_identity_required_before_collection",
+    "passed": true
+  },
+  {
+    "name": "input_packets_and_historical_reports_never_mutated",
+    "passed": true
+  },
+  {
+    "name": "progressive_fragments_across_three_overlapping_snapshots",
+    "passed": true,
+    "detail": {
+      "snapshots": 3,
+      "cached_rows": 36,
+      "model_pass": false
+    }
+  },
+  {
+    "name": "repeated_snapshot_keeps_receipt_without_duplicating_reports",
+    "passed": true
+  },
+  {
+    "name": "previous_state_immutable_after_append",
+    "passed": true
+  },
+  {
+    "name": "temporary_mcp_error_preserved_then_valid_read_can_recover",
+    "passed": true
+  },
+  {
+    "name": "saturated_500_row_window_requires_complete_unsaturated_coverage",
+    "passed": true,
+    "detail": {
+      "saturated_rows": 500,
+      "unsaturated_pages": [
+        492,
+        8
+      ],
+      "final_cached_rows": 500
+    }
+  },
+  {
+    "name": "historical_gap_never_complete_even_with_two_reports_and_terminal",
+    "passed": true
+  },
+  {
+    "name": "non_boolean_report_verdict_not_coerced",
+    "passed": true
+  },
+  {
+    "name": "required_situation_revision_missing_is_not_accepted",
+    "passed": true
+  },
+  {
+    "name": "empty_snapshot_terminal_still_requires_both_reports",
+    "passed": true
+  },
+  {
+    "name": "derived_fixture_changes_only_case_selection_and_preserves_selected_case_verdict",
+    "passed": true
+  },
+  {
+    "name": "all_three_historical_report_hashes_unchanged_after_every_collector_test",
+    "passed": true
+  }
+]

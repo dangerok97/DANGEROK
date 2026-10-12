@@ -97,6 +97,8 @@ async def test_atomic_insert_allows_only_one_concurrent_worker_to_surface_the_sa
         owner_id="synthetic-race-owner", status="completed",
         objective="Risultato informativo sintetico", desired_outcome="Fornire un confronto scritto",
     )
+    # Both workers must observe the same persisted goal before the insert race.
+    await db.agent_goals.insert_one(goal.model_dump())
     facts = {
         "refs": ["evidence:synthetic"],
         "what_ora_did_this_time": [{"what": "Confronto pronto", "really_happened": True}],
@@ -129,6 +131,8 @@ async def test_without_evidence_ai_headline_cannot_become_an_activity():
         owner_id="synthetic-proof-owner", status="active",
         objective="Capire se esiste un dato", desired_outcome="Informazione controllata",
     )
+    # Keep the current-goal check valid: this case must reject missing evidence.
+    await db.agent_goals.insert_one(goal.model_dump())
     with patch.object(reasoning, "decide_visibility", side_effect=useful_visibility):
         result = await visibility.consider(
             "synthetic-proof-owner", goal,

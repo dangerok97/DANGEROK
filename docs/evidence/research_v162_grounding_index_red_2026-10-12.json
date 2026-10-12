@@ -1,0 +1,53 @@
+{
+  "mode": "Exact AST extractor and RawHit class; no HTTP/SDK/model calls",
+  "source_file": "/workspace/scratch/abe5c63b5e73/ora/backend/conversation_engine/ai_core/tools/providers/gemini_search.py",
+  "source_sha256": "581704359016be80f6a2ec0c39929a1dde5190266ab9984920b51c205aa55b88",
+  "grounding_support": {
+    "segment": {
+      "text": "Misura esclusivamente sintetica attribuita alla fonte B: 120 minuti."
+    },
+    "grounding_chunk_indices": [
+      1
+    ]
+  },
+  "actual_max5": [
+    {
+      "title": "Synthetic source A",
+      "url": "https://example.invalid/source-a",
+      "snippet": "Misura esclusivamente sintetica attribuita alla fonte B: 120 minuti."
+    },
+    {
+      "title": "Synthetic source B",
+      "url": "https://example.invalid/source-b",
+      "snippet": ""
+    }
+  ],
+  "expected_snippets_max5": [
+    "",
+    "Misura esclusivamente sintetica attribuita alla fonte B: 120 minuti."
+  ],
+  "actual_max2": [
+    {
+      "title": "Synthetic source A",
+      "url": "https://example.invalid/source-a",
+      "snippet": ""
+    },
+    {
+      "title": "Synthetic source B",
+      "url": "https://example.invalid/source-b",
+      "snippet": ""
+    }
+  ],
+  "actual_indices_missing": [
+    {
+      "title": "Synthetic source A",
+      "url": "https://example.invalid/source-a",
+      "snippet": "Misura esclusivamente sintetica attribuita alla fonte B: 120 minuti."
+    },
+    {
+      "title": "Synthetic source B",
+      "url": "https://example.invalid/source-b",
+      "snippet": ""
+    }
+  ]
+}

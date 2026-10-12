@@ -2,6 +2,19 @@ import type { HomeItem } from '@/src/api/client';
 
 export type CalendarEntry = { item: HomeItem; at: Date };
 
+/** Only real day values may supplement the month grid; HTTP types are not validation. */
+export function calendarMonthMarks(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const days = value.flatMap((day) => {
+    if (typeof day !== 'number'
+      && (typeof day !== 'string' || !/^[0-9]{1,2}$/.test(day))) return [];
+    const numeric = Number(day);
+    return Number.isInteger(numeric) && numeric >= 1 && numeric <= 31
+      ? [String(numeric)] : [];
+  });
+  return [...new Set(days)];
+}
+
 /** Calendar appointments in the mixed Home payload; deadlines stay in Home. */
 export function calendarEntries(items: readonly HomeItem[]): CalendarEntry[] {
   return items.flatMap((item) => {

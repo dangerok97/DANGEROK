@@ -1,0 +1,518 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "independent_read_only_causal_review",
+  "proposed_repository_path": "docs/evidence/autonomy_v162_memory_baseline_review_2026-10-12_641dbaf.json",
+  "repository": "dangerok97/DANGEROK",
+  "code_revision": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+  "review_date": "2026-10-12",
+  "source_binding": {
+    "original_report_git_blob": "d87e83a7f324fc63cde794e6d8c6c8b393f2d702",
+    "original_report_bytes": 10735,
+    "original_report_sha256": "22f889efaaf73ed18743c6f53fe42cf679a935704cc10bca9cd16534042a01d1",
+    "original_report_code_revision": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+    "original_report_revision_source": "deployment_or_ci_metadata",
+    "original_report_scenario": "memory_corrected"
+  },
+  "verdicts": {
+    "original_machine_passed": false,
+    "original_machine_reason": "UNFINISHED_WORK_LOST",
+    "diagnostic_findings": [
+      "SOURCE_SCOPE_ADEQUATE_NO_TRANSPORT_BUG",
+      "MEMORY_CORRECTION_NOT_REACHED"
+    ],
+    "diagnostic_scope": "One observed baseline admission and initial plan at the exact code revision; no claim of a universal transport guarantee.",
+    "original_report_unchanged": true,
+    "oracle_unchanged": true,
+    "no_reclassification_as_pass": true
+  },
+  "method": {
+    "cloud_source_and_original_report_read_only": true,
+    "filesystem_or_shell_used": false,
+    "tests_or_runtime_replay_executed": false,
+    "new_model_or_provider_calls": false,
+    "deployment_or_runtime_changes": false,
+    "source_review_is_not_a_full_historical_prompt_capture": true
+  },
+  "actual_report_observations": {
+    "source_context_count": 1,
+    "source_context_unavailable": false,
+    "admission_outcome": "create_goal",
+    "planning_outcome": "plan",
+    "observed_step_order": [
+      {
+        "step_type": "ask_user",
+        "capability_needed": ""
+      },
+      {
+        "step_type": "prepare",
+        "capability_needed": "document.create"
+      }
+    ],
+    "formal_planning_errors_observed": 0,
+    "context_observations_count": 0,
+    "model_logical_calls": 4,
+    "model_http_attempts": 7,
+    "successful_responses": [
+      {
+        "sequence": 1,
+        "provider": "mistral",
+        "model": "ministral-8b-2512"
+      },
+      {
+        "sequence": 2,
+        "provider": "mistral",
+        "model": "ministral-8b-2512"
+      },
+      {
+        "sequence": 3,
+        "provider": "mistral",
+        "model": "ministral-8b-2512"
+      },
+      {
+        "sequence": 4,
+        "provider": "mistral",
+        "model": "ministral-8b-2512"
+      }
+    ],
+    "reported_first_call_fallbacks": [
+      {
+        "provider": "gemini",
+        "failure_kind": "quota"
+      },
+      {
+        "provider": "gemini2",
+        "failure_kind": "quota"
+      },
+      {
+        "provider": "groq",
+        "failure_kind": "quota"
+      }
+    ],
+    "goal_status": "waiting",
+    "plan_status": "waiting",
+    "requires_user_input": true,
+    "requires_user_authority": false,
+    "has_next_run_at": false,
+    "planning_unavailable": false,
+    "executed_capabilities_count": 0,
+    "evidence_count": 0,
+    "prepared_text_characters": 0,
+    "result_checks": {
+      "preconditions": {
+        "status": "not_run"
+      },
+      "semantic": {
+        "status": "not_run"
+      },
+      "home": {
+        "status": "not_run"
+      },
+      "replay": {
+        "status": "not_run"
+      },
+      "owner_isolation": {
+        "status": "not_run"
+      },
+      "isolation": {
+        "status": "not_run"
+      }
+    }
+  },
+  "causal_findings": [
+    {
+      "code": "SOURCE_SCOPE_ADEQUATE_NO_TRANSPORT_BUG",
+      "conclusion": "No omitted delegation, source, capability or question-category field was demonstrated. The model had instructions for qualified internal work and chose to require clarification before the read.",
+      "supplied_scope": {
+        "fixture_initiative": "prepare",
+        "fixture_offer": "Leggere la nota salvata e preparare un confronto dei costi per dodici mesi con i vincoli e i dati ancora da verificare. Nessun pagamento, invio o modifica.",
+        "admission_payload_fields": [
+          "how_far_ora_meant_to_go",
+          "what_ora_offered_to_do",
+          "who_asked",
+          "source_context",
+          "source_context_unavailable"
+        ],
+        "planner_payload_fields": [
+          "goal.current_source_situation.what_ora_can_do",
+          "goal.source_refs",
+          "context.current_source_context.sources",
+          "context.current_source_context.unavailable",
+          "context.current_source_context.goal_origin",
+          "context.executed_evidence",
+          "what_ora_can_do"
+        ],
+        "runner_capabilities": [
+          "document.create",
+          "information.read"
+        ],
+        "capability_scope": "These two capabilities are declared available by the isolated evaluator; this does not certify all production connectors.",
+        "current_memory_preview_scope": "Owned referenced current Memory; statement capped at 600 with explicit truncation flag, authority, provenance, temporal qualification and unknown freshness. Preview is context, not executed capability Evidence."
+      },
+      "existing_instructions": [
+        {
+          "source": "reasoning",
+          "lines": [
+            285,
+            294
+          ],
+          "meaning": "Attributed user-stated facts can support an internal conditional result; absent independent confirmation is not automatically a blocker or external authority."
+        },
+        {
+          "source": "reasoning",
+          "lines": [
+            424,
+            427
+          ],
+          "meaning": "Do available work before asking."
+        },
+        {
+          "source": "reasoning",
+          "lines": [
+            455,
+            480
+          ],
+          "meaning": "Preparation consumes executed read Evidence; plan the relevant available read when it is absent and preserve exact Memory refs and coverage."
+        },
+        {
+          "source": "reasoning",
+          "lines": [
+            551,
+            555
+          ],
+          "meaning": "knowledge asks for information only the person knows; authority asks for something only the person may authorize; ask only what unblocks the plan."
+        }
+      ],
+      "model_expansion_observed": {
+        "admission_reasoning": "l'utente ha bisogno di un confronto scritto e verificato per scegliere tra le due formule, e i dati attuali sono solo riferiti dall'utente senza conferma esterna.",
+        "admission_desired_outcome": "un documento interno che elenca i costi totali (180€ vs 120€), i vincoli (assenza rimborso per l'opzione annuale, condizioni di disdetta, inclusione di servizi) e eventuali differenze nascoste, pronto per condivisione con l'utente.",
+        "admission_assessment_desired_outcome": "un confronto scritto e verificato dei costi e vincoli delle due formule di archivio digitale per 12 mesi, con dati confermati e vincoli chiariti per supportare la scelta dell'utente",
+        "persisted_success_criteria": [
+          "elenco comparativo dei costi totali per 12 mesi (180€ vs 120€)",
+          "riassunto dei vincoli (assenza rimborso, condizioni di disdetta, inclusione di servizi)",
+          "esplicitazione di eventuali differenze non menzionate (es. penalità, modalità di pagamento)",
+          "formato leggibile e strutturato per supportare la decisione"
+        ],
+        "planner_reasoning_bounded": "La nota salvata (mem_43262246ed92296b9353) contiene i dati di base sui costi delle due formule (180€ vs 120€) e alcuni vincoli (assenza rimborso per l'opzione annuale, uguale spazio e assistenza). Tuttavia, mancano chiarimenti su eventuali penalità, condizioni di disdetta anticipata, modalità di pagamento o differenze nascoste. Per rispettare i criteri di successo, è necessario preparare un confro",
+        "planner_reasoning_is_truncated": true,
+        "first_step_expected_result": "Chiarimenti sull'assenza di penalità, modalità di pagamento, condizioni di disdetta anticipata e altre implicazioni non menzionate.",
+        "interpretation": "The model promotes unspecified conditions and external confirmation into preliminary work, then asks for clarification to satisfy those model-authored criteria. This is an observed semantic decision; it is not evidence of a source transport failure."
+      },
+      "execution_explanation": {
+        "source": "service",
+        "first_step_selection_lines": [
+          1135,
+          1142
+        ],
+        "question_dispatch_lines": [
+          1087,
+          1088
+        ],
+        "question_state_lines": [
+          2379,
+          2399
+        ],
+        "checkpoint_retirement_lines": [
+          899,
+          909
+        ],
+        "meaning": "With no Evidence, _next selects the first declared pending step. _ask persists waiting and the category flags. advance removes automatic due work for a genuine input/authority wait. This report's reason UNFINISHED_WORK_LOST does not by itself establish lost database state."
+      },
+      "diagnostic_proposal": "No transport/parser patch is justified by this evidence. Do not repair or reorder the plan, auto-read, invent consent, relax the oracle or rerun only to obtain a pass."
+    },
+    {
+      "code": "MEMORY_CORRECTION_NOT_REACHED",
+      "conclusion": "The runner stops at first_read before change_memory(correction=True). Only the initial 120-euro annual source is in scope; the later 150-euro source and preparation qualification are not exercised.",
+      "code_order": [
+        {
+          "source": "harness",
+          "lines": [
+            1541,
+            1541
+          ],
+          "operation": "first_read"
+        },
+        {
+          "source": "harness",
+          "lines": [
+            1398,
+            1401
+          ],
+          "operation": "active/due then exactly one information.read required"
+        },
+        {
+          "source": "harness",
+          "lines": [
+            1571,
+            1573
+          ],
+          "operation": "later correction injection, not reached"
+        }
+      ],
+      "no_claim_about": [
+        "150-euro correction behavior",
+        "new preparation qualification",
+        "preparation audit",
+        "completed result",
+        "Home/replay/owner/isolation final checks",
+        "external delivery or native device"
+      ]
+    }
+  ],
+  "original_report_pointers": [
+    "/code_revision",
+    "/cases/0/structured_decisions/0/input",
+    "/cases/0/structured_decisions/0/reasoning",
+    "/cases/0/structured_decisions/0/outcome_assessment/desired_outcome",
+    "/cases/0/structured_decisions/1/reasoning",
+    "/cases/0/structured_decisions/1/truncated_fields",
+    "/cases/0/structured_decisions/1/steps",
+    "/cases/0/admission_observations/0",
+    "/cases/0/planning_observations",
+    "/cases/0/executed_capabilities",
+    "/cases/0/failure_state/goals/0",
+    "/cases/0/model_call_outcomes",
+    "/cases/0/result_checks",
+    "/cases/0/reason"
+  ],
+  "exact_limits": [
+    "The report does not retain the complete historical input to decide_goal or make_plan. Source code proves the implemented transport and the bounded report records source presence; no byte-exact full historical prompt replay is claimed.",
+    "The exact asks text is not retained. The diagnostic records asks and ask_kind as strings, not their raw values.",
+    "The accepted knowledge category is an inference from requires_user_input=true, requires_user_authority=false and the exact _ask assignments, not a quoted raw ask_kind value.",
+    "Some model intent, expected_result and reasoning fields are explicitly truncated in the original report; no omitted wording was reconstructed.",
+    "The report identifies the first two structured stages as decide_goal and make_plan. The other two successful logical-call stages are not named there; no stage attribution is invented.",
+    "No executed capability read is distinct from no source preview: one current Memory preview is observed for admission.",
+    "A valid question category and an accepted plan schema do not establish that the question was necessary for a useful conditional comparison.",
+    "All six final result checks are not_run. No final isolation or delivery pass is inferred from zero executed capabilities.",
+    "Provider quota fallbacks are observed on the first logical call. Admission and planning subsequently succeed; this report does not establish provider unavailability as the cause of the waiting state.",
+    "The 150-euro correction is not reached. No conclusion about that correction, preparation audit or the new preparation field is supported by this run."
+  ],
+  "source_index": [
+    {
+      "path": "backend/scripts/autonomy_completion_eval_v162.py",
+      "commit": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "git_blob": "36b4b5f328e550c2ec1a60017d400349b7537d77",
+      "bytes": 98143,
+      "sha256": "53ac3ec926be3a57ff2c003fab8a6760531ad09dbdd0a54f35304f503270082b",
+      "line_ranges": [
+        {
+          "start": 76,
+          "end": 88,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/autonomy_completion_eval_v162.py#L76-L88"
+        },
+        {
+          "start": 820,
+          "end": 824,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/autonomy_completion_eval_v162.py#L820-L824"
+        },
+        {
+          "start": 1132,
+          "end": 1132,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/autonomy_completion_eval_v162.py#L1132-L1132"
+        },
+        {
+          "start": 1205,
+          "end": 1215,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/autonomy_completion_eval_v162.py#L1205-L1215"
+        },
+        {
+          "start": 1375,
+          "end": 1401,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/autonomy_completion_eval_v162.py#L1375-L1401"
+        },
+        {
+          "start": 1530,
+          "end": 1541,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/autonomy_completion_eval_v162.py#L1530-L1541"
+        },
+        {
+          "start": 1571,
+          "end": 1573,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/autonomy_completion_eval_v162.py#L1571-L1573"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/phase2_goal_outcome_eval_v140.py",
+      "commit": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "git_blob": "69b7c246eaf4f58bdd75cec71ce2a83377cb65e7",
+      "bytes": 18529,
+      "sha256": "f8cccd3031d88bfc6dadf60d129cc956dc6d6d61be9f09a8c5f191738b67d7fb",
+      "line_ranges": [
+        {
+          "start": 21,
+          "end": 28,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/phase2_goal_outcome_eval_v140.py#L21-L28"
+        },
+        {
+          "start": 38,
+          "end": 38,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/scripts/phase2_goal_outcome_eval_v140.py#L38-L38"
+        }
+      ]
+    },
+    {
+      "path": "backend/agent/admission.py",
+      "commit": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "git_blob": "77bfb88adc446ce489e8dd1cc3bbc5dffae11a31",
+      "bytes": 10729,
+      "sha256": "8f8670cc0b5cdba603b74f62a979af8287e0a252e2a16eb69a13e8d7aa8cca52",
+      "line_ranges": [
+        {
+          "start": 102,
+          "end": 127,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/admission.py#L102-L127"
+        }
+      ]
+    },
+    {
+      "path": "backend/agent/memory_sources.py",
+      "commit": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "git_blob": "2b5b331b753f669aab9ae436b639f42c3376c881",
+      "bytes": 4238,
+      "sha256": "a85d2cb65e5c3a1f0e4244ab261a3605b5b20784fd6479df0030f7041ac6f0b1",
+      "line_ranges": [
+        {
+          "start": 13,
+          "end": 14,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/memory_sources.py#L13-L14"
+        },
+        {
+          "start": 37,
+          "end": 95,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/memory_sources.py#L37-L95"
+        }
+      ]
+    },
+    {
+      "path": "backend/agent/source_refresh.py",
+      "commit": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "git_blob": "f12e8b6fae3de8d0265899741a5ddcfc731858a2",
+      "bytes": 16610,
+      "sha256": "cecd15b62ac9af6e9c6448bc835b3ab8088db6e4015e448b070446651adabc6d",
+      "line_ranges": [
+        {
+          "start": 127,
+          "end": 129,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/source_refresh.py#L127-L129"
+        }
+      ]
+    },
+    {
+      "path": "backend/agent/models.py",
+      "commit": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "git_blob": "a5fe37fce17c063e6f4b59001c6aaa316902e438",
+      "bytes": 65824,
+      "sha256": "91d3e4ed7d0dcf42bb8a7ee7ba9f70a71e518eb1acaf0b56967a04ad8af83e06",
+      "line_ranges": [
+        {
+          "start": 852,
+          "end": 865,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/models.py#L852-L865"
+        },
+        {
+          "start": 910,
+          "end": 912,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/models.py#L910-L912"
+        }
+      ]
+    },
+    {
+      "path": "backend/agent/service.py",
+      "commit": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "git_blob": "947dfa5b620232f9daa9c37ca5bdd842b2fff96b",
+      "bytes": 215343,
+      "sha256": "e2d999752483230dacff4f53973e678b67f95d9e75f6989e6ecaa29126fa040d",
+      "line_ranges": [
+        {
+          "start": 515,
+          "end": 528,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L515-L528"
+        },
+        {
+          "start": 616,
+          "end": 621,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L616-L621"
+        },
+        {
+          "start": 649,
+          "end": 669,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L649-L669"
+        },
+        {
+          "start": 899,
+          "end": 909,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L899-L909"
+        },
+        {
+          "start": 1087,
+          "end": 1088,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L1087-L1088"
+        },
+        {
+          "start": 1135,
+          "end": 1142,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L1135-L1142"
+        },
+        {
+          "start": 1533,
+          "end": 1599,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L1533-L1599"
+        },
+        {
+          "start": 1671,
+          "end": 1697,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L1671-L1697"
+        },
+        {
+          "start": 1900,
+          "end": 1938,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L1900-L1938"
+        },
+        {
+          "start": 2379,
+          "end": 2399,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/service.py#L2379-L2399"
+        }
+      ]
+    },
+    {
+      "path": "backend/agent/reasoning.py",
+      "commit": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "git_blob": "cdb0239e40fc1ad2587bd2a28f52eb50264a0dcf",
+      "bytes": 99173,
+      "sha256": "89833eadd600731f3b06588a06546a587f11987ab51f371f9c992a9ea853884b",
+      "line_ranges": [
+        {
+          "start": 30,
+          "end": 65,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/reasoning.py#L30-L65"
+        },
+        {
+          "start": 285,
+          "end": 294,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/reasoning.py#L285-L294"
+        },
+        {
+          "start": 313,
+          "end": 318,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/reasoning.py#L313-L318"
+        },
+        {
+          "start": 424,
+          "end": 427,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/reasoning.py#L424-L427"
+        },
+        {
+          "start": 455,
+          "end": 480,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/reasoning.py#L455-L480"
+        },
+        {
+          "start": 551,
+          "end": 572,
+          "url": "https://github.com/dangerok97/DANGEROK/blob/641dbaf9869e0881ffe6778ff82c0e771e6fcca4/backend/agent/reasoning.py#L551-L572"
+        }
+      ]
+    }
+  ]
+}

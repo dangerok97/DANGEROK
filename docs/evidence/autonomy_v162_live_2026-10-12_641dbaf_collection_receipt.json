@@ -1,0 +1,155 @@
+{
+  "schema": "ora-v162-targeted-live-collection-receipt-v1",
+  "frozen_at": "2026-10-12T16:18:27Z",
+  "source": {
+    "code_revision": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+    "tree": "d2682060e404008a046797ca14b1e49b4a3bd27e",
+    "projectId": "1264aea8-7e1e-403b-9d14-66f61135f179",
+    "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+    "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+    "deploymentId": "4b7fd25b-03a5-4ccc-965e-7db76ccd8032",
+    "created_at": "2026-10-12T15:49:29.486Z"
+  },
+  "deployment_terminal": {
+    "status": "CRASHED",
+    "updated_at": "2026-10-12T15:52:13.821Z",
+    "own_restarts_or_retries": 0,
+    "source_sha_exact": true,
+    "source_tree": "d2682060e404008a046797ca14b1e49b4a3bd27e"
+  },
+  "execution": {
+    "command": "env PYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only AMBIENT_RUNTIME=0 CALENDAR_PROVIDER_MODE=fake DOCUMENT_AI_ENABLED=0 RESEARCH_ENABLED=0 sh -c 'if [ \"$RAILWAY_GIT_COMMIT_SHA\" != \"641dbaf9869e0881ffe6778ff82c0e771e6fcca4\" ]; then echo ORA_EVAL_SOURCE_MISMATCH >&2; exit 2; fi; python -m pip install mongomock-motor==0.0.36 || exit $?; ora_eval_status=0; RESEARCH_ENABLED=1 WEATHER_PROVIDER=open_meteo python -m scripts.situation_live_eval_v162 --mode live --output /tmp/ora-situation-v162-live.json || ora_eval_status=1; python -m scripts.autonomy_completion_eval_v162 --mode live --scenario memory_corrected --output /tmp/ora-autonomy-v162-live.json || ora_eval_status=1; exit \"$ora_eval_status\"'",
+    "runner_names": [
+      "scripts.situation_live_eval_v162 --mode live",
+      "scripts.autonomy_completion_eval_v162 --mode live --scenario memory_corrected"
+    ],
+    "existing_per_case_limits": {
+      "logical_model_calls": 40,
+      "model_http_requests": 80,
+      "wall_clock_seconds": 240
+    },
+    "runtime_clock_advanced": false,
+    "old_real_laundry_reopened": false,
+    "public_scenario_repeated": false,
+    "real_pushes": 0,
+    "app_changed": false,
+    "resource_or_variable_changes": false
+  },
+  "log_request": {
+    "requested_at": "2026-10-12T15:53:10Z",
+    "received_at": "2026-10-12T15:53:11Z",
+    "arguments": {
+      "projectId": "1264aea8-7e1e-403b-9d14-66f61135f179",
+      "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "deploymentId": "4b7fd25b-03a5-4ccc-965e-7db76ccd8032",
+      "types": [
+        "deploy"
+      ],
+      "startDate": "2026-10-12T15:49:29.486Z",
+      "endDate": "2026-10-12T15:53:10Z",
+      "limit": 500
+    }
+  },
+  "collection": {
+    "summary": {
+      "requiredKinds": [
+        "situation",
+        "autonomy"
+      ],
+      "requiredAutonomyScenarios": [
+        "memory_corrected"
+      ],
+      "reports_complete": true,
+      "collection_complete": true,
+      "current_deployment_status": "CRASHED",
+      "terminal_observed": true,
+      "required_report_passes": {
+        "situation": false,
+        "autonomy": false
+      },
+      "required_reports_claim_pass": false,
+      "semantic_acceptance": "not_assessed_by_collector",
+      "full_laundry_outcome_passed": false,
+      "blocking_errors": [],
+      "report_issues": [],
+      "read_error_count": 0,
+      "history_coverage_complete": true,
+      "history_gaps": [],
+      "next_history_query": null,
+      "raw_snapshot_count": 1,
+      "cached_log_rows": 30,
+      "out_of_scope_reports": [
+        {
+          "kind": "public",
+          "candidates": 0,
+          "complete": 0,
+          "preserved": true,
+          "affects_required_verdict": false
+        }
+      ]
+    },
+    "coverage": [
+      {
+        "start": "2026-10-12T15:49:29.486000000Z",
+        "end": "2026-10-12T15:53:10.000000000Z",
+        "snapshot": 0
+      }
+    ],
+    "coverage_target": "2026-10-12T15:53:10.000000000Z",
+    "status_observations": [
+      {
+        "status": "CRASHED",
+        "received_at": "2026-10-12T15:53:11.000000000Z",
+        "snapshot": 0
+      }
+    ],
+    "unfiltered": true,
+    "row_count": 30,
+    "query_limit": 500,
+    "saturated": false,
+    "collector": {
+      "path": "docs/evidence/autonomy_v162_targeted_collector_2026-10-12.js",
+      "git_blob": "100657deb68bdc7d3e3de1863fc3a581ee46c971",
+      "synthetic_contract_checks_previously_passed": 40,
+      "changed": false
+    },
+    "raw_mcp": {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_collection_mcp.json",
+      "bytes": 168847,
+      "sha256": "9ec9ee872cea21fefadcba388b2f7c74705b22e9b957b87979e8401fe247aec7",
+      "git_blob": "d4343f01f62c7ea78fadc9a190543d44b371af58",
+      "format": "JSON serialization of unchanged MCP response object; not network wire bytes"
+    }
+  },
+  "originals": [
+    {
+      "kind": "situation",
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_situation.json",
+      "bytes": 60966,
+      "sha256": "9b60bfcd34e695cb2fd5a00be3703c19c35547b5b290afcaf0b450d6ccf63a6d",
+      "git_blob_sha": "fc74b6b6d938b2cdd8e69971167367f372efef15"
+    },
+    {
+      "kind": "autonomy",
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_autonomy.json",
+      "bytes": 10735,
+      "sha256": "22f889efaaf73ed18743c6f53fe42cf679a935704cc10bca9cd16534042a01d1",
+      "git_blob_sha": "d87e83a7f324fc63cde794e6d8c6c8b393f2d702"
+    }
+  ],
+  "integrity": {
+    "collector_report_hashes_recomputed_by_root": true,
+    "original_text_not_reserialized": true,
+    "report_verdicts_unchanged": true,
+    "creator_fields": 0,
+    "exemptions": 0,
+    "whole_raw_and_decoded_secret_findings": 0
+  },
+  "provenance_limits": [
+    "The collector establishes complete log/report collection, not semantic acceptance.",
+    "The terminal exit is the runner command reporting two negative evaluations. It is not proof of an unrelated application outage.",
+    "The later service observation at15:57:32 had another pending deployment; this receipt identifies only the completed4b7fd25b run and makes no claim that the service is currently idle.",
+    "No worker, future check, useful collection advice, signed native installation, closed-app delivery or authenticated tap is attested by these failed reports."
+  ]
+}

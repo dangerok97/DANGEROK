@@ -154,6 +154,22 @@ class StepExecutor:
             )
 
         if resolution.writes:
+            # A model's read/prepare label cannot bypass the authority path
+            # used for execute. The catalog owns whether this capability
+            # writes; an incompatible declaration needs a new model decision.
+            if step.step_type != "execute":
+                return ExecutionResult(
+                    step_id=step.id, status="unavailable",
+                    observation=(
+                        "Questa capacità modifica qualcosa, ma il passo non dichiara "
+                        "un'esecuzione. Occorre rivedere il passo e i suoi effetti."
+                    ),
+                    error_type="write_requires_execute_step", retryable=False,
+                    provenance=ResultProvenance(
+                        source_class="internal_observation",
+                        capability=step.capability_needed,
+                    ),
+                )
             return await self._touch_the_world(
                 owner_id, goal, step, may_touch_the_world, budget=budget,
                 recheck=recheck,

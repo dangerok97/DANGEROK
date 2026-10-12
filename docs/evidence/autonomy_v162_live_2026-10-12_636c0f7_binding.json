@@ -1,0 +1,13 @@
+{
+  "id": "36307263-cdff-441e-9980-30d5ab755e43",
+  "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+  "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+  "status": "CRASHED",
+  "createdAt": "2026-10-12T11:59:14.024Z",
+  "updatedAt": "2026-10-12T12:13:54.499Z",
+  "meta": {
+    "commitHash": "636c0f72b374bff95039ad2b3e017ed2974c77db",
+    "branch": "ora/v162-autonomy-validation-20261012"
+  },
+  "verified_at": "2026-10-12T12:14:32.036Z"
+}

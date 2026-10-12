@@ -4,8 +4,8 @@ What a piece of research is, once it has happened.
 Every structure here is something the model produced and the code only checked
 the shape of. There is no field whose value is decided by a rule: no domain, no
 query template, no scoring of sources, no threshold that declares evidence
-sufficient. The code owns identity, timestamps, ownership and limits; the
-meaning is the model's throughout.
+sufficient. The code owns identity, timestamps, ownership, retrieval provenance
+and limits; the meaning is the model's throughout.
 
 The shape follows the way a question actually gets answered:
 
@@ -33,6 +33,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+# Kept here as a scalar type so persisted research models remain independent
+# of the conversation engine's application-level import side effects.
+SnippetOrigin = Literal["unknown", "search_snippet", "grounded_model_segment"]
 
 # Where a run can end. `partial` and `insufficient` are outcomes, not errors:
 # they are what honesty looks like when the world did not answer.
@@ -156,6 +160,8 @@ class EvidenceSource(BaseModel):
     title: str = ""
     publisher: str = ""
     snippet: str = ""
+    # How the adapter obtained the text, separate from the model's source_kind.
+    snippet_origin: SnippetOrigin = "unknown"
     # Observable, so the code fills them: when it was fetched, which query
     # found it, what the deterministic authority band says.
     retrieved_at: str = Field(default_factory=_now)

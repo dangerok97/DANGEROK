@@ -190,3 +190,42 @@ test('an absent estimate is explicit even when no target has been saved', () => 
   assert.equal(view.detail, '');
   assert.match(view.headline, /non ancora disponibile/);
 });
+
+test('a failed read is unavailable even while the old action is valid', () => {
+  const outcome = assessment({ status: 'action_now', action_reason: 'early_risk', headline: 'Ritira subito' });
+  const view = situationOutcomeView({ outcome, situationRevision: 7, readUnavailable: true }, now);
+  assert.equal(view.status, 'unavailable');
+  assert.equal(view.headline, 'Stato non verificabile');
+  assert.equal(view.needsAttention, false);
+  assert.equal(view.window, null);
+  assert.ok(!JSON.stringify(view).includes(outcome.headline));
+  assert.equal(outcome.status, 'action_now');
+});
+
+test('an unavailable read hides a window without pretending there was no assessment', () => {
+  const outcome = assessment();
+  const view = situationOutcomeView({ outcome, readUnavailable: true }, now);
+  assert.equal(view.status, 'unavailable');
+  assert.equal(view.window, null);
+  assert.equal(view.basis, '');
+  assert.ok(!JSON.stringify(view).includes(outcome.window_label!));
+  assert.ok(!JSON.stringify(view).includes('non ancora disponibile'));
+});
+
+test('only a successful current read restores the assessment and revision fence', () => {
+  const outcome = assessment();
+  assert.equal(situationOutcomeView({ outcome, readUnavailable: true }, now).status, 'unavailable');
+  assert.equal(situationOutcomeView({ outcome, readUnavailable: false, situationRevision: 7 }, now).status, 'estimated');
+  assert.equal(situationOutcomeView({ outcome, readUnavailable: false, situationRevision: 8 }, now).status, 'outdated');
+  assert.equal(situationOutcomeView({ outcome: null, readUnavailable: false, followupStatus: 'stopped' }, now).status, 'stopped');
+});
+
+test('an unavailable first read does not claim no assessment or a stopped watch', () => {
+  for (const followupStatus of [undefined, 'stopped', 'scheduled']) {
+    const view = situationOutcomeView({ readUnavailable: true, followupStatus }, now);
+    assert.equal(view.status, 'unavailable');
+    assert.equal(view.headline, 'Stato non verificabile');
+    assert.equal(view.needsAttention, false);
+    assert.equal(view.window, null);
+  }
+});

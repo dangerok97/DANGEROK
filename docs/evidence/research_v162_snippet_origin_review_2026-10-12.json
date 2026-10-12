@@ -1,0 +1,77 @@
+{
+  "report_kind": "observed_test_output_summary",
+  "provenance": "Transcribed from the existing functions.exec / exec_command outputs in this agent session. Original raw log files were not saved. No tests were rerun to create this summary.",
+  "repository": "/workspace/scratch/abe5c63b5e73/ora",
+  "working_directory": "/workspace/scratch/abe5c63b5e73/ora/backend",
+  "python": "/workspace/scratch/ee708e10d9bd/ora-resume/.venv/bin/python",
+  "test_file": "backend/tests/test_research_snippet_origin_v162.py",
+  "test_file_sha256_at_freeze": "ac37ed855c84aed7356d02c64ce75c43302d2f43cc585cdbe57b2f7025de4feb",
+  "execution_scope": "Synthetic in-memory Mongo, controlled provider search and model answers; no real HTTP, model, account or effect calls.",
+  "runs": [
+    {
+      "phase": "RED before snippet_origin propagation",
+      "source": "exec_command output, chunk_id 65a5c8",
+      "pytest_arguments": ["-q", "-n0", "tests/test_research_snippet_origin_v162.py", "--tb=short", "--disable-warnings"],
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 7,
+      "warnings": 6,
+      "pytest_seconds": 0.35,
+      "observed_summary": "7 failed, 6 warnings in 0.35s",
+      "failure_classes": [
+        {"count": 6, "error": "KeyError: snippet_origin", "boundary": "ExternalObservation.to_loop_payload omitted the supplied or unknown origin."},
+        {"count": 1, "error": "AttributeError: RawHit has no attribute snippet_origin", "boundary": "Legacy default was absent."}
+      ]
+    },
+    {
+      "phase": "First GREEN after propagation; the standalone research-model import dependency was then removed before the final aggregate",
+      "source": "exec_command output, chunk_id 46d6b6",
+      "pytest_arguments": ["-q", "-n0", "tests/test_research_snippet_origin_v162.py", "--tb=short", "--disable-warnings"],
+      "exit_code": 0,
+      "passed": 7,
+      "failed": 0,
+      "warnings": 6,
+      "pytest_seconds": 0.34,
+      "observed_summary": "7 passed, 6 warnings in 0.34s"
+    },
+    {
+      "phase": "Final focused aggregate on the frozen implementation",
+      "source": "exec_command output, chunk_id 377571",
+      "pytest_arguments": [
+        "-q", "-n0",
+        "tests/test_research_snippet_origin_v162.py",
+        "tests/test_gemini_search_grounding_v162.py",
+        "tests/test_situation_research_integrity_v159.py",
+        "tests/test_research_v34.py::test_the_plan_comes_back_shaped_or_not_at_all",
+        "tests/test_research_v34.py::test_a_claim_with_no_source_never_becomes_a_finding",
+        "tests/test_research_v34.py::test_what_settles_a_question_reaches_the_assessment",
+        "tests/test_research_v34.py::test_no_kind_of_source_is_privileged_by_the_code",
+        "--tb=short", "--disable-warnings"
+      ],
+      "exit_code": 0,
+      "passed": 52,
+      "failed": 0,
+      "warnings": 6,
+      "pytest_seconds": 0.55,
+      "observed_summary": "52 passed, 6 warnings in 0.55s"
+    }
+  ],
+  "additional_checks": [
+    {"check": "Import research.models without runtime configuration after removing the engine import dependency", "source_chunk_id": "6faab2", "exit_code": 0},
+    {"check": "py_compile for the six runtime files and the new test", "source_chunk_id": "a4996b", "exit_code": 0},
+    {"check": "git diff --check for the six runtime files and the new test", "source_chunk_id": "8f6dcb", "exit_code": 0}
+  ],
+  "runtime_files": [
+    "backend/conversation_engine/ai_core/tools/providers/base.py",
+    "backend/conversation_engine/ai_core/observations/external.py",
+    "backend/conversation_engine/ai_core/tools/web_search.py",
+    "backend/research/models.py",
+    "backend/research/service.py",
+    "backend/research/reasoning.py"
+  ],
+  "limits": [
+    "The tests establish preservation of technical snippet provenance, not semantic truth or source entailment.",
+    "Missing or invalid adapter tags and previous records remain unknown; Tavily and Brave were unchanged.",
+    "No database migration, runtime budget change, new fetch or model call was introduced."
+  ]
+}

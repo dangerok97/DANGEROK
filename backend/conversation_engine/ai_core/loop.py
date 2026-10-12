@@ -685,6 +685,41 @@ def _local_hhmm(iso_value: str, timezone_name: str) -> Optional[str]:
         return None
 
 
+async def _current_situation_handoff(
+    db, owner: str, observations, situation_result: Optional[Dict[str, Any]] = None,
+) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """Render a checkpoint and a mutation handoff from the same owned snapshot.
+
+    Earlier observations are lookup hints, never a current schedule promise.
+    Copy the handoff projection so the original mutation acknowledgement stays
+    historical evidence. This read does not schedule or complete any work.
+    """
+    observed = _latest_situation_schedule(observations)
+    result = situation_result if isinstance(situation_result, dict) else None
+    persisted = (result or {}).get("situation") or {}
+    sid = (persisted.get("id") if isinstance(persisted, dict) else None) or (observed or {}).get("situation_id")
+    current = {"status": "unavailable", "situation_id": sid}
+    if db is not None and owner and isinstance(sid, str) and sid:
+        from situations.followup import read_followup
+
+        try:
+            snapshot = await read_followup(db, owner, sid)
+        except Exception:
+            snapshot = None
+        if (isinstance(snapshot, dict) and snapshot.get("situation_id") == sid
+                and snapshot.get("ok") is not False):
+            current = snapshot
+    handoff = {**result, "follow_up": current} if result is not None else None
+    if (not observed or observed.get("situation_id") != sid
+            or current.get("status") not in ("scheduled", "due")
+            or not current.get("next_check_at")):
+        return None, handoff
+    label, zone = current.get("next_check_label"), current.get("timezone")
+    if not isinstance(label, str) or not label or not isinstance(zone, str) or not zone:
+        return None, handoff
+    return f"Il prossimo controllo è programmato per {label} ({zone}).", handoff
+
+
 def _claims_wrong_situation_check_time(text: str, actual_hhmm: Optional[str]) -> bool:
     if not actual_hhmm:
         return False
@@ -1438,6 +1473,7 @@ async def run_cognitive_loop(
     calendar_absence_nudge_used = False
     bare_ack_nudge_used = False
     ready_act_nudge_used = False
+    reply_grounding_nudge_used = False
     required_skill_caps: List[str] = []
     attempted_skill_caps: Set[str] = set()
     skill_outcomes: List[Dict[str, Any]] = []
@@ -1567,10 +1603,25 @@ async def run_cognitive_loop(
         )
         validated_raw: Any = raw
         if not gov.ok or not gov.decision:
+            copy_errors = [code for code in gov.errors if code in (
+                "message_to_user_must_be_string", "question_must_be_string",
+            )]
+            situation_missing_fields = [
+                field for field in ("location_label", "source_refs", "linked_object_refs")
+                if f"situation_create_missing_{field}" in gov.errors
+            ]
             raw2 = await _call_ai(
                 decision_fn=decision_fn,
                 system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction()
-                + "\nPrevious output was invalid. Return valid JSON only.",
+                + "\nPrevious output was invalid. Return valid JSON only."
+                + ("\nDeclaration errors: " + ", ".join(copy_errors)
+                   + ". Use ordinary prose in these string fields, or null when optional; "
+                   "do not nest or stringify a summary/details object. Preserve the supported "
+                   "answer and the observed tool results." if copy_errors else "")
+                + ("\nSituation CREATE missing fields: " + ", ".join(situation_missing_fields)
+                   + ". Declare each key explicitly. location_label is a grounded string or null; "
+                   "source_refs and linked_object_refs are arrays, empty when not established. "
+                   "Do not invent a place or link." if situation_missing_fields else ""),
                 user=payload,
                 user_preference=user_llm_preference,
             )
@@ -1586,8 +1637,31 @@ async def run_cognitive_loop(
             )
             validated_raw = raw2
             if not gov.ok or not gov.decision:
-                decision = fallback_decision_after_malformed()
-                add_step(trace, event="MALFORMED_FALLBACK", errors=gov.errors)
+                # Only after model repair fails: preserve a typed, reversible
+                # declaration, but never run its fabricated scheduler ID.
+                from conversation_engine.ai_core.declaration_recovery import (
+                    recover_incomplete_create,
+                )
+                reduced = recover_incomplete_create(raw2, gov.errors)
+                if reduced is not None:
+                    candidate = validate_decision(
+                        reduced, tools=tools,
+                        recent_tool_signatures=recent_tool_sigs,
+                        external_query_count=external_queries,
+                        max_external_queries=MAX_EXTERNAL_QUERIES,
+                        clarification_attempts=clarification_attempts,
+                    )
+                    if (candidate.ok and candidate.decision
+                            and candidate.decision.situation_update is not None
+                            and candidate.decision.situation_update.operation == "create"):
+                        gov, validated_raw = candidate, reduced
+                        add_step(trace, event="SITUATION_CREATE_SAFE_RECOVERY")
+                if not gov.ok or not gov.decision:
+                    decision = fallback_decision_after_malformed()
+                    add_step(trace, event="MALFORMED_FALLBACK", errors=gov.errors)
+                else:
+                    decision = gov.decision
+                    add_step(trace, event="AI_DECISION_RETRY", mode=decision.response_mode)
             else:
                 decision = gov.decision
                 add_step(trace, event="AI_DECISION_RETRY", mode=decision.response_mode)
@@ -1862,11 +1936,18 @@ async def run_cognitive_loop(
         elif decision.situation_update and decision.situation_update.operation != "none":
             try:
                 from situations.service import SituationService
+                from situations.declared_place_link import restore_owned_place_reference
 
+                resolved_situation_update = await restore_owned_place_reference(
+                    db, owner_id=sess.user_id, user_message=user_message,
+                    update=decision.situation_update,
+                )
+                if resolved_situation_update is not decision.situation_update:
+                    add_step(trace, event="SITUATION_OWNED_PLACE_REF_RECOVERED")
                 situation_result = await SituationService(db).apply(
                     user_id=sess.user_id,
                     session_id=sess.id,
-                    update=decision.situation_update,
+                    update=resolved_situation_update,
                     reasoning_epoch=epoch,
                 )
                 st["active_situation_ref"] = dict(
@@ -1882,7 +1963,7 @@ async def run_cognitive_loop(
                         status="ok",
                         payload=situation_result,
                         provenance=list(
-                            decision.situation_update.source_refs
+                            resolved_situation_update.source_refs
                             or ["user_conversation"]
                         ),
                     ).model_dump()
@@ -1912,15 +1993,31 @@ async def run_cognitive_loop(
                     linked_plan_pending_id = str(linked_plan)
             except Exception as e:
                 code = str(getattr(e, "code", "PERSISTENCE_ERROR"))[:80]
+                failure = {
+                    "failure_code": code,
+                    "reason": "Situation state was not persisted. Do not claim it was updated. Recover from context or explain honestly.",
+                }
+                if code == "SUMMARY_REQUIRED" and decision.situation_update.operation == "create":
+                    # Describe the rejected declaration, never fill its missing
+                    # semantic value or manufacture an identity for later tools.
+                    failure["protocol_error"] = {
+                        "field": "situation_update.summary",
+                        "issue": "required_non_empty_string",
+                        "max_length": 400,
+                    }
+                    failure["reason"] = (
+                        "No Situation was created. Provide a non-empty summary grounded in the available "
+                        "user context, then resubmit create without situation_id. Other summary/outcome "
+                        "fields do not replace this field. Use the canonical id and revision only from "
+                        "a successful Situation observation or owner-scoped context; never use a place ref. "
+                        "This is a declaration error, not a request for the user to choose a checkpoint."
+                    )
                 observations.append(
                     Observation(
                         kind="error",
                         name="situation_mutation",
                         status="error",
-                        payload={
-                            "failure_code": code,
-                            "reason": "Situation state was not persisted. Do not claim it was updated. Recover from context or explain honestly.",
-                        },
+                        payload=failure,
                     ).model_dump()
                 )
                 add_step(trace, event="SITUATION_MUTATION_FAIL", code=code)
@@ -2104,9 +2201,9 @@ async def run_cognitive_loop(
         if mode in ("answer", "ask", "finish", "act"):
             persisted = (situation_result or {}).get("situation") or {}
             if persisted.get("id") and not phone_owns_turn:
-                from situations.followup import read_followup
-                followup = await read_followup(db, sess.user_id, persisted["id"])
-                situation_result["follow_up"] = followup
+                _, situation_result = await _current_situation_handoff(
+                    db, sess.user_id, observations[turn_start:], situation_result
+                )
             if (
                 "tool_without_call" in (gov.errors or [])
                 and decision.message_to_user == "Non riesco a usare lo strumento richiesto."
@@ -2227,6 +2324,35 @@ async def run_cognitive_loop(
                     "collegato. Il piano potrebbe essere ancora attivo: non lo considero annullato."
                 )
             ora = _compose_user_text(decision, observations[turn_start:])
+            if (mode in ("answer", "finish", "act") and not reply_grounding_nudge_used
+                    and step + 1 < max_steps):
+                # The existing guards identify a defect, not a replacement
+                # answer for cognition. Let the model repair it once using
+                # the observations already acquired, within the same bound.
+                # Final guards below remain the fallback when repair fails.
+                reply_findings = []
+                for check in (normalize_route_weather_reply, guard_route_advice, guard_weather_intensity):
+                    _, found = check(ora, observations[turn_start:])
+                    reply_findings.extend(found)
+                if reply_findings:
+                    reply_grounding_nudge_used = True
+                    findings = list(dict.fromkeys(reply_findings))
+                    observations.append(Observation(
+                        kind="system", name="reply_grounding_rejected", status="nudge",
+                        payload={
+                            "findings": findings,
+                            "reason": (
+                                "Revise message_to_user from the current observations. Return one prose "
+                                "string, not a serialized object. Preserve the supported findings and "
+                                "their limits. A current route estimate does not compare departure times; "
+                                "forecast probability does not establish future rainfall intensity. "
+                                "Do not repeat successful reads or introduce another action to repair "
+                                "the wording. The code has not supplied a replacement answer."
+                            ),
+                        },
+                    ).model_dump())
+                    add_step(trace, event="GROUNDING_REPLY_REPAIR_REQUESTED", findings=findings)
+                    continue
             skill_plan_waits_for_user = bool(
                 mode == "ask"
                 or _observations_wait_for_user(observations[turn_start:])
@@ -2364,6 +2490,11 @@ async def run_cognitive_loop(
                     "Non ho abbastanza evidenza verificata per darti una stima "
                     "quantitativa attendibile in questo momento."
                 )
+                check_copy, situation_result = await _current_situation_handoff(
+                    db, sess.user_id, observations[turn_start:], situation_result
+                )
+                if check_copy:
+                    decision.message_to_user = f"{check_copy} {decision.message_to_user}"
                 decision.question = None
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
@@ -2699,6 +2830,16 @@ async def run_cognitive_loop(
                 decision.message_to_user = (
                     "Non sono riuscita a completare la richiesta in questo turno."
                 )
+                if (step + 1 >= max_steps and not phone_owns_turn
+                        and not _observations_wait_for_user(observations[turn_start:])):
+                    check_copy, situation_result = await _current_situation_handoff(
+                        db, sess.user_id, observations[turn_start:], situation_result
+                    )
+                    if check_copy:
+                        decision.message_to_user = (
+                            f"{check_copy} Non ho ancora completato la valutazione."
+                        )
+                        add_step(trace, event="SITUATION_SCHEDULE_STATUS_TERMINAL")
                 decision.question = None
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])
@@ -4270,6 +4411,18 @@ async def run_cognitive_loop(
         or (last_decision.question if last_decision else None)
         or "Non ho completato la richiesta in questo turno. Non considero eseguita alcuna azione senza una conferma verificata."
     )
+    check_copy, situation_result = await _current_situation_handoff(
+        db, sess.user_id, observations[turn_start:], situation_result
+    )
+    if (not (last_decision and (last_decision.message_to_user or last_decision.question))
+            and not _has_phone_observation(observations[turn_start:])
+            and not _observations_wait_for_user(observations[turn_start:])):
+        # A final tool call can leave no prose while a real check is saved.
+        # The handoff note uses that same snapshot, including with model prose.
+        # Later action/confirmation guards retain their precedence.
+        if check_copy:
+            ora = f"{check_copy} Non ho ancora completato la valutazione."
+            add_step(trace, event="SITUATION_SCHEDULE_STATUS_BOUND")
     if linked_plan_pending_id and not linked_plan_reconciled_this_turn:
         ora = (
             "Ho aggiornato la situazione, ma non sono riuscita a riconciliare il piano "
@@ -4861,6 +5014,10 @@ def _with_situation_handoff(
 
     base = (text or "").strip()
     if not base or _BARE_ACK_RE.fullmatch(base):
+        if followup.get("status") == "stopped":
+            return "Il controllo di questa situazione è terminato. Non sono previsti altri controlli."
+        if followup.get("status") == "unavailable":
+            return "Non riesco a verificare la programmazione del controllo."
         return sentence
 
     # When the runtime actually checked, surface a missing/failed schedule

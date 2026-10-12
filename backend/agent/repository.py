@@ -62,6 +62,9 @@ class AgentRepository:
                 },
             )
             await self.db[PLANS].create_index("id", unique=True)
+            await self.db[GOALS].create_index([
+                ("status", 1), ("completion_visibility.pending", 1), ("completion_visibility.due_at", 1),
+            ])
             await self.db[PLANS].create_index([("owner_id", 1), ("goal_id", 1)])
             await self.db[JOURNAL].create_index([("owner_id", 1), ("goal_id", 1)])
             await self.db[JOURNAL].create_index("expires_at", expireAfterSeconds=0)

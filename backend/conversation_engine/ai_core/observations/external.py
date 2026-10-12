@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 from conversation_engine.ai_core.grounding.authority import SourceAuthority
+from conversation_engine.ai_core.tools.providers.base import SnippetOrigin
 
 Freshness = Literal["realtime", "hours", "days", "unknown", "n/a"]
 
@@ -29,6 +30,7 @@ class ExternalSource(BaseModel):
     title: str = ""
     url: str = ""
     snippet: str = ""
+    snippet_origin: SnippetOrigin = "unknown"
     authority_hint: SourceAuthority = "UNKNOWN"
     retrieved_at: str = Field(default_factory=_now)
 
@@ -65,6 +67,7 @@ class ExternalObservation(BaseModel):
                     "title": (s.title or "")[:120],
                     "url": (s.url or "")[:300],
                     "snippet": (s.snippet or "")[:280],
+                    "snippet_origin": s.snippet_origin,
                     "authority_hint": s.authority_hint,
                 }
                 for s in self.sources[:6]

@@ -1,0 +1,458 @@
+{
+  "version": "autonomy-completion-v162",
+  "mode": "live",
+  "status": "failed",
+  "passed": false,
+  "real_model_executed": true,
+  "cases": [
+    {
+      "scenario": "completed_result",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1511,
+            "completion_tokens": 51,
+            "total_tokens": 1562
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 2,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "L'utente ha già tutte le informazioni stimate e non c'è un'azione concreta o una scadenza urgente da gestire.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "planning_outage",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1511,
+            "completion_tokens": 47,
+            "total_tokens": 1558
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Il confronto dei costi e dei vincoli è già descritto nella memoria salvata e non ci sono nuove azioni da compiere o scadenze imminenti.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "home_write_retry",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1511,
+            "completion_tokens": 61,
+            "total_tokens": 1572
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "L'utente ha già tutte le informazioni a disposizione nella sua nota e non vi è una scadenza imminente o un'azione richiesta al di fuori di una scelta personale.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "source_revoked",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1511,
+            "completion_tokens": 60,
+            "total_tokens": 1571
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Il confronto dei costi e dei vincoli è già disponibile nella memoria con i dati forniti dall'utente, senza necessità di ulteriori azioni.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "memory_revoked",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1511,
+            "completion_tokens": 55,
+            "total_tokens": 1566
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Il confronto dei costi e dei vincoli si basa su dati non confermati dal fornitore e richiede informazioni non disponibili che l'agente non può verificare autonomamente.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "memory_corrected",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1511,
+            "completion_tokens": 53,
+            "total_tokens": 1564
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Il confronto dei costi e dei vincoli è già disponibile nella memoria con i dati forniti dall'utente e non richiede ulteriori elaborazioni.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "ONE_ACTIVE_GOAL_REQUIRED"
+    },
+    {
+      "scenario": "source_change_crash",
+      "mode": "live",
+      "passed": false,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 3465,
+            "completion_tokens": 54,
+            "total_tokens": 3519
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "opportunity_scan",
+          "model_attempts_before": 0,
+          "input": {
+            "collection_counts": {
+              "memories": 1,
+              "documents": 0,
+              "calendar": 0,
+              "money": 5,
+              "life_profile": 0,
+              "what_changed": 1,
+              "unavailable_sources": 0,
+              "unavailable_memory_refs": 0
+            },
+            "change_after_lengths": [
+              160
+            ]
+          },
+          "response_kind": "object",
+          "reason_for_silence": "Ho esaminato le informazioni sulla valutazione dell'archivio digitale e al momento non ci sono scadenze imminenti, conflitti o dati nuovi da verificare oltre a quanto già annotato.",
+          "opportunities_kind": "array",
+          "opportunities_count": 0,
+          "opportunities": [],
+          "opportunities_omitted": 0,
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "failure_state": {
+        "available": true,
+        "goals_count": 0,
+        "goals": []
+      },
+      "reason": "SOURCE_DISCOVERY_DID_NOT_RECOVER"
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "already_resolved",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1474,
+            "completion_tokens": 49,
+            "total_tokens": 1523
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 1,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "La scelta della formula mensile è già conclusa e registrata dall'utente, senza azioni residue o verifiche aperte da compiere.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [],
+      "executed_capabilities": [],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "no_goal"
+      }
+    },
+    {
+      "version": "autonomy-completion-v162",
+      "fixture_revision": "personal_outcome_v1",
+      "scenario": "irrelevant",
+      "mode": "live",
+      "passed": true,
+      "scope": "synthetic_internal_note_to_home_no_external_effects",
+      "model_mode": "real_llm",
+      "source_mode": "synthetic_owned_record_real_reader",
+      "live_provider_reads": 0,
+      "storage": "in_memory",
+      "process_restart_tested": false,
+      "synthetic_checkpoints_expedited": true,
+      "real_model_executed": true,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 1149,
+            "completion_tokens": 32,
+            "total_tokens": 1181
+          }
+        }
+      ],
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "model_http_requests_scope": "httpx_async_send_attempts_including_runner_selected_gemini_sdk",
+      "global_socket_dns_sandbox": false,
+      "structured_decisions": [
+        {
+          "stage": "decide_goal",
+          "model_attempts_before": 0,
+          "input": {
+            "source_context_count": 0,
+            "source_context_unavailable": false
+          },
+          "response_kind": "object",
+          "outcome": "no_goal",
+          "reasoning": "Si tratta di una newsletter pubblicitaria non richiesta e priva di interesse o urgenza.",
+          "model_attempts_after": 1,
+          "sequence": 1
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "token_usage_scope": "successful_responses_with_provider_usage_only",
+      "worker_ticks": [],
+      "executed_capabilities": [],
+      "source_change_discovery_tested": false,
+      "injected_faults": [],
+      "external_effects": 0,
+      "result": {
+        "state": "no_goal"
+      }
+    }
+  ],
+  "fixture_revision": "personal_outcome_v1",
+  "started_at": "2026-10-12T02:15:03.354791+00:00",
+  "finished_at": "2026-10-12T02:15:12.054015+00:00",
+  "limits": {
+    "cases": 9,
+    "case_timeout_seconds": 240,
+    "model_calls_per_case": 40,
+    "model_http_requests_per_case": 80,
+    "structured_decisions_per_case": 12,
+    "decision_text_characters": 400,
+    "proposals_per_decision": 3,
+    "plan_steps_per_decision": 6,
+    "model_calls_total": 360,
+    "model_http_requests_total": 720
+  },
+  "code_revision": "e2bc1322f0aa9093eeab7e6097ef07cd30d0be20",
+  "revision_source": "deployment_or_ci_metadata"
+}

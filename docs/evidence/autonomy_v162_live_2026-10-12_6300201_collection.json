@@ -1,0 +1,56 @@
+{
+  "observed_at": "2026-10-12T11:17:09.466Z",
+  "deployment_id": "068a3ef3-729b-4690-871a-ec36667ce513",
+  "expected_code_revision": "630020147223ada63430a11870209494dc35cc22",
+  "source": {
+    "id": "068a3ef3-729b-4690-871a-ec36667ce513",
+    "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+    "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+    "meta": {
+      "reason": "deploy",
+      "commitMessage": "fix(autonomy): preserve evidence and resume the Tarquinia monitoring cycle\n\nReject invalid waits and non-execute writes, retain current-source literal audits, and pass lossless evidence context. Bind grounded search segments to their indexed sources and preserve snippet origin through research. Keep original failed live reports and exact local validation.\n\nLocal equivalent f043c2be4c396bbba0519b00646a83bb97e89ee0, tree 0878f56d49f120c7b97ce93e49fa9076398c43c2. 1554 passed, 1 skipped; 9 scripted cases passed. Live candidate acceptance and device delivery remain pending.",
+      "commitHash": "630020147223ada63430a11870209494dc35cc22",
+      "branch": "ora/v162-autonomy-validation-20261012"
+    },
+    "createdAt": "2026-10-12T11:05:44.883Z",
+    "verified_at": "2026-10-12T11:12:16.171Z"
+  },
+  "status": "CRASHED",
+  "terminal": true,
+  "source_binding": "exact deployment identity, immutable commit metadata and verified launch-command commit fence",
+  "raw_batches_path": "/tmp/ora_v162_630_live_log_batches.json",
+  "merged_logs_path": "/tmp/ora_v162_630_live_logs_final.json",
+  "log_rows": 40,
+  "batches": 6,
+  "log_limit_reached": false,
+  "cases": 9,
+  "reports": [
+    {
+      "kind": "autonomy",
+      "path": "/tmp/ora_v162_630_autonomy_live.json",
+      "fragments": 2,
+      "first_at": "2026-10-12T11:15:28.597100485Z",
+      "last_at": "2026-10-12T11:15:28.607250814Z",
+      "characters": 131778,
+      "sha256": "59bcc79162af9adcfc03a2c5602cf6455ba0403b1915f6e04522fe29052c97da",
+      "bytes": 132218,
+      "report_code_revision": "630020147223ada63430a11870209494dc35cc22",
+      "code_revision_source": "report_and_deployment"
+    },
+    {
+      "kind": "public",
+      "path": "/tmp/ora_v162_630_public_live.json",
+      "fragments": 1,
+      "first_at": "2026-10-12T11:16:38.381038355Z",
+      "last_at": "2026-10-12T11:16:38.381038355Z",
+      "characters": 7618,
+      "sha256": "b53dd53de9a0fc2a4398697686c4c845eb4637cb7c2927944e780e100dd38bfc",
+      "bytes": 7627,
+      "report_code_revision": null,
+      "code_revision_source": "deployment_binding_only"
+    }
+  ],
+  "missing_reports": [],
+  "mutating_operations": 0,
+  "model_or_provider_calls_started_by_monitor": 0
+}

@@ -76,7 +76,7 @@ jobs:
         run: python -m pytest -q tests/test_whatsapp_cloud_bridge_v1.py tests/test_whatsapp_memory_continuity_v1.py -x
       - name: Situation v157 initial review admission and checkpoint truth
         working-directory: backend
-        run: python -m pytest -q -n 0 tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
+        run: python -m pytest -q -n 0 tests/test_situation_declared_place_link_v162.py tests/test_situation_declaration_recovery_v162.py tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
       - name: Situation useful outcome, weather time, final delivery and closure
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_useful_outcome_v160.py tests/test_situation_weather_clock_v160.py tests/test_situation_outcome_delivery_v160.py tests/test_situation_outcome_visibility_v160.py tests/test_situation_completion_response_v160.py tests/test_situation_outcome_projection_v160.py -x
@@ -86,6 +86,11 @@ jobs:
       - name: Financial card meaning, provenance and repeat interpretation
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_financial_card_continuity_v158.py -x
+      - name: Reviewed Vision catalogue identity and real Mongo persistence
+        env:
+          VISION_TEST_MONGO_URL: mongodb://127.0.0.1:27017
+          PYTHONPATH: backend
+        run: python -m pytest -c /dev/null -q backend/vision_tests/test_catalog75.py backend/vision_tests/test_seed_pack.py backend/vision_tests/test_anatomy_atlas.py -x
       - name: Google browser sign-in redirect and one-use ticket security
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_google_browser_login_v156.py tests/test_social_auth_unit.py -x
@@ -220,8 +225,77 @@ jobs:
         run: |
           python -m pytest -q -n 0 \
             tests/test_agent_memory_read_v162.py \
+            tests/test_memory_source_context_v162.py \
+            tests/test_agent_memory_replanning_context_v162.py \
+            tests/test_agent_memory_continuation_v162.py \
+            tests/test_agent_terminal_plan_v162.py \
+            tests/test_agent_completed_result_delivery_v162.py \
+            tests/test_autonomy_home_revocation_v162.py \
+            tests/test_eval_gemini_transport_v162.py \
+            tests/test_pending_outcome_contract_v162.py \
+            tests/test_discovery_outcome_contract_v162.py \
+            tests/test_agent_preparation_grounding_v162.py \
+            tests/test_preparation_response_schema_v162.py \
+            tests/test_preparation_source_quotes_v162.py \
+            tests/test_preparation_passages_v162.py \
+            tests/test_agent_preparation_dependency_v162.py \
+            tests/test_agent_admission_contract_v162.py \
+            tests/test_agent_verification_context_v162.py \
+            tests/test_verification_recovery_v162.py \
+            tests/test_prepared_review_v162.py \
+            tests/test_prepared_review_delivery_v162.py \
+            tests/test_deferred_prepared_reconsideration_v162.py \
+            tests/test_autonomy_eval_recovery_diagnostics_v162.py \
+            tests/test_autonomy_model_diagnostics_v162.py \
+            tests/test_autonomy_declaration_diagnostics_v162.py \
+            tests/test_autonomy_context_diagnostics_v162.py \
+            tests/test_autonomy_verification_diagnostics_v162.py \
+            tests/test_gemini_quota_retry_v162.py \
+            tests/test_llm_response_schema_v162.py \
+            tests/test_agent_protocol_recovery_v162.py \
+            tests/test_agent_replan_protocol_v162.py \
+            tests/test_agent_step_examples_v162.py \
+            tests/test_agent_wait_protocol_v162.py \
+            tests/test_agent_write_dispatch_v162.py \
+            tests/test_opportunity_assessment_context_v162.py \
+            tests/test_agent_action_context_v162.py \
+            tests/test_action_evidence_table_v162.py \
+            tests/test_completed_result_context_v162.py \
+            tests/test_preparation_recovery_v162.py \
+            tests/test_preparation_feedback_v162.py \
+            tests/test_preparation_entailment_v162.py \
+            tests/test_autonomy_preparation_diagnostics_v162.py \
+            tests/test_autonomy_result_diagnostics_v162.py \
+            tests/test_autonomy_case_progress_v162.py \
+            tests/test_autonomy_passage_diagnostics_v162.py \
+            tests/test_autonomy_worker_recovery_v162.py \
+            tests/test_autonomy_wait_recovery_v162.py \
             tests/test_agent_connector_readiness_v162.py \
             tests/test_agent_planning_recovery_v162.py \
+            tests/test_agent_planner_source_prerequisite_v162.py \
+            tests/test_agent_planning_inventory_v162.py \
+            tests/test_agent_reconsider_read_coverage_v162.py \
+            tests/test_agent_bounded_comparison_verification_v162.py \
+            tests/test_agent_compact_source_draft_v162.py \
+            tests/test_autonomy_planning_retry_observation_v162.py \
+            tests/test_planning_protocol_history_v162.py \
+            tests/test_situation_live_eval_v162.py \
+            tests/test_situation_estimate_schedule_truth_v162.py \
+            tests/test_situation_terminal_schedule_truth_v162.py \
+            tests/test_situation_in_turn_handoff_v162.py \
+            tests/test_situation_conversation_diagnostics_v162.py \
+            tests/test_situation_creation_protocol_v162.py \
+            tests/test_pre_reply_grounding_recovery_v162.py \
+            tests/test_public_answer_diagnostics_v162.py \
+            tests/test_current_fact_provenance_v162.py \
+            tests/test_public_temperature_ranges_v162.py \
+            tests/test_gemini_search_grounding_v162.py \
+            tests/test_gemini_search_quota_recovery_v162.py \
+            tests/test_research_snippet_origin_v162.py \
+            tests/test_route_provenance_v162.py \
+            tests/test_agent_route_provenance_v162.py \
+            tests/test_situation_delivery_recovery_v162.py \
+            tests/test_completion_visibility_recovery_v162.py \
             tests/test_opportunity_discovery_recovery_v162.py \
             tests/test_agent_memory_source_fence_v162.py \
             tests/test_connector_oauth_return_v162.py \
@@ -229,6 +303,10 @@ jobs:
             tests/test_autonomy_completion_eval_v162.py -x
           python -m scripts.autonomy_completion_eval_v162 --mode scripted \
             --output /tmp/ora-autonomy-v162-scripted.json
+          python -m pytest -q -n 0 \
+            tests/test_agent_visibility_v39.py::test_visibility_guard_detects_real_outcome_promotions \
+            tests/test_agent_visibility_v39.py::test_visibility_guard_does_not_confuse_an_action_step_or_need_with_a_visibility \
+            tests/test_agent_visibility_v39.py::test_no_branch_turns_a_goal_status_into_a_visibility -x
       - name: v162 planning, source read and Home outbox across exited Python workers
         working-directory: backend
         env:
@@ -366,9 +444,12 @@ jobs:
       - name: Home calendar excludes task deadlines and review checkpoints
         working-directory: frontend
         run: node --experimental-strip-types --test src/components/home/v3/calendarItems.test.ts
+      - name: Prepared result review remains explicit in the update detail
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/components/home/v3/preparedReview.test.ts
       - name: Situation useful time and action remain separate from internal checks
         working-directory: frontend
-        run: node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts
+        run: node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts src/components/ora/presence/temporaryMemoryFreshness.test.cjs
       - name: ORA calendar month-grid regression
         working-directory: frontend
         run: node --experimental-strip-types src/components/calendar/nativeMonth.test.ts

@@ -1,0 +1,104 @@
+{
+  "schema": "ora_v162_public_manual_content_review_v1",
+  "review_method": "Independent manual semantic comparison by the assistant; no new model, provider, browser, test or deployment call.",
+  "source": {
+    "path": "docs/evidence/autonomy_v162_live_2026-10-12_650a6f4_public.json",
+    "original_path": "/tmp/ora_v162_650_collection/public_live.json",
+    "bytes": 12934,
+    "sha256": "7992d04ff3d80580046761d09a6da41b4d1d4394a89b33058a032a8c9702cb8c",
+    "code_revision": "650a6f404be52829c983cf49c0b612a96e6a4a11",
+    "tree": "fb5a9bb2fa8d3a593815481a66767a5d3cca2f89",
+    "deployment_id": "d32cdee9-64f2-4d40-90be-4d907fe7f036",
+    "revision_binding": "Exact deployment metadata and deployment-scoped log envelopes; public report has no internal code_revision field."
+  },
+  "original_verdict_preserved": {
+    "technical_passed": true,
+    "semantic_gate_passed": true,
+    "passed": true,
+    "semantic_acceptance": "pending_human_review",
+    "automatically_accepted": false,
+    "human_review_still_required": true
+  },
+  "assessment": {
+    "final_answer_content": "acceptable_for_the_bounded_public_trip_request",
+    "blocking_content_findings": [],
+    "scope": "Only the final answer in this synthetic Rome Termini-to-Colosseum public-read case is assessed; no claim of general autonomous reliability, laundry completion or delivery to a phone.",
+    "actual_human_or_user_acceptance": "not_observed",
+    "original_report_modified": false,
+    "source_freshness_limit": "Mapbox provider_as_of is null. The recorded retrieval time establishes when ORA received the response, not when every traffic condition was observed.",
+    "source_identity_limit": "The final answer does not name Mapbox or Open-Meteo. Their identities and HTTP/provenance references are present in the report; no source attribution is invented in the answer."
+  },
+  "final_answer_integrity": {
+    "characters": 578,
+    "sha256": "dc635b0689af73052bde4a619d33f64575563d8e4d00680ddf714afb47d980b0",
+    "pointer": "/final_answer",
+    "same_as_pointer": "/model_message_observations/3/text",
+    "byte_equivalent": true,
+    "final_answer_truncated": false,
+    "message_observations_omitted": 0,
+    "all_four_message_observations_untruncated": true,
+    "grounding_rewrites": 0,
+    "final_provider": "openai",
+    "final_model": "gpt-4o-mini",
+    "provider_scope": "Observed provider identity only; no billing or availability inference."
+  },
+  "claims": [
+    {
+      "answer_excerpt": "la durata stimata del viaggio in auto è di circa 13 minuti, considerando il traffico attuale",
+      "source_pointers": ["/observations/0/payload/duration_seconds", "/observations/0/payload/duration_kind", "/observations/0/payload/reflects_current_traffic", "/http_reads/0"],
+      "observed_values": {"duration_seconds": 782, "duration_kind": "estimate", "reflects_current_traffic": true, "http_status": 200},
+      "assessment": "Supported. 782 seconds are approximately 13 minutes. The answer calls this an estimate and does not describe the duration as a physical measurement or guarantee."
+    },
+    {
+      "answer_excerpt": "La distanza da Roma Termini al Colosseo è di circa 2.99 km",
+      "source_pointers": ["/public_points", "/observations/0/payload/distance_meters", "/observations/0/payload/destination"],
+      "observed_values": {"distance_meters": 2990, "destination": "Colosseo"},
+      "assessment": "Supported by the route result between the synthetic saved public places. 2990 meters equal 2.99 kilometers."
+    },
+    {
+      "answer_excerpt": "attualmente a Roma il cielo è quasi sereno con una temperatura di 23°C",
+      "source_pointers": ["/observations/1/payload/current", "/observations/1/payload/observed_at", "/observations/1/payload/timezone", "/scenario_time"],
+      "observed_values": {"condition": "Quasi sereno", "temperature_c": 23, "provider_observed_at": "2026-10-12T15:15", "timezone": "Europe/Rome", "scenario_time": "2026-10-12T15:17:35.707041+02:00"},
+      "assessment": "Supported by the current weather response. The answer does not claim a device measurement or street-level certainty."
+    },
+    {
+      "answer_excerpt": "Le previsioni per le prossime ore indicano temperature stabili intorno ai 23°C fino alle 17:00, senza probabilità di pioggia",
+      "source_pointers": ["/observations/1/payload/hours/0", "/observations/1/payload/hours/1", "/observations/1/payload/timezone"],
+      "observed_values": [{"datetime": "2026-10-12T16:00", "temperature_c": 23, "rain_chance_pct": 0}, {"datetime": "2026-10-12T17:00", "temperature_c": 23, "rain_chance_pct": 0}],
+      "assessment": "Supported within the explicit forecast scope and horizon. The zero is the returned forecast probability, not an independent guarantee that rain cannot occur. The answer does not extend the 12-hour source to 24 hours."
+    },
+    {
+      "answer_excerpt": "Ti consiglio di partire ora, poiché le condizioni meteo sono favorevoli e il tempo di viaggio stimato è breve",
+      "source_pointers": ["/scenario_message", "/observations/0/payload", "/observations/1/payload/current", "/observations/1/payload/hours"],
+      "assessment": "A proportionate suggestion for the requested immediate trip, grounded in the short estimated duration and the weather response. It does not assert absence of congestion, road restrictions, parking issues or other facts not returned by the tools."
+    }
+  ],
+  "intermediate_message_findings": {
+    "pointer": "/model_message_observations/1/text",
+    "decision_index": 2,
+    "provider": "mistral",
+    "model": "ministral-8b-2512",
+    "characters": 2668,
+    "sha256": "b062046a86769b58f5c316c66cc7c3a947651547f9823216e9ecd22db6e92f3c",
+    "is_final_answer": false,
+    "message_observation_scope": "Parsed message_to_user before governance/normalization; the report does not identify this text as delivered.",
+    "findings": [
+      {"excerpt": "Certezze (dati attuali e misurati)", "problem": "Misclassifies a provider travel-time estimate as measured certainty."},
+      {"excerpt": "aggiornati alle 15:17 di oggi", "problem": "Treats ORA retrieval time as provider update time although provider_as_of is null."},
+      {"excerpt": "Ho verificato le condizioni meteorologiche attuali e previste", "problem": "Weather had not yet been read at decision 2; the same intermediate text also says live weather is unavailable."},
+      {"excerpt": "Non ci sono indicazioni di rallentamenti eccezionali nelle prossime ore", "problem": "The route response supplies a duration estimate, not a report ruling out specific future slowdowns."}
+    ],
+    "observed_continuation": "The decision record still required get_weather_forecast; decision 3 requested that tool, and decision 4 supplied a different final answer. The final is identical to the fourth model message and grounding_rewrites is zero.",
+    "limit": "This intermediate error prevents treating one acceptable final answer as evidence that every provider response or every reasoning step was semantically reliable."
+  },
+  "effects_and_limits": {
+    "observed_tools": ["get_route", "get_weather_forecast"],
+    "observed_tool_side_effects": ["READ_ONLY", "READ_ONLY"],
+    "blocked_operations": [],
+    "provider_reads": 2,
+    "model_decisions": 4,
+    "new_review_network_or_model_calls": 0,
+    "no_autonomy_or_phone_acceptance_inferred": true,
+    "raw_model_http_and_full_prompts": "not retained by this original report; the parsed message observations used in this review are complete and untruncated"
+  }
+}

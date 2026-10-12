@@ -38,6 +38,8 @@ async def test_situation_checkpoint_claim_matches_persisted_time(monkeypatch):
                     "attention_intent": "capire quando arriva il momento utile",
                     "expected_outcome_summary": "oggi",
                     "source_refs": ["user_conversation"],
+                    "location_label": None,
+                    "linked_object_refs": [],
                 },
             }
         if calls == 2:

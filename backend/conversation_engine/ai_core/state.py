@@ -178,7 +178,10 @@ def apply_state_updates(state: Dict[str, Any], updates: List[StateUpdate] | List
                 facts.pop(key, None)
                 state["current_facts"] = facts
             else:
-                apply_current_fact(state, key=key, value=value, scope="temporary")
+                apply_current_fact(
+                    state, key=key, value=value, scope="temporary",
+                    origin="model_state_update",
+                )
     state["active_goal"] = goal
 
 

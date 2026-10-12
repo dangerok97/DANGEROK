@@ -1,0 +1,328 @@
+{
+  "version": "phase1-read-provider-v126",
+  "case": "trip_today",
+  "requested_mode": "live",
+  "model_mode": "live_llm",
+  "provider_mode": "live_provider_http",
+  "real_model_executed": true,
+  "live_provider_reads": 2,
+  "owner": "synthetic_isolated_no_real_account",
+  "fixture_source": "synthetic_public_landmark_fixture",
+  "synthetic_state": [
+    "account",
+    "consent",
+    "current_location",
+    "saved_public_places",
+    "memory_database"
+  ],
+  "public_points": [
+    {
+      "id": "eval-roma-termini",
+      "label": "Roma Termini",
+      "latitude": 41.901,
+      "longitude": 12.5018
+    },
+    {
+      "id": "eval-colosseo",
+      "label": "Colosseo",
+      "latitude": 41.8902,
+      "longitude": 12.4922
+    }
+  ],
+  "scenario_time": "2026-10-12T09:16:28.214485+02:00",
+  "scenario_message": "Oggi, 2026-10-12, alle 09:16 (Europe/Rome), devo valutare un tragitto in auto con partenza adesso da Roma Termini al Colosseo, entrambi già salvati tra i miei luoghi. La posizione corrente autorizzata è Roma Termini. Verifica il tempo di viaggio con il traffico attuale e il meteo al Colosseo nelle prossime ore. Dimmi cosa hai verificato, la durata stimata e cosa suggerisci per questo spostamento oggi, distinguendo previsioni da certezze. Non avviare la navigazione, creare appuntamenti, impostare notifiche, inviare messaggi o spendere denaro. Questo è un utente sintetico di valutazione: i due punti sono monumenti pubblici, non luoghi privati.",
+  "verdict": {
+    "technical_passed": true,
+    "semantic_gate_passed": true,
+    "passed": true,
+    "reasons": [],
+    "verified_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "required_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "model_decisions": 4,
+    "ai_calls": 4,
+    "tool_calls": 2,
+    "elapsed_ms": 10741,
+    "final_mode": "answer",
+    "semantic_acceptance": "pending_human_review"
+  },
+  "decisions": [
+    {
+      "mode": "tool",
+      "reasoning_status": "needs_tool",
+      "capability": "get_route",
+      "required": [
+        "get_route",
+        "get_weather_forecast"
+      ],
+      "resume": false,
+      "situation_op": "",
+      "memory_proposals": 0
+    },
+    {
+      "mode": "answer",
+      "reasoning_status": "enough_information",
+      "capability": "",
+      "required": [],
+      "resume": false,
+      "situation_op": "",
+      "memory_proposals": 0
+    },
+    {
+      "mode": "tool",
+      "reasoning_status": "needs_tool",
+      "capability": "get_weather_forecast",
+      "required": [
+        "get_route",
+        "get_weather_forecast"
+      ],
+      "resume": false,
+      "situation_op": "",
+      "memory_proposals": 0
+    },
+    {
+      "mode": "answer",
+      "reasoning_status": "enough_information",
+      "capability": "",
+      "required": [],
+      "resume": false,
+      "situation_op": "",
+      "memory_proposals": 0
+    }
+  ],
+  "model_calls": [
+    {
+      "provider": "gemini2",
+      "model": "gemini-flash-lite-latest"
+    },
+    {
+      "provider": "gemini2",
+      "model": "gemini-flash-lite-latest"
+    },
+    {
+      "provider": "gemini2",
+      "model": "gemini-flash-lite-latest"
+    },
+    {
+      "provider": "gemini2",
+      "model": "gemini-flash-lite-latest"
+    }
+  ],
+  "observations": [
+    {
+      "capability": "get_route",
+      "source": "live_provider_http",
+      "side_effect": "READ_ONLY",
+      "outer_status": "ok",
+      "production_handler_used": true,
+      "handler": "places.caps.get_route",
+      "payload": {
+        "status": "ok",
+        "available": true,
+        "provider": "mapbox",
+        "destination": "Colosseo",
+        "travel_mode": "drive",
+        "duration_seconds": 759,
+        "distance_meters": 2765,
+        "reflects_current_traffic": true
+      },
+      "provenance": [
+        "places:eval-pub"
+      ],
+      "http_refs": [
+        "http:1"
+      ],
+      "session_readback_verified": true
+    },
+    {
+      "capability": "get_weather_forecast",
+      "source": "live_provider_http",
+      "side_effect": "READ_ONLY",
+      "outer_status": "ok",
+      "production_handler_used": true,
+      "handler": "conversation_engine.ai_core.tools.weather_caps.get_weather_forecast",
+      "payload": {
+        "status": "ok",
+        "provider": "open_meteo",
+        "place": "Roma",
+        "current": {
+          "condition": "Poco nuvoloso",
+          "temperature_c": 18,
+          "humidity_pct": 80,
+          "wind_kmh": 5,
+          "precipitation_mm": 0
+        },
+        "hours": [
+          {
+            "time": "10:00",
+            "datetime": "2026-10-12T10:00",
+            "temperature_c": 19,
+            "humidity_pct": 78,
+            "wind_kmh": 7,
+            "rain_chance_pct": 2
+          },
+          {
+            "time": "11:00",
+            "datetime": "2026-10-12T11:00",
+            "temperature_c": 20,
+            "humidity_pct": 69,
+            "wind_kmh": 8,
+            "rain_chance_pct": 2
+          },
+          {
+            "time": "12:00",
+            "datetime": "2026-10-12T12:00",
+            "temperature_c": 22,
+            "humidity_pct": 64,
+            "wind_kmh": 10,
+            "rain_chance_pct": 1
+          },
+          {
+            "time": "13:00",
+            "datetime": "2026-10-12T13:00",
+            "temperature_c": 23,
+            "humidity_pct": 58,
+            "wind_kmh": 9,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "14:00",
+            "datetime": "2026-10-12T14:00",
+            "temperature_c": 23,
+            "humidity_pct": 56,
+            "wind_kmh": 9,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "15:00",
+            "datetime": "2026-10-12T15:00",
+            "temperature_c": 24,
+            "humidity_pct": 53,
+            "wind_kmh": 11,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "16:00",
+            "datetime": "2026-10-12T16:00",
+            "temperature_c": 24,
+            "humidity_pct": 52,
+            "wind_kmh": 11,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "17:00",
+            "datetime": "2026-10-12T17:00",
+            "temperature_c": 24,
+            "humidity_pct": 52,
+            "wind_kmh": 13,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "18:00",
+            "datetime": "2026-10-12T18:00",
+            "temperature_c": 23,
+            "humidity_pct": 53,
+            "wind_kmh": 13,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "19:00",
+            "datetime": "2026-10-12T19:00",
+            "temperature_c": 22,
+            "humidity_pct": 53,
+            "wind_kmh": 10,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "20:00",
+            "datetime": "2026-10-12T20:00",
+            "temperature_c": 20,
+            "humidity_pct": 56,
+            "wind_kmh": 10,
+            "rain_chance_pct": 0
+          },
+          {
+            "time": "21:00",
+            "datetime": "2026-10-12T21:00",
+            "temperature_c": 19,
+            "humidity_pct": 61,
+            "wind_kmh": 8,
+            "rain_chance_pct": 0
+          }
+        ],
+        "sunrise": "07:18",
+        "sunset": "18:33",
+        "observed_at": "2026-10-12T09:15",
+        "retrieved_at": "2026-10-12T07:16:37.021161+00:00",
+        "timezone": "Europe/Rome",
+        "utc_offset_seconds": 7200
+      },
+      "provenance": [
+        "place:eval-colosseo"
+      ],
+      "http_refs": [
+        "http:2"
+      ],
+      "session_readback_verified": true
+    }
+  ],
+  "http_reads": [
+    {
+      "id": "http:1",
+      "capability": "get_route",
+      "source": "live_provider_http",
+      "provider": "mapbox",
+      "http_status": 200,
+      "request_started_at": "2026-10-12T07:16:32.139199+00:00",
+      "received_at": "2026-10-12T07:16:32.266613+00:00",
+      "retrieval_time_source": "evaluation_clock_not_provider_observation_time",
+      "metadata_added_to_model_observation": false
+    },
+    {
+      "id": "http:2",
+      "capability": "get_weather_forecast",
+      "source": "live_provider_http",
+      "provider": "open_meteo",
+      "http_status": 200,
+      "request_started_at": "2026-10-12T07:16:36.409862+00:00",
+      "received_at": "2026-10-12T07:16:37.019837+00:00",
+      "retrieval_time_source": "evaluation_clock_not_provider_observation_time",
+      "metadata_added_to_model_observation": false,
+      "provider_timezone": "Europe/Rome",
+      "provider_current_time": "2026-10-12T09:15",
+      "provider_utc_offset_seconds": 7200,
+      "provider_hour_times": [
+        "2026-10-12T10:00",
+        "2026-10-12T11:00",
+        "2026-10-12T12:00",
+        "2026-10-12T13:00",
+        "2026-10-12T14:00",
+        "2026-10-12T15:00",
+        "2026-10-12T16:00",
+        "2026-10-12T17:00",
+        "2026-10-12T18:00",
+        "2026-10-12T19:00",
+        "2026-10-12T20:00",
+        "2026-10-12T21:00"
+      ]
+    }
+  ],
+  "blocked_operations": [],
+  "error_types": [],
+  "final_answer": "Ho verificato le condizioni attuali e le previsioni per il tuo spostamento in auto da Roma Termini al Colosseo:\n\n- **Tempo di viaggio (certezza osservata tramite traffico live Mapbox):** La durata stimata del tragitto (circa 2,7 km) è di circa 13 minuti (759 secondi) con il traffico rilevato adesso.\n- **Meteo al Colosseo (previsioni Open-Meteo per le prossime ore):** Al momento (ore 09:15) si registrano 18°C con condizioni di cielo poco nuvoloso e assenza di precipitazioni (0,0 mm). Nelle prossime ore la temperatura salirà gradualmente fino a 19°C alle 10:00 e 20°C alle 11:00, con una probabilità di pioggia molto bassa (2% o inferiore).\n\n**Suggerimento:** Le condizioni stradali e meteorologiche attuali sono favorevoli per lo spostamento. Trattandosi di dati live e previsioni, il tempo di percorrenza riflette il traffico del momento esatto della verifica, mentre le condizioni meteo successive restano soggette a variazioni previsionali.",
+  "final_answer_truncated": false,
+  "semantic_review": {
+    "status": "bounded_pass",
+    "passed": true,
+    "reasons": [],
+    "automatically_accepted": false,
+    "human_review_still_required": true,
+    "grounding_rewrites": 0,
+    "time_metadata_limit": "Weather dates/timezone reach the model; routing HTTP retrieval time is not a provider as-of timestamp."
+  }
+}

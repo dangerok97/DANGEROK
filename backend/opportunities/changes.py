@@ -400,6 +400,7 @@ def fingerprint(snapshot: Dict[str, Any]) -> str:
             "departures",
             "existing_work",
             "documents",
+            "memories",
             "situations",
             "disagreements",
             "money",

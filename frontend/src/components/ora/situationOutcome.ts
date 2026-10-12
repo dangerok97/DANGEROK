@@ -1,7 +1,7 @@
 import type { SituationOutcome } from '@/src/api/client';
 
 export type SituationOutcomeView = {
-  status: SituationOutcome['status'] | 'pending' | 'outdated' | 'stopped';
+  status: SituationOutcome['status'] | 'pending' | 'outdated' | 'stopped' | 'unavailable';
   label: string;
   headline: string;
   detail: string;
@@ -15,6 +15,8 @@ type OutcomeInput = {
   desiredOutcome?: string | null;
   situationRevision?: number;
   followupStatus?: string | null;
+  /** The last read of this assessment's source failed; null outcome means something else. */
+  readUnavailable?: boolean;
 };
 
 /**
@@ -22,6 +24,13 @@ type OutcomeInput = {
  * clock or temporal scope is promoted into an outcome estimate here.
  */
 export function situationOutcomeView(input: OutcomeInput, now: number = Date.now()): SituationOutcomeView {
+  if (input.readUnavailable) {
+    return {
+      status: 'unavailable', label: 'Ultima lettura non riuscita',
+      headline: 'Stato non verificabile', detail: 'Le indicazioni precedenti non sono confermate.',
+      window: null, basis: '', needsAttention: false,
+    };
+  }
   const desired = String(input.desiredOutcome || '').trim();
   const outcome = input.outcome;
   const validUntil = outcome ? Date.parse(outcome.valid_until) : NaN;

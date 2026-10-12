@@ -1,0 +1,761 @@
+{
+  "schema": "ora.v162.cloud_recovery.v1",
+  "frozen_at_utc": "2026-10-12T15:06:55Z",
+  "scope": "Recover two reviewed fixes and exact previous live reports after local execution became unavailable; current candidate validation is not yet executed.",
+  "repository": "dangerok97/DANGEROK",
+  "branch": "ora/v162-autonomy-validation-20261012",
+  "pull_request": "https://github.com/dangerok97/DANGEROK/pull/220",
+  "base": {
+    "remote_commit": "22df078148612b8e83c934ffc8d15bce33eaafee",
+    "remote_tree": "29d10bb4c2ad05a86ee817854896d164269dcfe9",
+    "publication_parent_policy": "single parent: reviewed remote commit; no local ancestry is published"
+  },
+  "product": {
+    "location": "Tarquinia",
+    "timezone": "Europe/Rome",
+    "requested_outcome": "After a fresh user declaration that laundry is hung, tell the user when collection is useful because it is estimated dry, or earlier to protect it from weather.",
+    "previous_real_laundry_closed": true,
+    "new_live_fixtures_only": true,
+    "autonomy_accepted": false,
+    "weather_not_a_dryness_sensor": true
+  },
+  "local_environment": {
+    "availability": "unavailable",
+    "observed_error": "409 Conflict, environment_offline: Environment is not connected.",
+    "original_local_files_reaccessed": false,
+    "subsequent_runtime_execution": "not_run",
+    "fallback": "GitHub file/blobs plus in-memory transformations checked against immutable source hashes"
+  },
+  "previous_local_validation": {
+    "source_commit": "7a65f402867790b8d94adbfebcd9c310e095d315",
+    "source_tree": "0aced9d2702e4d08d0235dafb605d99997105865",
+    "pytest": {
+      "passed": 1890,
+      "skipped": 1,
+      "failed": 0,
+      "modules": 153,
+      "selectors": 155,
+      "seconds": 72.91,
+      "log_bytes": 2219,
+      "log_sha256": "dea63e347aacd0ca472d6d2276311e6e3811eb2daa3f3937159268df23eecb80",
+      "skip_scope": "Optional real Gemini test deliberately configured without its key; not proof that the technical service lacks credentials."
+    },
+    "scripted": {
+      "passed": 9,
+      "total": 9,
+      "real_model_executed": false,
+      "model_http_requests": 0,
+      "external_effects": 0,
+      "report_code_revision": null,
+      "revision_binding": "external metrics manifest",
+      "report_bytes": 137110,
+      "report_sha256": "285862f1ea9520c93928c43fba5eb786378235ce75d78aa8d91bf4287ac1d941"
+    },
+    "first_aggregate_before_test_contract_update": {
+      "source_commit": "836257dd3b7ad7ed5c2074b6f4dfb90f60eb850e",
+      "passed": 653,
+      "failed": 1,
+      "reason": "The old full-payload assertion did not include the two added goal qualification fields.",
+      "fix": "Preserved exact goal equality and all source/feedback assertions while adding the two expected fields.",
+      "log_sha256": "72c8f46fd042ef0c90ee9b5851784f4cf2e649b366a761e6cfcb17825becaeee"
+    },
+    "preservation_limit": "These are previously observed metrics and frozen checksums. The old local log bundle is currently inaccessible and is not recreated or claimed preserved by this commit.",
+    "transferred_to_new_candidate": false
+  },
+  "recovered_source_files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 28622,
+      "sha256": "64813633b744a55ea8d3357b1114f89edeefff2374cfb658ebe54bf6afd9284b",
+      "git_blob": "8bfc4871754b3a5f2fe83c98674e0ef0276b9d48",
+      "previous_local_sha256": "4ee491fcf0865d3f328336481f0f5aa055c1fff456839165861ad054121c20bc",
+      "byte_identical_to_previous_local": false
+    },
+    {
+      "path": "backend/agent/preparation.py",
+      "bytes": 36505,
+      "sha256": "0911a0ed9d8a9c7e4632f3dc1725d1896b887dc5bff58e67a0357a14e7d2976f",
+      "git_blob": "f0ee6408c85a91347d03ba8b5e3f17344f744305",
+      "previous_local_sha256": "0911a0ed9d8a9c7e4632f3dc1725d1896b887dc5bff58e67a0357a14e7d2976f",
+      "byte_identical_to_previous_local": true
+    },
+    {
+      "path": "backend/conversation_engine/ai_core/loop.py",
+      "bytes": 235719,
+      "sha256": "60920156542972fac78d58a91c60485362b1e298ee1e61d1bdcf2e0e5003f5a0",
+      "git_blob": "619f4aaee4426222f851443e312877e7f504bcd6",
+      "previous_local_sha256": "c89eda1fb0861cb79a2809ba1a76edb6eaa5a68a4557c4b4b137dfebf5b7890a",
+      "byte_identical_to_previous_local": false
+    },
+    {
+      "path": "backend/tests/test_preparation_feedback_v162.py",
+      "bytes": 18972,
+      "sha256": "dcd23c6ac8c562a6a4c23e0d47c643e177b575f9c3a96791258427dbe6fc8a8b",
+      "git_blob": "2f4deba08deb3a3437a915aba3ea9449f062793a",
+      "previous_local_sha256": "dcd23c6ac8c562a6a4c23e0d47c643e177b575f9c3a96791258427dbe6fc8a8b",
+      "byte_identical_to_previous_local": true
+    },
+    {
+      "path": "backend/tests/test_preparation_recovery_v162.py",
+      "bytes": 23975,
+      "sha256": "d71f2bed5fec46952f11e36019226f657f19327a7b035a44e87ff03f614a75b7",
+      "git_blob": "becafebcdd980fbe4c121f9c37f4f982774a61b6",
+      "previous_local_sha256": "22e5167254c52b117432cb0a4f7b77afa9f48a22a2f3bd9be6b78d5e414de62f",
+      "byte_identical_to_previous_local": false
+    },
+    {
+      "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+      "bytes": 15882,
+      "sha256": "071413349f0c8c5a0f8c43e8c38482335342aa689f772c304421d9dbccb2d16f",
+      "git_blob": "05bf792a7ccbac643d56eae84d0c077ba9e94eb6",
+      "previous_local_sha256": "c8b3344cac95fdd863384e0642b5da4569c21f9c42e60ec38add814373757465",
+      "byte_identical_to_previous_local": false
+    }
+  ],
+  "current_candidate_review": {
+    "reviewers": 2,
+    "scope": "Six changed loop regions and all 310 lines / 18 cases of the new Situation module, plus qualification transport assertions.",
+    "blocking_findings": 0,
+    "independent_loop_sha256": "60920156542972fac78d58a91c60485362b1e298ee1e61d1bdcf2e0e5003f5a0",
+    "independent_new_test_sha256": "071413349f0c8c5a0f8c43e8c38482335342aa689f772c304421d9dbccb2d16f",
+    "execution_status": "not_run",
+    "expected_new_situation_cases": 18
+  },
+  "current_candidate_validation": {
+    "ci": "not_run_at_freeze",
+    "local_pytest": "not_run_after_reconstruction",
+    "live": "not_run_after_reconstruction",
+    "source_identity_policy": "Bind later CI and live results to the published commit and these exact source blobs; do not transfer 7a65 or 22df results."
+  },
+  "historical_document_suffixes": [
+    {
+      "path": "docs/PRODUCT.md",
+      "base_bytes": 188238,
+      "base_sha256": "ad893a802dbc5a00979a2b0eb17058affc83622351bcd85fb071439384dd7dad",
+      "prefix_bytes": 1307,
+      "prefix_sha256": "a4cfaab08114063c18f3e011614b9afc59a8753fcdd61a4932e6af14d766f4f7",
+      "bytes": 189545,
+      "sha256": "251365a78ae9a65710621877e8ca37ba7a5be9277fd740882f2aebd0d8d93911",
+      "git_blob": "5f8ea8f30f259bbb6fdac67e539d1e503bb68362",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "base_bytes": 339729,
+      "base_sha256": "c6110dc6155854d4953444cae49028c2bf235a69e43e019bd86348219bfc1878",
+      "prefix_bytes": 1425,
+      "prefix_sha256": "f893db7e786528a7dcf7d93029b32a81b3c5e04b594efcf089b59e78f7e58214",
+      "bytes": 341154,
+      "sha256": "8800cf5387470a1473561e430976779a139ed4fcb9dec972f2b38ff9ff12aef1",
+      "git_blob": "52c2c2cfcbd7c7d2fd68b7319cdab70ccee9d10a",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/DEVELOPMENT_STATE.md",
+      "base_bytes": 394421,
+      "base_sha256": "e4314ca8130fcb47157dd9f264f52d1c7390d6dc761540bc44763925f44d0191",
+      "prefix_bytes": 1486,
+      "prefix_sha256": "bb85ffa1aa137fa6ae777811fa53f25c6bfde0aca3ee6b5119519787f6b53701",
+      "bytes": 395907,
+      "sha256": "c92d239fdbafd42c63162905a4ec6b05e7b531b910dbace60758da862db8dd44",
+      "git_blob": "3ecc6396345b08a8cc285b96958b5cac7ebc7b22",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/CHANGELOG_AI.md",
+      "base_bytes": 404234,
+      "base_sha256": "ba2bebd69d85a8694ca526ea9f667ed939019f83071aa1f5390b35559d8c3f31",
+      "prefix_bytes": 1359,
+      "prefix_sha256": "010f8cb82612d22e9e8abbf26419790308b3b9f959646ce98b9613cb7a123089",
+      "bytes": 405593,
+      "sha256": "c5751008e9bf418a319c0e6e7ad3a9bb626b02e5c3315e56efe9dacdc6894170",
+      "git_blob": "6755a77f305965b41876bd7225f302a2dc589262",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "base_bytes": 144253,
+      "base_sha256": "5c9f5b05cc0105003bcfabae9bced3264e4e8cf89b6e7c2d3e9dc1aba4e2a0a9",
+      "prefix_bytes": 1234,
+      "prefix_sha256": "f98ada590e9a77ebd8699959813377482cc6536bf5e1c0c6edca53b1eeeee2f9",
+      "bytes": 145487,
+      "sha256": "ab0c98c5e51e94f2f4a002d009b8ad7168e9138ccb551b5474b84ed0bb2d0766",
+      "git_blob": "80dd7320b5cbcc92df26476d7dfe96b641d5f86d",
+      "historical_suffix_byte_exact": true
+    },
+    {
+      "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+      "base_bytes": 165640,
+      "base_sha256": "d43e1767b39d0a5cfea4d222a05b97a2cfec11fbb5cbf069dcf8b215a91dd539",
+      "prefix_bytes": 1420,
+      "prefix_sha256": "81c777ba8023dbb17cc91af1a790636a6d2c21ae20e594a951b752c9d519aa1a",
+      "bytes": 167060,
+      "sha256": "d9f23d9bff8e1df03c96749de78225801c55f552ed2d3a8f7596cc704466920a",
+      "git_blob": "e8adf6de8c7875ab92fbde11a91a873af7d3fc4e",
+      "historical_suffix_byte_exact": true
+    }
+  ],
+  "previous_ci": {
+    "source_commit": "22df078148612b8e83c934ffc8d15bce33eaafee",
+    "push_tree": "29d10bb4c2ad05a86ee817854896d164269dcfe9",
+    "pr_checkout_commit": "1825c9d42efd918ebf1533afcfeddc3775dbc212",
+    "pr_checkout_tree": "49e2aa6157b1aecbf98ba87c7525b8a48be0d695",
+    "pr_base_commit": "421ab6b3b3fb292e1e7ae8359714196e967ac6b7",
+    "workflow_runs": [
+      {
+        "name": "CI",
+        "event": "push",
+        "id": 38258558691,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38258558691",
+        "conclusion": "success"
+      },
+      {
+        "name": "CI",
+        "event": "pull_request",
+        "id": 38258564668,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38258564668",
+        "conclusion": "success"
+      },
+      {
+        "name": "Situation",
+        "event": "push",
+        "id": 38258558708,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38258558708",
+        "conclusion": "success"
+      },
+      {
+        "name": "Situation",
+        "event": "pull_request",
+        "id": 38258564688,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38258564688",
+        "conclusion": "success"
+      },
+      {
+        "name": "Mobile",
+        "event": "pull_request",
+        "id": 38258564732,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38258564732",
+        "conclusion": "success"
+      },
+      {
+        "name": "Telephone",
+        "event": "pull_request",
+        "id": 38258564993,
+        "url": "https://github.com/dangerok97/DANGEROK/actions/runs/38258564993",
+        "conclusion": "success"
+      }
+    ],
+    "workflows": 6,
+    "jobs": 16,
+    "steps": 259,
+    "skipped_steps": 0,
+    "autonomy_v162_passed_per_event": 1317,
+    "scripted_per_event": "9/9; no real model or effects",
+    "real_mongo_restart_tests_per_event": 6,
+    "mobile_cases": 40,
+    "old_optional_skips": "Separate legacy groups: 22 passed/3 skipped and 89 passed/5 skipped. No skips in the v162 group.",
+    "raw_archive_currently_accessible": false,
+    "transferred_to_new_candidate": false
+  },
+  "report_recovery": {
+    "schema": "ora.v162.cloud_report_recovery_handoff.v1",
+    "source": {
+      "sha": "22df078148612b8e83c934ffc8d15bce33eaafee",
+      "tree": "29d10bb4c2ad05a86ee817854896d164269dcfe9",
+      "basis": "frozen launch identity; no new source metadata read"
+    },
+    "railway": {
+      "project_id": "1264aea8-7e1e-403b-9d14-66f61135f179",
+      "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+      "service_id": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+      "deployment_id": "68aa2564-5f65-4586-9c46-a20e6f29dfe8"
+    },
+    "new_receipt": {
+      "requested_at": "2026-10-12T14:45:59.118Z",
+      "tool": "mcp__codex_apps__railway_get_logs",
+      "arguments": {
+        "projectId": "1264aea8-7e1e-403b-9d14-66f61135f179",
+        "environmentId": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+        "serviceId": "d84dcca0-6372-40cc-a19e-ca32c3533fb0",
+        "deploymentId": "68aa2564-5f65-4586-9c46-a20e6f29dfe8",
+        "types": [
+          "deploy"
+        ],
+        "limit": 500,
+        "startDate": "2026-10-12T14:03:10.311Z",
+        "endDate": "2026-10-12T14:19:10.000Z"
+      },
+      "status": "received",
+      "received_at": "2026-10-12T14:46:00.661Z"
+    },
+    "reconstruction": {
+      "rows": 44,
+      "duplicate_rows": 0,
+      "report_fragments": {
+        "situation": 2,
+        "autonomy": 7,
+        "public": 1
+      },
+      "method": "exact message fragments joined without separators, with one final LF; no report reserialization"
+    },
+    "temporal_status": {
+      "collector_receipt_status": "CRASHED",
+      "collector_received_at": "2026-10-12T14:46:00.661Z",
+      "historical_terminal_updated_at": "2026-10-12T14:18:59.163Z",
+      "parent_later_observed_at": "2026-10-12T14:53:34Z",
+      "parent_later_status": "REMOVED",
+      "parent_later_status_updated_at": "2026-10-12T14:50:59.810Z"
+    },
+    "hashes_verified": {
+      "sha256_empty": true,
+      "sha256_abc": true,
+      "sha1_empty": true,
+      "sha1_abc": true,
+      "unicode_source_path": "backend/agent/reasoning.py",
+      "unicode_source_bytes": 99173,
+      "unicode_source_sha256": "89833eadd600731f3b06588a06546a587f11987ab51f371f9c992a9ea853884b",
+      "all_reports_match_frozen_bytes_and_sha256": true,
+      "all_git_blob_sha1_verified": true,
+      "all_github_readbacks_byte_exact": true
+    },
+    "scan": {
+      "reference": {
+        "path": "scripts/audit_git_history.py",
+        "ref": "22df078148612b8e83c934ffc8d15bce33eaafee",
+        "bytes": 5947,
+        "sha256": "34abb25af468f3650851b8a01f97ca575384a40261f5683cb52a314a5956b941"
+      },
+      "raw_bytes": 628132,
+      "decoded_strings": 17183,
+      "decoded_bytes": 818580,
+      "content_patterns": 5,
+      "sensitive_paths": 5,
+      "document_storage_rule": 1,
+      "matches": 0,
+      "creator_keys": 0,
+      "size_skips": 0,
+      "binary_skips": 0,
+      "placeholder_exceptions": 0,
+      "recursive_json_and_incomplete_embedded_string_tokens": true,
+      "source_rule_vectors_passed": 11,
+      "escaped_nested_signature_vector_passed": true
+    },
+    "artifacts": [
+      {
+        "kind": "situation",
+        "path": "docs/evidence/autonomy_v162_live_2026-10-12_22df078_situation.json",
+        "bytes": 103116,
+        "sha256": "b5b4c0db14cbeaafa8c90706fdda5a4166a98a94fb516fe61a5aa136269e904f",
+        "git_blob_sha": "82b0a68394edf759b69032dd733283bdeea0153b"
+      },
+      {
+        "kind": "autonomy",
+        "path": "docs/evidence/autonomy_v162_live_2026-10-12_22df078_autonomy.json",
+        "bytes": 505069,
+        "sha256": "6938debea8d44ae6739420d62204042616803de2934a4e715d8d92e0a5069696",
+        "git_blob_sha": "a7e9b5e09fc03eb6c32226f186ae45ab1668a94b"
+      },
+      {
+        "kind": "public",
+        "path": "docs/evidence/autonomy_v162_live_2026-10-12_22df078_public.json",
+        "bytes": 19947,
+        "sha256": "567edc7eae219be841bef1a2bf11026ab8687296de55dd82a2d80692c31e3d1c",
+        "git_blob_sha": "af88e3a7bd006dd4bfe5229168c575e9e573d222"
+      }
+    ],
+    "original_verdicts": {
+      "situation": {
+        "passed": false,
+        "overall_outcome": "failed",
+        "error": "DECLARATION_PLACE_OR_START_NOT_PRESERVED",
+        "full_laundry_outcome_passed": false
+      },
+      "autonomy": {
+        "passed": false,
+        "status": "failed",
+        "passed_cases": 4,
+        "total_cases": 9,
+        "model_attempts": 89,
+        "model_http_requests": 103,
+        "scenario_set_and_progress_verified": true
+      },
+      "public": {
+        "passed": true,
+        "technical_passed": true,
+        "semantic_gate_passed": true,
+        "semantic_acceptance": "pending_human_review",
+        "internal_code_revision_present": false,
+        "revision_basis": "frozen hash and exact deployment"
+      }
+    },
+    "preservation_scope": {
+      "new_retrieval_receipts": 1,
+      "reports_recovered": 3,
+      "old_poll_receipts_recovered": 0,
+      "old_metadata_snapshots_recovered": 0,
+      "raw_mcp_and_structured_kept_in_memory_only": true,
+      "report_fields_changed": 0,
+      "new_semantic_review": false
+    },
+    "mutations": {
+      "blobs": 3,
+      "trees": 0,
+      "commits": 0,
+      "refs": 0,
+      "pull_requests": 0,
+      "deployments": 0,
+      "service_changes": 0,
+      "notifications": 0,
+      "foreign_deployment_reads": 0
+    },
+    "full_manifest": {
+      "bytes": 10112,
+      "sha256": "698161ac6bd8ed09e89ff355afe0e3470fc2f52af2cfe3d3ef25ff92dc70bed6",
+      "store_key": "ora_v162_22df078_cloud_recovery_manifest_utf8"
+    }
+  },
+  "separate_manual_review": {
+    "basis": "Recorded semantic review of the frozen original reports, followed by root readback of those identical blobs. Original verdict fields remain unmodified.",
+    "situation": {
+      "accepted": false,
+      "machine_gate_failure": "Missing place:eval-tarquinia-public-point in linked_object_refs; the Tarquinia label and initial time were present.",
+      "other_findings": [
+        "The saved goal drops estimated dryness and focuses on avoiding rain.",
+        "Current schedule text was followed by the historical negative CREATE handoff."
+      ],
+      "future_worker_monitoring_useful_action_device": "not_run",
+      "synthetic_cancellation": "passed; zero pending wakes and no_attention on replay"
+    },
+    "autonomy": {
+      "machine_passed": 4,
+      "total": 9,
+      "positive_outputs_accepted": 0,
+      "positive_outputs_reviewed": 5,
+      "cases": [
+        {
+          "scenario": "completed_result",
+          "passed": false,
+          "reason": "COMPLETION_BUDGET_EXHAUSTED",
+          "logical_attempts": 12,
+          "http_requests": 17,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "not_run"
+            }
+          }
+        },
+        {
+          "scenario": "planning_outage",
+          "passed": false,
+          "reason": "COMPLETION_BUDGET_EXHAUSTED",
+          "logical_attempts": 19,
+          "http_requests": 19,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "not_run"
+            }
+          }
+        },
+        {
+          "scenario": "home_write_retry",
+          "passed": false,
+          "reason": "COMPLETION_NEEDS_NEW_DECISION",
+          "logical_attempts": 12,
+          "http_requests": 15,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "not_run"
+            }
+          }
+        },
+        {
+          "scenario": "source_revoked",
+          "passed": true,
+          "reason": null,
+          "logical_attempts": 5,
+          "http_requests": 5,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "passed"
+            }
+          }
+        },
+        {
+          "scenario": "memory_revoked",
+          "passed": true,
+          "reason": null,
+          "logical_attempts": 5,
+          "http_requests": 5,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "passed"
+            }
+          }
+        },
+        {
+          "scenario": "memory_corrected",
+          "passed": false,
+          "reason": "COMPLETION_BUDGET_EXHAUSTED",
+          "logical_attempts": 20,
+          "http_requests": 21,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "not_run"
+            }
+          }
+        },
+        {
+          "scenario": "source_change_crash",
+          "passed": false,
+          "reason": "COMPLETION_BUDGET_EXHAUSTED",
+          "logical_attempts": 14,
+          "http_requests": 19,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "not_run"
+            }
+          }
+        },
+        {
+          "scenario": "already_resolved",
+          "passed": true,
+          "reason": null,
+          "logical_attempts": 1,
+          "http_requests": 1,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "passed"
+            }
+          }
+        },
+        {
+          "scenario": "irrelevant",
+          "passed": true,
+          "reason": null,
+          "logical_attempts": 1,
+          "http_requests": 1,
+          "result_checks": {
+            "preconditions": {
+              "status": "not_run"
+            },
+            "semantic": {
+              "status": "not_run"
+            },
+            "home": {
+              "status": "not_run"
+            },
+            "replay": {
+              "status": "not_run"
+            },
+            "owner_isolation": {
+              "status": "not_run"
+            },
+            "isolation": {
+              "status": "passed"
+            }
+          }
+        }
+      ],
+      "logical_attempts": 89,
+      "http_requests": 103,
+      "selected_literal_source_passages_valid": 51,
+      "selected_literal_source_passages_checked": 51,
+      "literal_passages_do_not_establish_entailment": true,
+      "observed_errors": [
+        "Corrected source contains 150 while the draft and audit retain 120.",
+        "Monthly refunds/cancellation/flexibility were not supported by the supplied annual-subscription evidence.",
+        "Two positive cases encounter material_context_exceeds_budget at the chooser; five observed verification payloads fit their input budget."
+      ],
+      "new_flags_not_a_semantic_fix_claim": true
+    },
+    "public": {
+      "accepted": false,
+      "original_technical_pass": true,
+      "original_human_review_pending": true,
+      "grounding_rewrites": 0,
+      "findings": [
+        "The final states 20–23 C until 23:00; actual source rows are 18 C at 21:00 and 22:00 and 17 C at 23:00.",
+        "Waiting 1–2 hours for greater safety is not established by the retrieved current traffic and weather evidence."
+      ]
+    },
+    "context_investigation": {
+      "status": "no_patch",
+      "method": "Equivalent declared inputs, not complete historical replay, because logged evidence prefixes were truncated.",
+      "completed_result_characters_after_existing_reducers": 9567,
+      "source_change_crash_characters_after_existing_reducers": 9722,
+      "input_cap_unchanged": 9000,
+      "conclusion": "Sharing remaining repeated whole JSON values alone cannot make these equivalents fit. No source/criteria removal, budget increase, or generic impossibility claim."
+    }
+  },
+  "operational_boundaries": {
+    "new_provider_or_default_changes": false,
+    "new_budget_or_resource_changes": false,
+    "automatic_source_reads_or_plan_repair_added": false,
+    "real_user_notifications_or_other_effects": false,
+    "app_patch_applied": false,
+    "app_approval_rejection": {
+      "patch_id": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+      "code": "INVALID_ARGUMENT",
+      "message": "Cancelled — the user did not approve this action. No changes were made.",
+      "bypassed": false
+    },
+    "signed_native_install_closed_app_display_authenticated_tap": "not_attested",
+    "concurrent_service_run": {
+      "observed_at": "2026-10-12T14:53:34Z",
+      "deployment": "cab47edd-d7d5-4d43-a620-3e114f7406c7",
+      "source_commit": "97f832e966928a46fb0bc8a1aa56d76fe09e2661",
+      "branch": "ora/v162-memory-context",
+      "observed_status": "SUCCESS",
+      "interpretation": "Another running evaluation, not a passed gate; no interruption or source overwrite performed."
+    }
+  },
+  "next_validation": {
+    "required_ci": "Current published candidate; include the new 18-case Situation selector.",
+    "planned_live_reports": [
+      "situation",
+      "autonomy"
+    ],
+    "planned_autonomy_scenarios": [
+      "memory_corrected"
+    ],
+    "public_report": "not_repeated_in_targeted_run",
+    "source_and_deployment_pinned": true,
+    "reuse_existing_technical_service_only_after_current_run_terminal": true,
+    "no_gate_or_limit_changes": true
+  },
+  "security_scan": {
+    "source_rules": "scripts/audit_git_history.py@22df078148612b8e83c934ffc8d15bce33eaafee",
+    "high_confidence_patterns": 5,
+    "sensitive_path_rules": 5,
+    "document_storage_rule": 1,
+    "changed_paths": 16,
+    "no_size_or_binary_skips": true,
+    "no_placeholder_exemptions": true,
+    "all_raw_bytes_and_decoded_strings": true,
+    "findings": 0,
+    "execution_scope": "Before publishing this frozen tree; full-history scan remains a required CI gate.",
+    "scanner_source_sha256": "486df0de9b30136a711f7819bdb4b45e53784f6b2565294cfac41626f308ceba",
+    "scanner_fixture_checks": 16,
+    "fixture_values_published": false
+  }
+}

@@ -1,0 +1,516 @@
+﻿2026-10-12T16:42:55.4684926Z Current runner version: '2.337.0'
+2026-10-12T16:42:55.4716370Z ##[group]Runner Image Provisioner
+2026-10-12T16:42:55.4717617Z Hosted Compute Agent
+2026-10-12T16:42:55.4718485Z Version: 20261002.596
+2026-10-12T16:42:55.4719264Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T16:42:55.4720254Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T16:42:55.4721186Z Worker ID: {8e8eca99-fff5-42f1-8b41-609ea1e6b532}
+2026-10-12T16:42:55.4722182Z Region: eastus
+2026-10-12T16:42:55.4722930Z Cloud: Azure
+2026-10-12T16:42:55.4723605Z ##[endgroup]
+2026-10-12T16:42:55.4725651Z ##[group]Operating System
+2026-10-12T16:42:55.4726442Z Ubuntu
+2026-10-12T16:42:55.4727170Z 24.04.5
+2026-10-12T16:42:55.4727879Z LTS
+2026-10-12T16:42:55.4728524Z ##[endgroup]
+2026-10-12T16:42:55.4729277Z ##[group]Runner Image
+2026-10-12T16:42:55.4730093Z Image: ubuntu-24.04
+2026-10-12T16:42:55.4730843Z Version: 20261004.327.1
+2026-10-12T16:42:55.4732549Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T16:42:55.4734878Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T16:42:55.4736159Z ##[endgroup]
+2026-10-12T16:42:55.4740614Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T16:42:55.4743520Z Actions: write
+2026-10-12T16:42:55.4744298Z ArtifactMetadata: write
+2026-10-12T16:42:55.4745281Z Attestations: write
+2026-10-12T16:42:55.4746092Z Checks: write
+2026-10-12T16:42:55.4746826Z CodeQuality: write
+2026-10-12T16:42:55.4747516Z Contents: write
+2026-10-12T16:42:55.4748248Z CopilotRequests: write
+2026-10-12T16:42:55.4748991Z Deployments: write
+2026-10-12T16:42:55.4749878Z Discussions: write
+2026-10-12T16:42:55.4751045Z Drives: write
+2026-10-12T16:42:55.4751779Z Issues: write
+2026-10-12T16:42:55.4752620Z Metadata: read
+2026-10-12T16:42:55.4753316Z Models: read
+2026-10-12T16:42:55.4754068Z Packages: write
+2026-10-12T16:42:55.4755014Z Pages: write
+2026-10-12T16:42:55.4755766Z PullRequests: write
+2026-10-12T16:42:55.4756591Z RepositoryProjects: write
+2026-10-12T16:42:55.4757414Z SecurityEvents: write
+2026-10-12T16:42:55.4758267Z Statuses: write
+2026-10-12T16:42:55.4758987Z VulnerabilityAlerts: read
+2026-10-12T16:42:55.4759792Z ##[endgroup]
+2026-10-12T16:42:55.4762435Z Secret source: Actions
+2026-10-12T16:42:55.4763710Z Cache mode: write
+2026-10-12T16:42:55.4764796Z Prepare workflow directory
+2026-10-12T16:42:55.5160587Z Prepare all required actions
+2026-10-12T16:42:55.5219269Z Getting action download info
+2026-10-12T16:42:55.7015084Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T16:42:55.8067844Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T16:42:56.0050555Z Complete job name: Frontend TypeScript
+2026-10-12T16:42:56.0767895Z ##[group]Run actions/checkout@v4
+2026-10-12T16:42:56.0768644Z with:
+2026-10-12T16:42:56.0769041Z   repository: dangerok97/DANGEROK
+2026-10-12T16:42:56.0772576Z   token: ***
+2026-10-12T16:42:56.0773013Z   ssh-strict: true
+2026-10-12T16:42:56.0773399Z   ssh-user: git
+2026-10-12T16:42:56.0773809Z   persist-credentials: true
+2026-10-12T16:42:56.0774248Z   clean: true
+2026-10-12T16:42:56.0774860Z   sparse-checkout-cone-mode: true
+2026-10-12T16:42:56.0775333Z   fetch-depth: 1
+2026-10-12T16:42:56.0775705Z   fetch-tags: false
+2026-10-12T16:42:56.0776101Z   show-progress: true
+2026-10-12T16:42:56.0776487Z   lfs: false
+2026-10-12T16:42:56.0776860Z   submodules: false
+2026-10-12T16:42:56.0777264Z   set-safe-directory: true
+2026-10-12T16:42:56.0777706Z   allow-unsafe-pr-checkout: false
+2026-10-12T16:42:56.0778357Z ##[endgroup]
+2026-10-12T16:42:56.1708006Z Syncing repository: dangerok97/DANGEROK
+2026-10-12T16:42:56.1709759Z ##[group]Getting Git version info
+2026-10-12T16:42:56.1710539Z Working directory is '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T16:42:56.1711408Z [command]/usr/bin/git version
+2026-10-12T16:42:56.1785761Z git version 2.55.0
+2026-10-12T16:42:56.1805179Z ##[endgroup]
+2026-10-12T16:42:56.1820440Z Temporarily overriding HOME='/home/runner/work/_temp/e47ddcd5-3acb-42f6-a16a-db4d4f36e3a0' before making global git config changes
+2026-10-12T16:42:56.1822234Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T16:42:56.1825350Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T16:42:56.1876475Z Deleting the contents of '/home/runner/work/DANGEROK/DANGEROK'
+2026-10-12T16:42:56.1885046Z ##[group]Initializing the repository
+2026-10-12T16:42:56.1886180Z [command]/usr/bin/git init /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T16:42:56.1970762Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T16:42:56.1972492Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T16:42:56.1974308Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T16:42:56.1975860Z hint: call:
+2026-10-12T16:42:56.1976661Z hint:
+2026-10-12T16:42:56.1977530Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T16:42:56.1978598Z hint:
+2026-10-12T16:42:56.1979573Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T16:42:56.1980966Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T16:42:56.1982175Z hint:
+2026-10-12T16:42:56.1982910Z hint: 	git branch -m <name>
+2026-10-12T16:42:56.1983769Z hint:
+2026-10-12T16:42:56.1986371Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T16:42:56.1988467Z Initialized empty Git repository in /home/runner/work/DANGEROK/DANGEROK/.git/
+2026-10-12T16:42:56.1991140Z [command]/usr/bin/git remote add origin https://github.com/dangerok97/DANGEROK
+2026-10-12T16:42:56.2042292Z ##[endgroup]
+2026-10-12T16:42:56.2043061Z ##[group]Disabling automatic garbage collection
+2026-10-12T16:42:56.2047452Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T16:42:56.2081161Z ##[endgroup]
+2026-10-12T16:42:56.2081957Z ##[group]Setting up auth
+2026-10-12T16:42:56.2088218Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T16:42:56.2123864Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T16:42:56.2459960Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T16:42:56.2499606Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T16:42:56.2720506Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T16:42:56.2755507Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T16:42:56.2966394Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T16:42:56.3006829Z ##[endgroup]
+2026-10-12T16:42:56.3007553Z ##[group]Fetching the repository
+2026-10-12T16:42:56.3015478Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +f1cec19a3bcb64ba625adab84e34e1fd26b75c9d:refs/remotes/origin/ora/v162-autonomy-validation-20261012
+2026-10-12T16:42:57.9323483Z From https://github.com/dangerok97/DANGEROK
+2026-10-12T16:42:57.9325726Z  * [new ref]         f1cec19a3bcb64ba625adab84e34e1fd26b75c9d -> origin/ora/v162-autonomy-validation-20261012
+2026-10-12T16:42:57.9330604Z ##[endgroup]
+2026-10-12T16:42:57.9332082Z ##[group]Determining the checkout info
+2026-10-12T16:42:57.9336675Z ##[endgroup]
+2026-10-12T16:42:57.9337710Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T16:42:57.9508976Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T16:42:57.9547093Z ##[group]Checking out the ref
+2026-10-12T16:42:57.9552462Z [command]/usr/bin/git checkout --progress --force -B ora/v162-autonomy-validation-20261012 refs/remotes/origin/ora/v162-autonomy-validation-20261012
+2026-10-12T16:42:58.1611694Z Switched to a new branch 'ora/v162-autonomy-validation-20261012'
+2026-10-12T16:42:58.1624778Z branch 'ora/v162-autonomy-validation-20261012' set up to track 'origin/ora/v162-autonomy-validation-20261012'.
+2026-10-12T16:42:58.1627579Z ##[endgroup]
+2026-10-12T16:42:58.1672611Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T16:42:58.1700623Z f1cec19a3bcb64ba625adab84e34e1fd26b75c9d
+2026-10-12T16:42:58.2038412Z ##[group]Run actions/setup-node@v4
+2026-10-12T16:42:58.2038741Z with:
+2026-10-12T16:42:58.2038956Z   node-version: 24
+2026-10-12T16:42:58.2039182Z   cache: npm
+2026-10-12T16:42:58.2039449Z   cache-dependency-path: frontend/package-lock.json
+2026-10-12T16:42:58.2039770Z   always-auth: false
+2026-10-12T16:42:58.2039994Z   check-latest: false
+2026-10-12T16:42:58.2042163Z   token: ***
+2026-10-12T16:42:58.2042376Z ##[endgroup]
+2026-10-12T16:42:58.3293091Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+2026-10-12T16:42:58.3297658Z (node:2088) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T16:42:58.3298489Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T16:42:58.3299801Z ##[group]Environment details
+2026-10-12T16:42:58.6444977Z node: v24.21.0
+2026-10-12T16:42:58.6445361Z npm: 11.19.0
+2026-10-12T16:42:58.6445596Z yarn: 1.22.22
+2026-10-12T16:42:58.6446391Z ##[endgroup]
+2026-10-12T16:42:58.6500009Z [command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+2026-10-12T16:42:58.7395514Z /home/runner/.npm
+2026-10-12T16:42:58.8278352Z Cache hit for: node-cache-Linux-x64-npm-f9023f1f557d68d9c8c02b9182cbc8b4bd7900cf3fcd788ca7c7dd466722f330
+2026-10-12T16:42:58.8365528Z (node:2088) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-12T16:42:59.4289255Z Received 110589251 of 110589251 (100.0%), 190.7 MBs/sec
+2026-10-12T16:42:59.4290429Z Cache Size: ~105 MB (110589251 B)
+2026-10-12T16:42:59.4340694Z [command]/usr/bin/tar -xf /home/runner/work/_temp/9b976560-ff8d-4e24-8657-bd5f95b28ff6/cache.tzst -P -C /home/runner/work/DANGEROK/DANGEROK --use-compress-program unzstd
+2026-10-12T16:42:59.8792577Z Cache restored successfully
+2026-10-12T16:42:59.8845148Z Cache restored from key: node-cache-Linux-x64-npm-f9023f1f557d68d9c8c02b9182cbc8b4bd7900cf3fcd788ca7c7dd466722f330
+2026-10-12T16:42:59.9090829Z ##[group]Run npm ci
+2026-10-12T16:42:59.9091115Z [36;1mnpm ci[0m
+2026-10-12T16:42:59.9371204Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:42:59.9371536Z ##[endgroup]
+2026-10-12T16:43:03.5841934Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-10-12T16:43:03.7221578Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2026-10-12T16:43:03.8272228Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting [public package maintainer email omitted]
+2026-10-12T16:43:03.8300015Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting [public package maintainer email omitted]
+2026-10-12T16:43:03.8312161Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting [public package maintainer email omitted]
+2026-10-12T16:43:03.8339503Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting [public package maintainer email omitted]
+2026-10-12T16:43:05.3421533Z npm warn deprecated uuid@7.0.3: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+2026-10-12T16:43:13.7229997Z 
+2026-10-12T16:43:13.7230739Z > frontend@1.0.0 preinstall
+2026-10-12T16:43:13.7231214Z > node ./scripts/cmd-guard.js --preinstall
+2026-10-12T16:43:13.7231501Z 
+2026-10-12T16:43:13.8315119Z 
+2026-10-12T16:43:13.8316221Z added 963 packages, and audited 964 packages in 14s
+2026-10-12T16:43:13.8316731Z 
+2026-10-12T16:43:13.8319884Z 174 packages are looking for funding
+2026-10-12T16:43:13.8320578Z   run `npm fund` for details
+2026-10-12T16:43:14.0206776Z 
+2026-10-12T16:43:14.0207725Z 50 vulnerabilities (2 low, 18 moderate, 29 high, 1 critical)
+2026-10-12T16:43:14.0208119Z 
+2026-10-12T16:43:14.0208476Z To address issues that do not require attention, run:
+2026-10-12T16:43:14.0209619Z   npm audit fix
+2026-10-12T16:43:14.0209871Z 
+2026-10-12T16:43:14.0210242Z To address all issues (including breaking changes), run:
+2026-10-12T16:43:14.0210710Z   npm audit fix --force
+2026-10-12T16:43:14.0210911Z 
+2026-10-12T16:43:14.0211062Z Run `npm audit` for details.
+2026-10-12T16:43:14.0218222Z npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+2026-10-12T16:43:14.0219174Z npm warn install-scripts   unrs-resolver@1.12.2 (postinstall: node postinstall.js)
+2026-10-12T16:43:14.0219857Z npm warn install-scripts
+2026-10-12T16:43:14.0220727Z npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+2026-10-12T16:43:14.1142102Z ##[group]Run npx tsc --noEmit
+2026-10-12T16:43:14.1142387Z [36;1mnpx tsc --noEmit[0m
+2026-10-12T16:43:14.1217220Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:43:14.1217476Z ##[endgroup]
+2026-10-12T16:43:24.0717665Z ##[group]Run npm run test:auth
+2026-10-12T16:43:24.0717954Z [36;1mnpm run test:auth[0m
+2026-10-12T16:43:24.0778013Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:43:24.0778250Z ##[endgroup]
+2026-10-12T16:43:24.1700385Z 
+2026-10-12T16:43:24.1701055Z > frontend@1.0.0 test:auth
+2026-10-12T16:43:24.1701937Z > node --experimental-strip-types --test src/auth/googleAuth.regression.test.ts src/auth/appleReadiness.regression.test.ts src/auth/publicLegal.regression.test.ts
+2026-10-12T16:43:24.1702480Z 
+2026-10-12T16:43:24.2877344Z (node:2218) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/auth/appleReadiness.regression.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:24.2898608Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:24.2905604Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:24.2921772Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:24.2971203Z ✔ Apple login requires backend configuration before becoming actionable (1.09765ms)
+2026-10-12T16:43:24.2996997Z ✔ Apple login remains visible with honest unavailable copy (0.169001ms)
+2026-10-12T16:43:24.3257386Z (node:2224) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/auth/googleAuth.regression.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:24.3266029Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:24.3267460Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:24.3269287Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:24.3506243Z ✔ A: web configurato è ready (1.780193ms)
+2026-10-12T16:43:24.3538743Z ✔ B/C/D/L: senza config Login resta renderizzabile, Google disabled, email disponibile (0.307867ms)
+2026-10-12T16:43:24.3566235Z ✔ E/G/H: failure di script/provider produce solo copy sicura (0.227057ms)
+2026-10-12T16:43:24.3569211Z ✔ F: cancellazione è distinta e non viene mostrata come errore (0.153728ms)
+2026-10-12T16:43:24.3570412Z ✔ I: doppio click condivide la stessa operazione pending (0.124975ms)
+2026-10-12T16:43:24.3571717Z ✔ J: Login usa l adapter Google; Settings resta separata dalle credenziali (0.162551ms)
+2026-10-12T16:43:24.3573026Z ✔ K: storage JWT failure impedisce update user state (5.88524ms)
+2026-10-12T16:43:24.3574079Z ✔ M/N: GIS non riscrive localhost o 127.0.0.1 (0.258144ms)
+2026-10-12T16:43:24.3575328Z ✔ P: loader GIS non resta pending con script già presente o fallito (0.211985ms)
+2026-10-12T16:43:24.3576603Z ✔ R: resolver separa in modo inequivocabile GIS Web e Google Sign-In native (0.427555ms)
+2026-10-12T16:43:24.3577952Z ✔ S: il login Web usa il button flow GIS ufficiale e non One Tap (0.366394ms)
+2026-10-12T16:43:24.3643055Z (node:2225) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/auth/publicLegal.regression.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:24.3644888Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:24.3645975Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:24.3646912Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:24.3647501Z Public legal pages: PASS
+2026-10-12T16:43:24.3648381Z ✔ src/auth/publicLegal.regression.test.ts (96.219309ms)
+2026-10-12T16:43:24.3648979Z ℹ tests 14
+2026-10-12T16:43:24.3649288Z ℹ suites 0
+2026-10-12T16:43:24.3649582Z ℹ pass 14
+2026-10-12T16:43:24.3649858Z ℹ fail 0
+2026-10-12T16:43:24.3650140Z ℹ cancelled 0
+2026-10-12T16:43:24.3650440Z ℹ skipped 0
+2026-10-12T16:43:24.3651280Z ℹ todo 0
+2026-10-12T16:43:24.3651668Z ℹ duration_ms 163.051294
+2026-10-12T16:43:24.3815744Z ##[group]Run node --experimental-strip-types --test \
+2026-10-12T16:43:24.3816140Z [36;1mnode --experimental-strip-types --test \[0m
+2026-10-12T16:43:24.3816456Z [36;1m  src/auth/sessionLifecycle.test.ts \[0m
+2026-10-12T16:43:24.3816732Z [36;1m  src/auth/sessionCleanup.test.ts \[0m
+2026-10-12T16:43:24.3816991Z [36;1m  src/auth/tokenStore.test.ts \[0m
+2026-10-12T16:43:24.3817248Z [36;1m  src/ambient/pushLifecycle.test.ts \[0m
+2026-10-12T16:43:24.3817534Z [36;1m  src/ambient/pushRegistration.test.cjs \[0m
+2026-10-12T16:43:24.3817823Z [36;1m  src/connectors/connectorOAuth.test.ts[0m
+2026-10-12T16:43:24.3877172Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:43:24.3877434Z ##[endgroup]
+2026-10-12T16:43:24.5586976Z (node:2246) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/ambient/pushLifecycle.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:24.5626511Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:24.5627952Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:24.5628984Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:24.5916513Z ✔ login and foreground register already-granted permission, without an OS prompt (4.445231ms)
+2026-10-12T16:43:24.5976309Z ✔ undetermined or denied permissions never prompt during reconciliation (0.776503ms)
+2026-10-12T16:43:24.6036311Z ✔ only explicit enable prepares the Android channel then asks and registers (0.331192ms)
+2026-10-12T16:43:24.6066162Z ✔ an endpoint without account delivery consent stays actionable; only an explicit enable requests consent (0.445271ms)
+2026-10-12T16:43:24.6067516Z ✔ disabled delivery is not reported as granted and offers no unusable retry (1.063089ms)
+2026-10-12T16:43:24.6126123Z ✔ a build without a project ID does not ask for unusable permission (0.694201ms)
+2026-10-12T16:43:24.6156073Z ✔ permanently denied permission offers Settings and never repeats the OS prompt (1.417395ms)
+2026-10-12T16:43:24.6186008Z ✔ permission failure remains visible and a later retry completes registration (0.406944ms)
+2026-10-12T16:43:24.6215880Z ✔ token failure remains visible and a later retry completes registration (0.614963ms)
+2026-10-12T16:43:24.6236083Z ✔ register failure remains visible and a later retry completes registration (0.608533ms)
+2026-10-12T16:43:24.6237144Z ✔ revocation in OS settings retires the old endpoint on the next foreground (0.368196ms)
+2026-10-12T16:43:24.6245722Z ✔ a token arriving after logout cannot register the old account or borrow the new credential (0.685729ms)
+2026-10-12T16:43:24.6247188Z ✔ an already-started old registration is released before the next account registers (0.452902ms)
+2026-10-12T16:43:24.6248477Z ✔ simultaneous foreground/token events share one registration attempt (0.198395ms)
+2026-10-12T16:43:24.6249670Z ✔ web never calls native permission, token, registration or unregistration effects (0.583506ms)
+2026-10-12T16:43:25.3795653Z ✔ the real web adapter reports unsupported without native effects, registration or token storage (214.45695ms)
+2026-10-12T16:43:25.3797523Z ✔ ios never persists an Expo token, while offline revocation keeps only its protected session credential (87.249334ms)
+2026-10-12T16:43:25.3799353Z ✔ android never persists an Expo token, while offline revocation keeps only its protected session credential (60.710312ms)
+2026-10-12T16:43:25.3801492Z ✔ the real installed SecureStore rejects the previous key; current handle and revision persist correctly (43.747379ms)
+2026-10-12T16:43:25.3813707Z ✔ the native adapter registers the actual installation, monotonic revision and captured account (44.740781ms)
+2026-10-12T16:43:25.3815319Z ✔ offline exit stages only a protected old-session revocation and retry cannot unregister the new account (41.68226ms)
+2026-10-12T16:43:25.3816675Z ✔ native auth storage never writes a credential to AsyncStorage; its tombstone is only a boolean (35.001989ms)
+2026-10-12T16:43:25.3817428Z ✔ the native credential reader cannot use a token retained only for pending revocation (39.013862ms)
+2026-10-12T16:43:25.3818129Z ✔ real API lifecycle writes use the captured session header, never the current account (95.897067ms)
+2026-10-12T16:43:25.4023644Z (node:2248) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/auth/sessionCleanup.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:25.4024847Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:25.4025595Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:25.4027215Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:25.4028361Z ✔ offline logout persists only its own revocation and finishes after a cold restart (5.645834ms)
+2026-10-12T16:43:25.4029523Z ✔ expired credentials are removed without retrying an invalid session (0.471971ms)
+2026-10-12T16:43:25.4032329Z ✔ logout added while another server retry waits is persisted immediately and cannot be lost (9.185832ms)
+2026-10-12T16:43:25.4033021Z ✔ a failed keychain read never overwrites an older queued logout (0.779358ms)
+2026-10-12T16:43:25.4033691Z ✔ a failed secure write is visible and can be recovered without dropping the pending job (0.420294ms)
+2026-10-12T16:43:25.4035104Z (node:2268) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/auth/sessionLifecycle.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:25.4036853Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:25.4037717Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:25.4038601Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:25.4039438Z ✔ cold-start network failure preserves credentials and allows retry (2.308168ms)
+2026-10-12T16:43:25.4040205Z ✔ cold-start 503 failure preserves credentials and allows retry (2.161219ms)
+2026-10-12T16:43:25.4040995Z ✔ an already-known user remains authenticated while a refresh is offline (0.308207ms)
+2026-10-12T16:43:25.4041782Z ✔ confirmed 401 ends the exact session and disassociates the device (1.278338ms)
+2026-10-12T16:43:25.4042528Z ✔ confirmed 403 ends the exact session and disassociates the device (0.448115ms)
+2026-10-12T16:43:25.4043340Z ✔ local logout always completes even when deferred server cleanup is offline (0.435166ms)
+2026-10-12T16:43:25.4044192Z ✔ a silently failed delete cannot reactivate the exited session on refresh (0.604548ms)
+2026-10-12T16:43:25.4045229Z ✔ changing account ends the old session before storing/activating the new one (0.613982ms)
+2026-10-12T16:43:25.4046014Z ✔ late old-account refresh success cannot undo the new login (0.461946ms)
+2026-10-12T16:43:25.4046730Z ✔ late old-account refresh 401 cannot undo the new login (0.343249ms)
+2026-10-12T16:43:25.4047458Z ✔ a delayed storage write cannot restore credentials after logout (0.285584ms)
+2026-10-12T16:43:25.4048212Z ✔ overlapping account logins persist only the final account (0.258804ms)
+2026-10-12T16:43:25.4049042Z ✔ a signed-out result or call preparation preserves its real destination through login (0.587693ms)
+2026-10-12T16:43:25.4050243Z ✔ login destinations still reject external URLs, lookalike routes and encoded hosts (0.203783ms)
+2026-10-12T16:43:25.4051649Z (node:2275) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/auth/tokenStore.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:25.4052749Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:25.4053831Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:25.4076280Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:25.4078233Z ✔ failed keychain deletion cannot restore the old session on foreground or cold restart (1.253191ms)
+2026-10-12T16:43:25.4079431Z ✔ explicit new login replaces the token and clears the tombstone only after persistence (0.265193ms)
+2026-10-12T16:43:25.4080511Z ✔ failed removal and tombstone write still end the current in-memory session (0.159046ms)
+2026-10-12T16:43:25.4081670Z ✔ a durable pending revocation fences cold-start login even when both local logout stores fail (0.341607ms)
+2026-10-12T16:43:25.4082789Z ✔ a keychain read error remains a recoverable error, not an anonymous session (0.672619ms)
+2026-10-12T16:43:25.4083699Z ✔ failed tombstone reset never reports a persisted new login (0.582675ms)
+2026-10-12T16:43:25.4085546Z (node:2282) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/connectors/connectorOAuth.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:25.4086891Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:25.4087589Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:25.4088159Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:25.4088756Z ✔ native Gmail opens the actual auth session and verifies the returned account (3.08403ms)
+2026-10-12T16:43:25.4089364Z ✔ Google Calendar uses its own callback and the settings destination (2.522356ms)
+2026-10-12T16:43:25.4090162Z ✔ closing Google (cancel) is retryable and never claims a connection (0.349069ms)
+2026-10-12T16:43:25.4090726Z ✔ closing Google (dismiss) is retryable and never claims a connection (0.165165ms)
+2026-10-12T16:43:25.4091276Z ✔ a declined consent returns to ORA without a false success (1.551314ms)
+2026-10-12T16:43:25.4092079Z ✔ a mismatched or ambiguous return is rejected: another://account/permessi?gmail=connected&instance_id=synthetic-new (0.535375ms)
+2026-10-12T16:43:25.4092944Z ✔ a mismatched or ambiguous return is rejected: ora://settings?gmail=connected&instance_id=synthetic-new (0.23557ms)
+2026-10-12T16:43:25.4093836Z ✔ a mismatched or ambiguous return is rejected: ora://account/permessi?google_calendar=connected&instance_id=synthetic-new (0.225175ms)
+2026-10-12T16:43:25.4094925Z ✔ a mismatched or ambiguous return is rejected: ora://account/permessi?gmail=connected (0.232355ms)
+2026-10-12T16:43:25.4096089Z ✔ a mismatched or ambiguous return is rejected: ora://account/permessi?gmail=connected&gmail=cancelled&instance_id=synthetic-new (0.211784ms)
+2026-10-12T16:43:25.4097057Z ✔ a mismatched or ambiguous return is rejected: ora://account/permessi?gmail=connected&instance_id=synthetic-new#unexpected (0.246967ms)
+2026-10-12T16:43:25.4097966Z ✔ callback success cannot replace current authenticated evidence: [{"id":"synthetic-old","status":"connected"}] (0.259575ms)
+2026-10-12T16:43:25.4098804Z ✔ callback success cannot replace current authenticated evidence: [{"id":"synthetic-new","status":"revoked"}] (0.117084ms)
+2026-10-12T16:43:25.4099744Z ✔ callback success cannot replace current authenticated evidence: [{"id":"synthetic-new","status":"connected","consent_active":false}] (0.182721ms)
+2026-10-12T16:43:25.4100716Z ✔ callback success cannot replace current authenticated evidence: [{"id":"synthetic-new","status":"connected","provider_mode":"fake"}] (0.318393ms)
+2026-10-12T16:43:25.4101467Z ✔ provider read failure remains a failure even after a success callback (0.523979ms)
+2026-10-12T16:43:25.4102160Z ✔ web keeps the browser round-trip without attempting a native session (0.261048ms)
+2026-10-12T16:43:25.4102677Z ✔ an unrelated authorization host is never opened (0.18875ms)
+2026-10-12T16:43:25.4102996Z ℹ tests 67
+2026-10-12T16:43:25.4103190Z ℹ suites 0
+2026-10-12T16:43:25.4103532Z ℹ pass 67
+2026-10-12T16:43:25.4103733Z ℹ fail 0
+2026-10-12T16:43:25.4103922Z ℹ cancelled 0
+2026-10-12T16:43:25.4104124Z ℹ skipped 0
+2026-10-12T16:43:25.4104318Z ℹ todo 0
+2026-10-12T16:43:25.4105960Z ℹ duration_ms 980.608557
+2026-10-12T16:43:25.4180379Z ##[group]Run node --experimental-strip-types --test src/auth/googleBrowserRedirect.regression.test.ts
+2026-10-12T16:43:25.4181036Z [36;1mnode --experimental-strip-types --test src/auth/googleBrowserRedirect.regression.test.ts[0m
+2026-10-12T16:43:25.4240511Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:43:25.4240788Z ##[endgroup]
+2026-10-12T16:43:25.5387042Z (node:2296) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/auth/googleBrowserRedirect.regression.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:25.5388463Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:25.5389226Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:25.5390034Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:25.5487563Z ✔ iOS Safari and Chrome select the full-page Google redirect (1.203183ms)
+2026-10-12T16:43:25.5488899Z ✔ all provider URLs are constrained to the real Google authorization endpoint (0.343241ms)
+2026-10-12T16:43:25.5505737Z ✔ completion fragment and tab proof are read once, without a JWT in URL (0.357626ms)
+2026-10-12T16:43:25.5507253Z ✔ Google failure is visible and a missed iframe has an independent redirect (0.264716ms)
+2026-10-12T16:43:25.5613971Z ℹ tests 4
+2026-10-12T16:43:25.5614945Z ℹ suites 0
+2026-10-12T16:43:25.5615845Z ℹ pass 4
+2026-10-12T16:43:25.5616229Z ℹ fail 0
+2026-10-12T16:43:25.5616615Z ℹ cancelled 0
+2026-10-12T16:43:25.5617010Z ℹ skipped 0
+2026-10-12T16:43:25.5617376Z ℹ todo 0
+2026-10-12T16:43:25.5617811Z ℹ duration_ms 102.213988
+2026-10-12T16:43:25.5714326Z ##[group]Run node --experimental-strip-types src/components/home/v3/home3.test.ts
+2026-10-12T16:43:25.5715177Z [36;1mnode --experimental-strip-types src/components/home/v3/home3.test.ts[0m
+2026-10-12T16:43:25.5776408Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:43:25.5776666Z ##[endgroup]
+2026-10-12T16:43:25.6759522Z (node:2304) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/home/v3/home3.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:25.6761553Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:25.6762978Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:25.6764295Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:25.6835631Z PX1.2 Home 3.0 guards: all assertions passed
+2026-10-12T16:43:25.7022927Z ##[group]Run node --experimental-strip-types --test src/components/home/v3/calendarItems.test.ts
+2026-10-12T16:43:25.7023522Z [36;1mnode --experimental-strip-types --test src/components/home/v3/calendarItems.test.ts[0m
+2026-10-12T16:43:25.7084066Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:43:25.7084311Z ##[endgroup]
+2026-10-12T16:43:25.8315923Z (node:2318) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/home/v3/calendarItems.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:25.8317904Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:25.8318877Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:25.8319484Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:25.8461697Z ✔ month marks reject malformed response containers without inventing appointments (1.599125ms)
+2026-10-12T16:43:25.8462952Z ✔ month marks preserve valid API days and normalize duplicate string and numeric forms (1.461629ms)
+2026-10-12T16:43:25.8464104Z ✔ invalid month entries cannot coerce themselves into a calendar day (0.19701ms)
+2026-10-12T16:43:25.8465561Z ✔ the rail counts calendar events without turning work on the same date into appointments (0.989064ms)
+2026-10-12T16:43:25.8466842Z ✔ real calendar visits and travel remain appointments regardless of their presentation type (0.241075ms)
+2026-10-12T16:43:25.8467964Z ✔ a calendar source needs its own valid event start and source handle (0.184518ms)
+2026-10-12T16:43:25.8469225Z ✔ reminders and checkpoints remain visible in Home today without producing a calendar mark (0.248969ms)
+2026-10-12T16:43:25.8588285Z ℹ tests 7
+2026-10-12T16:43:25.8589015Z ℹ suites 0
+2026-10-12T16:43:25.8589703Z ℹ pass 7
+2026-10-12T16:43:25.8590191Z ℹ fail 0
+2026-10-12T16:43:25.8590670Z ℹ cancelled 0
+2026-10-12T16:43:25.8591181Z ℹ skipped 0
+2026-10-12T16:43:25.8591621Z ℹ todo 0
+2026-10-12T16:43:25.8592094Z ℹ duration_ms 113.211605
+2026-10-12T16:43:25.8711221Z ##[group]Run node --experimental-strip-types --test src/components/home/v3/preparedReview.test.ts
+2026-10-12T16:43:25.8711826Z [36;1mnode --experimental-strip-types --test src/components/home/v3/preparedReview.test.ts[0m
+2026-10-12T16:43:25.8772491Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:43:25.8772727Z ##[endgroup]
+2026-10-12T16:43:26.0006604Z (node:2332) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/home/v3/preparedReview.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:26.0008867Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:26.0035398Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:26.0036151Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:26.0126463Z ✔ a current partial review follows the same prepared text without marking completion (1.859628ms)
+2026-10-12T16:43:26.0128435Z ✔ an uncertain review retains its reason when no specific missing item was supplied (0.213ms)
+2026-10-12T16:43:26.0129856Z ✔ a draft needed for approval stays reviewable when no negative review exists (0.229045ms)
+2026-10-12T16:43:26.0136582Z ✔ malformed reviews never become a displayed judgement or stringify objects (1.382901ms)
+2026-10-12T16:43:26.0141768Z ✔ an absent or malformed draft cannot acquire a review banner (0.229265ms)
+2026-10-12T16:43:26.0143752Z ✔ an explicit negative verdict survives missing detail without inventing a diagnosis (0.137407ms)
+2026-10-12T16:43:26.0145434Z ✔ normalization keeps only the public review fields and does not mutate its input (0.168073ms)
+2026-10-12T16:43:26.0280505Z ℹ tests 7
+2026-10-12T16:43:26.0280879Z ℹ suites 0
+2026-10-12T16:43:26.0281205Z ℹ pass 7
+2026-10-12T16:43:26.0281491Z ℹ fail 0
+2026-10-12T16:43:26.0281776Z ℹ cancelled 0
+2026-10-12T16:43:26.0282094Z ℹ skipped 0
+2026-10-12T16:43:26.0282417Z ℹ todo 0
+2026-10-12T16:43:26.0282738Z ℹ duration_ms 114.283034
+2026-10-12T16:43:26.0368775Z ##[group]Run node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts src/components/ora/presence/temporaryMemoryFreshness.test.cjs
+2026-10-12T16:43:26.0369747Z [36;1mnode --experimental-strip-types --test src/components/ora/situationOutcome.test.ts src/components/ora/presence/temporaryMemoryFreshness.test.cjs[0m
+2026-10-12T16:43:26.0428749Z shell: /usr/bin/bash -e {0}
+2026-10-12T16:43:26.0428976Z ##[endgroup]
+2026-10-12T16:43:26.6727665Z ✖ failure after action_now preserves context but withdraws action until a successful read (26.251822ms)
+2026-10-12T16:43:26.6850510Z ✔ a late success cannot restore a Situation removed by a newer current read (14.240894ms)
+2026-10-12T16:43:26.6875468Z ✔ a late success cannot erase a newer failed read (9.117306ms)
+2026-10-12T16:43:26.6876538Z ✔ a late failure cannot invalidate newer successful data (9.293661ms)
+2026-10-12T16:43:26.6878097Z ✔ changing owner hides cached data immediately and ignores previous owner completion (9.284156ms)
+2026-10-12T16:43:26.6879313Z ✔ logout neither retains temporary memory nor accepts an in-flight reply (9.627162ms)
+2026-10-12T16:43:26.6880397Z ✔ a refresh-key generation rejects a previous read without changing the cadence (10.399164ms)
+2026-10-12T16:43:26.6881493Z ✔ inactive and unmounted readers have no late publications or new reads (8.196736ms)
+2026-10-12T16:43:26.6882524Z ✖ the first failed read is explicit rather than a successful empty map (7.523698ms)
+2026-10-12T16:43:26.6883560Z ✔ a failed selected-map read hides action, window and next-check promises (72.793818ms)
+2026-10-12T16:43:26.6884884Z ✔ an unrelated local-hook error cannot invalidate a fresh supplied map star (32.976248ms)
+2026-10-12T16:43:26.6886115Z ✔ a local panel uses its local read failure and ignores an unrelated map error (58.361987ms)
+2026-10-12T16:43:26.6887263Z ✔ a failed first read cannot claim there are no temporary Situations (23.53826ms)
+2026-10-12T16:43:26.6888449Z ✔ a current cancelled map star cannot fall back to another cached local Situation (27.7662ms)
+2026-10-12T16:43:26.7048630Z (node:2348) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/situationOutcome.test.ts is not specified and it doesn't parse as CommonJS.
+2026-10-12T16:43:26.7050229Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-10-12T16:43:26.7051115Z To eliminate this warning, add "type": "module" to /home/runner/work/DANGEROK/DANGEROK/frontend/package.json.
+2026-10-12T16:43:26.7052306Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-12T16:43:26.7053152Z ✔ the useful estimate and the internal checkpoint remain different facts (2.60897ms)
+2026-10-12T16:43:26.7053812Z ✔ a scheduled check, temporal scope and research log do not manufacture an estimate (0.185599ms)
+2026-10-12T16:43:26.7054972Z ✔ action_now based on an estimate is actionable without claiming a direct observation (0.167402ms)
+2026-10-12T16:43:26.7055782Z ✔ early risk recommends intervention without presenting a drying window (0.188053ms)
+2026-10-12T16:43:26.7056337Z ✔ a concrete missing datum is a question, with no fabricated time (0.236686ms)
+2026-10-12T16:43:26.7056860Z ✔ at expiry a displayed estimate loses its old action and window (0.204798ms)
+2026-10-12T16:43:26.7057416Z ✔ expired action_now cannot continue recommending action on an open page (0.222174ms)
+2026-10-12T16:43:26.7057972Z ✔ missing or malformed validity never keeps an assessment actionable (0.17288ms)
+2026-10-12T16:43:26.7058729Z ✔ a changed Situation cannot reuse a previous revision’s estimate (0.200912ms)
+2026-10-12T16:43:26.7059292Z ✔ stopping alerts is not presented as proof the physical result happened (0.395825ms)
+2026-10-12T16:43:26.7059847Z ✔ a finished watch keeps its verified final action visible until expiry (0.234784ms)
+2026-10-12T16:43:26.7060359Z ✔ plain waiting does not manufacture a question for the user (0.3788ms)
+2026-10-12T16:43:26.7061150Z ✔ only an explicit direct-observation basis is presented as such (0.207352ms)
+2026-10-12T16:43:26.7064084Z ✔ the server’s local window is preserved across midnight and client timezones (0.119129ms)
+2026-10-12T16:43:26.7065023Z ✔ identical recommendation text is not duplicated below the headline (0.11318ms)
+2026-10-12T16:43:26.7065766Z ✔ an absent estimate is explicit even when no target has been saved (0.162665ms)
+2026-10-12T16:43:26.7066345Z ✔ a failed read is unavailable even while the old action is valid (0.124397ms)
+2026-10-12T16:43:26.7066944Z ✔ an unavailable read hides a window without pretending there was no assessment (0.120661ms)
+2026-10-12T16:43:26.7067566Z ✔ only a successful current read restores the assessment and revision fence (0.147582ms)
+2026-10-12T16:43:26.7068150Z ✔ an unavailable first read does not claim no assessment or a stopped watch (0.117787ms)
+2026-10-12T16:43:26.7068524Z ℹ tests 34
+2026-10-12T16:43:26.7068718Z ℹ suites 0
+2026-10-12T16:43:26.7068899Z ℹ pass 32
+2026-10-12T16:43:26.7069100Z ℹ fail 2
+2026-10-12T16:43:26.7069291Z ℹ cancelled 0
+2026-10-12T16:43:26.7069483Z ℹ skipped 0
+2026-10-12T16:43:26.7069662Z ℹ todo 0
+2026-10-12T16:43:26.7069867Z ℹ duration_ms 628.059722
+2026-10-12T16:43:26.7070030Z 
+2026-10-12T16:43:26.7070146Z ✖ failing tests:
+2026-10-12T16:43:26.7070264Z 
+2026-10-12T16:43:26.7070547Z test at src/components/ora/presence/temporaryMemoryFreshness.test.cjs:141:1
+2026-10-12T16:43:26.7071323Z ✖ failure after action_now preserves context but withdraws action until a successful read (26.251822ms)
+2026-10-12T16:43:26.7072075Z   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+2026-10-12T16:43:26.7072411Z   + actual - expected
+2026-10-12T16:43:26.7072616Z   
+2026-10-12T16:43:26.7072783Z   + 'pending'
+2026-10-12T16:43:26.7072968Z   - 'action_now'
+2026-10-12T16:43:26.7073156Z   
+2026-10-12T16:43:26.7073718Z       at TestContext.<anonymous> (/home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs:144:10)
+2026-10-12T16:43:26.7074372Z       at async Test.run (node:internal/test_runner/test:1409:7)
+2026-10-12T16:43:26.7075530Z       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+2026-10-12T16:43:26.7076184Z     generatedMessage: true,
+2026-10-12T16:43:26.7076450Z     code: 'ERR_ASSERTION',
+2026-10-12T16:43:26.7076657Z     actual: 'pending',
+2026-10-12T16:43:26.7076872Z     expected: 'action_now',
+2026-10-12T16:43:26.7077084Z     operator: 'strictEqual',
+2026-10-12T16:43:26.7077292Z     diff: 'simple'
+2026-10-12T16:43:26.7077689Z   }
+2026-10-12T16:43:26.7077782Z 
+2026-10-12T16:43:26.7078078Z test at src/components/ora/presence/temporaryMemoryFreshness.test.cjs:242:1
+2026-10-12T16:43:26.7078693Z ✖ the first failed read is explicit rather than a successful empty map (7.523698ms)
+2026-10-12T16:43:26.7079231Z   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+2026-10-12T16:43:26.7079572Z   
+2026-10-12T16:43:26.7079750Z   false !== true
+2026-10-12T16:43:26.7079941Z   
+2026-10-12T16:43:26.7080562Z       at TestContext.<anonymous> (/home/runner/work/DANGEROK/DANGEROK/frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs:244:10)
+2026-10-12T16:43:26.7081238Z       at async Test.run (node:internal/test_runner/test:1409:7)
+2026-10-12T16:43:26.7081702Z       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+2026-10-12T16:43:26.7082100Z     generatedMessage: true,
+2026-10-12T16:43:26.7082359Z     code: 'ERR_ASSERTION',
+2026-10-12T16:43:26.7082582Z     actual: false,
+2026-10-12T16:43:26.7082810Z     expected: true,
+2026-10-12T16:43:26.7083029Z     operator: 'strictEqual',
+2026-10-12T16:43:26.7083256Z     diff: 'simple'
+2026-10-12T16:43:26.7083443Z   }
+2026-10-12T16:43:26.7129063Z ##[error]Process completed with exit code 1.
+2026-10-12T16:43:26.7299996Z Post job cleanup.
+2026-10-12T16:43:26.8033474Z [command]/usr/bin/git version
+2026-10-12T16:43:26.8074225Z git version 2.55.0
+2026-10-12T16:43:26.8108222Z Temporarily overriding HOME='/home/runner/work/_temp/4d578cd8-c444-453f-8fb4-f14c2725af17' before making global git config changes
+2026-10-12T16:43:26.8109561Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T16:43:26.8114894Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/DANGEROK/DANGEROK
+2026-10-12T16:43:26.8155215Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T16:43:26.8187911Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T16:43:26.8418899Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T16:43:26.8440282Z http.https://github.com/.extraheader
+2026-10-12T16:43:26.8449952Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T16:43:26.8482389Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T16:43:26.8716269Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T16:43:26.8749854Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T16:43:26.9112444Z Cleaning up orphan processes
+2026-10-12T16:43:26.9392450Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -1,0 +1,195 @@
+{
+  "scope": "isolated production create/schedule/readback, recorded declarations with only generated situation ID rebound; not a replay of historical live DB or whole conversation",
+  "source_revision": "630020147223ada63430a11870209494dc35cc22",
+  "local_head": "3a0f0a659442b9113bd29bdc5e0332bcb2556b54",
+  "observed_at": "2026-10-12T11:11:48.566157+00:00",
+  "before": {
+    "situation": {
+      "id": "sit_8c414fa8c8a342ef",
+      "revision": 1,
+      "status": "active"
+    },
+    "goal": {
+      "id": "gol_sit_dfbeca37eae67727fc06159d",
+      "status": "active",
+      "source_kind": "situation_initial_review",
+      "next_run_at": "2026-10-12T11:12:19.455833+00:00",
+      "source_situation": {
+        "situation_id": "sit_8c414fa8c8a342ef",
+        "situation_revision": "1",
+        "attention_epoch": "1",
+        "attention_started_at": "2026-10-12T11:11:49.455384+00:00",
+        "attention_expected": "true"
+      },
+      "desired_outcome": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima."
+    },
+    "wakes": [
+      {
+        "id": "wke_b6d5eca22f614684",
+        "source_ref": "goal:gol_sit_dfbeca37eae67727fc06159d",
+        "scheduled_for": "2026-10-12T11:12:19.455833+00:00",
+        "status": "pending"
+      }
+    ],
+    "followup": {
+      "status": "review_pending",
+      "situation_id": "sit_8c414fa8c8a342ef",
+      "next_check_at": null,
+      "last_checked_at": null,
+      "next_check_at_local": null,
+      "next_check_time_local": null,
+      "next_check_label": null,
+      "timezone": "Europe/Rome",
+      "timezone_authority": "user_confirmed",
+      "goal_id": "gol_sit_dfbeca37eae67727fc06159d",
+      "purpose": "valutare quando ritirare i panni o se proteggerli dalla pioggia",
+      "notify_when": null,
+      "completion_when": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "monitoring_goal": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "ends_when": "L'AI conclude il lavoro con un risultato utile verificabile.",
+      "desired_outcome": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "outcome": null,
+      "attention_saved": true,
+      "runtime_enabled": true,
+      "delivery_channel": "in_app",
+      "assessment_at": "2026-10-12T11:12:19.455833+00:00",
+      "assessment_label": "12 ott 2026, 13:12",
+      "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita.",
+      "goal_source_kind": "situation_initial_review",
+      "diagnosis": "ORA ha preso in carico la valutazione di questa situazione, ma non ha ancora fissato un controllo verificato con fonti reali. Il riesame del caso è previsto per 12 ott 2026, 13:12. Questo non è un orario di completamento né una notifica."
+    }
+  },
+  "schedule_observation": {
+    "status": "ok",
+    "payload": {
+      "ok": true,
+      "status": "scheduled",
+      "situation_id": "sit_8c414fa8c8a342ef",
+      "next_check_at": "2026-10-12T16:00:00+00:00",
+      "last_checked_at": null,
+      "next_check_at_local": "2026-10-12T18:00:00+02:00",
+      "next_check_time_local": "18:00",
+      "next_check_label": "12 ott 2026, 18:00",
+      "timezone": "Europe/Rome",
+      "timezone_authority": "user_confirmed",
+      "goal_id": "gol_sit_dfbeca37eae67727fc06159d",
+      "purpose": "Monitorare eventuali cambiamenti meteo che potrebbero richiedere di ritirare i panni prima del previsto.",
+      "notify_when": "Se la probabilità di pioggia supera il 30% nelle prossime 2 ore.",
+      "completion_when": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "monitoring_goal": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "ends_when": "Il monitoraggio può terminare quando è stato raggiunto e comunicato un momento utile d'azione o ulteriori controlli non aggiungerebbero valore senza nuovo input della persona.",
+      "desired_outcome": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "outcome": null,
+      "attention_saved": true,
+      "runtime_enabled": true,
+      "delivery_channel": "in_app",
+      "assessment_at": null,
+      "assessment_label": null,
+      "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita.",
+      "goal_source_kind": "situation_followup",
+      "diagnosis": "Risulta programmato un controllo. Prossima verifica: 12 ott 2026, 18:00."
+    }
+  },
+  "after": {
+    "situation": {
+      "id": "sit_8c414fa8c8a342ef",
+      "revision": 1,
+      "status": "active"
+    },
+    "goal": {
+      "id": "gol_sit_dfbeca37eae67727fc06159d",
+      "status": "active",
+      "source_kind": "situation_followup",
+      "next_run_at": "2026-10-12T16:00:00+00:00",
+      "source_situation": {
+        "situation_id": "sit_8c414fa8c8a342ef",
+        "situation_revision": "1",
+        "attention_epoch": "1",
+        "attention_started_at": "2026-10-12T11:11:49.455384+00:00",
+        "attention_expected": "true"
+      },
+      "desired_outcome": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima."
+    },
+    "wakes": [
+      {
+        "id": "wke_b6d5eca22f614684",
+        "source_ref": "goal:gol_sit_dfbeca37eae67727fc06159d",
+        "scheduled_for": "2026-10-12T11:12:19.455833+00:00",
+        "status": "cancelled"
+      },
+      {
+        "id": "wke_d2825dd44d1747b7",
+        "source_ref": "goal:gol_sit_dfbeca37eae67727fc06159d",
+        "scheduled_for": "2026-10-12T16:00:00+00:00",
+        "status": "pending"
+      }
+    ],
+    "followup": {
+      "status": "scheduled",
+      "situation_id": "sit_8c414fa8c8a342ef",
+      "next_check_at": "2026-10-12T16:00:00+00:00",
+      "last_checked_at": null,
+      "next_check_at_local": "2026-10-12T18:00:00+02:00",
+      "next_check_time_local": "18:00",
+      "next_check_label": "12 ott 2026, 18:00",
+      "timezone": "Europe/Rome",
+      "timezone_authority": "user_confirmed",
+      "goal_id": "gol_sit_dfbeca37eae67727fc06159d",
+      "purpose": "Monitorare eventuali cambiamenti meteo che potrebbero richiedere di ritirare i panni prima del previsto.",
+      "notify_when": "Se la probabilità di pioggia supera il 30% nelle prossime 2 ore.",
+      "completion_when": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "monitoring_goal": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "ends_when": "Il monitoraggio può terminare quando è stato raggiunto e comunicato un momento utile d'azione o ulteriori controlli non aggiungerebbero valore senza nuovo input della persona.",
+      "desired_outcome": "Sapere quando i panni sono presumibilmente asciutti o se il meteo impone di ritirarli prima.",
+      "outcome": null,
+      "attention_saved": true,
+      "runtime_enabled": true,
+      "delivery_channel": "in_app",
+      "assessment_at": null,
+      "assessment_label": null,
+      "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita.",
+      "goal_source_kind": "situation_followup",
+      "diagnosis": "Risulta programmato un controllo. Prossima verifica: 12 ott 2026, 18:00."
+    }
+  },
+  "old_runner_assertion": "INITIAL_REVIEW_NOT_ADMITTED",
+  "readmission": {
+    "status": "already_admitted",
+    "goal_id": "gol_sit_dfbeca37eae67727fc06159d"
+  },
+  "goals_count_after_readmission": 1,
+  "last_response_situation_shape_errors": [
+    {
+      "loc": [
+        "constraints",
+        0
+      ],
+      "type": "string_type"
+    },
+    {
+      "loc": [
+        "facts",
+        0
+      ],
+      "type": "string_type"
+    },
+    {
+      "loc": [
+        "assumptions",
+        0
+      ],
+      "type": "string_type"
+    },
+    {
+      "loc": [
+        "supersedes",
+        0
+      ],
+      "type": "string_type"
+    }
+  ],
+  "cancelled_open_wakes": 0,
+  "model_calls": 0,
+  "provider_reads": 0,
+  "external_http_calls": 0
+}

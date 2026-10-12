@@ -214,6 +214,18 @@ function Dettaglio({ a, onRemoved, onChanged }: { a: Aggiornamento; onRemoved: (
         testID="dettaglio-facendo"
       />}
 
+      {a.testo_preparato && a.revisione_preparazione ? (
+        <OraCard style={styles.voce} testID="dettaglio-revisione-preparazione">
+          <OraBadge tone="attention" label={a.revisione_preparazione.outcome === 'partial'
+            ? 'Bozza da rivedere' : 'Verifica ancora incerta'} />
+          <Text style={[oraType.small, { color: ora.ink3 }]}>Giudizio della verifica</Text>
+          <Text style={[oraType.body, { color: ora.ink }]}>
+            {a.revisione_preparazione.what_is_missing || a.revisione_preparazione.reasoning
+              || 'La verifica non ha fornito altri dettagli.'}
+          </Text>
+        </OraCard>
+      ) : null}
+
       {a.testo_preparato ? <Voce
         icona="document-text-outline"
         titolo="Risultato preparato"

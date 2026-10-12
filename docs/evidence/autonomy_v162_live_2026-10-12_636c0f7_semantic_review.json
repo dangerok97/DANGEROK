@@ -1,0 +1,2804 @@
+{
+  "version": "autonomy-v162-semantic-review-636-1",
+  "generated_at": "2026-10-12T12:25:27.662189+00:00",
+  "source": {
+    "path": "/tmp/ora_v162_636_autonomy_live.json",
+    "sha256": "abc43f64c0e504b6191da2cdbb5fb6cb0525a1d8f4401ba04a10c05944b30f7e",
+    "bytes": 358802,
+    "code_revision": "636c0f72b374bff95039ad2b3e017ed2974c77db",
+    "fixture_revision": "personal_outcome_v1",
+    "started_at": "2026-10-12T12:01:49.372088+00:00",
+    "finished_at": "2026-10-12T12:13:06.526819+00:00",
+    "original_status": "failed",
+    "original_passed": false
+  },
+  "method": {
+    "read_entire_original_json": true,
+    "reviewed_all_retained_generation_audit_and_saved_texts": true,
+    "runtime_or_oracle_mutations": false,
+    "model_or_provider_calls": 0,
+    "suite_runs": 0,
+    "historical_verifier_http_body_available": false,
+    "original_verdicts_unchanged": true
+  },
+  "totals": {
+    "original_machine_passed": 5,
+    "cases": 9,
+    "logical_attempts": 82,
+    "model_http_requests": 96,
+    "manual_end_to_end_acceptance": false
+  },
+  "canonical_source": {
+    "base_context": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. ",
+    "base_fact": "Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento autorizzato.",
+    "full_note": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento autorizzato.",
+    "full_note_characters": 565,
+    "full_note_sha256": "5bf7ffcd0bcdf67e81ce8132b77ab92fbf3ecc49152492312b78378e3df2fef6",
+    "corrected_note": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento autorizzato.",
+    "comparison_horizon_months": 12,
+    "base_totals_eur": [
+      180,
+      120
+    ],
+    "base_difference_eur": 60,
+    "corrected_totals_eur": [
+      180,
+      150
+    ],
+    "corrected_difference_eur": 30,
+    "unknowns": [
+      "monthly cancellation penalties",
+      "monthly refund entitlement",
+      "monthly suspension or early-exit flexibility"
+    ],
+    "authority": "Internal user-reported figures, not provider-confirmed; no contract change/payment authorized",
+    "source_files": [
+      {
+        "path": "backend/scripts/autonomy_completion_eval_v162.py",
+        "commit": "636c0f72b374bff95039ad2b3e017ed2974c77db",
+        "blob_sha256": "939aefda4097e688d0b5971b1734cf07c11bc731a3349c21599691219dd726e8"
+      },
+      {
+        "path": "backend/scripts/phase2_goal_outcome_eval_v140.py",
+        "commit": "636c0f72b374bff95039ad2b3e017ed2974c77db",
+        "blob_sha256": "1af904f261b9cff5db7bba600f77a83f15b7f70d54a037addc1f0e93cf8ba60f"
+      }
+    ]
+  },
+  "case_reviews": [
+    {
+      "scenario": "completed_result",
+      "original_json_pointer": "/cases/0",
+      "original_machine_passed": true,
+      "original_reason": null,
+      "original_result_checks": {
+        "preconditions": {
+          "status": "passed"
+        },
+        "semantic": {
+          "status": "passed",
+          "review": {
+            "passed": true,
+            "reasons": [],
+            "status": "bounded_check",
+            "human_review_still_required": true
+          }
+        },
+        "home": {
+          "status": "passed"
+        },
+        "replay": {
+          "status": "passed"
+        },
+        "owner_isolation": {
+          "status": "passed"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "model_attempts": 11,
+      "model_http_requests": 16,
+      "structured_decisions_omitted": 0,
+      "manual_result": "not_acceptable_despite_machine_pass",
+      "delivery_observed": "Home/replay/owner checks passed in original; no physical device receipt claim",
+      "correct": [
+        "180 euro vs 120 euro over 12 months; explicit saving 60 euro",
+        "Shared 100 GB, equal assistance, no initial charges",
+        "Annual no-refund constraint stated",
+        "Internal user-stated source and lack of provider confirmation explicit; no payment claimed"
+      ],
+      "findings": [
+        {
+          "id": "C01",
+          "kind": "substantive",
+          "title": "Invented monthly cancellation and refund terms",
+          "sequence": 6,
+          "observed_quote": "Nessuna penalizzazione per disdetta anticipata.",
+          "assessment": "Present in generation seq5, retained by positive audit seq6 and saved unchanged from audit. Canonical note states no monthly cancellation, penalty or refund policy."
+        },
+        {
+          "id": "C02",
+          "kind": "substantive",
+          "title": "False monthly refund entitlement in table",
+          "sequence": 6,
+          "observed_quote": "Sì (nessuna penalizzazione)",
+          "assessment": "The final refund row affirmatively supplies a monthly entitlement absent from the source. This is not cured by the general source disclaimer."
+        },
+        {
+          "id": "C03",
+          "kind": "substantive",
+          "title": "Unsupported comparative advantage audited as stated",
+          "sequence": 6,
+          "observed_quote": "Il piano mensile offre maggiore flessibilità di disdetta senza penalizzazioni.",
+          "assessment": "claim_review[4] labels the claim stated, invents no monthly penalty as a premise, and cites only source passage 0_277 (context, provenance and monthly price). The problem is incorrect entailment, not solely missed coverage."
+        },
+        {
+          "id": "C04",
+          "kind": "audit_defect",
+          "title": "True annual constraint attached to irrelevant passage",
+          "sequence": 6,
+          "observed_quote": "autorizzato.",
+          "assessment": "claim_review[3] selects only passage553_565 for annual no-refund. The fact exists in adjacent passage277_553, but its selected quotation does not support it. Literal authenticity passed; semantic attachment did not."
+        },
+        {
+          "id": "C05",
+          "kind": "verifier_defect",
+          "title": "Verifier accepts substantive defect",
+          "sequence": 7,
+          "observed_quote": "achieved",
+          "assessment": "Verifier reason praises totals, constraints and attribution without identifying invented monthly terms. No historical full verifier HTTP input is retained; exact636 code supplies full saved text or returns None on insufficient context."
+        }
+      ],
+      "original_result_without_text": {
+        "state": "completed",
+        "read_reused": true,
+        "corrected_source_reread": false,
+        "prepared": true,
+        "prepared_text_truncated": false,
+        "prepared_text_characters": 2888,
+        "home_delivered": true,
+        "replay_idempotent": true,
+        "owner_isolation": true,
+        "semantic_review": {
+          "passed": true,
+          "reasons": [],
+          "status": "bounded_check",
+          "human_review_still_required": true
+        },
+        "counts": {
+          "agent_evidence": 7,
+          "agent_updates": 2,
+          "ambient_activity": 4,
+          "agent_needs": 2,
+          "agent_action_attempts": 0
+        }
+      },
+      "saved_artifact": {
+        "sha256_of_retained_text": "06a13d8f1c3899c45b36bd472402e33e289dd6fec4394e3f0fb45e38dc2ce807",
+        "retained_characters": 2888,
+        "reported_complete_characters": 2888,
+        "truncated_in_original": false
+      },
+      "preparation_trace": [
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 6,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 2893,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_d15ce8725d704f66"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 7,
+          "sequence": 5,
+          "json_pointer": "/cases/0/structured_decisions/4",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_d15ce8725d704f66"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_11363d0f72344e32",
+            "step_id": "stp_f74df38b6623415f"
+          },
+          "artifact": {
+            "sha256_of_retained_text": "8abfd4089e8667396244e8523704b3d770bab054f3f0926f6a6073b04cbd8324",
+            "retained_characters": 2893,
+            "reported_complete_characters": 2893,
+            "truncated_in_original": false
+          }
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 7,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 2888,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_d15ce8725d704f66"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "La bozza corretta presenta un confronto chiaro e dettagliato tra le due opzioni di archiviazione, rispettando i criteri richiesti.",
+          "claim_review_kind": "array",
+          "claim_review_count": 6,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Il costo totale per 12 mesi del piano mensile è 180€.",
+              "premises": "Il piano mensile costa 15€ al mese, quindi 15€ × 12 mesi = 180€.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d15ce8725d704f66"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_263d7daed36a9f97_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_263d7daed36a9f97_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d15ce8725d704f66",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Il costo totale per 12 mesi del piano annuale è 120€.",
+              "premises": "Il piano annuale costa 120€ anticipati per 12 mesi, quindi il costo totale è 120€.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d15ce8725d704f66"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_263d7daed36a9f97_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_263d7daed36a9f97_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d15ce8725d704f66",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Entrambi i piani offrono 100GB di archiviazione e supporto uguale.",
+              "premises": "Entrambi i piani offrono 100GB di archiviazione e assistenza uguale, come indicato nella nota salvata.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d15ce8725d704f66"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_263d7daed36a9f97_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_263d7daed36a9f97_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d15ce8725d704f66",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Il piano annuale non prevede rimborso in caso di disdetta anticipata.",
+              "premises": "Il piano annuale non prevede rimborso in caso di disdetta anticipata, come specificato nella nota salvata.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d15ce8725d704f66"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_263d7daed36a9f97_553_565"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_263d7daed36a9f97_553_565",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d15ce8725d704f66",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "autorizzato.",
+                  "quote_characters": 12,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Il piano mensile offre maggiore flessibilità di disdetta senza penalizzazioni.",
+              "premises": "Il piano mensile non ha penalizzazioni per disdetta anticipata, mentre il piano annuale non prevede rimborso.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d15ce8725d704f66"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_263d7daed36a9f97_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_263d7daed36a9f97_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d15ce8725d704f66",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "I costi e i vincoli sono basati su dati dichiarati dall'utente e non verificati dal provider.",
+              "premises": "I dati sono user-stated e non confermati dal fornitore, come indicato nella nota salvata.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d15ce8725d704f66"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_263d7daed36a9f97_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_263d7daed36a9f97_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d15ce8725d704f66",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 8,
+          "sequence": 6,
+          "json_pointer": "/cases/0/structured_decisions/5",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_d15ce8725d704f66"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_11363d0f72344e32",
+            "step_id": "stp_f74df38b6623415f",
+            "draft_kind": "text",
+            "draft_characters": 2893,
+            "draft_truncated": false
+          },
+          "artifact": {
+            "sha256_of_retained_text": "06a13d8f1c3899c45b36bd472402e33e289dd6fec4394e3f0fb45e38dc2ce807",
+            "retained_characters": 2888,
+            "reported_complete_characters": 2888,
+            "truncated_in_original": false
+          },
+          "audit_input_draft": {
+            "sha256_of_retained_text": "8abfd4089e8667396244e8523704b3d770bab054f3f0926f6a6073b04cbd8324",
+            "retained_characters": 2893,
+            "reported_complete_characters": 2893,
+            "truncated_in_original": false
+          }
+        }
+      ],
+      "verification_trace": [
+        {
+          "json_pointer": "/cases/0/structured_decisions/6",
+          "stage": "verify_goal",
+          "model_attempts_before": 8,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "Il confronto scritto dei costi e vincoli per le due formule di archiviazione (mensile e annuale) è stato preparato e reso disponibile, includendo i totali a 12 mesi, le limitazioni chiave e la segnalazione esplicita che i dati sono user-stated e non confermati dal fornitore.",
+          "what_is_missing": "",
+          "model_attempts_after": 9,
+          "sequence": 7
+        }
+      ],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_96a6bd6df3b548f2",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_f74df38b6623415f",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "latest_audit_content_equals_saved_text": true
+    },
+    {
+      "scenario": "planning_outage",
+      "original_json_pointer": "/cases/1",
+      "original_machine_passed": false,
+      "original_reason": "SEMANTIC_RESULT_REJECTED:MISSING_COMPARISON_VALUE_60",
+      "original_result_checks": {
+        "preconditions": {
+          "status": "passed"
+        },
+        "semantic": {
+          "status": "failed",
+          "review": {
+            "passed": false,
+            "reasons": [
+              "MISSING_COMPARISON_VALUE_60"
+            ],
+            "status": "bounded_check",
+            "human_review_still_required": true
+          }
+        },
+        "home": {
+          "status": "passed"
+        },
+        "replay": {
+          "status": "passed"
+        },
+        "owner_isolation": {
+          "status": "passed"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "model_attempts": 16,
+      "model_http_requests": 17,
+      "structured_decisions_omitted": 0,
+      "manual_result": "not_acceptable_true_missing_difference",
+      "delivery_observed": "Home/replay/owner checks passed before the original semantic failure",
+      "correct": [
+        "Final1824-character text gives 180/120, twelve months and annual average10 euro/month",
+        "Annual no-refund stated, monthly refund table explicitly unknown",
+        "Internal user attribution and provider nonconfirmation explicit"
+      ],
+      "findings": [
+        {
+          "id": "P01",
+          "kind": "substantive",
+          "title": "Missing60 is a real omission, not regex false negative",
+          "sequence": 10,
+          "observed_quote": "risparmio totale (120 €)",
+          "assessment": "Oversize seq6 generation prefix contains60 but was rejected. New seq9 generation1797chars omits60 and calls120 a total saving. Seq10 audit1824chars preserves this; saved artifact has no explicit60/spelled-out equivalent.120 is annual total, saving is60."
+        },
+        {
+          "id": "P02",
+          "kind": "substantive",
+          "title": "Unsupported monthly flexibility",
+          "sequence": 10,
+          "observed_quote": "Formula A: flessibilità mensile",
+          "assessment": "The source establishes payment cadence, not cancellation flexibility. Final advice frames the choice around flexibility without a sourced necessary premise."
+        },
+        {
+          "id": "P03",
+          "kind": "audit_defect",
+          "title": "Audit internally reverses A/B refund policies",
+          "sequence": 10,
+          "observed_quote": "La Formula A non prevede rimborso in caso di disdetta anticipata, mentre la Formula B non specifica il rimborso.",
+          "assessment": "claim_review[3] contradicts its own premises (A unspecified/B not provided), cites only autorizzato., and is marked stated. The final TABLE remains correct; do not attribute the inverted review wording to the final table."
+        },
+        {
+          "id": "P04",
+          "kind": "verifier_defect",
+          "title": "False verifier criticism, separate from real missing60",
+          "sequence": 11,
+          "observed_quote": "manca un'attribuzione esplicita delle fonti (user_stated) e una verifica delle condizioni di disdetta per la Formula A",
+          "assessment": "Attribution is already explicit in final text. A bounded internal comparison can disclose missing monthly terms without new provider verification. Later seq12 achieved accepts same artifact without repairing true missing60."
+        }
+      ],
+      "saved_goal_snapshot": {
+        "status": "completed",
+        "desired_outcome": "un documento comparativo che l'utente possa usare per valutare le due opzioni senza dover ricontattare il fornitore",
+        "success_criteria": [
+          "elenco o tabella che confronti i costi totali (180€ vs 120€) e mensili (15€ vs 10€) per 12 mesi",
+          "riassunto delle caratteristiche uguali (100 GB, assistenza) e delle differenze (spese iniziali, rimborso disdetta)",
+          "segnalazione esplicita dei dati non confermati dal fornitore",
+          "formato leggibile e privo di ambiguità"
+        ],
+        "prepared_sources": [
+          "evd_d42e3a26d6e44f11"
+        ],
+        "prepared_text_characters": 1824,
+        "prepared_text_truncated": false,
+        "evidence_count": 5,
+        "current_evidence_count": 5,
+        "requires_user_input": false,
+        "planning_unavailable": false
+      },
+      "saved_artifact": {
+        "sha256_of_retained_text": "2c9491b76a17b9710ba3aeeac5bb7fb534cb8ca39526bf5a95e19288b899ca54",
+        "retained_characters": 1824,
+        "reported_complete_characters": 1824,
+        "truncated_in_original": false
+      },
+      "preparation_trace": [
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 6,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 4655,
+          "content_truncated": true,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_d42e3a26d6e44f11"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 7,
+          "sequence": 6,
+          "json_pointer": "/cases/1/structured_decisions/5",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_d42e3a26d6e44f11"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_0a7f891174304ab2",
+            "step_id": "stp_ae27988399d44559"
+          },
+          "artifact": {
+            "sha256_of_retained_text": "3df34d64b9358025ff517cb08c6b8dfbc4cb5775f0578e1fa47237ecee0b9847",
+            "retained_characters": 4000,
+            "reported_complete_characters": 4655,
+            "truncated_in_original": true
+          }
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 9,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 1797,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_d42e3a26d6e44f11"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 10,
+          "sequence": 9,
+          "json_pointer": "/cases/1/structured_decisions/8",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_d42e3a26d6e44f11"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_0a7f891174304ab2",
+            "step_id": "stp_a58bba6f325340a9"
+          },
+          "artifact": {
+            "sha256_of_retained_text": "d68c53b5181adaef661811f792f6ab694ae47d8f77e8eadb47c8eafabf8c5ca3",
+            "retained_characters": 1797,
+            "reported_complete_characters": 1797,
+            "truncated_in_original": false
+          }
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 10,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 1824,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_d42e3a26d6e44f11"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Il documento è stato corretto per rimanere entro il limite di caratteri e mantiene tutte le informazioni chiave richieste.",
+          "claim_review_kind": "array",
+          "claim_review_count": 6,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Il costo totale per la Formula A è 180 € e per la Formula B è 120 €.",
+              "premises": "Formula A: 15 €/mese × 12 mesi = 180 €; Formula B: 120 € per 12 mesi.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d42e3a26d6e44f11"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b0486992f0021ac5_0_277",
+                "p_b0486992f0021ac5_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Il costo mensile per la Formula A è 15 € e per la Formula B è 10 €.",
+              "premises": "Formula A: 15 €; Formula B: 120 €/12 mesi = 10 €.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d42e3a26d6e44f11"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b0486992f0021ac5_0_277",
+                "p_b0486992f0021ac5_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Entrambe le formule offrono 100 GB di spazio e assistenza inclusa.",
+              "premises": "Entrambe le opzioni hanno 100 GB e assistenza inclusa.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d42e3a26d6e44f11"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b0486992f0021ac5_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "La Formula A non prevede rimborso in caso di disdetta anticipata, mentre la Formula B non specifica il rimborso.",
+              "premises": "Formula A: Non specificato; Formula B: Non previsto.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d42e3a26d6e44f11"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b0486992f0021ac5_553_565"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_553_565",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "autorizzato.",
+                  "quote_characters": 12,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "I dati non confermati includono l'assenza di rimborso per la Formula B in caso di disdetta anticipata.",
+              "premises": "Formula B non prevede rimborso in caso di disdetta anticipata, da verificare con il fornitore.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d42e3a26d6e44f11"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b0486992f0021ac5_553_565"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_553_565",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "autorizzato.",
+                  "quote_characters": 12,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Il documento è leggibile e privo di ambiguità.",
+              "premises": "Struttura tabellare e chiara, con note esplicative.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_d42e3a26d6e44f11"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_b0486992f0021ac5_0_277",
+                "p_b0486992f0021ac5_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_b0486992f0021ac5_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_d42e3a26d6e44f11",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 11,
+          "sequence": 10,
+          "json_pointer": "/cases/1/structured_decisions/9",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_d42e3a26d6e44f11"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_0a7f891174304ab2",
+            "step_id": "stp_a58bba6f325340a9",
+            "draft_kind": "text",
+            "draft_characters": 1797,
+            "draft_truncated": false
+          },
+          "artifact": {
+            "sha256_of_retained_text": "2c9491b76a17b9710ba3aeeac5bb7fb534cb8ca39526bf5a95e19288b899ca54",
+            "retained_characters": 1824,
+            "reported_complete_characters": 1824,
+            "truncated_in_original": false
+          },
+          "audit_input_draft": {
+            "sha256_of_retained_text": "d68c53b5181adaef661811f792f6ab694ae47d8f77e8eadb47c8eafabf8c5ca3",
+            "retained_characters": 1797,
+            "reported_complete_characters": 1797,
+            "truncated_in_original": false
+          }
+        }
+      ],
+      "verification_trace": [
+        {
+          "json_pointer": "/cases/1/structured_decisions/10",
+          "stage": "verify_goal",
+          "model_attempts_before": 11,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "partially_achieved",
+          "reasoning": "Il documento comparativo è stato preparato e include costi totali/mensili, caratteristiche uguali/differenti e segnalazione dei dati non confermati, ma manca un'attribuzione esplicita delle fonti (user_stated) e una verifica delle condizioni di disdetta per la Formula A.",
+          "model_attempts_after": 12,
+          "sequence": 11
+        },
+        {
+          "json_pointer": "/cases/1/structured_decisions/11",
+          "stage": "verify_goal",
+          "model_attempts_before": 13,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "achieved",
+          "reasoning": "Il documento comparativo è stato preparato e soddisfa tutti i criteri di successo: tabella dei costi totali/mensili, caratteristiche uguali/differenze, segnalazione esplicita dei dati non confermati e formato leggibile.",
+          "what_is_missing": "",
+          "model_attempts_after": 14,
+          "sequence": 12
+        }
+      ],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_7c9de9236815429d",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_ae27988399d44559",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_ungrounded",
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_a58bba6f325340a9",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "latest_audit_content_equals_saved_text": true
+    },
+    {
+      "scenario": "home_write_retry",
+      "original_json_pointer": "/cases/2",
+      "original_machine_passed": false,
+      "original_reason": "COMPLETION_BUDGET_EXHAUSTED",
+      "original_result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      },
+      "model_attempts": 17,
+      "model_http_requests": 21,
+      "structured_decisions_omitted": 1,
+      "manual_result": "saved_draft_incomplete_and_qualitatively_unreliable",
+      "delivery_observed": "not_run; original Home/replay/isolation result checks never reached",
+      "correct": [
+        "Latest2272-character saved text retains180/120,12months, shared services and annual no-refund",
+        "Monthly refund explicitly unspecified; no-penalty term is labelled an unconfirmed hypothesis rather than a verified fact",
+        "Internal source and provider nonconfirmation are explicit"
+      ],
+      "findings": [
+        {
+          "id": "H01",
+          "kind": "substantive",
+          "title": "Supported difference lost during recovery",
+          "sequence": 10,
+          "observed_quote": "120€ vs 180€",
+          "assessment": "Initial generation3165chars and rejected first audit2033chars contain60. Latest generation/audit/saved2272chars omit it. Original machine failure remains budget exhaustion, not a semantic check that never ran."
+        },
+        {
+          "id": "H02",
+          "kind": "substantive",
+          "title": "Unstated hypothesis used to frame the recommendation",
+          "sequence": 10,
+          "observed_quote": "Pagamento mensile, disdetta senza penalità (ipotesi da confermare)",
+          "assessment": "This is explicitly an assumption, unlike the unqualified false claim in completed_result. Nevertheless no source supplies it, and repeated comparative flexibility frames the decision. Audit reviews only a broader conditional advantage and does not separately examine the table hypothesis."
+        },
+        {
+          "id": "H03",
+          "kind": "audit_defect",
+          "title": "Conditional label with irrelevant literal passage",
+          "sequence": 10,
+          "observed_quote": "La formula mensile potrebbe offrire maggiore flessibilità.",
+          "assessment": "claim_review[5] calls this conditional but says its premise comes from user data and selects only autorizzato. A conditional tag and authentic but unrelated text do not establish the comparative premise."
+        },
+        {
+          "id": "H04",
+          "kind": "verified_runtime_boundary",
+          "title": "Protocol guard correctly rejects first positive audit",
+          "sequence": 6,
+          "observed_quote": "source_passage_ids: []",
+          "assessment": "First audit seq6 has a derived recommendation with no selected passage; executed_capabilities records preparation_review_invalid/retryablefalse. It was not saved. Later real preparation succeeds with valid passage shape but remaining semantic problems."
+        },
+        {
+          "id": "H05",
+          "kind": "verifier_defect",
+          "title": "Final verification demands unrelated confirmation",
+          "sequence": 12,
+          "observed_quote": "manca l’esplicita verifica dei vincoli contrattuali",
+          "assessment": "Retained verdict asks direct contract verification and stronger repeated disclaimer, although internal source limits are explicit. This does not identify the actually omitted60. First verifier reason is truncated in original; unseen suffix is not reconstructed."
+        }
+      ],
+      "saved_goal_snapshot": {
+        "status": "active",
+        "desired_outcome": "Un documento interno che confronta i costi e i vincoli delle due opzioni (15€/mese vs 120€ anticipati) per 12 mesi, evidenziando vincoli come assenza di rimborso in caso di disdetta anticipata e capacità di archiviazione uguale, con una nota esplicita che i dati non sono ancora confermati dal fornitore.",
+        "success_criteria": [
+          "Tabella comparativa con costi totali (180€ vs 120€), vincoli contrattuali (rimborso, disdetta anticipata), assistenza e capacità di archiviazione.",
+          "Nota esplicita che i dati non sono confermati dal fornitore e che non sono previsti pagamenti o modifiche contrattuali.",
+          "Formato leggibile e sintetico, pronto per revisione da parte dell'utente."
+        ],
+        "prepared_sources": [
+          "evd_3b55d97558ab4f7c"
+        ],
+        "prepared_text_characters": 2272,
+        "prepared_text_truncated": false,
+        "evidence_count": 6,
+        "current_evidence_count": 6,
+        "requires_user_input": false,
+        "planning_unavailable": false
+      },
+      "saved_artifact": {
+        "sha256_of_retained_text": "5579af1b72f51d1d3ad0d31e866db0a2c10ee1f07d564cd261368aa9ad52d20f",
+        "retained_characters": 2272,
+        "reported_complete_characters": 2272,
+        "truncated_in_original": false
+      },
+      "preparation_trace": [
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 6,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 3165,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_3b55d97558ab4f7c"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 7,
+          "sequence": 5,
+          "json_pointer": "/cases/2/structured_decisions/3",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_3b55d97558ab4f7c"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_e2a60334cc0f4c0c",
+            "step_id": "stp_392eb57f1aa84c71"
+          },
+          "artifact": {
+            "sha256_of_retained_text": "f3df61994af9e9b95189556cf5ac245aff4a2f07e8ba519f733326484ae26702",
+            "retained_characters": 3165,
+            "reported_complete_characters": 3165,
+            "truncated_in_original": false
+          }
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 7,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 2033,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_3b55d97558ab4f7c"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "La tabella è stata corretta per riflettere esplicitamente le limitazioni dei dati (user_stated, non confermati) e le assunzioni implicite (es. flessibilità non verificata, assenza di variazioni di prezzo). Le implicazioni pratiche sono espresse in modo condizionale, evidenziando i rischi e le incertezze. Il contenuto soddisfa i criteri di successo richiesti, inclusa la nota di disclaimer.",
+          "claim_review_kind": "array",
+          "claim_review_count": 7,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Costo totale formula mensile (15€/mese × 12) = 180€",
+              "premises": "Calcolo diretto da 15€ × 12 = 180€ (passaggio citato dall'utente). Assunzione implicita: il prezzo mensile è fisso per 12 mesi. **Controesempio possibile**: se il prezzo mensile varia o include costi aggiuntivi non dichiarati, il totale potrebbe differire.",
+              "support": "derived",
+              "correction": "Specificare che il calcolo si basa su un'assunzione di prezzo fisso e senza variazioni.",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Costo totale formula annuale = 120€ (pagamento unico)",
+              "premises": "Dato dichiarato dall'utente (user_stated). **Controesempio possibile**: il fornitore potrebbe applicare condizioni aggiuntive (es. IVA, penalizzazioni) non menzionate.",
+              "support": "stated",
+              "correction": "Aggiungere una nota esplicita che il prezzo non è confermato dal fornitore.",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Capacità di archiviazione uguale (100 GB) per entrambe le formule",
+              "premises": "Dato dichiarato dall'utente. **Controesempio possibile**: il fornitore potrebbe limitare la capacità in caso di disdetta anticipata o modificare i termini contrattuali.",
+              "support": "stated",
+              "correction": "Specificare che la capacità è dichiarata dall'utente e non confermata dal fornitore.",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Assistenza uguale tra le due formule",
+              "premises": "Dato dichiarato dall'utente. **Controesempio possibile**: il livello di assistenza potrebbe differire in base alla formula scelta (es. priorità o tempi di risposta variabili).",
+              "support": "stated",
+              "correction": "Aggiungere una nota che l'uguaglianza è basata su dichiarazione dell'utente e non verificata.",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Nessun rimborso in caso di disdetta anticipata per la formula annuale",
+              "premises": "Dato dichiarato dall'utente. **Controesempio possibile**: il fornitore potrebbe prevedere eccezioni (es. disdetta per motivi validi) o condizioni non menzionate.",
+              "support": "stated",
+              "correction": "Specificare che il vincolo è basato su dichiarazione dell'utente e non confermato dal fornitore.",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Formula mensile: flessibilità nel pagamento e possibilità di sospensione temporanea",
+              "premises": "Dato implicito dall'utente (assenza di vincoli espliciti). **Controesempio possibile**: il fornitore potrebbe imporre limiti non dichiarati (es. sospensione solo per motivi specifici).",
+              "support": "conditional",
+              "correction": "Aggiungere una nota che la flessibilità è basata su dichiarazione dell'utente e non verificata.",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Raccomandazione: formula annuale conveniente se si mantiene l'abbonamento per 12 mesi",
+              "premises": "Calcolo derivato: 180€ (mensile) vs 120€ (annuale). Assunzione implicita: assenza di disdetta anticipata. **Controesempio possibile**: se la disdetta anticipata è probabile, la formula mensile diventa più economica a lungo termine.",
+              "support": "derived",
+              "correction": "Specificare che la raccomandazione si basa su un'assunzione di certezza nell'utilizzo per 12 mesi.",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [],
+              "source_passage_ids_count": 0,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 8,
+          "sequence": 6,
+          "json_pointer": "/cases/2/structured_decisions/4",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_3b55d97558ab4f7c"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_e2a60334cc0f4c0c",
+            "step_id": "stp_392eb57f1aa84c71",
+            "draft_kind": "text",
+            "draft_characters": 3165,
+            "draft_truncated": false
+          },
+          "artifact": {
+            "sha256_of_retained_text": "81b24f535c776137a1ced5ce0edb865421517edb18d8d2693f200a89da8b4b3a",
+            "retained_characters": 2033,
+            "reported_complete_characters": 2033,
+            "truncated_in_original": false
+          },
+          "audit_input_draft": {
+            "sha256_of_retained_text": "f3df61994af9e9b95189556cf5ac245aff4a2f07e8ba519f733326484ae26702",
+            "retained_characters": 3165,
+            "reported_complete_characters": 3165,
+            "truncated_in_original": false
+          }
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 10,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 2272,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_3b55d97558ab4f7c"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 11,
+          "sequence": 9,
+          "json_pointer": "/cases/2/structured_decisions/7",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_3b55d97558ab4f7c"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_e2a60334cc0f4c0c",
+            "step_id": "stp_0a2c056b944b4761"
+          },
+          "artifact": {
+            "sha256_of_retained_text": "5579af1b72f51d1d3ad0d31e866db0a2c10ee1f07d564cd261368aa9ad52d20f",
+            "retained_characters": 2272,
+            "reported_complete_characters": 2272,
+            "truncated_in_original": false
+          }
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 11,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 2272,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_3b55d97558ab4f7c"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "La tabella comparativa è corretta e supportata dai dati forniti dall'utente, con tutte le implicazioni pratiche chiaramente indicate.",
+          "claim_review_kind": "array",
+          "claim_review_count": 7,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "Costo totale della formula mensile per 12 mesi è 180€.",
+              "premises": "15€ × 12 mesi = 180€; fonte: dati forniti dall'utente.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Costo totale della formula annuale è 120€.",
+              "premises": "120€ anticipati per 12 mesi; fonte: dati forniti dall'utente.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Entrambe le formule offrono 100 GB di archiviazione.",
+              "premises": "100 GB di archiviazione per entrambe le opzioni; fonte: dati forniti dall'utente.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Assistenza uguale per entrambe le formule.",
+              "premises": "Assistenza uguale per entrambe le opzioni; fonte: dati forniti dall'utente.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "La formula annuale non prevede rimborso in caso di disdetta anticipata.",
+              "premises": "Non previsto rimborso per disdetta anticipata; fonte: dati forniti dall'utente.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_553_565"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_553_565",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "autorizzato.",
+                  "quote_characters": 12,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "La formula mensile potrebbe offrire maggiore flessibilità.",
+              "premises": "Flessibilità nella disdetta, ma rimborso non specificato; fonte: dati forniti dall'utente.",
+              "support": "conditional",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_553_565"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_553_565",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "autorizzato.",
+                  "quote_characters": 12,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "I dati riportati non sono confermati dal fornitore.",
+              "premises": "Dati non confermati dal fornitore; fonte: dati forniti dall'utente.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_3b55d97558ab4f7c"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_032b59382499429e_0_277"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_032b59382499429e_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_3b55d97558ab4f7c",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 12,
+          "sequence": 10,
+          "json_pointer": "/cases/2/structured_decisions/8",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_3b55d97558ab4f7c"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_e2a60334cc0f4c0c",
+            "step_id": "stp_0a2c056b944b4761",
+            "draft_kind": "text",
+            "draft_characters": 2272,
+            "draft_truncated": false
+          },
+          "artifact": {
+            "sha256_of_retained_text": "5579af1b72f51d1d3ad0d31e866db0a2c10ee1f07d564cd261368aa9ad52d20f",
+            "retained_characters": 2272,
+            "reported_complete_characters": 2272,
+            "truncated_in_original": false
+          },
+          "audit_input_draft": {
+            "sha256_of_retained_text": "5579af1b72f51d1d3ad0d31e866db0a2c10ee1f07d564cd261368aa9ad52d20f",
+            "retained_characters": 2272,
+            "reported_complete_characters": 2272,
+            "truncated_in_original": false
+          }
+        }
+      ],
+      "verification_trace": [
+        {
+          "json_pointer": "/cases/2/structured_decisions/9",
+          "stage": "verify_goal",
+          "model_attempts_before": 12,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "partially_achieved",
+          "reasoning": "La tabella comparativa è stata preparata e include i costi totali, vincoli contrattuali (rimborso, disdetta anticipata), capacità di archiviazione e assistenza, ma manca l'esplicita **evidenziazione delle implicazioni pratiche** (es. flessibilità vs costo) in modo sintetico e diretto come richiesto dal criterio 1. Inoltre, la nota di disclaimer sui dati non confermati è presente, ma il formato non",
+          "truncated_fields": [
+            "reasoning"
+          ],
+          "model_attempts_after": 13,
+          "sequence": 11
+        },
+        {
+          "json_pointer": "/cases/2/structured_decisions/10",
+          "stage": "verify_goal",
+          "model_attempts_before": 14,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "partially_achieved",
+          "reasoning": "La tabella comparativa è stata preparata con i dati forniti dall'utente, evidenziando costi, vincoli e implicazioni pratiche, ma manca l'esplicita **verifica dei vincoli contrattuali** (rimborso disdetta anticipata) e la **conferma esplicita** che i dati non sono ancora validati dal fornitore in modo più diretto nel testo (la nota è presente ma non esplicitamente collegata a ogni voce critica).",
+          "model_attempts_after": 15,
+          "sequence": 12
+        }
+      ],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_9264571673be4c25",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_392eb57f1aa84c71",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_review_invalid",
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_0a2c056b944b4761",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "latest_audit_content_equals_saved_text": true
+    },
+    {
+      "scenario": "source_revoked",
+      "original_json_pointer": "/cases/3",
+      "original_machine_passed": true,
+      "original_reason": null,
+      "original_result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "model_attempts": 5,
+      "model_http_requests": 5,
+      "structured_decisions_omitted": 0,
+      "manual_result": "revocation_scenario_only",
+      "delivery_observed": "no preparation output",
+      "correct": [
+        "Original records cancelled, stopped_on_source_revocationtrue, replay_idempotenttrue"
+      ],
+      "findings": [],
+      "original_result_without_text": {
+        "state": "cancelled",
+        "stopped_on_source_revocation": true,
+        "replay_idempotent": true
+      },
+      "preparation_trace": [],
+      "verification_trace": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_e10f75e50e1e4215",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ]
+    },
+    {
+      "scenario": "memory_revoked",
+      "original_json_pointer": "/cases/4",
+      "original_machine_passed": true,
+      "original_reason": null,
+      "original_result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "model_attempts": 5,
+      "model_http_requests": 5,
+      "structured_decisions_omitted": 0,
+      "manual_result": "revocation_scenario_only",
+      "delivery_observed": "no preparation output",
+      "correct": [
+        "Original records abandoned and stopped_on_memory_revocationtrue"
+      ],
+      "findings": [],
+      "original_result_without_text": {
+        "state": "abandoned",
+        "stopped_on_memory_revocation": true
+      },
+      "preparation_trace": [],
+      "verification_trace": [],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_a872a4e51efd4f4a",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ]
+    },
+    {
+      "scenario": "memory_corrected",
+      "original_json_pointer": "/cases/5",
+      "original_machine_passed": false,
+      "original_reason": "COMPLETION_BUDGET_EXHAUSTED",
+      "original_result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      },
+      "model_attempts": 19,
+      "model_http_requests": 20,
+      "structured_decisions_omitted": 1,
+      "manual_result": "current_numbers_correct_but_draft_not_accepted",
+      "delivery_observed": "not_run; saved active draft, no completed Home delivery proved",
+      "correct": [
+        "Real recorded second information.read uses corrected source; final2682chars180/150/difference30 over12months",
+        "No old120/60 appear in final artifact",
+        "Monthly refund unspecified, annual no-refund correct",
+        "Internal provenance and absence of provider confirmation explicit"
+      ],
+      "findings": [
+        {
+          "id": "M01",
+          "kind": "substantive",
+          "title": "Comparative flexibility lacks the other option’s conditions",
+          "sequence": 10,
+          "observed_quote": "La mancanza di rimborso in caso di disdetta anticipata rende l’opzione 2 meno flessibile.",
+          "assessment": "The annual restriction itself is sourced. Relative comparison to monthly cancellation flexibility lacks monthly policy; this final conclusion is omitted from the six audit checks. Audit only changes formatting of the generation, preserving it."
+        },
+        {
+          "id": "M02",
+          "kind": "audit_defect",
+          "title": "Authority sentence becomes contract speculation in audit",
+          "sequence": 10,
+          "observed_quote": "Non ci sono modifiche contrattuali o pagamenti aggiuntivi garantiti.",
+          "assessment": "claim_review[4] uses autorizzato. to discuss possible additional charges. Canonical sentence limits authorization for action; it is not a contract-price condition."
+        },
+        {
+          "id": "M03",
+          "kind": "verifier_defect",
+          "title": "False completion prerequisite after correct reread",
+          "sequence": 11,
+          "observed_quote": "manca una verifica diretta delle condizioni contrattuali ... e una conferma scritta dei prezzi dal fornitore stesso",
+          "assessment": "The user asked an internal comparison of recorded values. Verifier requires external confirmation instead of judging the bounded current result; reconsider seq12 requests authority-related work. This is observed judgement, not a user requirement."
+        },
+        {
+          "id": "M04",
+          "kind": "technical_observation",
+          "title": "Later chooser context unavailable is a distinct observed boundary",
+          "sequence": 13,
+          "observed_quote": "material_context_exceeds_budget",
+          "assessment": "Last context_observation has20338 input characters, availablefalse, encodednull. Only9000-character report prefix retained; cannot reconstruct complete later chooser payload from this original. Machine budget failure remains unchanged."
+        }
+      ],
+      "saved_goal_snapshot": {
+        "status": "active",
+        "desired_outcome": "un documento interno che elenca i costi totali, i vincoli e le differenze tra le due formule, con segnalazione delle condizioni da verificare con il fornitore",
+        "success_criteria": [
+          "elenco comparativo dei costi totali (180€ vs 120€) per 12 mesi",
+          "riassunto dei vincoli (rimborso, spese iniziali, GB, assistenza)",
+          "segnalazione esplicita delle condizioni non confermate dal fornitore",
+          "assenza di modifiche contrattuali o pagamenti"
+        ],
+        "prepared_sources": [
+          "evd_7e251aae1db34406"
+        ],
+        "prepared_text_characters": 2682,
+        "prepared_text_truncated": false,
+        "evidence_count": 8,
+        "current_evidence_count": 7,
+        "requires_user_input": false,
+        "planning_unavailable": false
+      },
+      "saved_artifact": {
+        "sha256_of_retained_text": "65c9ad82f33e836257ef396726004fdab33d94ae9da9de5bf2cb133d967ef986",
+        "retained_characters": 2682,
+        "reported_complete_characters": 2682,
+        "truncated_in_original": false
+      },
+      "preparation_trace": [
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 7,
+          "response_kind": "none",
+          "model_attempts_after": 9,
+          "sequence": 6,
+          "json_pointer": "/cases/5/structured_decisions/4",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_7e251aae1db34406"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_26a3e16dce0f4120",
+            "step_id": "stp_fa9a9424fb764c01"
+          }
+        },
+        {
+          "stage": "preparation_generation",
+          "model_attempts_before": 11,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 2718,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_7e251aae1db34406"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "none",
+          "model_attempts_after": 12,
+          "sequence": 9,
+          "json_pointer": "/cases/5/structured_decisions/7",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_7e251aae1db34406"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_26a3e16dce0f4120",
+            "step_id": "stp_26221a109d86445c"
+          },
+          "artifact": {
+            "sha256_of_retained_text": "2d64ec8b3783ffec4af6600e39464c21acd3e9468ca18548a5752cc51ad8a91f",
+            "retained_characters": 2718,
+            "reported_complete_characters": 2718,
+            "truncated_in_original": false
+          }
+        },
+        {
+          "stage": "preparation_audit",
+          "model_attempts_before": 12,
+          "response_kind": "object",
+          "content_kind": "text",
+          "content_characters": 2682,
+          "content_truncated": false,
+          "evidence_ids_kind": "array",
+          "evidence_ids": [
+            "evd_7e251aae1db34406"
+          ],
+          "evidence_ids_count": 1,
+          "evidence_ids_omitted": 0,
+          "verified_kind": "boolean",
+          "verified": true,
+          "reason": "Il documento è stato corretto e ora include un confronto dettagliato dei costi e vincoli, evidenziando le condizioni non confermate.",
+          "claim_review_kind": "array",
+          "claim_review_count": 6,
+          "claim_review_omitted": 0,
+          "claim_review": [
+            {
+              "claim": "I costi totali per 12 mesi sono 180 € per l'opzione mensile e 150 € per l'opzione anticipata.",
+              "premises": "I costi sono riportati dall'utente e non confermati. Opzione 1: 15 €/mese × 12 mesi = 180 €. Opzione 2: 150 € anticipati per 12 mesi. Risparmio netto di 30 € a favore dell'opzione 2.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_7e251aae1db34406"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_04dbbf5105b943e4_0_277",
+                "p_04dbbf5105b943e4_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_04dbbf5105b943e4_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_7e251aae1db34406",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_04dbbf5105b943e4_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_7e251aae1db34406",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "I vincoli comuni sono 100 GB di spazio, assistenza uguale e spese iniziali nulle.",
+              "premises": "Entrambe le opzioni offrono 100 GB e assistenza uguale, con spese iniziali nulle. Tuttavia, non è confermato se ci siano costi nascosti.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_7e251aae1db34406"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_04dbbf5105b943e4_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_04dbbf5105b943e4_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_7e251aae1db34406",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Il rimborso per disdetta anticipata è escluso nell'opzione anticipata.",
+              "premises": "L'opzione 1 non menziona il rimborso, mentre l'opzione 2 esclude esplicitamente il rimborso in caso di disdetta anticipata.",
+              "support": "stated",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_7e251aae1db34406"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_04dbbf5105b943e4_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_04dbbf5105b943e4_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_7e251aae1db34406",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Le condizioni non confermate dal fornitore includono la validità dei prezzi e l'inclusione di servizi aggiuntivi.",
+              "premises": "I prezzi sono riportati dall'utente e non confermati. Non è chiaro se l'assistenza sia effettivamente uguale o se ci siano differenze nascoste.",
+              "support": "conditional",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_7e251aae1db34406"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_04dbbf5105b943e4_0_277",
+                "p_04dbbf5105b943e4_277_553"
+              ],
+              "source_passage_ids_count": 2,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_04dbbf5105b943e4_0_277",
+                  "source_passage_id_characters": 24,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_7e251aae1db34406",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+                  "quote_characters": 277,
+                  "quote_truncated": false
+                },
+                {
+                  "selection_index": 1,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_04dbbf5105b943e4_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_7e251aae1db34406",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Non ci sono modifiche contrattuali o pagamenti aggiuntivi garantiti.",
+              "premises": "Non è garantita l'assenza di costi aggiuntivi senza una lettura completa del contratto. Verificare eventuali clausole nascoste.",
+              "support": "conditional",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_7e251aae1db34406"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_04dbbf5105b943e4_553_565"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_04dbbf5105b943e4_553_565",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_7e251aae1db34406",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "autorizzato.",
+                  "quote_characters": 12,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            },
+            {
+              "claim": "Le politiche di cancellazione per l'opzione 1 non sono specificate.",
+              "premises": "Non è stato specificato se esista un periodo di prova o un rimborso parziale in caso di disdetta entro i primi mesi.",
+              "support": "conditional",
+              "correction": "",
+              "evidence_ids_kind": "array",
+              "evidence_ids": [
+                "evd_7e251aae1db34406"
+              ],
+              "evidence_ids_count": 1,
+              "evidence_ids_omitted": 0,
+              "source_passage_ids_kind": "array",
+              "source_passage_ids": [
+                "p_04dbbf5105b943e4_277_553"
+              ],
+              "source_passage_ids_count": 1,
+              "source_passage_ids_omitted": 0,
+              "source_passage_selections": [
+                {
+                  "selection_index": 0,
+                  "response_kind": "text",
+                  "status": "materialized",
+                  "origin": "code_owned_audit_input",
+                  "source_passage_id": "p_04dbbf5105b943e4_277_553",
+                  "source_passage_id_characters": 26,
+                  "source_passage_id_truncated": false,
+                  "evidence_id": "evd_7e251aae1db34406",
+                  "evidence_id_characters": 20,
+                  "evidence_id_truncated": false,
+                  "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 150 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+                  "quote_characters": 276,
+                  "quote_truncated": false
+                }
+              ],
+              "source_quotes_kind": "none"
+            }
+          ],
+          "model_attempts_after": 13,
+          "sequence": 10,
+          "json_pointer": "/cases/5/structured_decisions/8",
+          "input_metadata": {
+            "evidence_kind": "array",
+            "evidence_count": 1,
+            "evidence_truncated": false,
+            "evidence_ids_kind": "array",
+            "evidence_ids": [
+              "evd_7e251aae1db34406"
+            ],
+            "evidence_ids_count": 1,
+            "evidence_ids_omitted": 0,
+            "goal_id": "gol_26a3e16dce0f4120",
+            "step_id": "stp_26221a109d86445c",
+            "draft_kind": "text",
+            "draft_characters": 2718,
+            "draft_truncated": false
+          },
+          "artifact": {
+            "sha256_of_retained_text": "65c9ad82f33e836257ef396726004fdab33d94ae9da9de5bf2cb133d967ef986",
+            "retained_characters": 2682,
+            "reported_complete_characters": 2682,
+            "truncated_in_original": false
+          },
+          "audit_input_draft": {
+            "sha256_of_retained_text": "2d64ec8b3783ffec4af6600e39464c21acd3e9468ca18548a5752cc51ad8a91f",
+            "retained_characters": 2718,
+            "reported_complete_characters": 2718,
+            "truncated_in_original": false
+          }
+        }
+      ],
+      "verification_trace": [
+        {
+          "json_pointer": "/cases/5/structured_decisions/9",
+          "stage": "verify_goal",
+          "model_attempts_before": 15,
+          "input": {
+            "status": "active",
+            "evidence_kind": "object",
+            "evidence_entries": 7
+          },
+          "response_kind": "object",
+          "outcome": "partially_achieved",
+          "reasoning": "Il documento preparato elenca i costi totali (180€ vs 150€), i vincoli (rimborso, GB, assistenza) e segnala esplicitamente le condizioni non confermate dal fornitore, ma manca una **verifica diretta delle condizioni contrattuali** (es. clausole nascoste, tasse, IVA) e una **conferma scritta dei prezzi** dal fornitore stesso.",
+          "model_attempts_after": 16,
+          "sequence": 11
+        }
+      ],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_859bd174e5fb41f9",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "information.read",
+          "step_id": "stp_6305ebb0bf944e96",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_fa9a9424fb764c01",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_model_unavailable",
+          "retryable": true
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_26221a109d86445c",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "latest_audit_content_equals_saved_text": true
+    },
+    {
+      "scenario": "source_change_crash",
+      "original_json_pointer": "/cases/6",
+      "original_machine_passed": false,
+      "original_reason": "OWNED_SOURCE_NOT_READ_ONCE",
+      "original_result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      },
+      "model_attempts": 7,
+      "model_http_requests": 10,
+      "structured_decisions_omitted": 0,
+      "manual_result": "no_result_to_review",
+      "delivery_observed": "not_run",
+      "correct": [],
+      "findings": [
+        {
+          "id": "S01",
+          "kind": "absence_of_result",
+          "title": "No executed source evidence or saved comparison",
+          "sequence": 5,
+          "observed_quote": "Non ci sono evidenze utilizzabili registrate per questo obiettivo.",
+          "assessment": "No generation/audit response exists. Goal remains active with0Evidence, failed prepare and pending verify/prepare steps. Planning/reconsideration mention preview data but original owned-source-read check fails. No physical/source/result success inferred."
+        }
+      ],
+      "saved_goal_snapshot": {
+        "status": "active",
+        "desired_outcome": "un documento comparativo che permetta di valutare quale opzione sia più vantaggiosa in base alle esigenze economiche e temporali",
+        "success_criteria": [
+          "tabella comparativa con costi totali (180€ vs 120€), durata (12 mesi), assistenza (uguale), vincoli (assenza di rimborso per la seconda opzione)",
+          "sintesi chiara dei punti chiave per una valutazione immediata",
+          "evidenziazione esplicita dei vincoli contrattuali (assenza di rimborso in caso di disdetta anticipata)"
+        ],
+        "prepared_sources": [],
+        "prepared_text_characters": 0,
+        "prepared_text_truncated": false,
+        "evidence_count": 0,
+        "current_evidence_count": 0,
+        "requires_user_input": false,
+        "planning_unavailable": false
+      },
+      "saved_artifact": {
+        "sha256_of_retained_text": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "retained_characters": 0,
+        "reported_complete_characters": 0,
+        "truncated_in_original": false
+      },
+      "preparation_trace": [],
+      "verification_trace": [],
+      "executed_capabilities": [
+        {
+          "capability": "document.create",
+          "step_id": "stp_1f9f54a648d84f2b",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_sources_required",
+          "retryable": false
+        }
+      ]
+    },
+    {
+      "scenario": "already_resolved",
+      "original_json_pointer": "/cases/7",
+      "original_machine_passed": true,
+      "original_reason": null,
+      "original_result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "structured_decisions_omitted": 0,
+      "manual_result": "no_goal_appropriate_to_recorded_fixture",
+      "delivery_observed": "not applicable",
+      "correct": [
+        "No new goal admitted for already-resolved synthetic outcome"
+      ],
+      "findings": [],
+      "original_result_without_text": {
+        "state": "no_goal"
+      },
+      "preparation_trace": [],
+      "verification_trace": [],
+      "executed_capabilities": []
+    },
+    {
+      "scenario": "irrelevant",
+      "original_json_pointer": "/cases/8",
+      "original_machine_passed": true,
+      "original_reason": null,
+      "original_result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "passed"
+        }
+      },
+      "model_attempts": 1,
+      "model_http_requests": 1,
+      "structured_decisions_omitted": 0,
+      "manual_result": "no_goal_appropriate_to_recorded_fixture",
+      "delivery_observed": "not applicable",
+      "correct": [
+        "No new goal admitted for irrelevant synthetic note"
+      ],
+      "findings": [],
+      "original_result_without_text": {
+        "state": "no_goal"
+      },
+      "preparation_trace": [],
+      "verification_trace": [],
+      "executed_capabilities": []
+    }
+  ],
+  "artifact_texts_by_sha256": {
+    "06a13d8f1c3899c45b36bd472402e33e289dd6fec4394e3f0fb45e38dc2ce807": {
+      "sha256_of_retained_text": "06a13d8f1c3899c45b36bd472402e33e289dd6fec4394e3f0fb45e38dc2ce807",
+      "retained_characters": 2888,
+      "text": "Confronto scritto delle due formule di archiviazione digitale per 12 mesi, basato sui dati **user-stated** e non confermati dal fornitore (come specificato nella nota salvata). I vincoli e i costi totali sono calcolati sulla base delle informazioni fornite, senza garanzia di validità attuale o aggiornata dal provider. **Nessun pagamento o modifica è autorizzato senza conferma esplicita dall'utente.**\n\n### **1. Piano Mensile (15€/mese, 100GB, supporto uguale, senza spese iniziali)**\n- **Costo totale per 12 mesi**: 15€ × 12 = **180€**\n- **Vincoli e limitazioni**:\n  - Nessuna penalizzazione per disdetta anticipata.\n  - Spese iniziali nulle.\n  - Archiviazione: 100GB.\n  - Assistenza uguale al piano annuale.\n\n### **2. Piano Annuale (120€ anticipati, 100GB, supporto uguale, senza spese iniziali)**\n- **Costo totale per 12 mesi**: **120€** (pagamento unico all’inizio).\n- **Vincoli e limitazioni**:\n  - **Nessun rimborso** in caso di disdetta anticipata prima dei 12 mesi.\n  - Spese iniziali nulle.\n  - Archiviazione: 100GB (uguale al piano mensile).\n  - Assistenza uguale al piano mensile.\n\n### **Confronto dei costi e vincoli**\n| **Criterio**               | **Piano Mensile**       | **Piano Annuale**       |\n|---------------------------|-------------------------|-------------------------|\n| **Costo totale (12 mesi)** | **180€** (15€/mese)     | **120€** (pagamento unico) |\n| **Rimborso disdetta**     | Sì (nessuna penalizzazione) | **No** (nessun rimborso) |\n| **Spese iniziali**        | Nulle                  | Nulle                  |\n| **Archiviazione**         | 100GB                   | 100GB                   |\n| **Supporto**              | Uguale                  | Uguale                  |\n\n### **Considerazioni**\n- **Risparmio economico**: Il piano annuale costa **60€ in meno** rispetto al piano mensile su 12 mesi, ma **non prevede rimborso** in caso di cancellazione anticipata. Se l’utente prevede di utilizzare il servizio per **tutti i 12 mesi**, il piano annuale è più conveniente.\n- **Flessibilità**: Il piano mensile offre maggiore libertà di disdetta senza penalizzazioni, utile se la necessità di archiviazione potrebbe cambiare.\n- **Dati non confermati**: I costi e i vincoli sono basati su **dati dichiarati dall’utente** (user_stated) e non verificati dal provider. Si consiglia di **contattare direttamente il fornitore** per confermare tariffe, condizioni di rimborso e eventuali aggiornamenti.\n\n### **Limiti e raccomandazioni**\n- **Non è stato verificato** che le tariffe o i vincoli siano ancora validi al momento della scelta.\n- **Nessun pagamento o modifica contrattuale è autorizzato** senza conferma esplicita dall’utente.\n- **Archiviazione e supporto**: Entrambe le opzioni offrono le stesse capacità di storage (100GB) e livello di assistenza, quindi la scelta dipende principalmente dal **costo totale e dalla flessibilità di disdetta**."
+    },
+    "8abfd4089e8667396244e8523704b3d770bab054f3f0926f6a6073b04cbd8324": {
+      "sha256_of_retained_text": "8abfd4089e8667396244e8523704b3d770bab054f3f0926f6a6073b04cbd8324",
+      "retained_characters": 2893,
+      "text": "Confronto scritto delle due formule di archiviazione digitale per 12 mesi, basato sui dati **user-stated** e non confermati dal fornitore (come specificato nella nota salvata). I vincoli e i costi totali sono calcolati sulla base delle informazioni fornite, senza garanzia di validità attuale o aggiornata dal provider. **Nessun pagamento o modifica è autorizzato senza conferma esplicita dall'utente.**\n\n\n### **1. Piano Mensile (15€/mese, 100GB, supporto uguale, senza spese iniziali)**\n- **Costo totale per 12 mesi**: 15€ × 12 = **180€**\n- **Vincoli e limitazioni**:\n  - Nessuna penalizzazione per disdetta anticipata.\n  - Spese iniziali nulle.\n  - Archiviazione: 100GB.\n  - Assistenza uguale al piano annuale.\n\n\n### **2. Piano Annuale (120€ anticipati, 100GB, supporto uguale, senza spese iniziali)**\n- **Costo totale per 12 mesi**: **120€** (pagamento unico all’inizio).\n- **Vincoli e limitazioni**:\n  - **Nessun rimborso** in caso di disdetta anticipata prima dei 12 mesi.\n  - Spese iniziali nulle.\n  - Archiviazione: 100GB (uguale al piano mensile).\n  - Assistenza uguale al piano mensile.\n\n\n### **Confronto dei costi e vincoli**\n| **Criterio**               | **Piano Mensile**       | **Piano Annuale**       |\n|---------------------------|-------------------------|-------------------------|\n| **Costo totale (12 mesi)** | **180€** (15€/mese)     | **120€** (pagamento unico) |\n| **Rimborso disdetta**     | Sì (nessuna penalizzazione) | **No** (nessun rimborso) |\n| **Spese iniziali**        | Nulle                  | Nulle                  |\n| **Archiviazione**         | 100GB                   | 100GB                   |\n| **Supporto**              | Uguale                  | Uguale                  |\n\n\n### **Considerazioni**\n- **Risparmio economico**: Il piano annuale costa **60€ in meno** rispetto al piano mensile su 12 mesi, ma **non prevede rimborso** in caso di cancellazione anticipata. Se l’utente prevede di utilizzare il servizio per **tutti i 12 mesi**, il piano annuale è più conveniente.\n- **Flessibilità**: Il piano mensile offre maggiore libertà di disdetta senza penalizzazioni, utile se la necessità di archiviazione potrebbe cambiare.\n- **Dati non confermati**: I costi e i vincoli sono basati su **dati dichiarati dall’utente** (user_stated) e non verificati dal provider. Si consiglia di **contattare direttamente il fornitore** per confermare tariffe, condizioni di rimborso e eventuali aggiornamenti.\n\n\n### **Limiti e raccomandazioni**\n- **Non è stato verificato** che le tariffe o i vincoli siano ancora validi al momento della scelta.\n- **Nessun pagamento o modifica contrattuale è autorizzato** senza conferma esplicita dall’utente.\n- **Archiviazione e supporto**: Entrambe le opzioni offrono le stesse capacità di storage (100GB) e livello di assistenza, quindi la scelta dipende principalmente dal **costo totale e dalla flessibilità di disdetta**."
+    },
+    "2c9491b76a17b9710ba3aeeac5bb7fb534cb8ca39526bf5a95e19288b899ca54": {
+      "sha256_of_retained_text": "2c9491b76a17b9710ba3aeeac5bb7fb534cb8ca39526bf5a95e19288b899ca54",
+      "retained_characters": 1824,
+      "text": "**Confronto delle due formule di archivio digitale per 12 mesi**  \n*Nota: i dati sono riferiti dall’utente e non confermati dal fornitore. Verifica diretta necessaria per validità attuale.*  \n| **Caratteristica**               | **Formula A (mensile)**       | **Formula B (annuale)**        | **Uguale**                     |  \n|-------------------------------|-------------------------------|-------------------------------|-------------------------------|  \n| **Costo totale (12 mesi)**     | **180 €** (15 €/mese × 12)    | **120 €** (pagamento anticipato) | -                             |  \n| **Costo mensile**               | **15 €**                       | **10 €** (media annua)        | -                             |  \n| **Spese iniziali**             | **0 €**                        | **0 €**                        | **0 €**                        |  \n| **Spazio**                      | 100 GB                        | 100 GB                        | **100 GB**                    |  \n| **Assistenza**                  | Inclusa                       | Inclusa                       | **Inclusa**                   |  \n| **Rimborso disdetta anticipata** | Non specificato (da verificare) | **Non previsto**               | -                             |  \n**Differenze chiave:**  \n- **Formula A**: flessibilità mensile, ma costo totale più alto (180 € vs 120 €).  \n- **Formula B**: risparmio totale (120 €), ma **nessun rimborso** in caso di disdetta prima dei 12 mesi.  \n**Dati non confermati:**  \n- Assenza di rimborso per la Formula B in caso di disdetta anticipata (da verificare con il fornitore).  \n- Eventuali costi nascosti o condizioni aggiuntive non menzionate.  \n*Consiglio:* Valutare priorità tra risparmio totale e flessibilità, considerando il rischio di disdetta anticipata per la Formula B."
+    },
+    "3df34d64b9358025ff517cb08c6b8dfbc4cb5775f0578e1fa47237ecee0b9847": {
+      "sha256_of_retained_text": "3df34d64b9358025ff517cb08c6b8dfbc4cb5775f0578e1fa47237ecee0b9847",
+      "retained_characters": 4000,
+      "text": "### Confronto delle due formule di archivio digitale per 12 mesi\n\n**Nota preliminare**: I dati riportati sono basati sulla memoria salvata (*mem_43262246ed92296b9353*) e **non confermati dal fornitore**. Si tratta di informazioni fornite dall'utente (*user_stated*), senza verifica indipendente. I vincoli di disdetta e altre condizioni potrebbero variare rispetto a quanto riportato. Prima di procedere con una scelta, si raccomanda di contattare direttamente il fornitore per confermare i dettagli.\n\n\n#### **Tabella comparativa costi e caratteristiche**\n\n| **Caratteristica**               | **Formula 1 (mensile)**       | **Formula 2 (annuale anticipata)** | **Uguale**                     |\n|----------------------------------|-----------------------------------|----------------------------------|-------------------------------|\n| **Costo totale per 12 mesi**     | **180 €** (15 €/mese × 12)      | **120 €** (pagamento anticipato)| -                             |\n| **Costo mensile**                | **15 €**                          | **10 €/mese** (solo per 12 mesi)| -                             |\n| **Spese iniziali**               | **0 €**                           | **0 €**                           | **0 €** (nessuna spesa aggiuntiva) |\n| **Spazio archivio**              | 100 GB                            | 100 GB                            | **100 GB**                     |\n| **Assistenza**                   | Inclusa                           | Inclusa                           | **Assistenza uguale**          |\n| **Rimborso disdetta anticipata**| **Non specificato** (da verificare)| **Non previsto** (da verificare) | **Da confermare**               |\n| **Condizioni non confermate**   | - Costo mensile e totale (da verificare con fornitore)<br>- Vincoli di disdetta e rimborso (da confermare)| - Rimborso disdetta anticipata (da verificare)<br>- Possibili penali o condizioni nascoste (da verificare)| -                               |\n\n\n#### **Analisi e considerazioni**\n\n1. **Costi totali e mensili**:\n   - La **Formula 2 (annuale anticipata)** risulta più economica nel lungo periodo (**120 € vs 180 €**), con un risparmio netto di **60 €** rispetto alla Formula 1. Tuttavia, il pagamento anticipato potrebbe non essere adatto a chi preferisce rateizzare.\n   - **Costo mensile medio**: La Formula 2 si traduce in un costo mensile di **10 €** (120 €/12), contro i **15 €** della Formula 1. Questo la rende più conveniente se si ha la liquidità per il pagamento anticipato.\n\n2. **Vincoli e condizioni non confermate**:\n   - **Rimborso disdetta anticipata**: La nota riporta che la Formula 2 **non prevede rimborso** in caso di disdetta anticipata. Questo è un punto critico: se l'utente dovesse cambiare idea entro i 12 mesi, **non sarebbe rimborsato** (a meno che non ci siano clausole aggiuntive non menzionate).\n     *Da verificare con il fornitore*: Esistono penali o condizioni per la disdetta anticipata? È possibile trasferire il pagamento a un altro periodo?\n   - **Spese nascoste**: Entrambe le formule non prevedono spese iniziali, ma non è escluso che possano esserci costi aggiuntivi (es. attivazione, trasferimento dati) non menzionati. **Da confermare**.\n\n3. **Caratteristiche uguali**:\n   - Entrambe le opzioni offrono **100 GB di spazio** e **assistenza inclusa**, quindi non ci sono differenze sostanziali in termini di funzionalità base.\n\n\n#### **Raccomandazioni**\n\n- **Se priorità è il risparmio**: La **Formula 2 (120 € anticipati)** è la scelta più economica, con un risparmio di **60 €** rispetto alla Formula 1. Tuttavia, **verificare con il fornitore** se sono previsti rimborsi o penali in caso di disdetta anticipata.\n- **Se preferisci flessibilità**: La **Formula 1 (15 €/mese)** permette di pagare mese per mese, senza vincoli di pagamento anticipato. Tuttavia, il costo totale è più alto (**180 € vs 120 €**).\n- **Da confermare assolutamente**:\n  - Condizioni di disdetta anticipata (rimborso, penali, trasferibilità del pagamento).\n  -"
+    },
+    "d68c53b5181adaef661811f792f6ab694ae47d8f77e8eadb47c8eafabf8c5ca3": {
+      "sha256_of_retained_text": "d68c53b5181adaef661811f792f6ab694ae47d8f77e8eadb47c8eafabf8c5ca3",
+      "retained_characters": 1797,
+      "text": "**Confronto delle due formule di archivio digitale per 12 mesi**\n\n*Nota: i dati sono riferiti dall’utente e non confermati dal fornitore. Verifica diretta necessaria per validità attuale.*\n\n| **Caratteristica**               | **Formula A (mensile)**       | **Formula B (annuale)**        | **Uguale**                     |\n|-------------------------------|-------------------------------|-------------------------------|-------------------------------|\n| **Costo totale (12 mesi)**     | **180 €** (15 €/mese × 12)    | **120 €** (pagamento anticipato) | -                             |\n| **Costo mensile**               | **15 €**                       | **10 €** (media annua)        | -                             |\n| **Spese iniziali**             | **0 €**                        | **0 €**                        | **0 €**                        |\n| **Spazio**                      | 100 GB                        | 100 GB                        | **100 GB**                    |\n| **Assistenza**                  | Inclusa                       | Inclusa                       | **Inclusa**                   |\n| **Rimborso disdetta anticipata** | Non specificato (da verificare) | **Non previsto**               | -                             |\n\n**Differenze chiave:**\n- **Formula A**: flessibilità mensile, ma costo totale più alto (180 € vs 120 €).\n- **Formula B**: risparmio totale (120 €), ma **nessun rimborso** in caso di disdetta prima dei 12 mesi.\n\n**Dati non confermati:**\n- Assenza di rimborso per la Formula B in caso di disdetta anticipata (da verificare con il fornitore).\n- Eventuali costi nascosti o condizioni aggiuntive non menzionate.\n\n*Consiglio:* Valutare priorità tra risparmio totale e flessibilità, considerando il rischio di disdetta anticipata per la Formula B."
+    },
+    "5579af1b72f51d1d3ad0d31e866db0a2c10ee1f07d564cd261368aa9ad52d20f": {
+      "sha256_of_retained_text": "5579af1b72f51d1d3ad0d31e866db0a2c10ee1f07d564cd261368aa9ad52d20f",
+      "retained_characters": 2272,
+      "text": "### **Tabella comparativa delle due formule di archivio digitale per 12 mesi (dati forniti dall'utente, non confermati dal fornitore)**\n\n| **Criterio**               | **Formula mensile (15€/mese)**       | **Formula annuale (120€ anticipati)** |\n|---------------------------|--------------------------------------|----------------------------------------|\n| **Costo totale (12 mesi)** | **15€ × 12 = 180€**         | **120€** (pagamento anticipato)       |\n| **Capacità di archiviazione** | 100 GB                                | 100 GB                                  |\n| **Assistenza**             | Uguale alla formula annuale          | Uguale alla formula mensile             |\n| **Spese iniziali**         | Nulle                                  | Nulle                                    |\n| **Rimborso disdetta anticipata** | Non specificato (da verificare) | **Non previsto** (dato fornito dall'utente) |\n| **Flessibilità**            | Pagamento mensile, disdetta senza penalità (ipotesi da confermare) | Pagamento unico, vincolo temporale fisso |\n\n**Implicazioni pratiche:**\n- **Costo totale**: La formula annuale risulta più economica (120€ vs 180€), ma richiede un anticipo. Se la disdetta anticipata è necessaria, la formula mensile potrebbe risultare più flessibile (anche se il rimborso non è garantito per nessuna delle due opzioni, secondo i dati forniti).\n- **Vincoli**: Entrambe le opzioni prevedono **100 GB di archiviazione** e **assistenza uguale**, ma la formula annuale **non prevede rimborso** in caso di disdetta anticipata. La formula mensile potrebbe offrire maggiore flessibilità, ma non sono disponibili dettagli sul rimborso.\n- **Dati non confermati**: I valori riportati sono basati sulla **memoria interna dell'utente (mem_43262246ed92296b9353)** e non sono stati validati dal fornitore. Si raccomanda di **verificare con il servizio clienti** per confermare costi, condizioni di disdetta e eventuali aggiornamenti.\n\n**Nota critica**: Non sono previsti pagamenti o modifiche contrattuali senza autorizzazione esplicita. La scelta finale dipende dalle priorità tra **costo totale vs flessibilità** e dalla conferma delle condizioni da parte del fornitore.\n\n*Fonte: Dati forniti dall'utente (user_stated), non confermati dal fornitore.*"
+    },
+    "f3df61994af9e9b95189556cf5ac245aff4a2f07e8ba519f733326484ae26702": {
+      "sha256_of_retained_text": "f3df61994af9e9b95189556cf5ac245aff4a2f07e8ba519f733326484ae26702",
+      "retained_characters": 3165,
+      "text": "Ecco la tabella comparativa richiesta, basata sui dati forniti dall'utente e con le implicazioni pratiche evidenziate. **Nota importante**: i dati non sono ancora confermati dal fornitore e non sono previsti pagamenti o modifiche contrattuali senza autorizzazione esplicita. I vincoli e i costi sono riportati come dichiarati dall'utente (user_stated), senza verifica esterna aggiuntiva. La scelta finale spetta all'utente, che dovrà confermare i termini con il fornitore prima di procedere con l'iscrizione o il pagamento.\n\n**Tabella comparativa (12 mesi)**\n\n| **Criterio**               | **Formula mensile (15€/mese)**       | **Formula annuale (120€ anticipati)** |\n|---------------------------|--------------------------------------|----------------------------------------|\n| **Costo totale (12 mesi)** | **15€ × 12 = 180€**               | **120€** (pagamento unico anticipato) |\n| **Spese iniziali**         | Nessuna                                | Nessuna                                |\n| **Capacità archiviazione** | 100 GB                                 | 100 GB                                 |\n| **Assistenza**             | Uguale alla formula annuale          | Uguale alla formula mensile            |\n| **Rimborso disdetta anticipata** | Non specificato (da verificare)     | **Nessun rimborso** in caso di disdetta prima dei 12 mesi |\n| **Flessibilità**           | Pagamento mensile, possibilità di sospensione temporanea (da verificare) | Impegno finanziario anticipato per 12 mesi |\n| **Implicazioni pratiche**  | - **Costo più alto a lungo termine** (180€ vs 120€), ma maggiore flessibilità nel pagamento e possibilità di annullamento senza vincoli chiari.\n- **Rischio di perdita economica** nella formula annuale se la disdetta anticipata è necessaria (nessun rimborso).\n- **Capacità e assistenza identiche**: la scelta si basa principalmente su budget e necessità di flessibilità.\n\n**Raccomandazione preliminare**\n- Se l'utente ha un **budget limitato** e può permettersi il pagamento anticipato, la formula annuale risulta più conveniente economicamente (risparmio di 60€). Tuttavia, **non è rimborsabile** in caso di disdetta anticipata, quindi va valutata la certezza di mantenere l'abbonamento per tutto il periodo.\n- Se invece si prevede **flessibilità** (es. necessità di sospendere o annullare prima dei 12 mesi) o **incertezza sul budget**, la formula mensile offre maggiore controllo sui costi, pur con un esborso totale maggiore.\n\n**Prossimi passi consigliati**\n1. **Confermare i termini contrattuali** con il fornitore, soprattutto riguardo al rimborso in caso di disdetta anticipata nella formula annuale.\n2. **Verificare eventuali condizioni nascoste** (es. penalizzazioni, limiti di utilizzo, politiche di cancellazione) non menzionate nella nota.\n3. **Valutare il rischio di disdetta**: se c'è una probabilità elevata di interrompere l'abbonamento prima dei 12 mesi, la formula mensile potrebbe essere più sicura economicamente.\n\n*Fonte dei dati: Memoria interna `mem_43262246ed92296b9353` (user_stated, non confermata dal fornitore). Non sono previsti pagamenti o modifiche contrattuali senza autorizzazione esplicita.*"
+    },
+    "81b24f535c776137a1ced5ce0edb865421517edb18d8d2693f200a89da8b4b3a": {
+      "sha256_of_retained_text": "81b24f535c776137a1ced5ce0edb865421517edb18d8d2693f200a89da8b4b3a",
+      "retained_characters": 2033,
+      "text": "**Tabella comparativa (12 mesi) – Dati dichiarati dall'utente (non confermati dal fornitore)**\n\n| **Criterio**               | **Formula mensile (15€/mese)**       | **Formula annuale (120€ anticipati)** |\n|---------------------------|--------------------------------------|----------------------------------------|\n| **Costo totale (12 mesi)** | **180€** (15€ × 12)         | **120€** (pagamento unico)          |\n| **Spese iniziali**         | Nessuna                                | Nessuna                                |\n| **Capacità archiviazione** | 100 GB (dichiarato dall'utente)      | 100 GB (dichiarato dall'utente)      |\n| **Assistenza**             | Uguale (dichiarato dall'utente)      | Uguale (dichiarato dall'utente)      |\n| **Rimborso disdetta anticipata** | Non specificato (da verificare)     | **Nessun rimborso** (dichiarato dall'utente) |\n| **Flessibilità**           | Pagamento mensile; sospensione temporanea non confermata | Impegno finanziario anticipato per 12 mesi |\n\n**Implicazioni pratiche**\n- **Formula annuale**: conveniente solo se si mantiene l'abbonamento per 12 mesi (risparmio di 60€). **Rischio**: nessun rimborso in caso di disdetta anticipata.\n- **Formula mensile**: costo totale maggiore (180€ vs 120€), ma maggiore flessibilità. **Incertezza**: assenza di conferma su sospensione o rimborso.\n- **Capacità e assistenza**: uguali per entrambe le formule, ma basate su dichiarazione dell'utente.\n\n**Nota critica**\nI dati riportati sono **esclusivamente dichiarati dall'utente** e non confermati dal fornitore. Prima di procedere, è necessario:\n1. **Verificare i termini contrattuali** con il fornitore, soprattutto riguardo a rimborsi, penalizzazioni o condizioni nascoste.\n2. **Valutare il rischio di disdetta anticipata**: se probabile, la formula mensile potrebbe risultare più sicura economicamente.\n\n*Fonte: Memoria interna `mem_43262246ed92296b9353` (user_stated, non confermata dal fornitore). Non sono previsti pagamenti o modifiche contrattuali senza autorizzazione esplicita.*"
+    },
+    "65c9ad82f33e836257ef396726004fdab33d94ae9da9de5bf2cb133d967ef986": {
+      "sha256_of_retained_text": "65c9ad82f33e836257ef396726004fdab33d94ae9da9de5bf2cb133d967ef986",
+      "retained_characters": 2682,
+      "text": "# Confronto strutturato delle due opzioni per archivio digitale (12 mesi) – Condizioni da verificare con il fornitore\n\n**Confronto costi totali (12 mesi)**\n- **Opzione 1 (mensile):** 15 €/mese × 12 mesi = **180 € totali**\n- **Opzione 2 (anticipata):** **150 € unici** (pagamento anticipato)\n  *Risparmio netto:* 180 € – 150 € = **30 €** (a favore dell’opzione 2).\n\n**Vincoli e condizioni comuni (da confermare con fornitore)**\n1. **Spazio:** 100 GB in entrambe le opzioni (nessuna limitazione aggiuntiva riportata).\n2. **Assistenza:** Uguale per entrambe le formule (specifiche non dettagliate nella fonte).\n3. **Spese iniziali:** Nulle in entrambi i casi (non confermato se includano costi nascosti o oneri accessori).\n4. **Rimborso disdetta anticipata:**\n   - **Opzione 1 (mensile):** Non menzionato (da verificare se prevista o meno).\n   - **Opzione 2 (anticipata):** **Esplicitamente esclusa** (nessun rimborso in caso di disdetta prima dei 12 mesi).\n\n**Condizioni non confermate dal fornitore**\n- **Validità dei prezzi:** I valori (15 €/mese e 150 € anticipati) sono **riportati dall’utente** e non verificati direttamente dal fornitore. Richiedere conferma ufficiale.\n- **Inclusione di servizi aggiuntivi:** Non è chiaro se l’assistenza o altri servizi siano effettivamente uguali o se ci siano differenze nascoste (es. supporto prioritario, funzionalità extra).\n- **Condizioni contrattuali:** Assenza di modifiche o pagamenti aggiuntivi **non è garantita** senza una lettura completa del contratto. Verificare eventuali clausole nascoste (es. costi per aggiornamenti, penalità).\n- **Politiche di cancellazione:** Per l’opzione 1, non è stato specificato se esista un periodo di prova o un rimborso parziale in caso di disdetta entro i primi mesi.\n\n**Limiti e raccomandazioni**\n- **Fonte unica:** I dati provengono **unicamente dalla memoria interna** (mem_c5c5ea6cfaf8263a489b), registrata come *user_stated* (non confermata dal fornitore).\n- **Rischio di sovrastima/sottostima:** Senza verifica diretta, i costi potrebbero variare (es. tasse, IVA, costi nascosti).\n- **Priorità di azione:** Contattare il fornitore per:\n  1. Confermare i prezzi e le condizioni contrattuali.\n  2. Chiarire le politiche di rimborso e disdetta.\n  3. Verificare l’inclusione di tutti i servizi dichiarati (es. assistenza, GB).\n\n**Sintesi decisionale**\nL’opzione anticipata (150 €) risulta **più economica di 30 €** rispetto al piano mensile, ma **solo se non ci sono costi nascosti o vincoli non dichiarati**. La mancanza di rimborso in caso di disdetta anticipata rende l’opzione 2 **meno flessibile**. Si raccomanda di **non procedere con pagamenti** fino alla conferma scritta del fornitore."
+    },
+    "2d64ec8b3783ffec4af6600e39464c21acd3e9468ca18548a5752cc51ad8a91f": {
+      "sha256_of_retained_text": "2d64ec8b3783ffec4af6600e39464c21acd3e9468ca18548a5752cc51ad8a91f",
+      "retained_characters": 2718,
+      "text": "```markdown Titolo: Confronto strutturato delle due opzioni per archivio digitale (12 mesi) – Condizioni da verificare con il fornitore\n\n**Confronto costi totali (12 mesi)**\n- **Opzione 1 (mensile):** 15 €/mese × 12 mesi = **180 € totali**\n- **Opzione 2 (anticipata):** **150 € unici** (pagamento anticipato)\n  *Risparmio netto:* 180 € – 150 € = **30 €** (a favore dell’opzione 2).\n\n**Vincoli e condizioni comuni (da confermare con fornitore)**\n1. **Spazio:** 100 GB in entrambe le opzioni (nessuna limitazione aggiuntiva riportata).\n2. **Assistenza:** Uguale per entrambe le formule (specifiche non dettagliate nella fonte).\n3. **Spese iniziali:** Nulle in entrambi i casi (non confermato se includano costi nascosti o oneri accessori).\n4. **Rimborso disdetta anticipata:**\n   - **Opzione 1 (mensile):** Non menzionato (da verificare se prevista o meno).\n   - **Opzione 2 (anticipata):** **Esplicitamente esclusa** (nessun rimborso in caso di disdetta prima dei 12 mesi).\n\n**Condizioni non confermate dal fornitore**\n- **Validità dei prezzi:** I valori (15 €/mese e 150 € anticipati) sono **riportati dall’utente** (user_stated) e non verificati direttamente dal fornitore. Richiedere conferma ufficiale.\n- **Inclusione di servizi aggiuntivi:** Non è chiaro se l’assistenza o altri servizi siano effettivamente uguali o se ci siano differenze nascoste (es. supporto prioritario, funzionalità extra).\n- **Condizioni contrattuali:** Assenza di modifiche o pagamenti aggiuntivi **non è garantita** senza una lettura completa del contratto. Verificare eventuali clausole nascoste (es. costi per aggiornamenti, penalità).\n- **Politiche di cancellazione:** Per l’opzione 1, non è stato specificato se esista un periodo di prova o un rimborso parziale in caso di disdetta entro i primi mesi.\n\n**Limiti e raccomandazioni**\n- **Fonte unica:** I dati provengono **unicamente dalla memoria interna** (mem_c5c5ea6cfaf8263a489b), registrata come *user_stated* (non confermata dal fornitore).\n- **Rischio di sovrastima/sottostima:** Senza verifica diretta, i costi potrebbero variare (es. tasse, IVA, costi nascosti).\n- **Priorità di azione:** Contattare il fornitore per:\n  1. Confermare i prezzi e le condizioni contrattuali.\n  2. Chiarire le politiche di rimborso e disdetta.\n  3. Verificare l’inclusione di tutti i servizi dichiarati (es. assistenza, GB).\n\n**Sintesi decisionale**\nL’opzione anticipata (150 €) risulta **più economica di 30 €** rispetto al piano mensile, ma **solo se non ci sono costi nascosti o vincoli non dichiarati**. La mancanza di rimborso in caso di disdetta anticipata rende l’opzione 2 **meno flessibile**. Si raccomanda di **non procedere con pagamenti** fino alla conferma scritta del fornitore.\n```"
+    },
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855": {
+      "sha256_of_retained_text": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "retained_characters": 0,
+      "text": ""
+    }
+  },
+  "verification_boundary": {
+    "observed_report_input": "Only status, evidence_kind=object and evidence_entries=7. This7 is the number of dict keys, not source rows; no historical serialized verifier body/hash.",
+    "exact_636_code": [
+      {
+        "path": "backend/agent/service.py",
+        "function": "AgentService._finish",
+        "lines": "2024-2157",
+        "fact": "Captures current prepared snapshot and supplies its full text and cited references to verify_goal; source/owner fence precedes call."
+      },
+      {
+        "path": "backend/agent/reasoning.py",
+        "function": "verify_goal/_verification_dump/_fit_prepared_context",
+        "lines": "908-1018/1378-1540",
+        "fact": "Saved text and material source rows are not shortened. Reducer removes generated history/shares exact copies; otherwise returns None before model call."
+      },
+      {
+        "path": "backend/scripts/autonomy_completion_eval_v162.py",
+        "function": "_decision_input",
+        "lines": "550-617",
+        "fact": "Verifier diagnostics record only container counts; do not attest full historical body."
+      }
+    ],
+    "conclusion": "No structural input-loss cause found. Non-None historical verifier replies plus exact code support intact prepared text through this path, but this is code-path evidence rather than a recorded HTTP body."
+  },
+  "audit_boundary": {
+    "full_drafts_observed": true,
+    "all_retained_audit_inputs_evidence_count": 1,
+    "all_retained_audit_inputs_evidence_truncated": false,
+    "literal_authenticity": "Passage selections are copied from code-owned exact source slices. Irrelevant authentic citations and unsupported semantic labels can still pass.",
+    "coverage": "Free-text claim_review entries are not mechanically bound to every final material clause; some clauses are omitted. However completed_result already covers the false monthly premise and still labels it stated.",
+    "current_instructions": "_GROUNDED_RESULT and audit/verify already forbid silence-to-benefit inference and require checking counterexamples; another generic prohibition is not a demonstrated software fix."
+  },
+  "proposal_not_implemented_at_review_time": {
+    "decision": "Replace, do not append to, the repetitive audit entailment instructions.",
+    "shape": "Keep premises as only what selected passages establish (subject, scope, period, conditions); add brief inference_or_gap and compatible_counterexample strings before support/verdict.",
+    "conditional_baseline": "A counterexample to a conditional synthesis must preserve its expressly attributed inputs. Hypothetical provider disagreement does not refute arithmetic conditional on those inputs. An unknown premise needed for a qualitative consequence remains a gap.",
+    "files": [
+      "backend/agent/preparation.py",
+      "backend/agent/preparation_schema.py",
+      "backend/scripts/autonomy_completion_eval_v162.py (only bounded diagnostic allowlist if authorized)",
+      "dedicated protocol/transport tests and strictly necessary fake compatibility"
+    ],
+    "invariants": [
+      "same two preparation model calls",
+      "9000 input/4000 draft/existing claim and passage caps",
+      "same native schema transport and provider order",
+      "same exact passage, owner/source/revision guards",
+      "new reasoning fields are diagnostics, never independent facts or boolean semantic gates",
+      "no domain/fixture routing or oracle relaxation"
+    ],
+    "cost_risk": "Two short text fields per check and compatible fixture changes; generated-token/latency overhead possible within existing budgets. This exposes implication reasoning, but cannot guarantee semantic correctness or complete material-claim coverage."
+  },
+  "limitations": [
+    "Planning first generation retains4000/4655characters;655characters unobserved.",
+    "One structured decision omitted in each home_write_retry and memory_corrected.",
+    "Some reasoning strings and chooser-input report payloads are bounded/truncated; no unseen suffix reconstructed.",
+    "Home/replay checks passed for completed_result and planning_outage only among the four saved comparisons; other saved drafts are not claimed delivered.",
+    "No real user state, native-device receipt or laundry outcome is tested by this synthetic-note run."
+  ]
+}

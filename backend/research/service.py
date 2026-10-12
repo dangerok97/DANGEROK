@@ -272,6 +272,7 @@ class ResearchService:
         over another.
         """
         from conversation_engine.ai_core.tools.web_search import execute_web_search
+        from conversation_engine.ai_core.tools.providers.base import normalize_snippet_origin
 
         known_urls = {s.url for s in run.sources if s.url}
         out: List[EvidenceSource] = []
@@ -305,6 +306,7 @@ class ResearchService:
                         title=str(hit.get("title") or ""),
                         publisher=_publisher_of(url),
                         snippet=str(hit.get("snippet") or ""),
+                        snippet_origin=normalize_snippet_origin(hit.get("snippet_origin")),
                         found_by_query=query,
                         authority_hint=str(hit.get("authority_hint") or "UNKNOWN"),
                     )

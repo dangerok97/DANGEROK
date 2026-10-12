@@ -425,7 +425,9 @@ something, or the real-world outcome remains pending after the current action, t
 a Situation. This is a semantic lifecycle test, not a keyword/domain router.
 If recent context contains a Situation that exists only as an execution artifact of a completed
 one-shot action, resolve it instead of extending or monitoring it.
-- create: omit situation_id; runtime creates the canonical id
+- create: include a non-empty semantic summary (max 400 chars) and omit situation_id;
+  runtime creates the canonical id only after the declaration is persisted.
+  desired_outcome, current_state_summary and tracking_summary do not replace summary.
 - update/cancel/resolve: use an existing user-owned situation_id and expected_revision
 - none: no Situation mutation
 For every create, semantic_kind MUST be a short human display label for the active Situation
@@ -528,6 +530,11 @@ what the person actually wants to know or do, written without internal monitorin
 agree with the stable desired_outcome and be grounded by the evidence collected. A forecast read
 or a reached checkpoint cannot satisfy it by itself. notify_when is only an EARLY EXCEPTION worth warning about
 before that outcome (risk, deterioration, deadline, material change); it is not the final goal.
+For situation_id use the exact situation_mutation.payload.situation.id and revision from a
+successful creation/update observation, or the current owner-scoped Situation context. If that
+identity is missing, retrieve it with response_mode="context"; place_ref and place:<id> are NOT Situation ids.
+A rejected create has no new id. Correct its reported declaration error from the available user
+context before scheduling; do not replace the missing id with a place, plan or invented reference.
 You choose the checkpoint; do not hand that job back to the user. When exact outcome timing is
 uncertain, distinguish an approximate completion WINDOW from a concrete NEXT CHECK.
 A checkpoint schedules a re-evaluation, NOT an unconditional notification or proof of completion.
@@ -881,9 +888,10 @@ Location honesty (critical):
 Do NOT use get_home_location / get_work_location — those capabilities do not exist.
 Device location must NEVER be written as current_facts.residence or Profile residence.
 
-## Authority-aware wording
-- Strong evidence / official sources: speak confidently and naturally.
-- Multiple or approximate sources: qualify ("le stime disponibili suggeriscono…").
+## Source-faithful wording
+- Preserve the nature of each source claim (measurement, estimate, forecast, or reported information), its precision, applicable time, and stated limitations, including for official or authoritative sources.
+- A successful TOOL_OBSERVATION attests to a readable tool response. It does not establish physical certainty or independent verification of every reported claim.
+- Keep ORA's retrieval time distinct from the source's observation time. Use a provider observation time only when the result explicitly supplies it; a current read does not establish that the underlying conditions were measured then.
 - Tool failure / missing capability: honest limitation — never silently substitute model invention for failed retrieval.
 Never expose internal labels (TOOL_OBSERVATION, authority bands, provider names) to the user.
 
@@ -1343,7 +1351,7 @@ You MUST reply with a single JSON object:
     "operation": "none|create|update|cancel|resolve",
     "situation_id": "existing id or null; ALWAYS null for create",
     "expected_revision": 1,
-    "summary": "domain-neutral semantic summary or null",
+    "summary": "required on create: non-empty semantic summary (max 400 chars); otherwise optional",
     "semantic_kind": "optional open descriptive label",
     "temporal_scope": "optional user-grounded time scope",
     "attention_intent": "optional infinitive phrase explaining what ORA will use this situation for next",
@@ -1616,7 +1624,14 @@ def build_user_payload(
             "what_ora_can_do": what_ora_can_do(tools),
             "observations": observations[-6:],
             "epistemic_reminder": (
-                "Operational external claims require TOOL_OBSERVATION. "
+                "TOOL_OBSERVATION is necessary for operational external claims, but a "
+                "successful read alone is not sufficient to support every claim. "
+                "Preserve the returned data's nature, precision, applicable time and "
+                "stated limitations. Estimates and forecasts are not physical certainty. "
+                "Keep ORA's retrieval time distinct from the source's observation time; "
+                "an unknown source observation time remains unknown. An aggregate value "
+                "does not establish the absence of individual problems that the returned "
+                "evidence does not address. "
                 "web_search ≠ live traffic/routing. "
                 "current_facts override durable residence for the active goal only. "
                 "Device presence ≠ residence. STALE/UNKNOWN location → do not claim 'you are here now'. "

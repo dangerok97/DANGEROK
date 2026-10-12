@@ -1,0 +1,1709 @@
+{
+  "schema": "ora.autonomy.v162.context_and_visibility_repair.v1",
+  "frozen_at": "2026-10-12T16:41:54Z",
+  "source": {
+    "repository": "dangerok97/DANGEROK",
+    "branch": "ora/v162-autonomy-validation-20261012",
+    "pr": 220,
+    "preserve_draft": true,
+    "parent_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+    "parent_tree": "d2682060e404008a046797ca14b1e49b4a3bd27e",
+    "publication": "one new commit from this exact parent; commit/tree identity recorded in Git and subsequent CI evidence",
+    "backend_files": [
+      {
+        "path": "backend/conversation_engine/ai_core/governance.py",
+        "bytes": 26048,
+        "sha256": "8340f939b62fb6b305c12ec4be512a94ed89143662b011284a28d0533fd681fd",
+        "git_blob": "f8405897888c10edf0cb569ad0c0acb492796258",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 168,
+          "scanned_bytes_including_decodings": 55316
+        }
+      },
+      {
+        "path": "backend/conversation_engine/ai_core/loop.py",
+        "bytes": 236315,
+        "sha256": "57e8abf098287e2b4c12f37db1cdf0d747122ed876d6d9ffed1bf083080722e0",
+        "git_blob": "d15cb63c8b58e8dd52795090e716bf46e196a5eb",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 1016,
+          "scanned_bytes_including_decodings": 501841
+        }
+      },
+      {
+        "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+        "bytes": 32040,
+        "sha256": "172b1bac226b885671c5b1d8d286d65d3b24b5ce7565b8f34ec14e1e3cb88bcb",
+        "git_blob": "4958fb6d950f5ef09f01a50b708d31566d09a5c2",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 235,
+          "scanned_bytes_including_decodings": 35893
+        }
+      },
+      {
+        "path": "backend/tests/test_situation_followup_loop_v98.py",
+        "bytes": 5469,
+        "sha256": "6cce12ce3a599067e4695b0e0f3ef78037f1771e36505dc0fb3bfcb47950f9bc",
+        "git_blob": "6b29c198de7cab5484562a84382dbf079c2d60e3",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 2,
+          "scanned_bytes_including_decodings": 5469
+        }
+      },
+      {
+        "path": "backend/tests/test_situation_schedule_time_v106.py",
+        "bytes": 3205,
+        "sha256": "55d3bea7c306849d2d2f1762747b673dc3c1c6b65cb2536f8cfc5d388699556e",
+        "git_blob": "c41af36b4d75ad45e7f7979ae952ffa96c7431bf",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 57,
+          "scanned_bytes_including_decodings": 4092
+        }
+      },
+      {
+        "path": "backend/tests/test_temporary_situation_memory_guard_v105.py",
+        "bytes": 3562,
+        "sha256": "24f25545d43baaa7a650a9d13534890b13a66c7a15c70a790b4175ed2c522302",
+        "git_blob": "5585aa39acb1c4dff2b47a873089a76511e1cd05",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 59,
+          "scanned_bytes_including_decodings": 4642
+        }
+      }
+    ],
+    "backend_preimages": [
+      {
+        "path": "backend/conversation_engine/ai_core/governance.py",
+        "before_git_blob": "93aac963aec93bdd3c236495c16f03ecb49bdcc2",
+        "after_git_blob": "f8405897888c10edf0cb569ad0c0acb492796258",
+        "bytes": 26048
+      },
+      {
+        "path": "backend/conversation_engine/ai_core/loop.py",
+        "before_git_blob": "619f4aaee4426222f851443e312877e7f504bcd6",
+        "after_git_blob": "d15cb63c8b58e8dd52795090e716bf46e196a5eb",
+        "bytes": 236315
+      },
+      {
+        "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+        "before_git_blob": "bc4f8d3bbb5a7c130c7bf820599495908ce0f4d9",
+        "after_git_blob": "4958fb6d950f5ef09f01a50b708d31566d09a5c2",
+        "bytes": 32040
+      },
+      {
+        "path": "backend/tests/test_situation_followup_loop_v98.py",
+        "before_git_blob": "8ef58d48e69d01999942b4c50fd772990005e024",
+        "after_git_blob": "6b29c198de7cab5484562a84382dbf079c2d60e3",
+        "bytes": 5469
+      },
+      {
+        "path": "backend/tests/test_situation_schedule_time_v106.py",
+        "before_git_blob": "04cba158ef96d75eedfebd15d38c1d34c58917c0",
+        "after_git_blob": "c41af36b4d75ad45e7f7979ae952ffa96c7431bf",
+        "bytes": 3205
+      },
+      {
+        "path": "backend/tests/test_temporary_situation_memory_guard_v105.py",
+        "before_git_blob": "17ba80a42a4cf06737bde3f2e448855bc35fa292",
+        "after_git_blob": "5585aa39acb1c4dff2b47a873089a76511e1cd05",
+        "bytes": 3562
+      }
+    ],
+    "frontend_files": [
+      {
+        "path": "frontend/src/components/ora/presence/useTemporaryMemory.ts",
+        "git_blob": "6371d131805608dcd5c5c462af424700f3bc0b2e",
+        "bytes": 2883,
+        "sha256": "7697faf615f4f9382d74ff4d301f09b14c108bd51bca887a4065987d35f9317b",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 1,
+          "scanned_bytes_including_decodings": 2883
+        }
+      },
+      {
+        "path": "frontend/src/components/ora/situationOutcome.ts",
+        "git_blob": "8eefbc8f6ee53ed80bc3518dd73579bca644db5e",
+        "bytes": 3275,
+        "sha256": "713c0aed7abcbd9c07ef56990ea6be69151506e64a28a0a9512afddde7039136",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 1,
+          "scanned_bytes_including_decodings": 3275
+        }
+      },
+      {
+        "path": "frontend/src/components/ora/SituationOutcomeSummary.tsx",
+        "git_blob": "9ed6b97dcbc4d66b2964c48945a03bfb5e8769ef",
+        "bytes": 3836,
+        "sha256": "a271b92cf0b7228952a141c9dde0a080dfe912cc1c90f0a210490d056bf05e99",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 4,
+          "scanned_bytes_including_decodings": 3870
+        }
+      },
+      {
+        "path": "frontend/src/components/ora/OraCockpitContext.tsx",
+        "git_blob": "17749fe168c04500ee4078179c122987de2e5e52",
+        "bytes": 14896,
+        "sha256": "550a008dc4aee275f93bffc951326590df298b025b5118bfa80420c61f69e968",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 32,
+          "scanned_bytes_including_decodings": 15370
+        }
+      },
+      {
+        "path": "frontend/src/components/ora/OraConversationScreen.tsx",
+        "git_blob": "c506a94a16c7220bf2e24091d31aa5f300906230",
+        "bytes": 67368,
+        "sha256": "eb9808024741085cc9938a0a3fec73a1bf858354872a113ab635c989ea9c0e21",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 21,
+          "scanned_bytes_including_decodings": 134980
+        }
+      },
+      {
+        "path": "frontend/src/components/ora/situationOutcome.test.ts",
+        "git_blob": "a5e749a4f7e82d301d9d466dd71ccea51a0d0dfb",
+        "bytes": 10626,
+        "sha256": "b723c547a0b971b12f0533a538fbd5b5b492c678ade20efafc91896ba0629101",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 1,
+          "scanned_bytes_including_decodings": 10626
+        }
+      },
+      {
+        "path": "frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+        "git_blob": "c0f58b2b688246daf0aa16e9c8b6c1b8c508b395",
+        "bytes": 15508,
+        "sha256": "5d7b66cf9686b4607ac3ef9b4c3516d2da4d73470601b97d36da635b2622e504",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 1,
+          "scanned_bytes_including_decodings": 15508
+        }
+      }
+    ],
+    "frontend_preimages": [
+      {
+        "path": "frontend/src/components/ora/presence/useTemporaryMemory.ts",
+        "before_git_blob": "cd88e4c2f3cf937292fef1599e44dbe9a7b8defc",
+        "after_git_blob": "6371d131805608dcd5c5c462af424700f3bc0b2e",
+        "bytes": 2883
+      },
+      {
+        "path": "frontend/src/components/ora/situationOutcome.ts",
+        "before_git_blob": "4e92793fefc0fadf0d5f201c9846c07a60e0af30",
+        "after_git_blob": "8eefbc8f6ee53ed80bc3518dd73579bca644db5e",
+        "bytes": 3275
+      },
+      {
+        "path": "frontend/src/components/ora/SituationOutcomeSummary.tsx",
+        "before_git_blob": "aec08958f7087dc372ce6650dfb3703bdcbcb96e",
+        "after_git_blob": "9ed6b97dcbc4d66b2964c48945a03bfb5e8769ef",
+        "bytes": 3836
+      },
+      {
+        "path": "frontend/src/components/ora/OraCockpitContext.tsx",
+        "before_git_blob": "dfaffa32ab7067751b22d51df758afa0e941c111",
+        "after_git_blob": "17749fe168c04500ee4078179c122987de2e5e52",
+        "bytes": 14896
+      },
+      {
+        "path": "frontend/src/components/ora/OraConversationScreen.tsx",
+        "before_git_blob": "e68309a671a240832ebbd2e797c5769e42c2ec5a",
+        "after_git_blob": "c506a94a16c7220bf2e24091d31aa5f300906230",
+        "bytes": 67368
+      },
+      {
+        "path": "frontend/src/components/ora/situationOutcome.test.ts",
+        "before_git_blob": "5ec44e1ea346da4488123269c7fded3fc2a47a97",
+        "after_git_blob": "a5e749a4f7e82d301d9d466dd71ccea51a0d0dfb",
+        "bytes": 10626
+      },
+      {
+        "path": "frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+        "before_git_blob": null,
+        "after_git_blob": "c0f58b2b688246daf0aa16e9c8b6c1b8c508b395",
+        "bytes": 15508
+      }
+    ],
+    "ci_file": {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 28684,
+      "sha256": "235b86e3dc99890aba86fb0c9a2ee3be188e961832b245150c5d1e766ea135d0",
+      "git_blob": "cd08a9f09413898fe90a4ace33ff0fdb86873eb4",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 7,
+        "scanned_bytes_including_decodings": 28694
+      }
+    },
+    "ci_preimage": {
+      "path": ".github/workflows/ci.yml",
+      "before_git_blob": "8bfc4871754b3a5f2fe83c98674e0ef0276b9d48",
+      "after_git_blob": "cd08a9f09413898fe90a4ace33ff0fdb86873eb4",
+      "bytes": 28684
+    },
+    "docs_files": [
+      {
+        "path": "docs/PRODUCT.md",
+        "bytes": 193364,
+        "sha256": "b30143d57783b6495f1f38a0c6ba54bc0e5e55ee4701a9c915ff9b299bbc70b4",
+        "git_blob": "73685a73f44f8467636d298e2fc6da509ffb964b",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 25,
+          "scanned_bytes_including_decodings": 193915
+        },
+        "preserves641History": true
+      },
+      {
+        "path": "docs/ARCHITECTURE.md",
+        "bytes": 345734,
+        "sha256": "291358700da9e0daab32c906d499d2420639e8308748322b8105742522a5a7b4",
+        "git_blob": "af1669b19abaa933ed1a9c73e200d2a3685c5db7",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 88,
+          "scanned_bytes_including_decodings": 347075
+        },
+        "preserves641History": true
+      },
+      {
+        "path": "docs/DEVELOPMENT_STATE.md",
+        "bytes": 400794,
+        "sha256": "d4d54edf5e693944490bfa5b296dfa042bc5cc21b40f835ece31f189fef89a49",
+        "git_blob": "024faedcf865478ad3f063114eb4c9716cc25ec3",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 74,
+          "scanned_bytes_including_decodings": 401781
+        },
+        "preserves641History": true
+      },
+      {
+        "path": "docs/CHANGELOG_AI.md",
+        "bytes": 409722,
+        "sha256": "e87e1ca2cebaf48b9c6cbcc973d88b16c7e6d5401648c03bb6c31c8b7f767f39",
+        "git_blob": "b5a37e45069637507c73625bb7dc643b3f476756",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 84,
+          "scanned_bytes_including_decodings": 411027
+        },
+        "preserves641History": true
+      },
+      {
+        "path": "docs/ROADMAP.md",
+        "bytes": 149925,
+        "sha256": "b81c79845c646317b91259ecbc05f1660eb3df149b2ae8013891f327fedeb638",
+        "git_blob": "890ac94252e443170d961b79b45fac8352a853df",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 3,
+          "scanned_bytes_including_decodings": 149930
+        },
+        "preserves641History": true
+      },
+      {
+        "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+        "bytes": 173490,
+        "sha256": "9d98ff96b477c4392ad791f6befc767d3e17615d995f0d8396ed4b351ea8b6a6",
+        "git_blob": "29ad5ccbfc55aaab7743982bca71d726af858539",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 2,
+          "scanned_bytes_including_decodings": 173499
+        },
+        "preserves641History": true
+      }
+    ]
+  },
+  "intended_user_result": {
+    "place": "Tarquinia",
+    "timezone": "Europe/Rome",
+    "flow": "User declares clothes hung; ORA monitors and communicates when to collect.",
+    "old_real_laundry_closed": true,
+    "fixtures": "synthetic only",
+    "weather_estimate_is_not_dryness_measurement": true,
+    "early_rescue_is_not_dry_collection": true
+  },
+  "acceptance": {
+    "autonomy_accepted": false,
+    "reason": "Schema completeness and stale-view safety do not prove useful drying advice or receipt on an installed closed app.",
+    "current_candidate_ci": "not_run_at_freeze",
+    "current_candidate_live": "not_run_at_freeze",
+    "physical_device_receipt": "not_proved"
+  },
+  "problem_evidence": {
+    "baseline_index": {
+      "path": "docs/evidence/autonomy_v162_641_results_2026-10-12.json",
+      "bytes": 23625,
+      "sha256": "f980feccce185432bbb3242c05ff421b2652420415d205f59850db129f7f801d",
+      "git_blob": "5ae662ad743b908a10e315805ffc75366f31d17a"
+    },
+    "situation": "641 declaration omits all three context fields despite the observed SYSTEM template; model output itself is incomplete. Location is not dropped after emission.",
+    "memory": "641 baseline stops in model-selected ask_user then prepare before the150 correction. No context transport bug was proved; this patch is not a Memory semantic repair.",
+    "presentation": "Known failed reads may leave a cached action in the view; asynchronous hook freshness and owner isolation need direct regressions.",
+    "original_live_verdicts_preserved": true
+  },
+  "changes": {
+    "governance": {
+      "raw_create_context_keys": [
+        "location_label",
+        "source_refs",
+        "linked_object_refs"
+      ],
+      "omission_check": "before SituationUpdate defaults for raw dict operation=create",
+      "explicit_unknowns_accepted": {
+        "location_label": null,
+        "source_refs": [],
+        "linked_object_refs": []
+      },
+      "non_create_unchanged": [
+        "update",
+        "none",
+        "cancel",
+        "resolve"
+      ],
+      "typed_decision_compatible": true,
+      "missing_context_errors": "situation_create_missing_<allowlisted_field>",
+      "unchanged_other_invalid_situation_normalization": true,
+      "semantic_place_guarantee": false
+    },
+    "existing_repair": {
+      "new_stage": false,
+      "new_cap": false,
+      "provider_chain_changed": false,
+      "allowlisted_fields_only": true,
+      "attempted_only_in_preexisting_raw2_repair_path": true,
+      "instruction": "Declare each missing key explicitly; grounded string or null, arrays empty when not established; do not invent a place or link.",
+      "qualification": "CREATE declarations previously accepted with omissions can now invoke the existing repair; identical model-call counts are not promised."
+    },
+    "focus_transport": {
+      "field": "display_focus_ref",
+      "model_validation": "existing optional string with max_length160",
+      "existing_consumer": "same-owner nodes already loaded for display",
+      "used_to_infer_situation_links": false
+    },
+    "presentation": {
+      "current_source": "A supplied star uses only readError from its supplying map; a locally selected star uses only useTemporaryMemory.error.",
+      "unavailable": "Stato non verificabile. Cached context is retained; the old imperative, estimate window and next-check/notification promises are not presented as current. An unavailable first read does not claim there are no Situations.",
+      "recovery": "Only the current owner's latest successful read restores presentation. Older requests, previous refresh generations and unmounted/disabled scopes cannot publish or clear a newer error. A current empty map removes the previous star.",
+      "unchanged": "Existing polling intervals, foreground triggers, cancellation API/owner checks, outcome expiry/revision checks, and conversation prose remain. No new historical receipt UI.",
+      "no_new_polling": true,
+      "no_history_receipt": true,
+      "errors_do_not_rewrite_model_prose": true,
+      "toast": "receives null while the same local hook is in error"
+    }
+  },
+  "source_review": {
+    "backend": {
+      "status": "source_review_accepted_pending_CI",
+      "reviewed_at": "2026-10-12T16:28:16Z",
+      "base_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "files": [
+        {
+          "path": "backend/conversation_engine/ai_core/governance.py",
+          "bytes": 26048,
+          "sha256": "8340f939b62fb6b305c12ec4be512a94ed89143662b011284a28d0533fd681fd",
+          "git_blob": "f8405897888c10edf0cb569ad0c0acb492796258",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 168,
+            "scanned_bytes_including_decodings": 55316
+          }
+        },
+        {
+          "path": "backend/conversation_engine/ai_core/loop.py",
+          "bytes": 236315,
+          "sha256": "57e8abf098287e2b4c12f37db1cdf0d747122ed876d6d9ffed1bf083080722e0",
+          "git_blob": "d15cb63c8b58e8dd52795090e716bf46e196a5eb",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 1016,
+            "scanned_bytes_including_decodings": 501841
+          }
+        },
+        {
+          "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+          "bytes": 32040,
+          "sha256": "172b1bac226b885671c5b1d8d286d65d3b24b5ce7565b8f34ec14e1e3cb88bcb",
+          "git_blob": "4958fb6d950f5ef09f01a50b708d31566d09a5c2",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 235,
+            "scanned_bytes_including_decodings": 35893
+          }
+        },
+        {
+          "path": "backend/tests/test_situation_followup_loop_v98.py",
+          "bytes": 5469,
+          "sha256": "6cce12ce3a599067e4695b0e0f3ef78037f1771e36505dc0fb3bfcb47950f9bc",
+          "git_blob": "6b29c198de7cab5484562a84382dbf079c2d60e3",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 2,
+            "scanned_bytes_including_decodings": 5469
+          }
+        },
+        {
+          "path": "backend/tests/test_situation_schedule_time_v106.py",
+          "bytes": 3205,
+          "sha256": "55d3bea7c306849d2d2f1762747b673dc3c1c6b65cb2536f8cfc5d388699556e",
+          "git_blob": "c41af36b4d75ad45e7f7979ae952ffa96c7431bf",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 57,
+            "scanned_bytes_including_decodings": 4092
+          }
+        },
+        {
+          "path": "backend/tests/test_temporary_situation_memory_guard_v105.py",
+          "bytes": 3562,
+          "sha256": "24f25545d43baaa7a650a9d13534890b13a66c7a15c70a790b4175ed2c522302",
+          "git_blob": "5585aa39acb1c4dff2b47a873089a76511e1cd05",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 59,
+            "scanned_bytes_including_decodings": 4642
+          }
+        }
+      ],
+      "exact_runtime_changes": {
+        "governanceExactTwoOperations": true,
+        "loopExactTwoOperations": true,
+        "governancePreimageCount": 1,
+        "loopPreimageCount": 1,
+        "loopPreimageCount2": 1
+      },
+      "legacy_fixture_changes": [
+        {
+          "path": "test_situation_followup_loop_v98.py",
+          "onlyUnknownsMadeExplicit": true,
+          "assertLinesUnchanged": true
+        },
+        {
+          "path": "test_situation_schedule_time_v106.py",
+          "onlyUnknownsMadeExplicit": true,
+          "assertLinesUnchanged": true
+        },
+        {
+          "path": "test_temporary_situation_memory_guard_v105.py",
+          "onlyUnknownsMadeExplicit": true,
+          "assertLinesUnchanged": true
+        }
+      ],
+      "old_handoff": {
+        "cases": 20,
+        "assert_statements": 74,
+        "preserved_after_only_imports_and_explicit_source_refs": true
+      },
+      "new_handoff": {
+        "cases_declared": 22,
+        "total_expected": 42,
+        "groups": {
+          "missing_combinations": 7,
+          "explicit_unknown_and_typed": 2,
+          "non_create_lifecycle": 4,
+          "valid_display_focus": 2,
+          "invalid_display_focus": 5,
+          "existing_single_repair": 1,
+          "failed_repair_no_domain_effect": 1
+        },
+        "executed": false
+      },
+      "checks": [
+        "Raw model JSON reaches governance before SituationUpdate defaults.",
+        "Missing keys return False before domain execution; explicit unknowns remain unknown.",
+        "Only pre-existing raw2 repair receives allowlisted missing-field names; no new repair stage or cap.",
+        "Original20-case test prefix restored by reversing only imports/source_refs addition.",
+        "All three legacy diffs add only explicit None/empty list; original assertions unchanged.",
+        "display_focus_ref retains existing type/length validation and is never copied to Situation links.",
+        "Positive new test reads source_refs from actual id+owner record rather than absent public ack field.",
+        "New failure fixture uses a valid allowed current_facts.note path and valid MemoryCandidate, and blocks domain effects without forbidding telemetry."
+      ],
+      "qualifications": [
+        "No Python test, compiler, type checker or model run was executed in the offline local environment.",
+        "Schema completeness does not force a correct place or complete goal: explicit null/empty arrays can still be semantically incomplete.",
+        "The existing repair can now run for declarations previously accepted silently, so the change is not a promise of identical model-call counts.",
+        "Other pre-existing Situation field/type errors retain their former normalization behavior; the new hard failure specifically covers omitted CREATE context fields.",
+        "Full model prose remains capable of unsupported claims; this patch is not semantic acceptance."
+      ],
+      "independent_review": {
+        "reviewer": "outcome_qa",
+        "status": "no_concrete_blocker",
+        "runtime_test_executed": false
+      }
+    },
+    "frontend": {
+      "status": "source_review_accepted_pending_CI",
+      "reviewed_at": "2026-10-12T16:39:00Z",
+      "base_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+      "diffs": [
+        {
+          "path": "frontend/src/components/ora/presence/useTemporaryMemory.ts",
+          "exactDiff": true,
+          "hunks": 2,
+          "added": 42,
+          "removed": 11,
+          "source_hashes_exact": true,
+          "base_newline": true,
+          "candidate_newline": true
+        },
+        {
+          "path": "frontend/src/components/ora/situationOutcome.ts",
+          "exactDiff": true,
+          "hunks": 3,
+          "added": 10,
+          "removed": 1,
+          "source_hashes_exact": true,
+          "base_newline": true,
+          "candidate_newline": true
+        },
+        {
+          "path": "frontend/src/components/ora/SituationOutcomeSummary.tsx",
+          "exactDiff": true,
+          "hunks": 2,
+          "added": 3,
+          "removed": 2,
+          "source_hashes_exact": true,
+          "base_newline": true,
+          "candidate_newline": true
+        },
+        {
+          "path": "frontend/src/components/ora/OraCockpitContext.tsx",
+          "exactDiff": true,
+          "hunks": 6,
+          "added": 20,
+          "removed": 14,
+          "source_hashes_exact": true,
+          "base_newline": true,
+          "candidate_newline": true
+        },
+        {
+          "path": "frontend/src/components/ora/OraConversationScreen.tsx",
+          "exactDiff": true,
+          "hunks": 1,
+          "added": 1,
+          "removed": 1,
+          "source_hashes_exact": true,
+          "base_newline": true,
+          "candidate_newline": true
+        },
+        {
+          "path": "frontend/src/components/ora/situationOutcome.test.ts",
+          "exactDiff": true,
+          "hunks": 1,
+          "added": 39,
+          "removed": 0,
+          "source_hashes_exact": true,
+          "base_newline": true,
+          "candidate_newline": true
+        },
+        {
+          "path": "frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+          "exactDiff": true,
+          "hunks": 1,
+          "added": 341,
+          "removed": 0,
+          "source_hashes_exact": true,
+          "base_newline": null,
+          "candidate_newline": true
+        }
+      ],
+      "checks": [
+        "Owner is derived from useAuth and result is hidden in the render where owner changes.",
+        "Async commit checks scope owner, active state, generation and latest request id both before setResult and in the functional update.",
+        "Existing15-second polling and foreground triggers retained; cleanup invalidates generation and removes timer/listener.",
+        "Known latest-read failure retains contextual data with explicit error; only a current success clears it.",
+        "Presenter unavailable branch returns no old headline/window/basis/attention.",
+        "Cockpit chooses the supplying map's readError only when star is supplied, including explicit null; otherwise it chooses only local hook error.",
+        "On failed selected-source read, cockpit removes current-state/expected-outcome advice and current follow-up promises.",
+        "Initial failed empty read cannot claim absence of Situations.",
+        "Conversation toast receives no stale star while its own local hook has a read error.",
+        "NewCJS compiles real TS/TSX source via existing TypeScript dependency and stubs only API/native/React scheduling, not the outcome logic."
+      ],
+      "prior_presenter": {
+        "cases": 16,
+        "entire_source_is_exact_prefix": true,
+        "assertions_unchanged": true
+      },
+      "tests_declared": {
+        "presenter": 20,
+        "hook": 9,
+        "component": 5,
+        "total_in_main_CI_step": 34
+      },
+      "agent_V8_evidence": {
+        "manifest": {
+          "path": "docs/evidence/situation_v162_frontend_freshness_2026-10-12.json",
+          "bytes": 55525,
+          "sha256": "8520defecda19ad44e5350de63e4982dd434bb77d71d248168a76b00ee600664",
+          "git_blob": "e3d81ffa6fb96aff5174239baeebc224c6579e4e",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 228,
+            "scanned_bytes_including_decodings": 149543
+          }
+        },
+        "counts": {
+          "baseline_hook_passed": 0,
+          "baseline_hook_failed": 9,
+          "baseline_outcome_passed": 16,
+          "baseline_outcome_failed": 4,
+          "candidate_passed": 29,
+          "candidate_failed": 0,
+          "component_cases_awaiting_node_ci": 5
+        },
+        "qualification": "V8 exact JavaScript function bodies with TypeScript annotations/imports removed; hook scheduling/API are deterministic adapters from the proposed CJS test. Node TypeScript transpilation, React/browser, and component render cases not executed here."
+      },
+      "qualification": "Root source/diff review and agent V8 JS-body checks do not establish actual TypeScript compilation, Node execution, React/browser or native behavior. Those require the new CI and separate device verification.",
+      "independent_review": {
+        "reviewer": "outcome_qa",
+        "status": "no_concrete_blocker",
+        "received_at": "2026-10-12 16:40:37 UTC",
+        "actual_execution": false,
+        "checks": [
+          "Real ApiUser.user_id and owner/active/generation/latest-read fences checked.",
+          "Functional state updater rechecks current request.",
+          "Selected-source error routing, explicit null map and unavailable first read checked.",
+          "All9 hook and5 rendered-component test cases read; imported modules and hooks covered by stubs.",
+          "16 existing presenter tests preserved plus4 new.",
+          "Single CI command change runs CJS after existing npm ci on Node24; dependency-free Situation lane unchanged."
+        ],
+        "qualification": "Peer V8 evidence is not an independent Node/TypeScript/React execution."
+      }
+    }
+  },
+  "tests": {
+    "prior_handoff_cases": 20,
+    "prior_handoff_assert_statements": 74,
+    "prior_assertions_preserved": true,
+    "newly_declared_backend_cases": 22,
+    "expected_handoff_cases": 42,
+    "expected_v162_cases_if_no_other_collection_change": 1359,
+    "backend_case_groups": {
+      "missing_combinations": 7,
+      "explicit_unknown_and_typed": 2,
+      "non_create_lifecycle": 4,
+      "valid_display_focus": 2,
+      "invalid_display_focus": 5,
+      "existing_single_repair": 1,
+      "failed_repair_no_domain_effect": 1
+    },
+    "positive_loop": "actual owned DB readback, one Situation, goal, wake and schedule after existing bounded repair",
+    "failed_repair": "no Situation application, Memory process, tool effect or state fact; telemetry/session writes are not forbidden",
+    "legacy_fixture_only_changes": [
+      {
+        "path": "test_situation_followup_loop_v98.py",
+        "onlyUnknownsMadeExplicit": true,
+        "assertLinesUnchanged": true
+      },
+      {
+        "path": "test_situation_schedule_time_v106.py",
+        "onlyUnknownsMadeExplicit": true,
+        "assertLinesUnchanged": true
+      },
+      {
+        "path": "test_temporary_situation_memory_guard_v105.py",
+        "onlyUnknownsMadeExplicit": true,
+        "assertLinesUnchanged": true
+      }
+    ],
+    "local_python_typescript_execution": "not_run: local executor offline",
+    "frontend": {
+      "declared": {
+        "existing_presenter": 16,
+        "new_presenter": 4,
+        "hook_async": 9,
+        "component_render": 5
+      },
+      "main_CI_cases": 34,
+      "agent_V8": {
+        "schema": "ora-frontend-freshness-v8-verification-v1",
+        "baseline_source": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+        "executed": "V8 exact JavaScript function bodies with TypeScript annotations/imports removed; hook scheduling/API are deterministic adapters from the proposed CJS test. Node TypeScript transpilation, React/browser, and component render cases not executed here.",
+        "baseline": {
+          "hook": [
+            {
+              "name": "failure after action_now preserves context but withdraws action until a successful read",
+              "passed": false,
+              "error": "expected true, got undefined"
+            },
+            {
+              "name": "a late success cannot restore a Situation removed by a newer current read",
+              "passed": false,
+              "error": "expected 0, got 1"
+            },
+            {
+              "name": "a late success cannot erase a newer failed read",
+              "passed": false,
+              "error": "expected true, got undefined"
+            },
+            {
+              "name": "a late failure cannot invalidate newer successful data",
+              "passed": false,
+              "error": "expected false, got undefined"
+            },
+            {
+              "name": "changing owner hides cached data immediately and ignores previous owner completion",
+              "passed": false,
+              "error": "expected null, got {\"id\":\"temporary-synthetic\",\"temporary\":true,\"situation_id\":\"sit_synthetic\",\"situation_revision\":7,\"updated_at\":\"2026-10-12T15:55:00Z\",\"title\":\"Bucato sintetico\",\"statement\":\"Dichiarazione sintetica registrata.\",\"current_state_summary\":\"Intervento dalla precedente lettura\",\"expected_outcome_summary\":\"Vecchia finestra registrata\",\"follow_up\":{\"status\":\"scheduled\",\"next_check_at\":\"2026-10-12T16:30:00Z\",\"next_check_label\":\"Prossimo controllo sintetico alle 18:30\",\"completion_when\":\"Avviso secondo la precedente valutazione\",\"notify_when\":\"Rischio della precedente valutazione\",\"outcome\":{\"status\":\"action_now\",\"headline\":\"Ritira secondo la stima disponibile\",\"action_summary\":\"Indicazione sintetica della precedente lettura.\",\"valid_until\":\"2026-10-12T18:00:00Z\",\"situation_revision\":7,\"basis\":\"estimate\",\"action_reason\":\"outcome_ready\"}}}"
+            },
+            {
+              "name": "logout neither retains temporary memory nor accepts an in-flight reply",
+              "passed": false,
+              "error": "expected null, got {\"id\":\"temporary-synthetic\",\"temporary\":true,\"situation_id\":\"sit_synthetic\",\"situation_revision\":7,\"updated_at\":\"2026-10-12T15:55:00Z\",\"title\":\"Bucato sintetico\",\"statement\":\"Dichiarazione sintetica registrata.\",\"current_state_summary\":\"Intervento dalla precedente lettura\",\"expected_outcome_summary\":\"Vecchia finestra registrata\",\"follow_up\":{\"status\":\"scheduled\",\"next_check_at\":\"2026-10-12T16:30:00Z\",\"next_check_label\":\"Prossimo controllo sintetico alle 18:30\",\"completion_when\":\"Avviso secondo la precedente valutazione\",\"notify_when\":\"Rischio della precedente valutazione\",\"outcome\":{\"status\":\"action_now\",\"headline\":\"Ritira secondo la stima disponibile\",\"action_summary\":\"Indicazione sintetica della precedente lettura.\",\"valid_until\":\"2026-10-12T18:00:00Z\",\"situation_revision\":7,\"basis\":\"estimate\",\"action_reason\":\"outcome_ready\"}}}"
+            },
+            {
+              "name": "a refresh-key generation rejects a previous read without changing the cadence",
+              "passed": false,
+              "error": "expected false, got undefined"
+            },
+            {
+              "name": "inactive and unmounted readers have no late publications or new reads",
+              "passed": false,
+              "error": "expected null, got {\"id\":\"temporary-synthetic\",\"temporary\":true,\"situation_id\":\"sit_synthetic\",\"situation_revision\":7,\"updated_at\":\"2026-10-12T15:55:00Z\",\"title\":\"Bucato sintetico\",\"statement\":\"Dichiarazione sintetica registrata.\",\"current_state_summary\":\"Intervento dalla precedente lettura\",\"expected_outcome_summary\":\"Vecchia finestra registrata\",\"follow_up\":{\"status\":\"scheduled\",\"next_check_at\":\"2026-10-12T16:30:00Z\",\"next_check_label\":\"Prossimo controllo sintetico alle 18:30\",\"completion_when\":\"Avviso secondo la precedente valutazione\",\"notify_when\":\"Rischio della precedente valutazione\",\"outcome\":{\"status\":\"action_now\",\"headline\":\"Ritira secondo la stima disponibile\",\"action_summary\":\"Indicazione sintetica della precedente lettura.\",\"valid_until\":\"2026-10-12T18:00:00Z\",\"situation_revision\":7,\"basis\":\"estimate\",\"action_reason\":\"outcome_ready\"}}}"
+            },
+            {
+              "name": "the first failed read is explicit rather than a successful empty map",
+              "passed": false,
+              "error": "expected true, got undefined"
+            }
+          ],
+          "outcome": [
+            {
+              "name": "the useful estimate and the internal checkpoint remain different facts",
+              "passed": true
+            },
+            {
+              "name": "a scheduled check, temporal scope and research log do not manufacture an estimate",
+              "passed": true
+            },
+            {
+              "name": "action_now based on an estimate is actionable without claiming a direct observation",
+              "passed": true
+            },
+            {
+              "name": "early risk recommends intervention without presenting a drying window",
+              "passed": true
+            },
+            {
+              "name": "a concrete missing datum is a question, with no fabricated time",
+              "passed": true
+            },
+            {
+              "name": "at expiry a displayed estimate loses its old action and window",
+              "passed": true
+            },
+            {
+              "name": "expired action_now cannot continue recommending action on an open page",
+              "passed": true
+            },
+            {
+              "name": "missing or malformed validity never keeps an assessment actionable",
+              "passed": true
+            },
+            {
+              "name": "a changed Situation cannot reuse a previous revision’s estimate",
+              "passed": true
+            },
+            {
+              "name": "stopping alerts is not presented as proof the physical result happened",
+              "passed": true
+            },
+            {
+              "name": "a finished watch keeps its verified final action visible until expiry",
+              "passed": true
+            },
+            {
+              "name": "plain waiting does not manufacture a question for the user",
+              "passed": true
+            },
+            {
+              "name": "only an explicit direct-observation basis is presented as such",
+              "passed": true
+            },
+            {
+              "name": "the server’s local window is preserved across midnight and client timezones",
+              "passed": true
+            },
+            {
+              "name": "identical recommendation text is not duplicated below the headline",
+              "passed": true
+            },
+            {
+              "name": "an absent estimate is explicit even when no target has been saved",
+              "passed": true
+            },
+            {
+              "name": "a failed read is unavailable even while the old action is valid",
+              "passed": false,
+              "error": "expected \"unavailable\", got \"action_now\""
+            },
+            {
+              "name": "an unavailable read hides a window without pretending there was no assessment",
+              "passed": false,
+              "error": "expected \"unavailable\", got \"estimated\""
+            },
+            {
+              "name": "only a successful current read restores the assessment and revision fence",
+              "passed": false,
+              "error": "expected \"unavailable\", got \"estimated\""
+            },
+            {
+              "name": "an unavailable first read does not claim no assessment or a stopped watch",
+              "passed": false,
+              "error": "expected \"unavailable\", got \"pending\""
+            }
+          ]
+        },
+        "candidate": {
+          "hook": [
+            {
+              "name": "failure after action_now preserves context but withdraws action until a successful read",
+              "passed": true
+            },
+            {
+              "name": "a late success cannot restore a Situation removed by a newer current read",
+              "passed": true
+            },
+            {
+              "name": "a late success cannot erase a newer failed read",
+              "passed": true
+            },
+            {
+              "name": "a late failure cannot invalidate newer successful data",
+              "passed": true
+            },
+            {
+              "name": "changing owner hides cached data immediately and ignores previous owner completion",
+              "passed": true
+            },
+            {
+              "name": "logout neither retains temporary memory nor accepts an in-flight reply",
+              "passed": true
+            },
+            {
+              "name": "a refresh-key generation rejects a previous read without changing the cadence",
+              "passed": true
+            },
+            {
+              "name": "inactive and unmounted readers have no late publications or new reads",
+              "passed": true
+            },
+            {
+              "name": "the first failed read is explicit rather than a successful empty map",
+              "passed": true
+            }
+          ],
+          "outcome": [
+            {
+              "name": "the useful estimate and the internal checkpoint remain different facts",
+              "passed": true
+            },
+            {
+              "name": "a scheduled check, temporal scope and research log do not manufacture an estimate",
+              "passed": true
+            },
+            {
+              "name": "action_now based on an estimate is actionable without claiming a direct observation",
+              "passed": true
+            },
+            {
+              "name": "early risk recommends intervention without presenting a drying window",
+              "passed": true
+            },
+            {
+              "name": "a concrete missing datum is a question, with no fabricated time",
+              "passed": true
+            },
+            {
+              "name": "at expiry a displayed estimate loses its old action and window",
+              "passed": true
+            },
+            {
+              "name": "expired action_now cannot continue recommending action on an open page",
+              "passed": true
+            },
+            {
+              "name": "missing or malformed validity never keeps an assessment actionable",
+              "passed": true
+            },
+            {
+              "name": "a changed Situation cannot reuse a previous revision’s estimate",
+              "passed": true
+            },
+            {
+              "name": "stopping alerts is not presented as proof the physical result happened",
+              "passed": true
+            },
+            {
+              "name": "a finished watch keeps its verified final action visible until expiry",
+              "passed": true
+            },
+            {
+              "name": "plain waiting does not manufacture a question for the user",
+              "passed": true
+            },
+            {
+              "name": "only an explicit direct-observation basis is presented as such",
+              "passed": true
+            },
+            {
+              "name": "the server’s local window is preserved across midnight and client timezones",
+              "passed": true
+            },
+            {
+              "name": "identical recommendation text is not duplicated below the headline",
+              "passed": true
+            },
+            {
+              "name": "an absent estimate is explicit even when no target has been saved",
+              "passed": true
+            },
+            {
+              "name": "a failed read is unavailable even while the old action is valid",
+              "passed": true
+            },
+            {
+              "name": "an unavailable read hides a window without pretending there was no assessment",
+              "passed": true
+            },
+            {
+              "name": "only a successful current read restores the assessment and revision fence",
+              "passed": true
+            },
+            {
+              "name": "an unavailable first read does not claim no assessment or a stopped watch",
+              "passed": true
+            }
+          ]
+        },
+        "counts": {
+          "baseline_hook_passed": 0,
+          "baseline_hook_failed": 9,
+          "baseline_outcome_passed": 16,
+          "baseline_outcome_failed": 4,
+          "candidate_passed": 29,
+          "candidate_failed": 0,
+          "component_cases_awaiting_node_ci": 5
+        },
+        "effects": {
+          "model_calls": 0,
+          "network_calls": 0,
+          "real_user_mutations": 0
+        }
+      },
+      "actual_node_transpilation": "not_run",
+      "actual_component_render": "not_run",
+      "actual_react_browser": "not_run",
+      "evidence_manifest": {
+        "path": "docs/evidence/situation_v162_frontend_freshness_2026-10-12.json",
+        "bytes": 55525,
+        "sha256": "8520defecda19ad44e5350de63e4982dd434bb77d71d248168a76b00ee600664",
+        "git_blob": "e3d81ffa6fb96aff5174239baeebc224c6579e4e",
+        "scan": {
+          "findings": [],
+          "creator_keys": 0,
+          "decoded_unique_strings": 228,
+          "scanned_bytes_including_decodings": 149543
+        }
+      }
+    },
+    "effective_ci_gates": {
+      "frontend_ci": {
+        "workflow": ".github/workflows/ci.yml",
+        "existing_job": "Frontend TypeScript",
+        "node": 24,
+        "dependencies": "existing npm ci includes typescript",
+        "command": "node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+        "minimal_change": "append the new cjs path to the existing command",
+        "status": "source_verified_pending_CI",
+        "blob": {
+          "path": ".github/workflows/ci.yml",
+          "bytes": 28684,
+          "sha256": "235b86e3dc99890aba86fb0c9a2ee3be188e961832b245150c5d1e766ea135d0",
+          "git_blob": "cd08a9f09413898fe90a4ace33ff0fdb86873eb4",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 7,
+            "scanned_bytes_including_decodings": 28694
+          }
+        },
+        "exact_diff": {
+          "baseGitExact": true,
+          "newGitExact": true,
+          "onePreimage": true,
+          "exactSingleReplacement": true,
+          "before": "        run: node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts\n",
+          "after": "        run: node --experimental-strip-types --test src/components/ora/situationOutcome.test.ts src/components/ora/presence/temporaryMemoryFreshness.test.cjs\n",
+          "newJobs": 0,
+          "newDependencies": 0,
+          "newWorkflow": false,
+          "otherWorkflowChanged": false
+        }
+      },
+      "situation_regressions": {
+        "workflow": ".github/workflows/situation-followup-regressions.yml",
+        "node": 22,
+        "dependencies": "none installed",
+        "scope": "existing dependency-free situationOutcome.test.ts only",
+        "unchanged": true
+      },
+      "new_jobs": 0,
+      "new_dependencies": 0,
+      "general_test_glob_available": false
+    }
+  },
+  "preservation": {
+    "results641_verdicts_unchanged": true,
+    "evidence_files": [
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745095.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745371.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745562_redacted.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745767.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114891017563_redacted.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887759936.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760216.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760278.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760359_redacted.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114889858531_redacted.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887759848.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760805.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887761199.log",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760954_redacted.log",
+      "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_situation.json",
+      "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_autonomy.json",
+      "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf.json",
+      "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_situation_semantic_review.json",
+      "docs/evidence/autonomy_v162_memory_baseline_review_2026-10-12_641dbaf.json",
+      "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_collection_mcp.json",
+      "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_collection_receipt.json",
+      "docs/evidence/autonomy_v162_641_results_2026-10-12.json",
+      "docs/evidence/situation_v162_frontend_freshness_2026-10-12.json"
+    ],
+    "docs_previous_histories_preserved": true,
+    "ci_originals_and_redactions": "14 logs:9 exact originals,5 copies replacing only20 spans of a public package maintainer email in npm warnings. Original hashes preserved. GitHub personal metadata archive not published.",
+    "baseline_artifact_index": "docs/evidence/autonomy_v162_641_results_2026-10-12.json"
+  },
+  "verification_at_freeze": {
+    "hashes_and_strict_scan": {
+      "aggregate": {
+        "paths": 43,
+        "raw_bytes": 11982330,
+        "scanned_bytes_including_decodings": 23529190,
+        "findings": 0,
+        "creator_keys": 0,
+        "exceptions": 0,
+        "size_skips": 0,
+        "binary_skips": 0,
+        "docs_readback": 6,
+        "excludes_self_index": true
+      },
+      "files": [
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745095.log",
+          "bytes": 3730723,
+          "sha256": "6620e66d5588e23f14116343d3b1eb0f183a64cade07833ec8b7640c4f15b25f",
+          "git_blob": "71c15f0fcd1d30ca6d5a61535e06a65a3ca2b9fa",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 10193,
+            "scanned_bytes_including_decodings": 7747512
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745371.log",
+          "bytes": 52682,
+          "sha256": "bc6c04d8fee059fe43f4372c390f58040811047cfe3f5e92445ebc97955bbbf6",
+          "git_blob": "d5bb71285320400e3ac55f9363059ac01c1e324e",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 4,
+            "scanned_bytes_including_decodings": 105401
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745562_redacted.log",
+          "bytes": 60031,
+          "sha256": "4dd1f7846944d9aa9ac9621d48d1f7851f73c18d535fade5c81e651624118b8a",
+          "git_blob": "aada6b5894a7552083ed440b8fb22879e3c28546",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 15,
+            "scanned_bytes_including_decodings": 120190
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745767.log",
+          "bytes": 573890,
+          "sha256": "f8a31f531e1e5171bb0b98a245558b6ad1481ecf12ed0c31e64a40ee7d78967f",
+          "git_blob": "d99c38b43321dbf3535fcd3267e7263dc1bb4fc7",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 2171,
+            "scanned_bytes_including_decodings": 1208250
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114891017563_redacted.log",
+          "bytes": 47241,
+          "sha256": "88da274e782dbba80f5be05545db404afb91a6eab10d053c4e49a91eb44330fb",
+          "git_blob": "ac92e4251bd066ec28532ba58fbe1ae48e866f24",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 94529
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887759936.log",
+          "bytes": 574950,
+          "sha256": "73411d03952714f26222ba8096bb33d04259110f7fa14f24ce7c604cbb8246ce",
+          "git_blob": "4e5feadd994449502922a632b26f4f1f919f773d",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 2179,
+            "scanned_bytes_including_decodings": 1210600
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760216.log",
+          "bytes": 55483,
+          "sha256": "fd853d35dd193abdc13c9729e54fad71521956f59a9b39fcbf00ae0fedda6961",
+          "git_blob": "addb6f9ae772c79626890abf589f3e915f70cf5c",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 4,
+            "scanned_bytes_including_decodings": 111003
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760278.log",
+          "bytes": 3890355,
+          "sha256": "608faccdfdc1726a9f059c31c70c601f4d2ded244f457a9225bf4235699b9cdf",
+          "git_blob": "d2416d7cf56661fbae10aa3d9eb71e1649fdff23",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 9794,
+            "scanned_bytes_including_decodings": 8056283
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760359_redacted.log",
+          "bytes": 60656,
+          "sha256": "ceed4fb7da138856f662adf2bf05f898e404f3b00760c2792ee7e92aeccc0e72",
+          "git_blob": "cc4702cd242db8bd3269a7a25976a77cb9ac3b7c",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 15,
+            "scanned_bytes_including_decodings": 121440
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114889858531_redacted.log",
+          "bytes": 48145,
+          "sha256": "0facd291c0291d2fa926e8e1afd563499a132fb9bdecbbdba0fa0a4bd2e53cdb",
+          "git_blob": "40538d64cb0fe65aa8d012ac5115b2e3ba6d6df4",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 96337
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887759848.log",
+          "bytes": 69362,
+          "sha256": "d2c9ae796d7a6d512b3a83bc05a17ec70a900e80cb94b8dff47de38bc922b43a",
+          "git_blob": "5bd9cb2c5b2748fd4fc8a83a0599b0c48cf20722",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 138776
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760805.log",
+          "bytes": 104787,
+          "sha256": "6c1bafdada86b0205b9385c938fc0413d3bc6cd24d89b28d3b470bf692edf9e6",
+          "git_blob": "0d40f3bd9e7139da11bdcde7f1f37258a51367d3",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 219,
+            "scanned_bytes_including_decodings": 214665
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887761199.log",
+          "bytes": 20607,
+          "sha256": "bf7ea5aad84c3e79026396bc22c5e1829abf731d3db0ce5cf1fd37d77aa2610c",
+          "git_blob": "ba55e9e6b779ad2c1083fa396ce4f8cd3c7d49e5",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 41261
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760954_redacted.log",
+          "bytes": 163933,
+          "sha256": "cc01ec70d07300a49795bce6c409e9cb8f319faaf775cdb97f42c723cad0c870",
+          "git_blob": "3f5067177417a4a8985afc4fb253d2ef54320e8a",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 327913
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_situation.json",
+          "bytes": 60966,
+          "sha256": "9b60bfcd34e695cb2fd5a00be3703c19c35547b5b290afcaf0b450d6ccf63a6d",
+          "git_blob": "fc74b6b6d938b2cdd8e69971167367f372efef15",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 503,
+            "scanned_bytes_including_decodings": 182465
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_autonomy.json",
+          "bytes": 10735,
+          "sha256": "22f889efaaf73ed18743c6f53fe42cf679a935704cc10bca9cd16534042a01d1",
+          "git_blob": "d87e83a7f324fc63cde794e6d8c6c8b393f2d702",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 219,
+            "scanned_bytes_including_decodings": 17152
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf.json",
+          "bytes": 40323,
+          "sha256": "72eb4209b7aa9111c48d5571826f4f960cbbde415bbf3c7bd794af239ead9cb7",
+          "git_blob": "b7b7e1b75b77f627e75ffa3c60affa53e89a870e",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 365,
+            "scanned_bytes_including_decodings": 133775
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_situation_semantic_review.json",
+          "bytes": 14591,
+          "sha256": "0b2d276604a2ae216cfb1faca66b7a570e736a1f341bb257e2c632059f77250b",
+          "git_blob": "c98142616164e6d9da8f117192d259b11dde7809",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 227,
+            "scanned_bytes_including_decodings": 22076
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_memory_baseline_review_2026-10-12_641dbaf.json",
+          "bytes": 21938,
+          "sha256": "5e45352b1caa158f444e4ade0168dd4b3ff7a839ebe5dd835311741c6bf26512",
+          "git_blob": "905df480591a76d75b2a00a9c23aad20f035f15e",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 260,
+            "scanned_bytes_including_decodings": 35611
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_collection_mcp.json",
+          "bytes": 168847,
+          "sha256": "9ec9ee872cea21fefadcba388b2f7c74705b22e9b957b87979e8401fe247aec7",
+          "git_blob": "d4343f01f62c7ea78fadc9a190543d44b371af58",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 866,
+            "scanned_bytes_including_decodings": 844630
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_collection_receipt.json",
+          "bytes": 6191,
+          "sha256": "9a2b842cd745321816a364624f9e6e61b88019ce9260868bdf8c3b70def00709",
+          "git_blob": "9f2b352737047504db80f46b3890ba5864ae215d",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 141,
+            "scanned_bytes_including_decodings": 17021
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_641_results_2026-10-12.json",
+          "bytes": 23625,
+          "sha256": "f980feccce185432bbb3242c05ff421b2652420415d205f59850db129f7f801d",
+          "git_blob": "5ae662ad743b908a10e315805ffc75366f31d17a",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 270,
+            "scanned_bytes_including_decodings": 33071
+          }
+        },
+        {
+          "path": "backend/conversation_engine/ai_core/governance.py",
+          "bytes": 26048,
+          "sha256": "8340f939b62fb6b305c12ec4be512a94ed89143662b011284a28d0533fd681fd",
+          "git_blob": "f8405897888c10edf0cb569ad0c0acb492796258",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 168,
+            "scanned_bytes_including_decodings": 55316
+          }
+        },
+        {
+          "path": "backend/conversation_engine/ai_core/loop.py",
+          "bytes": 236315,
+          "sha256": "57e8abf098287e2b4c12f37db1cdf0d747122ed876d6d9ffed1bf083080722e0",
+          "git_blob": "d15cb63c8b58e8dd52795090e716bf46e196a5eb",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 1016,
+            "scanned_bytes_including_decodings": 501841
+          }
+        },
+        {
+          "path": "backend/tests/test_situation_in_turn_handoff_v162.py",
+          "bytes": 32040,
+          "sha256": "172b1bac226b885671c5b1d8d286d65d3b24b5ce7565b8f34ec14e1e3cb88bcb",
+          "git_blob": "4958fb6d950f5ef09f01a50b708d31566d09a5c2",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 235,
+            "scanned_bytes_including_decodings": 35893
+          }
+        },
+        {
+          "path": "backend/tests/test_situation_followup_loop_v98.py",
+          "bytes": 5469,
+          "sha256": "6cce12ce3a599067e4695b0e0f3ef78037f1771e36505dc0fb3bfcb47950f9bc",
+          "git_blob": "6b29c198de7cab5484562a84382dbf079c2d60e3",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 2,
+            "scanned_bytes_including_decodings": 5469
+          }
+        },
+        {
+          "path": "backend/tests/test_situation_schedule_time_v106.py",
+          "bytes": 3205,
+          "sha256": "55d3bea7c306849d2d2f1762747b673dc3c1c6b65cb2536f8cfc5d388699556e",
+          "git_blob": "c41af36b4d75ad45e7f7979ae952ffa96c7431bf",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 57,
+            "scanned_bytes_including_decodings": 4092
+          }
+        },
+        {
+          "path": "backend/tests/test_temporary_situation_memory_guard_v105.py",
+          "bytes": 3562,
+          "sha256": "24f25545d43baaa7a650a9d13534890b13a66c7a15c70a790b4175ed2c522302",
+          "git_blob": "5585aa39acb1c4dff2b47a873089a76511e1cd05",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 59,
+            "scanned_bytes_including_decodings": 4642
+          }
+        },
+        {
+          "path": "frontend/src/components/ora/presence/useTemporaryMemory.ts",
+          "bytes": 2883,
+          "sha256": "7697faf615f4f9382d74ff4d301f09b14c108bd51bca887a4065987d35f9317b",
+          "git_blob": "6371d131805608dcd5c5c462af424700f3bc0b2e",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 1,
+            "scanned_bytes_including_decodings": 2883
+          }
+        },
+        {
+          "path": "frontend/src/components/ora/situationOutcome.ts",
+          "bytes": 3275,
+          "sha256": "713c0aed7abcbd9c07ef56990ea6be69151506e64a28a0a9512afddde7039136",
+          "git_blob": "8eefbc8f6ee53ed80bc3518dd73579bca644db5e",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 1,
+            "scanned_bytes_including_decodings": 3275
+          }
+        },
+        {
+          "path": "frontend/src/components/ora/SituationOutcomeSummary.tsx",
+          "bytes": 3836,
+          "sha256": "a271b92cf0b7228952a141c9dde0a080dfe912cc1c90f0a210490d056bf05e99",
+          "git_blob": "9ed6b97dcbc4d66b2964c48945a03bfb5e8769ef",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 4,
+            "scanned_bytes_including_decodings": 3870
+          }
+        },
+        {
+          "path": "frontend/src/components/ora/OraCockpitContext.tsx",
+          "bytes": 14896,
+          "sha256": "550a008dc4aee275f93bffc951326590df298b025b5118bfa80420c61f69e968",
+          "git_blob": "17749fe168c04500ee4078179c122987de2e5e52",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 32,
+            "scanned_bytes_including_decodings": 15370
+          }
+        },
+        {
+          "path": "frontend/src/components/ora/OraConversationScreen.tsx",
+          "bytes": 67368,
+          "sha256": "eb9808024741085cc9938a0a3fec73a1bf858354872a113ab635c989ea9c0e21",
+          "git_blob": "c506a94a16c7220bf2e24091d31aa5f300906230",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 21,
+            "scanned_bytes_including_decodings": 134980
+          }
+        },
+        {
+          "path": "frontend/src/components/ora/situationOutcome.test.ts",
+          "bytes": 10626,
+          "sha256": "b723c547a0b971b12f0533a538fbd5b5b492c678ade20efafc91896ba0629101",
+          "git_blob": "a5e749a4f7e82d301d9d466dd71ccea51a0d0dfb",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 1,
+            "scanned_bytes_including_decodings": 10626
+          }
+        },
+        {
+          "path": "frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+          "bytes": 15508,
+          "sha256": "5d7b66cf9686b4607ac3ef9b4c3516d2da4d73470601b97d36da635b2622e504",
+          "git_blob": "c0f58b2b688246daf0aa16e9c8b6c1b8c508b395",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 1,
+            "scanned_bytes_including_decodings": 15508
+          }
+        },
+        {
+          "path": ".github/workflows/ci.yml",
+          "bytes": 28684,
+          "sha256": "235b86e3dc99890aba86fb0c9a2ee3be188e961832b245150c5d1e766ea135d0",
+          "git_blob": "cd08a9f09413898fe90a4ace33ff0fdb86873eb4",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 7,
+            "scanned_bytes_including_decodings": 28694
+          }
+        },
+        {
+          "path": "docs/evidence/situation_v162_frontend_freshness_2026-10-12.json",
+          "bytes": 55525,
+          "sha256": "8520defecda19ad44e5350de63e4982dd434bb77d71d248168a76b00ee600664",
+          "git_blob": "e3d81ffa6fb96aff5174239baeebc224c6579e4e",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 228,
+            "scanned_bytes_including_decodings": 149543
+          }
+        },
+        {
+          "path": "docs/PRODUCT.md",
+          "bytes": 193364,
+          "sha256": "b30143d57783b6495f1f38a0c6ba54bc0e5e55ee4701a9c915ff9b299bbc70b4",
+          "git_blob": "73685a73f44f8467636d298e2fc6da509ffb964b",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 25,
+            "scanned_bytes_including_decodings": 193915
+          }
+        },
+        {
+          "path": "docs/ARCHITECTURE.md",
+          "bytes": 345734,
+          "sha256": "291358700da9e0daab32c906d499d2420639e8308748322b8105742522a5a7b4",
+          "git_blob": "af1669b19abaa933ed1a9c73e200d2a3685c5db7",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 88,
+            "scanned_bytes_including_decodings": 347075
+          }
+        },
+        {
+          "path": "docs/DEVELOPMENT_STATE.md",
+          "bytes": 400794,
+          "sha256": "d4d54edf5e693944490bfa5b296dfa042bc5cc21b40f835ece31f189fef89a49",
+          "git_blob": "024faedcf865478ad3f063114eb4c9716cc25ec3",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 74,
+            "scanned_bytes_including_decodings": 401781
+          }
+        },
+        {
+          "path": "docs/CHANGELOG_AI.md",
+          "bytes": 409722,
+          "sha256": "e87e1ca2cebaf48b9c6cbcc973d88b16c7e6d5401648c03bb6c31c8b7f767f39",
+          "git_blob": "b5a37e45069637507c73625bb7dc643b3f476756",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 84,
+            "scanned_bytes_including_decodings": 411027
+          }
+        },
+        {
+          "path": "docs/ROADMAP.md",
+          "bytes": 149925,
+          "sha256": "b81c79845c646317b91259ecbc05f1660eb3df149b2ae8013891f327fedeb638",
+          "git_blob": "890ac94252e443170d961b79b45fac8352a853df",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 3,
+            "scanned_bytes_including_decodings": 149930
+          }
+        },
+        {
+          "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+          "bytes": 173490,
+          "sha256": "9d98ff96b477c4392ad791f6befc767d3e17615d995f0d8396ed4b351ea8b6a6",
+          "git_blob": "29ad5ccbfc55aaab7743982bca71d726af858539",
+          "scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 2,
+            "scanned_bytes_including_decodings": 173499
+          }
+        }
+      ],
+      "description": "All delta files listed here were hashed and scanned in full, including decoded embedded strings. The index itself is scanned separately before publication; its hash is recorded outside itself."
+    },
+    "git_tree_merkle": {
+      "base_reproduced": true,
+      "base_tree": "d2682060e404008a046797ca14b1e49b4a3bd27e",
+      "final_tree": "required to match independently computed entries before branch update; exact identity recorded in Git and PR"
+    },
+    "ci": "not_run",
+    "live": "not_run"
+  },
+  "limitations": [
+    "Explicit null and empty arrays can remain semantically incomplete; this is not proof of correct location or outcome.",
+    "The model's complete prose is not replaced or suppressed by this patch and can still make unsupported collection claims.",
+    "Changing schema completeness can trigger the already allowed repair; no new budget or provider has been added.",
+    "The150 Memory correction was not reached641 and is not validated by the new Situation/frontend fix.",
+    "No signed native install, closed-app receipt or authenticated tap is proved.",
+    "No local Python, Node test suite, TypeScript checker or build has run while the executor is offline."
+  ],
+  "boundaries": {
+    "original_real_laundry": "closed",
+    "synthetic_only": true,
+    "implicit_source_body_reads": false,
+    "deterministic_plan_repair_or_reorder": false,
+    "domain_keyword_routing": false,
+    "live_oracle_weakened": false,
+    "new_polling": false,
+    "new_resources": false,
+    "budget_increase": false,
+    "provider_chain_change": false,
+    "real_push_or_messages": false,
+    "real_payments": false,
+    "user_data_used": false,
+    "app_mutation": false,
+    "app_denial": {
+      "patch_id": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+      "code": "INVALID_ARGUMENT",
+      "reason": "Cancelled — the user did not approve this action. No changes were made.",
+      "retained": true
+    },
+    "staging_cloud_merge": false,
+    "local_ancestry_imported": false,
+    "force_push": false,
+    "new_live_rule": "Only a relevant changed path after green current CI, review and a fresh idle technical-service preflight. Do not rerun unchanged Memory to obtain green.",
+    "existing_CI_command_extended": true,
+    "new_CI_job": false,
+    "new_dependency": false
+  }
+}

@@ -1,0 +1,559 @@
+{
+  "schema": "ora-v162-ci-and-targeted-live-results-v1",
+  "frozen_at": "2026-10-12T16:18:27Z",
+  "code_revision": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+  "code_tree": "d2682060e404008a046797ca14b1e49b4a3bd27e",
+  "intended_user_result": "Ho steso a Tarquinia -> ORA continua e indica il momento utile di ritirare; stima di asciugatura distinta dal ritiro anticipato per condizioni meteo.",
+  "acceptance": {
+    "application_autonomy_accepted": false,
+    "ci": "passed",
+    "situation_live": "failed",
+    "situation_manual_semantics": "rejected",
+    "memory_corrected_live": "failed_before_correction",
+    "device_delivery": "not_run"
+  },
+  "ci": {
+    "manifest_path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf.json",
+    "manifest_bytes": 40323,
+    "manifest_sha256": "72eb4209b7aa9111c48d5571826f4f960cbbde415bbf3c7bd794af239ead9cb7",
+    "manifest_git_blob": "b7b7e1b75b77f627e75ffa3c60affa53e89a870e",
+    "workflow_count": 5,
+    "job_count": 14,
+    "all_success": true,
+    "attempt": 1,
+    "completed_at": "2026-10-12T15:48:26Z",
+    "push_checkout": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+    "pull_request_checkout": "4958ee9981579a734454b0a15645b344c032459f",
+    "pull_request_tree": "553c847a705cef3e2a8b32b364df45e2da498b87",
+    "pull_request_parents": [
+      "9063c41bea894bba9c2b384756b040c0f9f69983",
+      "641dbaf9869e0881ffe6778ff82c0e771e6fcca4"
+    ],
+    "stale_pr_base_metadata": "6e619cf64af5049fc362e904a04e4d89e6b14c76",
+    "per_backend": {
+      "v162_passed": 1337,
+      "v162_skipped": 0,
+      "handoff_cases_in_full_module": 20,
+      "scripted_passed": 9,
+      "scripted_model_calls": 0,
+      "static_visibility_passed": 3,
+      "mongo_process_restart_passed": 6,
+      "provider_provenance_passed": 3
+    },
+    "mobile": {
+      "passed": 40,
+      "chromium_phone": 20,
+      "webkit_phone": 20,
+      "native_install_proved": false
+    },
+    "scanners": {
+      "push": {
+        "job_id": 114887745371,
+        "fetch_depth": 0,
+        "historical_objects": 18804,
+        "historical_document_blobs": 0,
+        "high_confidence_secret_patterns": 0,
+        "sensitive_paths": 0,
+        "result": "PASS",
+        "summary_log_line": 445
+      },
+      "pull_request": {
+        "job_id": 114887760216,
+        "fetch_depth": 0,
+        "historical_objects": 18811,
+        "historical_document_blobs": 0,
+        "high_confidence_secret_patterns": 0,
+        "sensitive_paths": 0,
+        "result": "PASS",
+        "summary_log_line": 458
+      },
+      "scope": "Actual full-history audit runs with nonzero objects; these are not empty or shallow-checkout scanner results."
+    },
+    "limits": [
+      "These are CI and scripted results. No real-model or live-provider outcome is inferred.",
+      "The new 20-case module passed as part of the complete 1337-case invocation; quiet pytest output does not provide a separate per-module timing.",
+      "The two older backend groups report 3 and 5 skipped tests in each event. Zero skipped jobs/steps is not a claim of zero skipped tests across all legacy groups.",
+      "The original failures on 250ef7f and c8ca6d0 remain unchanged.",
+      "The Mobile artifact ZIP was not downloaded or independently unpacked; only GitHub metadata and the passing job log were verified.",
+      "Full raw job logs are the decoded UTF-8 tool output, not network wire-byte captures. Metadata archive content is a serialization of unchanged tool response objects."
+    ]
+  },
+  "live": {
+    "collection_receipt_path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_collection_receipt.json",
+    "deployment_id": "4b7fd25b-03a5-4ccc-965e-7db76ccd8032",
+    "created_at": "2026-10-12T15:49:29.486Z",
+    "terminal_status": "CRASHED",
+    "terminal_at": "2026-10-12T15:52:13.821Z",
+    "original_reports": [
+      {
+        "kind": "situation",
+        "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_situation.json",
+        "bytes": 60966,
+        "sha256": "9b60bfcd34e695cb2fd5a00be3703c19c35547b5b290afcaf0b450d6ccf63a6d",
+        "git_blob_sha": "fc74b6b6d938b2cdd8e69971167367f372efef15"
+      },
+      {
+        "kind": "autonomy",
+        "path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_autonomy.json",
+        "bytes": 10735,
+        "sha256": "22f889efaaf73ed18743c6f53fe42cf679a935704cc10bca9cd16534042a01d1",
+        "git_blob_sha": "d87e83a7f324fc63cde794e6d8c6c8b393f2d702"
+      }
+    ],
+    "situation": {
+      "original_failure": "DECLARATION_PLACE_OR_START_NOT_PRESERVED",
+      "concrete_missing_fields": {
+        "location_label": null,
+        "linked_object_refs": []
+      },
+      "started_at_preserved": "2026-10-12T17:50:02+02:00",
+      "drying_goal_preserved": true,
+      "scheduled_check": {
+        "next_check_at": "2026-10-12T16:00:00+00:00",
+        "timezone": "Europe/Rome",
+        "local_label": "12 ott 2026, 18:00",
+        "goal_and_wake_persisted": true
+      },
+      "logical_model_calls": 4,
+      "model_http_requests": 10,
+      "open_meteo_http_reads": 1,
+      "initial_worker": "not_run",
+      "monitoring": "not_run",
+      "future_check": "not_run",
+      "useful_collection_action": "not_run",
+      "real_notifications_sent": 0,
+      "cancellation": {
+        "synthetic": true,
+        "passed": true,
+        "pending_wakes": 0,
+        "physical_collection_claimed": false
+      },
+      "manual_review_path": "docs/evidence/autonomy_v162_live_2026-10-12_641dbaf_situation_semantic_review.json",
+      "manual_findings": [
+        "The final model answer uses next_check18:00 as a do-not-collect-before restriction, unsupported by the schedule fact.",
+        "A05:00-07:00 drying estimate lacks a persisted assessment and adequate stated premises; the weather record ends at05:00.",
+        "The0% forecast is promoted to certainty about future absence of rain.",
+        "The original model CREATE already omits place/provenance fields; parser and persistence do not discard a populated value."
+      ]
+    },
+    "memory_corrected": {
+      "original_failure": "UNFINISHED_WORK_LOST",
+      "logical_model_calls": 4,
+      "model_http_requests": 7,
+      "baseline_plan": [
+        "ask_user",
+        "prepare:document.create"
+      ],
+      "goal_state": "waiting",
+      "requires_user_input": true,
+      "requires_user_authority": false,
+      "prepared_documents": 0,
+      "executed_capabilities": 0,
+      "evidence_count": 0,
+      "correction_to_150_reached": false,
+      "initial_120_is_not_stale_at_reached_phase": true,
+      "preparation_qualification_exercised": false,
+      "all_six_final_result_checks": "not_run",
+      "cause_qualification": "The model expanded the conditional internal comparison into prerequisites, then waited for user knowledge. The current report does not demonstrate a lost DB wake or behavior after the150 correction. No missing transport field was established.",
+      "manual_review_path": "docs/evidence/autonomy_v162_memory_baseline_review_2026-10-12_641dbaf.json"
+    }
+  },
+  "preservation": {
+    "live_reports": "Original UTF-8 text reconstructed without reserialization, hashes recomputed, verdicts unchanged.",
+    "live_mcp": "Original tool-response object serialized with complete30-row unfiltered log window and independent collection receipt.",
+    "ci_logs": {
+      "original_decoded_log_bytes": 9452185,
+      "published_bytes": 9452845,
+      "unchanged_files": 9,
+      "redacted_files": 5,
+      "redacted_spans": 20,
+      "redaction_reason": "Only the public package-maintainer email present in npm deprecation notices is replaced. No test output, assertion, result, timestamp or source identity is changed.",
+      "files": [
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745095.log",
+          "job_id": 114887745095,
+          "run_id": 38271843017,
+          "event": "push",
+          "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+          "original": {
+            "bytes": 3730723,
+            "sha256": "6620e66d5588e23f14116343d3b1eb0f183a64cade07833ec8b7640c4f15b25f",
+            "blob": "71c15f0fcd1d30ca6d5a61535e06a65a3ca2b9fa"
+          },
+          "published": {
+            "bytes": 3730723,
+            "sha256": "6620e66d5588e23f14116343d3b1eb0f183a64cade07833ec8b7640c4f15b25f",
+            "blob": "71c15f0fcd1d30ca6d5a61535e06a65a3ca2b9fa"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 10193,
+            "scanned_bytes_including_decodings": 7747512
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745371.log",
+          "job_id": 114887745371,
+          "run_id": 38271843017,
+          "event": "push",
+          "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+          "original": {
+            "bytes": 52682,
+            "sha256": "bc6c04d8fee059fe43f4372c390f58040811047cfe3f5e92445ebc97955bbbf6",
+            "blob": "d5bb71285320400e3ac55f9363059ac01c1e324e"
+          },
+          "published": {
+            "bytes": 52682,
+            "sha256": "bc6c04d8fee059fe43f4372c390f58040811047cfe3f5e92445ebc97955bbbf6",
+            "blob": "d5bb71285320400e3ac55f9363059ac01c1e324e"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 4,
+            "scanned_bytes_including_decodings": 105401
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745562_redacted.log",
+          "job_id": 114887745562,
+          "run_id": 38271843017,
+          "event": "push",
+          "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+          "original": {
+            "bytes": 59899,
+            "sha256": "0a87f9ce2e11549809ebb449e826357df65d50a8ed5d0771f772df609928c628",
+            "blob": "da8e3431e6e484c3817e48f91c0a2457d240020f"
+          },
+          "published": {
+            "bytes": 60031,
+            "sha256": "4dd1f7846944d9aa9ac9621d48d1f7851f73c18d535fade5c81e651624118b8a",
+            "blob": "aada6b5894a7552083ed440b8fb22879e3c28546"
+          },
+          "redactions": 4,
+          "redaction_reason": "Public package-maintainer email embedded in npm deprecation warnings. Only the literal email span is replaced; original hashes are preserved.",
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 15,
+            "scanned_bytes_including_decodings": 120190
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887745767.log",
+          "job_id": 114887745767,
+          "run_id": 38271843017,
+          "event": "push",
+          "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+          "original": {
+            "bytes": 573890,
+            "sha256": "f8a31f531e1e5171bb0b98a245558b6ad1481ecf12ed0c31e64a40ee7d78967f",
+            "blob": "d99c38b43321dbf3535fcd3267e7263dc1bb4fc7"
+          },
+          "published": {
+            "bytes": 573890,
+            "sha256": "f8a31f531e1e5171bb0b98a245558b6ad1481ecf12ed0c31e64a40ee7d78967f",
+            "blob": "d99c38b43321dbf3535fcd3267e7263dc1bb4fc7"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 2171,
+            "scanned_bytes_including_decodings": 1208250
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114891017563_redacted.log",
+          "job_id": 114891017563,
+          "run_id": 38271843017,
+          "event": "push",
+          "checkout_sha": "641dbaf9869e0881ffe6778ff82c0e771e6fcca4",
+          "original": {
+            "bytes": 47109,
+            "sha256": "24fe27bb6823e931a7b331d5826187cb4c67744e47cf38d7014f8690814d8165",
+            "blob": "16e021538fc3b6b95a0710a9279857f0e05a0988"
+          },
+          "published": {
+            "bytes": 47241,
+            "sha256": "88da274e782dbba80f5be05545db404afb91a6eab10d053c4e49a91eb44330fb",
+            "blob": "ac92e4251bd066ec28532ba58fbe1ae48e866f24"
+          },
+          "redactions": 4,
+          "redaction_reason": "Public package-maintainer email embedded in npm deprecation warnings. Only the literal email span is replaced; original hashes are preserved.",
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 94529
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887759936.log",
+          "job_id": 114887759936,
+          "run_id": 38271847808,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 574950,
+            "sha256": "73411d03952714f26222ba8096bb33d04259110f7fa14f24ce7c604cbb8246ce",
+            "blob": "4e5feadd994449502922a632b26f4f1f919f773d"
+          },
+          "published": {
+            "bytes": 574950,
+            "sha256": "73411d03952714f26222ba8096bb33d04259110f7fa14f24ce7c604cbb8246ce",
+            "blob": "4e5feadd994449502922a632b26f4f1f919f773d"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 2179,
+            "scanned_bytes_including_decodings": 1210600
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760216.log",
+          "job_id": 114887760216,
+          "run_id": 38271847808,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 55483,
+            "sha256": "fd853d35dd193abdc13c9729e54fad71521956f59a9b39fcbf00ae0fedda6961",
+            "blob": "addb6f9ae772c79626890abf589f3e915f70cf5c"
+          },
+          "published": {
+            "bytes": 55483,
+            "sha256": "fd853d35dd193abdc13c9729e54fad71521956f59a9b39fcbf00ae0fedda6961",
+            "blob": "addb6f9ae772c79626890abf589f3e915f70cf5c"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 4,
+            "scanned_bytes_including_decodings": 111003
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760278.log",
+          "job_id": 114887760278,
+          "run_id": 38271847808,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 3890355,
+            "sha256": "608faccdfdc1726a9f059c31c70c601f4d2ded244f457a9225bf4235699b9cdf",
+            "blob": "d2416d7cf56661fbae10aa3d9eb71e1649fdff23"
+          },
+          "published": {
+            "bytes": 3890355,
+            "sha256": "608faccdfdc1726a9f059c31c70c601f4d2ded244f457a9225bf4235699b9cdf",
+            "blob": "d2416d7cf56661fbae10aa3d9eb71e1649fdff23"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 9794,
+            "scanned_bytes_including_decodings": 8056283
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760359_redacted.log",
+          "job_id": 114887760359,
+          "run_id": 38271847808,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 60524,
+            "sha256": "aa441008aa2c4e080a5c111612407d140ffeb2135c15e80bb9e6090621c6c86f",
+            "blob": "ed41e9db04e2947f9bb364b2fcd40eed44cd0d06"
+          },
+          "published": {
+            "bytes": 60656,
+            "sha256": "ceed4fb7da138856f662adf2bf05f898e404f3b00760c2792ee7e92aeccc0e72",
+            "blob": "cc4702cd242db8bd3269a7a25976a77cb9ac3b7c"
+          },
+          "redactions": 4,
+          "redaction_reason": "Public package-maintainer email embedded in npm deprecation warnings. Only the literal email span is replaced; original hashes are preserved.",
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 15,
+            "scanned_bytes_including_decodings": 121440
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114889858531_redacted.log",
+          "job_id": 114889858531,
+          "run_id": 38271847808,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 48013,
+            "sha256": "5eda2812e620a3c30ca967db7336454ff46cb4c8650340352a36390799c321b4",
+            "blob": "04b4cf9dbdca3a281952a86d906828c51fb7c602"
+          },
+          "published": {
+            "bytes": 48145,
+            "sha256": "0facd291c0291d2fa926e8e1afd563499a132fb9bdecbbdba0fa0a4bd2e53cdb",
+            "blob": "40538d64cb0fe65aa8d012ac5115b2e3ba6d6df4"
+          },
+          "redactions": 4,
+          "redaction_reason": "Public package-maintainer email embedded in npm deprecation warnings. Only the literal email span is replaced; original hashes are preserved.",
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 96337
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887759848.log",
+          "job_id": 114887759848,
+          "run_id": 38271848020,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 69362,
+            "sha256": "d2c9ae796d7a6d512b3a83bc05a17ec70a900e80cb94b8dff47de38bc922b43a",
+            "blob": "5bd9cb2c5b2748fd4fc8a83a0599b0c48cf20722"
+          },
+          "published": {
+            "bytes": 69362,
+            "sha256": "d2c9ae796d7a6d512b3a83bc05a17ec70a900e80cb94b8dff47de38bc922b43a",
+            "blob": "5bd9cb2c5b2748fd4fc8a83a0599b0c48cf20722"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 138776
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760805.log",
+          "job_id": 114887760805,
+          "run_id": 38271848023,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 104787,
+            "sha256": "6c1bafdada86b0205b9385c938fc0413d3bc6cd24d89b28d3b470bf692edf9e6",
+            "blob": "0d40f3bd9e7139da11bdcde7f1f37258a51367d3"
+          },
+          "published": {
+            "bytes": 104787,
+            "sha256": "6c1bafdada86b0205b9385c938fc0413d3bc6cd24d89b28d3b470bf692edf9e6",
+            "blob": "0d40f3bd9e7139da11bdcde7f1f37258a51367d3"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 219,
+            "scanned_bytes_including_decodings": 214665
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887761199.log",
+          "job_id": 114887761199,
+          "run_id": 38271848023,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 20607,
+            "sha256": "bf7ea5aad84c3e79026396bc22c5e1829abf731d3db0ce5cf1fd37d77aa2610c",
+            "blob": "ba55e9e6b779ad2c1083fa396ce4f8cd3c7d49e5"
+          },
+          "published": {
+            "bytes": 20607,
+            "sha256": "bf7ea5aad84c3e79026396bc22c5e1829abf731d3db0ce5cf1fd37d77aa2610c",
+            "blob": "ba55e9e6b779ad2c1083fa396ce4f8cd3c7d49e5"
+          },
+          "redactions": 0,
+          "redaction_reason": null,
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 41261
+          }
+        },
+        {
+          "path": "docs/evidence/autonomy_v162_ci_2026-10-12_641dbaf_logs/job_114887760954_redacted.log",
+          "job_id": 114887760954,
+          "run_id": 38271847982,
+          "event": "pull_request",
+          "checkout_sha": "4958ee9981579a734454b0a15645b344c032459f",
+          "original": {
+            "bytes": 163801,
+            "sha256": "ce86daba7eab6e25090417723e4183d53c6b25884d4ed3ac5b1bf475161d3bbb",
+            "blob": "f671d8eae867f974cdf518bc6d4a86569ac45abc"
+          },
+          "published": {
+            "bytes": 163933,
+            "sha256": "cc01ec70d07300a49795bce6c409e9cb8f319faaf775cdb97f42c723cad0c870",
+            "blob": "3f5067177417a4a8985afc4fb253d2ef54320e8a"
+          },
+          "redactions": 4,
+          "redaction_reason": "Public package-maintainer email embedded in npm deprecation warnings. Only the literal email span is replaced; original hashes are preserved.",
+          "strict_scan": {
+            "findings": [],
+            "creator_keys": 0,
+            "decoded_unique_strings": 6,
+            "scanned_bytes_including_decodings": 327913
+          }
+        }
+      ]
+    },
+    "metadata_archive": "Original GitHub metadata archive was not attached to the candidate tree; it is not claimed to be a privacy-reviewed publication. The frozen CI manifest retains its historical content-addressed reference.",
+    "secrets": {
+      "whole_sources_and_decoded_content": true,
+      "exemptions": 0,
+      "findings": 0
+    }
+  },
+  "diagnosis": {
+    "situation_system_sha256": "fbd43e4b90dfaba615a54f79dfc4d2fd4be96b60f6ccd3fa2b1100f094b5317e",
+    "system_chars": 95558,
+    "system_hash_matches_all_four_observed_calls": true,
+    "memory_transport_bug_found": false,
+    "native_situation_response_schema_used": false,
+    "declared_place_not_implicitly_filled_from_weather_or_display_ref": true,
+    "declared_place_transport_bug_found": false
+  },
+  "boundaries": {
+    "old_real_laundry_closed": true,
+    "synthetic_cases_only": true,
+    "new_provider_chain": false,
+    "budget_increase": false,
+    "automatic_source_body_reads": false,
+    "automatic_plan_repair": false,
+    "domain_or_keyword_routing_added": false,
+    "oracle_changes": false,
+    "app_patch_approval_rejection": {
+      "id": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+      "code": "INVALID_ARGUMENT",
+      "bypassed": false
+    },
+    "signed_native_build": "not_run",
+    "device_install": "not_run",
+    "closed_app_receipt": "not_run",
+    "authenticated_tap": "not_run"
+  }
+}

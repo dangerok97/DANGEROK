@@ -1,0 +1,532 @@
+{
+  "review_kind": "manual_read_only_semantic_review",
+  "created_at": "2026-10-12T11:27:38.433722+00:00",
+  "source": {
+    "path": "/tmp/ora_v162_630_autonomy_live.json",
+    "sha256": "59bcc79162af9adcfc03a2c5602cf6455ba0403b1915f6e04522fe29052c97da",
+    "code_revision": "630020147223ada63430a11870209494dc35cc22",
+    "fixture_revision": "personal_outcome_v1",
+    "scenario": "home_write_retry"
+  },
+  "scope": {
+    "source_of_text": "Exact text retained by the existing guarded technical runner; not an additional raw HTTP capture.",
+    "runtime_edits": false,
+    "new_model_calls": 0,
+    "new_provider_calls": 0,
+    "test_runs": 0,
+    "user_data_access": false,
+    "semantic_verdict": "failed_manual_review",
+    "runtime_gate_verdict_unchanged": false,
+    "runtime_failure_code": "COMPLETION_BUDGET_EXHAUSTED"
+  },
+  "text_integrity": {
+    "generation": {
+      "text": "Ecco una tabella comparativa sintetica delle due formule di archivio digitale per **12 mesi**, basata sui dati forniti dall'utente (non confermati dal fornitore). I vincoli e le differenze chiave sono evidenziati in **grassetto** per chiarezza. I costi totali sono calcolati sulla base delle informazioni disponibili, con le seguenti **limitazioni** da considerare prima di una scelta definitiva:\n\n| **Criterio**               | **Formula A (15€/mese)**                          | **Formula B (120€ anticipati)**                  |\n|---------------------------|--------------------------------------------------|--------------------------------------------------|\n| **Costo totale (12 mesi)** | **15€ × 12 = 180€** (pagamento rateizzato)       | **120€** (pagamento unico anticipato)            |\n| **Spazio offerto**        | 100 GB                                            | 100 GB                                            |\n| **Assistenza**            | Uguale alla Formula B                             | Uguale alla Formula A                             |\n| **Spese iniziali**        | **Nessuna**                                        | **Nessuna**                                        |\n| **Condizioni di disdetta** | Nessuna menzione di vincoli specifici (da verificare con il fornitore) | **Nessun rimborso in caso di disdetta anticipata** (vincolo esplicito) |\n| **Flessibilità**          | Pagamento mensile, adatto a chi preferisce rateizzare | Pagamento unico, potenzialmente più conveniente a lungo termine ma **irrevocabile** se si interrompe prima dei 12 mesi |\n\n**Differenze chiave e vincoli non esplicitati dal fornitore (ma riportati dall'utente):**\n1. **Formula B**: Il pagamento anticipato di 120€ **non è rimborsabile** se si decide di disdire prima dei 12 mesi. Questo rappresenta un **rischio finanziario** se la necessità di archivio dovesse cambiare prima della scadenza.\n2. **Formula A**: Nonostante il costo totale sia identico (180€), il pagamento rateizzato offre **maggior flessibilità** in caso di necessità di interruzione anticipata. Tuttavia, **non è esplicitato** se esista una penalizzazione per disdetta anticipata anche in questo caso (da verificare con il fornitore).\n3. **Assistenza e spazio**: Entrambe le formule offrono gli stessi benefici (100 GB e assistenza uguale), quindi la scelta si riduce a **preferenze di pagamento** e **gestione del rischio** legato alla disdetta anticipata.\n\n**Calcoli e limitazioni:**\n- I costi totali sono calcolati **unicamente sulla base dei dati forniti dall'utente** (15€/mese × 12 = 180€). Non è stata verificata alcuna variazione tariffaria o condizione contrattuale aggiuntiva.\n- **Non è stato possibile includere** eventuali costi nascosti (es. tasse, spese di attivazione non menzionate) o condizioni contrattuali non riportate dall'utente.\n- **Non è stato effettuato alcun pagamento o modifica contrattuale**: questa tabella è un **draft interno** per supportare la valutazione.\n\n**Prossimi passi consigliati:**\n- **Verificare con il fornitore** eventuali condizioni aggiuntive (es. penalità per disdetta anticipata nella Formula A, rimborsi parziali, variazioni tariffarie).\n- **Chiarire se esistono condizioni promozionali** o sconti per pagamenti anticipati non menzionati.\n- **Valutare il rischio di impegno finanziario** legato alla Formula B, specialmente se la necessità di archivio potrebbe cambiare prima dei 12 mesi.\n\n*Nota: I dati sono tratti dalla memoria `mem_43262246ed92296b9353` (autorità: user_stated) e non sono stati confermati dal fornitore. La tabella non sostituisce una consultazione ufficiale con il servizio di archiviazione.*",
+      "characters": 3643,
+      "utf8_bytes": 3677,
+      "sha256_utf8": "f3df3f91ac1b0bdbec7babe7a549712167b02207b0ea89fd9f20def0860bce92"
+    },
+    "audited_content": {
+      "text": "Ecco una tabella comparativa sintetica delle due formule di archivio digitale per **12 mesi**, basata sui dati forniti dall'utente (non confermati dal fornitore). I vincoli e le differenze chiave sono evidenziati in **grassetto** per chiarezza. I costi totali sono calcolati sulla base delle informazioni disponibili, con le seguenti **limitazioni** da considerare prima di una scelta definitiva:\n\n| **Criterio**               | **Formula A (15€/mese)**                          | **Formula B (120€ anticipati)**                  |\n|---------------------------|--------------------------------------------------|--------------------------------------------------|\n| **Costo totale (12 mesi)** | **15€ × 12 = 180€** (pagamento rateizzato)       | **120€** (pagamento unico anticipato)            |\n| **Spazio offerto**        | 100 GB                                            | 100 GB                                            |\n| **Assistenza**            | Uguale alla Formula B                             | Uguale alla Formula A                             |\n| **Spese iniziali**        | **Nessuna**                                        | **Nessuna**                                        |\n| **Condizioni di disdetta** | Nessuna menzione di vincoli specifici (da verificare con il fornitore) | **Nessun rimborso in caso di disdetta anticipata** (vincolo esplicito) |\n| **Flessibilità**          | Pagamento mensile, adatto a chi preferisce rateizzare | Pagamento unico, potenzialmente più conveniente a lungo termine ma **irrevocabile** se si interrompe prima dei 12 mesi |\n\n**Differenze chiave e vincoli non esplicitati dal fornitore (ma riportati dall'utente):**\n1. **Formula B**: Il pagamento anticipato di 120€ **non è rimborsabile** se si decide di disdire prima dei 12 mesi. Questo rappresenta un **rischio finanziario** se la necessità di archivio dovesse cambiare prima della scadenza.\n2. **Formula A**: Nonostante il costo totale sia identico (180€), il pagamento rateizzato offre **maggior flessibilità** in caso di necessità di interruzione anticipata. Tuttavia, **non è esplicitato** se esista una penalizzazione per disdetta anticipata anche in questo caso (da verificare con il fornitore).\n3. **Assistenza e spazio**: Entrambe le formule offrono gli stessi benefici (100 GB e assistenza uguale), quindi la scelta si riduce a **preferenze di pagamento** e **gestione del rischio** legato alla disdetta anticipata.\n\n**Calcoli e limitazioni:**\n- I costi totali sono calcolati **unicamente sulla base dei dati forniti dall'utente** (15€/mese × 12 = 180€). Non è stata verificata alcuna variazione tariffaria o condizione contrattuale aggiuntiva.\n- **Non è stato possibile includere** eventuali costi nascosti (es. tasse, spese di attivazione non menzionate) o condizioni contrattuali non riportate dall'utente.\n- **Non è stato effettuato alcun pagamento o modifica contrattuale**: questa tabella è un **draft interno** per supportare la valutazione.\n\n**Prossimi passi consigliati:**\n- **Verificare con il fornitore** eventuali condizioni aggiuntive (es. penalità per disdetta anticipata nella Formula A, rimborsi parziali, variazioni tariffarie).\n- **Chiarire se esistono condizioni promozionali** o sconti per pagamenti anticipati non menzionati.\n- **Valutare il rischio di impegno finanziario** legato alla Formula B, specialmente se la necessità di archivio potrebbe cambiare prima dei 12 mesi.\n\n*Nota: I dati sono tratti dalla memoria `mem_43262246ed92296b9353` (autorità: user_stated) e non sono stati confermati dal fornitore. La tabella non sostituisce una consultazione ufficiale con il servizio di archiviazione.*",
+      "characters": 3643,
+      "utf8_bytes": 3677,
+      "sha256_utf8": "f3df3f91ac1b0bdbec7babe7a549712167b02207b0ea89fd9f20def0860bce92"
+    },
+    "saved_prepared_text": {
+      "text": "Ecco una tabella comparativa sintetica delle due formule di archivio digitale per **12 mesi**, basata sui dati forniti dall'utente (non confermati dal fornitore). I vincoli e le differenze chiave sono evidenziati in **grassetto** per chiarezza. I costi totali sono calcolati sulla base delle informazioni disponibili, con le seguenti **limitazioni** da considerare prima di una scelta definitiva:\n\n| **Criterio**               | **Formula A (15€/mese)**                          | **Formula B (120€ anticipati)**                  |\n|---------------------------|--------------------------------------------------|--------------------------------------------------|\n| **Costo totale (12 mesi)** | **15€ × 12 = 180€** (pagamento rateizzato)       | **120€** (pagamento unico anticipato)            |\n| **Spazio offerto**        | 100 GB                                            | 100 GB                                            |\n| **Assistenza**            | Uguale alla Formula B                             | Uguale alla Formula A                             |\n| **Spese iniziali**        | **Nessuna**                                        | **Nessuna**                                        |\n| **Condizioni di disdetta** | Nessuna menzione di vincoli specifici (da verificare con il fornitore) | **Nessun rimborso in caso di disdetta anticipata** (vincolo esplicito) |\n| **Flessibilità**          | Pagamento mensile, adatto a chi preferisce rateizzare | Pagamento unico, potenzialmente più conveniente a lungo termine ma **irrevocabile** se si interrompe prima dei 12 mesi |\n\n**Differenze chiave e vincoli non esplicitati dal fornitore (ma riportati dall'utente):**\n1. **Formula B**: Il pagamento anticipato di 120€ **non è rimborsabile** se si decide di disdire prima dei 12 mesi. Questo rappresenta un **rischio finanziario** se la necessità di archivio dovesse cambiare prima della scadenza.\n2. **Formula A**: Nonostante il costo totale sia identico (180€), il pagamento rateizzato offre **maggior flessibilità** in caso di necessità di interruzione anticipata. Tuttavia, **non è esplicitato** se esista una penalizzazione per disdetta anticipata anche in questo caso (da verificare con il fornitore).\n3. **Assistenza e spazio**: Entrambe le formule offrono gli stessi benefici (100 GB e assistenza uguale), quindi la scelta si riduce a **preferenze di pagamento** e **gestione del rischio** legato alla disdetta anticipata.\n\n**Calcoli e limitazioni:**\n- I costi totali sono calcolati **unicamente sulla base dei dati forniti dall'utente** (15€/mese × 12 = 180€). Non è stata verificata alcuna variazione tariffaria o condizione contrattuale aggiuntiva.\n- **Non è stato possibile includere** eventuali costi nascosti (es. tasse, spese di attivazione non menzionate) o condizioni contrattuali non riportate dall'utente.\n- **Non è stato effettuato alcun pagamento o modifica contrattuale**: questa tabella è un **draft interno** per supportare la valutazione.\n\n**Prossimi passi consigliati:**\n- **Verificare con il fornitore** eventuali condizioni aggiuntive (es. penalità per disdetta anticipata nella Formula A, rimborsi parziali, variazioni tariffarie).\n- **Chiarire se esistono condizioni promozionali** o sconti per pagamenti anticipati non menzionati.\n- **Valutare il rischio di impegno finanziario** legato alla Formula B, specialmente se la necessità di archivio potrebbe cambiare prima dei 12 mesi.\n\n*Nota: I dati sono tratti dalla memoria `mem_43262246ed92296b9353` (autorità: user_stated) e non sono stati confermati dal fornitore. La tabella non sostituisce una consultazione ufficiale con il servizio di archiviazione.*",
+      "characters": 3643,
+      "utf8_bytes": 3677,
+      "sha256_utf8": "f3df3f91ac1b0bdbec7babe7a549712167b02207b0ea89fd9f20def0860bce92"
+    },
+    "all_three_identical": true,
+    "generation_export_truncated": false,
+    "audit_export_truncated": false,
+    "saved_export_truncated": false
+  },
+  "original_generation_observation": {
+    "stage": "preparation_generation",
+    "model_attempts_before": 8,
+    "input": {
+      "evidence_kind": "array",
+      "evidence_count": 1,
+      "evidence_truncated": false,
+      "evidence_ids_kind": "array",
+      "evidence_ids": [
+        "evd_9248d94830f74cb8"
+      ],
+      "evidence_ids_count": 1,
+      "evidence_ids_omitted": 0,
+      "goal_id": "gol_73bdcaf93dac4923",
+      "step_id": "stp_ec1d3c5ac82e4e58"
+    },
+    "response_kind": "object",
+    "content_kind": "text",
+    "content": "Ecco una tabella comparativa sintetica delle due formule di archivio digitale per **12 mesi**, basata sui dati forniti dall'utente (non confermati dal fornitore). I vincoli e le differenze chiave sono evidenziati in **grassetto** per chiarezza. I costi totali sono calcolati sulla base delle informazioni disponibili, con le seguenti **limitazioni** da considerare prima di una scelta definitiva:\n\n| **Criterio**               | **Formula A (15€/mese)**                          | **Formula B (120€ anticipati)**                  |\n|---------------------------|--------------------------------------------------|--------------------------------------------------|\n| **Costo totale (12 mesi)** | **15€ × 12 = 180€** (pagamento rateizzato)       | **120€** (pagamento unico anticipato)            |\n| **Spazio offerto**        | 100 GB                                            | 100 GB                                            |\n| **Assistenza**            | Uguale alla Formula B                             | Uguale alla Formula A                             |\n| **Spese iniziali**        | **Nessuna**                                        | **Nessuna**                                        |\n| **Condizioni di disdetta** | Nessuna menzione di vincoli specifici (da verificare con il fornitore) | **Nessun rimborso in caso di disdetta anticipata** (vincolo esplicito) |\n| **Flessibilità**          | Pagamento mensile, adatto a chi preferisce rateizzare | Pagamento unico, potenzialmente più conveniente a lungo termine ma **irrevocabile** se si interrompe prima dei 12 mesi |\n\n**Differenze chiave e vincoli non esplicitati dal fornitore (ma riportati dall'utente):**\n1. **Formula B**: Il pagamento anticipato di 120€ **non è rimborsabile** se si decide di disdire prima dei 12 mesi. Questo rappresenta un **rischio finanziario** se la necessità di archivio dovesse cambiare prima della scadenza.\n2. **Formula A**: Nonostante il costo totale sia identico (180€), il pagamento rateizzato offre **maggior flessibilità** in caso di necessità di interruzione anticipata. Tuttavia, **non è esplicitato** se esista una penalizzazione per disdetta anticipata anche in questo caso (da verificare con il fornitore).\n3. **Assistenza e spazio**: Entrambe le formule offrono gli stessi benefici (100 GB e assistenza uguale), quindi la scelta si riduce a **preferenze di pagamento** e **gestione del rischio** legato alla disdetta anticipata.\n\n**Calcoli e limitazioni:**\n- I costi totali sono calcolati **unicamente sulla base dei dati forniti dall'utente** (15€/mese × 12 = 180€). Non è stata verificata alcuna variazione tariffaria o condizione contrattuale aggiuntiva.\n- **Non è stato possibile includere** eventuali costi nascosti (es. tasse, spese di attivazione non menzionate) o condizioni contrattuali non riportate dall'utente.\n- **Non è stato effettuato alcun pagamento o modifica contrattuale**: questa tabella è un **draft interno** per supportare la valutazione.\n\n**Prossimi passi consigliati:**\n- **Verificare con il fornitore** eventuali condizioni aggiuntive (es. penalità per disdetta anticipata nella Formula A, rimborsi parziali, variazioni tariffarie).\n- **Chiarire se esistono condizioni promozionali** o sconti per pagamenti anticipati non menzionati.\n- **Valutare il rischio di impegno finanziario** legato alla Formula B, specialmente se la necessità di archivio potrebbe cambiare prima dei 12 mesi.\n\n*Nota: I dati sono tratti dalla memoria `mem_43262246ed92296b9353` (autorità: user_stated) e non sono stati confermati dal fornitore. La tabella non sostituisce una consultazione ufficiale con il servizio di archiviazione.*",
+    "content_characters": 3643,
+    "content_truncated": false,
+    "evidence_ids_kind": "array",
+    "evidence_ids": [
+      "evd_9248d94830f74cb8"
+    ],
+    "evidence_ids_count": 1,
+    "evidence_ids_omitted": 0,
+    "verified_kind": "none",
+    "model_attempts_after": 9,
+    "sequence": 7
+  },
+  "original_audit_observation": {
+    "stage": "preparation_audit",
+    "model_attempts_before": 9,
+    "input": {
+      "evidence_kind": "array",
+      "evidence_count": 1,
+      "evidence_truncated": false,
+      "evidence_ids_kind": "array",
+      "evidence_ids": [
+        "evd_9248d94830f74cb8"
+      ],
+      "evidence_ids_count": 1,
+      "evidence_ids_omitted": 0,
+      "goal_id": "gol_73bdcaf93dac4923",
+      "step_id": "stp_ec1d3c5ac82e4e58",
+      "draft_kind": "text",
+      "draft": "Ecco una tabella comparativa sintetica delle due formule di archivio digitale per **12 mesi**, basata sui dati forniti dall'utente (non confermati dal fornitore). I vincoli e le differenze chiave sono evidenziati in **grassetto** per chiarezza. I costi totali sono calcolati sulla base delle informazioni disponibili, con le seguenti **limitazioni** da considerare prima di una scelta definitiva:\n\n| **Criterio**               | **Formula A (15€/mese)**                          | **Formula B (120€ anticipati)**                  |\n|---------------------------|--------------------------------------------------|--------------------------------------------------|\n| **Costo totale (12 mesi)** | **15€ × 12 = 180€** (pagamento rateizzato)       | **120€** (pagamento unico anticipato)            |\n| **Spazio offerto**        | 100 GB                                            | 100 GB                                            |\n| **Assistenza**            | Uguale alla Formula B                             | Uguale alla Formula A                             |\n| **Spese iniziali**        | **Nessuna**                                        | **Nessuna**                                        |\n| **Condizioni di disdetta** | Nessuna menzione di vincoli specifici (da verificare con il fornitore) | **Nessun rimborso in caso di disdetta anticipata** (vincolo esplicito) |\n| **Flessibilità**          | Pagamento mensile, adatto a chi preferisce rateizzare | Pagamento unico, potenzialmente più conveniente a lungo termine ma **irrevocabile** se si interrompe prima dei 12 mesi |\n\n**Differenze chiave e vincoli non esplicitati dal fornitore (ma riportati dall'utente):**\n1. **Formula B**: Il pagamento anticipato di 120€ **non è rimborsabile** se si decide di disdire prima dei 12 mesi. Questo rappresenta un **rischio finanziario** se la necessità di archivio dovesse cambiare prima della scadenza.\n2. **Formula A**: Nonostante il costo totale sia identico (180€), il pagamento rateizzato offre **maggior flessibilità** in caso di necessità di interruzione anticipata. Tuttavia, **non è esplicitato** se esista una penalizzazione per disdetta anticipata anche in questo caso (da verificare con il fornitore).\n3. **Assistenza e spazio**: Entrambe le formule offrono gli stessi benefici (100 GB e assistenza uguale), quindi la scelta si riduce a **preferenze di pagamento** e **gestione del rischio** legato alla disdetta anticipata.\n\n**Calcoli e limitazioni:**\n- I costi totali sono calcolati **unicamente sulla base dei dati forniti dall'utente** (15€/mese × 12 = 180€). Non è stata verificata alcuna variazione tariffaria o condizione contrattuale aggiuntiva.\n- **Non è stato possibile includere** eventuali costi nascosti (es. tasse, spese di attivazione non menzionate) o condizioni contrattuali non riportate dall'utente.\n- **Non è stato effettuato alcun pagamento o modifica contrattuale**: questa tabella è un **draft interno** per supportare la valutazione.\n\n**Prossimi passi consigliati:**\n- **Verificare con il fornitore** eventuali condizioni aggiuntive (es. penalità per disdetta anticipata nella Formula A, rimborsi parziali, variazioni tariffarie).\n- **Chiarire se esistono condizioni promozionali** o sconti per pagamenti anticipati non menzionati.\n- **Valutare il rischio di impegno finanziario** legato alla Formula B, specialmente se la necessità di archivio potrebbe cambiare prima dei 12 mesi.\n\n*Nota: I dati sono tratti dalla memoria `mem_43262246ed92296b9353` (autorità: user_stated) e non sono stati confermati dal fornitore. La tabella non sostituisce una consultazione ufficiale con il servizio di archiviazione.*",
+      "draft_characters": 3643,
+      "draft_truncated": false
+    },
+    "response_kind": "object",
+    "content_kind": "text",
+    "content": "Ecco una tabella comparativa sintetica delle due formule di archivio digitale per **12 mesi**, basata sui dati forniti dall'utente (non confermati dal fornitore). I vincoli e le differenze chiave sono evidenziati in **grassetto** per chiarezza. I costi totali sono calcolati sulla base delle informazioni disponibili, con le seguenti **limitazioni** da considerare prima di una scelta definitiva:\n\n| **Criterio**               | **Formula A (15€/mese)**                          | **Formula B (120€ anticipati)**                  |\n|---------------------------|--------------------------------------------------|--------------------------------------------------|\n| **Costo totale (12 mesi)** | **15€ × 12 = 180€** (pagamento rateizzato)       | **120€** (pagamento unico anticipato)            |\n| **Spazio offerto**        | 100 GB                                            | 100 GB                                            |\n| **Assistenza**            | Uguale alla Formula B                             | Uguale alla Formula A                             |\n| **Spese iniziali**        | **Nessuna**                                        | **Nessuna**                                        |\n| **Condizioni di disdetta** | Nessuna menzione di vincoli specifici (da verificare con il fornitore) | **Nessun rimborso in caso di disdetta anticipata** (vincolo esplicito) |\n| **Flessibilità**          | Pagamento mensile, adatto a chi preferisce rateizzare | Pagamento unico, potenzialmente più conveniente a lungo termine ma **irrevocabile** se si interrompe prima dei 12 mesi |\n\n**Differenze chiave e vincoli non esplicitati dal fornitore (ma riportati dall'utente):**\n1. **Formula B**: Il pagamento anticipato di 120€ **non è rimborsabile** se si decide di disdire prima dei 12 mesi. Questo rappresenta un **rischio finanziario** se la necessità di archivio dovesse cambiare prima della scadenza.\n2. **Formula A**: Nonostante il costo totale sia identico (180€), il pagamento rateizzato offre **maggior flessibilità** in caso di necessità di interruzione anticipata. Tuttavia, **non è esplicitato** se esista una penalizzazione per disdetta anticipata anche in questo caso (da verificare con il fornitore).\n3. **Assistenza e spazio**: Entrambe le formule offrono gli stessi benefici (100 GB e assistenza uguale), quindi la scelta si riduce a **preferenze di pagamento** e **gestione del rischio** legato alla disdetta anticipata.\n\n**Calcoli e limitazioni:**\n- I costi totali sono calcolati **unicamente sulla base dei dati forniti dall'utente** (15€/mese × 12 = 180€). Non è stata verificata alcuna variazione tariffaria o condizione contrattuale aggiuntiva.\n- **Non è stato possibile includere** eventuali costi nascosti (es. tasse, spese di attivazione non menzionate) o condizioni contrattuali non riportate dall'utente.\n- **Non è stato effettuato alcun pagamento o modifica contrattuale**: questa tabella è un **draft interno** per supportare la valutazione.\n\n**Prossimi passi consigliati:**\n- **Verificare con il fornitore** eventuali condizioni aggiuntive (es. penalità per disdetta anticipata nella Formula A, rimborsi parziali, variazioni tariffarie).\n- **Chiarire se esistono condizioni promozionali** o sconti per pagamenti anticipati non menzionati.\n- **Valutare il rischio di impegno finanziario** legato alla Formula B, specialmente se la necessità di archivio potrebbe cambiare prima dei 12 mesi.\n\n*Nota: I dati sono tratti dalla memoria `mem_43262246ed92296b9353` (autorità: user_stated) e non sono stati confermati dal fornitore. La tabella non sostituisce una consultazione ufficiale con il servizio di archiviazione.*",
+    "content_characters": 3643,
+    "content_truncated": false,
+    "evidence_ids_kind": "array",
+    "evidence_ids": [
+      "evd_9248d94830f74cb8"
+    ],
+    "evidence_ids_count": 1,
+    "evidence_ids_omitted": 0,
+    "verified_kind": "boolean",
+    "verified": true,
+    "reason": "La tabella comparativa è corretta e supportata dai dati forniti dall'utente, evidenziando le differenze chiave e i vincoli non esplicitati.",
+    "claim_review_kind": "array",
+    "claim_review_count": 5,
+    "claim_review_omitted": 0,
+    "claim_review": [
+      {
+        "claim": "Il costo totale per 12 mesi della Formula A è 180€ e della Formula B è 120€.",
+        "premises": "Formula A: 15€ × 12 = 180€; Formula B: 120€ anticipati per 12 mesi.",
+        "support": "stated",
+        "correction": "",
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_9248d94830f74cb8"
+        ],
+        "evidence_ids_count": 1,
+        "evidence_ids_omitted": 0,
+        "source_passage_ids_kind": "array",
+        "source_passage_ids": [
+          "p_c0c0e5dce4678da3_0_277",
+          "p_c0c0e5dce4678da3_277_553"
+        ],
+        "source_passage_ids_count": 2,
+        "source_passage_ids_omitted": 0,
+        "source_passage_selections": [
+          {
+            "selection_index": 0,
+            "response_kind": "text",
+            "status": "materialized",
+            "origin": "code_owned_audit_input",
+            "source_passage_id": "p_c0c0e5dce4678da3_0_277",
+            "source_passage_id_characters": 24,
+            "source_passage_id_truncated": false,
+            "evidence_id": "evd_9248d94830f74cb8",
+            "evidence_id_characters": 20,
+            "evidence_id_truncated": false,
+            "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+            "quote_characters": 277,
+            "quote_truncated": false
+          },
+          {
+            "selection_index": 1,
+            "response_kind": "text",
+            "status": "materialized",
+            "origin": "code_owned_audit_input",
+            "source_passage_id": "p_c0c0e5dce4678da3_277_553",
+            "source_passage_id_characters": 26,
+            "source_passage_id_truncated": false,
+            "evidence_id": "evd_9248d94830f74cb8",
+            "evidence_id_characters": 20,
+            "evidence_id_truncated": false,
+            "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+            "quote_characters": 276,
+            "quote_truncated": false
+          }
+        ],
+        "source_quotes_kind": "none"
+      },
+      {
+        "claim": "Entrambe le formule offrono 100 GB di spazio e assistenza uguale.",
+        "premises": "Entrambe le opzioni offrono 100 GB e assistenza uguale, come riportato dall'utente.",
+        "support": "stated",
+        "correction": "",
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_9248d94830f74cb8"
+        ],
+        "evidence_ids_count": 1,
+        "evidence_ids_omitted": 0,
+        "source_passage_ids_kind": "array",
+        "source_passage_ids": [
+          "p_c0c0e5dce4678da3_277_553"
+        ],
+        "source_passage_ids_count": 1,
+        "source_passage_ids_omitted": 0,
+        "source_passage_selections": [
+          {
+            "selection_index": 0,
+            "response_kind": "text",
+            "status": "materialized",
+            "origin": "code_owned_audit_input",
+            "source_passage_id": "p_c0c0e5dce4678da3_277_553",
+            "source_passage_id_characters": 26,
+            "source_passage_id_truncated": false,
+            "evidence_id": "evd_9248d94830f74cb8",
+            "evidence_id_characters": 20,
+            "evidence_id_truncated": false,
+            "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+            "quote_characters": 276,
+            "quote_truncated": false
+          }
+        ],
+        "source_quotes_kind": "none"
+      },
+      {
+        "claim": "La Formula B non prevede rimborso in caso di disdetta anticipata.",
+        "premises": "La nota dell'utente specifica che l'opzione annuale non prevede rimborso in caso di disdetta anticipata.",
+        "support": "stated",
+        "correction": "",
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_9248d94830f74cb8"
+        ],
+        "evidence_ids_count": 1,
+        "evidence_ids_omitted": 0,
+        "source_passage_ids_kind": "array",
+        "source_passage_ids": [
+          "p_c0c0e5dce4678da3_277_553"
+        ],
+        "source_passage_ids_count": 1,
+        "source_passage_ids_omitted": 0,
+        "source_passage_selections": [
+          {
+            "selection_index": 0,
+            "response_kind": "text",
+            "status": "materialized",
+            "origin": "code_owned_audit_input",
+            "source_passage_id": "p_c0c0e5dce4678da3_277_553",
+            "source_passage_id_characters": 26,
+            "source_passage_id_truncated": false,
+            "evidence_id": "evd_9248d94830f74cb8",
+            "evidence_id_characters": 20,
+            "evidence_id_truncated": false,
+            "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+            "quote_characters": 276,
+            "quote_truncated": false
+          }
+        ],
+        "source_quotes_kind": "none"
+      },
+      {
+        "claim": "La Formula A offre maggiore flessibilità in caso di interruzione anticipata, ma non è chiaro se ci siano penalità.",
+        "premises": "Formula A permette pagamento mensile, ma non è specificato se ci siano penalità per disdetta anticipata.",
+        "support": "conditional",
+        "correction": "",
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_9248d94830f74cb8"
+        ],
+        "evidence_ids_count": 1,
+        "evidence_ids_omitted": 0,
+        "source_passage_ids_kind": "array",
+        "source_passage_ids": [
+          "p_c0c0e5dce4678da3_277_553"
+        ],
+        "source_passage_ids_count": 1,
+        "source_passage_ids_omitted": 0,
+        "source_passage_selections": [
+          {
+            "selection_index": 0,
+            "response_kind": "text",
+            "status": "materialized",
+            "origin": "code_owned_audit_input",
+            "source_passage_id": "p_c0c0e5dce4678da3_277_553",
+            "source_passage_id_characters": 26,
+            "source_passage_id_truncated": false,
+            "evidence_id": "evd_9248d94830f74cb8",
+            "evidence_id_characters": 20,
+            "evidence_id_truncated": false,
+            "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+            "quote_characters": 276,
+            "quote_truncated": false
+          }
+        ],
+        "source_quotes_kind": "none"
+      },
+      {
+        "claim": "Non sono stati inclusi eventuali costi nascosti o condizioni contrattuali non riportate dall'utente.",
+        "premises": "La tabella non considera costi nascosti o condizioni contrattuali non menzionate dall'utente.",
+        "support": "stated",
+        "correction": "",
+        "evidence_ids_kind": "array",
+        "evidence_ids": [
+          "evd_9248d94830f74cb8"
+        ],
+        "evidence_ids_count": 1,
+        "evidence_ids_omitted": 0,
+        "source_passage_ids_kind": "array",
+        "source_passage_ids": [
+          "p_c0c0e5dce4678da3_0_277",
+          "p_c0c0e5dce4678da3_277_553"
+        ],
+        "source_passage_ids_count": 2,
+        "source_passage_ids_omitted": 0,
+        "source_passage_selections": [
+          {
+            "selection_index": 0,
+            "response_kind": "text",
+            "status": "materialized",
+            "origin": "code_owned_audit_input",
+            "source_passage_id": "p_c0c0e5dce4678da3_0_277",
+            "source_passage_id_characters": 24,
+            "source_passage_id_truncated": false,
+            "evidence_id": "evd_9248d94830f74cb8",
+            "evidence_id_characters": 20,
+            "evidence_id_truncated": false,
+            "quote": "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule e mi manca il confronto scritto di costi e vincoli. Nota salvata in ORA, dati riferiti dall'utente e non confermati dal fornitore: il piano dell'archivio digitale costa 15 euro mensili; 12 ",
+            "quote_characters": 277,
+            "quote_truncated": false
+          },
+          {
+            "selection_index": 1,
+            "response_kind": "text",
+            "status": "materialized",
+            "origin": "code_owned_audit_input",
+            "source_passage_id": "p_c0c0e5dce4678da3_277_553",
+            "source_passage_id_characters": 26,
+            "source_passage_id_truncated": false,
+            "evidence_id": "evd_9248d94830f74cb8",
+            "evidence_id_characters": 20,
+            "evidence_id_truncated": false,
+            "quote": "mesi costano 180 euro. La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi. In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle. L'annuale non prevede rimborso in caso di disdetta anticipata. Nessun cambio di contratto o pagamento ",
+            "quote_characters": 276,
+            "quote_truncated": false
+          }
+        ],
+        "source_quotes_kind": "none"
+      }
+    ],
+    "model_attempts_after": 10,
+    "sequence": 8
+  },
+  "model_bindings": {
+    "generation": {
+      "logical_call": 9,
+      "provider": "mistral",
+      "model": "ministral-8b-2512",
+      "usage": {
+        "prompt_tokens": 2546,
+        "completion_tokens": 1001
+      }
+    },
+    "audit": {
+      "logical_call": 10,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "usage": {
+        "prompt_tokens": 4064,
+        "completion_tokens": 1537
+      }
+    },
+    "logical_calls_in_case": 14,
+    "http_attempts_in_case": 15
+  },
+  "observed_goal_contract": {
+    "desired_outcome": "un documento interno che elenca i costi totali, le condizioni contrattuali e i vincoli delle due opzioni (15€/mese vs 120€ anticipati) per 12 mesi, con evidenziazione delle differenze chiave (es. assenza di rimborso in caso di disdetta anticipata per l'opzione annuale).",
+    "success_criteria_kind": "array",
+    "success_criteria": [
+      "tabella comparativa con due colonne (Formula A: 15€/mese vs Formula B: 120€ anticipati) che includa: costo totale per 12 mesi, spazio offerto, assistenza, spese",
+      "evidenziazione dei vincoli non esplicitati (es. 'nessun rimborso in caso di disdetta anticipata per l'opzione annuale')",
+      "formato leggibile e sintetico, senza modifiche contrattuali o pagamenti"
+    ],
+    "success_criteria_count": 3,
+    "success_criteria_omitted": 0,
+    "source_refs": [
+      "mem_43262246ed92296b9353"
+    ],
+    "prepared_sources": [
+      "evd_9248d94830f74cb8"
+    ]
+  },
+  "manual_findings": [
+    {
+      "id": "contradictory_cost_comparison",
+      "severity": "semantic_failure",
+      "exact_output_excerpt": "Nonostante il costo totale sia identico (180€)",
+      "evidence": "The same full text and the retained source passages state 180 euro over 12 months for the monthly option and 120 euro prepaid for the annual option.",
+      "assessment": "The equal-cost statement contradicts both the source and the table. The explicit 60-euro difference is absent from generation, audit and saved text."
+    },
+    {
+      "id": "unsupported_cancellation_benefit",
+      "severity": "semantic_failure",
+      "exact_output_excerpt": "il pagamento rateizzato offre **maggior flessibilità** in caso di necessità di interruzione anticipata.",
+      "audit_label": "conditional",
+      "audit_correction": "",
+      "evidence": "The selected authentic passage states price, equal features and annual non-refundability; it does not establish the monthly option cancellation terms.",
+      "assessment": "Monthly payment cadence alone does not establish easier early termination. The following caveat about unknown penalties does not supply that missing premise; a conditional label on the review does not make the asserted conclusion conditional."
+    },
+    {
+      "id": "preserved_source_facts_and_limits",
+      "severity": "preserved",
+      "assessment": "The text preserves 100 GB, equal assistance, no initial fees, the annual non-refund limitation, the 12-month horizon and attribution to user-reported facts not confirmed by the provider. These preserved details do not cure the two failures above."
+    }
+  ],
+  "code_trace": {
+    "files_compared_to_candidate": [
+      {
+        "path": "backend/agent/preparation.py",
+        "current_sha256": "dba20cff35ed64a58c7001787d9d9b56e0edd693e3de4b08a87d5f7625711b24",
+        "candidate_sha256": "dba20cff35ed64a58c7001787d9d9b56e0edd693e3de4b08a87d5f7625711b24",
+        "identical_to_candidate": true
+      },
+      {
+        "path": "backend/agent/preparation_schema.py",
+        "current_sha256": "6ba674b0e83e574d7bf4f2b5c593edb2e1b964b521cf8d387252f24b5a36b9d0",
+        "candidate_sha256": "6ba674b0e83e574d7bf4f2b5c593edb2e1b964b521cf8d387252f24b5a36b9d0",
+        "identical_to_candidate": true
+      },
+      {
+        "path": "backend/agent/preparation_passages.py",
+        "current_sha256": "a497d4c7d3d626b477af6f88b596fc295b9fce35204ce6945cae0e4090f0185c",
+        "candidate_sha256": "a497d4c7d3d626b477af6f88b596fc295b9fce35204ce6945cae0e4090f0185c",
+        "identical_to_candidate": true
+      }
+    ],
+    "generation": "preparation.prepare sends goal.for_ai, step.for_ai and actual source rows; existing instructions demand useful differences, supported calculations and constraints.",
+    "audit": "preparation.prepare sends request (objective, desired_outcome, success_criteria, clarifications, step intent/result and source-refresh qualification), full draft and lossless source passages. The existing contract already requires clause-level support, compatible counterexamples, completeness and review of corrected wording.",
+    "authenticity_boundary": "materialize_audit_passages and _audit_review_errors validate selected source IDs, literal text and response shape. They intentionally do not determine entailment, arithmetic correctness or complete coverage of free-form output.",
+    "known_limit_regression": "backend/tests/test_preparation_source_quotes_v162.py::test_authentic_quote_is_not_a_semantic_entailment_oracle (read, not rerun)",
+    "local_feedback": "A positive accepted audit does not create negative semantic feedback for this artifact; no rejected semantic review is observable here to have been lost during recovery."
+  },
+  "operational_limit": {
+    "final_state": {
+      "status": "active",
+      "requires_user_input": false,
+      "requires_user_authority": false,
+      "has_next_run_at": false,
+      "evidence_count": 9,
+      "current_evidence_count": 9
+    },
+    "final_choice_observations": [
+      {
+        "stage": "choose_next_action",
+        "model_attempts_before": 10,
+        "input": {
+          "status": "active",
+          "evidence_kind": "array",
+          "evidence_entries": 9,
+          "plan": {
+            "steps_count": 3,
+            "steps": [
+              {
+                "id": "stp_c7a86bbc09594139",
+                "type": "inspect",
+                "capability_needed": "information.read",
+                "status": "succeeded"
+              },
+              {
+                "id": "stp_ec1d3c5ac82e4e58",
+                "type": "prepare",
+                "capability_needed": "document.create",
+                "status": "succeeded"
+              },
+              {
+                "id": "stp_4fcd803dcef446ac",
+                "type": "verify",
+                "capability_needed": "document.read",
+                "status": "pending"
+              }
+            ],
+            "steps_omitted": 0
+          }
+        },
+        "response_kind": "none",
+        "model_attempts_after": 10,
+        "sequence": 9
+      },
+      {
+        "stage": "choose_next_action",
+        "model_attempts_before": 12,
+        "input": {
+          "status": "active",
+          "evidence_kind": "array",
+          "evidence_entries": 9,
+          "plan": {
+            "steps_count": 3,
+            "steps": [
+              {
+                "id": "stp_c7a86bbc09594139",
+                "type": "inspect",
+                "capability_needed": "information.read",
+                "status": "succeeded"
+              },
+              {
+                "id": "stp_ec1d3c5ac82e4e58",
+                "type": "prepare",
+                "capability_needed": "document.create",
+                "status": "succeeded"
+              },
+              {
+                "id": "stp_4fcd803dcef446ac",
+                "type": "verify",
+                "capability_needed": "document.read",
+                "status": "pending"
+              }
+            ],
+            "steps_omitted": 0
+          }
+        },
+        "response_kind": "none",
+        "model_attempts_after": 12,
+        "sequence": 10
+      }
+    ],
+    "verify_goal_observed": false,
+    "structured_decisions_omitted": 0,
+    "result_checks": {
+      "preconditions": {
+        "status": "not_run"
+      },
+      "semantic": {
+        "status": "not_run"
+      },
+      "home": {
+        "status": "not_run"
+      },
+      "replay": {
+        "status": "not_run"
+      },
+      "owner_isolation": {
+        "status": "not_run"
+      },
+      "isolation": {
+        "status": "not_run"
+      }
+    },
+    "interpretation": "Two observed final chooser calls return None without another model attempt. The report lacks the full serialized payload, so it independently attests pre-model unavailability, not the exact serializer rejection branch. Home recovery, replay, owner isolation and final semantic acceptance are not attested."
+  },
+  "recommendation": {
+    "runtime_semantic_patch": "None justified by this trace under the current constraints. Duplicating the already-explicit instruction or rejecting every conditional claim would not provide a sound semantic guard.",
+    "observability_if_needed": "Keep exact generation, audit and saved-artifact bindings; retain the bounded request used by this audit, its source-version/ID bindings and draft identity, with truncation flags, only in the existing marked synthetic diagnostics. Report audit_acceptance and source_authenticity separately from semantic review. These records are observations, never a new success gate or source of facts.",
+    "acceptance": "Do not classify this case as semantically passed or its content as corrected by local format/provenance tests. A new exact live result still requires semantic review."
+  }
+}

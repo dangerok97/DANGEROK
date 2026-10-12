@@ -1,0 +1,144 @@
+{
+  "version": "ora-app-effective-deployment-v162",
+  "observed_at": "2026-10-12T09:22:01+00:00",
+  "sources": [
+    "Railway get-staged-changes (variable values redacted by tool)",
+    "Railway list-deployments for backend and web"
+  ],
+  "project_id": "1264aea8-7e1e-403b-9d14-66f61135f179",
+  "environment_id": "8554e8b3-db0b-4e55-ae40-7ab5a25eb657",
+  "staged_patch": {
+    "patchId": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+    "status": "STAGED",
+    "changeCount": 5,
+    "message": null,
+    "createdAt": "2026-10-12T01:27:28.213Z",
+    "updatedAt": "2026-10-12T01:27:33.675Z"
+  },
+  "staged_resources": [
+    {
+      "kind": "service",
+      "id": "0db9c41c-8a01-42db-a87d-b4083821610d",
+      "name": "ora-web",
+      "action": "update",
+      "changes": [
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.branch",
+          "displayName": "Branch",
+          "type": "added",
+          "from": "",
+          "to": "staging/cloud",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.commitSha",
+          "displayName": "Commit Sha",
+          "type": "removed",
+          "from": "",
+          "to": "",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.image",
+          "displayName": "Image",
+          "type": "removed",
+          "from": "",
+          "to": "",
+          "destructive": false
+        },
+        {
+          "path": "services.0db9c41c-8a01-42db-a87d-b4083821610d.source.repo",
+          "displayName": "Repo",
+          "type": "updated",
+          "from": "dangerok97/DANGEROK",
+          "to": "dangerok97/DANGEROK",
+          "destructive": false
+        }
+      ]
+    },
+    {
+      "kind": "service",
+      "id": "c408cff6-d695-4ea9-bb57-7bd753241781",
+      "name": "ora-backend",
+      "action": "update",
+      "changes": [
+        {
+          "path": "services.c408cff6-d695-4ea9-bb57-7bd753241781.source.branch",
+          "displayName": "Branch",
+          "type": "added",
+          "from": "",
+          "to": "staging/cloud",
+          "destructive": false
+        }
+      ]
+    }
+  ],
+  "staged_destructive": false,
+  "services": [
+    {
+      "id": "c408cff6-d695-4ea9-bb57-7bd753241781",
+      "name": "ora-backend",
+      "deployments": [
+        {
+          "id": "c28fa4c7-9b2d-4aa3-a3c5-10595c1ac9f8",
+          "status": "SUCCESS",
+          "created_at": "2026-10-12T09:07:12.660Z",
+          "updated_at": "2026-10-12T09:09:38.588Z",
+          "commit_sha": "c59db28c840fc6079f98067a9f42093773e5c4d7",
+          "branch": "staging/cloud"
+        },
+        {
+          "id": "609c4857-8581-4434-8b64-49d86ff6f6fb",
+          "status": "REMOVED",
+          "created_at": "2026-10-12T07:40:53.760Z",
+          "updated_at": "2026-10-12T09:09:41.418Z",
+          "commit_sha": "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+          "branch": "staging/cloud"
+        }
+      ]
+    },
+    {
+      "id": "0db9c41c-8a01-42db-a87d-b4083821610d",
+      "name": "ora-web",
+      "deployments": [
+        {
+          "id": "9bd835fb-d35a-4d80-8203-0e411f2abeeb",
+          "status": "SUCCESS",
+          "created_at": "2026-10-12T09:07:25.287Z",
+          "updated_at": "2026-10-12T09:08:39.583Z",
+          "commit_sha": "c59db28c840fc6079f98067a9f42093773e5c4d7",
+          "branch": "staging/cloud"
+        },
+        {
+          "id": "f13ac4be-10eb-4752-87b3-3ce225904b77",
+          "status": "SKIPPED",
+          "created_at": "2026-10-12T07:40:57.311Z",
+          "updated_at": "2026-10-12T07:41:03.248Z",
+          "commit_sha": "389f38ab21f5db61eeb5464e6e65df5c63f4a977",
+          "branch": "staging/cloud"
+        },
+        {
+          "id": "9fe7187b-7d81-494a-9ccc-f433a463a926",
+          "status": "REMOVED",
+          "created_at": "2026-10-12T06:38:37.047Z",
+          "updated_at": "2026-10-12T09:08:42.201Z",
+          "commit_sha": "b159d8c37fa6bf245eb0d7f01025c7a5ae068a17",
+          "branch": "staging/cloud"
+        }
+      ]
+    }
+  ],
+  "conclusions": {
+    "backend_effective_commit": "c59db28c840fc6079f98067a9f42093773e5c4d7",
+    "web_effective_commit": "c59db28c840fc6079f98067a9f42093773e5c4d7",
+    "candidate_autonomy_pr_deployed": false,
+    "staged_patch_applied": false,
+    "app_mutations_in_this_observation": 0,
+    "merge_would_trigger_app_deployment": true
+  },
+  "limits": [
+    "Read-only observation; not a health check or device test.",
+    "SUCCESS deployments attest deployed revision, not functional autonomy acceptance.",
+    "Existing staged patch remains blocked by earlier automatic approval rejection; no retry or alternate deployment route was used."
+  ]
+}
