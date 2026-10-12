@@ -106,3 +106,27 @@ async def test_preparation_refuses_invented_exit_clause_before_any_durable_draft
     assert feedback is not None
     assert feedback["detail"]["feedback"]["origin"] == "preparation_audit"
     assert not await h.db.agent_action_attempts.count_documents({})
+
+
+@pytest.mark.asyncio
+async def test_original_long_historical_draft_is_a_negative_fixture_not_a_verification_pass(monkeypatch):
+    # The original e3a text remains byte-for-byte in docs/evidence.
+    # It contains a monthly minimum-term assumption and must not be silently
+    # saved merely because a model returned verified=True with literal quotes.
+    from test_completed_result_context_v162 import recorded_text
+
+    h = await seed()
+    historic = recorded_text("completed_result")
+    assert len(historic) == 2813
+    assert "Nessun vincolo di durata minima" in historic
+    checked = audit(h)
+    checked["content"] = historic
+    seen = install(monkeypatch, h, checked)
+    result = await StepExecutor(h.db).run(
+        OWNER, h.goal, h.step, may_touch_the_world=False,
+    )
+    assert result.status == "unavailable"
+    assert result.error_type == "preparation_unsupported_contract_term"
+    assert len(seen) == 2
+    assert not h.goal.prepared_text and not h.goal.prepared_sources
+    assert not await h.db.agent_action_attempts.count_documents({})
