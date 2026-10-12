@@ -73,7 +73,9 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints,anchorCen
    {bp3dStatus==='ready'&&<a href="/bodyparts3d/ATTRIBUTION.md" target="_blank" rel="noopener noreferrer">
     Fonti e licenza</a>}
   </div>
-  {bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
+  {bp3dStatus==='checking'?<div className="vx-anatomy-inline-pending" role="status" data-testid="vision-anatomy-inline-pending">
+    Preparo la scomposizione anatomica 3D…
+   </div>:bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
    <iframe data-testid="vision-bp3d-frame" title="BodyParts3D: modello anatomico sovrapposto alla fotocamera"
     src={'/bodyparts3d/index.html?ora=inline&lang=it&region='+encodeURIComponent(viewRegion)+'&cx='+bodyCenter.toFixed(3)} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" loading="eager"
     onError={()=>setBp3dActive(false)} />
