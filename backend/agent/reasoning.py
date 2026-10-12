@@ -1039,7 +1039,11 @@ async def choose_next_action(
         "column indices. Null remains null. "
         "All step notes, parameters, effects and capability availability remain present. "
         "action_context_omitted names exact duplicates, generated history or completed-step "
-        "descriptions, never shortened source evidence or changed read coverage. A preview's "
+        "descriptions, never shortened source evidence or changed read coverage. "
+        "When context_truncated=true without an omission inventory, only redundant "
+        "generated history or completed-step prose was removed; current source "
+        "evidence, full pending actions and the saved result remain intact. "
+        "A preview's "
         "statement_in_evidence points to exactly the same text in that row's what_was_found; "
         "retain the preview's own authority and limits, not the evidence row's identity. "
         "why_now_in=goal.why_now likewise shares identical text.\n\n"
@@ -1470,6 +1474,18 @@ def _fit_prepared_context(
     if len(encoded := encode()) <= 9000:
         return encoded
 
+    # Only redundant bookkeeping about missing GENERATED history/finished-step
+    # descriptions can be summarized further. Pending actions, source rows and
+    # the complete prepared result remain unchanged and reconstructible.
+    if action:
+        notices = compact.get("action_context_omitted")
+        if (isinstance(notices, dict) and notices
+                and set(notices) <= {"completed_step_descriptions", "generated_history_rows"}):
+            compact.pop("action_context_omitted")
+            compact["context_truncated"] = True
+            encoded = encode()
+            if len(encoded) <= 9000:
+                return encoded
     # Last-resort LOSSLESS encoding of evidence rows. Multiple observations
     # often repeat provenance and time metadata; packing those common fields
     # can preserve the entire material source even for a long saved result.
