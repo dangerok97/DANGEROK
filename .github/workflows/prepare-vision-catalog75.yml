@@ -28,8 +28,12 @@ jobs:
           python -m pip install 'pydantic==2.13.4' 'pymongo==4.6.3'
           python /tmp/prepare_vision_catalog75.py
           python -m compileall -q backend/vision_catalog.py backend/vision_seed_library.py backend/vision_catalog_extended
+          # The Actions token cannot edit workflows. Preserve the proposal for
+          # review and use the separately authorized connector for that file.
+          cp .github/workflows/vision-catalog-live.yml .catalog75-prepare/workflow-proposal.yml
+          git restore .github/workflows/vision-catalog-live.yml
           git diff --check
-          git add backend/vision_catalog.py backend/vision_seed_library.py backend/vision_catalog_extended/home_desk.py backend/vision_tests/test_seed_pack.py backend/vision_tests/fixtures/legacy25_sha256.json frontend/src/vision-xray/walkthrough.test.mjs frontend/e2e/vision-catalog-camera.spec.ts frontend/e2e/vision-walkthrough25.spec.ts frontend/playwright.vision.config.ts .github/workflows/vision-catalog-live.yml docs/PRODUCT.md docs/ARCHITECTURE.md docs/DEVELOPMENT_STATE.md docs/CHANGELOG_AI.md docs/VISION_CATALOG_75_INVENTORY.md
+          git add backend/vision_catalog.py backend/vision_seed_library.py backend/vision_catalog_extended/home_desk.py backend/vision_tests/test_seed_pack.py backend/vision_tests/fixtures/legacy25_sha256.json frontend/src/vision-xray/walkthrough.test.mjs frontend/e2e/vision-catalog-camera.spec.ts frontend/e2e/vision-walkthrough25.spec.ts frontend/playwright.vision.config.ts docs/PRODUCT.md docs/ARCHITECTURE.md docs/DEVELOPMENT_STATE.md docs/CHANGELOG_AI.md docs/VISION_CATALOG_75_INVENTORY.md
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'feat(vision): integrate 75-family catalog preserving original models and tours'
