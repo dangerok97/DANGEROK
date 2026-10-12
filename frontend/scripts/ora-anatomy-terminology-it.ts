@@ -490,6 +490,22 @@ const headNames=['ear','matter','hemisphere','sac','lake','lens','sclera','iris'
 const sortedHeads=[...headNames].sort((a,b)=>b.length-a.length);
 /** Generic anatomical explanations are more honest than inventing physiology. */
 export function systemExplanation(system:string,label:string):string{
+ // Short, conservative explanations of the structures users actually tap.
+ if(/orecchio esterno|padiglione auricolare/i.test(label))return 'L’orecchio esterno comprende il padiglione auricolare e il condotto uditivo esterno: raccoglie e convoglia le onde sonore verso il timpano.';
+ if(/sostanza bianca/i.test(label))return 'La sostanza bianca è costituita prevalentemente da fasci di fibre nervose, molte delle quali mielinizzate, che collegano differenti aree del sistema nervoso.';
+ if(/osso frontale/i.test(label))return 'L’osso frontale forma la fronte, una parte della volta cranica e del tetto delle cavità orbitarie; contribuisce a proteggere l’encefalo.';
+ if(/osso parietale/i.test(label))return 'Le ossa parietali formano gran parte della volta e delle pareti laterali del cranio e si articolano con le ossa vicine attraverso le suture.';
+ if(/osso occipitale/i.test(label))return 'L’osso occipitale costituisce la regione posteriore e inferiore del cranio. Attorno al foro occipitale passa il collegamento tra encefalo e midollo spinale.';
+ if(/osso sfenoidale/i.test(label))return 'L’osso sfenoide si trova alla base del cranio, prende parte alle pareti delle orbite e si articola con numerose altre ossa craniche.';
+ if(/mandibola/i.test(label))return 'La mandibola è l’osso mobile della parte inferiore del volto: sostiene i denti inferiori e consente i movimenti della masticazione.';
+ if(/cristallino/i.test(label))return 'Il cristallino è una lente trasparente all’interno dell’occhio; cambiando curvatura contribuisce a mettere a fuoco la luce sulla retina.';
+ if(/cornea/i.test(label))return 'La cornea è la superficie trasparente anteriore dell’occhio: protegge i tessuti interni e contribuisce in modo importante alla rifrazione della luce.';
+ if(/retina/i.test(label))return 'La retina contiene cellule sensibili alla luce che trasformano gli stimoli luminosi in segnali destinati al sistema nervoso.';
+ if(/giro .*cerebral|giro .*frontale|giro .*temporale|giro .*cingolato|giro .*parietale/i.test(label))return 'Un giro cerebrale è una piega della corteccia che aumenta la superficie disponibile. I diversi giri occupano posizioni anatomiche specifiche e partecipano a funzioni differenti.';
+ if(/falange/i.test(label))return 'Le falangi sono le ossa delle dita: sono collegate da articolazioni che consentono flessione, estensione e altre componenti del movimento.';
+ if(/gengiva/i.test(label))return 'La gengiva è il tessuto mucoso che circonda i denti e ricopre parte dei processi alveolari delle ossa mascellari.';
+ if(/legamento/i.test(label))return 'Un legamento è una struttura fibrosa che collega segmenti scheletrici e contribuisce alla stabilità di un’articolazione.';
+ if(/tendine/i.test(label))return 'Il tendine è una struttura di tessuto connettivo che trasmette la forza generata dal muscolo verso le strutture alle quali si inserisce.';
  if(/(?:osso|costa|falange|vertebra|mandibola|cranio|scheletro)/i.test(label))return 'Struttura del sistema scheletrico. La sua posizione e i rapporti con gli elementi vicini sono illustrati dal modello 3D di riferimento.';
  if(/(?:arteria|vena|vascolar|arterioso|venoso)/i.test(label))return 'Struttura del sistema circolatorio. I vasi arteriosi trasportano il sangue dal cuore, quelli venosi lo riportano verso il cuore. Il modello ne mostra la disposizione generale.';
  if(/(?:nervo|ganglio|plesso)/i.test(label))return 'Elemento del sistema nervoso. È rappresentato nella sua posizione anatomica generale; non corrisponde a una valutazione clinica della persona inquadrata.';
