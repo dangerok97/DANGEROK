@@ -21,10 +21,10 @@ html:has(.ora-overlay),body:has(.ora-overlay),#root:has(.ora-overlay){
 .ora-overlay-label strong{font-size:13px;letter-spacing:.5px;color:#b4faff;}
 .ora-overlay-label span{font:9px ui-monospace,monospace;color:#bbdce7;letter-spacing:.1px;}
 .ora-overlay-header button{white-space:nowrap;font-size:12px;}
-.ora-overlay-presets{position:absolute;z-index:6;left:9px;right:9px;top:62px;display:flex;gap:5px;
+.ora-overlay-presets{position:absolute;z-index:6;left:9px;right:9px;top:104px;display:flex;gap:5px;
  overflow-x:auto;scrollbar-width:none;pointer-events:auto;padding-bottom:3px;}
 .ora-overlay-presets button{font-size:11px;flex:0 0 auto;min-height:31px;padding:4px 8px;}
-.ora-overlay-panel{position:absolute;z-index:12;top:103px;right:9px;left:9px;max-height:48%;border:1px solid var(--ora-edge);
+.ora-overlay-panel{position:absolute;z-index:12;top:148px;right:9px;left:9px;max-height:48%;border:1px solid var(--ora-edge);
  border-radius:11px;background:rgba(4,25,38,.97);box-shadow:0 14px 40px #000b;overflow:auto;padding:10px;}
 .ora-overlay-search input{display:block;width:100%;border:1px solid #5695ac;border-radius:7px;background:#0b3044;
  color:white;min-height:39px;padding:6px 9px;font:13px system-ui;}
@@ -66,9 +66,9 @@ html:has(.ora-overlay),body:has(.ora-overlay),#root:has(.ora-overlay){
  .ora-overlay-label span{font-size:8px;letter-spacing:0;}
  .ora-overlay-header button{font-size:11px;min-height:32px;padding:4px 6px;}
  .ora-overlay-header button span{display:none;}
- .ora-overlay-presets{top:53px;left:4px;right:4px;gap:3px;}
+ .ora-overlay-presets{top:93px;left:4px;right:4px;gap:3px;}
  .ora-overlay-presets button{font-size:10px;padding:4px 6px;min-height:30px;}
- .ora-overlay-panel{top:94px;right:5px;left:5px;}
+ .ora-overlay-panel{top:130px;right:5px;left:5px;}
  .ora-overlay-detail{left:5px;right:5px;bottom:77px;width:auto;max-height:29%;padding:7px;}
  .ora-overlay-detail p{font-size:11px;}
  .ora-overlay-footer{left:4px;right:4px;bottom:4px;gap:4px;padding:4px;}
@@ -76,3 +76,23 @@ html:has(.ora-overlay),body:has(.ora-overlay),#root:has(.ora-overlay){
  .ora-overlay-opening label{font-size:10px;}
 }
 @media(prefers-reduced-motion:reduce){.ora-overlay *{scroll-behavior:auto!important;animation:none!important;transition:none!important;}}
+
+/* A detected anatomical part is the default unit. The context bar is compact,
+   and the camera continues to show underneath all reference mesh controls. */
+.ora-overlay-context{position:absolute;z-index:8;top:53px;left:9px;right:9px;
+ display:flex;align-items:center;gap:5px;min-height:37px;max-width:100%;overflow-x:auto;
+ white-space:nowrap;scrollbar-width:none;pointer-events:auto;}
+.ora-overlay-context>strong{flex:0 0 auto;max-width:30%;overflow:hidden;text-overflow:ellipsis;
+ font-size:12px;font-weight:650;text-shadow:0 1px 6px #001d2a;padding:3px 5px;
+ border-radius:6px;background:#0c3049bd;}
+.ora-overlay-context button{flex:0 0 auto;min-height:32px;white-space:nowrap;
+ font-size:11px;padding:5px 8px;border-color:#5b90a5;background:#0a3044e5;}
+.ora-overlay-side{display:inline-flex;gap:3px;align-items:center;}
+.ora-overlay-side button[aria-pressed=true]{background:#275f73;color:#e9fdff;border-color:#bcf4ff;}
+.ora-overlay-context button[data-testid=ora-inline-expand]{border-color:#eba771;
+ background:#4b2d1de5;font-weight:650;}
+@media(max-width:650px){
+ .ora-overlay-context{top:45px;left:4px;right:4px;min-height:38px;gap:3px;}
+ .ora-overlay-context>strong{font-size:10px;max-width:22%;padding:3px 5px;}
+ .ora-overlay-context button{min-height:29px;padding:4px 6px;font-size:10px;}
+}
