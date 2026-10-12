@@ -11,6 +11,10 @@ on:
       - 'frontend/src/vision-xray/**'
       - 'frontend/e2e/vision-*.spec.ts'
       - 'frontend/playwright.vision.config.ts'
+      - 'frontend/Dockerfile.staging'
+      - 'frontend/nginx.staging.conf'
+      - 'frontend/scripts/build-bodyparts3d.sh'
+      - 'frontend/scripts/check-bodyparts3d-build.mjs'
       - 'frontend/app/vision-xray.tsx'
       - 'frontend/src/components/ora/OraAttachMenu.tsx'
       - '.github/workflows/vision-catalog-live.yml'
@@ -127,5 +131,35 @@ jobs:
           path: |
             .vision-evidence/
             frontend/test-results/
+          include-hidden-files: true
+          retention-days: 7
+
+  bodyparts3d:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build exact source-pinned BodyParts3D reference atlas
+        working-directory: frontend
+        run: sh scripts/build-bodyparts3d.sh "$RUNNER_TEMP/bodyparts3d"
+      - name: Validate geometry, credits and relative asset paths
+        working-directory: frontend
+        run: node scripts/check-bodyparts3d-build.mjs "$RUNNER_TEMP/bodyparts3d/dist"
+      - name: Archive small provenance report, never full meshes
+        if: always()
+        run: |
+          mkdir -p .vision-bp3d-evidence
+          git rev-parse HEAD > .vision-bp3d-evidence/ora-commit.txt
+          if [ -f "$RUNNER_TEMP/bodyparts3d/dist/ora-integrated.json" ]; then
+            cp "$RUNNER_TEMP/bodyparts3d/dist/ora-integrated.json" .vision-bp3d-evidence/
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vision-bodyparts3d-provenance
+          path: .vision-bp3d-evidence/
           include-hidden-files: true
           retention-days: 7

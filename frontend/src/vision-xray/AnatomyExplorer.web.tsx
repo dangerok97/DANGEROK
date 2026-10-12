@@ -16,6 +16,27 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
  const [viewMode,setViewMode]=React.useState<'volume'|'flat'>('volume');
  const [expanded,setExpanded]=React.useState(true);
  const [info,setInfo]=React.useState(false);
+ const [bp3dStatus,setBp3dStatus]=React.useState<'checking'|'ready'|'unavailable'>('checking');
+ const [bp3dActive,setBp3dActive]=React.useState(false);
+ React.useEffect(()=>{
+  let active=true;
+  const controller=new AbortController();
+  void fetch('/bodyparts3d/ora-integrated.json',{signal:controller.signal,cache:'no-store'})
+   .then(response=>{
+    if(!response.ok||!response.headers.get('content-type')?.includes('application/json'))
+     throw new Error('Atlas assets unavailable');
+    return response.json();
+   })
+   .then(data=>{
+    if(!active)return;
+    if(data?.provider!=='BodyParts3D'||data?.dataset_version!=='4.0'||
+       data?.reference!=='adult male'||data?.model_is_person_specific!==false||
+       data?.parts!==2234||data?.concepts!==3432)throw new Error('Atlas provenance invalid');
+    setBp3dStatus('ready');setBp3dActive(true);
+   })
+   .catch(()=>{if(active){setBp3dStatus('unavailable');setBp3dActive(false);}});
+  return()=>{active=false;controller.abort();};
+ },[]);
  const regions=focusedRegions(viewRegion,layer,variant);
  const visibleRegions=regions.filter(part=>part.label.toLocaleLowerCase('it').includes(search.toLocaleLowerCase('it').trim()));
  const chosen=regions.find(part=>part.id===selected)||regions[0];
@@ -42,7 +63,22 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
     <button type="button" key={key} data-testid={'vision-anatomy-region-'+key} aria-pressed={viewRegion===key}
      onClick={()=>changeRegion(key)}>{label}</button>)}
   </div>
-  <div className="vx-anatomy-shell">
+  <div className="vx-anatomy-source-tabs" role="group" aria-label="Motore anatomico">
+   <button type="button" data-testid="vision-bp3d-toggle" aria-pressed={bp3dActive&&bp3dStatus==='ready'}
+    disabled={bp3dStatus!=='ready'} onClick={()=>setBp3dActive(true)}>BodyParts3D · 3D {bp3dStatus==='checking'?'…':''}</button>
+   <button type="button" data-testid="vision-bp3d-fallback" aria-pressed={!bp3dActive||bp3dStatus!=='ready'}
+    onClick={()=>setBp3dActive(false)}>Schema ORA</button>
+   {bp3dStatus==='ready'&&<a href="/bodyparts3d/ATTRIBUTION.md" target="_blank" rel="noopener noreferrer">
+    Fonti e licenza</a>}
+  </div>
+  {bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
+   <iframe data-testid="vision-bp3d-frame" title="BodyParts3D: atlante anatomico tridimensionale di riferimento"
+    src="/bodyparts3d/index.html" sandbox="allow-scripts" referrerPolicy="no-referrer" loading="eager"
+    onError={()=>setBp3dActive(false)} />
+   <div className="vx-bp3d-caption">
+    Modello 3D di riferimento maschile adulto · 2.234 mesh · non rappresenta la persona inquadrata
+   </div>
+  </section>:<div className="vx-anatomy-shell">
    <nav className="vx-anatomy-layers" role="group" aria-label="Livello anatomico">
     {LAYERS.map((item,i)=><button type="button" key={item.key} data-testid={'vision-anatomy-layer-'+item.key}
      aria-pressed={layer===item.key} onClick={()=>changeLayer(item.key)} title={item.label}>
@@ -126,11 +162,12 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
      </div>}
     </aside>
    </div>
-  </div>
+  </div>}
   <footer className="vx-anatomy-foot">
    <div><span className="vx-anatomy-indicator"/> MODELLO ANATOMICO GENERICO</div>
    <button type="button" data-testid="vision-anatomy-disclaimer" onClick={()=>setInfo(x=>!x)} aria-expanded={info}>Che cosa sto vedendo? <span>{info?'−':'+'}</span></button>
   </footer>
-  {info&&<p className="vx-anatomy-note">I livelli illustrano anatomia umana tipica; la fotocamera non rileva ossa, nervi, organi interni, sesso biologico o identità di genere della persona inquadrata. Le varianti sono rappresentazioni selezionate dall’utente. Non è uno strumento diagnostico.</p>}
+  {bp3dStatus==='unavailable'&&<p className="vx-anatomy-note" data-testid="vision-bp3d-unavailable">BodyParts3D non è disponibile su questa versione del sito; lo schema ORA resta utilizzabile.</p>}
+  {info&&<p className="vx-anatomy-note">I livelli illustrano anatomia umana tipica; la fotocamera non rileva ossa, nervi, organi interni, sesso biologico o identità di genere della persona inquadrata. BodyParts3D mostra esclusivamente un riferimento generico maschile adulto, mentre le varianti nello schema ORA sono selezionate dall’utente. Non è uno strumento diagnostico.</p>}
  </div>;
 }

@@ -1,3 +1,10 @@
+# Build the complete pinned BodyParts3D 4.0 reference viewer (source is MIT; meshes CC BY 4.0).
+FROM node:22-bookworm-slim AS bodyparts3d-builder
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts/build-bodyparts3d.sh /usr/local/bin/build-bodyparts3d
+RUN sh /usr/local/bin/build-bodyparts3d /vendor/bodyparts3d
+
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -22,5 +29,6 @@ FROM nginx:1.27-alpine
 RUN sed -i 's#^error_log .*;#error_log /dev/stdout warn;#' /etc/nginx/nginx.conf
 COPY nginx.staging.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=bodyparts3d-builder /vendor/bodyparts3d/dist /usr/share/nginx/html/bodyparts3d
 
 EXPOSE 8080
