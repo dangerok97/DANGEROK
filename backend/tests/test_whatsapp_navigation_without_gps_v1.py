@@ -255,7 +255,7 @@ async def test_whatsapp_does_not_invent_walking_when_user_only_says_portami(monk
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("request", "expected"), [
+@pytest.mark.parametrize(("utterance", "expected"), [
     ("Portami al Colosseo a piedi", "walking"),
     ("Portami al Colosseo in bici", "bicycling"),
     ("Portami al Colosseo con i mezzi pubblici", "transit"),
@@ -263,7 +263,7 @@ async def test_whatsapp_does_not_invent_walking_when_user_only_says_portami(monk
     ("Portami a piedi al Colosseo", "walking"),
 ])
 async def test_whatsapp_honors_explicit_travel_mode_even_if_ai_disagrees(
-    monkeypatch, request, expected
+    monkeypatch, utterance, expected
 ):
     from mongomock_motor import AsyncMongoMockClient
 
@@ -274,7 +274,7 @@ async def test_whatsapp_honors_explicit_travel_mode_even_if_ai_disagrees(
     observed = await caps.open_navigation(
         {"destination": "Colosseo", "mode": "walking" if expected == "driving" else "driving"},
         {"db": db, "user_id": "owner", "platform": "whatsapp",
-         "user_message": request},
+         "user_message": utterance},
     )
     params = parse_qs(urlparse(observed.payload["url"]).query)
     assert params["travelmode"] == [expected]
