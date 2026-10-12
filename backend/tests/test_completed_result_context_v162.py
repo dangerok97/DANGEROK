@@ -61,10 +61,10 @@ def source_qualified_context_text(scenario):
         return original
     corrected = original.replace(
         "**Assunzione**: Nessun vincolo di durata minima esplicito. Verificare con il fornitore.",
-        "**Condizione sconosciuta**: La nota non specifica la durata minima; chiedere al fornitore.",
+        "**Dato mancante**: Durata minima mensile non specificata; verificare col fornitore.",
     ).replace(
         '"anticipato": "Nessun vincolo di durata minima"',
-        '"anticipato": "Durata minima non specificata nella nota"',
+        '"anticipato": "Durata minima ignota"',
     )
     assert corrected != original and "Nessun vincolo di durata minima" not in corrected
     return corrected
