@@ -831,7 +831,9 @@ _PHONE_CAPABILITY = "prepare_a_phone_call"
 # calling the capability. Questions about routes and durations remain with AI.
 _NAVIGATION_COMMAND_RE = re.compile(
     r"(?i)^\s*(?:portami|accompagnami|guidami|naviga|avvia\s+(?:la\s+)?navigazione)"
-    r"(?:\s+dalla\s+mia\s+posizione)?\s+(?:a|al|alla|allo|all['’]|il|la|lo|l['’]|verso|fino\s+a)\s+(.+?)\s*[.!?]?\s*$"
+    r"(?:\s+dalla\s+mia\s+posizione)?"
+    r"(?:\s+(?:a\s+piedi|in\s+(?:auto|macchina|bici)|con\s+i\s+mezzi))?"
+    r"\s+(?:a|al|alla|allo|all['’]|il|la|lo|l['’]|verso|fino\s+a)\s+(.+?)\s*[.!?]?\s*$"
 )
 _ARRIVAL_TAIL_RE = re.compile(
     r"(?i)(?:,\s*(?:devo|voglio)\s+arrivare\s+|\s+)"
@@ -867,6 +869,12 @@ def _navigation_destination(message: str) -> str:
     # a geocoder as if it were part of the address.
     destination = _navigation_subject(destination)
     destination = _ARRIVAL_TAIL_RE.sub("", destination).strip(" ,.!?")
+    # A requested travel mode is not part of the destination; the navigation
+    # skill reads the full user message to choose it independently.
+    destination = re.sub(
+        r"(?i)\s+(?:a\s+piedi|in\s+(?:auto|macchina|automobile|bici|bicicletta|bus|metro|treno)|con\s+i\s+mezzi(?:\s+pubblici)?)$",
+        "", destination,
+    ).strip(" ,.!?")
     return re.sub(r"(?i)\s+per\s+favore$", "", destination)[:160]
 
 
@@ -962,7 +970,8 @@ async def _ensure_navigation(
 
         obs = await open_navigation(
             {"destination": destination, "arrival_request": _arrival_request(message)},
-            {"db": db, "user_id": uid, "platform": platform},
+            {"db": db, "user_id": uid, "platform": platform,
+             "user_message": message},
         )
         observations.append(obs.model_dump())
         payload = obs.payload or {}
