@@ -124,6 +124,9 @@ for(const [en,expected] of [
 }
 assert.deepEqual(Object.keys(it.anatomyNameIt('Unlisted mysterious tissue of foobar')).sort(),['name','reviewed']);
 assert.equal(it.anatomyNameIt('Unlisted mysterious tissue of foobar').reviewed,false);
+assert.match(it.systemExplanation('sensory','Orecchio esterno'),/padiglione auricolare/);
+assert.match(it.systemExplanation('skeletal','Osso frontale'),/volta cranica/);
+assert.match(it.systemExplanation('nervous','Sostanza bianca'),/fibre nervose/);
 const candidates=[...model.parts,...model.concepts];
 const translated=candidates.filter(p=>it.anatomyNameIt(p.name).reviewed);
 const untranslated=candidates.filter(p=>!it.anatomyNameIt(p.name).reviewed);
