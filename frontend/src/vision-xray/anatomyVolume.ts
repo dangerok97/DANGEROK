@@ -7,40 +7,95 @@ import type {BodyRegion} from './anatomyFocus';
 
 export type VolumePose = { tilt: number; horizontal: number; reliability: 'approximate'|'neutral' };
 export type VolumeOptions = {yaw:number; pitch:number; zoom:number; selected:string; explode:number; pose?:VolumePose};
-export type VolumeHit = {id:string; label:string; x:number; y:number; radius:number; depth:number};
+export type VolumeHit = {id:string; label:string; x:number; y:number; radius:number; depth:number; path?:{x:number;y:number}[]};
 type P3=[number,number,number];
-type Cluster={id:string;label:string;cx:number;cy:number;rx:number;ry:number;rz:number;sub:number};
+type Trace = {points:{x:number;y:number}[];closed:boolean};
+type Cluster={id:string;label:string;cx:number;cy:number;rx:number;ry:number;rz:number;sub:number;shape:'tube'|'contour'|'ellipsoid';trace?:Trace};
 type Triangle={p:[number,number][];z:number;shade:number;part:string;active:boolean;cluster:number};
-const MAX_VERTICES=1500,SEGMENTS=11,RINGS=8;
+const SEGMENTS=11,RINGS=8;
 const DEPTH:Record<AtlasLayer,number>={skin:.33,muscles:.18,nerves:.22,organs:.09,bones:-.04,reproductive:.13};
-const parseCoords=(s:string):number[] => (s.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number);
+/** Sample the actual M/L/Q/C paths instead of treating Bézier control points as anatomy. */
+export function tracePath(path:string):Trace[]{
+ const tokens=path.match(/[MLQCHVZmlqchvz]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi)||[];
+ const result:Trace[]=[];let i=0,cmd='',x=0,y=0,points:{x:number;y:number}[]=[];
+ const flush=(closed:boolean)=>{if(points.length>=2)result.push({points,closed});points=[];};
+ const num=():number|null=>{
+  if(i>=tokens.length||/^[a-z]$/i.test(tokens[i]))return null;
+  const value=Number(tokens[i++]);return Number.isFinite(value)?value:null;
+ };
+ const add=(nx:number,ny:number)=>{
+  if(Number.isFinite(nx)&&Number.isFinite(ny)&&points.length<240){
+   x=nx;y=ny;points.push({x,y});
+  }
+ };
+ let operations=0;
+ while(i<tokens.length&&operations++<1200){
+  if(/^[a-z]$/i.test(tokens[i])){
+   cmd=tokens[i++].toUpperCase();
+   if(cmd==='Z'){flush(true);cmd='';continue;}
+  }
+  const previous=i;
+  if(cmd==='M'){
+   const nx=num(),ny=num();if(nx===null||ny===null)break;
+   flush(false);add(nx,ny);cmd='L';
+  }else if(cmd==='L'){
+   const nx=num(),ny=num();if(nx===null||ny===null)break;add(nx,ny);
+  }else if(cmd==='H'){
+   const nx=num();if(nx===null)break;add(nx,y);
+  }else if(cmd==='V'){
+   const ny=num();if(ny===null)break;add(x,ny);
+  }else if(cmd==='Q'){
+   const ax=num(),ay=num(),bx=num(),by=num();
+   if(ax===null||ay===null||bx===null||by===null)break;
+   const ox=x,oy=y;
+   for(let step=1;step<=6;step++){
+    const t=step/6,back=1-t;
+    add(back*back*ox+2*back*t*ax+t*t*bx,back*back*oy+2*back*t*ay+t*t*by);
+   }
+  }else if(cmd==='C'){
+   const ax=num(),ay=num(),bx=num(),by=num(),cx=num(),cy=num();
+   if(ax===null||ay===null||bx===null||by===null||cx===null||cy===null)break;
+   const ox=x,oy=y;
+   for(let step=1;step<=8;step++){
+    const t=step/8,back=1-t;
+    add(back*back*back*ox+3*back*back*t*ax+3*back*t*t*bx+t*t*t*cx,
+        back*back*back*oy+3*back*back*t*ay+3*back*t*t*by+t*t*t*cy);
+   }
+  }else break;
+  if(i===previous)break;
+ }
+ flush(false);
+ return result;
+}
 export function boundsForPath(path:string):{x:number;y:number;w:number;h:number}[]{
- const pieces=path.split(/(?=M\s*-?\d)/i).filter(x=>x.trim());
- return pieces.flatMap(piece=>{
-  const nums=parseCoords(piece);if(nums.length<4||nums.length%2)return [];
-  const xs:number[]=[],ys:number[]=[];for(let i=0;i<nums.length;i+=2){xs.push(nums[i]);ys.push(nums[i+1]);}
+ return tracePath(path).map(trace=>{
+  const xs=trace.points.map(p=>p.x),ys=trace.points.map(p=>p.y);
   const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
-  if(![minx,maxx,miny,maxy].every(Number.isFinite))return [];
-  return [{x:minx,y:miny,w:Math.max(5,maxx-minx),h:Math.max(7,maxy-miny)}];
+  return {x:minx,y:miny,w:Math.max(5,maxx-minx),h:Math.max(7,maxy-miny)};
  });
 }
 export function volumeClusters(regions:AnatomyRegion[],layer:AtlasLayer):Cluster[]{
  const all:Cluster[]=[];
  for(const region of regions){
-  const boxes=boundsForPath(region.d);
-  boxes.slice(0,5).forEach((b,sub)=>{
-   let rx=Math.max(2,b.w/2),ry=Math.max(4,b.h/2);
-   // Narrow lines (nerves, tendons and long bones) become rounded tubes,
-   // broad muscles and organs become volumetric ellipsoids.
-   const slim=layer==='nerves'||(layer==='bones'&&rx<10);
-   const rz=slim?Math.max(3,Math.min(8,rx*.5)):layer==='organs'?Math.max(8,rx*.58):Math.max(4,rx*.28);
-   if(slim)rx=Math.max(3,Math.min(rx,8));
-   all.push({id:region.id,label:region.label,cx:b.x+b.w/2,cy:b.y+b.h/2,rx,ry,rz,sub});
+  tracePath(region.d).slice(0,6).forEach((trace,sub)=>{
+   const xs=trace.points.map(p=>p.x),ys=trace.points.map(p=>p.y);
+   const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+   const width=Math.max(5,maxx-minx),height=Math.max(7,maxy-miny);
+   let rx=Math.max(2,width/2),ry=Math.max(4,height/2);
+   const longBone=layer==='bones'&&['humerus','forearm_bones','femur','lower_leg','spine'].includes(region.id);
+   const shape:'tube'|'contour'|'ellipsoid'=
+    layer==='nerves'&&!trace.closed?'tube':
+    trace.closed&&(['organs','muscles','reproductive'].includes(layer)||
+     (layer==='bones'&&!longBone))?'contour':'ellipsoid';
+   const rz=shape==='tube'?Math.max(2.5,Math.min(5,rx*.4)):
+    layer==='organs'?Math.max(7,rx*.48):Math.max(4,rx*.27);
+   if(shape==='tube')rx=Math.max(3,Math.min(rx,8));
+   all.push({id:region.id,label:region.label,cx:(minx+maxx)/2,cy:(miny+maxy)/2,
+    rx,ry,rz,sub,shape,trace:shape==='ellipsoid'?undefined:trace});
   });
  }
  return all.slice(0,60);
 }
-const rad=(degrees:number)=>degrees*Math.PI/180;
 export function poseFromLandmarks(points?:Record<string,[number,number]>|null):VolumePose{
  if(!points)return {tilt:0,horizontal:0,reliability:'neutral'};
  const left=points.left_shoulder,right=points.right_shoulder;
@@ -67,21 +122,72 @@ const transform=(point:P3,cx:number,cy:number,scale:number,options:VolumeOptions
  const perspective=2.8/(2.8+z*.5);
  return [cx+x*scale*perspective,cy-y*scale*perspective,z];
 };
-function mesh(cluster:Cluster,layer:AtlasLayer,region:BodyRegion,options:VolumeOptions,view:number[]):P3[][]{
+/** Mesh the sampled outline into a shallow convex lens, or sweep a round tube along a nerve. */
+function mesh(cluster:Cluster,layer:AtlasLayer,options:VolumeOptions,view:number[],index:number):P3[][]{
  const [vx,vy,vw,vh]=view;
- const viewCenterX=vx+vw/2,viewCenterY=vy+vh/2;
- const basis=Math.max(vw,vh*.57);
- const cx=(cluster.cx-viewCenterX)/basis*2.0;
- const cy=-(cluster.cy-viewCenterY)/basis*2.0;
+ const basis=Math.max(vw,vh*.57),centerX=vx+vw/2,centerY=vy+vh/2;
+ const toXY=(p:{x:number;y:number}):[number,number]=>[
+  (p.x-centerX)/basis*2,-(p.y-centerY)/basis*2];
+ const depth=DEPTH[layer]+options.explode*Math.min(index,12)*.16;
+ const tris:P3[][]=[];
+ if(cluster.shape==='tube'&&cluster.trace){
+  const points=cluster.trace.points.filter((_,i)=>i%2===0||i===cluster.trace!.points.length-1);
+  const radius=Math.max(2.3,Math.min(4.2,cluster.rz))/basis*2;
+  const ringCount=8;
+  for(let n=0;n<points.length-1;n++){
+   const [ax,ay]=toXY(points[n]),[bx,by]=toXY(points[n+1]);
+   const dx=bx-ax,dy=by-ay,length=Math.hypot(dx,dy);
+   if(length<.00001)continue;
+   const normalX=-dy/length,normalY=dx/length;
+   for(let k=0;k<ringCount;k++){
+    const a=k/ringCount*Math.PI*2,b=(k+1)/ringCount*Math.PI*2;
+    const vertex=(px:number,py:number,theta:number):P3=>[
+     px+normalX*radius*Math.cos(theta),
+     py+normalY*radius*Math.cos(theta),
+     depth+radius*Math.sin(theta)];
+    const p1=vertex(ax,ay,a),p2=vertex(bx,by,a),p3=vertex(bx,by,b),p4=vertex(ax,ay,b);
+    tris.push([p1,p2,p3],[p1,p3,p4]);
+   }
+  }
+  return tris;
+ }
+ if(cluster.shape==='contour'&&cluster.trace){
+  const original=cluster.trace.points;
+  const steps=Math.min(30,original.length);
+  const outline=Array.from({length:steps},(_,i)=>original[Math.floor(i*original.length/steps)]);
+  const center={x:outline.reduce((n,p)=>n+p.x,0)/outline.length,
+                y:outline.reduce((n,p)=>n+p.y,0)/outline.length};
+  const thick=Math.min(cluster.rz/basis*2,.17);
+  const surface=(p:{x:number;y:number},radius:number,side:number):P3=>{
+   const [xx,yy]=toXY({x:center.x+(p.x-center.x)*radius,y:center.y+(p.y-center.y)*radius});
+   return [xx,yy,depth+side*thick*Math.sqrt(Math.max(0,1-radius*radius))];
+  };
+  // Separate front and rear domes create a solid silhouette with curved thickness.
+  for(const side of [-1,1]){
+   for(let ring=0;ring<3;ring++){
+    const inner=ring/3,outer=(ring+1)/3;
+    for(let i=0;i<outline.length;i++){
+     const a=outline[i],b=outline[(i+1)%outline.length];
+     const p1=surface(a,inner,side),p2=surface(a,outer,side);
+     const p3=surface(b,outer,side),p4=surface(b,inner,side);
+     if(side>0)tris.push([p1,p2,p3],[p1,p3,p4]);
+     else tris.push([p1,p3,p2],[p1,p4,p3]);
+    }
+   }
+  }
+  return tris;
+ }
+ const cx=(cluster.cx-centerX)/basis*2,cy=-(cluster.cy-centerY)/basis*2;
  const radiusX=cluster.rx/basis*2,radiusY=cluster.ry/basis*2,radiusZ=cluster.rz/basis*2;
- const depth=DEPTH[layer] + options.explode;
  const ellipsoid=(ring:number,seg:number):P3=>{
   const phi=ring/RINGS*Math.PI,theta=seg/SEGMENTS*Math.PI*2;
-  return [cx+radiusX*Math.sin(phi)*Math.cos(theta),
+  const head=layer==='bones'?(0.77+.23*Math.pow(Math.abs(Math.cos(phi)),2)):1;
+  const width=cluster.id==='lungs'?1-.26*Math.cos(phi):
+    cluster.id==='heart'?1+.24*Math.cos(phi):head;
+  return [cx+radiusX*width*Math.sin(phi)*Math.cos(theta),
           cy+radiusY*Math.cos(phi),
           depth+radiusZ*Math.sin(phi)*Math.sin(theta)];
  };
- const tris:P3[][]=[];
  for(let j=0;j<RINGS;j++)for(let i=0;i<SEGMENTS;i++){
   const a=ellipsoid(j,i),b=ellipsoid(j+1,i),c=ellipsoid(j+1,i+1),d=ellipsoid(j,i+1);
   tris.push([a,b,c],[a,c,d]);
@@ -113,11 +219,18 @@ export function drawVolume(
  cs.forEach((part,partIndex)=>{
   const center: P3=[(part.cx-(view[0]+view[2]/2))/Math.max(view[2],view[3]*.57)*2,
    -(part.cy-(view[1]+view[3]/2))/Math.max(view[2],view[3]*.57)*2,
-   DEPTH[layer]+options.explode];
+   DEPTH[layer]+options.explode*Math.min(partIndex,12)*.16];
   const projected=transform(center,cx,cy,scale,options);
   const rad=Math.max(10,Math.min(90,Math.max(part.rx,part.ry)/Math.max(view[2],view[3]*.57)*scale*2));
-  hits.push({id:part.id,label:part.label,x:projected[0],y:projected[1],radius:rad,depth:projected[2]});
-  const surfaces=mesh(part,layer,region,options,view);
+  const projectedPath=part.shape==='tube'&&part.trace?part.trace.points.map(p=>{
+   const basis=Math.max(view[2],view[3]*.57);
+   const local:P3=[(p.x-(view[0]+view[2]/2))/basis*2,
+     -(p.y-(view[1]+view[3]/2))/basis*2,center[2]];
+   const projectedPoint=transform(local,cx,cy,scale,options);
+   return {x:projectedPoint[0],y:projectedPoint[1]};
+  }):undefined;
+  hits.push({id:part.id,label:part.label,x:projected[0],y:projected[1],radius:rad,depth:projected[2],path:projectedPath});
+  const surfaces=mesh(part,layer,options,view,partIndex);
   for(const points of surfaces){
    const pa=transform(points[0],cx,cy,scale,options),pb=transform(points[1],cx,cy,scale,options),pc=transform(points[2],cx,cy,scale,options);
    const ux=points[1][0]-points[0][0],uy=points[1][1]-points[0][1],uz=points[1][2]-points[0][2];
@@ -152,7 +265,20 @@ export function drawVolume(
  });
  ctx.restore();return hits;
 }
+/** Select the closest visible primitive, including thin curved nerves. */
 export function hitVolume(hits:VolumeHit[],x:number,y:number):string|null{
- return hits.filter(p=>Math.hypot(x-p.x,y-p.y)<Math.max(13,Math.min(60,p.radius)))
-   .sort((a,b)=>Math.hypot(x-a.x,y-a.y)-Math.hypot(x-b.x,y-b.y))[0]?.id||null;
+ const distance=(hit:VolumeHit)=>{
+  if(!hit.path||hit.path.length<2)return Math.hypot(x-hit.x,y-hit.y);
+  let best=Infinity;
+  for(let i=1;i<hit.path.length;i++){
+   const a=hit.path[i-1],b=hit.path[i],dx=b.x-a.x,dy=b.y-a.y;
+   const t=Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy||1)));
+   best=Math.min(best,Math.hypot(x-(a.x+t*dx),y-(a.y+t*dy)));
+  }
+  return best;
+ };
+ const matches=hits.map(hit=>({hit,d:distance(hit)}))
+  .filter(row=>row.d<(row.hit.path?14:Math.max(13,Math.min(60,row.hit.radius))))
+  .sort((a,b)=>a.d-b.d);
+ return matches[0]?.hit.id||null;
 }
