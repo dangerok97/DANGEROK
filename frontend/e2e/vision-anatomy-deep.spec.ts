@@ -78,3 +78,44 @@ test('3D isolation, keyboard rotation and compact controls work on narrow screen
  expect(close!.x+close!.width).toBeLessThanOrEqual(viewport.width);
  await page.screenshot({path:'../.vision-evidence/vision-anatomy-isolate-'+info.project.name+'.png',fullPage:true});
 });
+
+
+test('validated BodyParts3D geometry opens by default, stays sandboxed, and fallback needs no rescan',async({page})=>{
+ let requests=0;
+ page.on('request',r=>{if(r.url().endsWith('/api/vision-xray/scan'))requests++;});
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
+   model_is_person_specific:false,parts:2234,concepts:3432
+  })
+ }));
+ await page.route('**/bodyparts3d/index.html',route=>route.fulfill({
+  status:200,contentType:'text/html',body:'<!doctype html><title>Isolated BodyParts3D test frame</title>'
+ }));
+ await launchAnatomy(page);
+ const frame=page.getByTestId('vision-bp3d-frame');
+ await expect(frame).toBeVisible();
+ await expect(frame).toHaveAttribute('sandbox','allow-scripts');
+ await expect(page.getByTestId('vision-bp3d-toggle')).toHaveAttribute('aria-pressed','true');
+ await expect(page.getByText('2.234 mesh')).toBeVisible();
+ await page.getByTestId('vision-bp3d-fallback').click();
+ await expect(frame).toHaveCount(0);
+ await expect(page.getByTestId('vision-anatomy-layer-organs')).toBeVisible();
+ await page.getByTestId('vision-bp3d-toggle').click();
+ await expect(frame).toBeVisible();
+ await expect(page.getByTestId('vision-anatomy-close')).toBeVisible();
+ expect(requests).toBe(1);
+});
+test('mismatched or missing BodyParts3D provenance never hides the original ORA atlas',async({page})=>{
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   provider:'BodyParts3D',dataset_version:'4.0',reference:'adult female',
+   model_is_person_specific:false,parts:2234,concepts:3432
+  })
+ }));
+ await launchAnatomy(page);
+ await expect(page.getByTestId('vision-bp3d-unavailable')).toBeVisible();
+ await expect(page.getByTestId('vision-bp3d-toggle')).toBeDisabled();
+ await expect(page.getByTestId('vision-anatomy-volume')).toBeVisible();
+ await expect(page.getByTestId('vision-bp3d-frame')).toHaveCount(0);
+});
