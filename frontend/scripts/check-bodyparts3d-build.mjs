@@ -58,5 +58,30 @@ assert.match(sourceFile('app/anatomy.ts'),/SISTEMI_IT/);
 const assetFiles=await import('node:fs').then(fs=>fs.readdirSync(resolve(dist,'assets')));
 assert.ok(assetFiles.some(file=>file.endsWith('.js')),'No deployed 3D viewer JavaScript');
 
+// Check region extraction using the REAL vendor geometry, not a synthetic mock.
+const ts = await import('typescript'),vm=await import('node:vm');
+const source=readFileSync(resolve('scripts/ora-bodyparts3d-regions.ts'),'utf8');
+const js=ts.transpileModule(source,{compilerOptions:{
+ module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022
+}}).outputText;
+const module={exports:{}};
+vm.runInNewContext(js,{module,exports:module.exports,require(name){throw Error('Unexpected dependency '+name);}});
+const result={};
+const regions=module.exports;
+for(const id of ['hand','face','torso','abdomen','arm','leg','foot','wrist','knee']){
+ const item=regions.anatomicalRegion(model,id,'right');
+ result[id]={count:item.ids.length,source:item.source,available:item.available,
+   ratio:+(item.ids.length/model.parts.length).toFixed(3)};
+ if(['hand','face','torso','abdomen','arm','leg','foot'].includes(id)){
+  assert.ok(item.available,'No usable local geometry for '+id+': '+JSON.stringify(result[id]));
+  assert.ok(item.ids.length<model.parts.length*.65,'Too much body geometry in '+id);
+ }
+}
+assert.ok(!regions.anatomicalRegion(model,'hand','right').ids.includes(
+ model.parts.find(p=>p.name.toLowerCase()==='heart')?.id||'__heart_missing__'
+ ),'Hand cannot contain heart mesh');
+assert.ok(regions.anatomicalRegion(model,'full_body','unknown').ids.length===2234);
+console.log('ANATOMICAL_REGION_COUNTS '+JSON.stringify(result));
+
 console.log(JSON.stringify({status:'PASS',parts:model.parts.length,concepts:model.concepts.length,
  chunks:model.chunks.length,rawBytes:bytes,source:provenance.distributor_commit}));
