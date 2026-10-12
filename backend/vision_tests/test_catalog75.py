@@ -23,7 +23,7 @@ def test_exactly_126_families_without_counting_aliases_or_versions():
     assert EXPECTED_ADDITIONS == 50
     assert len(ALL) == len({m.canonical_key for m in ALL}) == 160
     assert len(ADDED) == 135
-    assert len(all_recipes()) == 121
+    assert len(all_recipes()) == 155
     assert len(METADATA) == 160
     assert PACK_VERSION == 'common-160-v1'
     assert set(BASELINE).issubset({m.canonical_key for m in ALL})
@@ -148,7 +148,7 @@ async def test_withdrawn_new_family_does_not_get_resurrected(database):
     await database[MODELS].update_one({'_id':old['model_id']},{'$set':{'status':'retired'}})
     await service.initialize()
     assert await service.find(ADDED[0].canonical_key,'bob') is None
-    assert len(await service.list_models('bob')) == 125
+    assert len(await service.list_models('bob')) == 159
 
 
 @pytest.mark.asyncio
