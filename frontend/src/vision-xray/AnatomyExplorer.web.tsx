@@ -7,31 +7,41 @@ import {AnatomyVolume,type VisiblePosePoints} from './AnatomyVolume.web';
 /** Contextual educational atlas in the live camera, not an X-ray of this person. */
 export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClose:()=>void;region?:BodyRegion;posePoints?:VisiblePosePoints|null}){
  const [layer,setLayer]=React.useState<AtlasLayer>('skin');
+ const [viewRegion,setViewRegion]=React.useState<BodyRegion>(region);
+ const [search,setSearch]=React.useState('');
+ React.useEffect(()=>{setViewRegion(region);setSelected('');setZoom(1);setSearch('');},[region]);
  const [variant,setVariant]=React.useState<AnatomyVariant>('neutral');
  const [selected,setSelected]=React.useState('');
  const [zoom,setZoom]=React.useState(1);
  const [viewMode,setViewMode]=React.useState<'volume'|'flat'>('volume');
  const [expanded,setExpanded]=React.useState(true);
  const [info,setInfo]=React.useState(false);
- const regions=focusedRegions(region,layer,variant);
+ const regions=focusedRegions(viewRegion,layer,variant);
+ const visibleRegions=regions.filter(part=>part.label.toLocaleLowerCase('it').includes(search.toLocaleLowerCase('it').trim()));
  const chosen=regions.find(part=>part.id===selected)||regions[0];
  const color=LAYERS.find(item=>item.key===layer)!.color;
- const viewBox=viewFor(region);
- const changeLayer=(next:AtlasLayer)=>{setLayer(next);setSelected('');setExpanded(true);};
+ const viewBox=viewFor(viewRegion);
+ const changeLayer=(next:AtlasLayer)=>{setLayer(next);setSelected('');setSearch('');setExpanded(true);};
+ const changeRegion=(next:BodyRegion)=>{setViewRegion(next);setSelected('');setSearch('');setZoom(1);setExpanded(true);};
  const changeVariant=(next:AnatomyVariant)=>{setVariant(next);setSelected('');};
  const focus=(part:AnatomyRegion)=>{setSelected(part.id);setExpanded(true);};
- return <div className="vx-anatomy" data-testid="vision-anatomy" data-region={region} role="region" aria-label="Atlante anatomico contestuale, illustrativo">
+ return <div className="vx-anatomy" data-testid="vision-anatomy" data-region={viewRegion} role="region" aria-label="Atlante anatomico contestuale, illustrativo">
   <style>{ANATOMY_STYLES}</style>
   <div aria-hidden="true" className="vx-anatomy-grid"/>
   <div aria-hidden="true" className="vx-anatomy-scan"/>
   <header className="vx-anatomy-head">
    <div className="vx-anatomy-identity">
     <span className="vx-anatomy-kicker"><i/> ORA / HUMAN ATLAS <b>01</b></span>
-    <strong>{BODY_LABEL[region]}</strong>
+    <strong>{BODY_LABEL[viewRegion]}</strong>
     <span className="vx-anatomy-context">RICOSTRUZIONE ANATOMICA · MODELLO DIDATTICO</span>
    </div>
    <button aria-label="Chiudi l'atlante e scansiona altro" data-testid="vision-anatomy-close" className="vx-anatomy-close" onClick={onClose}>×</button>
   </header>
+  <div className="vx-anatomy-region-tabs" role="group" aria-label="Esplora una zona del corpo senza effettuare una nuova scansione">
+   {([['full_body','Intero'],['face','Testa'],['torso','Torace'],['abdomen','Addome'],['arm','Braccia'],['hand','Mani'],['leg','Gambe']] as [BodyRegion,string][]).map(([key,label])=>
+    <button type="button" key={key} data-testid={'vision-anatomy-region-'+key} aria-pressed={viewRegion===key}
+     onClick={()=>changeRegion(key)}>{label}</button>)}
+  </div>
   <div className="vx-anatomy-shell">
    <nav className="vx-anatomy-layers" role="group" aria-label="Livello anatomico">
     {LAYERS.map((item,i)=><button type="button" key={item.key} data-testid={'vision-anatomy-layer-'+item.key}
@@ -43,15 +53,15 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
    </nav>
    <div className="vx-anatomy-core">
     <div className="vx-anatomy-art" data-testid="vision-anatomy-visual" data-renderer={viewMode}>
-     {viewMode==='volume'&&<AnatomyVolume regions={regions} layer={layer} region={region} selected={chosen?.id||''} onSelect={key=>{const item=regions.find(x=>x.id===key);if(item)focus(item);}} zoom={zoom} onZoom={setZoom} viewBox={viewBox} posePoints={posePoints}/>}
+     {viewMode==='volume'&&<AnatomyVolume regions={regions} layer={layer} region={viewRegion} selected={chosen?.id||''} onSelect={key=>{const item=regions.find(x=>x.id===key);if(item)focus(item);}} zoom={zoom} onZoom={setZoom} viewBox={viewBox} posePoints={posePoints}/>}
      <div className="vx-anatomy-view-mode" role="group" aria-label="Modalità visuale"><button type="button" data-testid="vision-anatomy-view-volume" aria-pressed={viewMode==='volume'} onClick={()=>setViewMode('volume')}>3D</button><button type="button" data-testid="vision-anatomy-view-flat" aria-pressed={viewMode==='flat'} onClick={()=>setViewMode('flat')}>2D</button></div>
-     <div className="vx-anatomy-coordinate vx-anatomy-coordinate-top">FIG. {region==='full_body'?'01':'02'} / {LAYERS.findIndex(x=>x.key===layer)+1} · {BODY_LABEL[region]}</div>
+     <div className="vx-anatomy-coordinate vx-anatomy-coordinate-top">FIG. {viewRegion==='full_body'?'01':'02'} / {LAYERS.findIndex(x=>x.key===layer)+1} · {BODY_LABEL[viewRegion]}</div>
      <div aria-hidden="true" className="vx-anatomy-halo vx-anatomy-halo-a"/>
      <div aria-hidden="true" className="vx-anatomy-halo vx-anatomy-halo-b"/>
      <svg viewBox={viewBox} preserveAspectRatio="xMidYMid meet" role="img"
       style={{display:viewMode==='volume'?'none':undefined,transform:'scale('+zoom+')'}}
       data-testid="vision-anatomy-svg"
-      aria-label={'Atlante anatomico stilizzato: '+BODY_LABEL[region]+', livello '+LAYERS.find(x=>x.key===layer)?.label}>
+      aria-label={'Atlante anatomico stilizzato: '+BODY_LABEL[viewRegion]+', livello '+LAYERS.find(x=>x.key===layer)?.label}>
       <defs>
        <linearGradient id="vx-anatomy-shell-fill" x1="0" y1="0" x2="1" y2="1">
         <stop stopColor="#3af0ee" stopOpacity=".15"/><stop offset=".5" stopColor="#176079" stopOpacity=".065"/><stop offset="1" stopColor="#163c63" stopOpacity=".28"/>
@@ -70,9 +80,9 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
       </g>
       <g key={layer+'-'+region+'-'+variant} className="vx-anatomy-reveal">
        {regions.map((part,i)=><path key={part.id} d={part.d}
-         fill={chosen?.id===part.id?color+'bb':color+'4b'}
+         fill={(layer==='nerves'||layer==='vessels')&&!part.d.includes('Z')?'none':chosen?.id===part.id?color+'bb':color+'4b'}
          stroke={chosen?.id===part.id?'#ffc18b':color}
-         strokeWidth={chosen?.id===part.id?2.5:1.4}
+         strokeWidth={chosen?.id===part.id?((layer==='nerves'||layer==='vessels')?3.6:2.5):((layer==='nerves'||layer==='vessels')?2.2:1.4)}
          filter={chosen?.id===part.id?'url(#vx-anatomy-glow)':undefined}
          strokeLinecap="round" strokeLinejoin="round" fillRule="evenodd"
          role="button" tabIndex={0} aria-label={part.label}
@@ -99,13 +109,15 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
        aria-pressed={variant===v} onClick={()=>changeVariant(v)} data-testid={'vision-anatomy-variant-'+v}>
        {v==='neutral'?'Generale':v==='female'?'Femminile':'Maschile'}</button>)}
      </div>}
+     <input type="search" className="vx-anatomy-search" data-testid="vision-anatomy-search"
+      aria-label="Cerca una struttura anatomica" placeholder="Cerca organo, nervo, osso…" value={search} onChange={e=>setSearch(e.target.value)}/>
      <div className="vx-anatomy-list" aria-label="Parti anatomiche selezionabili">
-      {regions.map((part,i)=><button type="button" key={part.id} onClick={()=>focus(part)}
+      {visibleRegions.map((part,i)=><button type="button" key={part.id} onClick={()=>focus(part)}
        data-testid={'vision-anatomy-select-'+part.id} aria-pressed={chosen?.id===part.id}>
        <span className="vx-anatomy-list-index">{String(i+1).padStart(2,'0')}</span>
        <span className="vx-anatomy-list-dot" style={{background:chosen?.id===part.id?'#ffb473':color}}/>
        <span className="vx-anatomy-list-label">{part.label}</span><span className="vx-anatomy-arrow">›</span></button>)}
-      {!regions.length&&<p className="vx-anatomy-not-applicable">Questo livello non mostra strutture in questa zona. Seleziona un altro livello o inquadra una zona diversa.</p>}
+      {!visibleRegions.length&&<p className="vx-anatomy-not-applicable">Nessuna struttura corrisponde alla ricerca in questa zona. Cambia termine, livello o zona del corpo.</p>}
      </div>
      {chosen&&<div className="vx-anatomy-info" data-testid="vision-anatomy-description">
       <button type="button" onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded}>
