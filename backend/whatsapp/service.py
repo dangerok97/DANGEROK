@@ -253,7 +253,9 @@ class WhatsAppService:
         attachments: list[dict] = []
         if kind in ("image", "document", "audio"):
             try:
-                metadata = json.loads(self.config.decrypt(item.get("media_enc") or ""))
+                if not item.get("media_enc"):
+                    raise MediaNotUsable("missing_media_reference")
+                metadata = json.loads(self.config.decrypt(item["media_enc"]))
                 if not isinstance(metadata, dict):
                     raise MediaNotUsable("missing_media_metadata")
                 raw, mime = await fetch_whatsapp_media(
