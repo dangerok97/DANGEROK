@@ -709,7 +709,7 @@ async def reconsider(
         "the smallest authorized inspect and its exact cursor/version; "
         "otherwise continue or modify the remaining preparation and verification. "
         "Wait is for a future external condition or scheduled observation, "
-        "not a replacement for currently available work.\\n\\n"
+        "not a replacement for currently available work.\n\n"
         "When what_happened.result.problem is preparation_sources_required, "
         "preparation has no usable supporting evidence for this goal. This is a "
         "missing prerequisite, not a provider outage or proof the outcome is "
