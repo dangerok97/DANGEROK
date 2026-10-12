@@ -67,3 +67,28 @@ async def test_origin_survives_planning_verification_and_reconsideration(monkeyp
     assert all(item["origin"] == "agent_initiated" for item in seen)
     assert all(item["criteria_source"] == "ora_inferred_not_user_instruction"
                for item in seen)
+
+
+def test_bounded_dump_keeps_code_owned_origin_even_when_other_context_does_not_fit():
+    data = goal().for_ai()
+    encoded = reasoning._dump({
+        "goal": data,
+        "source_refs": ["S" * 200 for _ in range(65)],
+    })
+    result = json.loads(encoded)
+    assert result["context_truncated"] is True
+    assert result["goal"]["origin"] == "agent_initiated"
+    assert result["goal"]["decision_provenance"] == "model"
+    assert result["goal"]["criteria_source"] == "ora_inferred_not_user_instruction"
+
+
+def test_verifier_rejects_reducer_that_loses_goal_origin(monkeypatch):
+    data = goal().for_ai()
+    truncated = {"goal": {key: data[key] for key in (
+        "objective", "desired_outcome", "success_criteria",
+        "stop_conditions", "user_clarifications_not_authority"
+    ) if key in data}}
+    monkeypatch.setattr(reasoning, "_dump", lambda _: json.dumps(truncated))
+    assert reasoning._verification_dump({
+        "goal": data, "what_was_done": {"what_was_found": [], "steps": []},
+    }) is None
