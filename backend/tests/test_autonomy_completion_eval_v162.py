@@ -510,10 +510,15 @@ def test_reconsider_revised_steps_and_replacements_are_bounded_redacted_and_type
     assert observed["revised_steps_omitted"] == 3
     assert all(len(observed["revised_steps"][0][key]) == 160 for key in fields)
     assert observed["revised_steps"][0]["truncated_fields"] == list(fields)
-    assert observed["revised_steps"][1:] == [
+    assert [{key: value for key, value in row.items() if key != "declaration_field_kinds"}
+            for row in observed["revised_steps"][1:]] == [
         {"step_type": "prepare", "type": "inspect"}, {"response_kind": "none"},
         {"response_kind": "array"}, {"response_kind": "text"}, {},
     ]
+    assert observed["revised_steps"][1]["declaration_field_kinds"]["step_type"] == "text"
+    assert observed["revised_steps"][1]["declaration_field_kinds"]["type"] == "text"
+    assert observed["revised_steps"][5]["declaration_field_kinds"]["step_type"] == "array"
+    assert observed["revised_steps"][5]["declaration_field_kinds"]["type"] == "boolean"
     assert observed["replace_step_ids_kind"] == "array"
     assert observed["replace_step_ids_count"] == 13
     assert observed["replace_step_ids_omitted"] == 13 - gate.MAX_ASSESSMENT_REFS
@@ -564,7 +569,11 @@ async def test_reconsider_revision_trace_preserves_identity_and_the_synthetic_gu
     assert calls == [(goal.for_ai(), {"plan": {}, "what_happened": {}, "capabilities": []})]
     if scope == "owned":
         observed, = probe.structured_decisions
-        assert observed["revised_steps"] == response["revised_steps"]
+        assert [{key: value for key, value in row.items() if key != "declaration_field_kinds"}
+                for row in observed["revised_steps"]] == response["revised_steps"]
+        kinds = observed["revised_steps"][0]["declaration_field_kinds"]
+        assert kinds["type"] == "text" and kinds["step_type"] == "absent"
+        assert all(value == "absent" for key, value in kinds.items() if key != "type")
         assert observed["replace_step_ids"] == response["replace_step_ids"]
         assert observed["model_attempts_before"] == observed["model_attempts_after"] == 0
     else:

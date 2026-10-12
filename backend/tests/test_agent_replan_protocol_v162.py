@@ -224,8 +224,15 @@ async def test_actual_sdk_receives_complete_canonical_step_declaration(stage, mo
         schema, _ = json.JSONDecoder().raw_decode(system.split("Return JSON: ", 1)[1])
         declared = schema["steps" if stage == "plan" else "revised_steps"]
         assert len(declared) == 1 and "step_type" in declared[0]
-        assert "parameters" in declared[0] and "effect_type" in declared[0]
-        assert "input_refs" in declared[0] and "ask_kind" in declared[0]
+        assert "parameters" in declared[0] and "input_refs" in declared[0]
+        assert "effect_type" not in declared[0] and "ask_kind" not in declared[0]
+        assert AgentService._read_step(declared[0], 0) is not None
+        execute, _ = json.JSONDecoder().raw_decode(system.split("Execute declaration example: ", 1)[1])
+        ask, _ = json.JSONDecoder().raw_decode(system.split("Ask declaration example: ", 1)[1])
+        assert AgentService._read_step(execute, 0).step_type == "execute"
+        assert AgentService._read_step(ask, 0).ask_kind == "knowledge"
+        assert "effect_type" in execute and "effect_target" in execute
+        assert "asks" in ask and "ask_kind" in ask
         return response
 
     transported = fake_gemini(monkeypatch, reply)

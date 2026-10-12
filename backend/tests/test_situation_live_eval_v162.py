@@ -141,6 +141,175 @@ async def test_waiter_does_not_move_a_saved_future_checkpoint_or_use_a_foreign_w
     sleep.assert_not_awaited()
 
 
+def scheduled_conversation_fixture(monkeypatch, *, mutation=None):
+    """Observe the post-conversation boundary, with real create/tool handlers.
+
+    The answers are controlled here, not a replay of a historical model or DB.
+    Scheduling legitimately replaces the initial wake before run_case reads it.
+    """
+    from conversation_engine.ai_core import loop
+    from conversation_engine.ai_core.models import CognitiveTurnResult
+    from conversation_engine.ai_core.tools.registry import ToolRegistry
+    from situations.followup import goal_id_for
+    from situations.models import SituationUpdate
+    from situations.service import SituationService
+
+    captured = {}
+
+    async def conversation(*, db, **kwargs):
+        created = await SituationService(db).apply(user_id=runner.OWNER,
+            session_id="synthetic-schedule", reasoning_epoch="new-laundry",
+            update=SituationUpdate(operation="create", summary="Nuova stesura sintetica a Tarquinia.",
+                desired_outcome="Indicare il ritiro per asciugatura stimata o rischio anticipato.",
+                attention_intent="Valutare il momento utile al ritiro.",
+                started_at=runner.now().isoformat(), location_label="Tarquinia",
+                linked_object_refs=["place:" + runner.PLACE["id"]]))
+        assert created["status"] == "success"
+        sid = created["situation"]["id"]
+        gid = goal_id_for(runner.OWNER, sid)
+        registry = ToolRegistry(db)
+        weather = await registry.execute("get_weather_forecast", {"place_ref": "place:" + runner.PLACE["id"]})
+        due = (runner.now() + timedelta(hours=5)).isoformat()
+        scheduled = await registry.execute("schedule_situation_check", {
+            "situation_id": sid, "expected_revision": 1, "check_at": due,
+            "purpose": "Rileggere le condizioni al controllo scelto.",
+            "completion_when": "Valutare soltanto un rischio anticipato.",
+            "notify_when": "Una nuova condizione rilevante richiede di agire prima."})
+        assert weather.status == scheduled.status == "ok"
+        captured.update(db=db, sid=sid, gid=gid, due=due,
+            weather=copy.deepcopy(weather.payload), scheduled=copy.deepcopy(scheduled.payload))
+        if mutation:
+            await mutation(db, sid, gid)
+        return CognitiveTurnResult(ok=True, ora_text="Il controllo scelto risulta programmato.")
+
+    monkeypatch.setattr(loop, "run_cognitive_loop", conversation)
+    return captured
+
+
+@pytest.mark.asyncio
+async def test_conversation_scheduled_check_is_observed_without_claiming_monitoring_or_expediting(monkeypatch, tmp_path):
+    import ambient.runtime
+
+    captured = scheduled_conversation_fixture(monkeypatch)
+    worker = AsyncMock(side_effect=AssertionError("The saved check is outside this run"))
+    sleep = AsyncMock(side_effect=AssertionError("The clock must not be advanced or awaited for five hours"))
+    network = AsyncMock(side_effect=AssertionError("No external HTTP"))
+    monkeypatch.setattr(ambient.runtime, "tick", worker)
+    monkeypatch.setattr(runner.asyncio, "sleep", sleep)
+    monkeypatch.setattr(httpx.AsyncClient, "send", network)
+    report = await runner.run_case()
+    (tmp_path / "conversation-scheduled-report.json").write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+
+    assert report["overall_outcome"] == "followup_pending_unobserved", report.get("error")
+    assert report["entry_route"] == "conversation_scheduled"
+    assert report["passed"] is report["full_laundry_outcome_passed"] is False
+    state = report["admission_before_worker"]
+    assert state["owner_id"] == state["goal"]["owner_id"] == state["situation"]["user_id"] == runner.OWNER
+    assert state["goal"]["id"] == captured["gid"]
+    assert state["goal"]["source_kind"] == "situation_followup"
+    assert state["goal"]["source_situation"]["situation_id"] == captured["sid"]
+    assert state["goal"]["source_situation"]["situation_revision"] == str(state["situation"]["revision"]) == "1"
+    assert state["goal"]["desired_outcome"] == "Indicare il ritiro per asciugatura stimata o rischio anticipato."
+    assert state["goal"]["next_run_at"] == state["follow_up"]["next_check_at"] == captured["due"]
+    assert state["follow_up"]["status"] == "scheduled"
+    assert [(row["status"], row["scheduled_for"]) for row in state["wakes"] if row["status"] == "pending"] == [("pending", captured["due"])]
+    assert any(row["status"] == "cancelled" for row in state["wakes"])
+    assert state["wakes_truncated"] is False
+    assert report["phases"]["conversation"]["status"] == "passed"
+    for phase in ("initial_worker", "monitoring", "future_check", "useful_action", "device_receipt"):
+        assert report["phases"][phase] == {"status": "not_run"}
+    assert report["semantic_review"]["status"] == "not_run"
+    assert report["phases"]["cancellation"]["status"] == "passed"
+    assert report["phases"]["cancellation"]["pending_wakes"] == 0
+    assert report["logical_model_calls"] == report["scripted_model_calls"] == report["real_notifications_sent"] == 0
+    tools = {row["capability"]: row for row in report["tools"]}
+    for capability, key in (("get_weather_forecast", "weather"), ("schedule_situation_check", "scheduled")):
+        assert tools[capability]["payload"] == captured[key]
+        assert tools[capability]["payload_truncated"] is False
+        assert tools[capability]["payload_characters"] == len(json.dumps(captured[key], ensure_ascii=False, default=str))
+    worker.assert_not_awaited()
+    sleep.assert_not_awaited()
+    network.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["missing_goal", "foreign_goal", "source_revision", "source_id",
+    "source_refs", "closed_goal", "unknown_kind", "closed_source", "missing_wake"])
+async def test_admission_snapshot_precedes_rejection_of_unbound_or_closed_scheduling(monkeypatch, change):
+    import ambient.runtime
+
+    async def mutate(db, sid, gid):
+        query = {"owner_id": runner.OWNER, "id": gid}
+        if change == "missing_goal":
+            await db.agent_goals.delete_one(query)
+        elif change == "closed_source":
+            await db.situations.update_one({"user_id": runner.OWNER, "id": sid}, {"$set": {"status": "cancelled"}})
+        elif change == "missing_wake":
+            await db.ambient_wakes.delete_many({"owner_id": runner.OWNER, "source_ref": "goal:" + gid})
+        else:
+            fields = {"foreign_goal": {"owner_id": "other-synthetic-owner"},
+                "source_revision": {"source_situation.situation_revision": "2"},
+                "source_id": {"source_situation.situation_id": "different-situation"},
+                "source_refs": {"source_refs": ["situation:different-situation"]},
+                "closed_goal": {"status": "completed"},
+                "unknown_kind": {"source_kind": "unrelated_source"}}
+            await db.agent_goals.update_one(query, {"$set": fields[change]})
+
+    scheduled_conversation_fixture(monkeypatch, mutation=mutate)
+    worker = AsyncMock(side_effect=AssertionError("No worker for an unbound declaration"))
+    monkeypatch.setattr(ambient.runtime, "tick", worker)
+    report = await runner.run_case()
+    assert report["overall_outcome"] == "failed" and report["passed"] is False
+    assert report["full_laundry_outcome_passed"] is False
+    state = report["admission_before_worker"]
+    assert state["situation"]["id"] == report["situation_before_worker"]["id"]
+    if change in ("missing_goal", "foreign_goal"):
+        assert state["goal"] is None  # no foreign row is read for diagnostics
+    assert report["phases"]["initial_worker"] == report["phases"]["monitoring"] == {"status": "not_run"}
+    assert report["logical_model_calls"] == report["real_notifications_sent"] == 0
+    worker.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capability", ["get_weather_forecast", "schedule_situation_check"])
+@pytest.mark.parametrize("large", [False, True])
+async def test_tool_payload_diagnostics_are_bounded_redacted_and_preserve_the_returned_observation(monkeypatch, capability, large):
+    from conversation_engine.ai_core.models import Observation
+    from conversation_engine.ai_core.tools.registry import ToolRegistry
+
+    secret = "synthetic-only-diagnostic-credential"
+    # This key is not replaced by the scripted provider configuration.
+    monkeypatch.setenv("WEATHER_API_KEY", secret)
+    db = AsyncMongoMockClient().tool_observation_contract
+    probe = runner.Probe("scripted")
+    payload = {"source": "synthetic", "limitation": "Estimation only.",
+        "retrieved_at": runner.now().isoformat(), "provider_as_of": None,
+        "value": secret + ("x" * 7000 if large else ""), "confirmed": False}
+    expected = copy.deepcopy(payload)
+    observation = Observation(kind="tool", name=capability, status="error" if large else "ok", payload=payload)
+
+    async def handler(arguments, runtime):
+        return observation
+
+    with runner.isolated_engine(db, probe, runner.now()):
+        registry = ToolRegistry(db)
+        registry.get(capability).handler = handler
+        returned = await registry.execute(capability, {})
+    assert returned is observation and returned.payload == expected
+    row = probe.tools[0]
+    assert row["status"] == observation.status
+    assert row["payload_truncated"] is large
+    assert row["payload_characters"] == len(json.dumps(expected, ensure_ascii=False, default=str))
+    assert secret not in json.dumps(row, ensure_ascii=False)
+    if large:
+        assert row["payload"]["truncated"] is True
+        assert len(row["payload"]["excerpt"]) == 6000
+    else:
+        assert row["payload"] == {**expected, "value": "[credential redacted]"}
+        assert row["payload"]["provider_as_of"] is None and row["payload"]["confirmed"] is False
+    assert probe.logical_calls == probe.model_http == 0
+
+
 @pytest.mark.asyncio
 async def test_waiter_awaits_the_persisted_clock_without_writing_it(monkeypatch):
     db = AsyncMongoMockClient().wait_clock
@@ -161,6 +330,27 @@ async def test_waiter_awaits_the_persisted_clock_without_writing_it(monkeypatch)
     assert waits == [30.0]
     assert actual["scheduled_for"] == due.isoformat() and actual["status"] == "pending"
     assert await db.ambient_wakes.count_documents({"scheduled_for": due.isoformat()}) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("missing", [False, True])
+async def test_waiter_keeps_the_admitted_wake_identity_instead_of_using_an_older_wake(monkeypatch, missing):
+    db = AsyncMongoMockClient().pinned_first_wake
+    row = {"id": "current", "owner_id": runner.OWNER, "source_ref": "goal:g", "status": "pending",
+           "scheduled_for": (runner.now() + timedelta(hours=5)).isoformat()}
+    if not missing:
+        await db.ambient_wakes.insert_one(copy.deepcopy(row))
+    await db.ambient_wakes.insert_one({**row, "id": "older", "scheduled_for": (runner.now() - timedelta(minutes=1)).isoformat()})
+    before = await db.ambient_wakes.find({}, {"_id": 0}).to_list(3)
+    sleep = AsyncMock(side_effect=AssertionError("The selected future check is outside the run"))
+    monkeypatch.setattr(runner.asyncio, "sleep", sleep)
+    if missing:
+        with pytest.raises(runner.EvaluationFailure, match="INITIAL_WAKE_MISSING_OR_INVALID"):
+            await runner.wait_for_initial_wake(db, "g", deadline=time.monotonic() + 1, wake_id="current")
+    else:
+        assert await runner.wait_for_initial_wake(db, "g", deadline=time.monotonic() + 1, wake_id="current") is None
+    assert await db.ambient_wakes.find({}, {"_id": 0}).to_list(3) == before
+    sleep.assert_not_awaited()
 
 
 @pytest.mark.asyncio

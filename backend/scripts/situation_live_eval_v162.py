@@ -6,10 +6,12 @@ wake, Agent execution, source guards and subsequent scheduling remain connected.
 Live mode uses the configured model/weather/research chain. Scripted mode uses
 explicit model answers and HTTP fixtures, never a live provider or model.
 
-The initial wake is awaited on the real clock (normally at least 30 seconds).
-No model-selected wait or physical timestamp is expedited. A future checkpoint
-is NOT RUN by this bounded first-cycle probe. Monitoring success does not prove
-dryness, a later outcome, source appropriateness or notification receipt.
+The first persisted wake is awaited on the real clock (normally at least 30
+seconds). Conversation may already have promoted the initial review to a
+model-selected check. If that first check lies outside this run, it remains
+unobserved, never monitoring success. No wait or physical timestamp is expedited.
+A subsequent checkpoint is NOT RUN by this bounded first-cycle probe. Monitoring
+success does not prove dryness, a later outcome, source fitness or receipt.
 
     python -m scripts.situation_live_eval_v162 --mode scripted
     python -m scripts.situation_live_eval_v162 --mode live --output /tmp/situation.json
@@ -580,8 +582,15 @@ def isolated_engine(db, probe, started):
         finally:
             boundary.scope.reset(token)
         if len(probe.tools) < 20:
-            probe.tools.append({"capability": capability, "status": observation.status,
-                                "production_handler_used": True})
+            recorded = {"capability": capability, "status": observation.status,
+                        "production_handler_used": True}
+            if capability in ("get_weather_forecast", "schedule_situation_check"):
+                encoded = json.dumps(observation.payload, ensure_ascii=False, default=str)
+                clean = json.dumps(redact_report(json.loads(encoded)), ensure_ascii=False)
+                recorded.update(payload=observed_json(observation.payload, 6000),
+                    payload_characters=len(encoded), payload_redacted_characters=len(clean),
+                    payload_truncated=len(clean) > 6000, payload_redacted=clean != encoded)
+            probe.tools.append(recorded)
         return observation
 
     async def step(self, owner, goal, item, **kwargs):
@@ -657,11 +666,75 @@ def isolated_engine(db, probe, started):
         yield boundary
 
 
-async def wait_for_initial_wake(db, goal_id, *, deadline):
+async def admission_snapshot(db, sid, goal_id):
+    """Read the actual owned admission before asserting the probe's contract.
+
+    The conversation may have replaced the initial wake with a real scheduled
+    check on the same goal. Preserve both states of that handoff in diagnostics;
+    no observation here creates, repairs or reschedules work.
+    """
+    from agent.service import AgentService
+    from situations.followup import INITIAL_KIND, read_followup
+    from situations.repository import SituationRepository
+
+    source = await SituationRepository(db).get(OWNER, sid)
+    goal = await AgentService(db).repo.get_goal(OWNER, goal_id)
+    followup = await read_followup(db, OWNER, sid)
+    wakes = await db.ambient_wakes.find({"owner_id": OWNER, "source_ref": "goal:" + goal_id},
+        {"_id": 0, "id": 1, "owner_id": 1, "source_ref": 1, "status": 1, "scheduled_for": 1}
+    ).sort("scheduled_for", -1).limit(9).to_list(9)
+    check_at = followup.get("assessment_at") if goal and goal.source_kind == INITIAL_KIND else followup.get("next_check_at")
+    wake = next((row for row in wakes[:8] if row.get("status") == "pending"
+                 and moment(row.get("scheduled_for")) == moment(check_at)), None)
+    return {
+        "owner_id": OWNER, "situation_id": sid, "goal_id": goal_id,
+        "situation": ({key: getattr(source, key) for key in ("id", "user_id", "status", "revision",
+            "attention_intent", "next_check_summary")} if source else None),
+        "goal": ({key: getattr(goal, key) for key in ("id", "owner_id", "status", "source_kind",
+            "source_refs", "source_situation", "desired_outcome", "next_run_at")} if goal else None),
+        "follow_up": {key: followup.get(key) for key in ("status", "situation_id", "goal_id", "goal_source_kind",
+            "next_check_at", "assessment_at", "last_checked_at", "desired_outcome", "completion_when", "notify_when")},
+        "wake": wake, "wakes": wakes[:8], "wakes_truncated": len(wakes) > 8,
+    }
+
+
+def admission_route(state):
+    """Recognise an owned current intent; a saved time is not an outcome."""
+    from situations.followup import INITIAL_KIND, KIND, OPEN
+
+    source, goal, followup = state.get("situation") or {}, state.get("goal") or {}, state.get("follow_up") or {}
+    binding, wake = goal.get("source_situation") or {}, state.get("wake") or {}
+    sid, gid = state["situation_id"], state["goal_id"]
+    require(goal.get("id") == gid and goal.get("owner_id") == OWNER
+            and goal.get("source_kind") in (INITIAL_KIND, KIND) and goal.get("status") in OPEN,
+            "INITIAL_REVIEW_NOT_ADMITTED")
+    require(source.get("id") == sid and source.get("user_id") == OWNER
+            and source.get("status") in ("active", "changed")
+            and (source.get("attention_intent") or source.get("next_check_summary"))
+            and binding.get("situation_id") == sid
+            and binding.get("situation_revision") == str(source.get("revision"))
+            and "situation:" + sid in (goal.get("source_refs") or []),
+            "SITUATION_ADMISSION_SOURCE_MISMATCH")
+    initial = goal["source_kind"] == INITIAL_KIND
+    check_at = moment(followup.get("assessment_at" if initial else "next_check_at"))
+    due = moment(goal.get("next_run_at"))
+    require(followup.get("situation_id") == sid and followup.get("goal_id") == gid
+            and followup.get("goal_source_kind") == goal["source_kind"]
+            and followup.get("status") in (("review_pending",) if initial else ("scheduled", "due"))
+            and check_at is not None and due is not None and check_at >= due
+            and wake.get("owner_id") == OWNER and wake.get("source_ref") == "goal:" + gid
+            and wake.get("status") == "pending" and moment(wake.get("scheduled_for")) == check_at,
+            "INITIAL_WAKE_MISSING_OR_INVALID")
+    return "initial_review" if initial else "conversation_scheduled"
+
+
+async def wait_for_initial_wake(db, goal_id, *, deadline, wake_id=None):
     """Wait for the persisted instant, never rewrite it or advance a clock."""
     while True:
-        row = await db.ambient_wakes.find_one({"owner_id": OWNER, "source_ref": "goal:" + goal_id,
-            "status": "pending"}, {"_id": 0}, sort=[("scheduled_for", 1)])
+        query = {"owner_id": OWNER, "source_ref": "goal:" + goal_id, "status": "pending"}
+        if wake_id is not None:
+            query["id"] = wake_id
+        row = await db.ambient_wakes.find_one(query, {"_id": 0}, sort=[("scheduled_for", 1)])
         require(row and moment(row.get("scheduled_for")), "INITIAL_WAKE_MISSING_OR_INVALID")
         due = moment(row["scheduled_for"])
         delay = max(0.0, (due - now()).total_seconds())
@@ -837,17 +910,20 @@ async def run_case(*, mode="scripted"):
                 state = situations[0]
                 sid, gid = state["id"], goal_id_for(OWNER, state["id"])
                 report["situation_before_worker"] = (await SituationRepository(db).get(OWNER, sid)).context_preview()
+                admission = await admission_snapshot(db, sid, gid)
+                report["admission_before_worker"] = admission
                 require(state.get("status") in ("active", "changed") and state.get("desired_outcome")
                         and "place:" + PLACE["id"] in state.get("linked_object_refs", [])
                         and moment(state.get("started_at"))
                         and abs((moment(state["started_at"]) - started).total_seconds()) <= 60,
                         "DECLARATION_PLACE_OR_START_NOT_PRESERVED")
-                goal = await AgentService(db).repo.get_goal(OWNER, gid)
-                require(goal and goal.source_kind == "situation_initial_review", "INITIAL_REVIEW_NOT_ADMITTED")
+                route = admission_route(admission)
+                report["entry_route"] = route
                 report["phases"]["conversation"] = {"status": "passed", "situation_id": sid, "goal_id": gid}
-                initial = await wait_for_initial_wake(db, gid, deadline=deadline)
+                initial = await wait_for_initial_wake(db, gid, deadline=deadline, wake_id=admission["wake"]["id"])
                 if initial is None:
-                    report["overall_outcome"] = "initial_check_pending"
+                    report["overall_outcome"] = (
+                        "followup_pending_unobserved" if route == "conversation_scheduled" else "initial_check_pending")
                     return
                 report["initial_wake"] = {key: initial.get(key) for key in ("id", "scheduled_for", "source_ref")}
                 report["initial_dispatch_at"] = now().isoformat()

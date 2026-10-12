@@ -1,3 +1,72 @@
+# 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
+
+Il candidato `630020147223ada63430a11870209494dc35cc22`, tree
+`0878f56d49f120c7b97ce93e49fa9076398c43c2`, ha concluso la CI con **5/5 workflow
+e 15/15 job SUCCESS**. Ogni invocazione backend comprende 1.074 PASS v162 e
+6/6 prove con Mongo reale e riavvio di processo; il browser comprende
+36/36 prove, 18 Chromium e 18 WebKit. Il merge tecnico verificato è
+`914c682779b8bee332b15fae9e399cf3e2c1ce34`, sulla base `c419e0c`, con tree
+identico. Queste verifiche non attestano la successiva integrazione `ff6d273`
+né le correzioni locali. Fonte: [CI originale 630](evidence/autonomy_v162_ci_2026-10-12_6300201.json).
+
+La prova reale della stessa revisione è **3/9, FAIL**, con 48 chiamate logiche
+e 57 richieste HTTP del modello. Passano soltanto `source_revoked`,
+`already_resolved` e `irrelevant`. Gli altri casi conservano i fallimenti
+originali; i controlli su risultato, Home e replay dei sei casi falliti sono
+`not_run`. Il testo salvato di `home_write_retry`, 3.643 caratteri identici in
+generazione, audit e persistenza, è semanticamente inaccettabile nonostante
+`verified=true`: costi contraddittori, differenza utile assente e flessibilità
+non fondata. Fonti: [nove scenari originali](evidence/autonomy_v162_live_2026-10-12_6300201_original.json) e [review del testo Home](evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json).
+
+Tarquinia conserva il FAIL `INITIAL_REVIEW_NOT_ADMITTED`; la diagnosi isolata
+ha individuato la mancata accettazione, nel runner, di un follow-up valido già
+programmato dalla conversazione. La correzione locale non lo promuove a PASS:
+un controllo futuro non osservato resta `followup_pending_unobserved`, falso.
+Il report pubblico resta FAIL originale: il replay locale elimina il falso
+`TEMPERATURE_MISMATCH` di `23-24°C`, ma la frase «senza possibilità di pioggia»
+richiede ancora un giudizio semantico negativo. Riferimenti: [Tarquinia originale](evidence/situation_v162_live_2026-10-12_6300201_original.json),
+[ricostruzione isolata della programmazione](evidence/situation_v162_2026-10-12_schedule_transition_diagnostic.json) e [report pubblico originale](evidence/public_read_v162_live_2026-10-12_6300201_original.json).
+
+Le selezioni locali congelate sono riportate separatamente, perché si
+sovrappongono: runner Situation 41 PASS; intervalli di temperatura 50 PASS;
+provenienza `current_facts` 16 PASS; controllo programmato 22 PASS; esempi dei
+passi 63 PASS; diagnostica delle dichiarazioni 75 PASS. Il gruppo correlato
+alla provenienza ha 31 PASS e un fallimento del test viaggio preesistente,
+riprodotto anche caricando in memoria i soli due moduli 630 pertinenti: questa
+controprova non equivale a una suite completa sul vecchio checkout. Il test resta invariato e viene
+documentato come preesistente, senza sopprimerlo per ottenere il verde. I log e i singoli hash sono nel
+[indice delle evidenze e delle correzioni](evidence/autonomy_v162_followup_2026-10-12.json); questi numeri non vanno sommati.
+
+**Stato al completamento della verifica locale:**
+
+- Snapshot locale del codice e relativo tree: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee` / `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+- Aggregato locale finale: `1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s`.
+- CLI scripted della stessa revisione: `9/9 SCRIPTED; zero modelli reali, HTTP del modello ed effetti esterni`.
+- CI e prove live nuove: `non eseguite su questa versione al momento della registrazione`.
+
+Finché questi campi non sono verificati, non si estendono i risultati 630 al
+nuovo candidato. Configurazione Expo, prebuild ed export JavaScript iOS sono
+provati dalla CI 630; firma, installazione e ricezione ad app chiusa no.
+
+## Verifica locale della versione integrata
+
+Codice locale verificato: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee`, tree `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+Suite integrata: **1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s**. CLI separata: **9/9 SCRIPTED**, senza
+modelli reali, HTTP del modello o effetti esterni. Le due incompatibilità della
+diagnostica e quella dell'esempio calendario sono corrette; i log dei tentativi
+falliti e riusciti restano nell'archivio. I gruppi mirati sovrapposti non si sommano
+al totale. Questa registrazione precede la pubblicazione: gli SHA sopra identificano
+lo snapshot locale, non una nuova CI o una nuova prova reale già completata.
+
+La base revisionata `ff6d273` è integrata nei suoi otto file. I due moduli Vision
+hanno 147 PASS locali e dieci errori di setup per Mongo non disponibile; la prova
+su Mongo reale è aggiunta alla CI usando il servizio esistente. Le due suite Node
+passano 192 casi dopo avere generato il manifest dal catalogo reale di 126 famiglie.
+Il primo errore per manifest assente è conservato. Questi risultati non sono
+una prova di notifica sul dispositivo.
+
+---
+
 # 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
 
 Il precedente head `fe2d37f` supera cinque workflow CI e tutti i 15 job,

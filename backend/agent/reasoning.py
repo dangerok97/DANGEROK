@@ -146,14 +146,37 @@ _SITUATION_OUTCOME = (
 
 _STEP_DECLARATION_JSON = (
     "{\"intent\": \"what this step is for\", "
-    "\"step_type\": \"inspect|research|compare|prepare|ask_user|execute|verify|wait\", "
+    "\"step_type\": \"inspect\", "
     "\"capability_needed\": \"\", \"input_refs\": [], \"parameters\": {}, "
     "\"expected_result\": \"\", \"external_effect\": false, "
-    "\"effect_type\": \"create|modify|cancel|send|transfer|publish|remove\", "
-    "\"effect_target\": \"\", \"reaches_somebody_else\": false, "
-    "\"reversibility\": \"easily\", \"asks\": \"\", \"ask_kind\": null}"
+    "\"reversibility\": \"easily\"}"
+)
+_EXECUTE_STEP_DECLARATION_JSON = (
+    "{\"intent\": \"the required change after its authority is verified\", "
+    "\"step_type\": \"execute\", \"capability_needed\": \"\", "
+    "\"input_refs\": [], \"parameters\": {}, \"expected_result\": \"\", "
+    "\"external_effect\": true, \"effect_type\": \"modify\", "
+    "\"effect_target\": \"the observed target\", \"reaches_somebody_else\": true, "
+    "\"reversibility\": \"with_effort\"}"
+)
+_ASK_STEP_DECLARATION_JSON = (
+    "{\"intent\": \"obtain the indispensable fact only the person knows\", "
+    "\"step_type\": \"ask_user\", \"capability_needed\": \"\", "
+    "\"input_refs\": [], \"parameters\": {}, \"expected_result\": \"\", "
+    "\"external_effect\": false, \"reversibility\": \"easily\", "
+    "\"asks\": \"the single blocking question\", \"ask_kind\": \"knowledge\"}"
 )
 _STEP_DECLARATION_PROTOCOL = (
+    "The JSON examples illustrate valid declaration shapes. Choose the actual step_type "
+    "from inspect, research, compare, prepare, ask_user, execute, verify, wait according "
+    "to the current goal and evidence, and the capability from the supplied available list. "
+    "The ordinary example deliberately omits inapplicable effect and question fields. "
+    "Do not add null placeholders for an omitted effect_type.\n"
+    "Execute declaration example: " + _EXECUTE_STEP_DECLARATION_JSON + "\n"
+    "Ask declaration example: " + _ASK_STEP_DECLARATION_JSON + "\n"
+    "For execute, choose the real change, target, effect flags and reversibility from "
+    "current evidence; the example itself supplies no authority or target. For ask_user, "
+    "choose knowledge or authority for the actual blocker.\n\n"
     "Use this same canonical declaration for steps and revised_steps: step_type, "
     "effect_type and parameters. The supplied plan.steps is a partial display, not "
     "the output schema: its type means step_type, what_kind_of_change means effect_type, "

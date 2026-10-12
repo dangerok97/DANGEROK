@@ -1,0 +1,44 @@
+{
+  "source_report": "/tmp/ora_v162_630_public_live.json",
+  "original_verdict": {
+    "technical_passed": true,
+    "semantic_gate_passed": false,
+    "passed": false,
+    "reasons": [
+      "semantic:TEMPERATURE_MISMATCH"
+    ],
+    "verified_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "required_reads": [
+      "get_route",
+      "get_weather_forecast"
+    ],
+    "model_decisions": 4,
+    "ai_calls": 4,
+    "tool_calls": 2,
+    "elapsed_ms": 62700,
+    "final_mode": "answer",
+    "semantic_acceptance": "pending_human_review"
+  },
+  "extracted_temperatures": [
+    "23",
+    "-24"
+  ],
+  "actual_review": {
+    "status": "failed",
+    "passed": false,
+    "reasons": [
+      "TEMPERATURE_MISMATCH"
+    ],
+    "automatically_accepted": false,
+    "human_review_still_required": true
+  },
+  "expected_numeric_temperatures": [
+    23,
+    23,
+    24
+  ],
+  "finding": "ASCII range separator is consumed as unary minus on the upper bound; lower range endpoint is not checked."
+}

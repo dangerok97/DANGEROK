@@ -27,8 +27,17 @@ def discrepancies(answer, route, weather):
     hours = [h for h in weather.get("hours", []) if isinstance(h, dict)]
     temps = [number(h.get("temperature_c")) for h in [current, *hours]]
     temps = [v for v in temps if v is not None]
-    for raw in re.findall(r"(-?\d+(?:[.,]\d+)?)\s*°\s*C?", answer):
-        value = number(raw)
+    # Consume the whole range: its separator is not the upper bound's sign,
+    # and both endpoints must agree with the observed temperatures.
+    temperature = r"([+\-−]?\d+(?:[.,]\d+)?)"
+    temperature_pattern = (
+        rf"(?<![\d.,+\-−]){temperature}\s*"
+        rf"(?:(?:°\s*C?\s*)?[-–—]\s*{temperature}\s*)?°\s*C?"
+    )
+    values = (number(raw.replace("−", "-"))
+              for endpoints in re.findall(temperature_pattern, answer)
+              for raw in endpoints if raw)
+    for value in values:
         if not temps or value is None or all(abs(value - t) > 1.1 for t in temps):
             problems.append("TEMPERATURE_MISMATCH")
             break

@@ -1,0 +1,71 @@
+{
+  "kind": "read_only_planning_schema_compatibility_review",
+  "created_at": "2026-10-12T11:32:08.418460+00:00",
+  "local_head": "fdec1da9b64be2603fcd3f84bbb443dff5813850",
+  "decision": "Do not introduce native planning/reconsider schema in this delta; retain valid examples and typed diagnostics. No semantic or live reliability improvement is claimed.",
+  "observations": [
+    {
+      "file": "backend/agent/reasoning.py",
+      "functions": [
+        "make_plan",
+        "reconsider"
+      ],
+      "finding": "Both use the existing research.reasoning._ask_model without response_schema; preparation already passes native schemas for its two calls."
+    },
+    {
+      "file": "backend/agent/service.py",
+      "functions": [
+        "_step_declaration",
+        "_read_step"
+      ],
+      "finding": "parameters accepts an arbitrary finite JSON object, including nested objects/lists and typed booleans/numbers. Omission of nonapplicable effect_type is valid; supplied null is rejected. Capability, target and authority cannot be inferred to fill a declaration."
+    },
+    {
+      "files": [
+        "backend/llm/providers/openai_provider.py",
+        "backend/llm/providers/mistral_provider.py",
+        "backend/llm/providers/groq_provider.py"
+      ],
+      "finding": "Existing adapters forward json_schema with strict=True and do not transform a planning schema. They do not provide an adapter capability negotiation for open parameter maps."
+    },
+    {
+      "file": "/workspace/scratch/ee708e10d9bd/ora-resume/.venv/lib/python3.12/site-packages/openai/lib/_pydantic.py",
+      "finding": "The installed SDK strict-schema helper makes every declared object property required and adds additionalProperties=False when absent. ORA passes a raw schema instead of invoking this helper. This is local source evidence of the strict shape expected by that SDK, not a live API rejection test."
+    },
+    {
+      "file": "/workspace/scratch/ee708e10d9bd/ora-resume/.venv/lib/python3.12/site-packages/google/genai/types.py",
+      "finding": "The installed response_json_schema documentation includes anyOf/oneOf/properties/additionalProperties/required. The SDK transport accepts an arbitrary schema object, which does not attest cross-provider server acceptance."
+    },
+    {
+      "file": "backend/tests/test_llm_response_schema_v162.py",
+      "finding": "Existing SDK and HTTP-fake tests exercise transport of a closed schema with required fields. They do not prove remote acceptance of a union with optional effects and open parameters."
+    }
+  ],
+  "concrete_risks": [
+    "Closing parameters to match the preparation schema would reject or lose currently valid capability parameters, including cursor/version and owned-write values.",
+    "Adding null to the effect_type enum as an optional-field surrogate would conflict with the unchanged runtime validator.",
+    "Using optional/open objects directly with strict=True is not established compatible by the current fake-HTTP tests.",
+    "Changing parameter representation, negotiating provider features or enumerating capability-specific parameter schemas would exceed the minimal two-callsite supplement."
+  ],
+  "preserved_boundaries": {
+    "runtime_edits": false,
+    "provider_calls": 0,
+    "model_calls": 0,
+    "new_test_runs": 0,
+    "provider_policy_changed": false,
+    "budget_or_retry_changed": false,
+    "canonical_validator_changed": false
+  },
+  "legacy_travel_test": {
+    "node": "conversation_engine/tests/test_ai_native_tools_v22.py::test_a_travel_needs_external_tool",
+    "finding": "Its positive fixture obtains a web_search snippet about five hours and expects a two-decision personal travel estimate. web_search returns kind=tool and explicitly qualifies snippets as not live traffic/routing APIs; the empirical guard accepts research observations or the existing direct estimators, not web_search alone.",
+    "scope_limit": "The saved failure log has no complete tool observation. Search availability is also checked before the mocked _failover_search, so the exact first failure boundary is not independently distinguished by that log. Even a successful snippet would not satisfy the current empirical-estimate contract.",
+    "existing_evidence": [
+      "/tmp/ora_v162_current_fact_provenance_regressions.log",
+      "/tmp/ora_v162_current_fact_provenance_legacy_baseline.log",
+      "/tmp/ora_v162_current_fact_baseline_check.py"
+    ],
+    "action": "Keep test unchanged and document this nonintroduced incompatibility. A replacement direct-route fixture would require explicit test-contract changes (personal capability, current ETA, provider-call assertion); it is not a safe one-line snippet fix."
+  },
+  "next_step": "Freeze. Review the peer diagnostic wrapper after its owner declares the patch stable."
+}

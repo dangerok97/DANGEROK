@@ -1,3 +1,76 @@
+# 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
+
+Conservati integralmente i tre report reali 630, la raccolta dei log, i
+riferimenti di lancio, la review del testo Home e le ricostruzioni diagnostiche.
+Il risultato rimane **CI verde, autonomia live 3/9 FAIL, Tarquinia FAIL e
+pubblico FAIL originale**. Nessun verdetto storico è stato riscritto. Mappa,
+hash dei tredici nuovi originali e archivio CI preesistente nel
+[indice delle evidenze e delle correzioni](evidence/autonomy_v162_followup_2026-10-12.json).
+
+Correzioni locali successive al collaudo:
+
+- **Runner Situation:** snapshot owner/fonte/goal/revisione/follow-up/wake prima
+  delle asserzioni; riconoscimento del tipo follow-up valido dopo la
+  conversazione; `followup_pending_unobserved` con esito falso quando il
+  controllo cade oltre il limite osservabile. Payload effettivi dei tool
+  redatti e limitati a 6.000 caratteri. Nessun cambiamento a orari, budget o
+  scheduler di produzione. Modulo completo: 41 PASS.
+- **Provenienza dei fatti correnti:** ogni annotazione prodotta dalle
+  `state_updates` del modello resta `model/inferred/INFERENCE`; origine legacy
+  non attestata rimane `unknown`. Contenuto e provenienza legittima della
+  persona sono preservati. Nuovo modulo: 16 PASS; il gruppo correlato conserva
+  un fallimento viaggio preesistente, lasciato invariato e documentato
+  esplicitamente.
+- **Ripiego sulla stima:** menzione del controllo soltanto dopo rilettura del
+  follow-up `scheduled`/`due` corrente dello stesso owner. Non aggiunge stima
+  fisica o promessa di consegna. Cinque prove nuove, 22 PASS nel gruppo.
+- **Esempi del protocollo passi:** dichiarazioni valide concrete e campi non
+  applicabili omessi, senza correzione automatica dell'output o nuove
+  autorizzazioni. Otto prove nuove, 63 PASS nel gruppo.
+- **Diagnostica del piano:** presenza e tipo dei campi, compresi `null` e alias
+  del riesame, sono osservabili entro i limiti esistenti. Sedici prove nuove,
+  75 PASS nel gruppo. È nuova osservabilità, non un replay capace di recuperare
+  valori mancanti dai log storici.
+- **Parser numerico del collaudo pubblico:** `23-24°C` non produce più il falso
+  estremo `-24`; vengono verificati entrambi gli estremi degli intervalli
+  signed/decimal. Tolleranza e accettazione umana invariate. Ventitré prove
+  nuove, 50 PASS nel gruppo. Il replay numerico corretto non accetta la
+  certezza sulla pioggia espressa dalla risposta originale.
+
+Il planner e il riesame non ricevono un nuovo schema nativo: la [review di compatibilità del piano](evidence/autonomy_v162_2026-10-12_plan_schema_compatibility_review.json)
+conserva il contratto corrente, perché `strict` e parametri aperti degli
+strumenti non costituiscono un trasporto minimo compatibile. Non è dichiarato
+alcun PASS di uno schema non implementato.
+
+I gruppi si sovrappongono e non formano un totale unico. Le prove controllate
+verificano i confini software; non provano che il modello abbia smesso di
+introdurre condizioni non sostenute. Il testo Home 630 resta inaccettabile e
+non attesta una consegna verificata; la [review del testo Home](evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json) ne conserva la dimostrazione.
+
+Snapshot del codice verificato localmente: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee`, tree `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+Aggregato e CLI finali: `1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s`;
+`9/9 SCRIPTED; zero modelli reali, HTTP del modello ed effetti esterni`. Nuove CI/live: `non eseguite su questa versione al momento della registrazione`.
+Nessuna di queste correzioni attesta rilascio app o ricezione sul telefono.
+
+La diagnostica del chooser osserva il riduttore originale solo nel percorso dello stesso
+database, owner e goal sintetico, ricontrollando il marker prima della scelta. Registra
+le cause effettivamente emesse dal codice, dimensioni e hash dell'input e una copia
+redatta entro 9.000 caratteri; conserva al massimo dodici osservazioni. Le quindici
+prove dedicate passano. È osservabilità per il prossimo live, non una spiegazione
+retroattiva certa del blocco Home 630.
+
+## Verifica locale della versione integrata
+
+Codice locale verificato: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee`, tree `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+Suite integrata: **1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s**. CLI separata: **9/9 SCRIPTED**, senza
+modelli reali, HTTP del modello o effetti esterni. Le due incompatibilità della
+diagnostica e quella dell'esempio calendario sono corrette; i log dei tentativi
+falliti e riusciti restano nell'archivio. I gruppi mirati sovrapposti non si sommano
+al totale. Questa registrazione precede la pubblicazione: gli SHA sopra identificano
+lo snapshot locale, non una nuova CI o una nuova prova reale già completata.
+
+---
+
 # 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
 
 Il riesame rifiuta attese senza tempo valido o mescolate a revisioni del

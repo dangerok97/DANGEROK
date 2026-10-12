@@ -1,3 +1,76 @@
+# 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
+
+La ricostruzione del caso Tarquinia distingue il contratto di produzione dal
+contratto del collaudo. `arrange_followup` può promuovere lo stesso goal da
+`situation_initial_review` a `situation_followup`, annullando la wake iniziale
+e conservando un solo controllo futuro. Owner, Situation, revisione e
+`desired_outcome` restano vincolati. L'obiettivo originale, asciugatura oppure
+rischio anticipato, non viene sostituito dal solo criterio pioggia proposto dal
+modello. La [ricostruzione isolata della programmazione](evidence/situation_v162_2026-10-12_schedule_transition_diagnostic.json) attraversa i gestori reali con dati sintetici; non è
+una rilettura del database storico della prova live.
+
+Il runner opzionale acquisisce lo snapshot di owner, fonte, goal, revisione,
+follow-up e wake **prima** dell'asserzione. Accetta entrambi i tipi previsti
+solo con binding corrente. Se la route `conversation_scheduled` colloca il
+controllo oltre i 240 secondi già disponibili, emette
+`followup_pending_unobserved`: esito complessivo falso e fasi worker,
+monitoraggio, controllo futuro e ricezione non eseguite. Un controllo entro il
+limite può essere seguito con l'orologio reale e la stessa identità di wake,
+senza anticiparlo. I payload effettivi dei tool meteo e programmazione sono
+ora osservabili entro 6.000 caratteri, con redazione e indicazioni esplicite di
+troncamento; il valore restituito alla conversazione non cambia.
+
+Le annotazioni `current_facts` prodotte dal modello conservano origine
+controllata dal codice `model/inferred/INFERENCE`. Un valore o un tag annidato
+non le può promuovere a dichiarazioni della persona. Le righe legacy prive di
+origine attestata mantengono il contenuto e origine `unknown`; ContextFact e
+turni utente legittimi conservano i propri riferimenti. Questa modifica
+qualifica l'origine, senza convertire un'inferenza in un nuovo fatto.
+
+Quando manca una stima quantitativa sostenibile, il ripiego conversazionale
+può aggiungere soltanto il prossimo controllo `scheduled` o `due` riletto per
+lo stesso owner. Non crea una stima di asciugatura, un nuovo orario o una
+promessa di push. Gli esempi del protocollo passi usano dichiarazioni concrete
+valide e omettono campi non applicabili; non modificano parser, decisioni o
+autorità dell'esecuzione. La diagnostica aggiuntiva registra presenza e tipo
+JSON dei campi, distinguendo assenza e `null`, senza esportare parametri o
+destinazioni e senza correggere le risposte.
+
+La [review di compatibilità del piano](evidence/autonomy_v162_2026-10-12_plan_schema_compatibility_review.json) conserva deliberatamente l'attuale contratto del
+planner e del riesame: uno schema nativo `strict` con parametri degli strumenti
+aperti non offre un'integrazione minima compatibile. In questo delta non viene
+aggiunto uno schema né dichiarata una sua garanzia; restano esempi validi,
+validazione corrente e diagnostica tipizzata.
+
+Il parser numerico del collaudo pubblico consuma l'intero intervallo di
+temperatura e verifica entrambi gli estremi, mantenendo tolleranza e giudizio
+umano. La correzione non opera sul meteo di produzione e non trasforma una
+previsione in certezza fisica. Citazioni autentiche, audit formalmente positivo
+e provenienza corretta continuano a non dimostrare, da soli, che ogni clausola
+del risultato sia sostenuta: la [review del testo Home](evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json) conserva un controesempio reale.
+
+Le prove locali verificano questi confini; hash, selezioni e limiti sono nel
+[indice delle evidenze e delle correzioni](evidence/autonomy_v162_followup_2026-10-12.json). CI e prove live precedenti restano attribuite soltanto a 630.
+
+La diagnostica del chooser osserva il riduttore originale solo nel percorso dello stesso
+database, owner e goal sintetico, ricontrollando il marker prima della scelta. Registra
+le cause effettivamente emesse dal codice, dimensioni e hash dell'input e una copia
+redatta entro 9.000 caratteri; conserva al massimo dodici osservazioni. Le quindici
+prove dedicate passano. È osservabilità per il prossimo live, non una spiegazione
+retroattiva certa del blocco Home 630.
+
+## Verifica locale della versione integrata
+
+Codice locale verificato: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee`, tree `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+Suite integrata: **1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s**. CLI separata: **9/9 SCRIPTED**, senza
+modelli reali, HTTP del modello o effetti esterni. Le due incompatibilità della
+diagnostica e quella dell'esempio calendario sono corrette; i log dei tentativi
+falliti e riusciti restano nell'archivio. I gruppi mirati sovrapposti non si sommano
+al totale. Questa registrazione precede la pubblicazione: gli SHA sopra identificano
+lo snapshot locale, non una nuova CI o una nuova prova reale già completata.
+
+---
+
 # 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
 
 Il riesame rifiuta attese senza tempo valido o mescolate a revisioni del

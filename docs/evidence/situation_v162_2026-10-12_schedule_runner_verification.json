@@ -1,0 +1,75 @@
+{
+  "observed_at": "2026-10-12T11:22:38.615162+00:00",
+  "scope": "Local scripted runner contracts on uncommitted runner/test changes; no replay of the historical live database or real model/provider call.",
+  "source_live_revision": "630020147223ada63430a11870209494dc35cc22",
+  "local_head": "fdec1da9b64be2603fcd3f84bbb443dff5813850",
+  "working_tree_file_sha256": {
+    "backend/scripts/situation_live_eval_v162.py": "cffcd655466ad088a64c6fe266f2f4745b1101551c9207375512a1680b243770",
+    "backend/tests/test_situation_live_eval_v162.py": "e36715e3f9302a7e8ebc07002b6cf3cf0dfd39b9880afc3454427c4c77a2c491"
+  },
+  "original_live_report": {
+    "path": "/tmp/ora_v162_630_situation_live.json",
+    "sha256": "d442e4ea241ac2203dcb521edf37136f4cef151307c65ef97c5af0b7f3276d55",
+    "unchanged": true
+  },
+  "tests": {
+    "red": {
+      "failed": 5,
+      "log": "/tmp/ora_v162_schedule_runner_RED.log"
+    },
+    "focused_green": {
+      "passed": 14,
+      "log": "/tmp/ora_v162_schedule_runner_GREEN.log"
+    },
+    "final_module": {
+      "passed": 41,
+      "seconds": 31.82,
+      "log": "/tmp/ora_v162_schedule_runner_FULL_GREEN.log"
+    }
+  },
+  "verification": {
+    "py_compile": "passed",
+    "diff_check": "passed",
+    "new_runtime_production_changes": false,
+    "real_clock_wait_in_existing_integration": true
+  },
+  "reports": {
+    "scheduled_red": {
+      "path": "/tmp/ora_v162_schedule_runner_RED_report.json",
+      "sha256": "8ba3c2e1217249cd85638eed050c5f2700c814f2ace7fb10a8ef264e8b7cb2b2",
+      "overall_outcome": "failed",
+      "passed": false,
+      "full_laundry_outcome_passed": false,
+      "logical_model_calls": 0,
+      "model_http_requests": 0,
+      "scripted_model_calls": 0,
+      "live_provider_reads": 0,
+      "real_notifications_sent": 0
+    },
+    "scheduled_green": {
+      "path": "/tmp/ora_v162_schedule_runner_GREEN_report.json",
+      "sha256": "531ecb0f8612aa9ebbc3e4b2b5d3423fb074220cc862c80036419812e403d66e",
+      "overall_outcome": "followup_pending_unobserved",
+      "passed": false,
+      "full_laundry_outcome_passed": false,
+      "logical_model_calls": 0,
+      "model_http_requests": 0,
+      "scripted_model_calls": 0,
+      "live_provider_reads": 0,
+      "real_notifications_sent": 0
+    },
+    "first_cycle_green": {
+      "path": "/tmp/ora_v162_schedule_runner_first_cycle_GREEN.json",
+      "sha256": "663accac6fbe3dd01a3bd819e5e68181ccb0a02e55d986d2b7087f81e89fcfba",
+      "overall_outcome": "followup_pending",
+      "passed": true,
+      "full_laundry_outcome_passed": false,
+      "logical_model_calls": 0,
+      "model_http_requests": 0,
+      "scripted_model_calls": 9,
+      "live_provider_reads": 0,
+      "real_notifications_sent": 0
+    }
+  },
+  "limits": "The future conversation-selected check is unobserved, not a monitoring or collection PASS. The controlled first-cycle result does not attest model quality, source appropriateness or device receipt."
+}

@@ -1,3 +1,48 @@
+# 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
+
+L'obiettivo resta quello indicato dalla persona: a Tarquinia, dopo una **nuova**
+dichiarazione «ho steso i panni», ORA deve arrivare a un avviso utile per il
+ritiro, distinguendo asciugatura stimata e messa al riparo per un rischio
+anticipato. La stesura precedente è chiusa. Le prove riguardano una persona e
+una stesura sintetiche; non riaprono il caso reale.
+
+**L'autonomia completa non è ancora accettata.** La [CI originale 630](evidence/autonomy_v162_ci_2026-10-12_6300201.json) supera cinque
+workflow e tutti i quindici job, ma i [nove scenari originali](evidence/autonomy_v162_live_2026-10-12_6300201_original.json) superano soltanto tre casi su
+nove. Nessun caso positivo di risultato consegnato ha ottenuto l'accettazione.
+La bozza salvata nello scenario Home contiene una contraddizione sui costi e
+una condizione di flessibilità non sostenuta dalle fonti: il verdetto positivo
+dell'audit non la rende affidabile. Home e replay non sono stati eseguiti in
+quel caso. La [review del testo Home](evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json) conserva il testo completo e il giudizio.
+
+Il [Tarquinia originale](evidence/situation_v162_live_2026-10-12_6300201_original.json) rimane FAIL. Una [ricostruzione isolata della programmazione](evidence/situation_v162_2026-10-12_schedule_transition_diagnostic.json) dimostra un limite del runner:
+la conversazione aveva validamente promosso il lavoro iniziale a un controllo
+futuro, mentre il test accettava solo il tipo iniziale. Il runner corretto
+rappresenta un controllo oltre il limite di osservazione come
+`followup_pending_unobserved`, con `passed=false` e risultato completo falso.
+Un appuntamento persistito non dimostra che i panni siano asciutti né che
+l'avviso sia arrivato. Il ripiego conversazionale può descrivere il controllo
+solo dopo averne riletto lo stato corrente.
+
+Le correzioni locali conservano meglio provenienza, programmazione e
+diagnostica. Devono ancora essere valutate sul nuovo candidato con modelli e
+fonti reali; non dimostrano che gli errori semantici osservati siano risolti.
+Build firmata, installazione e ricezione utile ad app chiusa restano non
+attestate. Il servizio tecnico isolato non è una prova di rilascio dell'app.
+
+Riferimenti, hash e limiti: [indice delle evidenze e delle correzioni](evidence/autonomy_v162_followup_2026-10-12.json).
+
+## Verifica locale della versione integrata
+
+Codice locale verificato: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee`, tree `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+Suite integrata: **1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s**. CLI separata: **9/9 SCRIPTED**, senza
+modelli reali, HTTP del modello o effetti esterni. Le due incompatibilità della
+diagnostica e quella dell'esempio calendario sono corrette; i log dei tentativi
+falliti e riusciti restano nell'archivio. I gruppi mirati sovrapposti non si sommano
+al totale. Questa registrazione precede la pubblicazione: gli SHA sopra identificano
+lo snapshot locale, non una nuova CI o una nuova prova reale già completata.
+
+---
+
 # 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
 
 Tarquinia e l'obiettivo «avvisami quando devo ritirare i panni» restano

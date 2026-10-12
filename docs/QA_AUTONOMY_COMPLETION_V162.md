@@ -1,3 +1,175 @@
+# 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
+
+## Identità e CI osservata
+
+Revisione live/CI `630020147223ada63430a11870209494dc35cc22`, tree
+`0878f56d49f120c7b97ce93e49fa9076398c43c2`. La CI raccolta alle
+10:58:47.030 UTC del 12 ottobre conclude **5/5 workflow e 15/15 job SUCCESS**;
+nessun job saltato. Merge tecnico
+`914c682779b8bee332b15fae9e399cf3e2c1ce34` sulla base `c419e0c`, tree identico.
+La base avanzata a `ff6d273` durante la raccolta non è coperta da questa CI.
+Fonti: [CI originale 630](evidence/autonomy_v162_ci_2026-10-12_6300201.json) e
+[archivio completo](evidence/autonomy_v162_ci_2026-10-12_6300201_full.json.gz).
+
+Ogni invocazione backend riporta 1.074 PASS v162 senza skip, CLI scripted 9/9
+senza LLM/HTTP del modello e 6/6 prove Mongo con riavvio di processo, senza skip.
+Altre selezioni precedenti nei job hanno otto test saltati per invocazione;
+i log non ne riportano il motivo. Non sono skip dei job, di v162 o di Mongo.
+Mobile: 36/36, 18 Chromium e 18 WebKit. TypeScript, configurazione Expo,
+prebuild iOS senza installazione ed export JavaScript iOS hanno successo.
+Questi risultati non attestano firma, installazione, rilascio app o ricezione
+ad app chiusa. I conteggi PR/push e dei gruppi sovrapposti non sono un totale
+di test unici.
+
+## Nove scenari reali: 3/9, verdetto originale FAIL
+
+Il deployment tecnico `068a3ef3-729b-4690-871a-ec36667ce513` ha emesso i tre
+report, recuperati integralmente; lo stato terminale osservato è `CRASHED`.
+La suite dei nove casi va dalle 11:07:54.638830 alle 11:15:28.570992 UTC:
+48 tentativi logici e 57 richieste HTTP del modello, fixture
+`personal_outcome_v1`. Fonte: [nove scenari originali](evidence/autonomy_v162_live_2026-10-12_6300201_original.json) e
+[raccolta con binding del servizio](evidence/autonomy_v162_live_2026-10-12_6300201_collection.json).
+
+| Scenario | Macchina | Ragione originale | LLM logiche / HTTP |
+| --- | --- | --- | ---: |
+| completed_result | FAIL | `UNFINISHED_WORK_LOST` | 5 / 8 |
+| planning_outage | FAIL | `UNFINISHED_WORK_LOST` | 4 / 5 |
+| home_write_retry | FAIL | `COMPLETION_BUDGET_EXHAUSTED` | 14 / 15 |
+| source_revoked | PASS | — | 4 / 5 |
+| memory_revoked | FAIL | `UNFINISHED_WORK_LOST` | 5 / 5 |
+| memory_corrected | FAIL | `UNFINISHED_WORK_LOST` | 5 / 8 |
+| source_change_crash | FAIL | `OWNED_SOURCE_NOT_READ_ONCE` | 9 / 9 |
+| already_resolved | PASS | — | 1 / 1 |
+| irrelevant | PASS | — | 1 / 1 |
+
+Per i sei casi falliti i controlli di risultato, Home, replay e isolamento non
+sono stati raggiunti; restano `not_run`. I tre PASS riguardano casi negativi,
+non consegna di un risultato positivo. I codici di fallimento non consentono
+da soli di ricostruire il valore esatto di una dichiarazione del piano.
+La [diagnostica estratta](evidence/autonomy_v162_live_2026-10-12_6300201_planning_diagnostics.json)
+conserva campi osservati e limiti; non sostituisce input/output mancanti.
+
+### Testo Home: rifiuto semantico indipendente
+
+La bozza di `home_write_retry` contiene 3.643 caratteri (3.677 byte UTF-8),
+senza troncamento. Generazione, `content` dell'audit `verified=true` e testo
+persistito sono identici; SHA-256
+`f3df3f91ac1b0bdbec7babe7a549712167b02207b0ea89fd9f20def0860bce92`.
+La tabella 180/120 viene contraddetta dalla frase «costo totale sia identico»;
+la differenza utile di 60 è assente; la maggiore flessibilità per interruzione
+anticipata del mensile non è stabilita dalla fonte. Il giudizio `conditional`
+nella review non rende condizionale il testo assertivo. Una citazione autentica
+sul mancato rimborso annuale non sostiene una proprietà non dichiarata del
+mensile. La bozza resta **inaccettabile**, goal non completato, Home e replay
+`not_run`. Fonte completa: [review del testo Home](evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json). Le prove locali successive non
+attestano la risoluzione di questi errori semantici.
+
+## Tarquinia: FAIL originale e diagnosi del runner
+
+La prova reale, dalle 11:06:22.441453 alle 11:07:52.397908 UTC, termina con
+`INITIAL_REVIEW_NOT_ADMITTED`: sette chiamate logiche, dodici HTTP del modello,
+una lettura meteo reale, nessuna ricerca e nessun passo Agent. I tool meteo e
+programmazione hanno stato `ok`; il vecchio report conserva però soltanto il
+loro stato e gli input del modello sono tutti limitati a 9.000 caratteri.
+Le sette risposte del modello sono complete. La risposta finale alla persona
+sintetica dichiara di non avere evidenza sufficiente per una stima quantitativa.
+Le proposte intermedie non vanno confuse con una risposta consegnata. Fonte:
+[Tarquinia originale](evidence/situation_v162_live_2026-10-12_6300201_original.json).
+
+La [ricostruzione isolata della programmazione](evidence/situation_v162_2026-10-12_schedule_transition_diagnostic.json), senza modelli o HTTP, esercita create/programmazione/rilettura
+reali con owner sintetico. Dimostra il passaggio dello stesso goal da
+`situation_initial_review` a `situation_followup`, l'annullamento della wake
+iniziale e un solo controllo pendente alle 16:00 UTC, 18:00 a Roma. Owner,
+Situation e revisione restano corretti; l'obiettivo iniziale asciugatura oppure
+rischio resta conservato. Il controllo cade oltre i 240 secondi osservabili.
+Il vecchio runner rifiuta il tipo follow-up e si ferma prima del worker. Il
+probe è una ricostruzione isolata, non il database storico del live.
+
+La correzione registra lo snapshot prima dell'asserzione e riconosce i due
+tipi validi soltanto con fonte, owner, revisione e wake correnti. La route
+`conversation_scheduled` oltre il termine produce
+`followup_pending_unobserved`, **`passed=false` e risultato lavanderia completo
+falso**. Worker, monitoraggio, controllo futuro, azione utile e dispositivo
+rimangono `not_run`; nessun tempo viene accelerato. Quando il termine è
+raggiungibile, la stessa wake viene seguita con l'orologio reale. La
+cancellazione sintetica verifica la chiusura e l'assenza di wake residue;
+nessuna stesura reale precedente viene riaperta. La diagnostica dei tool ora
+conserva il payload effettivo redatto entro 6.000 caratteri e dichiara eventuale
+troncamento. Il FAIL live 630 resta immutato.
+
+## Letture pubbliche: falso negativo numerico, accettazione ancora distinta
+
+Il [report pubblico originale](evidence/public_read_v162_live_2026-10-12_6300201_original.json) esegue due letture reali, percorso e meteo, con quattro
+chiamate al modello. Il confine tecnico passa; il verdetto originale resta
+FAIL `semantic:TEMPERATURE_MISMATCH`. Il parser trattava il separatore del
+range `23-24°C` come segno negativo e ricavava `-24`. La nuova lettura verifica
+entrambi gli estremi degli intervalli, mantenendo tolleranza 1,1 e giudizio
+umano. Il [replay rosso](evidence/public_read_v162_2026-10-12_temperature_replay_red.json)
+e il [replay corretto](evidence/public_read_v162_2026-10-12_temperature_replay_green.json)
+conservano la distinzione: nel secondo non restano discrepanze numeriche.
+
+Questo non accetta la frase «senza possibilità di pioggia», che attribuisce
+certezza fisica a una previsione. Il testo reale e il suo verdetto non vengono
+riscritti né promossi. Il report pubblico non espone una propria revisione;
+il binding a 630 proviene dal lancio e dai metadati del medesimo servizio,
+conservati nella raccolta.
+
+## Correzioni locali e limiti delle prove
+
+| Confine | Prova mirata nuova | Ultimo gruppo locale | Limite |
+| --- | --- | --- | --- |
+| Runner Situation e tool osservati | RED 5 FAIL; focused GREEN 14/14 | Modulo 41 PASS, 31,82 s | Ricostruzione sintetica e primo ciclo scripted; non live o ricezione fisica. |
+| Range di temperatura | RED 7 FAIL/16 PASS; 23 casi nuovi | 50 PASS, 1,41 s | Corregge il confronto numerico, non la certezza espressa dal modello. |
+| Origine `current_facts` | RED 14 FAIL/2 PASS; GREEN 16/16 | 16 PASS, 0,26 s | Gruppo correlato 31 PASS/1 FAIL; viaggio legacy riprodotto con soli due moduli 630 in memoria. |
+| Verità del controllo programmato | RED 1 FAIL/4 PASS; 5 nuovi | 22 PASS, 0,71 s | Rilettura owner-bound; nessuna nuova stima o promessa di push. |
+| Esempi validi dei passi | RED 3 FAIL/5 PASS; 8 nuovi | 63 PASS, 1,86 s | Esempi di protocollo, senza riscrittura o autorizzazione dell'azione. |
+| Diagnostica delle dichiarazioni | 16 nuovi; nuova osservabilità | 75 PASS, 1,90 s | Presenza/tipo bounded; nessun valore storico inventato, parser o gate cambiato. |
+
+Il test viaggio legacy resta invariato e documentato come preesistente. La
+[verifica della provenienza](evidence/autonomy_v162_2026-10-12_current_fact_provenance_verification.json)
+e la [verifica del runner](evidence/situation_v162_2026-10-12_schedule_runner_verification.json)
+conservano comandi, limiti e hash. La [review di compatibilità del piano](evidence/autonomy_v162_2026-10-12_plan_schema_compatibility_review.json) spiega perché questo delta
+non aggiunge uno schema nativo del planner: `strict` con parametri tool aperti
+non è un contratto minimo compatibile. Le prove non simulano una garanzia che
+il provider non riceve.
+
+I conteggi dei gruppi si sovrappongono e non vanno sommati. Skim indipendenti
+non hanno rilevato blocker nei confini letti; non sono prove aggiuntive sul
+modello reale. L'indice registra file e hash locali: `HEAD` del checkout con
+modifiche non è la revisione pubblicata che le contiene.
+
+Aggregato e snapshot locale registrati:
+`1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s`, `9/9 SCRIPTED; zero modelli reali, HTTP del modello ed effetti esterni`,
+`9fdc2af983b8323f956583b6ec7f90c58ab7dbee` / `e9d09b89c5e12f7034aaaf08c43b024818e5a239`,
+`non eseguite su questa versione al momento della registrazione`.
+Riferimenti, originali e log locali: [indice delle evidenze e delle correzioni](evidence/autonomy_v162_followup_2026-10-12.json).
+
+La diagnostica del chooser osserva il riduttore originale solo nel percorso dello stesso
+database, owner e goal sintetico, ricontrollando il marker prima della scelta. Registra
+le cause effettivamente emesse dal codice, dimensioni e hash dell'input e una copia
+redatta entro 9.000 caratteri; conserva al massimo dodici osservazioni. Le quindici
+prove dedicate passano. È osservabilità per il prossimo live, non una spiegazione
+retroattiva certa del blocco Home 630.
+
+## Verifica locale della versione integrata
+
+Codice locale verificato: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee`, tree `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+Suite integrata: **1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s**. CLI separata: **9/9 SCRIPTED**, senza
+modelli reali, HTTP del modello o effetti esterni. Le due incompatibilità della
+diagnostica e quella dell'esempio calendario sono corrette; i log dei tentativi
+falliti e riusciti restano nell'archivio. I gruppi mirati sovrapposti non si sommano
+al totale. Questa registrazione precede la pubblicazione: gli SHA sopra identificano
+lo snapshot locale, non una nuova CI o una nuova prova reale già completata.
+
+La base revisionata `ff6d273` è integrata nei suoi otto file. I due moduli Vision
+hanno 147 PASS locali e dieci errori di setup per Mongo non disponibile; la prova
+su Mongo reale è aggiunta alla CI usando il servizio esistente. Le due suite Node
+passano 192 casi dopo avere generato il manifest dal catalogo reale di 126 famiglie.
+Il primo errore per manifest assente è conservato. Questi risultati non sono
+una prova di notifica sul dispositivo.
+
+---
+
 # 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
 
 Il precedente head `fe2d37f` supera cinque workflow CI e tutti i 15 job,

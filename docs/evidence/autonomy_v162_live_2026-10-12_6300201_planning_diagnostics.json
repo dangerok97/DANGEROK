@@ -1,0 +1,2519 @@
+{
+  "source_report": "/tmp/ora_v162_630_autonomy_live.json",
+  "source_sha256": "59bcc79162af9adcfc03a2c5602cf6455ba0403b1915f6e04522fe29052c97da",
+  "code_revision": "630020147223ada63430a11870209494dc35cc22",
+  "deployment_id": "068a3ef3-729b-4690-871a-ec36667ce513",
+  "original_passed": false,
+  "original_status": "failed",
+  "scope": "Derived read-only selection of already bounded original diagnostic fields; original verdicts unchanged. Model outputs are retained projections, not full raw responses. Call outcomes are associated only by the recorded attempt interval.",
+  "limits": [
+    "A wrong_type diagnostic identifies the rejected field, not its original value.",
+    "UNFINISHED_WORK_LOST is retained as the original gate code; exhausted planning attempts explicitly suspend an open goal without a due checkpoint and do not prove database loss.",
+    "No new model/provider call, retry, budget, source or acceptance change."
+  ],
+  "cases": [
+    {
+      "scenario": "completed_result",
+      "original_passed": false,
+      "original_reason": "UNFINISHED_WORK_LOST",
+      "model_attempts": 5,
+      "model_http_requests": 8,
+      "model_calls": [
+        {
+          "provider": "gemini2",
+          "model": "gemini-flash-lite-latest",
+          "usage": {
+            "prompt_tokens": 2464,
+            "completion_tokens": 291,
+            "total_tokens": 2755
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4317,
+            "completion_tokens": 1130
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4369,
+            "completion_tokens": 826
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4369,
+            "completion_tokens": 1045
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4369,
+            "completion_tokens": 671
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "gemini2",
+          "failure_kind": null,
+          "elapsed_ms": 1450.1,
+          "fallbacks": [
+            {
+              "provider": "gemini",
+              "failure_kind": "quota"
+            }
+          ]
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 12179.2,
+          "fallbacks": [
+            {
+              "provider": "gemini2",
+              "failure_kind": "quota"
+            },
+            {
+              "provider": "groq",
+              "failure_kind": "quota"
+            }
+          ]
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 10258.5,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 10875.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 5,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 8255.8,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "planning_observations": [
+        {
+          "attempt": 1,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 1,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 2,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 3,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 4,
+          "has_due": false,
+          "validation_errors": [
+            {
+              "index": 1,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        }
+      ],
+      "planning_observations_omitted": 0,
+      "planner_decisions": [
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 1,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "Il confronto scritto tra le due formule richiede dati già forniti dall'utente (costi mensili, costo anticipato, vincoli contrattuali) e non confermati dal fornitore. Nonostante l'esigenza di un confronto scritto, non è necessario contattare il fornitore o effettuare ulteriori ricerche esterne, poiché i dati sono già disponibili nella memoria. Il compito consiste nel preparare un prospetto comparat",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare un prospetto comparativo scritto dei costi e vincoli per 12 mesi tra le due formule utilizzando i dati già forniti dall'utente.",
+            "expected_outcome": "Un documento scritto che confronta i costi totali e i vincoli contrattuali delle due opzioni per 12 mesi, pronto per la scelta.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati esatti forniti dall'utente per il confronto tra le due formule, confermando che non siano presenti informazioni mancanti o contraddittorie nel",
+                "expected_result": "I dati completi e confermati sull'uso mensile, i costi, i vincoli e le condizioni contrattuali delle due formule per 12 mesi.",
+                "truncated_fields": [
+                  "intent"
+                ]
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un prospetto comparativo scritto dei costi e vincoli per 12 mesi tra le due formule, utilizzando i dati confermati dall'utente.",
+                "expected_result": "Un documento scritto pronto per la scelta, contenente il confronto dettagliato dei costi e vincoli per 12 mesi."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "inspect",
+                "intent": "Verificare che il prospetto comparativo sia stato creato correttamente e sia disponibile per la scelta.",
+                "expected_result": "Il prospetto comparativo è stato creato e salvato correttamente, confermando che i dati sono accurati e completi."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 2,
+            "sequence": 2
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 2,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 12179.2,
+              "fallbacks": [
+                {
+                  "provider": "gemini2",
+                  "failure_kind": "quota"
+                },
+                {
+                  "provider": "groq",
+                  "failure_kind": "quota"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 2,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata in memoria contiene i dati necessari per preparare un confronto scritto tra le due formule di archiviazione digitale per 12 mesi. Nonostante i dati siano riferiti dall'utente e non confermati dal fornitore, sono sufficienti per generare un prospetto comparativo dei costi e vincoli. Non è necessario alcun pagamento, invio o modifica esterna. Il prossimo passo è leggere la nota per e",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la nota salvata e preparare un prospetto comparativo scritto dei costi e vincoli per 12 mesi tra le due formule.",
+            "expected_outcome": "Un prospetto comparativo scritto dei costi e vincoli per 12 mesi tra le due formule, basato sui dati forniti dall'utente.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati dettagliati sulle due formule di archiviazione digitale per 12 mesi dalla nota salvata.",
+                "expected_result": "Contenuto completo della nota con i dettagli delle due formule (costi, vincoli, spazio, assistenza)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un prospetto comparativo scritto dei costi e vincoli per 12 mesi tra le due formule, basato sui dati estratti.",
+                "expected_result": "Un documento scritto che confronta i costi totali (180 euro vs. 120 euro anticipati), i vincoli contrattuali (assenza di rimborso in caso di disdetta anticipata",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 3,
+            "sequence": 3
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 3,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 10258.5,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 3,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata contiene i dati necessari per preparare un confronto scritto dei costi e vincoli per dodici mesi tra le due formule. Nonostante i dati siano riferiti dall'utente e non confermati dal fornitore, sono sufficienti per produrre un prospetto comparativo basato su quanto dichiarato. Non è necessario alcun pagamento, invio o modifica esterna. Il prossimo passo è leggere la nota per estrar",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la nota salvata e preparare un prospetto comparativo dei costi e vincoli per dodici mesi tra le due formule.",
+            "expected_outcome": "Un prospetto scritto comparativo dei costi e vincoli per dodici mesi tra le due formule, basato sui dati forniti dall'utente.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati dettagliati sulle due formule per preparare il confronto.",
+                "expected_result": "Il contenuto completo della nota con i dettagli delle due formule (costi mensili/anticipati, vincoli, durata, ecc.)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un prospetto comparativo scritto dei costi e vincoli per dodici mesi tra le due formule.",
+                "expected_result": "Un documento scritto comparativo dei costi e vincoli per dodici mesi tra le due formule, pronto per la scelta."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 4,
+            "sequence": 4
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 4,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 10875.1,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 4,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La persona ha fornito una nota con i dati relativi alle due formule di archiviazione digitale, ma questi non sono stati confermati dal fornitore. Il compito è preparare un prospetto comparativo scritto dei costi e vincoli per 12 mesi basandosi su questi dati, senza effettuare pagamenti, invii o modifiche esterne. È necessario leggere la nota salvata per estrarre i dettagli e preparare il confronto",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la nota salvata per estrarre i dati sulle due formule e preparare un prospetto comparativo scritto dei costi e vincoli per 12 mesi.",
+            "expected_outcome": "Un prospetto comparativo scritto dei costi e vincoli per 12 mesi tra le due formule, basato sui dati forniti dall'utente nella nota salvata.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Estrarre i dettagli delle due formule di archiviazione digitale dalla nota salvata per preparare il confronto scritto.",
+                "expected_result": "Contenuto completo della nota con i dettagli delle due formule (costi mensili/anticipati, vincoli, durata, ecc.)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un prospetto comparativo scritto dei costi e vincoli per 12 mesi tra le due formule basandosi sui dati estratti.",
+                "expected_result": "Un documento scritto che confronta i costi totali e i vincoli contrattuali delle due formule per 12 mesi, basato sui dati estratti dalla nota."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 5,
+            "sequence": 5
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 5,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 8255.8,
+              "fallbacks": []
+            }
+          ]
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "failure_goals": [
+        {
+          "status": "active",
+          "rationale": "Preparazione sospesa: non riesco ancora a formulare un piano affidabile. Il lavoro resta aperto; puoi riprovare e lo rivaluterò se cambiano le informazioni.",
+          "requires_user_input": false,
+          "requires_user_authority": false,
+          "has_next_run_at": false,
+          "planning_unavailable": true,
+          "prepared_text_characters": 0,
+          "evidence_count": 0,
+          "current_evidence_count": 0,
+          "planning_error": {
+            "attempt": 4,
+            "has_due": false,
+            "validation_errors": [
+              {
+                "index": 1,
+                "field": "effect_type",
+                "issue": "wrong_type"
+              }
+            ]
+          },
+          "plans_count": 0,
+          "plans": []
+        }
+      ],
+      "executed_capabilities": [],
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      }
+    },
+    {
+      "scenario": "planning_outage",
+      "original_passed": false,
+      "original_reason": "UNFINISHED_WORK_LOST",
+      "model_attempts": 4,
+      "model_http_requests": 5,
+      "model_calls": [
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2474,
+            "completion_tokens": 643
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4498,
+            "completion_tokens": 1319
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4550,
+            "completion_tokens": 995
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4550,
+            "completion_tokens": 1396
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 6245.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 11332.4,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 10367.8,
+          "fallbacks": [
+            {
+              "provider": "gemini",
+              "failure_kind": "quota"
+            }
+          ]
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 21085.5,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "planning_observations": [
+        {
+          "attempt": 2,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 3,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 4,
+          "has_due": false,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        }
+      ],
+      "planning_observations_omitted": 0,
+      "planner_decisions": [
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 1,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "none",
+            "model_attempts_after": 1,
+            "sequence": 2
+          },
+          "observed_call_outcomes": []
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 1,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati necessari per elaborare la tabella comparativa sono già presenti nella memoria salvata (mem_43262246ed92296b9353). Non sono richiesti ulteriori passaggi di ricerca o autorizzazioni esterne. La tabella può essere preparata direttamente con i dati forniti dall'utente, evidenziando costi mensili/annuali, vincoli (come assenza di rimborso per disdetta anticipata) e confrontabilità chiara. Nessu",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare una tabella comparativa dettagliata dei costi e vincoli delle due formule di archivio digitale per 12 mesi, basata sui dati forniti dall'utente.",
+            "expected_outcome": "Una tabella comparativa chiara e verificabile, pronta per essere letta dall'utente, che include costi totali/mensili, vincoli e implicazioni pratiche (es. rimborso disdetta anticipata).",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati esatti forniti dall'utente per la preparazione della tabella comparativa.",
+                "expected_result": "I dati dettagliati sulle due formule di archivio digitale (costi, vincoli, durata, ecc.) per confermare la base informativa."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa dettagliata dei costi e vincoli delle due formule di archivio digitale per 12 mesi.",
+                "expected_result": "Una tabella comparativa chiara e leggibile, pronta per essere fornita all'utente."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che la tabella sia completa, chiara e priva di ambiguità prima di fornirla all'utente.",
+                "expected_result": "Conferma che la tabella sia conforme ai dati forniti e ai criteri di successo definiti."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 2,
+            "sequence": 3
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 2,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 11332.4,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 2,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata in memoria contiene i dati necessari per elaborare una tabella comparativa dettagliata dei costi e vincoli delle due formule di archivio digitale per 12 mesi. I dati includono costi mensili, costo annuale anticipato, vincoli come assenza di rimborso in caso di disdetta anticipata per l'opzione annuale e altre caratteristiche uguali (es. spazio e assistenza). Non sono presenti scade",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la nota salvata per estrarre i dati e preparare una tabella comparativa dettagliata dei costi e vincoli delle due formule di archivio digitale per 12 mesi.",
+            "expected_outcome": "Una tabella comparativa chiara e verificabile, pronta per essere letta dall'utente, che include costi totali e mensili per entrambe le opzioni, vincoli pratici (es. rimborso disdetta anticipata) e altre implicazioni rilevanti.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati dettagliati sulle due formule di archivio digitale per 12 mesi, come costi mensili, costo annuale anticipato, vincoli e altre caratteristiche ",
+                "expected_result": "I dati estratti dalla nota includeranno: costo mensile (15€), costo annuale anticipato (120€), vincoli (assenza di rimborso in caso di disdetta anticipata per l",
+                "truncated_fields": [
+                  "intent",
+                  "expected_result"
+                ]
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa dettagliata dei costi e vincoli delle due formule di archivio digitale per 12 mesi, basata sui dati estratti.",
+                "expected_result": "Una tabella chiara e leggibile in formato Markdown che includa: costi mensili e totali per entrambe le opzioni, vincoli pratici (es. rimborso disdetta anticipat",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 3,
+            "sequence": 4
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 3,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 10367.8,
+              "fallbacks": [
+                {
+                  "provider": "gemini",
+                  "failure_kind": "quota"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 3,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata (mem_43262246ed92296b9353) contiene già i dati necessari per elaborare una tabella comparativa dettagliata dei costi e vincoli delle due formule di archivio digitale per 12 mesi. I dati sono: (1) formula mensile a 15€/mese (180€ totali per 12 mesi), (2) formula annuale a 120€ anticipati per 12 mesi. Entrambe includono 100 GB e assistenza uguale, ma la formula annuale non prevede ri",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare una tabella comparativa dettagliata dei costi e vincoli delle due formule di archivio digitale per 12 mesi, basata sui dati forniti dall'utente.",
+            "expected_outcome": "Una tabella comparativa chiara e verificabile, pronta per essere letta dall'utente, che include costi totali/mensili, vincoli (es. assenza di rimborso per la formula annuale) e altre implicazioni pratiche.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati dettagliati forniti dall'utente per la tabella comparativa.",
+                "expected_result": "Recupero completo dei dati relativi alle due formule di archivio digitale (costi mensili/totali, vincoli, assistenza, ecc.)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa dettagliata dei costi e vincoli delle due formule di archivio digitale per 12 mesi.",
+                "expected_result": "Documento creato con una tabella comparativa chiara e leggibile, evidenziando costi, vincoli e implicazioni pratiche."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che la tabella sia completa, chiara e pronta per la valutazione dell'utente.",
+                "expected_result": "Conferma che la tabella è leggibile, confrontabile e include tutti i dati richiesti (costi, vincoli, implicazioni pratiche)."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 4,
+            "sequence": 5
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 4,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 21085.5,
+              "fallbacks": []
+            }
+          ]
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "failure_goals": [
+        {
+          "status": "active",
+          "rationale": "Preparazione sospesa: non riesco ancora a formulare un piano affidabile. Il lavoro resta aperto; puoi riprovare e lo rivaluterò se cambiano le informazioni.",
+          "requires_user_input": false,
+          "requires_user_authority": false,
+          "has_next_run_at": false,
+          "planning_unavailable": true,
+          "prepared_text_characters": 0,
+          "evidence_count": 0,
+          "current_evidence_count": 0,
+          "planning_error": {
+            "attempt": 4,
+            "has_due": false,
+            "validation_errors": [
+              {
+                "index": 0,
+                "field": "effect_type",
+                "issue": "wrong_type"
+              }
+            ]
+          },
+          "plans_count": 0,
+          "plans": []
+        }
+      ],
+      "executed_capabilities": [],
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      }
+    },
+    {
+      "scenario": "home_write_retry",
+      "original_passed": false,
+      "original_reason": "COMPLETION_BUDGET_EXHAUSTED",
+      "model_attempts": 14,
+      "model_http_requests": 15,
+      "model_calls": [
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2474,
+            "completion_tokens": 712
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4578,
+            "completion_tokens": 1043
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4630,
+            "completion_tokens": 1054
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4630,
+            "completion_tokens": 1263
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 5126,
+            "completion_tokens": 298
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2800,
+            "completion_tokens": 119
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2090,
+            "completion_tokens": 164
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 5126,
+            "completion_tokens": 111
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2546,
+            "completion_tokens": 1001
+          }
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-4o-mini",
+          "usage": {
+            "prompt_tokens": 4064,
+            "completion_tokens": 1537
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4186,
+            "completion_tokens": 152
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2075,
+            "completion_tokens": 338
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4153,
+            "completion_tokens": 135
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2039,
+            "completion_tokens": 361
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 8403.9,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 12837.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 12011.4,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 13109.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 5,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 4539.3,
+          "fallbacks": []
+        },
+        {
+          "sequence": 6,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 1631.0,
+          "fallbacks": []
+        },
+        {
+          "sequence": 7,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 1940.8,
+          "fallbacks": []
+        },
+        {
+          "sequence": 8,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 2051.0,
+          "fallbacks": []
+        },
+        {
+          "sequence": 9,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 11287.6,
+          "fallbacks": []
+        },
+        {
+          "sequence": 10,
+          "outcome": "succeeded",
+          "provider": "openai",
+          "failure_kind": null,
+          "elapsed_ms": 37919.2,
+          "fallbacks": [
+            {
+              "provider": "mistral",
+              "failure_kind": "timeout"
+            }
+          ]
+        },
+        {
+          "sequence": 11,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 3797.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 12,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 3330.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 13,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 1773.5,
+          "fallbacks": []
+        },
+        {
+          "sequence": 14,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 3817.4,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "planning_observations": [
+        {
+          "attempt": 1,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 2,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        }
+      ],
+      "planning_observations_omitted": 0,
+      "planner_decisions": [
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 1,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata contiene i dati forniti dall'utente sulle due formule di archivio digitale (15€/mese vs 120€ anticipati per 12 mesi), inclusi vincoli impliciti come l'assenza di rimborso in caso di disdetta anticipata per l'opzione annuale. Non sono presenti dati aggiuntivi non esplicitati dall'utente. Il confronto tabellare può essere preparato direttamente con i dati disponibili, senza necessità",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare una tabella comparativa dei costi e vincoli delle due formule di archivio digitale per 12 mesi, evidenziando differenze e vincoli non esplicitati dal fornitore, utilizzando i dati già forniti dall'utente.",
+            "expected_outcome": "Un documento interno con una tabella a due colonne che elenca i costi totali, le condizioni contrattuali e i vincoli delle due opzioni (15€/mese vs 120€ anticipati) per 12 mesi, evidenziando differenze chiave come l'assenza di rimborso in caso di disdetta anticipata per l'opzione annuale.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati dettagliati forniti dall'utente sulla nota salvata per preparare la tabella comparativa.",
+                "expected_result": "Recupero completo della nota con i dettagli delle due formule di archivio digitale (costi, vincoli, condizioni di disdetta, ecc.)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa dei costi e vincoli delle due formule di archivio digitale per 12 mesi, evidenziando differenze e vincoli non esplicitati dal ",
+                "expected_result": "Documento interno con tabella comparativa strutturata in due colonne (Formula A: 15€/mese vs Formula B: 120€ anticipati), includendo costo totale, spazio, assis",
+                "truncated_fields": [
+                  "intent",
+                  "expected_result"
+                ]
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che il documento creato includa tutti i dati richiesti e sia leggibile/sintetico.",
+                "expected_result": "Conferma che il documento creato soddisfi i criteri di successo (tabella comparativa completa, evidenziazione dei vincoli, formato leggibile)."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 2,
+            "sequence": 2
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 2,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 12837.7,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 2,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata (mem_43262246ed92296b9353) contiene i dati necessari per preparare una tabella comparativa tra le due formule di archivio digitale per 12 mesi. I dati includono costi totali, spazio offerto, assistenza, spese iniziali e vincoli non esplicitati (es. assenza di rimborso per disdetta anticipata). Non è necessario leggere ulteriori fonti esterne poiché i dati sono già stati forniti dal",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare una tabella comparativa basata sui dati forniti dall'utente, evidenziando costi, vincoli e differenze chiave tra le due formule.",
+            "expected_outcome": "Un documento interno con tabella comparativa tra le due formule (15€/mese vs 120€ anticipati) per 12 mesi, includendo costo totale, spazio, assistenza, spese iniziali e vincoli non esplicitati (es. assenza di rimborso per disdetta anticipata).",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati chiave dalla nota salvata per preparare la tabella comparativa.",
+                "expected_result": "Recupero completo dei dati contenuti nella nota (costi, vincoli, spazio, assistenza, spese iniziali e condizioni di disdetta)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa tra le due formule di archivio digitale per 12 mesi, evidenziando costi totali, vincoli e differenze chiave.",
+                "expected_result": "Documento creato con tabella comparativa chiara e sintetica, evidenziando differenze e vincoli non esplicitati."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 3,
+            "sequence": 3
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 3,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 12011.4,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 3,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata in memoria contiene già i dati forniti dall'utente sulle due formule di archivio digitale (15€/mese vs 120€ anticipati per 12 mesi), inclusi dettagli su spazio, assistenza, spese iniziali e vincoli non esplicitati (es. assenza di rimborso per disdetta anticipata). Non è necessario un'ulteriore ricerca esterna, ma è necessario preparare una tabella comparativa sintetica e leggibile,",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare una tabella comparativa dei costi e vincoli delle due formule di archivio digitale per 12 mesi, evidenziando differenze e vincoli non esplicitati, utilizzando i dati già forniti dall'utente.",
+            "expected_outcome": "Un documento interno con tabella comparativa tra le due formule (15€/mese vs 120€ anticipati), includendo costo totale, spazio, assistenza, spese iniziali, condizioni di disdetta anticipata e vincoli non esplicitati (es. assenza di rimborso).",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati dettagliati forniti dall'utente sulla nota salvata per preparare la tabella comparativa.",
+                "expected_result": "Recupero completo della nota con i dettagli delle due formule (costi, vincoli, spazio, assistenza, spese iniziali, condizioni di disdetta anticipata)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa sintetica e leggibile con i dati estratti, evidenziando differenze e vincoli non esplicitati.",
+                "expected_result": "Documento interno con tabella comparativa chiara e sintetica, evidenziando le differenze chiave tra le due formule."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "document.read",
+                "intent": "Verificare che il documento creato includa tutti i criteri richiesti (costi totali, vincoli, differenze chiave) e sia leggibile.",
+                "expected_result": "Conferma che il documento creato soddisfi i criteri di successo (tabella comparativa completa, evidenziazione dei vincoli, formato leggibile)."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 4,
+            "sequence": 4
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 4,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 13109.7,
+              "fallbacks": []
+            }
+          ]
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "failure_goals": [
+        {
+          "status": "active",
+          "rationale": "Non riesco ancora a preparare il lavoro per un problema temporaneo. Riproverò automaticamente.",
+          "requires_user_input": false,
+          "requires_user_authority": false,
+          "has_next_run_at": false,
+          "planning_unavailable": false,
+          "prepared_text_characters": 3643,
+          "evidence_count": 9,
+          "current_evidence_count": 9,
+          "plans_count": 1,
+          "plans": [
+            {
+              "status": "active",
+              "plan_summary": "Preparare una tabella comparativa dei costi e vincoli delle due formule di archivio digitale per 12 mesi, evidenziando differenze e vincoli non esplicitati, utilizzando i dati già forniti dall'utente.",
+              "steps_count": 3,
+              "step_status_counts": {
+                "succeeded": 2,
+                "pending": 1
+              },
+              "steps": [
+                {
+                  "step_type": "inspect",
+                  "capability_needed": "information.read",
+                  "status": "succeeded",
+                  "note": "Letti caratteri 0–565 di 565. Fine del testo della memoria. Ho riletto 1 memorie nella selezione. Lettura limitata alle memorie citate; non verifica da sola la ",
+                  "truncated_fields": [
+                    "note"
+                  ]
+                },
+                {
+                  "step_type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "succeeded",
+                  "note": "Bozza prodotta e salvata; nessuna azione esterna eseguita."
+                },
+                {
+                  "step_type": "verify",
+                  "capability_needed": "document.read",
+                  "status": "pending",
+                  "note": ""
+                }
+              ],
+              "steps_omitted": 0
+            }
+          ]
+        }
+      ],
+      "executed_capabilities": [
+        {
+          "capability": "information.read",
+          "step_id": "stp_c7a86bbc09594139",
+          "step_type": "inspect",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        },
+        {
+          "capability": "document.create",
+          "step_id": "stp_ec1d3c5ac82e4e58",
+          "step_type": "prepare",
+          "status": "succeeded",
+          "error_type": null,
+          "retryable": false
+        }
+      ],
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      }
+    },
+    {
+      "scenario": "memory_revoked",
+      "original_passed": false,
+      "original_reason": "UNFINISHED_WORK_LOST",
+      "model_attempts": 5,
+      "model_http_requests": 5,
+      "model_calls": [
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2474,
+            "completion_tokens": 743
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4513,
+            "completion_tokens": 862
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4565,
+            "completion_tokens": 886
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4565,
+            "completion_tokens": 789
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4565,
+            "completion_tokens": 1276
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 10511.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 12953.3,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 7165.5,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 8822.0,
+          "fallbacks": []
+        },
+        {
+          "sequence": 5,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 14495.6,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "planning_observations": [
+        {
+          "attempt": 1,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 2,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 3,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 4,
+          "has_due": false,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        }
+      ],
+      "planning_observations_omitted": 0,
+      "planner_decisions": [
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 1,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati forniti dall'utente nella memoria sono sufficienti per preparare una tabella comparativa dei costi e vincoli delle due formule per 12 mesi. Tuttavia, è necessario evidenziare esplicitamente i vincoli non confermati (come il rimborso in caso di disdetta anticipata). Non è richiesto alcun pagamento, invio o modifica esterna. La tabella sarà preparata con i dati attuali e i vincoli da verifica",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la nota salvata per estrarre i dati e preparare una tabella comparativa chiara dei costi e vincoli delle due formule, evidenziando i punti non confermati.",
+            "expected_outcome": "Una tabella comparativa strutturata con due colonne (Formula A e Formula B), riassunto dei vincoli (assistenza, rimborso disdetta, spese iniziali), evidenziazione dei dati non confermati e formato leggibile.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati dettagliati sulle due formule di archivio digitale per 12 mesi, inclusi costi, vincoli e eventuali note non confermate.",
+                "expected_result": "Contenuto completo della memoria con i dati sulle due formule, inclusi costi, vincoli e note non confermate."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa strutturata con i dati estratti, evidenziando i vincoli non confermati e i costi per 12 mesi.",
+                "expected_result": "Tabella comparativa leggibile e priva di errori, con due colonne (Formula A e Formula B), riassunto dei vincoli e segnalazione dei dati non confermati."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 2,
+            "sequence": 2
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 2,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 12953.3,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 2,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata contiene i dati di base per entrambe le formule (costi mensili/anticipati, GB, assistenza, spese iniziali) ma manca una sintesi strutturata e l'esplicita segnalazione dei vincoli non confermati (es. rimborso disdetta anticipata). Non sono presenti dati aggiuntivi da leggere né autorizzazioni esterne richieste. La preparazione di una tabella comparativa basata su questi dati è fatti",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la nota salvata per estrarre i dati e preparare una tabella comparativa chiara dei costi e vincoli per 12 mesi, evidenziando i punti non confermati.",
+            "expected_outcome": "Una tabella comparativa strutturata in formato leggibile, con due colonne (Formula A e Formula B), che riassume costi, vincoli e spazi bianchi da confermare con il fornitore, pronta per condivisione con l'utente.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Estrarre i dati chiave dalla nota salvata per la preparazione della tabella comparativa.",
+                "expected_result": "Contenuto completo della nota con i dati sulle due formule (costi, vincoli, GB, assistenza, spese iniziali e rimborso disdetta anticipata)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa dei costi e vincoli per 12 mesi, evidenziando i punti non confermati dal fornitore.",
+                "expected_result": "Tabella comparativa strutturata in formato leggibile (es. Markdown) con due colonne (Formula A e Formula B), che include costi totali, vincoli (es. assistenza, ",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 3,
+            "sequence": 3
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 3,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 7165.5,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 3,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata contiene i dati di base per le due formule (Formula A: 15€/mese vs Formula B: 120€ anticipati per 12 mesi), inclusi vincoli come assistenza, spese iniziali e rimborso disdetta anticipata. Nonostante alcuni vincoli non siano confermati (es. rimborso disdetta anticipata), i dati sono sufficienti per preparare una tabella comparativa strutturata. Nessun pagamento o modifica contrattua",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la nota salvata per estrarre i dati e preparare una tabella comparativa dei costi e vincoli delle due formule per 12 mesi, evidenziando i punti non confermati.",
+            "expected_outcome": "Una tabella comparativa chiara e verificabile dei costi e vincoli delle due formule, con evidenziazione dei vincoli non confermati dal fornitore.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Estrarre i dati chiave dalla nota salvata per preparare la tabella comparativa.",
+                "expected_result": "Contenuto completo della nota con dettagli sulle due formule (costi mensili/anticipati, vincoli, assistenza, spese iniziali, rimborso disdetta anticipata)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa strutturata con i costi e vincoli delle due formule, evidenziando i punti non confermati dal fornitore.",
+                "expected_result": "Tabella comparativa leggibile e priva di errori, con due colonne (Formula A vs Formula B), riassunto dei vincoli e segnalazione dei dati non confermati."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 4,
+            "sequence": 4
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 4,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 8822.0,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 4,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "La nota salvata (mem_43262246ed92296b9353) contiene i dati di base per entrambe le formule, inclusi costi mensili/anticipati, spazi di archiviazione, assistenza e spese iniziali. Tuttavia, manca una conferma esplicita su alcuni vincoli (es. rimborso disdetta anticipata). L'obiettivo è preparare una tabella comparativa chiara e verificabile per 12 mesi, evidenziando i punti non confermati. Non è ne",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare una tabella comparativa strutturata dei costi e vincoli delle due formule per 12 mesi, evidenziando i dati non confermati dal fornitore.",
+            "expected_outcome": "Una tabella comparativa leggibile e priva di errori, con due colonne (Formula A e Formula B), che include costi totali, vincoli (es. assistenza, rimborso disdetta), spese iniziali e una segnalazione esplicita dei punti non confermati dal fornitore.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati esatti forniti dall'utente per la preparazione della tabella comparativa.",
+                "expected_result": "Recupero completo del contenuto della memoria con i dati sulle due formule (costi, vincoli, spese iniziali, ecc.)."
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare una tabella comparativa strutturata con i costi e vincoli delle due formule per 12 mesi, evidenziando i dati non confermati dal fornitore."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che la tabella sia completa, leggibile e priva di errori di sintesi.",
+                "expected_result": "Conferma che la tabella sia strutturata correttamente, con tutti i dati inseriti e i vincoli non confermati evidenziati."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 5,
+            "sequence": 5
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 5,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 14495.6,
+              "fallbacks": []
+            }
+          ]
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "failure_goals": [
+        {
+          "status": "active",
+          "rationale": "Preparazione sospesa: non riesco ancora a formulare un piano affidabile. Il lavoro resta aperto; puoi riprovare e lo rivaluterò se cambiano le informazioni.",
+          "requires_user_input": false,
+          "requires_user_authority": false,
+          "has_next_run_at": false,
+          "planning_unavailable": true,
+          "prepared_text_characters": 0,
+          "evidence_count": 0,
+          "current_evidence_count": 0,
+          "planning_error": {
+            "attempt": 4,
+            "has_due": false,
+            "validation_errors": [
+              {
+                "index": 0,
+                "field": "effect_type",
+                "issue": "wrong_type"
+              }
+            ]
+          },
+          "plans_count": 0,
+          "plans": []
+        }
+      ],
+      "executed_capabilities": [],
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      }
+    },
+    {
+      "scenario": "memory_corrected",
+      "original_passed": false,
+      "original_reason": "UNFINISHED_WORK_LOST",
+      "model_attempts": 5,
+      "model_http_requests": 8,
+      "model_calls": [
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2474,
+            "completion_tokens": 663
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4488,
+            "completion_tokens": 1132
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4540,
+            "completion_tokens": 1239
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4540,
+            "completion_tokens": 1149
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4540,
+            "completion_tokens": 1034
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 8360.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 10399.7,
+          "fallbacks": [
+            {
+              "provider": "gemini",
+              "failure_kind": "quota"
+            },
+            {
+              "provider": "gemini2",
+              "failure_kind": "quota"
+            },
+            {
+              "provider": "groq",
+              "failure_kind": "quota"
+            }
+          ]
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 18219.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 14251.6,
+          "fallbacks": []
+        },
+        {
+          "sequence": 5,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 18342.7,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "planning_observations": [
+        {
+          "attempt": 1,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 2,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 3,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 4,
+          "has_due": false,
+          "validation_errors": [
+            {
+              "index": 1,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        }
+      ],
+      "planning_observations_omitted": 0,
+      "planner_decisions": [
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 1,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati forniti nella memoria sono sufficienti per preparare una sintesi confrontabile delle due formule di archivio digitale per 12 mesi, evidenziando costi, vincoli e differenze chiave. Non è necessario alcun pagamento, invio o modifica esterna. Il documento può essere creato internamente con i dati già disponibili.",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la memoria salvata per estrarre i dati chiave e preparare un documento interno comparativo tra le due formule di archivio digitale.",
+            "expected_outcome": "Un documento interno che riassume i costi totali (180€ vs 120€), i vincoli (assenza di rimborso per la formula annuale) e le caratteristiche uguali (100 GB, assistenza) per supportare la decisione dell'utente.",
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati chiave sulle due formule di archivio digitale per 12 mesi dalla memoria salvata.",
+                "expected_result": "I dati estratti confermano i costi totali (180€ vs 120€), i vincoli (assenza di rimborso per la formula annuale) e le caratteristiche uguali (100 GB, assistenza",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un documento interno che sintetizza i dati estratti, evidenziando costi, vincoli e differenze chiave tra le due formule.",
+                "expected_result": "Un documento interno creato con i dati estratti, pronto per verifica interna."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che il documento creato sia completo e coerente con i dati forniti nella memoria.",
+                "expected_result": "Il documento creato è coerente con i dati estratti e soddisfa i criteri di successo (costi, vincoli, caratteristiche)."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 2,
+            "sequence": 2
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 2,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 10399.7,
+              "fallbacks": [
+                {
+                  "provider": "gemini",
+                  "failure_kind": "quota"
+                },
+                {
+                  "provider": "gemini2",
+                  "failure_kind": "quota"
+                },
+                {
+                  "provider": "groq",
+                  "failure_kind": "quota"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 2,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati forniti nella memoria sono sufficienti per preparare una sintesi confrontabile delle due formule di archivio digitale per 12 mesi, evidenziando costi, vincoli e differenze chiave. Non è necessario alcun pagamento, invio o modifica esterna. Il documento può essere creato internamente con i dati già disponibili.",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la memoria per estrarre i dati chiave e preparare un documento sintetico che confronti le due formule di archivio digitale per 12 mesi, evidenziando costi, vincoli e caratteristiche uguali.",
+            "expected_outcome": "Un documento interno che riassume i costi totali (180€ vs 120€), i vincoli (assenza di rimborso per la formula annuale) e le caratteristiche uguali (100 GB, assistenza) per supportare la decisione dell'utente.",
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Estrarre i dati chiave dalla memoria salvata per preparare il confronto tra le due formule di archivio digitale.",
+                "expected_result": "I dati estratti includeranno: costi mensili e totali per 12 mesi, vincoli (assenza di rimborso per la formula annuale), caratteristiche uguali (100 GB, assisten",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un documento sintetico che confronti le due formule di archivio digitale per 12 mesi, evidenziando costi, vincoli e differenze chiave.",
+                "expected_result": "Un documento interno che riassume i costi totali, i vincoli e le caratteristiche uguali delle due formule di archivio digitale."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che il documento creato sia completo e coerente con i dati forniti nella memoria.",
+                "expected_result": "Conferma che il documento creato sia completo e coerente con i dati estratti dalla memoria, senza omissioni o errori."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 3,
+            "sequence": 3
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 3,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 18219.1,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 3,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati forniti nella memoria sono sufficienti per preparare una sintesi confrontabile delle due formule di archivio digitale per 12 mesi, evidenziando costi, vincoli e differenze chiave. Non è necessario attendere ulteriori conferme esterne, poiché i dati sono stati esplicitamente forniti dall'utente e non richiedono modifiche contrattuali o pagamenti. Il documento può essere creato internamente c",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la memoria salvata per estrarre i dati chiave e preparare un documento interno che sintetizza costi, vincoli e differenze tra le due formule.",
+            "expected_outcome": "Un documento interno che riassume i costi totali (180€ vs 120€), i vincoli (assenza di rimborso per la formula annuale) e le caratteristiche uguali (100 GB, assistenza) per supportare la decisione dell'utente.",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Estrarre i dati chiave dalla memoria salvata per preparare il confronto tra le due formule di archivio digitale.",
+                "expected_result": "I dati estratti confermano i seguenti punti: costo mensile di 15€ (180€/12 mesi), costo annuale anticipato di 120€, vincolo di assenza di rimborso per la formul",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un documento interno che sintetizza i costi, vincoli e differenze chiave tra le due formule di archivio digitale.",
+                "expected_result": "Un documento interno creato con successo, contenente la sintesi comparativa richiesta."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che il documento creato sia completo e coerente con i dati forniti nella memoria.",
+                "expected_result": "Conferma che il documento creato include tutti i punti richiesti (costi, vincoli, caratteristiche uguali) e non contiene modifiche contrattuali o richieste di p",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 4,
+            "sequence": 4
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 4,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 14251.6,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 4,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati forniti nella memoria sono sufficienti per preparare una sintesi comparativa delle due formule di archivio digitale per 12 mesi, evidenziando costi, vincoli e differenze chiave. Non è necessario attendere ulteriori conferme esterne poiché l'utente ha già fornito le informazioni chiave (costi, vincoli, caratteristiche uguali) e ha esplicitamente richiesto un confronto scritto. Il documento s",
+            "planning_outcome": "plan",
+            "plan_summary": "Leggere la memoria salvata per estrarre i dati chiave e preparare un documento comparativo delle due formule di archivio digitale per 12 mesi.",
+            "expected_outcome": "Un documento interno che riassume i costi totali (180€ vs 120€), i vincoli (assenza di rimborso per la formula annuale) e le caratteristiche uguali (100 GB, assistenza, spese iniziali nulle).",
+            "truncated_fields": [
+              "reasoning"
+            ],
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dati chiave sulle due formule di archivio digitale per 12 mesi dalla memoria salvata.",
+                "expected_result": "I dati estratti confermano i seguenti punti: costo mensile (15€) per 12 mesi = 180€, costo annuale anticipato = 120€, vincolo di assenza di rimborso per la form",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un documento comparativo delle due formule di archivio digitale per 12 mesi, evidenziando costi, vincoli e differenze chiave.",
+                "expected_result": "Un documento interno creato con i dati estratti, evidenziando costi, vincoli e differenze chiave tra le due formule."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che il documento creato sia completo e coerente con i dati forniti nella memoria.",
+                "expected_result": "Il documento creato è completo e coerente con i dati estratti dalla memoria, soddisfacendo i criteri di successo specificati."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 5,
+            "sequence": 5
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 5,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 18342.7,
+              "fallbacks": []
+            }
+          ]
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "failure_goals": [
+        {
+          "status": "active",
+          "rationale": "Preparazione sospesa: non riesco ancora a formulare un piano affidabile. Il lavoro resta aperto; puoi riprovare e lo rivaluterò se cambiano le informazioni.",
+          "requires_user_input": false,
+          "requires_user_authority": false,
+          "has_next_run_at": false,
+          "planning_unavailable": true,
+          "prepared_text_characters": 0,
+          "evidence_count": 0,
+          "current_evidence_count": 0,
+          "planning_error": {
+            "attempt": 4,
+            "has_due": false,
+            "validation_errors": [
+              {
+                "index": 1,
+                "field": "effect_type",
+                "issue": "wrong_type"
+              }
+            ]
+          },
+          "plans_count": 0,
+          "plans": []
+        }
+      ],
+      "executed_capabilities": [],
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      }
+    },
+    {
+      "scenario": "source_change_crash",
+      "original_passed": false,
+      "original_reason": "OWNED_SOURCE_NOT_READ_ONCE",
+      "model_attempts": 9,
+      "model_http_requests": 9,
+      "model_calls": [
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 3734,
+            "completion_tokens": 730
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2642,
+            "completion_tokens": 634
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2871,
+            "completion_tokens": 551
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4495,
+            "completion_tokens": 1173
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4547,
+            "completion_tokens": 1053
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 4547,
+            "completion_tokens": 1163
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 5268,
+            "completion_tokens": 956
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2041,
+            "completion_tokens": 83
+          }
+        },
+        {
+          "provider": "mistral",
+          "model": "ministral-8b-2512",
+          "usage": {
+            "prompt_tokens": 2021,
+            "completion_tokens": 206
+          }
+        }
+      ],
+      "model_call_outcomes": [
+        {
+          "sequence": 1,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 11969.8,
+          "fallbacks": []
+        },
+        {
+          "sequence": 2,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 9037.9,
+          "fallbacks": []
+        },
+        {
+          "sequence": 3,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 6271.3,
+          "fallbacks": []
+        },
+        {
+          "sequence": 4,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 12547.2,
+          "fallbacks": []
+        },
+        {
+          "sequence": 5,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 10240.4,
+          "fallbacks": []
+        },
+        {
+          "sequence": 6,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 14254.1,
+          "fallbacks": []
+        },
+        {
+          "sequence": 7,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 9264.7,
+          "fallbacks": []
+        },
+        {
+          "sequence": 8,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 1291.2,
+          "fallbacks": []
+        },
+        {
+          "sequence": 9,
+          "outcome": "succeeded",
+          "provider": "mistral",
+          "failure_kind": null,
+          "elapsed_ms": 2953.3,
+          "fallbacks": []
+        }
+      ],
+      "model_call_outcomes_scope": "manager_reported_final_chain",
+      "planning_observations": [
+        {
+          "attempt": 1,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        },
+        {
+          "attempt": 2,
+          "has_due": true,
+          "validation_errors": [
+            {
+              "index": 0,
+              "field": "effect_type",
+              "issue": "wrong_type"
+            }
+          ]
+        }
+      ],
+      "planning_observations_omitted": 0,
+      "planner_decisions": [
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 3,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati necessari per il confronto tra le due formule di archiviazione digitale sono già disponibili nella memoria (mem_43262246ed92296b9353). Il confronto scritto può essere preparato direttamente senza ulteriori ricerche o autorizzazioni aggiuntive. Il risultato sarà una sintesi chiara e strutturata con tabella comparativa, analisi dei vincoli e valutazione dei pro e contro.",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare un confronto scritto dettagliato tra le due formule di archiviazione digitale (mensile e annuale) e inviarlo all'utente.",
+            "expected_outcome": "Un documento scritto con una tabella comparativa dei costi totali (180€ vs. 120€), analisi dei vincoli (assenza di rimborso per l'annuale in caso di disdetta anticipata) e valutazione delle condizioni identiche (100 GB, assistenza uguale). Il documento sarà pronto per essere inviato all'utente.",
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "inspect",
+                "capability_needed": "information.read",
+                "intent": "Recuperare i dettagli delle due formule di archiviazione digitale per assicurarsi che siano corretti e completi.",
+                "expected_result": "Conferma dei dati relativi alle due formule: mensile (15€/mese, totale 180€ per 12 mesi) e annuale (120€ anticipati, totale 120€ per 12 mesi), con vincoli e con",
+                "truncated_fields": [
+                  "expected_result"
+                ]
+              },
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un documento scritto con una tabella comparativa dettagliata tra le due formule di archiviazione digitale, evidenziando costi totali, vincoli e condiz",
+                "expected_result": "Un documento strutturato con tabella comparativa, analisi dei vincoli e valutazione chiara dei pro e contro.",
+                "truncated_fields": [
+                  "intent"
+                ]
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che il documento creato sia completo e corretto secondo i dati confermati.",
+                "expected_result": "Conferma che il documento creato sia completo, accurato e pronto per essere inviato all'utente."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 4,
+            "sequence": 4
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 4,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 12547.2,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 4,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati necessari per il confronto scritto sono già disponibili nella memoria (mem_43262246ed92296b9353). Il confronto può essere preparato senza ulteriori letture o ricerche, poiché tutti i dettagli (costi, vincoli, condizioni identiche) sono già stati forniti dall'utente. Il passo successivo è la preparazione di un documento strutturato che evidenzi i punti chiave richiesti.",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare un confronto scritto dettagliato tra le due formule di archiviazione digitale (mensile e annuale) evidenziando costi, vincoli e condizioni identiche, pronto per invio.",
+            "expected_outcome": "Un documento scritto con tabella comparativa, analisi dei vincoli e valutazione dei pro e contro delle due formule di archiviazione.",
+            "steps_kind": "array",
+            "steps_count": 2,
+            "steps": [
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un documento strutturato con confronto tra le due formule di archiviazione digitale, evidenziando costi totali, vincoli e condizioni identiche.",
+                "expected_result": "Un documento strutturato con tabella comparativa, analisi dei vincoli e valutazione dei pro e contro delle due formule di archiviazione."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che il documento creato sia completo e corretto secondo i criteri di successo definiti.",
+                "expected_result": "Conferma che il documento creato soddisfi tutti i criteri di successo (tabella comparativa, analisi vincoli, condizioni identiche e valutazione pro/contro)."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 5,
+            "sequence": 5
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 5,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 10240.4,
+              "fallbacks": []
+            }
+          ]
+        },
+        {
+          "observed_decision": {
+            "stage": "make_plan",
+            "model_attempts_before": 5,
+            "input": {
+              "status": "active",
+              "evidence_kind": "none"
+            },
+            "response_kind": "object",
+            "reasoning": "I dati necessari per il confronto sono già disponibili nella memoria (mem_43262246ed92296b9353) e non è richiesto alcun aggiornamento o verifica aggiuntiva. Il compito consiste nel preparare un documento scritto comparativo tra le due formule di archiviazione digitale, evidenziando costi totali, vincoli e condizioni identiche. Non è necessario chiedere autorità o ulteriori informazioni all'utente.",
+            "planning_outcome": "plan",
+            "plan_summary": "Preparare un documento comparativo tra le due formule di archiviazione digitale (mensile e annuale) evidenziando costi, vincoli e condizioni identiche, poi inviarlo all'utente.",
+            "expected_outcome": "Un documento scritto pronto per essere inviato all'utente, contenente una tabella comparativa chiara dei costi totali (180€ vs. 120€), analisi dei vincoli (assenza di rimborso per l'annuale in caso di disdetta anticipata) e confronto delle condizioni identiche (100 GB, assistenza uguale).",
+            "steps_kind": "array",
+            "steps_count": 3,
+            "steps": [
+              {
+                "step_type": "prepare",
+                "capability_needed": "document.create",
+                "intent": "Preparare un documento comparativo tra le due formule di archiviazione digitale, evidenziando costi totali, vincoli e condizioni identiche.",
+                "expected_result": "Un documento scritto pronto per essere inviato all'utente, contenente una tabella comparativa chiara e una valutazione dei pro e contro."
+              },
+              {
+                "step_type": "verify",
+                "capability_needed": "information.read",
+                "intent": "Verificare che il documento sia pronto per essere inviato all'utente.",
+                "expected_result": "Conferma che il documento creato sia completo e corretto secondo i criteri di successo stabiliti."
+              },
+              {
+                "step_type": "execute",
+                "capability_needed": "document.send",
+                "intent": "Inviare il documento comparativo all'utente.",
+                "expected_result": "Documento inviato all'utente con successo."
+              }
+            ],
+            "steps_omitted": 0,
+            "model_attempts_after": 6,
+            "sequence": 6
+          },
+          "observed_call_outcomes": [
+            {
+              "sequence": 6,
+              "outcome": "succeeded",
+              "provider": "mistral",
+              "failure_kind": null,
+              "elapsed_ms": 14254.1,
+              "fallbacks": []
+            }
+          ]
+        }
+      ],
+      "structured_decisions_omitted": 0,
+      "failure_goals": [
+        {
+          "status": "active",
+          "rationale": "Non riesco ancora a preparare il lavoro per un problema temporaneo. Riproverò automaticamente.",
+          "requires_user_input": false,
+          "requires_user_authority": false,
+          "has_next_run_at": true,
+          "planning_unavailable": false,
+          "prepared_text_characters": 0,
+          "evidence_count": 0,
+          "current_evidence_count": 0,
+          "plans_count": 1,
+          "plans": [
+            {
+              "status": "active",
+              "plan_summary": "Preparare un documento comparativo tra le due formule di archiviazione digitale (mensile e annuale) evidenziando costi, vincoli e condizioni identiche, poi inviarlo all'utente.",
+              "steps_count": 3,
+              "step_status_counts": {
+                "failed": 1,
+                "pending": 2
+              },
+              "steps": [
+                {
+                  "step_type": "prepare",
+                  "capability_needed": "document.create",
+                  "status": "failed",
+                  "note": "Non ci sono evidenze utilizzabili registrate per questo obiettivo."
+                },
+                {
+                  "step_type": "verify",
+                  "capability_needed": "information.read",
+                  "status": "pending",
+                  "note": ""
+                },
+                {
+                  "step_type": "execute",
+                  "capability_needed": "document.send",
+                  "status": "pending",
+                  "note": ""
+                }
+              ],
+              "steps_omitted": 0
+            }
+          ]
+        }
+      ],
+      "executed_capabilities": [
+        {
+          "capability": "document.create",
+          "step_id": "stp_60e1c9a99d334550",
+          "step_type": "prepare",
+          "status": "unavailable",
+          "error_type": "preparation_sources_required",
+          "retryable": false
+        }
+      ],
+      "result_checks": {
+        "preconditions": {
+          "status": "not_run"
+        },
+        "semantic": {
+          "status": "not_run"
+        },
+        "home": {
+          "status": "not_run"
+        },
+        "replay": {
+          "status": "not_run"
+        },
+        "owner_isolation": {
+          "status": "not_run"
+        },
+        "isolation": {
+          "status": "not_run"
+        }
+      }
+    }
+  ]
+}

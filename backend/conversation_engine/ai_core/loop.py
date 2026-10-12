@@ -685,6 +685,33 @@ def _local_hhmm(iso_value: str, timezone_name: str) -> Optional[str]:
         return None
 
 
+async def _current_scheduled_check_copy(db, owner: str, observations) -> Optional[str]:
+    """Preserve a saved check when an unsupported physical estimate is blocked.
+
+    A successful earlier tool observation is only a lookup hint: cancellation,
+    ownership changes and a later failed read must defeat a stale promise.
+    This read neither schedules work nor claims a notification or an outcome.
+    """
+    observed = _latest_situation_schedule(observations)
+    sid = (observed or {}).get("situation_id")
+    if db is None or not owner or not isinstance(sid, str) or not sid:
+        return None
+    from situations.followup import read_followup
+
+    try:
+        current = await read_followup(db, owner, sid)
+    except Exception:
+        return None
+    if (current.get("situation_id") != sid
+            or current.get("status") not in ("scheduled", "due")
+            or not current.get("next_check_at")):
+        return None
+    label, zone = current.get("next_check_label"), current.get("timezone")
+    if not isinstance(label, str) or not label or not isinstance(zone, str) or not zone:
+        return None
+    return f"Il prossimo controllo è programmato per {label} ({zone})."
+
+
 def _claims_wrong_situation_check_time(text: str, actual_hhmm: Optional[str]) -> bool:
     if not actual_hhmm:
         return False
@@ -2364,6 +2391,11 @@ async def run_cognitive_loop(
                     "Non ho abbastanza evidenza verificata per darti una stima "
                     "quantitativa attendibile in questo momento."
                 )
+                check_copy = await _current_scheduled_check_copy(
+                    db, sess.user_id, observations[turn_start:]
+                )
+                if check_copy:
+                    decision.message_to_user = f"{check_copy} {decision.message_to_user}"
                 decision.question = None
                 mode = "answer"
                 ora = _compose_user_text(decision, observations[turn_start:])

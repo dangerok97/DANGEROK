@@ -1,0 +1,1512 @@
+{
+  "version": "ora_v162_followup_evidence_v1",
+  "draft": false,
+  "created_at": "2026-10-12T11:35:34.256449+00:00",
+  "review_scope": "Original 630 CI/live evidence plus reviewed corrections and completed local verification. This recording precedes publication and a new live run.",
+  "proposed_repository_path": "docs/evidence/autonomy_v162_followup_2026-10-12.json",
+  "source_revision": {
+    "head": "630020147223ada63430a11870209494dc35cc22",
+    "tree": "0878f56d49f120c7b97ce93e49fa9076398c43c2",
+    "tested_base": "c419e0cd28321f362481fc223154e22c60ef92cb",
+    "technical_merge": "914c682779b8bee332b15fae9e399cf3e2c1ce34",
+    "technical_merge_tree_equals_head": true,
+    "new_base_not_attested_by_630_ci": "ff6d273a0f71f35ae3cdf6aa28a92926a452b187"
+  },
+  "originals_manifest": {
+    "path": "/tmp/ora_v162_followup_originals_manifest.json",
+    "bytes": 5833,
+    "sha256": "6c7c7c31cee32a96cac1bb2ad3aac32c2a714cb132c2ec72c5466a22f63537d5"
+  },
+  "preserved_originals": [
+    {
+      "path": "docs/evidence/situation_v162_live_2026-10-12_6300201_original.json",
+      "source_local_path": "/tmp/ora_v162_630_situation_live.json",
+      "bytes": 89943,
+      "sha256": "d442e4ea241ac2203dcb521edf37136f4cef151307c65ef97c5af0b7f3276d55",
+      "compressed": false,
+      "original_bytes": 89943,
+      "original_sha256": "d442e4ea241ac2203dcb521edf37136f4cef151307c65ef97c5af0b7f3276d55",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_original.json",
+      "source_local_path": "/tmp/ora_v162_630_autonomy_live.json",
+      "bytes": 132218,
+      "sha256": "59bcc79162af9adcfc03a2c5602cf6455ba0403b1915f6e04522fe29052c97da",
+      "compressed": false,
+      "original_bytes": 132218,
+      "original_sha256": "59bcc79162af9adcfc03a2c5602cf6455ba0403b1915f6e04522fe29052c97da",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/public_read_v162_live_2026-10-12_6300201_original.json",
+      "source_local_path": "/tmp/ora_v162_630_public_live.json",
+      "bytes": 7627,
+      "sha256": "b53dd53de9a0fc2a4398697686c4c845eb4637cb7c2927944e780e100dd38bfc",
+      "compressed": false,
+      "original_bytes": 7627,
+      "original_sha256": "b53dd53de9a0fc2a4398697686c4c845eb4637cb7c2927944e780e100dd38bfc",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_collection.json",
+      "source_local_path": "/tmp/ora_v162_630_live_collection.json",
+      "bytes": 2638,
+      "sha256": "455a6baf408c0e355eb5f2fdfd54948dd792ae74ada125ac5a6e567ef40145c3",
+      "compressed": false,
+      "original_bytes": 2638,
+      "original_sha256": "455a6baf408c0e355eb5f2fdfd54948dd792ae74ada125ac5a6e567ef40145c3",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_launch.json",
+      "source_local_path": "/tmp/ora_v162_repairs_live_launch.json",
+      "bytes": 12146,
+      "sha256": "8cfb3b231662447acd291ab042d79ad1c8e41cdf1e406fc4048775273fdd87c7",
+      "compressed": false,
+      "original_bytes": 12146,
+      "original_sha256": "8cfb3b231662447acd291ab042d79ad1c8e41cdf1e406fc4048775273fdd87c7",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_initial_logs.json.gz",
+      "source_local_path": "/tmp/ora_v162_630_live_logs_initial.json",
+      "bytes": 12708,
+      "sha256": "0bd369916ee512d39ad8aad2cb4868a058031ada2a39b0fb1a2c78d9b55042d6",
+      "compressed": true,
+      "original_bytes": 102973,
+      "original_sha256": "89b3d343e92b3c5eee801cb852389d5830751e694c7e772dbf4796ef2b9b6a52",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_final_logs.json.gz",
+      "source_local_path": "/tmp/ora_v162_630_live_logs_final.json",
+      "bytes": 31211,
+      "sha256": "979d042229000b20a617382a63118e65def8be4327ac9627f5fc8ae8c4524842",
+      "compressed": true,
+      "original_bytes": 261785,
+      "original_sha256": "da8fbb1b0620e0081975774b6303eeb18a32e6acd757e14a59da0003c9d2114f",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_log_batches.json.gz",
+      "source_local_path": "/tmp/ora_v162_630_live_log_batches.json",
+      "bytes": 119213,
+      "sha256": "6061cbda46544d0e11f01badf18cb98c52d823f6f8d80f9538477cf15093f995",
+      "compressed": true,
+      "original_bytes": 1103506,
+      "original_sha256": "80cb5bb2635ba1269ce62e08c7c2d27aa19b9ff3e4b40332ab327d38c3a8e04d",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_planning_diagnostics.json",
+      "source_local_path": "/tmp/ora_v162_630_planning_diagnostics.json",
+      "bytes": 99038,
+      "sha256": "cd155ed80131ba414b171c1a33193b6422db09d5d4ed6932e2b9ae9d8c809954",
+      "compressed": false,
+      "original_bytes": 99038,
+      "original_sha256": "cd155ed80131ba414b171c1a33193b6422db09d5d4ed6932e2b9ae9d8c809954",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json",
+      "source_local_path": "/tmp/ora_v162_630_home_semantic_review.json",
+      "bytes": 45065,
+      "sha256": "c8c1536851c36833e5ed75c68ea0070b16d31cb2df7586b7056757d572bcb96f",
+      "compressed": false,
+      "original_bytes": 45065,
+      "original_sha256": "c8c1536851c36833e5ed75c68ea0070b16d31cb2df7586b7056757d572bcb96f",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/situation_v162_2026-10-12_schedule_transition_diagnostic.json",
+      "source_local_path": "/tmp/ora_v162_630_schedule_transition_diagnostic.json",
+      "bytes": 8129,
+      "sha256": "c8e9b37a9f9fa113474d482547864ede2912cfba79b12b22be5d1765508fb1a9",
+      "compressed": false,
+      "original_bytes": 8129,
+      "original_sha256": "c8e9b37a9f9fa113474d482547864ede2912cfba79b12b22be5d1765508fb1a9",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/public_read_v162_2026-10-12_temperature_replay_red.json",
+      "source_local_path": "/tmp/ora_v162_630_temperature_parser_red.json",
+      "bytes": 1007,
+      "sha256": "4f30b813e51be648d9e69649c112bcfe237bcf9444616ae1fa606267aeeaee54",
+      "compressed": false,
+      "original_bytes": 1007,
+      "original_sha256": "4f30b813e51be648d9e69649c112bcfe237bcf9444616ae1fa606267aeeaee54",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    },
+    {
+      "path": "docs/evidence/public_read_v162_2026-10-12_temperature_replay_green.json",
+      "source_local_path": "/tmp/ora_v162_630_temperature_parser_GREEN.json",
+      "bytes": 1326,
+      "sha256": "6e7c2ae572f622cca683163dc52c5720280f65fbf9077ae098f657f7c899b58e",
+      "compressed": false,
+      "original_bytes": 1326,
+      "original_sha256": "6e7c2ae572f622cca683163dc52c5720280f65fbf9077ae098f657f7c899b58e",
+      "original_bytes_preserved": true,
+      "sha256_verified_for_draft": true
+    }
+  ],
+  "ci": {
+    "source": {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_6300201.json",
+      "bytes": 826037,
+      "sha256": "90c9be375349fc48ff9921bac4b45ff7c70715cfa74af4e042bcfc8cae83ad86"
+    },
+    "full_original_archive": {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_6300201_full.json.gz",
+      "bytes": 860744,
+      "sha256": "8130217f0073761445dc1549a6e8c636d9f282765eb9a7d4b8fbdcbba3dd4f8f",
+      "compressed": true,
+      "original_bytes": 10697662,
+      "original_sha256": "85bb36c26ecdbda7f414b1a50d00129f06ea4eb32924782be1090cb3db58211b"
+    },
+    "collected_at": "2026-10-12T10:58:47.030Z",
+    "verdict": {
+      "status": "all_five_requested_workflows_success",
+      "workflow_count": 5,
+      "successful_workflows": 5,
+      "job_count": 15,
+      "successful_jobs": 15,
+      "skipped_jobs": 0,
+      "scope": "Candidate 6300201 and technical PR merge 914c6827 on base c419e0c only.",
+      "tested_base": "c419e0cd28321f362481fc223154e22c60ef92cb",
+      "tested_merge": "914c682779b8bee332b15fae9e399cf3e2c1ce34",
+      "tested_merge_tree": "0878f56d49f120c7b97ce93e49fa9076398c43c2",
+      "tested_merge_tree_equals_head": true,
+      "final_base_ref": "ff6d273a0f71f35ae3cdf6aa28a92926a452b187",
+      "base_advanced_during_collection": true,
+      "new_base_covered": false,
+      "draft_pr_not_merged": true,
+      "no_workflow_rerun": true,
+      "no_repository_mutation": true,
+      "no_deployment": true
+    },
+    "counts_per_invocation_not_unique_totals": {
+      "note": "Per-invocation counts; repeated PR/push and overlapping selections are not unique-test totals.",
+      "backend_each": {
+        "v162_canonical_sources_planning_recovery_acceptance": {
+          "passed": 1074,
+          "skipped": 0,
+          "pr_seconds": 60.33,
+          "push_seconds": 60.32
+        },
+        "scripted_autonomy": {
+          "passed": 9,
+          "total": 9,
+          "real_model_executed": false,
+          "model_attempts": 0,
+          "model_http_requests": 0
+        },
+        "v162_mongo_process_restart": {
+          "module": "tests/test_autonomy_completion_restart_v162.py",
+          "passed": 6,
+          "skipped": 0,
+          "pr_seconds": 12.69,
+          "push_seconds": 12.72
+        },
+        "v39_visibility_static_selectors": {
+          "passed": 3,
+          "skipped": 0
+        },
+        "v39_execution_provenance_selectors": {
+          "passed": 3,
+          "skipped": 0
+        },
+        "earlier_skips": [
+          {
+            "selection": [
+              "tests/test_google_browser_login_v156.py",
+              "tests/test_social_auth_unit.py"
+            ],
+            "passed": 22,
+            "skipped": 3,
+            "reason_from_job_log": null
+          },
+          {
+            "selection": [
+              "tests/test_analysis_versions.py",
+              "tests/test_ai_document_understanding.py",
+              "tests/test_documents_v2.py",
+              "ai_life_strategist/tests/test_life_experience_documents.py"
+            ],
+            "passed": 89,
+            "skipped": 5,
+            "reason_from_job_log": null
+          }
+        ],
+        "total_test_skips_reported_per_job": 8
+      },
+      "situation_each": {
+        "pytest_groups": [
+          {
+            "passed": 111,
+            "skipped": 0
+          },
+          {
+            "passed": 62,
+            "skipped": 0
+          },
+          {
+            "passed": 116,
+            "skipped": 0
+          }
+        ],
+        "node": {
+          "passed": 16,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "telephone_each": {
+        "passed": 294,
+        "skipped": 0
+      },
+      "frontend_each": {
+        "typescript": "success",
+        "counted_node_tests": 137,
+        "failed": 0,
+        "skipped": 0,
+        "additional_uncounted_assertion_scripts": [
+          "home3.test.ts",
+          "nativeMonth.test.ts"
+        ],
+        "expo_public_config": "success",
+        "ios_prebuild_no_install": "success",
+        "ios_javascript_export": "success"
+      },
+      "frontend_product_guards_each": {
+        "counted_node_tests": 77,
+        "failed": 0,
+        "skipped": 0,
+        "additional_npm_guard_scripts": "success; original logs preserve their separate assertions"
+      },
+      "mobile": {
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0,
+        "summary": "36 passed (3.9m)",
+        "projects": {
+          "chromium-phone": 18,
+          "webkit-phone": 18
+        },
+        "layout_node_tests": {
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        "typescript": "success"
+      }
+    },
+    "workflow_runs": [
+      {
+        "id": 38238561514,
+        "name": "Situation follow-up regressions",
+        "event": "pull_request",
+        "head_sha": "630020147223ada63430a11870209494dc35cc22",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38238561514"
+      },
+      {
+        "id": 38238561321,
+        "name": "Mobile conversation visual QA",
+        "event": "pull_request",
+        "head_sha": "630020147223ada63430a11870209494dc35cc22",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38238561321"
+      },
+      {
+        "id": 38238561289,
+        "name": "CI",
+        "event": "pull_request",
+        "head_sha": "630020147223ada63430a11870209494dc35cc22",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38238561289"
+      },
+      {
+        "id": 38238520211,
+        "name": "Situation follow-up regressions",
+        "event": "push",
+        "head_sha": "630020147223ada63430a11870209494dc35cc22",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38238520211"
+      },
+      {
+        "id": 38238520229,
+        "name": "CI",
+        "event": "push",
+        "head_sha": "630020147223ada63430a11870209494dc35cc22",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38238520229"
+      }
+    ]
+  },
+  "live_service_binding": {
+    "deployment_id": "068a3ef3-729b-4690-871a-ec36667ce513",
+    "observed_terminal_status": "CRASHED",
+    "reports_recovered": 3,
+    "collection_source": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_collection.json",
+    "public_report_binding": "The public report has no own code_revision; the original launch and deployment metadata bind it to 630. No new source attribution is inferred from its text."
+  },
+  "autonomy_live": {
+    "source": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_original.json",
+    "fixture_revision": "personal_outcome_v1",
+    "started_at": "2026-10-12T11:07:54.638830+00:00",
+    "finished_at": "2026-10-12T11:15:28.570992+00:00",
+    "passed": false,
+    "passed_cases": 3,
+    "total_cases": 9,
+    "logical_model_attempts": 48,
+    "model_http_requests": 57,
+    "cases": [
+      {
+        "scenario": "completed_result",
+        "passed": false,
+        "reason": "UNFINISHED_WORK_LOST",
+        "model_attempts": 5,
+        "model_http_requests": 8,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "not_run"
+          }
+        }
+      },
+      {
+        "scenario": "planning_outage",
+        "passed": false,
+        "reason": "UNFINISHED_WORK_LOST",
+        "model_attempts": 4,
+        "model_http_requests": 5,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "not_run"
+          }
+        }
+      },
+      {
+        "scenario": "home_write_retry",
+        "passed": false,
+        "reason": "COMPLETION_BUDGET_EXHAUSTED",
+        "model_attempts": 14,
+        "model_http_requests": 15,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "not_run"
+          }
+        }
+      },
+      {
+        "scenario": "source_revoked",
+        "passed": true,
+        "model_attempts": 4,
+        "model_http_requests": 5,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "passed"
+          }
+        }
+      },
+      {
+        "scenario": "memory_revoked",
+        "passed": false,
+        "reason": "UNFINISHED_WORK_LOST",
+        "model_attempts": 5,
+        "model_http_requests": 5,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "not_run"
+          }
+        }
+      },
+      {
+        "scenario": "memory_corrected",
+        "passed": false,
+        "reason": "UNFINISHED_WORK_LOST",
+        "model_attempts": 5,
+        "model_http_requests": 8,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "not_run"
+          }
+        }
+      },
+      {
+        "scenario": "source_change_crash",
+        "passed": false,
+        "reason": "OWNED_SOURCE_NOT_READ_ONCE",
+        "model_attempts": 9,
+        "model_http_requests": 9,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "not_run"
+          }
+        }
+      },
+      {
+        "scenario": "already_resolved",
+        "passed": true,
+        "model_attempts": 1,
+        "model_http_requests": 1,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "passed"
+          }
+        }
+      },
+      {
+        "scenario": "irrelevant",
+        "passed": true,
+        "model_attempts": 1,
+        "model_http_requests": 1,
+        "result_checks": {
+          "preconditions": {
+            "status": "not_run"
+          },
+          "semantic": {
+            "status": "not_run"
+          },
+          "home": {
+            "status": "not_run"
+          },
+          "replay": {
+            "status": "not_run"
+          },
+          "owner_isolation": {
+            "status": "not_run"
+          },
+          "isolation": {
+            "status": "passed"
+          }
+        }
+      }
+    ],
+    "original_verdict_unchanged": true
+  },
+  "home_semantic_review": {
+    "source": "docs/evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json",
+    "accepted": false,
+    "prepared_characters": 3643,
+    "prepared_utf8_bytes": 3677,
+    "generation_audit_saved_exact_match": true,
+    "prepared_sha256": "f3df3f91ac1b0bdbec7babe7a549712167b02207b0ea89fd9f20def0860bce92",
+    "audit_verified": true,
+    "findings": [
+      "The correct 180/120 table is contradicted by the assertion that totals are identical.",
+      "The useful 60 difference is absent.",
+      "Monthly early-cancellation flexibility is not established by the source; conditional claim-review labels do not repair the assertive content."
+    ],
+    "home_delivery": "not_run",
+    "replay": "not_run",
+    "semantic_fix_proved_by_local_tests": false
+  },
+  "tarquinia_live": {
+    "source": "docs/evidence/situation_v162_live_2026-10-12_6300201_original.json",
+    "passed": false,
+    "full_laundry_outcome_passed": false,
+    "error": "INITIAL_REVIEW_NOT_ADMITTED",
+    "logical_model_calls": 7,
+    "model_http_requests": 12,
+    "live_weather_reads": 1,
+    "research_reads": 0,
+    "agent_steps": 0,
+    "initial_worker": "not_run",
+    "future_check": "not_run",
+    "device_receipt": "not_run",
+    "synthetic_cancellation": "passed",
+    "pending_wakes_after_cancellation": 0,
+    "diagnostic_limit": "Seven model outputs are complete but inputs are bounded/truncated to 9000; original tool diagnostics retain status only.",
+    "diagnostic_source": "docs/evidence/situation_v162_2026-10-12_schedule_transition_diagnostic.json",
+    "diagnosis": "A controlled isolated reconstruction preserves the same owned goal and desired outcome while arrange_followup promotes initial review to a valid follow-up. The old runner rejected that source kind. This does not reconstruct the historical DB.",
+    "scheduled_future_observed_in_probe": "2026-10-12T16:00:00+00:00",
+    "local_reclassification": "followup_pending_unobserved",
+    "local_reclassification_passed": false,
+    "local_reclassification_full_laundry_outcome_passed": false,
+    "old_real_laundry_reopened": false
+  },
+  "public_live": {
+    "source": "docs/evidence/public_read_v162_live_2026-10-12_6300201_original.json",
+    "technical_passed": true,
+    "original_passed": false,
+    "original_semantic_reason": "TEMPERATURE_MISMATCH",
+    "model_decisions": 4,
+    "provider_http_reads": 2,
+    "offline_numeric_replay_discrepancies": [],
+    "original_verdict_unchanged": true,
+    "manual_semantic_accepted": false,
+    "remaining_material_issue": "A forecast of zero precipitation does not establish the physical impossibility of rain asserted by the answer.",
+    "red_source": "docs/evidence/public_read_v162_2026-10-12_temperature_replay_red.json",
+    "green_source": "docs/evidence/public_read_v162_2026-10-12_temperature_replay_green.json"
+  },
+  "local_repairs": [
+    {
+      "id": "situation_runner_scheduled_followup",
+      "status": "local_frozen",
+      "new_tests": 16,
+      "module_result": {
+        "passed": 41,
+        "seconds": 31.82
+      },
+      "red": {
+        "failed": 5
+      },
+      "focused_green": {
+        "passed": 14
+      },
+      "proof": "Owner/source/goal/revision/follow-up/wake snapshot before assertion; valid conversation-scheduled handoff becomes unobserved pending when beyond the existing real-time deadline, never a monitoring or physical-dry pass. Actual observed tool payload is redacted and bounded to 6000 characters.",
+      "limits": "The live 630 report remains failed. The local probe is a controlled synthetic reconstruction, not its historical database or a new model/provider run.",
+      "file_bindings": [
+        {
+          "path": "backend/scripts/situation_live_eval_v162.py",
+          "bytes": 57096,
+          "sha256": "cffcd655466ad088a64c6fe266f2f4745b1101551c9207375512a1680b243770"
+        },
+        {
+          "path": "backend/tests/test_situation_live_eval_v162.py",
+          "bytes": 33381,
+          "sha256": "e36715e3f9302a7e8ebc07002b6cf3cf0dfd39b9880afc3454427c4c77a2c491"
+        }
+      ],
+      "artifact_bindings": [
+        {
+          "path": "/tmp/ora_v162_schedule_runner_verification_GREEN.json",
+          "bytes": 2937,
+          "sha256": "58da5149f3c2367e4940a269528dc90759483bdd372cc3619819237e322aaddb"
+        },
+        {
+          "path": "/tmp/ora_v162_schedule_runner_RED.log",
+          "bytes": 14391,
+          "sha256": "ccbc7f331b5c51dc9a599c81ec6dcf31e355266eb3429ec4ce59e93d53c8cb17"
+        },
+        {
+          "path": "/tmp/ora_v162_schedule_runner_GREEN.log",
+          "bytes": 2630,
+          "sha256": "b5e6449d5ffa8fbbf94167cae50d440a43835f6184a2977fa688e28219dcbdde"
+        },
+        {
+          "path": "/tmp/ora_v162_schedule_runner_FULL_GREEN.log",
+          "bytes": 2616,
+          "sha256": "c942f02fbb4bef3a531d04c5445ef4d02346981803a38738a10ba7bdda077588"
+        },
+        {
+          "path": "/tmp/ora_v162_schedule_runner_RED_report.json",
+          "bytes": 4054,
+          "sha256": "8ba3c2e1217249cd85638eed050c5f2700c814f2ace7fb10a8ef264e8b7cb2b2"
+        },
+        {
+          "path": "/tmp/ora_v162_schedule_runner_GREEN_report.json",
+          "bytes": 9955,
+          "sha256": "531ecb0f8612aa9ebbc3e4b2b5d3423fb074220cc862c80036419812e403d66e"
+        },
+        {
+          "path": "/tmp/ora_v162_schedule_runner_first_cycle_GREEN.json",
+          "bytes": 99683,
+          "sha256": "663accac6fbe3dd01a3bd819e5e68181ccb0a02e55d986d2b7087f81e89fcfba"
+        }
+      ]
+    },
+    {
+      "id": "temperature_range_parser",
+      "status": "local_frozen",
+      "new_tests": 23,
+      "red": {
+        "failed": 7,
+        "passed": 16
+      },
+      "related_group_result": {
+        "passed": 50,
+        "seconds": 1.41
+      },
+      "proof": "Consume and compare both endpoints of signed/decimal temperature ranges; preserve the 1.1 tolerance and human-review gate.",
+      "limits": "Offline replay removes the false temperature mismatch. It does not establish physical certainty or accept the original public answer.",
+      "file_bindings": [
+        {
+          "path": "backend/scripts/phase1_semantic_numeric.py",
+          "bytes": 2315,
+          "sha256": "de170c0b05a7a7a36f4a388ffd289a3b4b1a05a36dc91b2cc2e659e303a72710"
+        },
+        {
+          "path": "backend/tests/test_public_temperature_ranges_v162.py",
+          "bytes": 3654,
+          "sha256": "dca9b355874761b5aa57eceefe85f86d22ab24aa8467ced8854a305eff6018a4"
+        }
+      ],
+      "artifact_bindings": [
+        {
+          "path": "/tmp/ora_v162_public_temperature_ranges_GREEN.log",
+          "bytes": 111,
+          "sha256": "74cb7c76895a0c7a8b1c686f77f426af90a943118aba351fa87b1380c190ad73"
+        },
+        {
+          "path": "docs/evidence/public_read_v162_2026-10-12_temperature_replay_red.json",
+          "bytes": 1007,
+          "sha256": "4f30b813e51be648d9e69649c112bcfe237bcf9444616ae1fa606267aeeaee54"
+        },
+        {
+          "path": "docs/evidence/public_read_v162_2026-10-12_temperature_replay_green.json",
+          "bytes": 1326,
+          "sha256": "6e7c2ae572f622cca683163dc52c5720280f65fbf9077ae098f657f7c899b58e"
+        }
+      ]
+    },
+    {
+      "id": "model_current_fact_provenance",
+      "status": "local_frozen_with_legacy_failure_disclosed",
+      "new_tests": 16,
+      "red": {
+        "failed": 14,
+        "passed": 2
+      },
+      "module_result": {
+        "passed": 16,
+        "seconds": 0.26
+      },
+      "related_group_result": {
+        "passed": 31,
+        "failed": 1,
+        "seconds": 0.46
+      },
+      "proof": "Model-generated current_facts retain code-owned model/inferred/INFERENCE origin. Legacy rows without attested origin remain unknown; legitimate ContextFact/user-turn provenance remains intact.",
+      "limits": "The existing travel expectation failed in the related suite and in an isolated counterprobe loading only the two 630 modules in memory. This is not a full historical checkout or suite. Root keeps the legacy test unchanged and documents it as pre-existing.",
+      "file_bindings": [
+        {
+          "path": "backend/conversation_engine/ai_core/state.py",
+          "bytes": 7410,
+          "sha256": "369f15332b61f45112f3259a2a3ef9881f60f079daa5cfd5f61be62661d4306a"
+        },
+        {
+          "path": "backend/conversation_engine/ai_core/grounding/temporal.py",
+          "bytes": 3391,
+          "sha256": "e07476f60fb6682ff1659e384fa7ba833bf96199b3f4c3f2bf4a20b36b5e3942"
+        },
+        {
+          "path": "backend/tests/test_current_fact_provenance_v162.py",
+          "bytes": 8248,
+          "sha256": "653ddeacc1f8169953db32e90a8ad5ea8dfa699b393d09ab4f231128b01f88ce"
+        }
+      ],
+      "artifact_bindings": [
+        {
+          "path": "/tmp/ora_v162_current_fact_provenance_commands.json",
+          "bytes": 5052,
+          "sha256": "72023868dcdd547dbb9c39817719584c665d1d1ae31e44586f906780a634974c"
+        },
+        {
+          "path": "/tmp/ora_v162_current_fact_provenance_red.log",
+          "bytes": 25367,
+          "sha256": "68526487ca782e586e2d2e2bbf5f887eab062b53ed6ea1b867ddfcf695b6d9f8"
+        },
+        {
+          "path": "/tmp/ora_v162_current_fact_provenance_green.log",
+          "bytes": 2222,
+          "sha256": "b8f3161c82def76a4a0873c3dd1d165939375541958a192e8e8ce2111926fc2c"
+        },
+        {
+          "path": "/tmp/ora_v162_current_fact_provenance_regressions.log",
+          "bytes": 4729,
+          "sha256": "d2daba2481011959702df2ccf17e3f8b7e222b92fe3c51eb3dd2b77054f35c4b"
+        },
+        {
+          "path": "/tmp/ora_v162_current_fact_provenance_legacy_baseline.log",
+          "bytes": 3114,
+          "sha256": "466a32db4e50d538e27f229acc9d311adcb8f8f2df88921ee815b03277d52d57"
+        }
+      ],
+      "legacy_resolution": "unchanged_and_disclosed_as_pre_existing"
+    },
+    {
+      "id": "truthful_scheduled_check_fallback",
+      "status": "local_frozen",
+      "new_tests": 5,
+      "red": {
+        "failed": 1,
+        "passed": 4
+      },
+      "related_group_result": {
+        "passed": 22,
+        "seconds": 0.71
+      },
+      "proof": "If a physical estimate is unsupported, the fallback may still mention the scheduled/due check only after re-reading the current owner-bound follow-up.",
+      "limits": "No new estimate, scheduling action, or receipt promise; unavailable/cancelled/changed follow-ups do not justify a stale time.",
+      "file_bindings": [
+        {
+          "path": "backend/conversation_engine/ai_core/loop.py",
+          "bytes": 229794,
+          "sha256": "3600494a0c0f0eb2bc83f85e83a878186281666fc099f11dc50d435ea52f0289"
+        },
+        {
+          "path": "backend/tests/test_situation_estimate_schedule_truth_v162.py",
+          "bytes": 5076,
+          "sha256": "1674064a9f928af1d132c711bf51e297e5894cdcae4ddde589f011eddb31865a"
+        }
+      ],
+      "artifact_bindings": [
+        {
+          "path": "/tmp/ora_v162_estimate_schedule_green.log",
+          "bytes": 111,
+          "sha256": "c3402aa4b77857fd03f3c683de9ac1fa7760e1a4c987ef2c652dcbac77fdb4fe"
+        }
+      ]
+    },
+    {
+      "id": "valid_step_declaration_examples",
+      "status": "local_frozen",
+      "new_tests": 8,
+      "red": {
+        "failed": 3,
+        "passed": 5
+      },
+      "related_group_result": {
+        "passed": 63,
+        "seconds": 1.86
+      },
+      "proof": "Examples use valid concrete step declarations and omit inapplicable fields; they do not authorize execution or modify model output in code.",
+      "limits": "Historic bounded diagnostics did not record the exact rejected values. Valid examples do not prove that a future model will produce correct steps or semantics.",
+      "file_bindings": [
+        {
+          "path": "backend/agent/reasoning.py",
+          "bytes": 98120,
+          "sha256": "a5610ae63027c1705f87fe47cfa958bdd527397136d14fb0462cae32516320c6"
+        },
+        {
+          "path": "backend/tests/test_agent_step_examples_v162.py",
+          "bytes": 2099,
+          "sha256": "f8c5af4f44e48526980a23b61abb8367c0e36e25e5fbe415798edfb50503b39f"
+        },
+        {
+          "path": "backend/tests/test_agent_replan_protocol_v162.py",
+          "bytes": 14270,
+          "sha256": "16788d9960e72197d4728d06b4c63c85eeaaf8ccc31f09693e8eac0a75c347ec"
+        }
+      ],
+      "artifact_bindings": [
+        {
+          "path": "/tmp/ora_v162_step_examples_green.log",
+          "bytes": 113,
+          "sha256": "40b54d3f4e0ec692702df2afc33d3b9f38f4ef5f91820f0dc0132244ec1dca63"
+        }
+      ]
+    },
+    {
+      "id": "step_declaration_diagnostics",
+      "status": "local_frozen",
+      "new_tests": 16,
+      "red": null,
+      "related_group_result": {
+        "passed": 75,
+        "seconds": 1.9
+      },
+      "proof": "Report-only allowlist records field presence and JSON kinds, including absence versus null and revised-step aliases, within existing limits.",
+      "limits": "New observability, not a mirrored RED regression or a runtime parser/decision change. Does not export raw parameters/targets or reinterpret original verdicts.",
+      "file_bindings": [
+        {
+          "path": "backend/scripts/autonomy_completion_eval_v162.py",
+          "bytes": 95711,
+          "sha256": "939aefda4097e688d0b5971b1734cf07c11bc731a3349c21599691219dd726e8",
+          "initial_focused_observation": {
+            "path": "backend/scripts/autonomy_completion_eval_v162.py",
+            "bytes": 95651,
+            "sha256": "1e100a5498ccc4637b6fda4b013003897f2d6785c746ebdce731fbb3d37319d0"
+          }
+        },
+        {
+          "path": "backend/tests/test_autonomy_declaration_diagnostics_v162.py",
+          "bytes": 2713,
+          "sha256": "bdefbc324c426b8c436fd5e2d1f462fc6e32047eebf607cafc502309ea708236"
+        }
+      ],
+      "artifact_bindings": [
+        {
+          "path": "/tmp/ora_v162_declaration_diagnostics_green.log",
+          "bytes": 194,
+          "sha256": "32749ab0ba983b7f163b7c0ba3cf48c5159d9cdaededa6f0b09be0a295f461a2"
+        }
+      ]
+    },
+    {
+      "id": "action_context_diagnostics",
+      "status": "local_verified",
+      "new_tests": 15,
+      "red": {
+        "failed": 5,
+        "passed": 10
+      },
+      "module_result": {
+        "passed": 15,
+        "seconds": 1.3
+      },
+      "proof": "Observe the original synchronous context reducer only inside the evaluator-owned _next and freshly checked synthetic marker. Record actual logged refusal cause, input hash/section sizes and bounded redacted text without changing a result or model call.",
+      "limits": "Future observation, not retrospective attribution of the 630 Home failure. Existing context cap and all acceptance/model budgets remain unchanged.",
+      "file_bindings": [
+        {
+          "path": "backend/scripts/autonomy_completion_eval_v162.py",
+          "bytes": 95711,
+          "sha256": "939aefda4097e688d0b5971b1734cf07c11bc731a3349c21599691219dd726e8"
+        },
+        {
+          "path": "backend/tests/test_autonomy_context_diagnostics_v162.py",
+          "bytes": 12106,
+          "sha256": "16f7a6f5862fdcd1ee534ab7c7f3375671021fff9bbd873e68684fbe85868217"
+        }
+      ],
+      "verification": {
+        "path": "docs/evidence/autonomy_v162_2026-10-12_context_diagnostics_verification.json",
+        "bytes": 2617,
+        "sha256": "a3f9b384c8ea128ac77462151bd5ff4213805698c3e95968ed4cc363b2026d8d"
+      }
+    }
+  ],
+  "local_candidate": {
+    "code_commit": "9fdc2af983b8323f956583b6ec7f90c58ab7dbee",
+    "code_tree": "e9d09b89c5e12f7034aaaf08c43b024818e5a239",
+    "working_tree_code_modified": false,
+    "code_binding": "The local commit was created before the integrated checks; the published commit will also contain this evidence and documentation.",
+    "published_head": null,
+    "published_tree": null,
+    "aggregate": {
+      "status": "passed",
+      "failed": 0,
+      "passed": 1653,
+      "skipped": 1,
+      "modules": 135,
+      "seconds": 69.19,
+      "selectors": 137,
+      "command_and_complete_log": "docs/evidence/autonomy_v162_followup_2026-10-12_logs.json.gz",
+      "skipped_test": {
+        "node": "tests/test_ai_provider_manager.py::test_real_gemini_enrichment_optional",
+        "reason": "GEMINI_API_KEY absent — real Gemini not verified",
+        "attribution": "The only skip/skipif declaration in the 135 selected modules; the optional real-provider test is not part of local model-free verification."
+      }
+    },
+    "scripted_gate": {
+      "status": "passed",
+      "cases": 9,
+      "total_cases": 9,
+      "real_model_executed": false,
+      "model_http_requests": 0,
+      "external_effects": 0,
+      "code_revision_reported": null,
+      "execution_source_commit": "9fdc2af983b8323f956583b6ec7f90c58ab7dbee",
+      "source_binding": "Root created this local commit before invoking the recorded helper; source files remained unchanged throughout. The local report intentionally has no deployment/CI revision metadata.",
+      "complete_report": "docs/evidence/autonomy_v162_followup_2026-10-12_logs.json.gz"
+    },
+    "new_ci": {
+      "status": "not_run_at_recording"
+    },
+    "new_live": {
+      "status": "not_run_at_recording"
+    },
+    "test_group_counts_must_not_be_added": true
+  },
+  "native_and_app_limit": "630 CI checks Expo config/prebuild/iOS JS export and browser simulation. It does not attest signed installation, updated application deployment, or useful push receipt with the app closed.",
+  "canonical_docs_before_draft": [
+    {
+      "path": "docs/PRODUCT.md",
+      "bytes": 177806,
+      "sha256": "a9b83d2c59687874795f528381ba7a498ce537b7b1a0ddaea95416db1445034b"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "bytes": 326215,
+      "sha256": "2e37d2dcf6d55447918c4d0e2050105f3ec80b6f2ad9c38a38332390862f8dd4"
+    },
+    {
+      "path": "docs/DEVELOPMENT_STATE.md",
+      "bytes": 380691,
+      "sha256": "aba371cfbdc62da602608711428ce23bcdda20bfea60127712b4946a97c80b49"
+    },
+    {
+      "path": "docs/CHANGELOG_AI.md",
+      "bytes": 392041,
+      "sha256": "9f494e6af3e53d416bad1f55971857609571b175084e4230ac94d692043d70c3"
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "bytes": 134144,
+      "sha256": "3588bdb4525d7a3007409dc97418df0f2f8f92992798a5465211dc7bfb2f4fbb"
+    },
+    {
+      "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+      "bytes": 140790,
+      "sha256": "439cbaa996f74b3b3e7e10d42f38cb70ea29528f481b0fb52df8a5fa49e15c94"
+    }
+  ],
+  "manual_pending_before_integration": [],
+  "planned_local_log_archive": {
+    "status": "saved_verified",
+    "path": "docs/evidence/autonomy_v162_followup_2026-10-12_logs.json.gz",
+    "bytes": 55510,
+    "sha256": "670b14e1b32f28a1f2de41bc769936ff41d95f29fb509c590603daa2421f1aed",
+    "original_bytes": 556628,
+    "original_sha256": "2c7725924905089fe2edb74a129ecbba8a7209e37a773933e0d6ffee62e25f36",
+    "entries": [
+      {
+        "source_local_path": "/tmp/ora_v162_estimate_schedule_red.log",
+        "bytes": 1567,
+        "sha256": "f789930a3136fac43ba43d47c345cb0e27711055e329ca0948632d27f684d1c4"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_estimate_schedule_green.log",
+        "bytes": 111,
+        "sha256": "c3402aa4b77857fd03f3c683de9ac1fa7760e1a4c987ef2c652dcbac77fdb4fe"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_step_examples_red.log",
+        "bytes": 1792,
+        "sha256": "e9980dc000e9bc26f319b7c857c0f371d6113550d3f949ca401ded090d17ffe2"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_step_examples_green.log",
+        "bytes": 113,
+        "sha256": "40b54d3f4e0ec692702df2afc33d3b9f38f4ef5f91820f0dc0132244ec1dca63"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_declaration_diagnostics_green.log",
+        "bytes": 194,
+        "sha256": "32749ab0ba983b7f163b7c0ba3cf48c5159d9cdaededa6f0b09be0a295f461a2"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_declaration_integration_green.log",
+        "bytes": 110,
+        "sha256": "a37eff99b6521a89f21a04f2017f1b687156a67f551d750b3438aa84d5057dfc"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_calendar_example_integration_green.log",
+        "bytes": 110,
+        "sha256": "782a9e7d305b114b48bca38a22caf924d4047a838d993c572ba9b737991da1b9"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_followup_attempt1_local_pytest.log",
+        "bytes": 4394,
+        "sha256": "2bb5bf4e5959c4cd3819723e30536b6bc1bc008b4a4199b9478a4a8d7cfd97f4"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_followup_attempt1_local_command.json",
+        "bytes": 7293,
+        "sha256": "669b9523c0dd61110e88ecdd515861bbd5cd1b0f97ad528e62626e697efb5c64"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_autonomy_context_diagnostics_RED.log",
+        "bytes": 3854,
+        "sha256": "7fa2314be8441d3514dc9e84776ff1cc72c8be1d67ef09483f0cc5344bf409a9"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_autonomy_context_diagnostics_module_GREEN.log",
+        "bytes": 111,
+        "sha256": "546d1b27f9b738da2786577cfe80d0001a21872f5f1d72561d5e5b3b5fc2f78e"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_autonomy_context_diagnostics_integration_RED.log",
+        "bytes": 2002,
+        "sha256": "b8761bbf15b5226d31e6706adedacb90173f5e63cb7dc27fc8950e4264fbe5db"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_autonomy_context_diagnostics_freeze.json",
+        "bytes": 2617,
+        "sha256": "a3f9b384c8ea128ac77462151bd5ff4213805698c3e95968ed4cc363b2026d8d"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_current_facts_provenance_probe.py",
+        "bytes": 4674,
+        "sha256": "f6e9ff46353544772f759ff04fac7d1b37efcc853d1d293de34d1ed4966ef68b"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_current_facts_provenance_probe.json",
+        "bytes": 2002,
+        "sha256": "ba8c7e438a88c819323926ae51f3267a1168e4372a584b99e6f48b62ebea3d5d"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_current_fact_provenance_red.log",
+        "bytes": 25367,
+        "sha256": "68526487ca782e586e2d2e2bbf5f887eab062b53ed6ea1b867ddfcf695b6d9f8"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_current_fact_provenance_green.log",
+        "bytes": 2222,
+        "sha256": "b8f3161c82def76a4a0873c3dd1d165939375541958a192e8e8ce2111926fc2c"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_current_fact_provenance_regressions.log",
+        "bytes": 4729,
+        "sha256": "d2daba2481011959702df2ccf17e3f8b7e222b92fe3c51eb3dd2b77054f35c4b"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_current_fact_provenance_legacy_baseline.log",
+        "bytes": 3114,
+        "sha256": "466a32db4e50d538e27f229acc9d311adcb8f8f2df88921ee815b03277d52d57"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_current_fact_baseline_check.py",
+        "bytes": 819,
+        "sha256": "75d4b3394738955b3c6d00039482eae739d241158dadc25b1fa781089b7afac9"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_schedule_runner_RED.log",
+        "bytes": 14391,
+        "sha256": "ccbc7f331b5c51dc9a599c81ec6dcf31e355266eb3429ec4ce59e93d53c8cb17"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_schedule_runner_GREEN.log",
+        "bytes": 2630,
+        "sha256": "b5e6449d5ffa8fbbf94167cae50d440a43835f6184a2977fa688e28219dcbdde"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_schedule_runner_FULL_GREEN.log",
+        "bytes": 2616,
+        "sha256": "c942f02fbb4bef3a531d04c5445ef4d02346981803a38738a10ba7bdda077588"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_schedule_runner_RED_report.json",
+        "bytes": 4054,
+        "sha256": "8ba3c2e1217249cd85638eed050c5f2700c814f2ace7fb10a8ef264e8b7cb2b2"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_schedule_runner_GREEN_report.json",
+        "bytes": 9955,
+        "sha256": "531ecb0f8612aa9ebbc3e4b2b5d3423fb074220cc862c80036419812e403d66e"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_schedule_runner_first_cycle_GREEN.json",
+        "bytes": 99683,
+        "sha256": "663accac6fbe3dd01a3bd819e5e68181ccb0a02e55d986d2b7087f81e89fcfba"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_public_temperature_ranges_RED.log",
+        "bytes": 5393,
+        "sha256": "089d034dc3f59294482cb53b372b7b31260a12828ee070b3ba4a43528e3da991"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_public_temperature_ranges_GREEN.log",
+        "bytes": 111,
+        "sha256": "74cb7c76895a0c7a8b1c686f77f426af90a943118aba351fa87b1380c190ad73"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_ff6_vision_backend.log",
+        "bytes": 40251,
+        "sha256": "76565334b9d16dc3303520cc27977cc29c60f72e60e34d3d783cc5d838cfabee"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_ff6_vision_presentation.log",
+        "bytes": 1903,
+        "sha256": "413920c47895999341569894e414139c7e1e883dea88410ad18c4c92c994fa5d"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_ff6_vision_presentation_green.log",
+        "bytes": 17151,
+        "sha256": "6821c4ef38316f03d456fd7907cdfd245482fcf9473c6fe1d9fcf42b07e152d9"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_followup_verify.py",
+        "bytes": 5262,
+        "sha256": "aaab60227516d448ee6b18cc9503893fd7812ac5b002004e70d8320b3173c394"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_followup_local_command.json",
+        "bytes": 7293,
+        "sha256": "669b9523c0dd61110e88ecdd515861bbd5cd1b0f97ad528e62626e697efb5c64"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_followup_local_pytest.log",
+        "bytes": 1899,
+        "sha256": "dafb7268010f806c693f5789cbb6a3a0f316e81d9511e1ac4d6d950e283a63c0"
+      },
+      {
+        "source_local_path": "/tmp/ora_v162_followup_local_metrics.json",
+        "bytes": 74,
+        "sha256": "913e53c812a3df1782d376814416829ef116e9c31a95e53cf8a7a877f8a8929e"
+      },
+      {
+        "source_local_path": "/tmp/ora-autonomy-v162-followup-scripted.json",
+        "bytes": 134555,
+        "sha256": "a5d202e36323c15841afa488530af1e4cb5682a0ea0e619243ff9a218763656c"
+      },
+      {
+        "source_local_path": "/tmp/ora-autonomy-v162-followup-scripted.log",
+        "bytes": 98325,
+        "sha256": "6eca18825e757c2e07eb1e6398cb82d14d7b6581fb8addaf368bcf28de0a8ee2"
+      }
+    ]
+  },
+  "additional_preserved_local_manifests": [
+    {
+      "path": "docs/evidence/autonomy_v162_2026-10-12_plan_schema_compatibility_review.json",
+      "bytes": 4814,
+      "sha256": "744b896aed32cba244efb7c97426422c468daecbdf2056d0a82a93c3a020f875"
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_2026-10-12_current_fact_provenance_verification.json",
+      "bytes": 5052,
+      "sha256": "72023868dcdd547dbb9c39817719584c665d1d1ae31e44586f906780a634974c"
+    },
+    {
+      "path": "docs/evidence/situation_v162_2026-10-12_schedule_runner_verification.json",
+      "bytes": 2937,
+      "sha256": "58da5149f3c2367e4940a269528dc90759483bdd372cc3619819237e322aaddb"
+    }
+  ],
+  "planning_schema_decision": {
+    "status": "not_added_in_this_delta",
+    "source": "docs/evidence/autonomy_v162_2026-10-12_plan_schema_compatibility_review.json",
+    "reason": "A strict native schema and arbitrary open tool parameters do not form a minimal compatible contract. Existing validation, valid examples, and typed diagnostics remain; no schema guarantee is claimed."
+  },
+  "recorded_at": "2026-10-12T11:42:53.932776+00:00",
+  "current_code_bindings": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 27771,
+      "sha256": "c59524bb0c6ba5168b6265c0ce835c57e4f8c1d06dba4883b7395527eb1aace7"
+    },
+    {
+      "path": "backend/agent/reasoning.py",
+      "bytes": 98120,
+      "sha256": "a5610ae63027c1705f87fe47cfa958bdd527397136d14fb0462cae32516320c6"
+    },
+    {
+      "path": "backend/conversation_engine/ai_core/grounding/temporal.py",
+      "bytes": 3391,
+      "sha256": "e07476f60fb6682ff1659e384fa7ba833bf96199b3f4c3f2bf4a20b36b5e3942"
+    },
+    {
+      "path": "backend/conversation_engine/ai_core/loop.py",
+      "bytes": 229794,
+      "sha256": "3600494a0c0f0eb2bc83f85e83a878186281666fc099f11dc50d435ea52f0289"
+    },
+    {
+      "path": "backend/conversation_engine/ai_core/state.py",
+      "bytes": 7410,
+      "sha256": "369f15332b61f45112f3259a2a3ef9881f60f079daa5cfd5f61be62661d4306a"
+    },
+    {
+      "path": "backend/scripts/autonomy_completion_eval_v162.py",
+      "bytes": 95711,
+      "sha256": "939aefda4097e688d0b5971b1734cf07c11bc731a3349c21599691219dd726e8"
+    },
+    {
+      "path": "backend/scripts/phase1_semantic_numeric.py",
+      "bytes": 2315,
+      "sha256": "de170c0b05a7a7a36f4a388ffd289a3b4b1a05a36dc91b2cc2e659e303a72710"
+    },
+    {
+      "path": "backend/scripts/situation_live_eval_v162.py",
+      "bytes": 57096,
+      "sha256": "cffcd655466ad088a64c6fe266f2f4745b1101551c9207375512a1680b243770"
+    },
+    {
+      "path": "backend/tests/test_agent_replan_protocol_v162.py",
+      "bytes": 14270,
+      "sha256": "16788d9960e72197d4728d06b4c63c85eeaaf8ccc31f09693e8eac0a75c347ec"
+    },
+    {
+      "path": "backend/tests/test_agent_step_examples_v162.py",
+      "bytes": 2099,
+      "sha256": "f8c5af4f44e48526980a23b61abb8367c0e36e25e5fbe415798edfb50503b39f"
+    },
+    {
+      "path": "backend/tests/test_autonomy_completion_eval_v162.py",
+      "bytes": 42929,
+      "sha256": "4ba37482be36c4af513b40e7394f28c9f291494f8093749664a568b86a0cb10c"
+    },
+    {
+      "path": "backend/tests/test_autonomy_context_diagnostics_v162.py",
+      "bytes": 12106,
+      "sha256": "16f7a6f5862fdcd1ee534ab7c7f3375671021fff9bbd873e68684fbe85868217"
+    },
+    {
+      "path": "backend/tests/test_autonomy_declaration_diagnostics_v162.py",
+      "bytes": 2713,
+      "sha256": "bdefbc324c426b8c436fd5e2d1f462fc6e32047eebf607cafc502309ea708236"
+    },
+    {
+      "path": "backend/tests/test_current_fact_provenance_v162.py",
+      "bytes": 8248,
+      "sha256": "653ddeacc1f8169953db32e90a8ad5ea8dfa699b393d09ab4f231128b01f88ce"
+    },
+    {
+      "path": "backend/tests/test_planner_calendar_modify_v50.py",
+      "bytes": 5432,
+      "sha256": "d82f4b33aad346def2fdc460fc52b9b67a7e5a69b8893ab9b3ee229f95140a2b"
+    },
+    {
+      "path": "backend/tests/test_public_temperature_ranges_v162.py",
+      "bytes": 3654,
+      "sha256": "dca9b355874761b5aa57eceefe85f86d22ab24aa8467ced8854a305eff6018a4"
+    },
+    {
+      "path": "backend/tests/test_situation_estimate_schedule_truth_v162.py",
+      "bytes": 5076,
+      "sha256": "1674064a9f928af1d132c711bf51e297e5894cdcae4ddde589f011eddb31865a"
+    },
+    {
+      "path": "backend/tests/test_situation_live_eval_v162.py",
+      "bytes": 33381,
+      "sha256": "e36715e3f9302a7e8ebc07002b6cf3cf0dfd39b9880afc3454427c4c77a2c491"
+    },
+    {
+      "path": "backend/vision_catalog_extended/more_everyday.py",
+      "bytes": 28764,
+      "sha256": "2039e2ad781d8f3074a2741dcaefbc857e15e4f43481ab5b461d0c0e6eaff309"
+    },
+    {
+      "path": "backend/vision_seed_library.py",
+      "bytes": 26420,
+      "sha256": "065c6238fc2443e0a42d74581fcecdbdf0aa32e3176c221c0bad31c7e72a5650"
+    },
+    {
+      "path": "backend/vision_tests/test_catalog75.py",
+      "bytes": 8428,
+      "sha256": "fb4dcfdc2dbb49b2b2891029f2f2f3e1f5ed0598c70f423884a1bd74f83cbd19"
+    },
+    {
+      "path": "backend/vision_tests/test_seed_pack.py",
+      "bytes": 5919,
+      "sha256": "3419bc4cfd85265e4ae32613dccc9613376fe112be48b1e0b36d68a3c36e832e"
+    },
+    {
+      "path": "frontend/e2e/vision-catalog-camera.spec.ts",
+      "bytes": 10223,
+      "sha256": "e3511cc9ba83a48692f98dc7c7daddac67aea108b56f7b0be208b86586b943ee"
+    },
+    {
+      "path": "frontend/e2e/vision-catalog75.spec.ts",
+      "bytes": 4014,
+      "sha256": "ba9246646fabbcb47e2dad7f4a86b27bde6f4725b92993f6e539a8b0fe82e8a5"
+    },
+    {
+      "path": "frontend/src/vision-xray/presentation.test.mjs",
+      "bytes": 5243,
+      "sha256": "6877203bf6178475ae4bd0a6cdf94d245c1c4f6bc41ac190a25dc4163d16edc8"
+    },
+    {
+      "path": "frontend/src/vision-xray/walkthrough.test.mjs",
+      "bytes": 8959,
+      "sha256": "dee06054b0b72d76f8bf64462394ccaa5a693871f93b583cd186f80d6b4f6a3a"
+    }
+  ],
+  "integration_regressions": [
+    {
+      "scope": "Earlier diagnostic group",
+      "passed": 142,
+      "failed": 2,
+      "cause": "New diagnostic field and changed truncation-field order conflicted with old report-shape assertions.",
+      "resolution": "Preserve the original field order and compare all original fields exactly, then assert added type metadata separately.",
+      "focused_after_correction": {
+        "passed": 5
+      },
+      "raw_outputs": "docs/evidence/autonomy_v162_followup_2026-10-12_logs.json.gz"
+    },
+    {
+      "code_commit": "c5f2198ce3cc18a31a6fdfdc028316be2b2514db",
+      "passed": 1510,
+      "skipped": 1,
+      "failed": 1,
+      "seconds": 67.94,
+      "scripted_cli": "not_run",
+      "cause": "The calendar planning test expected the old invalid pipe-delimited effect example.",
+      "resolution": "Retain all existing calendar correction instructions and allowed effect choices; validate the new execute/modify example through the real step parser.",
+      "focused_after_correction": {
+        "passed": 4
+      },
+      "raw_outputs": "docs/evidence/autonomy_v162_followup_2026-10-12_logs.json.gz"
+    }
+  ],
+  "vision_base_integration": {
+    "preserved_commit": "ff6d273a0f71f35ae3cdf6aa28a92926a452b187",
+    "reviewed_files": 8,
+    "local_backend": {
+      "passed": 147,
+      "setup_errors": 10,
+      "reason": "No local Mongo instance; all ten failures occur at the real isolated Mongo fixture setup.",
+      "real_mongo_proof": "not_run_locally"
+    },
+    "local_node": {
+      "passed": 192,
+      "failed": 0,
+      "skipped": 0,
+      "fixture": "Generated from the real 126-entry catalogue after the initial missing-fixture run."
+    },
+    "new_ci_gate": "Reviewed Vision catalogue identity and real Mongo persistence uses the existing CI Mongo service for the two changed Vision modules.",
+    "raw_outputs": "docs/evidence/autonomy_v162_followup_2026-10-12_logs.json.gz"
+  },
+  "new_validation_pending": [
+    "Publish the reviewed candidate with exact tree verification.",
+    "Collect CI and the one bounded, authorized technical live run for the exact new source."
+  ],
+  "app_release_boundary": {
+    "application_deployment": "not_performed",
+    "automatic_review_rejection": "INVALID_ARGUMENT — Cancelled — the user did not approve this action. No changes were made.",
+    "pending_patch": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+    "technical_run_scope": "Separate existing isolated evaluation service; no acceptance of the application patch or staging merge.",
+    "signed_installation_and_closed_app_receipt": "not_verified"
+  },
+  "documentation_integration": [
+    {
+      "path": "docs/PRODUCT.md",
+      "new_prefix_bytes": 3131,
+      "historical_suffix_preserved": true
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "new_prefix_bytes": 4921,
+      "historical_suffix_preserved": true
+    },
+    {
+      "path": "docs/DEVELOPMENT_STATE.md",
+      "new_prefix_bytes": 4897,
+      "historical_suffix_preserved": true
+    },
+    {
+      "path": "docs/CHANGELOG_AI.md",
+      "new_prefix_bytes": 4844,
+      "historical_suffix_preserved": true
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "new_prefix_bytes": 3899,
+      "historical_suffix_preserved": true
+    },
+    {
+      "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+      "new_prefix_bytes": 11397,
+      "historical_suffix_preserved": true
+    }
+  ]
+}

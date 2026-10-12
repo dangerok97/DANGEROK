@@ -1,0 +1,94 @@
+{
+  "cwd": "/workspace/scratch/abe5c63b5e73/ora/backend",
+  "model_or_provider_calls": 0,
+  "database_reads_or_writes": 0,
+  "new_dependencies": [],
+  "runtime_scope": [
+    "backend/conversation_engine/ai_core/state.py",
+    "backend/conversation_engine/ai_core/grounding/temporal.py"
+  ],
+  "new_test": "backend/tests/test_current_fact_provenance_v162.py",
+  "caller_inventory": {
+    "runtime": [
+      "backend/conversation_engine/ai_core/state.py::apply_state_updates"
+    ],
+    "test_import_only": [
+      "backend/conversation_engine/tests/test_ai_native_tools_v22.py"
+    ],
+    "other_runtime_callers": []
+  },
+  "runs": [
+    {
+      "phase": "red",
+      "command": "set -o pipefail\nPYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only JWT_SECRET=ora-v162-synthetic-test-only CONTINUITY_REAL_MONGO=0 /workspace/scratch/ee708e10d9bd/ora-resume/.venv/bin/python -m pytest -q -n 0 tests/test_current_fact_provenance_v162.py 2>&1 | tee /tmp/ora_v162_current_fact_provenance_red.log",
+      "log": "/tmp/ora_v162_current_fact_provenance_red.log",
+      "exit_code": 1,
+      "passed": 2,
+      "failed": 14,
+      "seconds": 0.34,
+      "log_bytes": 25367,
+      "log_sha256": "68526487ca782e586e2d2e2bbf5f887eab062b53ed6ea1b867ddfcf695b6d9f8"
+    },
+    {
+      "phase": "green",
+      "command": "set -o pipefail\nPYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only JWT_SECRET=ora-v162-synthetic-test-only CONTINUITY_REAL_MONGO=0 /workspace/scratch/ee708e10d9bd/ora-resume/.venv/bin/python -m pytest -q -n 0 tests/test_current_fact_provenance_v162.py 2>&1 | tee /tmp/ora_v162_current_fact_provenance_green.log",
+      "log": "/tmp/ora_v162_current_fact_provenance_green.log",
+      "exit_code": 0,
+      "passed": 16,
+      "failed": 0,
+      "seconds": 0.26,
+      "log_bytes": 2222,
+      "log_sha256": "b8f3161c82def76a4a0873c3dd1d165939375541958a192e8e8ce2111926fc2c"
+    },
+    {
+      "phase": "related_regression",
+      "command": "set -o pipefail\nPYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only JWT_SECRET=ora-v162-synthetic-test-only CONTINUITY_REAL_MONGO=0 /workspace/scratch/ee708e10d9bd/ora-resume/.venv/bin/python -m pytest -q -n 0 tests/test_current_fact_provenance_v162.py conversation_engine/tests/test_ai_native_tools_v22.py 2>&1 | tee /tmp/ora_v162_current_fact_provenance_regressions.log",
+      "log": "/tmp/ora_v162_current_fact_provenance_regressions.log",
+      "exit_code": 1,
+      "passed": 31,
+      "failed": 1,
+      "seconds": 0.46,
+      "failure": "conversation_engine/tests/test_ai_native_tools_v22.py::test_a_travel_needs_external_tool",
+      "log_bytes": 4729,
+      "log_sha256": "d2daba2481011959702df2ccf17e3f8b7e222b92fe3c51eb3dd2b77054f35c4b"
+    },
+    {
+      "phase": "same_failure_without_delta",
+      "command": "set -o pipefail\nPYTHONPATH=/workspace/scratch/abe5c63b5e73/ora/backend PYTHON_DOTENV_DISABLED=1 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=ora_eval_synthetic_only JWT_SECRET=ora-v162-synthetic-test-only CONTINUITY_REAL_MONGO=0 /workspace/scratch/ee708e10d9bd/ora-resume/.venv/bin/python /tmp/ora_v162_current_fact_baseline_check.py 2>&1 | tee /tmp/ora_v162_current_fact_provenance_legacy_baseline.log",
+      "script": "/tmp/ora_v162_current_fact_baseline_check.py",
+      "log": "/tmp/ora_v162_current_fact_provenance_legacy_baseline.log",
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 1,
+      "seconds": 0.35,
+      "limit": "Only state.py and grounding/temporal.py restored in memory from6300201; all other local code unchanged. No file checkout or mutation.",
+      "log_bytes": 3114,
+      "log_sha256": "466a32db4e50d538e27f229acc9d311adcb8f8f2df88921ee815b03277d52d57"
+    }
+  ],
+  "limitations": [
+    "The metadata attest model authorship, not truth, source support, schedule persistence or physical completion.",
+    "A summarized current value is not upgraded to user testimony; original user roles and trusted reader ContextFacts retain their own authority and references.",
+    "Legacy records without the exact code-owned origin envelope remain usable context with unknown origin; no migration or new reads.",
+    "No StateUpdate field, loop, prompt, budget, provider, scheduler, app data, commit or staging changed by this patch."
+  ],
+  "verification": {
+    "compile": "passed",
+    "diff_check": "passed",
+    "repo_head_when_frozen": "fdec1da9b64be2603fcd3f84bbb443dff5813850",
+    "files": [
+      {
+        "path": "backend/conversation_engine/ai_core/state.py",
+        "sha256": "369f15332b61f45112f3259a2a3ef9881f60f079daa5cfd5f61be62661d4306a"
+      },
+      {
+        "path": "backend/conversation_engine/ai_core/grounding/temporal.py",
+        "sha256": "e07476f60fb6682ff1659e384fa7ba833bf96199b3f4c3f2bf4a20b36b5e3942"
+      },
+      {
+        "path": "backend/tests/test_current_fact_provenance_v162.py",
+        "sha256": "653ddeacc1f8169953db32e90a8ad5ea8dfa699b393d09ab4f231128b01f88ce"
+      }
+    ]
+  }
+}

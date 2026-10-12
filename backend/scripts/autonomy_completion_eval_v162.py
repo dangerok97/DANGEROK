@@ -18,6 +18,7 @@ from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import logging
 import math
@@ -50,6 +51,9 @@ MODEL_FAILURE_KINDS = frozenset({"llm_error", "not_configured", "provider_unavai
     "invalid_response", "internal", "cooldown"})
 CASE_TIMEOUT_SECONDS = 240
 MAX_DECISION_OBSERVATIONS = 12
+CONTEXT_TEXT_LIMIT = 9000
+ACTION_CONTEXT_FIELDS = ("goal", "plan", "local_clock", "still_to_do", "what_has_been_found",
+                         "what_ora_can_do", "prepared_result", "prepared_source_refs")
 DECISION_TEXT_LIMIT = 400
 MAX_DIAGNOSTIC_PROPOSALS = 3
 MAX_DIAGNOSTIC_PLAN_STEPS = 6
@@ -103,6 +107,8 @@ class Probe:
     admission_observations: list[dict[str, Any]] = field(default_factory=list)
     planning_observations: list[dict[str, Any]] = field(default_factory=list)
     planning_observations_omitted: int = 0
+    context_observations: list[dict[str, Any]] = field(default_factory=list)
+    context_observations_omitted: int = 0
     last_planning_run: tuple[str, str] | None = None  # Internal owned goal/run binding; never exported.
     discovery_results: list[dict[str, Any]] = field(default_factory=list)
     steps: list[dict[str, Any]] = field(default_factory=list)
@@ -147,6 +153,9 @@ def model_observations(probe):
             "admission_observations": probe.admission_observations,
             "planning_observations": probe.planning_observations,
             "planning_observations_omitted": probe.planning_observations_omitted,
+            "context_observations": probe.context_observations,
+            "context_observations_omitted": probe.context_observations_omitted,
+            "context_observations_scope": "owned AgentService._next -> choose_next_action -> _action_dump; known logged causes only",
             "result_checks": probe.result_checks,
             "discovery_results": probe.discovery_results,
             "executed_capabilities": (probe.steps if len(probe.steps) <= MAX_DECISION_OBSERVATIONS
@@ -154,6 +163,24 @@ def model_observations(probe):
             "executed_capabilities_omitted": max(0, len(probe.steps) - MAX_DECISION_OBSERVATIONS),
             # Failed calls may still be billable without returning usage.
             "token_usage_scope": "successful_responses_with_provider_usage_only"}
+
+
+def _action_context_observation(payload, result, cause):
+    """Only a caller with the synthetic owner/marker scope may export this."""
+    encode = lambda value: json.dumps(value, ensure_ascii=False, default=str)
+    source = encode(payload)
+    clean = _safe_text(source, CONTEXT_TEXT_LIMIT + 1)
+    return {
+        "stage": "choose_next_action", "available": result is not None,
+        "input_characters": len(source),
+        "input_sha256": hashlib.sha256(source.encode()).hexdigest(),
+        "encoded_characters": len(result) if isinstance(result, str) else None,
+        "section_characters": {key: len(encode(payload[key])) for key in ACTION_CONTEXT_FIELDS
+                               if isinstance(payload, dict) and key in payload},
+        "unavailable_reason": (cause if result is None and cause in
+                               ("prepared_source_missing", "material_context_exceeds_budget") else None),
+        "input": clean[:CONTEXT_TEXT_LIMIT], "input_truncated": len(clean) > CONTEXT_TEXT_LIMIT,
+    }
 
 
 def _model_call_outcome(sequence, result, error, elapsed_ms):
@@ -208,6 +235,31 @@ def _decision_fields(value, fields, *, limit=DECISION_TEXT_LIMIT):
                  and len(value[key]) > limit]
     if shortened:
         out["truncated_fields"] = shortened
+    return out
+
+
+def _step_declaration_diagnostic(value, *, include_alias=False):
+    """Record field presence and JSON types without exporting proposed effects.
+
+    A wrong_type rejection alone cannot distinguish null, a scalar or an
+    object. Keep this report-only observation separate from runtime validation;
+    no input is normalized and no arbitrary parameter/target values are logged.
+    """
+    fields = (("step_type", "type", "capability_needed", "intent", "expected_result")
+              if include_alias else ("step_type", "capability_needed", "intent", "expected_result"))
+    out = _decision_fields(value, fields, limit=160)
+    if not isinstance(value, dict):
+        return out
+    kinds = {str: "text", dict: "object", list: "array", bool: "boolean",
+             int: "integer", float: "number", type(None): "null"}
+    keys = ("step_type", "effect_type", "reversibility", "parameters", "input_refs",
+            "external_effect", "reaches_somebody_else", "effect_target", "asks", "ask_kind")
+    if include_alias:
+        keys += ("type", "what_kind_of_change", "execution_parameters")
+    out["declaration_field_kinds"] = {
+        key: "absent" if key not in value else kinds.get(type(value[key]), "other")
+        for key in keys
+    }
     return out
 
 
@@ -449,9 +501,8 @@ def _decision_result(stage, value, *, preparation_payload=None):
             out["revised_steps_kind"] = _response_kind(steps)
             if isinstance(steps, list):
                 out["revised_steps_count"] = len(steps)
-                out["revised_steps"] = [_decision_fields(item, (
-                    "step_type", "type", "capability_needed", "intent", "expected_result",
-                ), limit=160) for item in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]]
+                out["revised_steps"] = [_step_declaration_diagnostic(item, include_alias=True)
+                    for item in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]]
                 out["revised_steps_omitted"] = max(0, len(steps) - MAX_DIAGNOSTIC_PLAN_STEPS)
         if "replace_step_ids" in value:
             out.update(_diagnostic_refs(value, "replace_step_ids"))
@@ -470,9 +521,8 @@ def _decision_result(stage, value, *, preparation_payload=None):
         out["steps_kind"] = _response_kind(steps)
         if isinstance(steps, list):
             out["steps_count"] = len(steps)
-            out["steps"] = [_decision_fields(item, (
-                "step_type", "capability_needed", "intent", "expected_result",
-            ), limit=160) for item in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]]
+            out["steps"] = [_step_declaration_diagnostic(item)
+                for item in steps[:MAX_DIAGNOSTIC_PLAN_STEPS]]
             out["steps_omitted"] = max(0, len(steps) - MAX_DIAGNOSTIC_PLAN_STEPS)
     if stage in ("opportunity_scan", "opportunity_audit"):
         out["verified_kind"] = ("boolean" if type(value.get("verified")) is bool
@@ -681,6 +731,9 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
     original_prepare = preparation.prepare
     original_prepare_model = baseline.scripted_draft if mode == "scripted" else reasoning._ask_model
     preparation_context = ContextVar("autonomy_eval_preparation", default=None)
+    original_service_next, original_action_dump = AgentService._next, reasoning._action_dump
+    next_context = ContextVar("autonomy_eval_next_owner", default=None)
+    action_context = ContextVar("autonomy_eval_action_context", default=None)
     original_service_reconsider, original_reconsider = AgentService._reconsider, reasoning.reconsider
     reconsider_context = ContextVar("autonomy_eval_reconsider", default=False)
     base_plan = baseline.scripted_make_plan if mode == "scripted" else reasoning.make_plan
@@ -763,6 +816,48 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         return [{"capability": cap, "status": "available_real", "can_be_used_now": True,
                  "really_does_something": True, "changes_something_in_the_world": False,
                  "why_not": None} for cap in sorted(ALLOWED)]
+
+
+    async def service_next(self, owner_id, goal, *args, **kwargs):
+        owned = self.db is db and owner_id == getattr(goal, "owner_id", None) == OWNER
+        token = next_context.set({"goal_id": goal.id} if owned else None)
+        try:
+            return await original_service_next(self, owner_id, goal, *args, **kwargs)
+        finally:
+            next_context.reset(token)
+
+    def action_dump(payload):
+        context = action_context.get()
+        if context is None:
+            return original_action_dump(payload)
+        cause, original_info = None, reasoning.logger.info
+
+        def record_diagnostic(message, *args, **kwargs):
+            nonlocal cause
+            known = {
+                "action context unavailable: prepared_source_missing": "prepared_source_missing",
+                "action context unavailable: material_context_exceeds_budget": "material_context_exceeds_budget",
+            }
+            if type(message) is str and message in known:
+                cause = known[message]
+            return original_info(message, *args, **kwargs)
+
+        # The reducer is synchronous. Its exact output and exceptions retain
+        # their identity; no unavailable cause is inferred from size or text.
+        with patch.object(reasoning.logger, "info", record_diagnostic):
+            result = original_action_dump(payload)
+        try:
+            observation = _action_context_observation(payload, result, cause)
+            observation.update(goal_id=_safe_text(context["goal_id"], 80),
+                model_attempts=probe.model_attempts,
+                sequence=len(probe.context_observations) + probe.context_observations_omitted + 1)
+            if len(probe.context_observations) >= MAX_DECISION_OBSERVATIONS:
+                probe.context_observations.pop(min(2, MAX_DECISION_OBSERVATIONS - 1))
+                probe.context_observations_omitted += 1
+            probe.context_observations.append(observation)
+        except Exception:
+            pass  # Best-effort diagnostics never replace the reducer result.
+        return result
 
 
     async def build_plan(self, owner_id, goal, run, *args, **kwargs):
@@ -875,7 +970,13 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         return await observed_decision("verify_goal", base_verify, *args, **kwargs)
 
     async def choose(*args, **kwargs):
-        return await observed_decision("choose_next_action", base_choose, *args, **kwargs)
+        context = next_context.get()
+        enabled = context is not None and await _synthetic_diagnostics_allowed(db, OWNER)
+        token = action_context.set(context if enabled else None)
+        try:
+            return await observed_decision("choose_next_action", base_choose, *args, **kwargs)
+        finally:
+            action_context.reset(token)
 
     async def note(self, *args, **kwargs):
         provenance = kwargs.get("provenance") or {}
@@ -997,12 +1098,14 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         stack.enter_context(patch.object(StepExecutor, "run", step))
         stack.enter_context(patch.object(AgentService, "advance", bounded_first_read))
         stack.enter_context(patch.object(AgentService, "_build_plan", build_plan))
+        stack.enter_context(patch.object(AgentService, "_next", service_next))
         stack.enter_context(patch.object(AgentService, "_reconsider", service_reconsider))
         stack.enter_context(patch.object(DeliveryService, "note_activity", note))
         stack.enter_context(patch.object(provider, "get_provider", lambda: BlockedPush(probe)))
         stack.enter_context(patch.object(reasoning, "make_plan", plan))
         stack.enter_context(patch.object(reasoning, "verify_goal", verify))
         stack.enter_context(patch.object(reasoning, "choose_next_action", choose))
+        stack.enter_context(patch.object(reasoning, "_action_dump", action_dump))
         stack.enter_context(patch.object(reasoning, "reconsider", reconsider))
         stack.enter_context(patch.object(OpportunityService, "scan", scan))
         stack.enter_context(patch.object(reasoning, "decide_goal", decide_goal))
@@ -1552,6 +1655,8 @@ async def main(*, mode="scripted", scenario="all", output=""):
                               "model_failures_reported_per_call": MAX_MODEL_FAILURES_REPORTED,
                               "model_http_requests_per_case": MAX_MODEL_HTTP_REQUESTS,
                               "structured_decisions_per_case": MAX_DECISION_OBSERVATIONS,
+                              "context_observations_per_case": MAX_DECISION_OBSERVATIONS,
+                              "context_input_characters": CONTEXT_TEXT_LIMIT,
                               "admission_observations_per_case": MAX_DIAGNOSTIC_ADMISSIONS,
                               "planning_observations_per_case": MAX_DIAGNOSTIC_PLANNING,
                               "result_checks_per_case": len(RESULT_CHECK_NAMES),

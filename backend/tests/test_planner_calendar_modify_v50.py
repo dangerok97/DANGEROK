@@ -1,3 +1,4 @@
+import json
 from unittest.mock import AsyncMock
 
 import pytest
@@ -46,7 +47,12 @@ async def test_make_plan_contract_forbids_create_as_calendar_correction(monkeypa
     assert "effect_type=modify" in contract
     assert "copy that exact ref into input_refs" in contract
     assert "never guess an hour" in contract
-    assert '"effect_type": "create|modify|cancel|send|transfer|publish|remove"' in contract
+    assert "`effect_type` must be create|modify|cancel|send|transfer|publish|remove" in contract
+    declared, _ = json.JSONDecoder().raw_decode(contract.split("Execute declaration example: ", 1)[1])
+    from agent.service import AgentService
+
+    step = AgentService._read_step(declared, 0)
+    assert step is not None and step.step_type == "execute" and step.effect_type == "modify"
 
 
 @pytest.mark.asyncio

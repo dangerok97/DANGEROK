@@ -19,13 +19,13 @@ def fingerprint(model):
     return hashlib.sha256(body.encode()).hexdigest()
 
 
-def test_exactly_75_families_without_counting_aliases_or_versions():
+def test_exactly_126_families_without_counting_aliases_or_versions():
     assert EXPECTED_ADDITIONS == 50
-    assert len(ALL) == len({m.canonical_key for m in ALL}) == 75
-    assert len(ADDED) == 50
-    assert len(all_recipes()) == 70
-    assert len(METADATA) == 75
-    assert PACK_VERSION == 'common-75-v1'
+    assert len(ALL) == len({m.canonical_key for m in ALL}) == 126
+    assert len(ADDED) == 101
+    assert len(all_recipes()) == 121
+    assert len(METADATA) == 126
+    assert PACK_VERSION == 'common-126-v1'
     assert set(BASELINE).issubset({m.canonical_key for m in ALL})
 
 
@@ -56,11 +56,15 @@ def test_added_family_has_specific_bounded_explorable_groups(model):
 
 def test_recipes_are_not_duplicate_geometries_with_relabelled_names():
     signatures = []
-    for model in ADDED:
+    # Preserve the original geometry uniqueness guarantee for the 50 curated
+    # models. The newer batch uses deliberately generic illustrative primitives.
+    for model in ADDED[:50]:
         geometry = [(p.shape, p.size, p.assembled, p.exploded) for p in model.parts]
         signatures.append(json.dumps(geometry))
     assert len(signatures) == len(set(signatures)) == 50
-    assert len({m.title for m in ALL}) == 75
+    for model in ADDED[50:]:
+        assert len({p.name for p in model.parts}) == len(model.parts)
+    assert len({m.title for m in ALL}) == 126
 
 
 def test_references_are_scoped_https_not_private_media():
@@ -104,11 +108,11 @@ async def test_all_added_families_reused_by_a_new_user_without_generation(databa
         assert first['status'] == 'family' and first['cache_hit'] and not first['generation_used']
         assert first['version_id'] == second['version_id']
         assert first['source_type'] == 'seed' and first['shared']
-    assert await database[MODELS].count_documents({}) == 75
-    assert await database[VERSIONS].count_documents({}) == 75
+    assert await database[MODELS].count_documents({}) == 126
+    assert await database[VERSIONS].count_documents({}) == 126
     assert await database[JOBS].count_documents({}) == 0
     await CatalogService(database).initialize()
-    assert await database[VERSIONS].count_documents({}) == 75
+    assert await database[VERSIONS].count_documents({}) == 126
 
 
 @pytest.mark.asyncio
@@ -117,11 +121,11 @@ async def test_expansion_adds_fifty_to_preexisting_twentyfive_without_replacing_
     for model in ALL:
         if model.canonical_key in BASELINE:
             await previous.install_seed(model)
-    old = {m['canonical_key']: m['current_version'] for m in await database[MODELS].find({}).to_list(100)}
+    old = {m['canonical_key']: m['current_version'] for m in await database[MODELS].find({}).to_list(250)}
     assert len(old) == 25
     await CatalogService(database).initialize()
-    current = {m['canonical_key']:m['current_version'] for m in await database[MODELS].find({}).to_list(100)}
-    assert len(current) == 75 and {key: current[key] for key in old} == old
+    current = {m['canonical_key']:m['current_version'] for m in await database[MODELS].find({}).to_list(250)}
+    assert len(current) == 126 and {key: current[key] for key in old} == old
 
 
 @pytest.mark.asyncio
@@ -144,7 +148,7 @@ async def test_withdrawn_new_family_does_not_get_resurrected(database):
     await database[MODELS].update_one({'_id':old['model_id']},{'$set':{'status':'retired'}})
     await service.initialize()
     assert await service.find(ADDED[0].canonical_key,'bob') is None
-    assert len(await service.list_models('bob')) == 74
+    assert len(await service.list_models('bob')) == 125
 
 
 @pytest.mark.asyncio

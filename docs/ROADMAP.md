@@ -1,3 +1,59 @@
+# 12 ottobre 2026 — v162, prova 630 e correzioni dopo il collaudo
+
+La chiusura dell'autonomia resta aperta. Il candidato 630 supera la CI
+completa, ma la prova reale dei nove scenari è **3/9 FAIL**. La bozza Home
+accettata dall'audit contiene errori sostanziali e la sua consegna non è attestata:
+passaggi autentici e stato salvato non bastano a soddisfare il risultato.
+Riferimenti: [CI originale 630](evidence/autonomy_v162_ci_2026-10-12_6300201.json), [nove scenari originali](evidence/autonomy_v162_live_2026-10-12_6300201_original.json), [review del testo Home](evidence/autonomy_v162_live_2026-10-12_6300201_home_semantic_review.json).
+
+Il prossimo passo verificabile è un candidato identificato esattamente,
+comprensivo delle correzioni congelate e dell'integrazione concorrente già
+preservata. Vanno registrati il nuovo aggregato, la CLI e la CI senza
+attribuire loro i numeri della revisione 630. La nuova prova reale deve essere
+letta insieme ai testi di generazione, audit e risultato persistito: i
+fallimenti storici restano visibili e le fasi non raggiunte restano `not_run`.
+Non c'è ancora una prova che le correzioni locali risolvano le clausole
+infondate del modello.
+
+Per Tarquinia rimane vincolante il risultato richiesto: una nuova stesura
+comunicata a ORA deve portare a un avviso utile per il ritiro, separando la
+stima di asciugatura dal rischio anticipato. La stesura reale precedente non
+si riapre. La diagnosi del runner ha individuato un follow-up valido escluso
+per il tipo di goal; la nuova rappresentazione di un controllo oltre la
+finestra osservabile è **pendente e falsa**, non un PASS di monitoraggio.
+Occorre osservare il controllo effettivo, quando temporalmente raggiungibile,
+e poi il risultato utile. Non si anticipa il tempo scelto dal modello e non
+si deduce un'asciugatura fisica dalla sola presenza di una wake. Fonti:
+[Tarquinia originale](evidence/situation_v162_live_2026-10-12_6300201_original.json) e [ricostruzione isolata della programmazione](evidence/situation_v162_2026-10-12_schedule_transition_diagnostic.json).
+
+Il tragitto pubblico mantiene separati il falso negativo del parser e la
+qualità del testo. Il replay locale corregge il range delle temperature, ma
+una previsione non può sostenere «senza possibilità di pioggia». Il giudizio
+umano rimane necessario; il [report pubblico originale](evidence/public_read_v162_live_2026-10-12_6300201_original.json) non viene riscritto.
+
+Snapshot e verifiche locali registrati:
+`9fdc2af983b8323f956583b6ec7f90c58ab7dbee` / `e9d09b89c5e12f7034aaaf08c43b024818e5a239`,
+`1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s`, `9/9 SCRIPTED; zero modelli reali, HTTP del modello ed effetti esterni`,
+`non eseguite su questa versione al momento della registrazione`.
+Le evidenze locali e i loro limiti sono nell'[indice delle evidenze e delle correzioni](evidence/autonomy_v162_followup_2026-10-12.json).
+
+Il successivo collaudo sul dispositivo resta distinto: la CI prova
+configurazione, prebuild/export iOS e interfaccia nei browser, non una build
+firmata installata né la ricezione utile ad app chiusa. Nessun risultato del
+servizio tecnico viene descritto come consegna effettiva al telefono.
+
+## Verifica locale della versione integrata
+
+Codice locale verificato: `9fdc2af983b8323f956583b6ec7f90c58ab7dbee`, tree `e9d09b89c5e12f7034aaaf08c43b024818e5a239`.
+Suite integrata: **1653 PASS, 1 SKIP; 135 moduli, 137 selezioni, 69.19 s**. CLI separata: **9/9 SCRIPTED**, senza
+modelli reali, HTTP del modello o effetti esterni. Le due incompatibilità della
+diagnostica e quella dell'esempio calendario sono corrette; i log dei tentativi
+falliti e riusciti restano nell'archivio. I gruppi mirati sovrapposti non si sommano
+al totale. Questa registrazione precede la pubblicazione: gli SHA sopra identificano
+lo snapshot locale, non una nuova CI o una nuova prova reale già completata.
+
+---
+
 # 12 ottobre 2026 — v162, ripresa del ciclo e giudizi sulle fonti
 
 Il precedente head `fe2d37f` supera cinque workflow CI e tutti i 15 job,
