@@ -73,10 +73,12 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
   </div>
   {bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
    <iframe data-testid="vision-bp3d-frame" title="BodyParts3D: atlante anatomico tridimensionale di riferimento"
-    src="/bodyparts3d/index.html" sandbox="allow-scripts" referrerPolicy="no-referrer" loading="eager"
+    src="/bodyparts3d/index.html" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" loading="eager"
     onError={()=>setBp3dActive(false)} />
    <div className="vx-bp3d-caption">
-    Modello 3D di riferimento maschile adulto · 2.234 mesh · non rappresenta la persona inquadrata
+    <span>Modello 3D di riferimento maschile adulto · 2.234 mesh · non rappresenta la persona inquadrata</span>
+    <a data-testid="vision-bp3d-fullscreen" href="/bodyparts3d/index.html"
+      target="_blank" rel="noopener noreferrer">Apri a schermo intero ↗</a>
    </div>
   </section>:<div className="vx-anatomy-shell">
    <nav className="vx-anatomy-layers" role="group" aria-label="Livello anatomico">
