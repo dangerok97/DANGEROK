@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import json
+import re
 from agent.evidence import EvidenceStore, REAL_SOURCES
 from agent.models import ResultProvenance
 from agent.prepared_review import new_prepared_result_id
@@ -222,6 +223,42 @@ def _protocol_feedback(stage, errors):
     return {"origin": "preparation_protocol", "stage": stage, "validation_errors": kept, "reason": reason}
 
 
+def _literal_quote_examples(rows, *, max_characters=720):
+    """Optional, bounded exact substrings from the *current audit* claim rows.
+
+    These are COPY hints for a provider that struggles with literal quotes,
+    never independent evidence, an inference, a pre-approved claim, or a
+    relaxation of the authenticity check. Nothing from source metadata is
+    eligible, and omitted/foreign evidence rows never provide examples.
+    """
+    hints, used = [], 0
+    for row in rows[:8]:
+        claim = row.get("claim") if isinstance(row, dict) else None
+        evidence_id = row.get("id") if isinstance(row, dict) else None
+        if not isinstance(claim, str) or not isinstance(evidence_id, str):
+            continue
+        parts = []
+        for piece in re.split(r"(?<=[.!?;])\\s+|\\n+", claim):
+            rest = piece.strip()
+            while len(rest) > 240:
+                cut = rest.rfind(" ", 0, 241)
+                cut = cut if cut >= 40 else 240
+                parts.append(rest[:cut].strip())
+                rest = rest[cut:].strip()
+            if rest:
+                parts.append(rest)
+        candidates = parts[:3] + parts[-1:] if len(parts) > 4 else parts
+        examples = []
+        for item in candidates:
+            if (4 <= len(item) <= 240 and item in claim and item not in examples
+                    and used + len(item) <= max_characters and len(examples) < 4):
+                examples.append(item)
+                used += len(item)
+        if examples:
+            hints.append({"evidence_id": evidence_id, "examples": examples})
+    return hints
+
+
 def _source_rows(evidence):
     return [{"id": e.id, "claim": e.claim, "source_class": e.provenance.source_class,
              "source_refs": e.provenance.source_refs[:4], "bears_on": e.supports or None,
@@ -437,6 +474,14 @@ async def prepare(db, owner_id, goal, step):
             return unavailable("preparation_context_too_large")
         audit_rows.pop(unused)
         audit_payload["evidence_truncated"] = True
+    # Give exact, short pieces of the still-supplied source text as copying
+    # aids. Never prune an additional source or the draft to make room for
+    # optional hints, and never treat a hint as reviewed evidence.
+    examples = _literal_quote_examples(audit_rows)
+    if examples:
+        with_examples = {**audit_payload, "verbatim_quote_examples": examples}
+        if len(json.dumps(with_examples, ensure_ascii=False, default=str)) <= 9000:
+            audit_payload = with_examples
     allowed = {row["id"] for row in audit_rows}
     checked = await _ask_model(_DISCIPLINE + "\n" + _GROUNDED_RESULT + "\nAudit this draft against the supplied evidence only. "
         "Check every factual claim, calculation, comparison and obligation. A person's intention "
@@ -468,6 +513,11 @@ async def prepare(db, owner_id, goal, step):
         "For each stated or derived check, source_quotes must contain 1–3 verbatim passages "
         "from the claim field of its cited evidence rows, each no longer than 280 characters. "
         "Copy exact text with its evidence_id, never a paraphrase or an invented quote. "
+        "verbatim_quote_examples, when present, are literal substrings taken "
+        "only from the listed evidence.claim for convenient exact copying. "
+        "They are not independent evidence or an approved semantic conclusion. "
+        "You may quote another exact passage from the same supplied claim, but "
+        "do not copy paraphrases, metadata, or text from a different evidence_id. "
         "For a derived calculation, quote the recorded operands and necessary conditions, "
         "then state the operation and result in premises. The calculated result need not "
         "occur literally in a source. Preserve the supported calculation in content with "
