@@ -12,7 +12,7 @@ from conversation_engine.ai_core.observations.external import (
     ExternalSource,
 )
 from conversation_engine.ai_core.tools.failures import normalize_failure
-from conversation_engine.ai_core.tools.providers import brave, gemini_search, tavily
+from conversation_engine.ai_core.tools.providers import brave, gemini_search, openai_search, tavily
 from conversation_engine.ai_core.tools.providers.base import ProviderResult, normalize_snippet_origin
 from conversation_engine.ai_core.tools.sanitize import sanitize_external_query
 
@@ -31,7 +31,8 @@ def research_enabled() -> bool:
 def availability() -> str:
     if not research_enabled():
         return "disabled"
-    if tavily.configured() or brave.configured() or gemini_search.configured():
+    if (tavily.configured() or brave.configured() or gemini_search.configured()
+            or openai_search.configured()):
         return "available"
     return "not_configured"
 
@@ -133,7 +134,7 @@ async def execute_web_search(
 
 
 async def _failover_search(query: str, *, max_results: int) -> ProviderResult:
-    """Tavily → Brave → Gemini Search. One capability call; providers below cognition."""
+    """Tavily → Brave → Gemini → opt-in OpenAI. No fabricated evidence."""
     chain = []
     if tavily.configured():
         chain.append(("tavily", tavily.search))
@@ -141,6 +142,8 @@ async def _failover_search(query: str, *, max_results: int) -> ProviderResult:
         chain.append(("brave", brave.search))
     if gemini_search.configured():
         chain.append(("gemini_search", gemini_search.search))
+    if openai_search.configured():
+        chain.append(("openai_search", openai_search.search))
 
     last: Optional[ProviderResult] = None
     for name, fn in chain:
