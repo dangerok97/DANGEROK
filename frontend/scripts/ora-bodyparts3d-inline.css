@@ -1,0 +1,78 @@
+/* BodyParts3D inside ORA Vision. The parent owns the camera; this canvas has alpha.
+   Keep controls above the picture, never recreate an opaque full-screen atlas. */
+html:has(.ora-overlay),body:has(.ora-overlay),#root:has(.ora-overlay){
+ background:transparent!important;color:#ecf7ff!important;
+}
+.ora-overlay{position:relative;isolation:isolate;inset:0;width:100%;height:100%;overflow:hidden;
+ font:12px/1.4 system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;
+ color:#ecf9ff;background:transparent!important;--ora-edge:rgba(109,213,234,.55);}
+.ora-overlay *, .ora-overlay *:before,.ora-overlay *:after{box-sizing:border-box;}
+.ora-overlay .scene{position:absolute;inset:0;z-index:0;transform:translateX(var(--ora-person-offset,0%));
+ background:transparent!important;}
+.ora-overlay .scene canvas{display:block;width:100%;height:100%;background:transparent!important;touch-action:none;}
+.ora-overlay button{cursor:pointer;color:inherit;font:inherit;border:1px solid rgba(118,217,239,.52);
+ background:rgba(3,24,36,.82);backdrop-filter:blur(8px);border-radius:8px;padding:7px 9px;min-height:34px;}
+.ora-overlay button:focus-visible,.ora-overlay input:focus-visible,.ora-overlay a:focus-visible{outline:2px solid #ffc38a;outline-offset:2px;}
+.ora-overlay button[aria-pressed=true]{background:rgba(41,112,138,.9);color:white;border-color:#b4f6ff;box-shadow:inset 0 -2px #a0f4ff;}
+.ora-overlay-header{position:absolute;z-index:7;top:10px;left:9px;right:65px;display:flex;align-items:flex-start;gap:5px;pointer-events:none;}
+.ora-overlay-header>*{pointer-events:auto;}
+.ora-overlay-label{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px;
+ text-shadow:0 1px 7px #00121e,0 2px 10px #00121e;padding:3px 0;}
+.ora-overlay-label strong{font-size:13px;letter-spacing:.5px;color:#b4faff;}
+.ora-overlay-label span{font:9px ui-monospace,monospace;color:#bbdce7;letter-spacing:.1px;}
+.ora-overlay-header button{white-space:nowrap;font-size:12px;}
+.ora-overlay-presets{position:absolute;z-index:6;left:9px;right:9px;top:62px;display:flex;gap:5px;
+ overflow-x:auto;scrollbar-width:none;pointer-events:auto;padding-bottom:3px;}
+.ora-overlay-presets button{font-size:11px;flex:0 0 auto;min-height:31px;padding:4px 8px;}
+.ora-overlay-panel{position:absolute;z-index:12;top:103px;right:9px;left:9px;max-height:48%;border:1px solid var(--ora-edge);
+ border-radius:11px;background:rgba(4,25,38,.97);box-shadow:0 14px 40px #000b;overflow:auto;padding:10px;}
+.ora-overlay-search input{display:block;width:100%;border:1px solid #5695ac;border-radius:7px;background:#0b3044;
+ color:white;min-height:39px;padding:6px 9px;font:13px system-ui;}
+.ora-overlay-search-results{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin-top:8px;}
+.ora-overlay-search-results button{display:flex;justify-content:space-between;gap:8px;text-align:left;min-height:34px;}
+.ora-overlay-search-results small{color:#9bd1e0;white-space:nowrap;}
+.ora-overlay-systems{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;font-size:12px;}
+.ora-overlay-systems label{display:flex;align-items:center;gap:5px;}
+.ora-overlay-systems input{accent-color:#86e6fa;}
+.ora-overlay-detail{position:absolute;z-index:8;right:9px;bottom:87px;width:min(300px,48%);
+ max-height:40%;overflow:auto;border:1px solid #eeb276aa;border-radius:12px;background:rgba(3,25,38,.93);
+ padding:9px;box-shadow:0 8px 24px #000a;}
+.ora-overlay-detail-top{display:flex;gap:9px;align-items:flex-start;}
+.ora-overlay-detail-top div{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0;}
+.ora-overlay-detail-top small{color:#a8d4e4;font-size:10px;}
+.ora-overlay-detail-top strong{font-size:15px;font-weight:620;line-height:1.2;}
+.ora-overlay-detail-top button{min-width:31px;min-height:31px;font-size:23px;line-height:1;padding:0;}
+.ora-overlay-detail p{font-size:12px;line-height:1.45;color:#e3eef4;margin:9px 0;}
+.ora-overlay-detail-actions{display:flex;gap:5px;flex-wrap:wrap;}
+.ora-overlay-detail-actions button{font-size:11px;min-height:30px;}
+.ora-overlay-footer{position:absolute;z-index:8;bottom:9px;left:9px;right:9px;display:flex;align-items:center;gap:6px;
+ padding:6px;background:rgba(5,27,40,.83);border:1px solid #45829399;border-radius:11px;backdrop-filter:blur(9px);}
+.ora-overlay-opening{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;}
+.ora-overlay-opening label{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#d9f2f9;}
+.ora-overlay-opening input{width:100%;accent-color:#f5b782;min-height:20px;}
+.ora-overlay-footer button{flex:0 0 auto;min-height:36px;}
+.ora-overlay-loading{position:absolute;top:48%;left:50%;transform:translate(-50%,-50%);z-index:5;
+ padding:13px 18px;border:1px solid #80c4d2;border-radius:12px;background:#082333dd;min-width:190px;
+ color:#e7fcff;text-align:center;display:flex;flex-direction:column;gap:3px;pointer-events:none;}
+.ora-overlay-loading span{color:#a5eaf5;font-size:17px;}
+.ora-overlay-error{background:#481e24ee;max-width:90%;pointer-events:auto;}
+.ora-overlay-about{position:absolute;z-index:14;right:9px;bottom:85px;left:9px;max-height:45%;overflow:auto;
+ background:#062635f5;border:1px solid #7cbecc;padding:12px;border-radius:11px;font-size:12px;}
+.ora-overlay-about p{margin:6px 0;}.ora-overlay-about a{color:#bbf5ff;line-height:2;}
+.ora-overlay .part-hover{background:#0b293a;color:#e0f8ff;border:1px solid #70bed2;box-shadow:0 0 8px #002}
+@media(max-width:650px){
+ .ora-overlay-header{top:6px;left:5px;right:53px;}
+ .ora-overlay-label strong{font-size:11px;letter-spacing:0;}
+ .ora-overlay-label span{font-size:8px;letter-spacing:0;}
+ .ora-overlay-header button{font-size:11px;min-height:32px;padding:4px 6px;}
+ .ora-overlay-header button span{display:none;}
+ .ora-overlay-presets{top:53px;left:4px;right:4px;gap:3px;}
+ .ora-overlay-presets button{font-size:10px;padding:4px 6px;min-height:30px;}
+ .ora-overlay-panel{top:94px;right:5px;left:5px;}
+ .ora-overlay-detail{left:5px;right:5px;bottom:77px;width:auto;max-height:29%;padding:7px;}
+ .ora-overlay-detail p{font-size:11px;}
+ .ora-overlay-footer{left:4px;right:4px;bottom:4px;gap:4px;padding:4px;}
+ .ora-overlay-footer button{font-size:10px;min-height:34px;padding:5px;}
+ .ora-overlay-opening label{font-size:10px;}
+}
+@media(prefers-reduced-motion:reduce){.ora-overlay *{scroll-behavior:auto!important;animation:none!important;transition:none!important;}}

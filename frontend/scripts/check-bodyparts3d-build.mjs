@@ -42,5 +42,21 @@ const concepts=new Set(model.concepts.map(p=>p.id));
 const sources=new Set(model.parts.map(p=>p.id));
 assert.equal(sources.size,model.parts.length);
 assert.equal(concepts.size,model.concepts.length);
+// The distributed build must contain BOTH language adaptation and alpha WebGL mode.
+const vendorRoot=resolve(dist,'..');
+const sourceFile=(p)=>readFileSync(resolve(vendorRoot,p),'utf8');
+assert.match(read('index.html'),/lang="it"/);
+assert.match(read('index.html'),/ORA · Anatomia 3D/);
+assert.match(sourceFile('app/page.tsx'),/Atlante umano/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/ORA · ANATOMIA 3D/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/Scomponi/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/Preparo il corpo umano 3D/);
+assert.match(sourceFile('app/scene.tsx'),/alpha:oraInline/);
+assert.match(sourceFile('app/scene.tsx'),/oraInline\?0:1/);
+assert.match(sourceFile('app/ora-overlay.css'),/background:transparent/);
+assert.match(sourceFile('app/anatomy.ts'),/SISTEMI_IT/);
+const assetFiles=await import('node:fs').then(fs=>fs.readdirSync(resolve(dist,'assets')));
+assert.ok(assetFiles.some(file=>file.endsWith('.js')),'No deployed 3D viewer JavaScript');
+
 console.log(JSON.stringify({status:'PASS',parts:model.parts.length,concepts:model.concepts.length,
  chunks:model.chunks.length,rawBytes:bytes,source:provenance.distributor_commit}));

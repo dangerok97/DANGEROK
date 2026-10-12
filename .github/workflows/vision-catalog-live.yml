@@ -14,6 +14,7 @@ on:
       - 'frontend/Dockerfile.staging'
       - 'frontend/nginx.staging.conf'
       - 'frontend/scripts/build-bodyparts3d.sh'
+      - 'frontend/scripts/ora-bodyparts3d-*'
       - 'frontend/scripts/check-bodyparts3d-build.mjs'
       - 'frontend/app/vision-xray.tsx'
       - 'frontend/src/components/ora/OraAttachMenu.tsx'

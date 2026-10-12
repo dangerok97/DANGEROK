@@ -20,6 +20,8 @@
     "node_modules",
     "e2e",
     "playwright.config.ts",
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "scripts/ora-bodyparts3d-inline.tsx",
+    "scripts/ora-bodyparts3d-locale-it.ts"
   ]
 }

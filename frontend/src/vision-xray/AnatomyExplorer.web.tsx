@@ -5,7 +5,7 @@ import {ANATOMY_STYLES} from './anatomyStyle';
 import {AnatomyVolume,type VisiblePosePoints} from './AnatomyVolume.web';
 
 /** Contextual educational atlas in the live camera, not an X-ray of this person. */
-export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClose:()=>void;region?:BodyRegion;posePoints?:VisiblePosePoints|null}){
+export function AnatomyExplorer({onClose,region='full_body',posePoints,anchorCenter=.5}: {onClose:()=>void;region?:BodyRegion;posePoints?:VisiblePosePoints|null;anchorCenter?:number}){
  const [layer,setLayer]=React.useState<AtlasLayer>('skin');
  const [viewRegion,setViewRegion]=React.useState<BodyRegion>(region);
  const [search,setSearch]=React.useState('');
@@ -46,13 +46,15 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
  const changeRegion=(next:BodyRegion)=>{setViewRegion(next);setSelected('');setSearch('');setZoom(1);setExpanded(true);};
  const changeVariant=(next:AnatomyVariant)=>{setVariant(next);setSelected('');};
  const focus=(part:AnatomyRegion)=>{setSelected(part.id);setExpanded(true);};
- return <div className="vx-anatomy" data-testid="vision-anatomy" data-region={viewRegion} role="region" aria-label="Atlante anatomico contestuale, illustrativo">
+ const onCamera=bp3dActive&&bp3dStatus==='ready';
+ const bodyCenter=Number.isFinite(anchorCenter)?Math.max(.22,Math.min(.78,anchorCenter)):.5;
+ return <div className={'vx-anatomy vx-anatomy-inline'+(onCamera?' vx-has-bp3d':bp3dStatus==='checking'?' vx-bp3d-pending':'')} data-testid="vision-anatomy" data-visual-mode={onCamera?'camera-overlay':'schematic-overlay'} data-region={viewRegion} role="region" aria-label="Atlante anatomico contestuale, illustrativo">
   <style>{ANATOMY_STYLES}</style>
   <div aria-hidden="true" className="vx-anatomy-grid"/>
   <div aria-hidden="true" className="vx-anatomy-scan"/>
   <header className="vx-anatomy-head">
    <div className="vx-anatomy-identity">
-    <span className="vx-anatomy-kicker"><i/> ORA / HUMAN ATLAS <b>01</b></span>
+    <span className="vx-anatomy-kicker"><i/> ORA / ANATOMIA UMANA <b>01</b></span>
     <strong>{BODY_LABEL[viewRegion]}</strong>
     <span className="vx-anatomy-context">RICOSTRUZIONE ANATOMICA · MODELLO DIDATTICO</span>
    </div>
@@ -71,12 +73,14 @@ export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClos
    {bp3dStatus==='ready'&&<a href="/bodyparts3d/ATTRIBUTION.md" target="_blank" rel="noopener noreferrer">
     Fonti e licenza</a>}
   </div>
-  {bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
-   <iframe data-testid="vision-bp3d-frame" title="BodyParts3D: atlante anatomico tridimensionale di riferimento"
-    src="/bodyparts3d/index.html" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" loading="eager"
+  {bp3dStatus==='checking'?<div className="vx-anatomy-inline-pending" role="status" data-testid="vision-anatomy-inline-pending">
+    Preparo la scomposizione anatomica 3D…
+   </div>:bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
+   <iframe data-testid="vision-bp3d-frame" title="BodyParts3D: modello anatomico sovrapposto alla fotocamera"
+    src={'/bodyparts3d/index.html?ora=inline&lang=it&region='+encodeURIComponent(viewRegion)+'&cx='+bodyCenter.toFixed(3)} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" loading="eager"
     onError={()=>setBp3dActive(false)} />
    <div className="vx-bp3d-caption">
-    <span>Modello 3D di riferimento maschile adulto · 2.234 mesh · non rappresenta la persona inquadrata</span>
+    <span>Strutture 3D illustrative sovrapposte · 2.234 mesh · non sono gli organi della persona inquadrata</span>
     <a data-testid="vision-bp3d-fullscreen" href="/bodyparts3d/index.html"
       target="_blank" rel="noopener noreferrer">Apri a schermo intero ↗</a>
    </div>

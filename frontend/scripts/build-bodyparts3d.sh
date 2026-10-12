@@ -2,6 +2,7 @@
 # BodyParts3D 4.0 reference atlas built from a pinned open-source distribution.
 # No biometric photographs or user data enter this build step.
 set -eu
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 
 SOURCE_SHA="1c38bf35c254a891200d3cedecfd57abebe83d8d"
 SOURCE_URL="https://github.com/ashemag/human-atlas.git"
@@ -41,6 +42,9 @@ const htmlPath = 'web/index.html';
 const html = fs.readFileSync(htmlPath, 'utf8');
 fs.writeFileSync(htmlPath, html.replace('href="/favicon.svg"', 'href="/bodyparts3d/favicon.svg"'));
 NODE
+
+# Adapt only the pinned source viewer. Preserve meshes, FMA IDs, credits and licenses.
+node "$SCRIPT_DIR/ora-bodyparts3d-patch.mjs" "$DESTINATION" "$SCRIPT_DIR"
 
 # npm CI uses the upstream committed lockfile; Node.js >=22.13 is required.
 npm ci --no-audit --no-fund
