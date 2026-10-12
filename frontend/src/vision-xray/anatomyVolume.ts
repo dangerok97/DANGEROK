@@ -13,7 +13,7 @@ type Trace = {points:{x:number;y:number}[];closed:boolean};
 type Cluster={id:string;label:string;cx:number;cy:number;rx:number;ry:number;rz:number;sub:number;shape:'tube'|'contour'|'ellipsoid';trace?:Trace};
 type Triangle={p:[number,number][];z:number;shade:number;part:string;active:boolean;cluster:number};
 const SEGMENTS=11,RINGS=8;
-const DEPTH:Record<AtlasLayer,number>={skin:.33,muscles:.18,nerves:.22,organs:.09,bones:-.04,reproductive:.13};
+const DEPTH:Record<AtlasLayer,number>={skin:.33,muscles:.18,nerves:.22,vessels:.24,organs:.09,bones:-.04,reproductive:.13};
 /** Sample the actual M/L/Q/C paths instead of treating Bézier control points as anatomy. */
 export function tracePath(path:string):Trace[]{
  const tokens=path.match(/[MLQCHVZmlqchvz]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi)||[];
@@ -84,7 +84,7 @@ export function volumeClusters(regions:AnatomyRegion[],layer:AtlasLayer):Cluster
    let rx=Math.max(2,width/2),ry=Math.max(4,height/2);
    const longBone=layer==='bones'&&['humerus','forearm_bones','femur','lower_leg','spine'].includes(region.id);
    const shape:'tube'|'contour'|'ellipsoid'=
-    layer==='nerves'&&!trace.closed?'tube':
+    (layer==='nerves'||layer==='vessels')&&!trace.closed?'tube':
     trace.closed&&(['organs','muscles','reproductive'].includes(layer)||
      (layer==='bones'&&!longBone))?'contour':'ellipsoid';
    const rz=shape==='tube'?Math.max(2.5,Math.min(5,rx*.4)):
@@ -196,8 +196,24 @@ function mesh(cluster:Cluster,layer:AtlasLayer,options:VolumeOptions,view:number
 }
 function colorLayer(layer:AtlasLayer):[number,number,number]{
  return {skin:[70,209,217],muscles:[237,115,91],nerves:[246,196,99],
-         organs:[201,132,233],bones:[195,231,238],reproductive:[97,204,186]}[layer] as [number,number,number];
+         vessels:[228,86,113],organs:[201,132,233],bones:[195,231,238],reproductive:[97,204,186]}[layer] as [number,number,number];
 }
+/** Distinct colors improve the study model, but do not imply diagnostic imaging. */
+function colorPart(layer:AtlasLayer,id:string):[number,number,number]{
+ if(layer==='vessels')return /vena|vein|portal/i.test(id)?[111,176,225]:[228,83,105];
+ if(layer==='organs'){
+  if(id==='heart')return [208,81,101];
+  if(id==='lungs')return [210,144,164];
+  if(id==='liver')return [154,88,110];
+  if(id==='stomach')return [225,157,143];
+  if(id==='pancreas')return [221,164,113];
+  if(id==='kidneys')return [180,96,125];
+  if(/intestine/.test(id))return [226,171,157];
+  if(id==='bladder')return [213,179,125];
+ }
+ return colorLayer(layer);
+}
+
 const safe=(v:number)=>Math.max(0,Math.min(255,Math.round(v)));
 export function drawVolume(
  ctx:CanvasRenderingContext2D,w:number,h:number,regions:AnatomyRegion[],
@@ -210,7 +226,6 @@ export function drawVolume(
  const scale=Math.min(w*.52,h*.78)*Math.max(.85,Math.min(2.2,options.zoom));
  const triangles:Triangle[]=[];
  const hits:VolumeHit[]=[];
- const colors=colorLayer(layer);
  ctx.save();
  // local artificial depth cues, not an image-derived scan
  const aura=ctx.createRadialGradient(cx,cy,6,cx,cy,Math.max(w,h)*.58);
@@ -245,7 +260,7 @@ export function drawVolume(
  triangles.sort((a,b)=>b.z-a.z);
  for(const t of triangles){
   const factor=(.36+t.shade*.76)*(t.active?1.15:1);
-  const [r,g,b]=t.active?[247,177,118]:colors;
+  const [r,g,b]=t.active?[247,177,118]:colorPart(layer,t.part);
   ctx.beginPath();ctx.moveTo(t.p[0][0],t.p[0][1]);ctx.lineTo(t.p[1][0],t.p[1][1]);ctx.lineTo(t.p[2][0],t.p[2][1]);ctx.closePath();
   ctx.fillStyle='rgba('+safe(r*factor)+','+safe(g*factor)+','+safe(b*factor)+','+(t.active ? .94 : .83)+')';
   ctx.fill();
