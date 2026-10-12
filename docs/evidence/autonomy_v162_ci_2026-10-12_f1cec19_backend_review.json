@@ -1,0 +1,525 @@
+{
+  "schema_version": 1,
+  "kind": "full_backend_ci_failure_evidence",
+  "repository": "dangerok97/DANGEROK",
+  "pull_request": 220,
+  "candidate": {
+    "sha": "f1cec19a3bcb64ba625adab84e34e1fd26b75c9d",
+    "tree": "66afaf0542ca529f77535939c26677fa32647716",
+    "parents": [
+      "641dbaf9869e0881ffe6778ff82c0e771e6fcca4"
+    ]
+  },
+  "verdict": "BOTH_BACKEND_JOBS_FAILED_BEFORE_V162",
+  "source_binding": {
+    "push": {
+      "sha": "f1cec19a3bcb64ba625adab84e34e1fd26b75c9d",
+      "tree": "66afaf0542ca529f77535939c26677fa32647716",
+      "parents": [
+        "641dbaf9869e0881ffe6778ff82c0e771e6fcca4"
+      ]
+    },
+    "pr": {
+      "checkout_sha": "bd5e41efb5b459581cf3853826af80c57643e4e0",
+      "tree": "0e1ce495a74daf46a08001d6ff5ffe9630509c5e",
+      "parents": [
+        "c907ca2a864c683f2a50faa48ac90b325e6982f0",
+        "f1cec19a3bcb64ba625adab84e34e1fd26b75c9d"
+      ],
+      "actual_base": "c907ca2a864c683f2a50faa48ac90b325e6982f0",
+      "metadata_base": "6e619cf64af5049fc362e904a04e4d89e6b14c76",
+      "qualification": "Run pull_request metadata still names 6e619; actual checkout log and Git data attest c907ca2.",
+      "delta_file_count": 25,
+      "delta_scope": "Vision and WhatsApp only; no difference in the reviewed CREATE governance/loop, v84 fixture, frontend freshness delta or ci.yml"
+    }
+  },
+  "backends": {
+    "push": {
+      "run_id": 38279320059,
+      "run_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38279320059",
+      "event": "push",
+      "attempt": 1,
+      "head_sha": "f1cec19a3bcb64ba625adab84e34e1fd26b75c9d",
+      "run_conclusion": "failure",
+      "job_id": 114912441941,
+      "job_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38279320059/job/114912441941",
+      "conclusion": "failure",
+      "checkout": {
+        "sha": "f1cec19a3bcb64ba625adab84e34e1fd26b75c9d",
+        "line": 206,
+        "source": "full job log immediately after git log -1 --format=%H"
+      },
+      "failed_step": {
+        "number": 28,
+        "name": "Autonomous work, clarification, source changes and scheduled recovery",
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      "failure": {
+        "test": "tests/test_life_outcome_watch_v84.py::test_same_ai_decision_can_persist_situation_and_read_live_weather",
+        "file_line": 414,
+        "assertion": "assert governed.ok is True",
+        "actual": false,
+        "pytest_summary": {
+          "passed": 156,
+          "failed": 1,
+          "skipped": 0,
+          "line": 2361,
+          "summary": "2026-10-12T16:46:26.2819752Z 1 failed, 156 passed, 18 warnings in 10.76s"
+        },
+        "trace_lines": [
+          2267,
+          2305
+        ],
+        "fixture_missing_key": "location_label",
+        "cause_qualification": "The emitted fixture literal lacks location_label; the candidate's raw CREATE presence validation requires it. The returned errors list was not printed by this test."
+      },
+      "earlier_invocation_sum": {
+        "passed": 1158,
+        "failed": 1,
+        "test_skips": 8,
+        "caveat": "Sum of 21 executed pytest invocations including the failed one, not deduplicated tests or a completed v162 gate. Test skips are historical groups3+5."
+      },
+      "earlier_distinct_counts": {
+        "vision_passed": 192,
+        "whatsapp_passed": 6
+      },
+      "required_later_gates": {
+        "handoff_module": {
+          "expected_cases": 42,
+          "expectation_source": "candidate test source / parent task, not a PASS",
+          "state": "not_run",
+          "reason": "v162 step skipped"
+        },
+        "v162": {
+          "expected_cases": 1359,
+          "expectation_source": "parent preflight, not measured by this run",
+          "state": "not_run",
+          "step_number": 42
+        },
+        "autonomy_scripted_cli": {
+          "expected_cases": 9,
+          "state": "not_run"
+        },
+        "real_mongo_process_restart": {
+          "expected_cases": 6,
+          "state": "not_run",
+          "step_number": 43
+        },
+        "real_mongo_provenance_v39": {
+          "expected_cases": 3,
+          "state": "not_run",
+          "step_number": 44
+        },
+        "static_visibility_v39": {
+          "expected_cases": 3,
+          "state": "not_run"
+        }
+      },
+      "skipped_runtime_steps": [
+        {
+          "number": 29,
+          "name": "Proactive delivery fairness and owner isolation",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 30,
+          "name": "Gmail relevance attachments and connected-life bridge",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 31,
+          "name": "Google first sync, cloud sessions, location privacy and polling",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 32,
+          "name": "Public auth rate limits",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 33,
+          "name": "Autonomous goal wake recovery beyond already scheduled rows",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 34,
+          "name": "Cross-worker wake cursor lease, retries and authority",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 35,
+          "name": "Multiowner cursor and restarted goal wake recovery",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 36,
+          "name": "Proactive AI initial initiative, silence and outage acceptance",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 37,
+          "name": "Source revision and worker claim fence during proactive thinking",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 38,
+          "name": "Verified autonomous outcome on synthetic life data",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 39,
+          "name": "Autonomous outcome across real Mongo and separate Python workers",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 40,
+          "name": "Verified completed work becomes one Home result without push",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 41,
+          "name": "Durable Home result outbox, retry, isolation and crash fencing",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 42,
+          "name": "v162 canonical sources, planning recovery and connected autonomy acceptance",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 43,
+          "name": "v162 planning, source read and Home outbox across exited Python workers",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 44,
+          "name": "v162 real Mongo consent and provider provenance regression",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 45,
+          "name": "Backup restore round trip",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 46,
+          "name": "Calendar command target, confirmation and timezone safety",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 47,
+          "name": "Phase 1 persisted result survives a real process restart",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 48,
+          "name": "Phase 2 reminder recovery survives a real process restart",
+          "conclusion": "skipped"
+        }
+      ],
+      "original_log": {
+        "blob_sha": "23ffe626b52bfe98e515637fb6307bf9fd5896a5",
+        "sha256": "13b62007e236718fb9cb9acbe3ad9ef4584334829bfde8ba84a99cfb1d8df60d",
+        "bytes": 2269002,
+        "readback_exact": true,
+        "scope": "orphan blob only; no tree/ref",
+        "scan_key": "cif1cec:scan:push",
+        "intended_repository_path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912441941.log",
+        "full_log_lines": 7974,
+        "original_modified": false,
+        "scan": {
+          "entire_raw": {
+            "strict": {
+              "private_key_pem": 0,
+              "google_api_key": 0,
+              "openai_style_key": 0,
+              "github_token": 0,
+              "mongodb_uri_with_password": 0
+            },
+            "pii": {
+              "email_address": 0,
+              "creator_object": 0,
+              "authored_email_rendering": 0,
+              "private_home_path": 0,
+              "phone_like": 0,
+              "jwt_like": 0
+            }
+          },
+          "all_decoded_json_strings": {
+            "strict": {
+              "private_key_pem": 0,
+              "google_api_key": 0,
+              "openai_style_key": 0,
+              "github_token": 0,
+              "mongodb_uri_with_password": 0
+            },
+            "pii": {
+              "email_address": 0,
+              "creator_object": 0,
+              "authored_email_rendering": 0,
+              "private_home_path": 0,
+              "phone_like": 0,
+              "jwt_like": 0
+            }
+          },
+          "decoded_string_bytes": 1460265,
+          "bytes": 2269002,
+          "sha256": "13b62007e236718fb9cb9acbe3ad9ef4584334829bfde8ba84a99cfb1d8df60d",
+          "git_blob_precomputed": "23ffe626b52bfe98e515637fb6307bf9fd5896a5",
+          "exemptions": 0,
+          "source": "original complete decoded job log",
+          "scope": "All raw UTF-8 plus all parseable quoted JSON strings from complete log; no content exemption or redaction."
+        }
+      }
+    },
+    "pr": {
+      "run_id": 38279327211,
+      "run_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38279327211",
+      "event": "pull_request",
+      "attempt": 1,
+      "head_sha": "f1cec19a3bcb64ba625adab84e34e1fd26b75c9d",
+      "run_conclusion": "failure",
+      "job_id": 114912464713,
+      "job_url": "https://github.com/dangerok97/DANGEROK/actions/runs/38279327211/job/114912464713",
+      "conclusion": "failure",
+      "checkout": {
+        "sha": "bd5e41efb5b459581cf3853826af80c57643e4e0",
+        "line": 221,
+        "source": "full job log immediately after git log -1 --format=%H"
+      },
+      "failed_step": {
+        "number": 28,
+        "name": "Autonomous work, clarification, source changes and scheduled recovery",
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      "failure": {
+        "test": "tests/test_life_outcome_watch_v84.py::test_same_ai_decision_can_persist_situation_and_read_live_weather",
+        "file_line": 414,
+        "assertion": "assert governed.ok is True",
+        "actual": false,
+        "pytest_summary": {
+          "passed": 156,
+          "failed": 1,
+          "skipped": 0,
+          "line": 2378,
+          "summary": "2026-10-12T16:46:44.5974079Z 1 failed, 156 passed, 18 warnings in 12.43s"
+        },
+        "trace_lines": [
+          2284,
+          2322
+        ],
+        "fixture_missing_key": "location_label",
+        "cause_qualification": "The emitted fixture literal lacks location_label; the candidate's raw CREATE presence validation requires it. The returned errors list was not printed by this test."
+      },
+      "earlier_invocation_sum": {
+        "passed": 1170,
+        "failed": 1,
+        "test_skips": 8,
+        "caveat": "Sum of 21 executed pytest invocations including the failed one, not deduplicated tests or a completed v162 gate. Test skips are historical groups3+5."
+      },
+      "earlier_distinct_counts": {
+        "vision_passed": 202,
+        "whatsapp_passed": 8
+      },
+      "required_later_gates": {
+        "handoff_module": {
+          "expected_cases": 42,
+          "expectation_source": "candidate test source / parent task, not a PASS",
+          "state": "not_run",
+          "reason": "v162 step skipped"
+        },
+        "v162": {
+          "expected_cases": 1359,
+          "expectation_source": "parent preflight, not measured by this run",
+          "state": "not_run",
+          "step_number": 42
+        },
+        "autonomy_scripted_cli": {
+          "expected_cases": 9,
+          "state": "not_run"
+        },
+        "real_mongo_process_restart": {
+          "expected_cases": 6,
+          "state": "not_run",
+          "step_number": 43
+        },
+        "real_mongo_provenance_v39": {
+          "expected_cases": 3,
+          "state": "not_run",
+          "step_number": 44
+        },
+        "static_visibility_v39": {
+          "expected_cases": 3,
+          "state": "not_run"
+        }
+      },
+      "skipped_runtime_steps": [
+        {
+          "number": 29,
+          "name": "Proactive delivery fairness and owner isolation",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 30,
+          "name": "Gmail relevance attachments and connected-life bridge",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 31,
+          "name": "Google first sync, cloud sessions, location privacy and polling",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 32,
+          "name": "Public auth rate limits",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 33,
+          "name": "Autonomous goal wake recovery beyond already scheduled rows",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 34,
+          "name": "Cross-worker wake cursor lease, retries and authority",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 35,
+          "name": "Multiowner cursor and restarted goal wake recovery",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 36,
+          "name": "Proactive AI initial initiative, silence and outage acceptance",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 37,
+          "name": "Source revision and worker claim fence during proactive thinking",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 38,
+          "name": "Verified autonomous outcome on synthetic life data",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 39,
+          "name": "Autonomous outcome across real Mongo and separate Python workers",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 40,
+          "name": "Verified completed work becomes one Home result without push",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 41,
+          "name": "Durable Home result outbox, retry, isolation and crash fencing",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 42,
+          "name": "v162 canonical sources, planning recovery and connected autonomy acceptance",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 43,
+          "name": "v162 planning, source read and Home outbox across exited Python workers",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 44,
+          "name": "v162 real Mongo consent and provider provenance regression",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 45,
+          "name": "Backup restore round trip",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 46,
+          "name": "Calendar command target, confirmation and timezone safety",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 47,
+          "name": "Phase 1 persisted result survives a real process restart",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 48,
+          "name": "Phase 2 reminder recovery survives a real process restart",
+          "conclusion": "skipped"
+        }
+      ],
+      "original_log": {
+        "blob_sha": "99f49739e1c789c81c822f0d4c773780aa5da816",
+        "sha256": "7fd4cfd2fc49f026cc004ef1d1584fb6fdbba8836aa7e918334024cf9f687506",
+        "bytes": 2427254,
+        "readback_exact": true,
+        "scope": "orphan blob only; no tree/ref",
+        "scan_key": "cif1cec:scan:pr",
+        "intended_repository_path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912464713.log",
+        "full_log_lines": 8449,
+        "original_modified": false,
+        "scan": {
+          "entire_raw": {
+            "strict": {
+              "private_key_pem": 0,
+              "google_api_key": 0,
+              "openai_style_key": 0,
+              "github_token": 0,
+              "mongodb_uri_with_password": 0
+            },
+            "pii": {
+              "email_address": 0,
+              "creator_object": 0,
+              "authored_email_rendering": 0,
+              "private_home_path": 0,
+              "phone_like": 0,
+              "jwt_like": 0
+            }
+          },
+          "all_decoded_json_strings": {
+            "strict": {
+              "private_key_pem": 0,
+              "google_api_key": 0,
+              "openai_style_key": 0,
+              "github_token": 0,
+              "mongodb_uri_with_password": 0
+            },
+            "pii": {
+              "email_address": 0,
+              "creator_object": 0,
+              "authored_email_rendering": 0,
+              "private_home_path": 0,
+              "phone_like": 0,
+              "jwt_like": 0
+            }
+          },
+          "decoded_string_bytes": 1572031,
+          "bytes": 2427254,
+          "sha256": "7fd4cfd2fc49f026cc004ef1d1584fb6fdbba8836aa7e918334024cf9f687506",
+          "git_blob_precomputed": "99f49739e1c789c81c822f0d4c773780aa5da816",
+          "exemptions": 0,
+          "source": "original complete decoded job log",
+          "scope": "All raw UTF-8 plus all parseable quoted JSON strings from complete log; no content exemption or redaction."
+        }
+      }
+    }
+  },
+  "limits": [
+    "Both jobs failed before the new42-case module and expected v1621359 gate. Those counts are expectations, not executed PASS results.",
+    "Autonomy CLI9, realMongo process-restart6 and v39 provenance/static guards were not reached. This manifest makes no claim about their model/HTTP/effect counts.",
+    "Eight historical test skips per job (3+5) differ from downstream workflow steps skipped after failure.",
+    "Run pull_request metadata reported base6e619; checkout log plus Git data attest merge bd5e41e with actual basec907ca2.",
+    "Only two full backend logs collected here. Other workflow results are the parent and peer collectors' responsibility.",
+    "Logs are exact UTF-8 text returned by the GitHub decoded-log tool, not a ZIP archive or original compressed network bytes.",
+    "No test rerun, provider/model invocation, workflow/branch/tree mutation or Railway operation."
+  ]
+}

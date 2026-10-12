@@ -1,3 +1,15 @@
+# 12 ottobre 2026 — v162, correzione delle verifiche f1
+
+- Aggiunto soltanto location_label=None alla fixture v84;43 righe assert conservate.
+- Corretto il solo riferimento del guard visivo al timestamp di verifiedFollowup.
+- Corretto il settle del harness CJS: un turno Node conclude le Promise fra contesti prima dello snapshot; asserzioni, API simulate e runtime invariati.
+- Conservata la CI f1 negativa:14 log integrali pubblicabili, di cui11 esatti e3 con i soli12 contatti pubblici npm omessi. Hash originali e copie mantenuti; nessuna esenzione alla scansione.
+- Conservati i verdi effettivi senza estenderli ai gate saltati: tsc,32/34 frontend,40 browser. Nuova CI richiesta per i tre ritocchi.
+
+[Evidenze della CI f1](evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json) · [Correzione dei tre test](evidence/autonomy_v162_ci_fixture_repairs_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, correzione contesto e visibilità
 
 - Rifiutato il CREATE grezzo che omette i tre campi di contesto prima che i default nascondano l'omissione. Valori esplicitamente sconosciuti restano consentiti.

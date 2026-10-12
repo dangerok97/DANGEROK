@@ -404,6 +404,7 @@ def test_same_ai_decision_can_persist_situation_and_read_live_weather():
             "constraints": [],
             "assumptions": [],
             "source_refs": ["user_conversation"],
+            "location_label": None,
             "linked_object_refs": [],
             "source": "user_conversation",
         },

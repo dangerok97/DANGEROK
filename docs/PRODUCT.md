@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, verifica completa ancora aperta
+
+La scheda aggiornata supera le cinque prove di rendering della CI f1: dopo una lettura fallita della fonte usata ritira le indicazioni operative; una fonte diversa in errore non invalida quella corrente. Le40 prove browser mobile passano. Queste prove non attestano ancora l'avviso utile ricevuto su un telefono con app chiusa.
+
+La CI complessiva è negativa per tre problemi nei test. Il candidato successivo corregge soltanto quelle verifiche; il comportamento dell'app resta identico a f1. L'accettazione «Ho steso → quando ritirare» resta aperta e la precedente stesura reale resta chiusa.
+
+[Evidenze della CI f1](evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json) · [Correzione dei tre test](evidence/autonomy_v162_ci_fixture_repairs_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, risultato sospeso quando lo stato non è verificabile
 
 Il candidato successivo a641 affronta un rischio concreto: dopo una lettura fallita ORA poteva continuare a mostrare il vecchio «Ritira adesso». La scheda deve invece indicare **«Stato non verificabile»**, sospendere l'indicazione operativa e recuperarla soltanto dopo una lettura riuscita della fonte effettivamente usata. Lo stesso criterio vale se la prima lettura fallisce senza dati. Il cambio account non deve conservare il risultato del precedente account.

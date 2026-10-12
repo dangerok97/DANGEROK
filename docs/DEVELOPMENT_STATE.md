@@ -1,3 +1,15 @@
+# 12 ottobre 2026 — v162, CI f1 negativa e correzione dei soli test
+
+La revisione f1cec19a3bcb64ba625adab84e34e1fd26b75c9d, tree66afaf0542ca529f77535939c26677fa32647716, conclude6 workflow:2 SUCCESS e4 FAILURE;16 job:6 SUCCESS,8 FAILURE e2 SKIPPED, tutti attempt1. Entrambi i backend si fermano alla fixture v84:156 PASS/1 FAIL nello step, prima del modulo42, gruppo1359, CLI e riavvioMongo. I gate Situation si fermano allo stesso caso e al guard visivo sul nome della variabile.
+
+Entrambi i frontend compilano e nel nuovo comando Node eseguono32 PASS/2 FAIL:20 presenter,7 hook e5 render verdi. Le2 failure dipendono dallo snapshot prematuro nel primo settle del harness. Browser40 PASS; prebuild/export iOS e product-guards saltati. Checkout PR effettivo bd5e41efb5b459581cf3853826af80c57643e4e0, tree0e1ce495a74daf46a08001d6ff5ffe9630509c5e, basec907ca2:25 file Vision/WhatsApp distinti, tutti14 file del delta f1 identici.
+
+Sono pronti tre ritocchi ai soli test, revisionati indipendentemente, da f1 come unico parent. Nuova CI ancora da eseguire al congelamento. Nessun live f1 avviato con CI negativa, nessuna modifica APP o prova nativa ricevuta. I report641 negativi e l'esito f1 restano invariati.
+
+[Evidenze della CI f1](evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json) · [Correzione dei tre test](evidence/autonomy_v162_ci_fixture_repairs_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, candidato di correzione dopo641
 
 Parent unico previsto: `641dbaf9869e0881ffe6778ff82c0e771e6fcca4`, tree `d2682060e404008a046797ca14b1e49b4a3bd27e`, sul ramo autorizzato della PR220 ancora draft. Il candidato raccoglie il vincolo dei campi CREATE espliciti, il trasporto di display_focus_ref e la sospensione delle indicazioni dopo una lettura non riuscita della fonte usata. Sono conservati integralmente i due FAIL live641, le review e i log CI pubblicabili.

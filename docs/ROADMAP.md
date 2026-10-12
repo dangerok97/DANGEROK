@@ -1,3 +1,16 @@
+# 12 ottobre 2026 — v162, prossimo gate dopo f1
+
+1. Eseguire il candidato con i tre test corretti e runtime f1 invariato, verificando in particolare modulo42, gruppo1359, CLI e riavvioMongo che f1 non aveva raggiunto.
+2. Dopo CI verde e nuova verifica del servizio tecnico libero, eseguire una sola prova Situation pertinente al nuovo vincolo CREATE. Non ripetere Memory immutata.
+3. Verificare sul percorso sintetico luogo Tarquinia, obiettivo asciugatura, valutazione e avviso utile, distinguendo controllo e ritiro. La prosa non sostenuta del modello resta un limite aperto.
+4. Mantenere separata la prova di consegna su dispositivo: firma, installazione, app chiusa e tap autenticato non sono attestati. Il rifiuto APP resta in vigore.
+
+La precedente stesura reale rimane chiusa. Nessun nuovo risultato di autonomia viene dedotto dai soli test di interfaccia.
+
+[Evidenze della CI f1](evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json) · [Correzione dei tre test](evidence/autonomy_v162_ci_fixture_repairs_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, verifiche del candidato dopo641
 
 Il primo intervento sul confine CREATE è nel candidato: omissioni esplicite alla governance e riparazione già esistente. La correzione della visibilità affronta il vecchio «Ritira adesso» mantenuto dopo un errore di lettura. **Nessuno dei due interventi equivale all'accettazione del percorso completo.**

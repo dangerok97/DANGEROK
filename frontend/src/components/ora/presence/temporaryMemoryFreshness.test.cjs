@@ -110,7 +110,12 @@ function temporaryHookHarness(compileHook) {
   return {
     requests, timers, listeners, render,
     get value() { return value; }, get stateWrites() { return stateWrites; },
-    async settle() { await Promise.resolve(); await Promise.resolve(); return render(); },
+    async settle() {
+      // The API Promise and the vm async function have different realms.
+      // Drain adoption and continuations before taking the render snapshot.
+      await new Promise(resolve => setImmediate(resolve));
+      return render();
+    },
     async succeed(index, stars) { requests[index].resolve({ stars }); return this.settle(); },
     async fail(index) { requests[index].reject(new Error('synthetic-unavailable')); return this.settle(); },
     setOwner(next) { owner = next; return render(); },

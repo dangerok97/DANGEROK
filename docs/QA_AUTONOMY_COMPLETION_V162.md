@@ -1,3 +1,17 @@
+# 12 ottobre 2026 — v162, regressioni f1 e tre riparazioni ai test
+
+CI f1 completa, negativa, senza rerun:6 workflow/16 job,8 failure e2 job saltati. Entrambi i backend:156 PASS/1 FAIL nello step della fixture v84 priva di location_label. Le21 invocazioni raggiunte sommano1158 PASS push e1170 PASS PR,1 FAIL e8 skip storici ciascuno; non sono casi deduplicati né il gruppo v162. Modulo42, gruppo1359, CLI9, riavvioMongo6 e guard successivi non raggiunti.
+
+Frontend Node realmente eseguito:32 PASS/2 FAIL per job,20 presenter e5 render tutti verdi,7 hook verdi. Le prime letture di successo/errore risultavano ancora nel precedente snapshot dopo due soli microtask. Il harness attende ora un turno event loop Node; nessuna asserzione rimossa. Il guard statico fallito cercava il precedente nome followup: ora verifica verifiedFollowup e conserva il vincolo sul timestamp persistito.
+
+La fixture aggiunge soltanto lo sconosciuto esplicito; un controllo statico dei26 moduli del gate Situation ha individuato quattro CREATE raw alla governance, con gli altri tre già completi. Non è una scansione di tutti i test del repository. Le prove del codice corretto restano NOT_RUN al congelamento; la diagnosi V8 sulle Promise non è una nuova esecuzione Node o React.
+
+Il nuovo candidato contiene solo questi tre ritocchi ai test, documentazione ed evidenze; runtime, workflow e oracle live sono identici a f1. Conservati14 log, conteggi, checkouts separati, hash originali e redazioni limitate ai contatti pubblici npm.
+
+[Evidenze della CI f1](evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json) · [Correzione dei tre test](evidence/autonomy_v162_ci_fixture_repairs_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, regressioni del candidato dopo641
 
 Le nuove prove backend coprono sette combinazioni di chiavi CREATE omesse, sconosciuti espliciti e modello già tipizzato, quattro operazioni non-create, focus valido/nullo e cinque tipi o lunghezze invalidi. Due prove del loop verificano la riparazione preesistente con una sola creazione/programmazione e il caso ancora invalido senza effetti di dominio. Il test positivo rilegge source_refs dal record effettivo con id e owner; non richiede un campo assente nell'ack pubblico.

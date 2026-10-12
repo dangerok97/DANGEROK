@@ -1,0 +1,584 @@
+{
+  "schema": "ora.autonomy.v162.ci_fixture_repairs.v1",
+  "frozen_at": "2026-10-12 16:58:54 UTC",
+  "source": {
+    "repository": "dangerok97/DANGEROK",
+    "branch": "ora/v162-autonomy-validation-20261012",
+    "pr": 220,
+    "draft": true,
+    "parent_sha": "f1cec19a3bcb64ba625adab84e34e1fd26b75c9d",
+    "parent_tree": "66afaf0542ca529f77535939c26677fa32647716",
+    "runtime_changed": false,
+    "workflow_changed": false
+  },
+  "rationale": "Complete the previously required gates after three test defects stopped the new context/visibility candidate. Do not soften the runtime validation or discard any failed report.",
+  "changes": {
+    "backend": {
+      "path": "backend/tests/test_life_outcome_watch_v84.py",
+      "uniquePreimage": true,
+      "singleAddition": true,
+      "assertionsUnchanged": true,
+      "assertionLines": 43,
+      "before": "            \"source_refs\": [\"user_conversation\"],\n            \"linked_object_refs\": [],",
+      "after": "            \"source_refs\": [\"user_conversation\"],\n            \"location_label\": None,\n            \"linked_object_refs\": [],",
+      "before_git_blob": "a77417d01653c81956f2f89d9b1a5c07bd62d279",
+      "after_git_blob": "02705fc0c024449f26dc2a5cba14da1446328af4"
+    },
+    "frontend": [
+      {
+        "path": "frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+        "exact_single_replacement": true,
+        "before": "    async settle() { await Promise.resolve(); await Promise.resolve(); return render(); },",
+        "after": "    async settle() {\n      // The API Promise and the vm async function have different realms.\n      // Drain adoption and continuations before taking the render snapshot.\n      await new Promise(resolve => setImmediate(resolve));\n      return render();\n    },",
+        "assertion_count_before": 57,
+        "assertion_count_after": 57,
+        "test_token_occurrences_before": 14,
+        "test_token_occurrences_after": 14,
+        "test_token_counts_are_not_test_case_counts": true
+      },
+      {
+        "path": "frontend/src/components/ora/ora14.test.ts",
+        "exact_single_replacement": true,
+        "before": "/followup\\.next_check_at/",
+        "after": "/verifiedFollowup\\.next_check_at/",
+        "assertion_count_before": 108,
+        "assertion_count_after": 108,
+        "test_token_occurrences_before": 83,
+        "test_token_occurrences_after": 83,
+        "test_token_counts_are_not_test_case_counts": true
+      }
+    ],
+    "raw_fixture_scan": {
+      "scope": "26 exact modules selected by Situation workflow",
+      "create_occurrences": 18,
+      "raw_governance_fixtures": 4,
+      "remaining_omission": "v84 location_label only",
+      "others": "three raw declarations already complete; remaining CREATE occurrences typed constructors or returned snapshots",
+      "not_a_full_repository_scan": true
+    },
+    "async_diagnosis": {
+      "schema": "ora-test-promise-adoption-diagnostic-v1",
+      "execution": "V8; the deferred API promise uses a distinct Promise constructor to exercise PromiseResolve adoption, equivalent to that branch of cross-realm await. The actual Node vm/TypeScript module was not executed here.",
+      "source_hook_blob": "6371d131805608dcd5c5c462af424700f3bc0b2e",
+      "original_harness_blob": "c0f58b2b688246daf0aa16e9c8b6c1b8c508b395",
+      "runtime_changed": false,
+      "event_turn": "V8 setTimeout(0) used only as the local event-turn primitive; proposed Node harness uses setImmediate, not a wall-clock delay or retry loop.",
+      "results": [
+        {
+          "name": "two_microtasks",
+          "operation": "success",
+          "at_assertion": {
+            "count": 0,
+            "error": false,
+            "state_writes": 1
+          },
+          "after_event_turn": {
+            "count": 1,
+            "error": false,
+            "state_writes": 1
+          },
+          "expected": {
+            "count": 1,
+            "error": false
+          }
+        },
+        {
+          "name": "two_microtasks",
+          "operation": "failure",
+          "at_assertion": {
+            "count": 0,
+            "error": false,
+            "state_writes": 1
+          },
+          "after_event_turn": {
+            "count": 0,
+            "error": true,
+            "state_writes": 1
+          },
+          "expected": {
+            "count": 0,
+            "error": true
+          }
+        },
+        {
+          "name": "one_event_turn",
+          "operation": "success",
+          "at_assertion": {
+            "count": 1,
+            "error": false,
+            "state_writes": 1
+          },
+          "after_event_turn": {
+            "count": 1,
+            "error": false,
+            "state_writes": 1
+          },
+          "expected": {
+            "count": 1,
+            "error": false
+          }
+        },
+        {
+          "name": "one_event_turn",
+          "operation": "failure",
+          "at_assertion": {
+            "count": 0,
+            "error": true,
+            "state_writes": 1
+          },
+          "after_event_turn": {
+            "count": 0,
+            "error": true,
+            "state_writes": 1
+          },
+          "expected": {
+            "count": 0,
+            "error": true
+          }
+        }
+      ]
+    }
+  },
+  "source_review": {
+    "root": {
+      "exact_three_diffs_verified": true,
+      "runtime_files_changed": 0,
+      "workflow_files_changed": 0,
+      "no_assertion_removed": true,
+      "CJS_assert_calls": 57,
+      "static_guard_assert_calls": 108,
+      "backend_assert_lines": 43,
+      "existing_CJS_test_cases": 14
+    },
+    "independent": {
+      "reviewer": "outcome_qa",
+      "status": "no_concrete_blocker",
+      "execution": false,
+      "checks": [
+        "Explicit unknown in v84 preserves the key-presence requirement.",
+        "Node-host setImmediate permits settled Promise adoption and continuation before observing the render; no timeout polling or retry.",
+        "The static timestamp guard targets verifiedFollowup and retains its title, conjunction and assertion message."
+      ]
+    }
+  },
+  "prior_evidence": {
+    "f1_CI": {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json",
+      "bytes": 76356,
+      "sha256": "1b1936a1f5614a5110ba21f65c5d9070d2fbc9278114b2c86c7502232ddc8c2c",
+      "git_blob": "f49cc1b7d4d7e79853968653efaaeda7477f07c7",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 400,
+        "scanned_bytes_including_decodings": 90470
+      }
+    },
+    "backend_review": {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_backend_review.json",
+      "bytes": 18595,
+      "sha256": "a61f3139f9dbdea3c73074b6304fe5a523d500263d41d4f067a816d66386a7f4",
+      "git_blob": "50437c3d82f6e357c42dc30651c4d80c08319420",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 166,
+        "scanned_bytes_including_decodings": 23913
+      }
+    },
+    "frontend_review": {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_frontend.json",
+      "bytes": 157013,
+      "sha256": "8cde8feea8bfa19725ac7cd6e1538903079b301d8c9c08ec0a86f8fa4f1ca97b",
+      "git_blob": "dc06b73b489b31b51b0a288d0f5b3ae9ceeb3e35",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 246,
+        "scanned_bytes_including_decodings": 723108
+      }
+    },
+    "log_count": 14,
+    "original_failure_preserved": true,
+    "summary": {
+      "workflows": 6,
+      "workflow_success": 2,
+      "workflow_failure": 4,
+      "jobs": 16,
+      "success": 6,
+      "failure": 8,
+      "skipped": 2
+    }
+  },
+  "expected_next_verification": {
+    "CI": "not_run_at_freeze",
+    "CJS_cases": 14,
+    "presenter_cases": 20,
+    "total_frontend_cases": 34,
+    "handoff_cases": 42,
+    "v162_cases_if_no_other_collection_change": 1359,
+    "CLI9": "previously not_reached",
+    "Mongo_restart6": "previously not_reached",
+    "note": "Expected counts are not claimed PASS results. V8 adoption probe is not Node, TypeScript, React or browser execution."
+  },
+  "files": [
+    {
+      "path": "backend/tests/test_life_outcome_watch_v84.py",
+      "bytes": 14654,
+      "sha256": "42caaccd7374e328ced02eaa48cb87310163e01499bd93c474d4532c45a89801",
+      "git_blob": "02705fc0c024449f26dc2a5cba14da1446328af4",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 168,
+        "scanned_bytes_including_decodings": 17634
+      }
+    },
+    {
+      "path": "frontend/src/components/ora/presence/temporaryMemoryFreshness.test.cjs",
+      "bytes": 15678,
+      "sha256": "8754c2c4c6b7ee41ea4d1c9e2d05227730fa31791142d6e9c787e0a7aa437bca",
+      "git_blob": "9a9a5e0b9594c2688614141e4d94d48b099154ee",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 1,
+        "scanned_bytes_including_decodings": 15678
+      }
+    },
+    {
+      "path": "frontend/src/components/ora/ora14.test.ts",
+      "bytes": 20546,
+      "sha256": "31ec9acaf60d17db8a57c51b3f3687a3bc81dec8ad873512093e5e24a3ab504b",
+      "git_blob": "b9da0e0c6703a4305e20610a9067d543031e5a3f",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 20,
+        "scanned_bytes_including_decodings": 41503
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_backend_review.json",
+      "bytes": 18595,
+      "sha256": "a61f3139f9dbdea3c73074b6304fe5a523d500263d41d4f067a816d66386a7f4",
+      "git_blob": "50437c3d82f6e357c42dc30651c4d80c08319420",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 166,
+        "scanned_bytes_including_decodings": 23913
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912441941.log",
+      "bytes": 2269002,
+      "sha256": "13b62007e236718fb9cb9acbe3ad9ef4584334829bfde8ba84a99cfb1d8df60d",
+      "git_blob": "23ffe626b52bfe98e515637fb6307bf9fd5896a5",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 6588,
+        "scanned_bytes_including_decodings": 4720200
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912464713.log",
+      "bytes": 2427254,
+      "sha256": "7fd4cfd2fc49f026cc004ef1d1584fb6fdbba8836aa7e918334024cf9f687506",
+      "git_blob": "99f49739e1c789c81c822f0d4c773780aa5da816",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 6978,
+        "scanned_bytes_including_decodings": 5049295
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912440013.log",
+      "bytes": 12575,
+      "sha256": "099301e81be864d2444753552b5ef1e1afdfcf5af68abc98e7ace6471642a2f9",
+      "git_blob": "68b4037b7865e6471593ab2af8fd8ac61111eac5",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 4,
+        "scanned_bytes_including_decodings": 25187
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912440437.log",
+      "bytes": 95436,
+      "sha256": "4910ba2309a7f0f949f3e9e6dda22026fc19a3bec40ee0810439e60c094314a2",
+      "git_blob": "a85a09a0a4491766474f517f7e74187c08a2453a",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 247,
+        "scanned_bytes_including_decodings": 196465
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912441482_redacted.log",
+      "bytes": 48955,
+      "sha256": "6525597428599d56313019651ba42e45ef12da977a8068b35c302f33a76e0192",
+      "git_blob": "bf5384514dc3fd87a3a3128c33643e9350c2fee3",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 15,
+        "scanned_bytes_including_decodings": 98038
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912441784.log",
+      "bytes": 574176,
+      "sha256": "6a87c49195d19de22776371ff53aeacb7b0f2c6e9f52fadd5145034f6082d35a",
+      "git_blob": "c25add91d3ad62800c175b9ed59b8b902c6eab18",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 2191,
+        "scanned_bytes_including_decodings": 1209423
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912441923.log",
+      "bytes": 52681,
+      "sha256": "622f6fdb1dee2ac4a209e7c374ab5aa24c3c9d26a23c21e313b9f846636c9f72",
+      "git_blob": "f6f879dc0fb0b3a698df5818329a8781cff237cd",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 4,
+        "scanned_bytes_including_decodings": 105399
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912464106.log",
+      "bytes": 69362,
+      "sha256": "d7a8c755f8521cf18b657ed104325be69f97e4d7fbc3f94a81daa46f6af95593",
+      "git_blob": "8c194120ef178e16285aab8068869e00cb5c0262",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 6,
+        "scanned_bytes_including_decodings": 138776
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912464790.log",
+      "bytes": 13415,
+      "sha256": "534d1b4aad3823a01abcb2a4df37f2bd4e6fe3fd510d3692743c1dc8a7241c0f",
+      "git_blob": "5453bf2b74eb879688dbbe0450bffd901aa2c2e3",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 4,
+        "scanned_bytes_including_decodings": 26867
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912464871.log",
+      "bytes": 96235,
+      "sha256": "5d62556cc462ca4591f19ae8703a9a7f29f5cd7dfba1b0a0bc6189bbf04137aa",
+      "git_blob": "b0c441b9ef96e620cbf7a7ac916b78f1b838e6ea",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 248,
+        "scanned_bytes_including_decodings": 198091
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912465067_redacted.log",
+      "bytes": 163676,
+      "sha256": "78bb26681d2113e5702b321675e3b1dfa0cfb64474cb5f23a185ba69ab22c1dc",
+      "git_blob": "dbacb4431b346b8d44642abb6c9aed9e01a94d5d",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 6,
+        "scanned_bytes_including_decodings": 327399
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912465209.log",
+      "bytes": 574088,
+      "sha256": "78c9f29697d0a2db75c1b25d3f36c0a9f9c254f9fbb3ec329fb67112367c95ab",
+      "git_blob": "000771f01e465329ba4f5aabf90ba4e900a1dcc0",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 2242,
+        "scanned_bytes_including_decodings": 1210160
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912465255_redacted.log",
+      "bytes": 49975,
+      "sha256": "527a6c5e80307908d6d14a8c66ad54d37bbba42c4d5e3e3526bf4b4969221cae",
+      "git_blob": "5c62f4014d03ce6fffa2d65be7b25d77a32f4136",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 15,
+        "scanned_bytes_including_decodings": 100078
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_logs/job_114912465366.log",
+      "bytes": 55483,
+      "sha256": "8ec53a11a8fda847988ea455f0547f1b239007ca9efe4702b7f474df2a1767da",
+      "git_blob": "153c65d55af90da0cf44bd30de4231d69d206098",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 4,
+        "scanned_bytes_including_decodings": 111003
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_frontend.json",
+      "bytes": 157013,
+      "sha256": "8cde8feea8bfa19725ac7cd6e1538903079b301d8c9c08ec0a86f8fa4f1ca97b",
+      "git_blob": "dc06b73b489b31b51b0a288d0f5b3ae9ceeb3e35",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 246,
+        "scanned_bytes_including_decodings": 723108
+      }
+    },
+    {
+      "path": "docs/PRODUCT.md",
+      "bytes": 194201,
+      "sha256": "56cf7476a5f8bf670eb894b3689d3e471c97f652db11b0c363afa1685a9348a1",
+      "git_blob": "81385ae2ece535daf9947af54d20046de2e32550",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 25,
+        "scanned_bytes_including_decodings": 194752
+      }
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "bytes": 346700,
+      "sha256": "691ae089a31fbe38013a3e7a7743891eeabc649e0606f00dcc1485b36e171179",
+      "git_blob": "ff4cd0d2e6dae362e62f02426e09fa64f86de3d5",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 88,
+        "scanned_bytes_including_decodings": 348041
+      }
+    },
+    {
+      "path": "docs/DEVELOPMENT_STATE.md",
+      "bytes": 402182,
+      "sha256": "06e254369fd3a34efb6c106d7128db6dbf73d2489d1e0c2a3673dc948dce5a8e",
+      "git_blob": "00a7a3f0452aea4e5e116e42026b78166e940fc8",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 74,
+        "scanned_bytes_including_decodings": 403169
+      }
+    },
+    {
+      "path": "docs/CHANGELOG_AI.md",
+      "bytes": 410606,
+      "sha256": "4bb6cf86f01b30f92f13f6ea1c74d46fff0e0379737295c3474e57fca461b682",
+      "git_blob": "a555be1fae167a9be5dc2af1f5576b56f89e0b87",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 84,
+        "scanned_bytes_including_decodings": 411911
+      }
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "bytes": 150969,
+      "sha256": "075a2a3fe0ab73ba5acedf5736560c3b9c2d7e1018a50ca567f3551f94b0c1c6",
+      "git_blob": "4c5929ca5b5364a860cff0d59ad0c4d9f6ea1035",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 3,
+        "scanned_bytes_including_decodings": 150974
+      }
+    },
+    {
+      "path": "docs/QA_AUTONOMY_COMPLETION_V162.md",
+      "bytes": 175186,
+      "sha256": "eb7c9b3773bd54e008e78690235047ea565d38897cd8639b45635f2c7a8848df",
+      "git_blob": "ed4bba9a058da7c7b65ac756a96f0350c63e4394",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 2,
+        "scanned_bytes_including_decodings": 175195
+      }
+    },
+    {
+      "path": "docs/evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json",
+      "bytes": 76356,
+      "sha256": "1b1936a1f5614a5110ba21f65c5d9070d2fbc9278114b2c86c7502232ddc8c2c",
+      "git_blob": "f49cc1b7d4d7e79853968653efaaeda7477f07c7",
+      "scan": {
+        "findings": [],
+        "creator_keys": 0,
+        "decoded_unique_strings": 400,
+        "scanned_bytes_including_decodings": 90470
+      }
+    }
+  ],
+  "scan": {
+    "paths": 26,
+    "raw_bytes": 8484999,
+    "scanned_bytes_including_decodings": 16112729,
+    "findings": 0,
+    "creator_keys": 0,
+    "exceptions": 0,
+    "size_skips": 0,
+    "binary_skips": 0,
+    "excludes_self_index": true
+  },
+  "git_publication": {
+    "one_parent": true,
+    "force": false,
+    "import_local_ancestry": false,
+    "require_final_merkle_match_before_ref_update": true,
+    "exact_final_commit_identity": "recorded in Git and the PR outside this index"
+  },
+  "scope": {
+    "production_runtime_changes": 0,
+    "workflow_changes": 0,
+    "provider_changes": 0,
+    "cap_changes": 0,
+    "new_polling": 0,
+    "new_resources": 0,
+    "implicit_source_body_reads": false,
+    "deterministic_plan_repair_or_reorder": false,
+    "domain_keyword_routing": false,
+    "live_oracle_changed": false
+  },
+  "acceptance": {
+    "autonomy_accepted": false,
+    "old_real_laundry": "closed",
+    "place": "Tarquinia",
+    "timezone": "Europe/Rome",
+    "live_f1": "not_run_with_negative_CI",
+    "future_live": "one relevant Situation test only after green current CI, review and fresh idle technical service preflight; no unchanged Memory rerun",
+    "model_prose": "unsupported timing claims remain an open semantic issue",
+    "Memory150": "not_reached641, not fixed here",
+    "native_receipt": "signed install, closed-app notification and authenticated tap unproved",
+    "APP": {
+      "unchanged": true,
+      "denial_patch_id": "eb9c3870-6835-4c5a-bcbb-24d34b6dd627",
+      "denial_retained": true
+    }
+  }
+}

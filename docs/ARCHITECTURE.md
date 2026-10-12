@@ -1,3 +1,13 @@
+# 12 ottobre 2026 — v162, tre correzioni ai test dopo f1
+
+Il nuovo candidato conserva integralmente il runtime f1. La fixture v84 dichiara location_label=None per rappresentare il luogo sconosciuto già implicito. Il guard statico della scheda segue verifiedFollowup.next_check_at, mantenendo il requisito di un timestamp persistito. Il nuovo harness attende un turno Node con setImmediate per completare l'adozione e le continuazioni delle Promise fra host e vm prima del render osservato.
+
+Non viene rimosso alcun controllo di risultato; le43 asserzioni della fixture e tutte quelle del CJS rimangono identiche. Nel guard statico cambia esclusivamente il nome della variabile controllata. I tre ritocchi non modificano workflow, limiti, polling, chiamate al modello, worker o schema.
+
+[Evidenze della CI f1](evidence/autonomy_v162_ci_2026-10-12_f1cec19_failure.json) · [Correzione dei tre test](evidence/autonomy_v162_ci_fixture_repairs_2026-10-12.json).
+
+---
+
 # 12 ottobre 2026 — v162, confine CREATE e freschezza della fonte selezionata
 
 Prima di applicare i default di SituationUpdate, la governance rifiuta un CREATE JSON grezzo che omette una delle chiavi `location_label`, `source_refs`, `linked_object_refs`. `null/[]/[]` espliciti restano validi; update, none, cancel e resolve conservano il contratto precedente. Le omissioni alimentano esclusivamente il tentativo di riparazione già esistente, con una lista chiusa di nomi mancanti. Non si aggiungono riferimenti, luoghi, stadi di riparazione o aumenti ai limiti. Una dichiarazione prima accettata può ora usare quel tentativo esistente.

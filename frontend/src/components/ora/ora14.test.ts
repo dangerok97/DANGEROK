@@ -346,7 +346,7 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/title="Stato attuale"/.test(rail), 'right rail must show current evidence when available');
   assert.ok(/SituationOutcomeSummary/.test(rail), 'right rail must use the shared current outcome assessment');
   assert.ok(/title="Esito atteso registrato"/.test(rail), 'legacy outcome prose remains contextual, separate from a current estimate');
-  assert.ok(/title="Prossimo controllo"/.test(rail) && /followup\.next_check_at/.test(rail), 'right rail must use persisted scheduler timestamps, not prose intentions');
+  assert.ok(/title="Prossimo controllo"/.test(rail) && /verifiedFollowup\.next_check_at/.test(rail), 'right rail must use persisted scheduler timestamps, not prose intentions');
   assert.ok(/dismissTemporarySituation/.test(rail) && /Rimuovi dalla memoria temporanea/.test(rail), 'temporary state must be explicitly removable');
 
   const sharedNav = readCode('src/shell/navItems.ts');
