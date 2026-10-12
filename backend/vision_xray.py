@@ -26,7 +26,7 @@ from deps import db, get_current_user
 from vision_provider import ask_json, VisionProviderError
 from vision_catalog import CatalogLimit, CatalogService, SHAPES, seeds
 from vision_seed_library import canonical_key, PACK_VERSION
-from vision_body_regions import anatomy_region, REGIONS
+from vision_body_regions import anatomy_region, REGIONS, normalize_pose_points
 
 router = APIRouter(prefix="/vision-xray", tags=["vision-xray"])
 _SCAN_LIMIT = asyncio.Semaphore(3)
@@ -98,6 +98,14 @@ safe_to_generate=false e confidence high|medium solo se l'anatomia visibile
 è sufficientemente identificabile.
 Se una persona regge un oggetto in primo piano, identifica l'oggetto
 quando è il bersaglio principale, altrimenti l'anatomia visibile.
+Se vedi una FIGURA UMANA con entrambe le spalle riconoscibili, puoi
+aggiungere pose_points con left_shoulder e right_shoulder, ciascuna [x,y]
+in coordinate immagine 0..1000 (0,0 in alto a sinistra).
+Facoltativamente indica anche left_hip/right_hip e punti articolari visibili.
+Restituisci SOLO punti davvero osservabili; non inventare articolazioni coperte.
+Sono utilizzati per un orientamento approssimativo, solo sul fotogramma.
+Se il soggetto è ravvicinato, parzialmente visibile o i punti non sono chiari,
+ometti pose_points. Non inferire profondità o struttura interna.
 Non indovinare sesso, genere, organi interni, età, malattie, identità
 o caratteristiche personali. Non identificare la persona.
 Il client mostrerà un atlante generico e non conserverà la fotografia.
@@ -139,6 +147,7 @@ def normalize_identification(raw):
             "confidence": confidence, "bbox": normalized,
             "safe_to_generate": raw.get("safe_to_generate") is True,
             "body_region": raw.get("body_region") if isinstance(raw.get("body_region"), str) and raw.get("body_region") in REGIONS else None,
+            "pose_points": normalize_pose_points(raw.get("pose_points")) if key in {"human_anatomy","person","human_body","human"} else None,
             "uncertainty": str(raw.get("uncertainty") or "")[:220]}
 
 def focused_object_crop(image: bytes) -> bytes:
@@ -150,10 +159,14 @@ def focused_object_crop(image: bytes) -> bytes:
         return out.getvalue()
 
 def map_focused_box(identified: dict) -> dict:
-    if identified["bbox"] is None:
-        return {**identified, "recognition_method": "focused_second_pass"}
-    x, y, w, h = identified["bbox"]
-    return {**identified, "bbox": [.16 + x * .68, .15 + y * .70, w * .68, h * .70],
+    points=identified.get("pose_points")
+    mapped={name:[round(.16+xy[0]*.68,5),round(.15+xy[1]*.70,5)]
+            for name,xy in points.items()} if points else None
+    mapped_box = None
+    if identified["bbox"] is not None:
+        x,y,w,h=identified["bbox"]
+        mapped_box = [.16 + x * .68, .15 + y * .70, w * .68, h * .70]
+    return {**identified, "bbox": mapped_box, "pose_points": mapped,
             "recognition_method": "focused_second_pass"}
 
 async def recognize_with_recovery(image: bytes, object_hint: str = "") -> dict | None:

@@ -52,7 +52,9 @@ async def fixture_recognition(system, prompt, image=None):
             return {"recognized":True,"canonical_key":"human_anatomy",
                     "object_name":"Zona corporea simulata nel test",
                     "confidence":"high","bbox":[90,220,920,800],
-                    "body_region":region,"safe_to_generate":False,"uncertainty":""}
+                    "body_region":region,"safe_to_generate":False,"uncertainty":"",
+                    "pose_points":{"left_shoulder":[680,350],"right_shoulder":[325,425]}
+                    if region=="full_body" else None}
         points = [(x,y) for y in range(frame.height) for x in range(frame.width)
                   if (lambda rgb: rgb[0]<85 and rgb[1]<110 and rgb[2]<125)(frame.getpixel((x,y)))]
         if points:
