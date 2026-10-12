@@ -59,7 +59,8 @@ const assetFiles=await import('node:fs').then(fs=>fs.readdirSync(resolve(dist,'a
 assert.ok(assetFiles.some(file=>file.endsWith('.js')),'No deployed 3D viewer JavaScript');
 
 // Check region extraction using the REAL vendor geometry, not a synthetic mock.
-const ts = await import('typescript'),vm=await import('node:vm');
+const tsModule=await import((await import('node:url')).pathToFileURL(resolve(dist,'../node_modules/typescript/lib/typescript.js')).href);
+const ts=tsModule.default||tsModule,vm=await import('node:vm');
 const source=readFileSync(resolve('scripts/ora-bodyparts3d-regions.ts'),'utf8');
 const js=ts.transpileModule(source,{compilerOptions:{
  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022
