@@ -1,0 +1,31 @@
+name: Prepare Vision walkthroughs 25
+on:
+  push:
+    branches: [qa/vision-walkthrough25-prepare]
+    paths: ['.github/workflows/prepare-vision-walkthrough25.yml']
+permissions:
+  contents: write
+concurrency:
+  group: prepare-vision-walkthrough25
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply guarded feature-only changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/prepare_walkthrough25.py /tmp/prepare_walkthrough25.py
+          git fetch origin feat/vision-walkthroughs-25
+          test "$(git rev-parse FETCH_HEAD)" = "171b7d5cabfcb02aee6db62de016c93c4ec22ecd"
+          git switch -c prepared-walkthrough25 FETCH_HEAD
+          python /tmp/prepare_walkthrough25.py
+          git diff --check
+          git add frontend/src/vision-xray/walkthrough.ts frontend/src/vision-xray/walkthrough.test.mjs frontend/src/vision-xray/LiveExplorer.web.tsx frontend/e2e/vision-catalog-camera.spec.ts frontend/playwright.vision.config.ts docs/PRODUCT.md docs/ARCHITECTURE.md docs/DEVELOPMENT_STATE.md docs/CHANGELOG_AI.md docs/VISION_WALKTHROUGHS_25.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(vision): wire all 25 authored paths with step-specific sources and guards'
+          git push origin HEAD:refs/heads/feat/vision-walkthroughs-25
