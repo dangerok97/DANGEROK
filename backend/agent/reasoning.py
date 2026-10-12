@@ -1303,7 +1303,20 @@ def _action_dump(payload: Dict[str, Any]) -> Optional[str]:
         return encoded
     # More material than the bounded judgement can see is unavailability,
     # not a reason to ask for facts already read or to invent a next action.
-    logger.info("action context unavailable: material_context_exceeds_budget")
+    # Only serialized character COUNTS go to logs: never the result, source,
+    # model prompt, owner identifier or a snippet of the person's memory.
+    # These are the final reduced sizes, not a claim about semantic fidelity.
+    def chars(value):
+        return len(json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str))
+    logger.info(
+        "action context unavailable: material_context_exceeds_budget "
+        "total=%d goal=%d plan=%d candidates=%d evidence=%d capabilities=%d "
+        "result=%d clock=%d omitted=%d",
+        chars(compact), chars(compact.get("goal")), chars(compact.get("plan")),
+        chars(compact.get("still_to_do")), chars(compact.get("what_has_been_found")),
+        chars(compact.get("what_ora_can_do")), chars(compact.get("prepared_result")),
+        chars(compact.get("local_clock")), chars(compact.get("action_context_omitted")),
+    )
     return None
 
 
