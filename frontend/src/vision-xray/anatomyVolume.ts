@@ -46,9 +46,9 @@ export function poseFromLandmarks(points?:Record<string,[number,number]>|null):V
  const left=points.left_shoulder,right=points.right_shoulder;
  if(!left||!right)return {tilt:0,horizontal:0,reliability:'neutral'};
  const dx=right[0]-left[0],dy=right[1]-left[1];
- if(dx<=.06||dx>.9||Math.abs(dy)>.45)return {tilt:0,horizontal:0,reliability:'neutral'};
+ if(Math.abs(dx)<=.06||Math.abs(dx)>.9||Math.abs(dy)>.45)return {tilt:0,horizontal:0,reliability:'neutral'};
  return {
-  tilt:Math.max(-.35,Math.min(.35,Math.atan2(dy,dx))),
+  tilt:Math.max(-.35,Math.min(.35,Math.atan2(dy,Math.abs(dx))*(dx>0?1:-1))),
   horizontal:Math.max(-.18,Math.min(.18,(left[0]+right[0])/2-.5)),
   reliability:'approximate'
  };
@@ -134,10 +134,10 @@ export function drawVolume(
   const factor=(.36+t.shade*.76)*(t.active?1.15:1);
   const [r,g,b]=t.active?[247,177,118]:colors;
   ctx.beginPath();ctx.moveTo(t.p[0][0],t.p[0][1]);ctx.lineTo(t.p[1][0],t.p[1][1]);ctx.lineTo(t.p[2][0],t.p[2][1]);ctx.closePath();
-  ctx.fillStyle='rgba('+safe(r*factor)+','+safe(g*factor)+','+safe(b*factor)+','+(t.active?.94:.83)+')';
+  ctx.fillStyle='rgba('+safe(r*factor)+','+safe(g*factor)+','+safe(b*factor)+','+(t.active ? .94 : .83)+')';
   ctx.fill();
   ctx.strokeStyle=t.active?'rgba(255,195,130,.45)':'rgba(155,241,244,.17)';
-  ctx.lineWidth=t.active?.7:.28;ctx.stroke();
+  ctx.lineWidth=t.active ? .7 : .28;ctx.stroke();
  }
  // HUD markers remain clickable and correspond to the 3D geometry above.
  hits.forEach(hit=>{
