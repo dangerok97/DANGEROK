@@ -2,13 +2,15 @@ import React from 'react';
 import {LAYERS, silhouettePath, type AtlasLayer, type AnatomyRegion, type AnatomyVariant} from './anatomyAtlas';
 import {BODY_LABEL, focusedRegions, viewFor, type BodyRegion} from './anatomyFocus';
 import {ANATOMY_STYLES} from './anatomyStyle';
+import {AnatomyVolume,type VisiblePosePoints} from './AnatomyVolume.web';
 
 /** Contextual educational atlas in the live camera, not an X-ray of this person. */
-export function AnatomyExplorer({onClose,region='full_body'}:{onClose:()=>void;region?:BodyRegion}){
+export function AnatomyExplorer({onClose,region='full_body',posePoints}: {onClose:()=>void;region?:BodyRegion;posePoints?:VisiblePosePoints|null}){
  const [layer,setLayer]=React.useState<AtlasLayer>('skin');
  const [variant,setVariant]=React.useState<AnatomyVariant>('neutral');
  const [selected,setSelected]=React.useState('');
  const [zoom,setZoom]=React.useState(1);
+ const [viewMode,setViewMode]=React.useState<'volume'|'flat'>('volume');
  const [expanded,setExpanded]=React.useState(true);
  const [info,setInfo]=React.useState(false);
  const regions=focusedRegions(region,layer,variant);
@@ -40,13 +42,15 @@ export function AnatomyExplorer({onClose,region='full_body'}:{onClose:()=>void;r
     </button>)}
    </nav>
    <div className="vx-anatomy-core">
-    <div className="vx-anatomy-art" data-testid="vision-anatomy-visual">
+    <div className="vx-anatomy-art" data-testid="vision-anatomy-visual" data-renderer={viewMode}>
+     {viewMode==='volume'&&<AnatomyVolume regions={regions} layer={layer} region={region} selected={chosen?.id||''} onSelect={key=>{const item=regions.find(x=>x.id===key);if(item)focus(item);}} zoom={zoom} onZoom={setZoom} viewBox={viewBox} posePoints={posePoints}/>}
+     <div className="vx-anatomy-view-mode" role="group" aria-label="Modalità visuale"><button type="button" data-testid="vision-anatomy-view-volume" aria-pressed={viewMode==='volume'} onClick={()=>setViewMode('volume')}>3D</button><button type="button" data-testid="vision-anatomy-view-flat" aria-pressed={viewMode==='flat'} onClick={()=>setViewMode('flat')}>2D</button></div>
      <div className="vx-anatomy-coordinate vx-anatomy-coordinate-top">FIG. {region==='full_body'?'01':'02'} / {LAYERS.findIndex(x=>x.key===layer)+1} · {BODY_LABEL[region]}</div>
      <div aria-hidden="true" className="vx-anatomy-halo vx-anatomy-halo-a"/>
      <div aria-hidden="true" className="vx-anatomy-halo vx-anatomy-halo-b"/>
      <svg viewBox={viewBox} preserveAspectRatio="xMidYMid meet" role="img"
+      style={{display:viewMode==='volume'?'none':undefined,transform:'scale('+zoom+')'}}
       data-testid="vision-anatomy-svg"
-      style={{transform:'scale('+zoom+')'}}
       aria-label={'Atlante anatomico stilizzato: '+BODY_LABEL[region]+', livello '+LAYERS.find(x=>x.key===layer)?.label}>
       <defs>
        <linearGradient id="vx-anatomy-shell-fill" x1="0" y1="0" x2="1" y2="1">
