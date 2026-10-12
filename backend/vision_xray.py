@@ -159,14 +159,14 @@ def focused_object_crop(image: bytes) -> bytes:
         return out.getvalue()
 
 def map_focused_box(identified: dict) -> dict:
-    if identified["bbox"] is None:
-        return {**identified, "recognition_method": "focused_second_pass"}
-    x, y, w, h = identified["bbox"]
     points=identified.get("pose_points")
     mapped={name:[round(.16+xy[0]*.68,5),round(.15+xy[1]*.70,5)]
             for name,xy in points.items()} if points else None
-    return {**identified, "bbox": [.16 + x * .68, .15 + y * .70, w * .68, h * .70],
-            "pose_points": mapped,
+    mapped_box = None
+    if identified["bbox"] is not None:
+        x,y,w,h=identified["bbox"]
+        mapped_box = [.16 + x * .68, .15 + y * .70, w * .68, h * .70]
+    return {**identified, "bbox": mapped_box, "pose_points": mapped,
             "recognition_method": "focused_second_pass"}
 
 async def recognize_with_recovery(image: bytes, object_hint: str = "") -> dict | None:
