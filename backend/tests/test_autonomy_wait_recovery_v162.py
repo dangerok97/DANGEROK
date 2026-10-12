@@ -15,6 +15,7 @@ from agent import background, reasoning
 from agent.background import advance_wake, recover_due
 from agent.service import AgentService
 from ambient.models import AmbientWake
+from test_agent_preparation_dependency_v162 import comparison_claim_review
 from test_preparation_recovery_v162 import OWNER, RESULT, seed_recovery
 
 
@@ -54,7 +55,8 @@ async def waiting_after_rejected_preparation(clock):
 
 def successful_reply(payload, source):
     if "draft" in payload:
-        return {"verified": True, "content": RESULT, "evidence_ids": [source.id]}
+        return {"verified": True, "content": RESULT, "evidence_ids": [source.id],
+                "claim_review": comparison_claim_review(source.id)}
     if "step" in payload and "evidence" in payload:
         return {"content": RESULT, "evidence_ids": [source.id]}
     if isinstance(payload.get("what_was_done"), dict):

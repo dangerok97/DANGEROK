@@ -15,7 +15,7 @@ from agent.execution import StepExecutor
 from agent.models import ActionStep, AgentBudget, AgentRun
 from agent.service import AgentService
 from scripts import autonomy_completion_eval_v162 as gate
-from test_agent_preparation_dependency_v162 import OWNER, MEMORY, RESULT, fake_gemini
+from test_agent_preparation_dependency_v162 import OWNER, MEMORY, RESULT, comparison_claim_review, fake_gemini
 from test_pending_outcome_contract_v162 import synthetic_transport_only  # noqa: F401
 from test_preparation_recovery_v162 import seed_recovery
 
@@ -35,7 +35,7 @@ def rejected_review(source):
             "claim": "B permette di interrompere senza vincoli.",
             "premises": "La nota riporta il prezzo di B, non le condizioni di interruzione.",
             "support": "unsupported", "correction": CORRECTION,
-            "evidence_ids": [source.id],
+            "evidence_ids": [source.id], "source_quotes": [],
         }],
     }
 
@@ -58,8 +58,10 @@ async def test_rejected_audit_reaches_reconsider_and_next_preparation_after_relo
             }
         if "draft" in payload and not resumed:
             return rejected_review(source)
-        return {"verified": True, "content": CORRECTED if resumed else UNSUPPORTED,
-                "evidence_ids": [source.id]}
+        answer = {"content": CORRECTED if resumed else UNSUPPORTED, "evidence_ids": [source.id]}
+        if "draft" in payload:
+            answer.update(verified=True, claim_review=comparison_claim_review(source.id))
+        return answer
 
     transported = fake_gemini(monkeypatch, reply)
     with gate.isolated_engine(db, mode="live") as probe:
@@ -145,6 +147,7 @@ async def test_persisted_feedback_is_not_reused_outside_its_current_owned_contex
 
     transported = fake_gemini(monkeypatch, lambda _system, payload: {
         "verified": True, "content": CORRECTED, "evidence_ids": [source.id],
+        "claim_review": comparison_claim_review(source.id),
     })
     with gate.isolated_engine(db, mode="live") as probe:
         current = await AgentService(db).repo.get_goal(OWNER, goal.id)
@@ -276,6 +279,7 @@ async def test_full_preparation_context_omits_optional_feedback_before_any_sourc
         reason=REASON * 4, claim_review=rejected_review(source)["claim_review"], origin="goal_verification")
     transported = fake_gemini(monkeypatch, lambda _system, payload: {
         "verified": True, "content": CORRECTED, "evidence_ids": [source.id],
+        "claim_review": comparison_claim_review(source.id),
     })
     with gate.isolated_engine(db, mode="live"):
         result = await StepExecutor(db).run(OWNER, goal, plan.steps[1], may_touch_the_world=False)

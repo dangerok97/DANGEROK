@@ -21,7 +21,7 @@ from delivery.models import DeliverySubject
 from delivery.service import DeliveryService
 from scripts import autonomy_completion_eval_v162 as gate
 from test_agent_completed_result_delivery_v162 import FakePush, push
-from test_agent_preparation_dependency_v162 import OWNER, MEMORY, RESULT, fake_gemini
+from test_agent_preparation_dependency_v162 import OWNER, MEMORY, RESULT, comparison_claim_review, fake_gemini
 from test_pending_outcome_contract_v162 import synthetic_transport_only  # noqa: F401
 from test_preparation_recovery_v162 import seed_recovery
 from test_verification_recovery_v162 import prepared_with_missed_defect
@@ -94,7 +94,8 @@ async def prepare_again(h, *, text=RESULT):
     before = prepared_result_ref(current)
     replies = AsyncMock(side_effect=[
         {"content": text, "evidence_ids": [h.source.id]},
-        {"verified": True, "content": text, "evidence_ids": [h.source.id]},
+        {"verified": True, "content": text, "evidence_ids": [h.source.id],
+         "claim_review": comparison_claim_review(h.source.id)},
     ])
     step = ActionStep(step_type="prepare", capability_needed="document.create",
         input_refs=[MEMORY], intent="Preparare il confronto dalle prove correnti.")

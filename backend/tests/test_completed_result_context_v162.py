@@ -20,6 +20,7 @@ from agent.service import AgentService, _user_clock_context
 from scripts import autonomy_completion_eval_v162 as gate
 from test_agent_action_context_v162 import reconstruct, choose as choose_unprepared
 from test_agent_preparation_dependency_v162 import fake_gemini
+from test_agent_verification_context_v162 import recorded_note_claim_review
 from test_pending_outcome_contract_v162 import synthetic_transport_only  # noqa: F401
 
 
@@ -56,7 +57,8 @@ async def prepared_case(scenario="completed_result", *, partial=False):
         prepare = h.plan.steps[1]
         replies = AsyncMock(side_effect=[
             {"content": draft, "evidence_ids": [h.source.id]},
-            {"verified": True, "content": draft, "evidence_ids": [h.source.id]},
+            {"verified": True, "content": draft, "evidence_ids": [h.source.id],
+             "claim_review": recorded_note_claim_review(h.source.id)},
         ])
         with patch.object(reasoning, "_ask_model", replies):
             made = await service.executor.run(OWNER, h.goal, prepare, may_touch_the_world=False)

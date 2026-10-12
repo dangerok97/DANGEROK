@@ -216,6 +216,12 @@ async def test_real_preparation_exports_separate_redacted_generation_and_audit_w
                 "claim": "The 12-month totals are 180 and 120.",
                 "evidence_ids": value["evidence_ids"], "premises": "Same 12-month period. " + secret,
                 "support": "derived", "correction": "State the source limitation.",
+                "source_quotes": [
+                    {"evidence_id": value["evidence_ids"][0],
+                     "quote": "il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro."},
+                    {"evidence_id": value["evidence_ids"][0],
+                     "quote": "La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi."},
+                ],
                 "private_unknown_field": "private-claim-field-must-not-export",
             }]
         responses.append(value)

@@ -9,6 +9,14 @@ from agent.models import AutonomousGoal, ActionStep, AgentEvidence, ResultProven
 from agent.providers import prepare_locally
 
 
+def source_review(evidence):
+    return [{"claim": "Il documento indica 120 euro annui senza rimborso.",
+             "premises": "Condizioni dichiarate nel documento, non un confronto di mercato.",
+             "support": "stated", "correction": "", "evidence_ids": [evidence.id],
+             "source_quotes": [{"evidence_id": evidence.id,
+                                "quote": "120 euro annui senza rimborso."}]}]
+
+
 async def fixture(with_evidence=True):
     db = AsyncMongoMockClient().test
     goal = AutonomousGoal(owner_id="alice", objective="Riassumi condizioni", desired_outcome="Bozza con costi e limiti", status="active")
@@ -26,7 +34,8 @@ async def test_preparation_saves_actual_content_and_sources_before_success(monke
     content = "Costo dichiarato: 120 euro annui. I mesi inutilizzati non sono rimborsati."
     async def model(system, payload, *, response_schema=None):
         assert json.loads(payload)["evidence"][0]["id"] == evidence.id
-        return {"verified": True, "content": content, "evidence_ids": [evidence.id]}
+        return {"verified": True, "content": content, "evidence_ids": [evidence.id],
+                "claim_review": source_review(evidence)}
     monkeypatch.setattr(reasoning, "_ask_model", model)
     result = await prepare_locally(db, "alice", goal, step)
     saved = await db.agent_goals.find_one({"id": goal.id})
@@ -58,7 +67,8 @@ async def test_failed_or_ungrounded_draft_never_reports_success(monkeypatch, ans
 @pytest.mark.asyncio
 async def test_owner_and_closed_goal_are_protected(monkeypatch):
     db, goal, evidence, step = await fixture()
-    monkeypatch.setattr(reasoning, "_ask_model", AsyncMock(return_value={"verified": True, "content": "Bozza", "evidence_ids": [evidence.id]}))
+    monkeypatch.setattr(reasoning, "_ask_model", AsyncMock(return_value={"verified": True, "content": "Bozza", "evidence_ids": [evidence.id],
+                                                                        "claim_review": source_review(evidence)}))
     assert (await prepare_locally(db, "bob", goal, step)).error_type == "preparation_owner_mismatch"
     await db.agent_goals.update_one({"id": goal.id}, {"$set": {"status": "cancelled"}})
     assert (await prepare_locally(db, "alice", goal, step)).error_type == "preparation_goal_unavailable"
@@ -91,7 +101,8 @@ async def test_only_source_reviewed_content_is_persisted(monkeypatch):
     corrected = "Costo annuo 120 euro; nessun rimborso."
     model = AsyncMock(side_effect=[
         {"content": "Sei obbligato a restare dodici mesi.", "evidence_ids": [evidence.id]},
-        {"verified": True, "content": corrected, "evidence_ids": [evidence.id]},
+        {"verified": True, "content": corrected, "evidence_ids": [evidence.id],
+         "claim_review": source_review(evidence)},
     ])
     monkeypatch.setattr(reasoning, "_ask_model", model)
     result = await prepare_locally(db, "alice", goal, step)

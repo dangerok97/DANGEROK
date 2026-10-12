@@ -37,6 +37,13 @@ def audit_schema(evidence_ids: Iterable[str]) -> dict[str, Any]:
                          "items": _object({
                              "claim": {"type": "string"},
                              "evidence_ids": _refs(ids),
+                             "source_quotes": {"type": "array", "description":
+                                 "At most 3 verbatim passages; stated or derived checks require at least one.",
+                                 "items": _object({
+                                     "evidence_id": {"type": "string", "enum": list(ids)},
+                                     "quote": {"type": "string", "description":
+                                         "1–280 characters copied exactly from this evidence row's claim, not its metadata."},
+                                 })},
                              "premises": {"type": "string"},
                              "support": {"type": "string", "enum": ["stated", "derived", "conditional", "unsupported"]},
                              "correction": {"type": "string"},

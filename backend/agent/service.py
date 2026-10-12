@@ -1612,11 +1612,24 @@ class AgentService:
 
         steps: List[ActionStep] = []
         for ordinal, raw in enumerate(answer["steps"][:MAX_PLAN_STEPS]):
+            errors = []
             try:
-                step = self._read_step(raw, ordinal)
+                step = self._read_step(raw, ordinal, validation_errors=errors)
             except (TypeError, ValueError):
                 step = None
             if step is None:
+                # The declaration stays rejected. Keep only code-owned field
+                # names and issues so a durable retry can be diagnosed without
+                # retaining the model's possibly sensitive invalid values.
+                await self.repo.journal(
+                    owner_id, goal.id, kind="planning_protocol_invalid",
+                    note="Il piano proposto non rispettava il formato atteso; nessun passo è stato salvato.",
+                    detail={"run_id": run.id, "attempt": goal.planning_attempts, "validation_errors": [{
+                        "index": ordinal, **(errors[0] if errors else {
+                            "field": "step", "issue": "invalid_shape",
+                        }),
+                    }]},
+                )
                 steps = []
                 break
             steps.append(step)
@@ -2126,6 +2139,7 @@ class AgentService:
                 await self.executor.mark_verified(owner_id, goal.id)
             result = await self._close(
                 owner_id, goal, plan, run, "completed", verification.reasoning,
+                visibility_budget=budget, language=language,
                 **({"prepared_snapshot": internal_preparation} if internal_preparation else {}),
             )
             if result.get("state") == "completed" and not result.get("verification_superseded"):
@@ -2539,7 +2553,7 @@ class AgentService:
 
     async def _close(
         self, owner_id, goal, plan: ActionPlan, run: AgentRun, status: str, note: str,
-        *, prepared_snapshot=None,
+        *, prepared_snapshot=None, visibility_budget=None, language="it",
     ) -> Dict[str, Any]:
         from agent.source_refresh import changed, refresh
         if await changed(self.db, goal):
@@ -2553,6 +2567,16 @@ class AgentService:
         goal.status = status  # type: ignore[assignment]
         goal.rationale = note[:300]
         goal.completed_at = _now().isoformat()
+        if status == "completed" and isinstance(goal, AutonomousGoal):
+            from agent.completion_handoff import stage, HandoffUnavailable
+            if not await stage(self.db, owner_id, goal, run,
+                               visibility_budget or AgentBudget(), language=language):
+                current = await self.repo.get_goal(owner_id, goal.id)
+                if current is None:
+                    raise HandoffUnavailable("completion_goal_missing")
+                for field in type(current).model_fields:
+                    setattr(goal, field, getattr(current, field))
+                return {"ok": True, "state": goal.status, "goal": goal.for_human()}
         if status == "completed" and prepared_snapshot is not None:
             from agent.prepared_review import (
                 complete_prepared_result, current_prepared_result, PreparedReviewUnavailable,
@@ -2630,7 +2654,7 @@ class AgentService:
 
     async def _consider_visibility(
         self, owner_id: str, goal_id: str, run: AgentRun, budget: AgentBudget,
-        *, language: str = "it",
+        *, language: str = "it", _handoff=None, offer_delivery=True,
     ) -> Optional[Any]:
         """
         Ask whether the work just done is worth showing.
@@ -2648,6 +2672,12 @@ class AgentService:
         goal = await self.repo.get_goal(owner_id, goal_id)
         if goal is None:
             return None
+        if _handoff is None and goal.status == "completed":
+            from agent.completion_handoff import FIELD, resume_initial
+            if await self.db.agent_goals.find_one(
+                {"id": goal_id, "owner_id": owner_id, FIELD: {"$exists": True}}, {"_id": 1},
+            ):
+                return await resume_initial(self, owner_id, goal_id, budget)
 
         what_happened = await self._run_facts(owner_id, goal, run)
         if goal.status == "cancelled":
@@ -2657,17 +2687,28 @@ class AgentService:
             # with proof behind it. Not a decision that it was uninteresting.
             return None
 
-        if budget.visibility_calls >= budget.max_visibility_calls:
+        cached = _handoff and (_handoff.state.get("candidate") or _handoff.state.get("decision"))
+        if not cached and budget.visibility_calls >= budget.max_visibility_calls:
             logger.info("visibility skipped: visibility budget spent goal=%s", goal_id)
             return None
 
-        budget.visibility_calls += 1
+        if not cached:
+            budget.visibility_calls += 1
         # Keep run.model_calls as a total count of model judgements this run,
         # while leaving work-budget accounting untouched.
         run.model_calls = budget.cognitive_calls + budget.visibility_calls
-        decision = await self.visibility.consider(
-            owner_id, goal, what_happened=what_happened, language=language
-        )
+        if _handoff:
+            await _handoff.check()
+            what_happened["_completion_handoff"] = _handoff
+        if _handoff and _handoff.state.get("decision"):
+            from agent.models import VisibilityDecision
+            decision = VisibilityDecision.model_validate(_handoff.state["decision"])
+        else:
+            decision = await self.visibility.consider(
+                owner_id, goal, what_happened=what_happened, language=language
+            )
+            if _handoff:
+                await _handoff.save(decision=decision.model_dump())
         latest = await self.repo.get_goal(owner_id, goal_id)
         from agent.source_refresh import changed
         if latest is None or latest.status == "cancelled" or (goal.is_open and await changed(self.db, goal)):
@@ -2682,12 +2723,16 @@ class AgentService:
             },
         )
         if decision.is_visible:
+            if _handoff:
+                await _handoff.check()
             await self.visibility.show(owner_id, goal, decision)
-            await self._raise_need(owner_id, goal, decision, what_happened)
+            await self._raise_need(owner_id, goal, decision, what_happened,
+                                   offer_delivery=offer_delivery, _handoff=_handoff)
         return decision
 
     async def _raise_need(
-        self, owner_id: str, goal, decision, what_happened: Dict[str, Any]
+        self, owner_id: str, goal, decision, what_happened: Dict[str, Any],
+        *, offer_delivery=True, _handoff=None,
     ) -> Optional[CommunicationNeed]:
         """
         Turn a judgement that this is worth showing into a need that can reach
@@ -2799,7 +2844,30 @@ class AgentService:
             question=need.requires_response, response_kind=need.response_kind,
         ):
             return None
+        if _handoff:
+            from agent.completion_handoff import HandoffUnavailable
+            await _handoff.check()
+            # The same completion cannot create a second Need after a crash,
+            # even when the first one has already been answered or closed.
+            need.id = "ned_" + _handoff.id
+            persisted = await self.needs.get(owner_id, need.id)
+            if persisted is not None and not persisted.is_open:
+                return persisted
+            if persisted is not None:
+                offer_delivery = False  # Registration-only replay never re-offers a settled intent.
         raised = await self.needs.raise_need(need)
+        if _handoff:
+            if raised.id != need.id:
+                offer_delivery = False
+            persisted = await self.needs.get(owner_id, raised.id)
+            if persisted is None:
+                raise HandoffUnavailable("completion_need_not_persisted")
+            raised = persisted
+            await _handoff.save(need_id=raised.id)
+            if raised.is_open:
+                from delivery.admission import register_need
+                if not await register_need(self.db, owner_id, raised.id):
+                    raise HandoffUnavailable("completion_need_not_registered")
         await self.repo.journal(
             owner_id, goal.id, kind="need_raised", note=raised.summary,
             detail={"need_id": raised.id, "need_kind": raised.kind,
@@ -2808,7 +2876,8 @@ class AgentService:
 
         # And now it is out of the agent's hands. Silence is one of the
         # answers, and it changes nothing about the need.
-        await self.needs.offer_to_delivery(owner_id, raised)
+        if offer_delivery:
+            await self.needs.offer_to_delivery(owner_id, raised)
         return raised
 
     async def _run_facts(self, owner_id: str, goal, run: AgentRun) -> Dict[str, Any]:

@@ -1,3 +1,56 @@
+# 12 ottobre 2026 — v162, nuovo candidato dopo le prove reali
+
+## Stato del candidato che contiene questa nota
+
+Implementati controllo locale delle citazioni letterali, diagnosi di pianificazione
+legate al run corretto, osservazione dei retry durevoli già esistenti e provenienza
+delle stime di percorso fino al modello e al consumer autonomo. Il collaudo del
+caso bucato include inoltre i due errori di continuità nella consegna riprodotti
+con database sintetico e il passaggio durevole fra goal completato e creazione
+del Need. Nessun nuovo modello/default, budget di lavoro, connettore o scheduler
+nuovo, né messaggio o push reale.
+
+Verifica locale: **1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**. CLI scripted **9/9**, zero chiamate logiche/HTTP del
+modello e zero effetti esterni. CI e prove reali di questo nuovo commit non sono
+ancora accettate e non ereditano i risultati dei commit precedenti.
+
+## Risultati osservati dei commit pubblicati
+
+| Versione | Esito verificato |
+| --- | --- |
+| `01ef500`, autonomia reale | **7/9 macchina**, 48 chiamate logiche e 53 HTTP. Due testi positivi accettati, uno respinto, due casi interrotti prima della lettura. |
+| `01ef500`, letture pubbliche | Due HTTP reali Mapbox/Open-Meteo, quattro chiamate Gemini; macchina PASS, review manuale FAIL per certezza e precisione temporale eccessive sul traffico. |
+| `01ef500`, CI | **7/7** sui due workflow push effettivamente partiti; i workflow PR mancavano mentre la base reale era in conflitto. |
+| `6e6e5b7`, merge Vision | Quattro workflow, **13/13 job**; backend v162 **776 PASS**, MongoDB reale **6 PASS**, mobile browser **36 PASS**. |
+
+Il merge `6e6e5b7` integra integralmente Vision PR #213 e risolve i quattro soli
+conflitti documentali senza perdere nessuna delle due storie. Il suo tree
+`f231fee6d4b5277a80921700b29f85e5baa4231f` coincide con quello del merge tecnico
+della PR `a9a60e3`. Non contiene ancora le correzioni di questo candidato.
+
+La review di `planning_outage` su `01ef500` respinge il non rimborso attribuito
+anche al mensile: la fonte lo dichiara solo per l'annuale. I due errori
+`OWNED_SOURCE_NOT_READ_ONCE` hanno un retry di pianificazione ancora salvato;
+non dimostrano che il worker abbia perso la continuazione. Il vecchio report non
+conserva il campo invalido esatto, che non viene ricostruito a posteriori.
+
+## App e rilascio
+
+Osservazione primaria 08:03 UTC: backend a **`389f38a`** dopo Vision PR #214;
+web ancora a **`b159d8c`**, perché l'evento successivo è SKIPPED. I due file di
+PR #214 sono integrati esattamente nel candidato, senza conflitti. La lettura
+delle 07:38 e i vecchi `9e1a2f0`/`9dc0d65` restano osservazioni storiche.
+La PR autonomia non è applicata. La patch Railway `eb9c3870` resta **STAGED**, cinque
+modifiche, dopo il rifiuto automatico; non viene aggirata attraverso un altro
+percorso di deploy. Un merge a `staging/cloud` deve considerare il trigger di
+rilascio già esistente, oltre ai gate tecnici e semantici.
+
+Firma/configurazione EAS, installazione e avviso nativo visibile ad app chiusa
+restano non dimostrati. Il vecchio bucato Tarquinia è chiuso. L'autonomia dell'app
+non è attestata finché il risultato utile e la sua consegna non sono verificati.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Preparata espansione a 75 famiglie/50 aggiunte sul ramo Vision, lasciando intatte le riparazioni della roadmap. Preflight controlla manifest, conteggi, alias e immutabilità dei 25 seed precedenti. Nuovi test Mongo e browser coprono tutte le famiglie aggiunte; rilascio e stato dei gate saranno documentati nella PR finale, non presunti completati qui.

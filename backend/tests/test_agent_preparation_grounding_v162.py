@@ -15,6 +15,7 @@ from agent import reasoning
 from agent.evidence import EvidenceStore, for_verification
 from agent.execution import StepExecutor
 from agent.models import ActionStep, AgentBudget, AutonomousGoal
+from test_agent_preparation_dependency_v162 import comparison_claim_review
 
 
 OWNER = "synthetic-preparation-grounding-v162"
@@ -133,7 +134,15 @@ async def test_source_qualifications_reach_draft_audit_and_verifier(
         if partial:
             assert "incomplet" in row["limits"].lower()
             assert "CONDIZIONE_NEL_SEGUITO" not in encoded
-        return {"verified": True, "content": conditional, "evidence_ids": [source.id]}
+        answer = {"content": conditional, "evidence_ids": [source.id]}
+        if "draft" in payload:
+            answer.update(verified=True, claim_review=[{
+                "claim": "Nel testo disponibile sono riportati i prezzi di A e B.",
+                "premises": "Il riepilogo è limitato al testo letto, senza confermare condizioni ignote.",
+                "support": "stated", "correction": "", "evidence_ids": [source.id],
+                "source_quotes": comparison_claim_review(source.id)[0]["source_quotes"],
+            }])
+        return answer
 
     monkeypatch.setattr(reasoning, "_ask_model", model)
     prepared = await StepExecutor(db).run(
@@ -171,7 +180,8 @@ async def test_audit_corrects_individual_claims_before_any_text_or_evidence_is_s
         saved = await db.agent_goals.find_one({"owner_id": OWNER, "id": goal.id})
         assert not saved.get("prepared_text")
         assert await db.agent_evidence.count_documents({"goal_id": goal.id}) == 1
-        return {"verified": True, "content": CORRECTED, "evidence_ids": [source.id]}
+        return {"verified": True, "content": CORRECTED, "evidence_ids": [source.id],
+                "claim_review": comparison_claim_review(source.id)}
 
     monkeypatch.setattr(reasoning, "_ask_model", model)
     result = await StepExecutor(db).run(

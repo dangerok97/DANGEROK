@@ -57,9 +57,16 @@ MAX_ASSESSMENT_REFS = 8
 ASSESSMENT_TEXT_LIMIT = 280
 MAX_DIAGNOSTIC_ADMISSIONS = 3
 MAX_DIAGNOSTIC_SCANS = 3
+MAX_DIAGNOSTIC_PLANNING = 4
+PLANNING_ERROR_FIELDS = frozenset({"step", "parameters", "step_type", "effect_type",
+    "reversibility", "intent", "capability_needed", "expected_result", "effect_target",
+    "asks", "external_effect", "reaches_somebody_else", "input_refs", "ask_kind"})
+PLANNING_ERROR_ISSUES = frozenset({"wrong_type", "unsupported_field", "conflicting_alias",
+    "missing", "unsupported_value", "empty", "invalid_shape"})
 PREPARATION_TEXT_LIMIT = 4000
 MAX_PREPARATION_CLAIMS = 12
 PREPARATION_CLAIM_TEXT_LIMIT = 280
+MAX_PREPARATION_SOURCE_QUOTES = 3
 FIXTURE_CONTEXT = (
     "Uso il mensile e prevedo di tenere l'archivio per 12 mesi; sto valutando le due formule "
     "e mi manca il confronto scritto di costi e vincoli. "
@@ -93,6 +100,9 @@ class Probe:
     structured_decisions: list[dict[str, Any]] = field(default_factory=list)
     structured_decisions_omitted: int = 0
     admission_observations: list[dict[str, Any]] = field(default_factory=list)
+    planning_observations: list[dict[str, Any]] = field(default_factory=list)
+    planning_observations_omitted: int = 0
+    last_planning_run: tuple[str, str] | None = None  # Internal owned goal/run binding; never exported.
     discovery_results: list[dict[str, Any]] = field(default_factory=list)
     steps: list[dict[str, Any]] = field(default_factory=list)
     ticks: list[dict[str, int]] = field(default_factory=list)
@@ -116,6 +126,8 @@ def model_observations(probe):
             "structured_decisions": probe.structured_decisions,
             "structured_decisions_omitted": probe.structured_decisions_omitted,
             "admission_observations": probe.admission_observations,
+            "planning_observations": probe.planning_observations,
+            "planning_observations_omitted": probe.planning_observations_omitted,
             "discovery_results": probe.discovery_results,
             "executed_capabilities": (probe.steps if len(probe.steps) <= MAX_DECISION_OBSERVATIONS
                                       else probe.steps[:2] + probe.steps[-(MAX_DECISION_OBSERVATIONS - 2):]),
@@ -235,6 +247,22 @@ def _preparation_claim_review(value):
                                         limit=PREPARATION_CLAIM_TEXT_LIMIT)
             if isinstance(item, dict):
                 observed.update(_diagnostic_refs(item, "evidence_ids"))
+                quotes = item.get("source_quotes")
+                observed["source_quotes_kind"] = _response_kind(quotes)
+                if isinstance(quotes, list):
+                    observed.update({"source_quotes_count": len(quotes),
+                        "source_quotes_omitted": max(0, len(quotes) - MAX_PREPARATION_SOURCE_QUOTES),
+                        "source_quotes": []})
+                    for quote in quotes[:MAX_PREPARATION_SOURCE_QUOTES]:
+                        quoted = {"response_kind": _response_kind(quote)}
+                        if isinstance(quote, dict):
+                            for key, limit in (("evidence_id", 160), ("quote", PREPARATION_CLAIM_TEXT_LIMIT)):
+                                if type(quote.get(key)) is str:
+                                    redacted = _safe_text(quote[key], limit + 1)
+                                    quoted.update({key: redacted[:limit],
+                                        key + "_characters": len(quote[key]),
+                                        key + "_truncated": len(redacted) > limit})
+                        observed["source_quotes"].append(quoted)
             out["claim_review"].append(observed)
     return out
 
@@ -265,6 +293,42 @@ async def _synthetic_diagnostics_allowed(db, owner):
         return bool(await db.eval_guards.find_one({"_id": VERSION, "owner": OWNER}))
     except Exception:
         return False
+
+
+async def _planning_error(db, goal, *, observed_run=None):
+    """Observe a current owned protocol failure; missing diagnostics are harmless."""
+    from agent.service import MAX_PLAN_STEPS, MAX_PLANNING_ATTEMPTS
+
+    if (not isinstance(goal, dict) or goal.get("owner_id") != OWNER
+            or type(goal.get("id")) is not str or goal.get("planning_unavailable") is not True):
+        return None
+    if (not isinstance(observed_run, tuple) or len(observed_run) != 2
+            or observed_run[0] != goal["id"] or type(observed_run[1]) is not str
+            or not re.fullmatch(r"run_[0-9a-f]{16}", observed_run[1])):
+        return None
+    attempt = goal.get("planning_attempts")
+    if type(attempt) is not int or not 1 <= attempt <= MAX_PLANNING_ATTEMPTS:
+        return None
+    if not await _synthetic_diagnostics_allowed(db, OWNER):
+        return None
+    try:
+        row = await db.agent_journal.find_one({
+            "owner_id": OWNER, "goal_id": goal["id"], "kind": "planning_protocol_invalid",
+            "detail.run_id": observed_run[1], "detail.attempt": attempt,
+            "expires_at": {"$gt": datetime.now(timezone.utc)},
+        }, {"_id": 0, "detail.validation_errors": 1}, sort=[("at", -1)])
+        errors = (row or {}).get("detail", {}).get("validation_errors")
+        if not isinstance(errors, list):
+            return None
+        allowed = [{"index": error["index"], "field": error["field"], "issue": error["issue"]}
+            for error in errors[:1] if isinstance(error, dict)
+            and type(error.get("index")) is int and 0 <= error["index"] < MAX_PLAN_STEPS
+            and type(error.get("field")) is str and error["field"] in PLANNING_ERROR_FIELDS
+            and type(error.get("issue")) is str and error["issue"] in PLANNING_ERROR_ISSUES]
+        return {"attempt": attempt, "has_due": bool(goal.get("next_run_at")),
+                "validation_errors": allowed} if allowed else None
+    except Exception:
+        return None
 
 
 def _scan_result_fields(result):
@@ -472,6 +536,9 @@ async def failure_state(probe):
                 "current_evidence_count": await db.agent_evidence.count_documents(
                     {**goal_query, "superseded": {"$ne": True}}),
             })
+            planning_error = await _planning_error(db, goal, observed_run=probe.last_planning_run)
+            if planning_error is not None:
+                row["planning_error"] = planning_error
             plans = await db.agent_plans.find(goal_query, {"_id": 0}).sort("updated_at", -1).to_list(2)
             row["plans"] = []
             for plan in plans:
@@ -537,6 +604,7 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
     probe.network = boundary
     original_chat, original_step = ProviderManager.chat, StepExecutor.run
     original_advance, original_note = AgentService.advance, DeliveryService.note_activity
+    original_build_plan = AgentService._build_plan
     original_scan = OpportunityService.scan
     original_decide_goal, original_discover = reasoning.decide_goal, opportunity_reasoning.scan
     original_audit = opportunity_reasoning.audit_proposals
@@ -625,6 +693,18 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         return [{"capability": cap, "status": "available_real", "can_be_used_now": True,
                  "really_does_something": True, "changes_something_in_the_world": False,
                  "why_not": None} for cap in sorted(ALLOWED)]
+
+
+    async def build_plan(self, owner_id, goal, run, *args, **kwargs):
+        # Attempt numbers restart after a new source or explicit retry. The
+        # existing AgentRun identity prevents that cycle from borrowing an
+        # older protocol error; missing observation means no attribution.
+        if self.db is db and owner_id == goal.owner_id == OWNER:
+            probe.last_planning_run = None
+            if (run.owner_id == OWNER and run.goal_id == goal.id
+                    and await _synthetic_diagnostics_allowed(db, owner_id)):
+                probe.last_planning_run = (goal.id, run.id)
+        return await original_build_plan(self, owner_id, goal, run, *args, **kwargs)
 
     async def step(self, owner_id, goal, item, **kwargs):
         same_owner = self.db is db and owner_id == OWNER and goal.owner_id == OWNER
@@ -846,6 +926,7 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         stack.enter_context(patch.object(CapabilityResolver, "available", available))
         stack.enter_context(patch.object(StepExecutor, "run", step))
         stack.enter_context(patch.object(AgentService, "advance", bounded_first_read))
+        stack.enter_context(patch.object(AgentService, "_build_plan", build_plan))
         stack.enter_context(patch.object(AgentService, "_reconsider", service_reconsider))
         stack.enter_context(patch.object(DeliveryService, "note_activity", note))
         stack.enter_context(patch.object(provider, "get_provider", lambda: BlockedPush(probe)))
@@ -1043,7 +1124,14 @@ async def fire_due(db, goal_id, probe):
     out = await tick(db, now=datetime.now(timezone.utc), limit=2)
     probe.ticks.append(out)
     require(out["claimed"] >= 1 and out["failed"] == 0, "PERSISTED_WAKE_NOT_HANDLED")
-    return await db.agent_goals.find_one({"owner_id": OWNER, "id": goal_id}, {"_id": 0})
+    current = await db.agent_goals.find_one({"owner_id": OWNER, "id": goal_id}, {"_id": 0})
+    observation = await _planning_error(db, current, observed_run=probe.last_planning_run)
+    if observation is not None:
+        if len(probe.planning_observations) < MAX_DIAGNOSTIC_PLANNING:
+            probe.planning_observations.append(observation)
+        else:
+            probe.planning_observations_omitted += 1
+    return current
 
 
 async def complete_due_work(db, goal_id, probe):
@@ -1075,10 +1163,27 @@ async def complete_due_work(db, goal_id, probe):
 
 
 async def first_read(db, goal_id, probe, *, planning_outage=False):
+    from agent.service import MAX_PLANNING_ATTEMPTS
+
     current = await fire_due(db, goal_id, probe)
     if planning_outage:
         require(current["status"] == "active" and current.get("next_run_at"), "PLANNING_OUTAGE_KILLED_WORK")
         require(not current.get("prepared_text"), "OUTAGE_INVENTED_RESULT")
+    previous_attempt = 0
+    # Planning failure does not consume a background run. Observe only its
+    # existing, bounded retry checkpoints; never repair a plan or advance a
+    # model wait, question, authority request or explicit user deferral.
+    for _ in range(MAX_PLANNING_ATTEMPTS - 1):
+        if current.get("planning_unavailable") is not True:
+            break
+        require(current.get("status") == "active"
+                and not current.get("requires_user_input")
+                and not current.get("requires_user_authority")
+                and not current.get("user_deferred_until"), "PLANNING_RETRY_NEEDS_NEW_DECISION")
+        attempt = current.get("planning_attempts")
+        require(type(attempt) is int and previous_attempt < attempt < MAX_PLANNING_ATTEMPTS,
+                "PLANNING_RETRIES_EXHAUSTED")
+        previous_attempt = attempt
         current = await fire_due(db, goal_id, probe)
     require(current["status"] == "active" and current.get("next_run_at"), "UNFINISHED_WORK_LOST")
     require(not current.get("prepared_text"), "RESULT_CREATED_BEFORE_RESUME")
@@ -1317,10 +1422,12 @@ async def main(*, mode="scripted", scenario="all", output=""):
                               "model_http_requests_per_case": MAX_MODEL_HTTP_REQUESTS,
                               "structured_decisions_per_case": MAX_DECISION_OBSERVATIONS,
                               "admission_observations_per_case": MAX_DIAGNOSTIC_ADMISSIONS,
+                              "planning_observations_per_case": MAX_DIAGNOSTIC_PLANNING,
                               "discovery_results_per_case": MAX_DIAGNOSTIC_SCANS,
                               "preparation_text_characters": PREPARATION_TEXT_LIMIT,
                               "preparation_claims_per_audit": MAX_PREPARATION_CLAIMS,
                               "preparation_claim_text_characters": PREPARATION_CLAIM_TEXT_LIMIT,
+                              "preparation_source_quotes_per_claim": MAX_PREPARATION_SOURCE_QUOTES,
                               "executor_observations_per_case": MAX_DECISION_OBSERVATIONS,
                               "decision_text_characters": DECISION_TEXT_LIMIT,
                               "proposals_per_decision": MAX_DIAGNOSTIC_PROPOSALS,

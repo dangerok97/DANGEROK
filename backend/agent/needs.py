@@ -79,6 +79,7 @@ class NeedService:
             await self.db[NEEDS].create_index("id", unique=True)
             await self.db[NEEDS].create_index([("owner_id", 1), ("status", 1)])
             await self.db[NEEDS].create_index([("owner_id", 1), ("goal_id", 1)])
+            await self.db[NEEDS].create_index([("status", 1), ("delivery_review_due", 1)])
             # One open need per blocker, enforced by the database. Two workers
             # reaching the same blocked goal at the same moment is ordinary,
             # and the loser has to lose in the storage rather than in a check
@@ -256,26 +257,21 @@ class NeedService:
 
             REQUIRES_ATTENTION IS NOT PUSH.
 
-        The answer is delivery's alone and every one of them is acceptable
-        here, silence included. What is not acceptable is this function
-        caring: there is no branch below on what came back, because the moment
-        one exists somebody will add `if requires_attention: push()` beneath
-        it.
+        The answer is delivery's alone, silence included. Its admission layer
+        records the intention before awaiting that answer, so an unavailable
+        judgement or a worker restart can resume through the existing lane.
+        This bridge still makes no decision about mode or words.
 
         The need does not depend on the answer. It was open before and it is
         open after, however quiet delivery decides to be.
         """
-        if not need.is_open:
+        if not need.is_open or need.owner_id != owner_id:
             return None
         try:
-            from delivery.models import DeliverySubject
-            from delivery.service import DeliveryService
+            from delivery.admission import offer_need
 
-            # The goal travels with the subject so a tap can land on the
-            # blocker rather than on the goal or, worse, on Home.
-            subject = DeliverySubject.model_validate(need.as_subject())
-            return await DeliveryService(self.db).evaluate_subject(
-                owner_id, subject, app_state=app_state, language=language
+            return await offer_need(
+                self.db, owner_id, need.id, app_state=app_state, language=language
             )
         except Exception as e:
             logger.info("need delivery soft-fail: %s", type(e).__name__)

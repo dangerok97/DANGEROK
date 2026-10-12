@@ -13,7 +13,7 @@ from agent import preparation
 from agent.models import ActionStep, AgentBudget, AgentRun
 from agent.service import AgentService
 from scripts import autonomy_completion_eval_v162 as gate
-from test_agent_preparation_dependency_v162 import OWNER, MEMORY, RESULT, fake_gemini
+from test_agent_preparation_dependency_v162 import OWNER, MEMORY, RESULT, comparison_claim_review, fake_gemini
 from test_pending_outcome_contract_v162 import synthetic_transport_only  # noqa: F401
 from test_preparation_recovery_v162 import seed_recovery
 
@@ -105,7 +105,10 @@ async def test_invalid_selection_can_replan_and_complete_without_rewriting_faile
         if "what_was_done" in payload:
             assert payload["what_was_done"]["prepared_result"] == RESULT
             return {"outcome": "achieved", "reasoning": "Verifica sintetica del risultato preparato."}
-        return {"verified": True, "content": RESULT, "evidence_ids": [source.id]}
+        answer = {"content": RESULT, "evidence_ids": [source.id]}
+        if "draft" in payload:
+            answer.update(verified=True, claim_review=comparison_claim_review(source.id))
+        return answer
 
     transported = fake_gemini(monkeypatch, reply)
     with gate.isolated_engine(db, mode="live") as probe:
@@ -178,7 +181,10 @@ async def test_structural_preparation_error_is_specific_and_survives_reload_with
                     "content": {"private": private} if failure == "audit_object" else RESULT,
                     "evidence_ids": [private] if failure == "audit_foreign_ref" else [source.id],
                     "reason": private}
-        return {"verified": True, "content": RESULT, "evidence_ids": [source.id]}
+        answer = {"content": RESULT, "evidence_ids": [source.id]}
+        if "draft" in payload:
+            answer.update(verified=True, claim_review=comparison_claim_review(source.id))
+        return answer
 
     transported = fake_gemini(monkeypatch, reply)
     with gate.isolated_engine(db, mode="live") as probe:

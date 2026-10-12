@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
 import pytest
@@ -85,6 +86,10 @@ async def test_two_owned_places_route_without_current_location_and_persist_no_co
         "distance_meters": 31200,
         "reflects_current_traffic": True,
         "duration_without_traffic_seconds": 1800,
+        "duration_kind": "estimate",
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+        "retrieval_time_source": "ora_clock_not_provider_observation_time",
+        "provider_as_of": None,
     })
     monkeypatch.setattr(routing, "get_route", live)
     current = AsyncMock()

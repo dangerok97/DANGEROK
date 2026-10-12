@@ -264,7 +264,9 @@ async def test_slow_lane_does_not_block_due_work_and_shutdown_cancels(monkeypatc
     async def tick(*args, **kwargs): reached.set()
     monkeypatch.setattr(EnergyOfferService, 'run_due',
                         slow_operation if slow_lane == 'market' else AsyncMock())
-    monkeypatch.setattr(admission, 'drain',
+    # Isolate the scheduler at its actual Delivery entry point: this test
+    # passes no database and checks lane overlap and cancellation, not scans.
+    monkeypatch.setattr(admission, 'drain_with_receipts',
                         slow_operation if slow_lane == 'delivery-admission' else AsyncMock())
     monkeypatch.setattr(runtime, 'tick', tick)
     monkeypatch.setattr(runtime, 'read_sources', AsyncMock())

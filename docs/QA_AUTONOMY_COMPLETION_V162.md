@@ -1,3 +1,171 @@
+# 12 ottobre 2026 — v162, citazioni e tempi verificabili; consegna recuperabile
+
+## Candidato locale
+
+**1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**. La selezione comprende il gate v162 aggiornato, tre selettori di
+visibilità v39, i moduli provider/recupero già inclusi e 50 moduli del nucleo di
+autonomia della CI. Il solo skip è l'arricchimento Gemini opzionale senza chiave
+locale. Nessun gate CI o test del repository è stato rimosso.
+
+CLI scripted **9/9**, zero chiamate logiche/HTTP del modello e zero effetti
+esterni. L'evidenza locale conserva il comando completo, i file verificati e i
+rispettivi hash: `evidence/autonomy_v162_local_source_quotes_2026-10-12.json`.
+CI e live di questo candidato sono ancora da eseguire sul commit pubblicato.
+
+Nel primo aggregato, dopo 1.169 PASS e uno skip, il test di isolamento delle
+lane v4 si è fermato: usava deliberatamente `object()` come database ma
+sostituiva soltanto `admission.drain`, che ora è preceduto dal peek delle code.
+La fixture sostituisce ora il vero ingresso `drain_with_receipts`; restano
+intatti gli assert su assenza di sovrapposizione, limite dei job e cancellazione
+durante lo shutdown. Nessuna modifica runtime per far passare quel test.
+
+### Regressioni aggiunte
+
+- Citazioni: **35 casi**, con RED 26 FAIL/9 PASS prima della correzione e un
+  ulteriore RED isolato per un ID di altro owner. Autenticità nella sola riga del
+  payload audit; quote inventate, metadati, fonti espulse, tipi e limiti non
+  validi non possono certificare la bozza. Revoca/correzione e cancellazione
+  restano attive. Una prova conserva il limite autentico ma non implicante.
+- Pianificazione: **23 casi**, compresa ripresa dopo il piano invalido, unico
+  owned read, fault Home realmente raggiunto e arresto al limite esistente.
+  Riprodotta e corretta l'attribuzione a un nuovo attempt1 del journal di un
+  ciclo precedente sullo stesso goal. Diagnosi omessa senza binding esatto.
+- Routing pubblico: **9 casi nuovi**, RED 6 FAIL/3 PASS, poi **26/26** insieme al
+  modulo pubblico esistente. Due percorsi attraversano adapter HTTP sintetico,
+  capability reale, payload del modello e sessione riletta; numeri invariati,
+  ora UTC della lettura e nessun istante di traffico inventato.
+- Consumer autonomo: regressioni `test_agent_route_provenance_v162.py` verificano
+  stima, clock attestato, età coerente e payload legacy senza orario ricostruito.
+- Consegna Situation: **51 casi** in
+  `test_situation_delivery_recovery_v162.py` riproducono giudizio iniziale
+  indisponibile, rilettura temporanea del luogo, risposta tardiva dopo takeover,
+  crash dopo il piano dell'ultimo tentativo, vecchi terminali, Need expired e
+  precedenza del secondo owner nelle code miste. Ripristino del wake senza un
+  quarto modello; scadenza/revoca e silenzio restano confini effettivi. L'autore
+  ha verificato 92 PASS su cinque moduli, escludendo tre nodi Mongo reale v134;
+  la review indipendente è di sola lettura. Il freeze successivo aggiunge
+  **14 casi** per registrazione senza giudizio, dispatch con tre code, claim
+  esatta, precedenza del secondo owner e handoff al secondo slot con clock
+  aggiornato: **106 PASS su cinque moduli**, tre nodi Mongo reale esclusi.
+  I 37 casi focalizzati su Delivery isolano esplicitamente il passaggio
+  precedente, con Need già materializzata; le prove completion attraversano
+  separatamente l'intera catena. L'aggregato sopra è quello del candidato
+  finale, distinto dalle verifiche intermedie.
+- Completamento e comunicazione: **22 casi** in
+  `test_completion_visibility_recovery_v162.py`, con fonte temporaneamente
+  illeggibile prima del giudizio, dopo il candidato e dopo la Home; riavvio
+  senza riesecuzione del lavoro, None distinto dal silenzio, registrazione
+  idempotente del Need e mancata chiusura quando il CAS della preparazione
+  perde. Tre ulteriori RED durante l'await del modello (riapertura, nuova data
+  di completamento, risultato diverso) sono chiusi dal controllo dell'identità
+  corrente prima dell'ammissione: il candidato superato diventa stale.
+
+Il replay della consegna già `delivered` nel database non va confuso con il crash
+tra accettazione del provider e salvataggio della ricevuta locale. Il primo è il
+confine coperto dal recupero del giudizio; il secondo non è chiuso da un plan_id
+passato nei dati Expo e non viene dichiarato exactly-once. Nessun invio reale è
+usato per queste regressioni.
+
+Non cambiano modello/default, due chiamate di preparazione, contesto a 9.000,
+bozza a 4.000, budget dei casi o oracoli di completamento. I fake positivi
+conservano le affermazioni della propria fonte e tutti gli assert precedenti.
+L'autenticità del passaggio non sostituisce la review semantica del testo.
+
+## Prova reale definitiva 01ef500
+
+Deployment tecnico `58224ab3-e932-4160-bd0b-12aa08cc96cb`, prova dalle
+**07:10:44.195873** alle **07:13:08.469117 UTC** del 12 ottobre. **7/9 macchina**,
+**48 chiamate logiche, 53 HTTP**. Risposte effettive: 33 Gemini
+`gemini-flash-lite-latest`, 15 Mistral `ministral-8b-2512`; catena configurata,
+senza override o inferenze su un presunto reset delle quote.
+
+| Caso | Macchina | Revisione e limite |
+| --- | --- | --- |
+| completed_result | PASS | Testo accettato: prezzi 180/120/60 e non rimborso riferito solo all'annuale. |
+| planning_outage | PASS | Testo respinto: estende il non rimborso anche al mensile. |
+| home_write_retry | FAIL | OWNED_SOURCE_NOT_READ_ONCE; piano iniziale rifiutato, retry salvato; fault Home non ancora raggiunto. |
+| source_revoked | PASS | Interruzione dopo revoca, nessuna ripartenza. |
+| memory_revoked | PASS | Abbandono, nessuna nuova preparazione. |
+| memory_corrected | PASS | Testo accettato dopo rilettura 150/30. |
+| source_change_crash | FAIL | Scansione recuperata; piano rifiutato, retry salvato, nessuna lettura. |
+| already_resolved | PASS | Nessun goal per il bisogno risolto. |
+| irrelevant | PASS | Nessun goal per la fonte irrilevante. |
+
+Due dei tre testi finali nella Home sintetica sono accettati; la review complessiva è
+**non accettata**. In planning_outage la generazione Mistral (chiamata 6) introduce
+la clausola mensile; l'audit (chiamata 7) la attribuisce alla fonte e la approva.
+La successiva verifica non la elimina. Il controllo delle citazioni è motivato
+da questa falsa attribuzione, senza promettere di dimostrare ogni implicazione.
+
+Nessuna rivalutazione è stata chiamata nel trial: il recupero degli alias del
+piano rivisto non è stato esercitato qui. I due piani iniziali rifiutati non
+conservano il dettaglio completo del campo errato, che non viene indovinato.
+La riproduzione isolata mostra che un wake successivo può recuperare il piano
+e leggere la fonte una sola volta: il runner precedente si fermava prima.
+
+Originale: `evidence/autonomy_v162_live_2026-10-12_01ef500.json`, SHA-256
+`574d9e0efbfa318025ceec48fcf9256add96a2ec50c340f298528dacbb37b4f8`.
+Review separata: `evidence/autonomy_v162_manual_review_2026-10-12_01ef500.json`.
+Verdetti originali conservati. Il processo termina con 1 quando il gate fallisce;
+Railway CRASHED non dimostra da solo un errore infrastrutturale.
+
+## Roma Termini → Colosseo su 01ef500
+
+Deployment tecnico separato `a8956e43-4188-48be-81e1-1f2eeb893192`: il primo gate
+fallito interrompeva il comando concatenato. **Due HTTP provider**, Mapbox e
+Open-Meteo, **quattro chiamate Gemini**, nessuna riscrittura. Machine PASS;
+review manuale **non accettata**. Distanza 2.765 m e durata 759 s sono coerenti con
+la risposta, ma il testo qualifica il viaggio come “certezza osservata” e lega
+il traffico all'istante esatto della verifica. Il provider non ha consegnato
+quell'istante di osservazione. Il clock HTTP del runner non era metadata dato
+al modello. Il meteo datato è coerente con la risposta effettiva.
+
+La documentazione primaria Mapbox definisce `duration` come tempo stimato e il
+profilo `driving-traffic` combina traffico corrente e storico:
+https://docs.mapbox.com/api/navigation/directions/ (consultata 12 ottobre 2026).
+I metadati aggiunti nel candidato non trasformano una stima in una misurazione.
+
+Originale: `evidence/public_read_v162_live_2026-10-12_01ef500.json`, SHA-256
+`1fbe249e89738f0d0b0956949b47d3fa782fb35288d3505dc3b4d878d7ca46c8`.
+Review: `evidence/public_read_v162_manual_review_2026-10-12_01ef500.json`.
+Il comando tecnico standard è stato ripristinato dopo la prova separata.
+
+## CI, integrazione Vision e app effettiva
+
+`01ef500`: due workflow push, **7/7**. La base effettiva era avanzata con Vision
+PR #213 e i workflow PR non partivano durante il conflitto; nessun controllo
+mancante è stato contato come riuscito. Il merge `6e6e5b7` preserva tutti i 19
+file Vision non documentali e concatena le quattro note canoniche senza perdite.
+Tree `f231fee6d4b5277a80921700b29f85e5baa4231f`, identico al locale e al merge
+tecnico `a9a60e371308c59e7f1fb0716a64c6e763f8b511`.
+
+CI `6e6e5b7`: **quattro workflow, 13/13 job**. Nel backend PR: nucleo 286,
+v162 776, scripted 9/9, MongoDB reale 6 con `PHASE2_REAL_MONGO=1`. Mobile browser
+**36/36**, Chromium e WebKit. Non è una prova nativa né la CI delle nuove
+correzioni. Evidenze: `ci_v162_2026-10-12_01ef500.json` e
+`ci_v162_2026-10-12_6e6e5b7.json` nella cartella `evidence`.
+
+La base è avanzata ancora con Vision PR #214 (`389f38a`): soltanto
+`backend/vision_xray.py` e `backend/vision_tests/test_catalog.py`, integrati
+esattamente nel candidato, senza conflitti. La CI Vision conserva il collaudo
+con Mongo reale; quei test non sono contati nel risultato locale di autonomia.
+
+App osservata alle 08:03 UTC: backend **389f38a**, web **b159d8c**; il nuovo evento
+web è SKIPPED e non sostituisce il deployment SUCCESS precedente. Patch
+`eb9c3870` ancora STAGED con cinque modifiche. Prova primaria in
+`evidence/app_deployment_v162_2026-10-12_0803.json`; conservata anche la lettura
+storica delle 07:38. Nessuna azione sui servizi app è stata eseguita da queste
+letture. Il precedente rifiuto automatico della patch non viene aggirato tramite
+un altro deploy, incluso un merge con trigger.
+
+Restano necessari risultati reali accettabili sul nuovo commit, revisione dei
+testi e consegna nativa visibile. Firma/configurazione EAS, installazione e
+registrazione dispositivo non sono attestate da export o test browser. Nessun
+push reale, pagamento, telefonata, prenotazione o evento calendario reale.
+Il vecchio bucato Tarquinia resta chiuso.
+
+---
+
 # 12 ottobre 2026 — v162, schema nativo e piano di recupero: gate ancora aperto
 
 ## Candidato che contiene questa nota

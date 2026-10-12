@@ -84,22 +84,24 @@ def _review_feedback(checked, allowed, *, origin="preparation_audit"):
     return _fit_feedback(result, 1400)
 
 
+def _response_kind(value):
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, str):
+        return "text"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    if isinstance(value, (int, float)):
+        return "number"
+    return "other"
+
+
 def _draft_validation_errors(answer, allowed):
     """Describe the strict response contract without retaining invalid values."""
-    def kind(value):
-        if value is None:
-            return "null"
-        if isinstance(value, bool):
-            return "boolean"
-        if isinstance(value, str):
-            return "text"
-        if isinstance(value, list):
-            return "array"
-        if isinstance(value, dict):
-            return "object"
-        if isinstance(value, (int, float)):
-            return "number"
-        return "other"
 
     errors = []
     for field, expected_type, limit in (("content", str, 4000), ("evidence_ids", list, 12)):
@@ -120,8 +122,74 @@ def _draft_validation_errors(answer, allowed):
                 issue = "not_supplied"
         if issue:
             errors.append({"field": field, "issue": issue,
-                           "received": kind(value) if field in answer else "missing"})
+                           "received": _response_kind(value) if field in answer else "missing"})
     return errors
+
+
+def _audit_review_errors(answer, rows):
+    """Authenticate quoted passages, not the model's semantic conclusions.
+
+    Only the rows actually sent to this audit are eligible. An authentic
+    passage can still fail to entail a claim; no text inference happens here.
+    """
+    def invalid(field, value, issue):
+        return [{"field": field, "issue": issue,
+                 "received": "missing" if issue == "missing" else _response_kind(value)}]
+
+    checks = answer.get("claim_review")
+    if "claim_review" not in answer:
+        return invalid("claim_review", None, "missing")
+    if not isinstance(checks, list):
+        return invalid("claim_review", checks, "wrong_type")
+    if not checks or len(checks) > 12:
+        return invalid("claim_review", checks, "empty" if not checks else "too_long")
+    sources = {row["id"]: row["claim"] for row in rows}
+    for check in checks:
+        if not isinstance(check, dict):
+            return invalid("claim_review", check, "wrong_type")
+        for field, expected in (("claim", str), ("premises", str), ("correction", str),
+                                ("support", str), ("evidence_ids", list), ("source_quotes", list)):
+            if field not in check:
+                return invalid("claim_review." + field, None, "missing")
+            if not isinstance(check[field], expected):
+                return invalid("claim_review." + field, check[field], "wrong_type")
+        if not check["claim"].strip():
+            return invalid("claim_review.claim", check["claim"], "empty")
+        if check["support"] not in ("stated", "derived", "conditional", "unsupported"):
+            return invalid("claim_review.support", check["support"], "not_supported")
+        refs = check["evidence_ids"]
+        if len(refs) > 12:
+            return invalid("claim_review.evidence_ids", refs, "too_long")
+        if any(not isinstance(ref, str) for ref in refs):
+            return invalid("claim_review.evidence_ids", refs, "wrong_type")
+        if any(ref not in sources for ref in refs):
+            return invalid("claim_review.evidence_ids", refs, "not_supplied")
+        quotes = check["source_quotes"]
+        if len(quotes) > 3:
+            return invalid("claim_review.source_quotes", quotes, "too_long")
+        if not quotes and check["support"] in ("stated", "derived"):
+            return invalid("claim_review.source_quotes", quotes, "empty")
+        for item in quotes:
+            if not isinstance(item, dict):
+                return invalid("claim_review.source_quotes", item, "wrong_type")
+            for field in ("evidence_id", "quote"):
+                path = "claim_review.source_quotes." + field
+                if field not in item:
+                    return invalid(path, None, "missing")
+                if not isinstance(item[field], str):
+                    return invalid(path, item[field], "wrong_type")
+            ref, text = item["evidence_id"], item["quote"]
+            if ref not in sources:
+                return invalid("claim_review.source_quotes.evidence_id", ref, "not_supplied")
+            if ref not in refs:
+                return invalid("claim_review.source_quotes.evidence_id", ref, "not_cited")
+            if not text.strip() or len(text) > 280:
+                return invalid("claim_review.source_quotes.quote", text, "empty" if not text.strip() else "too_long")
+            # Keep the original string: no stripping, case folding, Unicode
+            # normalization, paraphrase matching or search in other evidence.
+            if text not in sources[ref]:
+                return invalid("claim_review.source_quotes.quote", text, "not_literal")
+    return []
 
 
 def _protocol_feedback(stage, errors):
@@ -132,14 +200,22 @@ def _protocol_feedback(stage, errors):
     for row in errors[:2]:
         if not isinstance(row, dict):
             continue
-        if (row.get("field") in ("content", "evidence_ids")
-                and row.get("issue") in ("missing", "wrong_type", "empty", "too_long", "not_supplied")
+        if (row.get("field") in ("content", "evidence_ids", "claim_review", "claim_review.claim",
+                "claim_review.premises", "claim_review.correction", "claim_review.support",
+                "claim_review.evidence_ids", "claim_review.source_quotes",
+                "claim_review.source_quotes.evidence_id", "claim_review.source_quotes.quote")
+                and row.get("issue") in ("missing", "wrong_type", "empty", "too_long", "not_supplied",
+                                         "not_supported", "not_cited", "not_literal")
                 and row.get("received") in ("missing", "null", "boolean", "text", "array", "object", "number", "other")):
             kept.append({key: row[key] for key in ("field", "issue", "received")})
     if not kept:
         return None
-    return {"origin": "preparation_protocol", "stage": stage, "validation_errors": kept,
-            "reason": "Per salvare una bozza: content testo non vuoto (max 4000); evidence_ids elenco di 1–12 ID forniti."}
+    reason = "Per salvare una bozza: content testo non vuoto (max 4000); evidence_ids elenco di 1–12 ID forniti."
+    if any(row["field"].startswith("claim_review") for row in kept):
+        reason = ("Per salvare una bozza: claim_review di 1–12 righe valide; stated/derived richiedono source_quotes. "
+                  "Massimo 3 citazioni per riga, ciascuna di 1–280 caratteri copiati letteralmente dal claim "
+                  "dell'evidence_id fornito e citato nella stessa riga. Autenticità non significa supporto semantico.")
+    return {"origin": "preparation_protocol", "stage": stage, "validation_errors": kept, "reason": reason}
 
 
 def _source_rows(evidence):
@@ -364,6 +440,10 @@ async def prepare(db, owner_id, goal, step):
         "Before the verdict, return claim_review covering the actual material clauses, including "
         "qualitative consequences. In premises, identify the short source passages that establish "
         "each factual premise and distinguish any unstated assumption or category default. "
+        "For each stated or derived check, source_quotes must contain 1–3 verbatim passages "
+        "from the claim field of its cited evidence rows, each no longer than 280 characters. "
+        "Copy exact text with its evidence_id, never a paraphrase or an invented quote. "
+        "Authentic quotations do not by themselves establish that the conclusion follows. "
         "An evidence ID or a category label alone does not establish the premise. Test a derived "
         "claim against a counterexample compatible with ALL those source passages. If such a case "
         "remains possible, record the missing premise and make it explicitly conditional or remove "
@@ -383,6 +463,8 @@ async def prepare(db, owner_id, goal, step):
         "Return one complete JSON object, positive or negative: "
         "{\"claim_review\": [{\"claim\": \"actual material clause, short\", "
         "\"evidence_ids\": [\"supplied supporting IDs\"], "
+        "\"source_quotes\": [{\"evidence_id\": \"supplied supporting ID\", "
+        "\"quote\": \"exact passage copied from that evidence claim, max 280 characters\"}], "
         "\"premises\": \"source passages, missing premises and any compatible counterexample, short\", "
         "\"support\": \"stated|derived|conditional|unsupported\", "
         "\"correction\": \"needed correction or limitation, empty if none\"}], "
@@ -405,7 +487,7 @@ async def prepare(db, owner_id, goal, step):
             await _remember_feedback(db, owner_id, goal.id, scope, feedback)
         return unavailable("preparation_not_supported", True, feedback=feedback)
     content, refs = checked.get("content"), checked.get("evidence_ids")
-    errors = _draft_validation_errors(checked, allowed)
+    errors = _draft_validation_errors(checked, allowed) or _audit_review_errors(checked, audit_rows)
     if errors:
         feedback = _protocol_feedback("audit", errors)
         await _remember_feedback(db, owner_id, goal.id, scope, feedback)

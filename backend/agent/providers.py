@@ -1387,6 +1387,42 @@ async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome
             retryable=True,
         )
 
+    from agent.evidence import freshness_of
+
+    def aware_time(value) -> str:
+        if type(value) is not str or len(value) > 80:
+            return ""
+        try:
+            instant = datetime.fromisoformat(value)
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                return ""
+            return instant.astimezone(timezone.utc).isoformat()
+        except (TypeError, ValueError, OverflowError):
+            return ""
+
+    # Age the returned estimate, without treating its retrieval time as the
+    # observation time of the provider's underlying traffic measurements.
+    observed_at = (
+        aware_time(route.get("retrieved_at"))
+        if route.get("retrieval_time_source") == "ora_clock_not_provider_observation_time"
+        else ""
+    )
+    freshness = freshness_of(observed_at) if observed_at else "unknown"
+    provider_as_of = aware_time(route.get("provider_as_of"))
+    traffic = bool(route.get("reflects_current_traffic"))
+    timing_note = (
+        "Orario associato: lettura ORA, non istante dei dati del provider. "
+        if observed_at
+        else "Orario della lettura non disponibile. "
+    )
+    timing_note += (
+        f"Istante dichiarato dal provider: {provider_as_of}."
+        if provider_as_of
+        else "Il provider non dichiara l'istante delle misure del traffico."
+        if traffic
+        else "Il provider non dichiara l'istante dei dati del percorso."
+    )
+
     duration = route.get("duration_seconds")
     distance = route.get("distance_meters")
     if not isinstance(duration, (int, float)) or duration < 0:
@@ -1398,23 +1434,24 @@ async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome
                 capability="route.read",
                 provider=str(route.get("provider") or capabilities.get("provider") or "routing")[:60],
                 source_refs=source_refs,
-                freshness="fresh",
+                observed_at=observed_at,
+                freshness=freshness,
+                certainty_note=timing_note,
             ),
             error_type="route_duration_missing",
             retryable=True,
         )
 
     minutes = max(1, round(float(duration) / 60.0))
-    bits = [f"circa {minutes} min"]
+    bits = [f"durata stimata circa {minutes} min"]
     if isinstance(distance, (int, float)) and distance >= 0:
         km = float(distance) / 1000.0
         bits.append(f"{km:.1f} km")
 
-    traffic = bool(route.get("reflects_current_traffic"))
     claim = (
         f"Percorso {origin_label} → {destination_label}: "
         + ", ".join(bits)
-        + ("; tiene conto del traffico attuale." if traffic else "; traffico live non dichiarato dal provider.")
+        + ("; include il traffico secondo il provider." if traffic else "; traffico non dichiarato dal provider.")
     )
 
     extra_claims: List[Claim] = []
@@ -1427,7 +1464,7 @@ async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome
     ):
         delay = max(0, round((float(duration) - float(without_traffic)) / 60.0))
         extra_claims.append(Claim(
-            text=f"Il traffico aggiunge circa {delay} min rispetto alla durata senza traffico indicata dal provider.",
+            text=f"Secondo la stima del provider, il traffico aggiunge circa {delay} min rispetto alla durata senza traffico indicata dal provider.",
             supports="impatto del traffico sul tempo di percorrenza",
         ))
 
@@ -1442,12 +1479,9 @@ async def read_route(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome
             capability="route.read",
             provider=str(route.get("provider") or capabilities.get("provider") or "routing")[:60],
             source_refs=source_refs,
-            freshness="fresh",
-            certainty_note=(
-                "percorso live con traffico"
-                if traffic
-                else "percorso live; il provider non dichiara traffico corrente"
-            ),
+            observed_at=observed_at,
+            freshness=freshness,
+            certainty_note="Durata stimata. " + timing_note,
         ),
         claims=[
             Claim(

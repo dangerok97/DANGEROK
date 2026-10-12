@@ -245,7 +245,10 @@ async def test_preparation_and_its_audit_both_receive_the_incomplete_read(monkey
     draft = "L'estratto è parziale: le condizioni successive devono ancora essere lette."
     model = AsyncMock(side_effect=[
         {"content": draft, "evidence_ids": [evidence[0].id]},
-        {"verified": True, "content": draft, "evidence_ids": [evidence[0].id]},
+        {"verified": True, "content": draft, "evidence_ids": [evidence[0].id],
+         "claim_review": [{"claim": "La sintesi resta condizionata alla lettura del seguito.",
+            "premises": "Il cursore della fonte segnala una lettura incompleta; non si affermano condizioni non lette.",
+            "support": "conditional", "correction": "", "evidence_ids": [evidence[0].id], "source_quotes": []}]},
     ])
     monkeypatch.setattr(reasoning, "_ask_model", model)
     result = await prepare(db, OWNER, goal, ActionStep(
@@ -290,7 +293,10 @@ async def test_audit_budget_only_drops_uncited_rows_or_stops_without_saving(monk
             # budget if it naively reused every generation evidence row.
             assert len(json.dumps({"draft": draft, "evidence": rows}, ensure_ascii=False)) > 9000
             return {"content": draft, "evidence_ids": cited}
-        return {"verified": True, "content": draft, "evidence_ids": cited}
+        return {"verified": True, "content": draft, "evidence_ids": cited,
+                "claim_review": [{"claim": "Riepilogo limitato alle letture disponibili.",
+                    "premises": "I cursori segnalano parti non lette; nessuna condizione del seguito è dichiarata.",
+                    "support": "conditional", "correction": "", "evidence_ids": list(cited), "source_quotes": []}]}
 
     monkeypatch.setattr(reasoning, "_ask_model", model)
     result = await prepare(db, OWNER, goal, ActionStep(

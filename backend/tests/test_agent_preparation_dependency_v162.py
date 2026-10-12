@@ -35,6 +35,25 @@ RESULT = (
 )
 
 
+def comparison_claim_review(evidence_id, *, price_a=84):
+    """Explicit audit data for SOURCE (or its controlled 88-credit correction).
+
+    This does not inspect or validate a model answer. Tests still choose their
+    own content/verdict, including deliberately mistaken audits.
+    """
+    return [
+        {"claim": f"Su quattro periodi A costa {price_a}, B 100; differenza {100 - price_a} crediti.",
+         "premises": "Prezzi annotati applicati al medesimo orizzonte di quattro periodi.",
+         "support": "derived", "correction": "", "evidence_ids": [evidence_id],
+         "source_quotes": [{"evidence_id": evidence_id,
+             "quote": f"A costa {price_a} crediti per quattro periodi e B costa 25 crediti per periodo."}]},
+        {"claim": "La quota di A non è rimborsabile.",
+         "premises": "La condizione riguarda A; non stabilisce vincoli per B.",
+         "support": "stated", "correction": "", "evidence_ids": [evidence_id],
+         "source_quotes": [{"evidence_id": evidence_id, "quote": "La quota di A non è rimborsabile."}]},
+    ]
+
+
 def read_step(*, offset=0, version=None):
     parameters = {"memory_offset": offset}
     if version:
@@ -262,7 +281,10 @@ async def test_real_missing_preparation_sources_replans_then_reads_and_prepares_
         row, = payload["evidence"]
         assert row["claim"] == text and row["source_refs"] == [MEMORY]
         assert row["memory_reads"][0]["next_offset"] is None
-        return {"verified": True, "content": RESULT, "evidence_ids": [row["id"]]}
+        answer = {"content": RESULT, "evidence_ids": [row["id"]]}
+        if "draft" in payload:
+            answer.update(verified=True, claim_review=comparison_claim_review(row["id"]))
+        return answer
 
     transported = fake_gemini(monkeypatch, reply)
     with gate.isolated_engine(db, mode="live") as probe:

@@ -22,7 +22,7 @@ from opportunities.models import EvidenceRef, Opportunity
 from opportunities.repository import OpportunityRepository
 from scripts import autonomy_completion_eval_v162 as gate
 from test_agent_preparation_dependency_v162 import (
-    OWNER, MEMORY, RESULT, SOURCE, fake_gemini, seed,
+    OWNER, MEMORY, RESULT, SOURCE, comparison_claim_review, fake_gemini, seed,
 )
 from test_pending_outcome_contract_v162 import synthetic_transport_only  # noqa: F401
 
@@ -99,7 +99,10 @@ async def test_finish_preserves_actual_failure_for_reconsider_and_resumes_from_c
                     return {"verified": False, "content": "", "evidence_ids": [],
                             "reason": "Una conclusione materiale non è sostenuta dalle premesse."}
                 return {"verified": True, "content": RESULT, "evidence_ids": ["evd_not_supplied"]}
-        return {"verified": True, "content": RESULT, "evidence_ids": [source.id]}
+        answer = {"content": RESULT, "evidence_ids": [source.id]}
+        if "draft" in payload:
+            answer.update(verified=True, claim_review=comparison_claim_review(source.id))
+        return answer
 
     with gate.isolated_engine(db), patch.object(reasoning, "_ask_model", reply):
         service = AgentService(db)
@@ -204,10 +207,12 @@ async def test_claim_review_reaches_real_sdk_with_complete_sources_and_only_audi
             "claim_review": [
                 {"claim": "Totali e differenza su quattro periodi.", "evidence_ids": [source.id],
                  "premises": "Applicazione dei prezzi annotati al medesimo periodo.",
-                 "support": "derived", "correction": ""},
+                 "support": "derived", "correction": "",
+                 "source_quotes": comparison_claim_review(source.id)[0]["source_quotes"]},
                 {"claim": "Assenza di vincoli per B.", "evidence_ids": [],
                  "premises": "La nota non specifica condizioni di interruzione per B.",
-                 "support": "unsupported", "correction": "Rimuovere il vantaggio e mantenere il limite."},
+                 "support": "unsupported", "correction": "Rimuovere il vantaggio e mantenere il limite.",
+                 "source_quotes": []},
             ],
             "verified": verified,
             "content": "" if verified is False else corrected,
@@ -326,7 +331,10 @@ async def test_audit_request_keeps_original_interpretation_qualified_after_curre
         if "draft" in payload:
             audited.append(payload)
             assert "88 crediti" in row["claim"] and "84 crediti" not in row["claim"]
-        return {"verified": True, "content": corrected, "evidence_ids": [source.id]}
+        answer = {"content": corrected, "evidence_ids": [source.id]}
+        if "draft" in payload:
+            answer.update(verified=True, claim_review=comparison_claim_review(source.id, price_a=88))
+        return answer
 
     transported = fake_gemini(monkeypatch, reply)
     with gate.isolated_engine(db, mode="live") as probe:

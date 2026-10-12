@@ -1,3 +1,40 @@
+# 12 ottobre 2026 — v162, citazioni autentiche e recupero osservabile
+
+- Aggiunto `source_quotes` all'audit nativo e controllo locale dei passaggi
+  letterali sul payload effettivo. Rifiuto prima della nuova persistenza;
+  nessuna citazione inventata promossa a fatto. L'implicazione logica resta da
+  valutare separatamente.
+- Conservata nel journal la diagnosi strutturale del piano invalido, legata al
+  run esistente. Il report non attribuisce un vecchio errore a un nuovo ciclo.
+- Il runner segue i retry tecnici di pianificazione già durevoli anche negli
+  altri scenari, mantenendo budget, worker, una lettura della fonte e oracoli.
+- Qualificate le durate di percorso come stime e distinto il clock ORA dal tempo
+  dei dati del provider, conservando i metadati fino al modello e alla verifica
+  del lavoro autonomo. Nessun nuovo criterio testuale nel verdetto pubblico.
+- Estesa la regressione Situation ai guasti nella decisione iniziale di consegna
+  e nella rilettura temporanea del luogo, senza notifiche reali.
+- Conservato prima della chiusura l'handoff del risultato alla comunicazione.
+  Ripresa nella stessa lane, con candidato legato al risultato e registrazione
+  del Need senza aggiungere un giudizio Delivery al medesimo slot.
+- Allineati i fake positivi alle citazioni delle rispettive fonti sintetiche e
+  ai metadati ora emessi dal routing. Preservati asserzioni e casi semanticamente
+  errati intenzionali. Nuovi moduli inclusi nel gate CI v162.
+
+Verifica locale **1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**; scripted **9/9**, nessun modello/HTTP/effetto esterno.
+La CI del padre `6e6e5b7` è **13/13**, con MongoDB reale e mobile browser; non vale
+come attestazione di questo candidato. Conservati originali e review di `01ef500`:
+autonomia **7/9 macchina**, due testi positivi accettati e uno respinto; letture
+pubbliche tecnicamente riuscite, testo non accettato per la qualificazione del
+traffico. Il successivo collaudo reale resta necessario.
+
+Integrati i due file della successiva Vision PR #214 (`389f38a`) senza conflitti.
+Aggiornato lo stato effettivo dell'app con una lettura primaria: backend a
+`389f38a`, web a `b159d8c`, patch Railway ancora in attesa. Nel perimetro autonomia
+nessuna nuova dipendenza, variabile o attivazione di fatturazione; l'indice
+operativo del recupero è additivo. L'export non attesta una prova nativa.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Aggiunte 50 ricette di oggetti quotidiani e rispettivi sinonimi/categorie. Preservati manifest e percorsi dei 25 oggetti precedenti. Aggiunti test di migrazione da 25 a 75, riuso senza generazione, isolamento delle vecchie voci private, mancata riattivazione dei ritirati e apertura/selezione delle 50 nuove famiglie su mobile e desktop.

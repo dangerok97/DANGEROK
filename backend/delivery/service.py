@@ -68,10 +68,35 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class DeliveryReviewSuperseded(RuntimeError):
+    """A different worker now owns this delivery judgement."""
+
+
 class DeliveryService:
-    def __init__(self, db):
+    def __init__(self, db, *, admission_fence: Optional[Dict[str, str]] = None):
         self.db = db
         self.repo = DeliveryRepository(db)
+        self._admission_fence = dict(admission_fence) if admission_fence is not None else None
+
+    async def _check_admission_lease(self, owner_id: str, kind: str, source_id: str) -> None:
+        """A late judgement cannot materialise or send under a lost claim.
+
+        Only the internal Need admission lane supplies this fence. Existing
+        plan rechecks and Opportunity calls retain their current lifecycle.
+        """
+        fence = self._admission_fence
+        if fence is None:
+            return
+        if kind != "agent_need" or (owner_id, source_id) != (fence["owner_id"], fence["id"]):
+            raise DeliveryReviewSuperseded("delivery_review_subject_changed")
+        try:
+            current = await self.db["agent_needs"].find_one({
+                **fence, "delivery_review_lease_until": {"$gt": _now().isoformat()},
+            }, {"_id": 1})
+        except Exception as exc:
+            raise MemorySourcesUnavailable("delivery_review_check_unavailable") from exc
+        if current is None:
+            raise DeliveryReviewSuperseded("delivery_review_claim_lost")
 
     # --- deciding ---------------------------------------------------------
 
@@ -134,6 +159,7 @@ class DeliveryService:
 
         kind = source_of(subject)
         subject_id = getattr(subject, "id", "")
+        await self._check_admission_lease(user_id, kind, subject_id)
         if kind == "agent_need":
             try:
                 current = await self._current_agent_need(user_id, subject_id)
@@ -220,6 +246,7 @@ class DeliveryService:
             self.db, user_id, subject=subject, app_state=app_state
         )
         answer = await decide_delivery(moment, language=language)
+        await self._check_admission_lease(user_id, kind, subject_id)
 
         if answer is None:
             # No judgement was available. Nothing is sent, nothing is
@@ -347,6 +374,7 @@ class DeliveryService:
         plan.deep_link = _deep_link_for(subject)
         plan.decision_provenance = "model"
         plan.rationale = decision.reason_to_interrupt[:300]
+        await self._check_admission_lease(user_id, kind, subject.id)
         return await self.repo.save_plan(plan)
 
     async def _hold(
@@ -373,6 +401,7 @@ class DeliveryService:
             plan.result_goal_id = getattr(subject, "result_goal_id", "")
             plan.result_completed_at = getattr(subject, "result_completed_at", None)
             plan.deep_link = _deep_link_for(subject)
+        await self._check_admission_lease(user_id, source_type, subject_id)
         return await self.repo.save_plan(plan)
 
     # --- sending, much later ----------------------------------------------
@@ -658,14 +687,17 @@ class DeliveryService:
     async def _send(self, user_id: str, plan: DeliveryPlan) -> None:
         from delivery.provider import get_provider
 
+        await self._check_admission_lease(user_id, plan.source_type, plan.source_id)
         # A source can close after the re-judgement but before the provider
         # call. Re-read it at the last possible boundary; no old plan gets to
         # outlive the fact that justified it.
         try:
             subject = await self._current_subject_for_plan(user_id, plan)
         except MemorySourcesUnavailable:
+            await self._check_admission_lease(user_id, plan.source_type, plan.source_id)
             await self._defer_source_check(plan)
             return
+        await self._check_admission_lease(user_id, plan.source_type, plan.source_id)
         if subject is None:
             await self._cancel(
                 plan, "la sorgente si è chiusa prima dell'invio", "code_cancel"
@@ -690,6 +722,7 @@ class DeliveryService:
                 )
                 return
 
+        await self._check_admission_lease(user_id, plan.source_type, plan.source_id)
         public = plan.words.public()
         outcome = await get_provider().send(
             owner_id=user_id,

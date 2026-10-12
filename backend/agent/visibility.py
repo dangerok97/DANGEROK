@@ -141,40 +141,50 @@ class VisibilityService:
         from agent.memory_fence import memory_result_current
         from agent.prepared_review import prepared_result_ref
 
+        handoff = what_happened.get("_completion_handoff")
         memory_snapshot = str(what_happened.get("_memory_source_snapshot") or "")
         prepared_reference = what_happened.get("_prepared_result_ref", prepared_result_ref(goal))
         if not await memory_result_current(self.db, owner_id, goal, memory_snapshot):
             return VisibilityDecision(goal_id=goal.id, outcome="silent", decided_by="code",
                                       quietened_by_code="le memorie di partenza non sono più attuali")
 
-        answer = await decide_visibility(
-            goal.for_ai(),
-            what_happened={key: value for key, value in what_happened.items()
-                           if key not in ("_memory_source_snapshot", "_prepared_result_ref")},
-            already_said=await self.recent(owner_id),
-            language=language,
-        )
-        if answer is None:
-            # No judgement. Saying nothing is the safe direction, and it is
-            # not recorded as a decision that there was nothing to say.
-            return VisibilityDecision(
-                goal_id=goal.id, outcome="silent", decided_by="code",
-                quietened_by_code="il giudizio non era disponibile",
+        saved = handoff.state.get("candidate") if handoff else None
+        if saved:
+            decision = VisibilityDecision.model_validate(saved["decision"])
+            topic = saved["topic"]
+        else:
+            answer = await decide_visibility(
+                goal.for_ai(),
+                what_happened={key: value for key, value in what_happened.items()
+                               if key not in ("_memory_source_snapshot", "_prepared_result_ref", "_completion_handoff")},
+                already_said=await self.recent(owner_id),
+                language=language,
             )
-
-        decision = VisibilityDecision(
-            goal_id=goal.id,
-            outcome=answer["outcome"],
-            headline=str(answer.get("headline") or "")[:200].strip(),
-            reasoning=str(answer.get("reasoning") or "")[:400],
-            refs=[str(r)[:120] for r in (what_happened.get("refs") or [])][:8],
-            memory_source_snapshot=memory_snapshot,
-            prepared_result_ref=prepared_reference,
-            fingerprint=_fingerprint(
-                goal.id, str(answer.get("about") or ""),
-                str(answer.get("headline") or ""),
-            ),
-        )
+            if answer is None:
+                if handoff:
+                    from agent.completion_handoff import VisibilityUnavailable
+                    raise VisibilityUnavailable("visibility_model_unavailable")
+                # An unavailable judgement is not model-chosen silence.
+                return VisibilityDecision(
+                    goal_id=goal.id, outcome="silent", decided_by="code",
+                    quietened_by_code="il giudizio non era disponibile",
+                )
+            topic = str(answer.get("about") or "")
+            if handoff:
+                topic = topic[:400]
+            decision = VisibilityDecision(
+                goal_id=goal.id, outcome=answer["outcome"],
+                headline=str(answer.get("headline") or "")[:200].strip(),
+                reasoning=str(answer.get("reasoning") or "")[:400],
+                refs=[str(r)[:120] for r in (what_happened.get("refs") or [])][:8],
+                memory_source_snapshot=memory_snapshot,
+                prepared_result_ref=prepared_reference,
+                fingerprint=_fingerprint(goal.id, topic, str(answer.get("headline") or "")),
+            )
+            if handoff:
+                # This remains an unadmitted candidate. Source checks below
+                # still decide whether it may enter the visible update ledger.
+                await handoff.save(candidate={"decision": decision.model_dump(), "topic": topic})
 
         if not decision.is_visible:
             return decision
@@ -191,7 +201,7 @@ class VisibilityService:
 
         if not await self._situation_decision_current(
             owner_id, goal, decision, bind=True,
-            topic=str(answer.get("about") or ""),
+            topic=topic,
         ):
             decision.outcome = "silent"
             decision.decided_by = "code"
@@ -210,7 +220,7 @@ class VisibilityService:
             # A corrected fact may yield useful news about the same topic.
             decision.fingerprint = _fingerprint(
                 goal.id + "|" + memory_snapshot + "|" + (prepared_reference or ""),
-                str(answer.get("about") or ""), decision.headline,
+                topic, decision.headline,
             )
 
         if not decision.refs:
@@ -223,6 +233,13 @@ class VisibilityService:
             return decision
 
         if await self._already_said(owner_id, decision.fingerprint):
+            if handoff:
+                admitted = await self.db[UPDATES].find_one({
+                    "owner_id": owner_id, "goal_id": goal.id,
+                    "fingerprint": decision.fingerprint, "completion_handoff_id": handoff.id,
+                }, {"_id": 0})
+                if admitted:
+                    return VisibilityDecision.model_validate(admitted)
             decision.outcome = "silent"
             decision.decided_by = "code"
             decision.quietened_by_code = "questa cosa era già stata detta"
@@ -236,7 +253,15 @@ class VisibilityService:
         # The preliminary read is only an optimisation. Two workers may both
         # pass it before either one records the update. Only the successful
         # atomic insert owns the right to surface and offer this news.
-        if not await self._record(owner_id, decision):
+        if handoff:
+            await handoff.check()
+            recorded = await self._record(owner_id, decision, completion_handoff_id=handoff.id)
+        else:
+            recorded = await self._record(owner_id, decision)
+        if not recorded:
+            if handoff:
+                from agent.completion_handoff import HandoffUnavailable
+                raise HandoffUnavailable("visibility_record_unavailable")
             decision.outcome = "silent"
             decision.decided_by = "code"
             decision.quietened_by_code = "aggiornamento già registrato o archivio non disponibile"
@@ -356,7 +381,7 @@ class VisibilityService:
         )
         return found is not None
 
-    async def _record(self, owner_id: str, decision: VisibilityDecision) -> bool:
+    async def _record(self, owner_id: str, decision: VisibilityDecision, *, completion_handoff_id="") -> bool:
         """Only the insert winner may create an activity or delivery need.
 
         Under concurrent workers both may read 'not said yet'. The unique
@@ -364,6 +389,8 @@ class VisibilityService:
         On a database failure do not claim to have delivered an update.
         """
         row = decision.model_dump()
+        if completion_handoff_id:
+            row["completion_handoff_id"] = completion_handoff_id
         row["owner_id"] = owner_id
         row["expires_at"] = _now() + timedelta(days=SAID_RETENTION_DAYS)
         # A visibility judgement is not yet evidence that Home can show it.

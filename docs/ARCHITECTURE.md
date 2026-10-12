@@ -1,3 +1,107 @@
+# 12 ottobre 2026 — v162, autenticità delle citazioni e provenienza temporale
+
+## Confine dell'audit
+
+Ogni voce `claim_review` contiene `source_quotes` con `evidence_id` e `quote`.
+Lo schema nativo limita gli ID alle righe effettivamente conservate nel payload
+di quello specifico audit. Il controllo locale positivo richiede una revisione
+di 1–12 voci, al massimo tre citazioni per voce e 280 caratteri per citazione.
+Le voci `stated` e `derived` richiedono almeno una citazione autentica.
+
+Il testo deve essere una sottostringa letterale del `claim` della singola fonte
+indicata e citata nella stessa voce: niente normalizzazione, ricerca in altre
+righe o uso dei metadati come testo della fonte. Una violazione produce feedback
+strutturale e rifiuta la nuova bozza. L'audit negativo conserva il rifiuto.
+Owner, versione, correzione/revoca Memory e controllo prima della persistenza
+restano attivi. Autenticità e implicazione logica sono proprietà distinte.
+
+## Pianificazione e osservazione del recupero
+
+Il journal `planning_protocol_invalid` conserva solo diagnosi strutturali
+limitate, tentativo e identità dell'`AgentRun` esistente. Il report associa la
+diagnosi al run effettivamente osservato, allo stesso owner/goal e tentativo;
+quando il legame manca la omette. Un nuovo ciclo sullo stesso goal non eredita
+un errore storico soltanto perché il contatore è tornato a uno.
+
+Il runner osserva il tentativo tecnico già salvato anche nei casi diversi da
+`planning_outage`. Avanza esclusivamente attraverso il worker/wake esistente,
+con lo stesso tetto di quattro tentativi. Non crea goal, non legge la fonte per
+conto del modello e non aggira attese, domande, consenso o rinvii dell'utente.
+Restano l'asserzione di una sola lettura e gli stessi oracoli di completamento,
+Home, revoca e replay. Le diagnosi non modificano il verdetto.
+
+## Stime di percorso
+
+`places/routing.py` aggiunge ai soli successi `duration_kind=estimate`,
+`retrieved_at` dal clock UTC al termine della lettura,
+`retrieval_time_source=ora_clock_not_provider_observation_time` e
+`provider_as_of`, nullo con gli adapter attuali. Non modifica durata, distanza,
+provider, modalità o classificazione dei fallimenti. I campi attraversano
+capability, Observation e payload del modello e sono conservati nella proiezione
+del report pubblico. Nessun nuovo prompt o criterio del verdetto pubblico.
+
+Il consumer `route.read` conserva la natura di stima e qualifica la propria
+provenienza: l'età della risposta letta da ORA non certifica l'istante delle misure
+di traffico. Usa solo un tempo di lettura attestato; il payload legacy senza tale
+tempo resta esplicitamente di età sconosciuta. Non cambia i gate globali della
+freschezza, i riferimenti dei luoghi o il divieto di persistere coordinate.
+
+## Recupero della consegna
+
+Il Need conserva l'intenzione tecnica di chiedere un giudizio Delivery prima
+dell'await, con un indice operativo per riprenderla. La lane di ammissione già
+esistente reclama il lavoro con lease e tentativi limitati; non crea un piano,
+un canale o un testo di notifica senza la decisione effettiva. Silenzio e risposta
+in-app restano scelte concluse, distinte dall'indisponibilità tecnica. Il budget
+complessivo del passaggio rimane quello esistente.
+
+Il cap di tre giudizi ammette il solo recupero di un piano materiale dopo un
+crash dell'ultimo tentativo: non autorizza un quarto giudizio. Una lease persa
+blocca la risposta tardiva prima del salvataggio del piano e del provider.
+La ricerca limitata del piano pertinente ignora i terminali storici; un piano
+aperto ma scaduto non attesta l'handoff corrente. La precedenza di un secondo
+owner viene cercata fra le code prima del ritorno allo stesso account.
+
+Prima della scrittura terminale del goal viene registrato anche il checkpoint
+interno `completion_visibility`, legato a owner, goal, run, completed_at e
+identità del risultato. Il recupero si attiva soltanto sullo stesso risultato
+effettivamente completato: non riapre il goal e non riesegue il piano. Il
+candidato Visibility proviene dal modello e viene conservato prima dei successivi
+controlli sulla fonte; resta non ammesso finché quei controlli non passano.
+
+La ripresa di questo passaggio consuma uno dei due slot della stessa lane, entro
+il limite del worker di 125 secondi. Può registrare il Need per il prossimo slot,
+senza chiamare anche il modello Delivery nello stesso slot. Un candidato già
+salvato viene riletto e ricontrollato senza una nuova decisione del modello.
+Il cap di tre tentativi resta esplicito; l'assenza tecnica della risposta è
+distinta dal silenzio deciso. Il candidato salvato può completare i controlli
+senza un nuovo giudizio, entro la validità della fonte e al massimo i 14 giorni
+del ledger Home. Il successivo recupero Home non aggiunge giudizi.
+
+Gli indici operativi aggiunti sono `(status, delivery_review_due)` sui Need e
+`(status, completion_visibility.pending, completion_visibility.due_at)` sui goal.
+Sono additivi; i checkpoint rimangono fuori dai DTO pubblici e dal contesto dato
+al modello. Non viene introdotto un indice TTL che cancelli il goal.
+
+Un errore temporaneo nel rileggere il luogo della fonte meteo viene propagato
+come indisponibilità alla consegna, che usa il differimento già presente.
+Un luogo assente, modificato o di altro owner resta una fonte non valida.
+Scadenza, revoca e chiusura non possono essere convertite in un avviso da inviare.
+
+La deduplicazione del recupero riguarda un piano già salvato come `delivered`.
+Il piano ancora pending deve avere un'attivazione durevole per essere ripreso.
+Resta distinto il confine preesistente tra accettazione del provider e salvataggio
+locale: queste prove non attestano una consegna esterna exactly-once in quel crash.
+
+## Verifica
+
+Locale **1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**; nove scenari scripted senza chiamate reali o effetti esterni.
+Il recupero della consegna Situation viene verificato separatamente dal contenuto
+stimato e dalla notifica visibile su dispositivo. La prova nativa resta aperta.
+Report e confini delle nuove regressioni: `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 `vision_catalog_extended` compone tre raccolte additive, 50 ricette originali in nove primitive. `common_recipes()` conserva le venti ricette storiche; `all_recipes()` le integra con la nuova raccolta. `seeds()` e `METADATA` usano lo stesso insieme. Nessuna modifica a schema dati o servizio di pubblicazione. Il renderer include il massimo ingrandimento prospettico nel calcolo di adattamento: insieme e componente focalizzato restano entro la visuale allo zoom iniziale, anche per i nuovi gruppi larghi o profondi. I manifest dei 25 seed storici conservano il fingerprint canonico.

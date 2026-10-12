@@ -1,3 +1,40 @@
+# 12 ottobre 2026 — v162, proseguire fino al risultato e alla consegna
+
+Il candidato aggiunge l'autenticazione delle citazioni per contrastare le false
+attribuzioni emerse nell'audit; non attesta la chiusura di ogni errore semantico.
+Chiude inoltre l'attribuzione delle diagnosi al ciclo sbagliato e l'osservazione
+incompleta dei retry già persistiti, e qualifica la provenienza temporale delle
+stime di percorso. La verifica del caso bucato comprende anche i guasti di
+continuità nella consegna. Locale **1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**, CLI scripted **9/9**.
+
+Risultati precedenti conservati: `01ef500` **7/9 macchina**, due testi positivi
+accettati e uno respinto; pubblico tecnicamente PASS ma testo respinto per la
+qualificazione del traffico. Merge Vision `6e6e5b7` **13/13 CI**, MongoDB reale
+e 36 test browser; nessun collaudo reale di queste nuove correzioni ancora valido.
+
+Passi necessari:
+
+1. Pubblicare il candidato con tree identico al codice verificato e completare
+   i gate CI sul nuovo head.
+2. Eseguire il collaudo tecnico isolato con catena provider e budget esistenti;
+   conservare originali e review semantica, senza trasformare un PASS macchina
+   in un'accettazione del testo.
+3. Verificare separatamente Roma Termini → Colosseo e il recupero della consegna
+   Situation. Il vecchio bucato chiuso non è una sessione da riattivare.
+4. Confrontare ogni nuovo insuccesso con la causa osservata, mantenendo owner,
+   revoca, scadenza, limiti e idempotenza. Nessun nuovo scheduler o router.
+5. Preparare il rilascio solo dopo i gate e nel rispetto del rifiuto automatico
+   della patch Railway: un merge con deploy automatico non è un aggiramento
+   consentito. L'app osservata è ancora Vision: backend `389f38a`, web `b159d8c`.
+6. Attestare installazione/firma e avviso nativo visibile ad app chiusa, con
+   apertura del risultato. I test web e l'export non completano questa prova.
+
+L'esito utente resta concreto: ORA deve dire quando ritirare il nuovo bucato,
+qualificando asciugatura stimata o rischio. L'autonomia non è dichiarata raggiunta
+prima della verifica del risultato e della consegna.
+
+---
+
 # 12 ottobre 2026 — v162, avanzamento verificato e prossimi gate
 
 Implementati nel candidato corrente: contratto comune dei passi, conservazione

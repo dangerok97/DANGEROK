@@ -364,6 +364,7 @@ def _time_valid(evidence: dict, capability: str, evaluation_now: datetime) -> bo
 def _payload_view(capability: str, payload: dict) -> dict:
     keys = ("status", "available", "provider", "destination", "travel_mode",
             "duration_seconds", "distance_meters", "reflects_current_traffic",
+            "duration_kind", "retrieval_time_source", "provider_as_of",
             "duration_without_traffic_seconds", "failure_code", "retryable",
             "why_unavailable", "error", "place", "current", "hours", "sunrise", "sunset",
             "observed_at", "retrieved_at", "timezone", "utc_offset_seconds")

@@ -72,6 +72,23 @@ PLANNING_OUTAGE = """Confronto delle opzioni per il mantenimento dell'archivio d
 *Nota di limite:* Le informazioni si basano sui dati riferiti dall'utente e non sono confermate dal fornitore."""
 
 
+def recorded_note_claim_review(evidence_id):
+    """Explicit clauses of the synthetic note; never a verdict on a draft."""
+    review = []
+    for claim, passages in [
+        ("Prezzi e orizzonte indicati nella nota.", [
+            "il piano dell'archivio digitale costa 15 euro mensili; 12 mesi costano 180 euro.",
+            "La seconda opzione indicata nella nota costa 120 euro anticipati per 12 mesi."]),
+        ("Rimborso della formula annuale.", ["L'annuale non prevede rimborso in caso di disdetta anticipata."]),
+        ("Dotazione e spese iniziali comuni.", ["In entrambe le opzioni 100 GB, assistenza uguale e spese iniziali nulle."]),
+        ("Dati riferiti senza conferma esterna.", ["dati riferiti dall'utente e non confermati dal fornitore:"]),
+    ]:
+        review.append({"claim": claim, "premises": "Dati attribuiti alla nota corrente, senza nuove condizioni.",
+            "support": "stated", "correction": "", "evidence_ids": [evidence_id],
+            "source_quotes": [{"evidence_id": evidence_id, "quote": passage} for passage in passages]})
+    return review
+
+
 async def reconstruct(draft, *, partial=False):
     db = AsyncMongoMockClient().verification_context_v162
     with gate.isolated_engine(db):
@@ -108,9 +125,13 @@ async def reconstruct(draft, *, partial=False):
         prepare = ActionStep(ordinal=1, step_type="prepare", capability_needed="document.create",
             input_refs=[ref], intent="Produrre il confronto scritto dei costi e dei vincoli per dodici mesi.",
             expected_result=goal.desired_outcome)
+        # The recorded drafts stay unchanged, including their limitations.
+        # These explicit authentic passages keep the preparation test setup
+        # valid; only the later verifier decides whether the result suffices.
+        review = recorded_note_claim_review(source.id)
         replies = AsyncMock(side_effect=[
             {"content": draft, "evidence_ids": [source.id]},
-            {"verified": True, "content": draft, "evidence_ids": [source.id]},
+            {"verified": True, "content": draft, "evidence_ids": [source.id], "claim_review": review},
         ])
         with patch.object(reasoning, "_ask_model", replies):
             made = await StepExecutor(db).run(OWNER, goal, prepare, may_touch_the_world=False)

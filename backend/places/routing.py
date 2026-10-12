@@ -1,13 +1,13 @@
 """
-How long a journey takes, according to somebody who actually knows.
+Travel-time estimates from the configured routing provider.
 
     OBSERVED COMMUTE != LIVE ETA.
 
 Two different claims, and conflating them is the failure this module exists to
 prevent. "Di solito ci metti mezz'ora" is a fact about the person's own past
-journeys and needs no network. "Con il traffico adesso ce ne vogliono
-trentasette" is a fact about a road right now, and nothing in this codebase can
-know it without asking a routing service.
+journeys and needs no network. A duration that accounts for traffic is a
+provider estimate and needs a routing read. The time ORA receives that estimate
+does not establish when the provider observed the traffic underneath it.
 
 So when no provider is configured this returns `unavailable` and says why. It
 never falls back to history dressed up as traffic: a person told "ci vogliono
@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -112,13 +113,26 @@ async def get_route(
     mode = travel_mode if travel_mode in TRAVEL_MODES else "drive"
     try:
         if provider == "google_routes":
-            return await _google_routes(origin, destination, mode, alternatives=alternatives)
-        if provider == "mapbox":
-            return await _mapbox_routes(origin, destination, mode, alternatives=alternatives)
-        return _unavailable(
-            provider, f"provider «{provider}» non ha un adattatore qui",
-            failure_code="ROUTING_UNSUPPORTED_PROVIDER",
-        )
+            result = await _google_routes(origin, destination, mode, alternatives=alternatives)
+        elif provider == "mapbox":
+            result = await _mapbox_routes(origin, destination, mode, alternatives=alternatives)
+        else:
+            return _unavailable(
+                provider, f"provider «{provider}» non ha un adattatore qui",
+                failure_code="ROUTING_UNSUPPORTED_PROVIDER",
+            )
+        if result.get("available") is not True:
+            return result
+        # Timestamp only the completed local read. Neither current adapter
+        # supplies an as-of time for its underlying traffic observations.
+        # A traffic-aware ETA is still an estimate, including on a fresh read.
+        return {
+            **result,
+            "duration_kind": "estimate",
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "retrieval_time_source": "ora_clock_not_provider_observation_time",
+            "provider_as_of": result.get("provider_as_of"),
+        }
     except Exception as e:
         # A routing failure is a routing failure, not an ETA of zero.
         import httpx

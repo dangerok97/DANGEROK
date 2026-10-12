@@ -1,3 +1,41 @@
+# 12 ottobre 2026 — v162, fonti autentiche e continuità della consegna
+
+Il risultato richiesto resta un avviso utile: dopo “ho steso i panni” ORA deve
+seguire il bisogno fino al momento del ritiro. Tarquinia è la località confermata;
+il bucato precedente è chiuso e non viene riattivato. Asciugatura stimata e ritiro
+anticipato per rischio restano esiti distinti; non si dichiara una misurazione
+che l'app non ha eseguito.
+
+Il candidato aggiunge un controllo delle citazioni prima del salvataggio:
+l'audit deve copiare passaggi realmente presenti nelle fonti ricevute. Il codice
+autentica quei passaggi, ma una citazione autentica non dimostra da sola la
+correttezza della conclusione. La revisione del testo resta necessaria.
+
+Le stime di viaggio conservano questa natura anche quando includono il traffico.
+L'ora in cui ORA legge la risposta è distinta dall'istante delle misure sottostanti,
+che rimane sconosciuto se il provider non lo fornisce. Il limite arriva anche al
+percorso di lavoro autonomo.
+
+Il controllo del caso bucato ha inoltre riprodotto due interruzioni di consegna:
+giudizio iniziale indisponibile senza recupero e cancellazione dopo un errore
+temporaneo nel rileggere il luogo. Il recupero deve restare durevole senza inviare
+un esito con fonte non verificabile; revoche e stime scadute continuano a bloccarlo.
+
+Verifica locale del candidato: **1.367 PASS, 1 SKIP, 109 moduli, 36,75 s**, più **9/9 scripted** senza modelli reali
+o effetti esterni. L'ultimo collaudo reale `01ef500` ha **7/9 esiti macchina**, ma
+solo due dei tre testi finali resi disponibili nella Home sintetica sono
+accettati manualmente. L'altro
+aggiunge una clausola assente. La CI del successivo merge Vision `6e6e5b7` è
+**13/13**, senza attestare queste nuove modifiche. CI e live del candidato che
+contiene questa nota restano da completare sul commit esatto.
+
+L'osservazione delle 08:03 UTC trova il backend su Vision `389f38a` e il web sul
+precedente `b159d8c`, non sulla PR autonomia. La patch Railway resta in attesa dopo
+il rifiuto del controllo automatico. Consegna nativa visibile ad app chiusa ancora
+non attestata. Dettagli: `QA_AUTONOMY_COMPLETION_V162.md`.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Il catalogo iniziale Vision passa da 25 a 75 famiglie, con cinquanta nuovi oggetti di cucina, casa, scrivania, elettronica, utensili e tempo libero. Ricerca per nome, sinonimo e categoria. Le nuove voci hanno parti selezionabili e spiegazioni; i percorsi didattici restano i 25 già pubblicati. Sono gruppi illustrativi, non interni verificati.

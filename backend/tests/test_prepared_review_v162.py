@@ -19,6 +19,7 @@ from agent.prepared_review import (
 )
 from agent.service import AgentService
 from scripts import autonomy_completion_eval_v162 as gate
+from test_agent_preparation_dependency_v162 import comparison_claim_review
 from test_pending_outcome_contract_v162 import synthetic_transport_only  # noqa: F401
 from test_verification_recovery_v162 import (
     OWNER, MEMORY, MISSING, REASON, UNSUPPORTED, CORRECTED, prepared_with_missed_defect,
@@ -38,7 +39,8 @@ async def review_current(db, goal):
 async def prepare_again(db, goal, step, source, text):
     replies = AsyncMock(side_effect=[
         {"content": text, "evidence_ids": [source.id]},
-        {"verified": True, "content": text, "evidence_ids": [source.id]},
+        {"verified": True, "content": text, "evidence_ids": [source.id],
+         "claim_review": comparison_claim_review(source.id)},
     ])
     with patch.object(reasoning, "_ask_model", replies):
         result = await StepExecutor(db).run(OWNER, goal, step, may_touch_the_world=False)

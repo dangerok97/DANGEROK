@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from agent.evidence import REAL_SOURCES
+from agent.memory_fence import MemorySourcesUnavailable
 from agent.models import AgentEvidence
 from situations.clock import local_check_fields
 from situations.models import SituationOutcomeAssessment
@@ -87,8 +88,10 @@ async def _weather_binding_current(db, owner, state, revision, evidence):
         for ref in places:
             try:
                 place = await PlacesService(db).get_place(owner, ref.split(":", 1)[1])
-            except Exception:
-                return False
+            except Exception as exc:
+                # An unavailable read is not evidence that the saved place
+                # disappeared. Delivery retains its intention and rechecks.
+                raise MemorySourcesUnavailable("situation_place_check_unavailable") from exc
             if (place is None or place.state != "confirmed"
                     or f"place_snapshot:{place.id}:{place.updated_at}" not in refs):
                 return False

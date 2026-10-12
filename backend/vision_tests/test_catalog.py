@@ -315,3 +315,45 @@ async def test_api_shares_generic_recipe_without_client_opt_in(api_module, monke
     for collection in (MODELS, VERSIONS, JOBS):
         text = json.dumps(await database[collection].find({}).to_list(100), default=str)
         assert "image_base64" not in text and "private-metadata-never-persist" not in text
+
+
+@pytest.mark.asyncio
+async def test_uncertain_object_is_retried_with_central_crop(api_module, monkeypatch):
+    seen = []
+    async def mocked_ai(system, prompt, image=None):
+        seen.append((system, image))
+        if len(seen) == 1:
+            return {"recognized": False, "confidence": "low"}
+        return {"recognized": True, "confidence": "high",
+                "canonical_key": "pedal_bin", "object_name": "Pattumiera con pedale",
+                "bbox": [100, 200, 900, 800], "safe_to_generate": True}
+    monkeypatch.setattr(api_module, "ask_json", mocked_ai)
+    image = api_module.decode_photo("image/jpeg", jpeg())
+    result = await api_module.recognize_with_recovery(image)
+    assert result["canonical_key"] == "pedal_bin"
+    assert result["recognition_method"] == "focused_second_pass"
+    assert result["bbox"] == pytest.approx([.296, .22, .408, .56])
+    assert len(seen) == 2
+    assert seen[0][1] != seen[1][1]
+
+@pytest.mark.asyncio
+async def test_recovery_never_generates_from_unrecognized_image(api_module, monkeypatch):
+    calls = []
+    async def uncertain(system, prompt, image=None):
+        calls.append(1)
+        return {"recognized": False, "confidence": "low"}
+    monkeypatch.setattr(api_module, "ask_json", uncertain)
+    result = await api_module.recognize_with_recovery(api_module.decode_photo("image/jpeg", jpeg()))
+    assert result is None and len(calls) == 2
+
+@pytest.mark.asyncio
+async def test_first_pass_success_does_not_use_extra_ai(api_module, monkeypatch):
+    calls = []
+    async def recognized(system, prompt, image=None):
+        calls.append(1)
+        return {"recognized": True, "confidence": "high", "canonical_key": "remote_control",
+                "object_name": "Telecomando", "bbox": [100, 200, 900, 800],
+                "safe_to_generate": True}
+    monkeypatch.setattr(api_module, "ask_json", recognized)
+    result = await api_module.recognize_with_recovery(api_module.decode_photo("image/jpeg", jpeg()))
+    assert result["recognition_method"] == "primary" and len(calls) == 1
