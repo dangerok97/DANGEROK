@@ -12,6 +12,7 @@ import { api, GoogleCalendarResource } from '@/src/api/client';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { ActionBtn } from '@/src/components/ui/ActionBtn';
+import { DesktopShell } from '@/src/shell';
 
 export default function ManageCalendars() {
   const { instance } = useLocalSearchParams<{ instance: string }>();
@@ -78,102 +79,104 @@ export default function ManageCalendars() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']} testID="manage-calendars">
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => { haptic('tap'); router.back(); }}
-          style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Torna indietro"
-          hitSlop={12}
+    <DesktopShell active="profilo">
+      <SafeAreaView style={styles.safe} edges={['top']} testID="manage-calendars">
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => { haptic('tap'); router.back(); }}
+            style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Torna indietro"
+            hitSlop={12}
+          >
+            <Ionicons name="chevron-back" size={22} color={tokens.color.onSurface} />
+          </Pressable>
+          <Text style={styles.title}>Gestisci calendari</Text>
+          <View style={{ width: 32 }} />
+        </View>
+  
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 120, gap: 12 }}
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons name="chevron-back" size={22} color={tokens.color.onSurface} />
-        </Pressable>
-        <Text style={styles.title}>Gestisci calendari</Text>
-        <View style={{ width: 32 }} />
-      </View>
-
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 120, gap: 12 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.subtitle}>
-          Scegli quali calendari ORA deve sincronizzare. Puoi cambiare in qualsiasi momento.
-        </Text>
-
-        {error ? (
-          <Animated.View entering={FadeIn.duration(180)} style={styles.errorBanner} accessibilityRole="alert">
-            <Ionicons name="alert-circle" size={16} color={tokens.color.error} />
-            <Text style={styles.errorText}>{error}</Text>
-          </Animated.View>
-        ) : null}
-
-        {items === null ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color={tokens.color.onSurfaceMuted} />
-          </View>
-        ) : items.length === 0 ? (
-          <Text style={styles.muted}>Nessun calendario trovato.</Text>
-        ) : (
-          items.map((c, i) => {
-            const on = selected.has(c.id);
-            return (
-              <Animated.View key={c.id} entering={FadeInDown.duration(220).delay(i * 40)}>
-                <Pressable
-                  onPress={() => toggle(c.id)}
-                  style={({ pressed }) => [styles.row, on && styles.rowOn, pressed && styles.pressed]}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: on }}
-                  accessibilityLabel={`${c.summary}${c.primary ? ', principale' : ''}`}
-                  testID={`cal-row-${i}`}
-                >
-                  <View style={[styles.checkbox, on && styles.checkboxOn]}>
-                    {on ? <Ionicons name="checkmark" size={16} color={tokens.color.onBrand} /> : null}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.rowHead}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>{c.summary}</Text>
-                      {c.primary ? (
-                        <View style={styles.primaryPill}>
-                          <Text style={styles.primaryPillText}>Principale</Text>
-                        </View>
+          <Text style={styles.subtitle}>
+            Scegli quali calendari ORA deve sincronizzare. Puoi cambiare in qualsiasi momento.
+          </Text>
+  
+          {error ? (
+            <Animated.View entering={FadeIn.duration(180)} style={styles.errorBanner} accessibilityRole="alert">
+              <Ionicons name="alert-circle" size={16} color={tokens.color.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </Animated.View>
+          ) : null}
+  
+          {items === null ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator color={tokens.color.onSurfaceMuted} />
+            </View>
+          ) : items.length === 0 ? (
+            <Text style={styles.muted}>Nessun calendario trovato.</Text>
+          ) : (
+            items.map((c, i) => {
+              const on = selected.has(c.id);
+              return (
+                <Animated.View key={c.id} entering={FadeInDown.duration(220).delay(i * 40)}>
+                  <Pressable
+                    onPress={() => toggle(c.id)}
+                    style={({ pressed }) => [styles.row, on && styles.rowOn, pressed && styles.pressed]}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={`${c.summary}${c.primary ? ', principale' : ''}`}
+                    testID={`cal-row-${i}`}
+                  >
+                    <View style={[styles.checkbox, on && styles.checkboxOn]}>
+                      {on ? <Ionicons name="checkmark" size={16} color={tokens.color.onBrand} /> : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.rowHead}>
+                        <Text style={styles.rowTitle} numberOfLines={1}>{c.summary}</Text>
+                        {c.primary ? (
+                          <View style={styles.primaryPill}>
+                            <Text style={styles.primaryPillText}>Principale</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      {c.access_role || c.time_zone ? (
+                        <Text style={styles.rowMeta}>
+                          {c.access_role === 'reader' ? 'Solo lettura' : c.access_role === 'owner' ? 'Il tuo' : c.access_role || ''}
+                          {c.time_zone ? ` · ${c.time_zone}` : ''}
+                        </Text>
                       ) : null}
                     </View>
-                    {c.access_role || c.time_zone ? (
-                      <Text style={styles.rowMeta}>
-                        {c.access_role === 'reader' ? 'Solo lettura' : c.access_role === 'owner' ? 'Il tuo' : c.access_role || ''}
-                        {c.time_zone ? ` · ${c.time_zone}` : ''}
-                      </Text>
-                    ) : null}
-                  </View>
-                </Pressable>
-              </Animated.View>
-            );
-          })
-        )}
-
-        {saved ? (
-          <Animated.View entering={FadeIn.duration(200)} style={styles.savedBanner}>
-            <Ionicons name="checkmark-circle" size={16} color={tokens.color.success} />
-            <Text style={styles.savedText}>Salvato</Text>
-          </Animated.View>
-        ) : null}
-      </ScrollView>
-
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <ActionBtn
-          primary
-          icon="save-outline"
-          label={saving ? 'Salvo…' : 'Salva selezione'}
-          onPress={onSave}
-          loading={saving}
-          disabled={!dirty || selected.size === 0 || items === null}
-          testID="btn-save-calendars"
-        />
-      </View>
-    </SafeAreaView>
+                  </Pressable>
+                </Animated.View>
+              );
+            })
+          )}
+  
+          {saved ? (
+            <Animated.View entering={FadeIn.duration(200)} style={styles.savedBanner}>
+              <Ionicons name="checkmark-circle" size={16} color={tokens.color.success} />
+              <Text style={styles.savedText}>Salvato</Text>
+            </Animated.View>
+          ) : null}
+        </ScrollView>
+  
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <ActionBtn
+            primary
+            icon="save-outline"
+            label={saving ? 'Salvo…' : 'Salva selezione'}
+            onPress={onSave}
+            loading={saving}
+            disabled={!dirty || selected.size === 0 || items === null}
+            testID="btn-save-calendars"
+          />
+        </View>
+      </SafeAreaView>
+    </DesktopShell>
   );
 }
 
