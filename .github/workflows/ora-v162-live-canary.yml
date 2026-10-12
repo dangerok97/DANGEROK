@@ -1,0 +1,63 @@
+name: ORA isolated real-model autonomy canary
+on:
+  push:
+    branches:
+      - test/ora-v162-live-canary-20261012
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ora-live-canary-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-completion:
+    if: contains(github.event.head_commit.message, '[ora-live-canary]')
+    name: Real LLM, one synthetic source-to-Home scenario
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      PYTHON_DOTENV_DISABLED: "1"
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_canary_synthetic_only
+      JWT_SECRET: ora-v162-canary-synthetic-only
+      CALENDAR_PROVIDER_MODE: fake
+      AMBIENT_RUNTIME: "0"
+      DOCUMENT_AI_ENABLED: "0"
+      RESEARCH_ENABLED: "0"
+      GEMINI_API_KEY: ${{ secrets.ORA_EVAL_GEMINI_API_KEY || secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.ORA_EVAL_OPENAI_API_KEY || secrets.OPENAI_API_KEY }}
+      MISTRAL_API_KEY: ${{ secrets.ORA_EVAL_MISTRAL_API_KEY || secrets.MISTRAL_API_KEY }}
+      LLM_PROVIDER: auto
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Install exact backend dependencies and isolated Mongo adapter
+        run: pip install -r requirements-cloud.txt mongomock-motor==0.0.36
+      - name: Reject missing LLM credentials instead of silently simulating
+        shell: bash
+        run: |
+          if [ -z "$GEMINI_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$MISTRAL_API_KEY" ]; then
+            echo "ORA_LIVE_CANARY_BLOCKED_MISSING_PROVIDER_CREDENTIALS"
+            exit 2
+          fi
+      - name: Execute real model on owner-isolated synthetic completion
+        run: |
+          python -m scripts.autonomy_completion_eval_v162 --mode live --scenario completed_result \
+            --output /tmp/ora-v162-live-canary-result.json
+      - name: Retain exact original verdict (PASS, FAIL or BLOCKED)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ora-v162-live-canary-original
+          path: /tmp/ora-v162-live-canary-result.json
+          if-no-files-found: ignore
+          retention-days: 7
