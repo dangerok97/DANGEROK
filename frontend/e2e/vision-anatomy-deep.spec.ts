@@ -191,3 +191,61 @@ test('held person overlay keeps the real camera stream and X reuses it for the n
  await page.getByTestId('vision-stop-camera').click();
  expect(await page.evaluate(()=>(window as any).__personCam.stream.getTracks().every((t:MediaStreamTrack)=>t.readyState==='ended'))).toBe(true);
 });
+
+
+test('a close-up of a hand opens ONLY hand anatomy, not the whole-body reference',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice')));
+ let scans=0;
+ await page.route('**/api/vision-xray/scan',route=>{
+  scans++;
+  return route.fulfill({status:200,contentType:'application/json',
+   body:JSON.stringify({status:'anatomy',body_region:'hand',
+     identification:{canonical_key:'human_anatomy',object_name:'Mano',confidence:'high',
+      body_region:'hand',body_side:'right',bbox:[.20,.18,.35,.53]}})});
+ });
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',
+  body:JSON.stringify({provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
+    model_is_person_specific:false,parts:2234,concepts:3432})
+ }));
+ await page.route('**/bodyparts3d/index.html?*',route=>route.fulfill({
+  status:200,contentType:'text/html',body:'<!doctype html><html lang="it"><body style="background:transparent">Regione mano</body></html>'
+ }));
+ await page.goto('/vision-xray');
+ const pixels=await page.evaluate(()=>{
+  const c=document.createElement('canvas');c.width=128;c.height=128;
+  c.getContext('2d')!.fillRect(0,0,128,128);
+  return Array.from(atob(c.toDataURL('image/jpeg').split(',')[1]),v=>v.charCodeAt(0));
+ });
+ await page.locator('input[type=file]').setInputFiles({name:'hand-test.jpg',mimeType:'image/jpeg',buffer:Buffer.from(pixels)});
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-region','hand');
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
+ await expect(page.getByTestId('vision-bp3d-frame')).toHaveAttribute('src',/ora=inline&lang=it&region=hand&cx=0\.375&side=right/);
+ await expect(page.getByTestId('vision-open-human-atlas')).toHaveCount(0);
+ expect(scans).toBe(1);
+});
+test('feet and knees route to different anatomical subsets',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice')));
+ for(const region of ['foot','knee']){
+  await page.route('**/api/vision-xray/scan',route=>route.fulfill({
+   status:200,contentType:'application/json',
+   body:JSON.stringify({status:'anatomy',body_region:region,
+     identification:{canonical_key:'human_anatomy',body_region:region,body_side:'unknown',bbox:[.2,.2,.4,.4]}})
+  }));
+  await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+   status:200,contentType:'application/json',
+   body:JSON.stringify({provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
+    model_is_person_specific:false,parts:2234,concepts:3432})
+  }));
+  await page.goto('/vision-xray');
+  const pixels=await page.evaluate(()=>{
+   const c=document.createElement('canvas');c.width=64;c.height=64;
+   c.getContext('2d')!.fillRect(0,0,64,64);
+   return Array.from(atob(c.toDataURL('image/jpeg').split(',')[1]),v=>v.charCodeAt(0));
+  });
+  await page.locator('input[type=file]').setInputFiles({name:region+'.jpg',mimeType:'image/jpeg',buffer:Buffer.from(pixels)});
+  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-region',region);
+  await expect(page.getByTestId('vision-bp3d-frame')).toHaveAttribute('src',new RegExp('region='+region+'&cx='));
+  await page.unroute('**/api/vision-xray/scan');
+ }
+});
