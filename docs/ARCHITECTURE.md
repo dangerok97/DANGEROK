@@ -1,3 +1,7 @@
+## 12 ottobre 2026 — Vision: errori AI distinti dal riconoscimento
+
+Se il servizio AI scade, rifiuta il modello o non ha credito, ORA non attribuisce il problema alla foto. Routing con cooldown e preferenza della combinazione funzionante; JSON di rilevamento vincolato; due tentativi visivi con budget coerente con il client. Se entrambi non identificano l’oggetto, descrizione facoltativa da verificare sulla nuova foto. Nessun seed aggiunto, nessuna foto o etichetta personale salvata nel catalogo. Test e limiti del rilascio nella PR dedicata.
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 `vision_catalog_extended` compone tre raccolte additive, 50 ricette originali in nove primitive. `common_recipes()` conserva le venti ricette storiche; `all_recipes()` le integra con la nuova raccolta. `seeds()` e `METADATA` usano lo stesso insieme. Nessuna modifica a schema dati o servizio di pubblicazione. Il renderer include il massimo ingrandimento prospettico nel calcolo di adattamento: insieme e componente focalizzato restano entro la visuale allo zoom iniziale, anche per i nuovi gruppi larghi o profondi. I manifest dei 25 seed storici conservano il fingerprint canonico.

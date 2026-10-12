@@ -8,7 +8,7 @@ export type CatalogResult = {
   model_id?: string; version_id?: string; manifest?: Manifest;
   source_type?: 'seed' | 'generated' | 'source_based';
   cache_hit?: boolean; generation_used?: boolean; shared?: boolean;
-  reason?: string; job_id?: string; retry_after_seconds?: number; frame_id?: string;
+  reason?: string; code?: string; can_describe?: boolean; trace_id?: string; job_id?: string; retry_after_seconds?: number; frame_id?: string;
   identification?: { canonical_key: string; object_name: string; confidence: 'high' | 'medium'; bbox: Box; uncertainty: string };
 };
 async function request<T>(path: string, init: RequestInit = {}, external?: AbortSignal): Promise<T> {
@@ -18,7 +18,7 @@ async function request<T>(path: string, init: RequestInit = {}, external?: Abort
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (external?.aborted) controller.abort(); else external?.addEventListener('abort', abort, { once: true });
-  const deadline = setTimeout(abort, 52_000);
+  const deadline = setTimeout(abort, 90_000);
   try {
     const response = await fetch(API_BASE_URL + '/api/vision-xray' + path, {
       ...init, signal: controller.signal, cache: 'no-store',
@@ -26,7 +26,7 @@ async function request<T>(path: string, init: RequestInit = {}, external?: Abort
     });
     const body = await response.json().catch(() => null);
     if (!response.ok) {
-      const message = typeof body?.detail === 'string' ? body.detail : 'ORA non riesce a completare l’analisi.';
+      const message = typeof body?.detail === 'string' ? body.detail : typeof body?.detail?.message === 'string' ? body.detail.message : 'ORA non riesce a completare l’analisi.';
       throw new Error(message);
     }
     return body as T;
@@ -37,12 +37,12 @@ export const catalogApi = {
   available: () => request<{available: boolean; catalog_count: number; seed_count: number}>('/available'),
   model: (id: string, signal?: AbortSignal) => request<CatalogResult>('/catalog/' + encodeURIComponent(id), {}, signal),
   job: (id: string, signal?: AbortSignal) => request<CatalogResult>('/jobs/' + encodeURIComponent(id), {}, signal),
-  scan: (dataUri: string, frameId: string, signal?: AbortSignal) => {
+  scan: (dataUri: string, frameId: string, signal?: AbortSignal, objectHint = '') => {
     const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUri);
     if (!match || match[2].length > 4_194_304) throw new Error('Usa una foto JPEG, PNG o WebP inferiore a 3 MB.');
     return request<CatalogResult>('/scan', { method: 'POST', body: JSON.stringify({
       mime_type: match[1], image_base64: match[2], frame_id: frameId,
-      allow_generation: true,
+      allow_generation: true, object_hint: objectHint.trim().slice(0, 100),
     }) }, signal);
   },
 };
