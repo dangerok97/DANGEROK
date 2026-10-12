@@ -1,0 +1,27 @@
+name: Refine Vision recovery
+on:
+  push:
+    branches: [qa/vision-provider-recovery-prepare]
+    paths: ['.github/workflows/refine-vision-provider-recovery.yml']
+permissions:
+  contents: write
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/refine_vision_provider_recovery.py /tmp/refine.py
+          git fetch origin fix/vision-provider-recovery-truth
+          test "$(git rev-parse FETCH_HEAD)" = "56ef2529716f620ae21905fdb923034324838a64"
+          git switch -c refined-vision-provider-recovery FETCH_HEAD
+          python /tmp/refine.py
+          git diff --check
+          git add backend/vision_provider.py backend/vision_tests/test_provider_recovery.py frontend/src/vision-xray/LiveExplorer.web.tsx frontend/e2e/vision-provider-recovery.spec.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(vision): keep hint recovery stable and reject malformed provider envelopes'
+          git push origin HEAD:refs/heads/fix/vision-provider-recovery-truth
