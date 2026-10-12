@@ -1458,6 +1458,7 @@ async def run_cognitive_loop(
     situation_result: Optional[Dict[str, Any]] = None
     situation_write_confirmed_this_turn = False
     situation_plan_nudge_used = False
+    schedule_identity_nudge_used = False
     linked_plan_pending_id: Optional[str] = None
     linked_plan_reconciled_this_turn = False
     memory_governance_rounds = 0
@@ -1681,6 +1682,54 @@ async def run_cognitive_loop(
             )
 
         last_decision = decision
+        # A scheduling proposal is not a canonical Situation identity.
+        # This is a protocol correction, never a semantic decision to create
+        # a Situation from keywords or a guessed address. The model must
+        # explicitly choose create using the person's true unresolved state.
+        if (
+            step + 1 < max_steps
+            and not schedule_identity_nudge_used
+            and decision.response_mode == "tool"
+            and decision.tool_call is not None
+            and decision.tool_call.resolved_capability == "schedule_situation_check"
+            and (decision.situation_update is None
+                 or decision.situation_update.operation == "none")
+            and decision.situation_followup is not None
+            and decision.situation_followup.disposition == "continue"
+            and decision.skill_plan is not None
+            and "schedule_situation_check" in decision.skill_plan.required_capabilities
+        ):
+            proposed_id = str(
+                (decision.tool_call.arguments or {}).get("situation_id") or ""
+            )
+            if not proposed_id.startswith("sit_"):
+                schedule_identity_nudge_used = True
+                observations.append(
+                    Observation(
+                        kind="system",
+                        name="situation_schedule_requires_persisted_identity",
+                        status="nudge",
+                        payload={
+                            "failure_code": "SITUATION_SCHEDULE_HAS_NO_CANONICAL_ID",
+                            "reason": (
+                                "The requested schedule targets a place, invented identifier "
+                                "or missing Situation. A place_ref is NEVER a Situation id. "
+                                "Reconsider the user's actual message: if a real unresolved "
+                                "life state remains and warrants later attention, declare "
+                                "situation_update.operation=create with grounded summary, "
+                                "desired_outcome, attention_intent, location_label (or null), "
+                                "source_refs and linked_object_refs arrays. Wait for the "
+                                "successful situation_mutation observation with its generated "
+                                "sit_... id and revision before scheduling. If this was an "
+                                "example or a completed one-shot action, keep operation=none "
+                                "and do NOT call schedule_situation_check. Do not invent "
+                                "an id, physical measurement, check time or notification."
+                            ),
+                        },
+                    ).model_dump()
+                )
+                add_step(trace, event="SITUATION_SCHEDULE_IDENTITY_NUDGE")
+                continue
         if decision.skill_plan:
             skill_plan_declared_this_turn = True
             resume_ref = str(

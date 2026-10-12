@@ -323,3 +323,66 @@ async def test_terminal_missing_refs_saves_first_then_schedules_with_real_id(mon
     assert state.summary == SUMMARY and state.desired_outcome == declared["desired_outcome"]
     assert state.started_at == declared["started_at"]
     assert (await read_followup(db, OWNER, real_id["id"]))["next_check_at"] == due
+
+
+@pytest.mark.asyncio
+async def test_invalid_place_id_is_nudged_before_any_schedule_tool_execution(monkeypatch):
+    """Model decides that live state must be created after protocol feedback."""
+    monkeypatch.setenv("AMBIENT_RUNTIME", "1")
+    db = AsyncMongoMockClient().synthetic_missing_identity_nudge
+    await db.agent_goals.create_index("id", unique=True)
+    await db.agent_runs.create_index("goal_id", unique=True)
+    await db.ambient_wakes.create_index("identity", unique=True)
+    sess = session()
+    due = (datetime.now(timezone.utc) + timedelta(minutes=26)).isoformat()
+    calls = []
+    real_id = {}
+
+    async def decide(system, user):
+        payload = json.loads(user)
+        calls.append(payload)
+        if len(calls) == 1:
+            wrong = schedule(PLACE_REF, 1, due)
+            wrong["situation_update"] = {"operation": "none"}
+            wrong["situation_followup"] = {
+                "disposition": "continue", "situation_id": None,
+                "reason": "Devo seguire il risultato richiesto.",
+            }
+            wrong["skill_plan"] = {
+                "objective": "Sapere quando l'attività raggiunge il risultato utile.",
+                "required_capabilities": ["schedule_situation_check"],
+                "completion_condition": "Esito utile verificato.",
+                "release_capabilities": [],
+            }
+            return wrong
+        if len(calls) == 2:
+            feedback = observation(payload, "situation_schedule_requires_persisted_identity")
+            assert feedback["status"] == "nudge"
+            assert feedback["payload"]["failure_code"] == "SITUATION_SCHEDULE_HAS_NO_CANONICAL_ID"
+            assert await db.situations.count_documents({}) == 0
+            assert await db.ambient_wakes.count_documents({}) == 0
+            return {
+                "response_mode": "answer",
+                "situation_update": {**deepcopy(CREATE_636), "summary": SUMMARY},
+                "message_to_user": "Tengo la situazione in vista.",
+            }
+        if len(calls) == 3:
+            ack = observation(payload, "situation_mutation")
+            assert ack["status"] == "ok"
+            sid = ack["payload"]["situation"]["id"]
+            real_id["id"] = sid
+            assert sid.startswith("sit_")
+            return schedule(sid, ack["payload"]["situation"]["revision"], due)
+        assert len(calls) == 4
+        ack = observation(payload, "schedule_situation_check")
+        assert ack["status"] == "ok"
+        return {"response_mode": "answer", "message_to_user": "Controllo confermato."}
+
+    result = await run_cognitive_loop(
+        sess=sess, user_message=USER_MESSAGE, db=db,
+        decision_fn=checked_decision(decide), max_steps=5,
+    )
+    assert result.ok and result.tool_calls == 1 and len(calls) == 4
+    assert await db.situations.count_documents({"user_id": OWNER}) == 1
+    assert await db.ambient_wakes.count_documents({"owner_id": OWNER, "status": "pending"}) == 1
+    assert (await read_followup(db, OWNER, real_id["id"]))["next_check_at"] == due
