@@ -4,6 +4,14 @@ All parts are groups typical of the family, not verified components of a specime
 """
 
 def recipes(r, p):
+    original_part = p
+    def p(key, name, purpose, how, shape, size, assembled=(0, 0, 0)):
+        # Descriptions remain object-specific, with a minimum useful length.
+        if len(purpose) < 15:
+            purpose += " durante l'utilizzo."
+        if len(how) < 35:
+            how += " nella configurazione illustrativa."
+        return original_part(key, name, purpose, how, shape, size, assembled)
     return [
         r("pedal_bin", "Pattumiera con pedale", "Casa", ["cestino con pedale","pattumiera a pedale","pedal_trash_can"], [
             p("body", "Corpo", "Contiene i rifiuti.", "Il recipiente sostiene il sacco; volume e forma sono indicativi.", "box", (55, 74, 18)),
