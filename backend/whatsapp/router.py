@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
+import hmac
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import PlainTextResponse
@@ -61,8 +63,17 @@ async def whatsapp_verify_webhook(
     hub_verify_token: str = Query(default="", alias="hub.verify_token"),
     hub_challenge: str = Query(default="", alias="hub.challenge"),
 ):
-    config = _config()
-    if not config.verify_challenge(hub_mode, hub_verify_token) or not (1 <= len(hub_challenge) <= 512):
+    # Meta's GET verification needs only the shared challenge token.
+    # App Secret / access token are required for signed POST and replies,
+    # but Meta can verify the callback before those credentials are ready.
+    verify_token = (os.environ.get("WHATSAPP_VERIFY_TOKEN") or "").strip()
+    if not verify_token:
+        raise HTTPException(status_code=503, detail="whatsapp_verify_token_not_configured")
+    if (
+        hub_mode != "subscribe"
+        or not hmac.compare_digest(verify_token, hub_verify_token)
+        or not (1 <= len(hub_challenge) <= 512)
+    ):
         raise HTTPException(status_code=403, detail="verification_failed")
     return PlainTextResponse(content=hub_challenge, status_code=200)
 

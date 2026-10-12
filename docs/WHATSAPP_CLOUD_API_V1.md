@@ -71,3 +71,12 @@ La CI controlla firma, challenge, account isolation, deduplica, risposte
 dirette all'AI Core e revoca. Non sostituisce il test live con numero e token
 Meta reali. Un account ancora non attivato mostra configured=false su
 GET /api/whatsapp/status.
+
+## Abilitazione anticipata della verifica webhook (12 ottobre 2026)
+
+La challenge GET del webhook e' indipendente dall'access token e dall'App Secret:
+con la sola variabile WHATSAPP_VERIFY_TOKEN gia' impostata, Meta puo' eseguire
+«Verifica e salva» e riceve il valore challenge come prova di possesso dell'URL.
+Questo NON abilita il traffico in ingresso: i POST richiedono ancora una firma
+Meta valida, l'App Secret, l'access token e un Phone Number ID coerente.
+Non disattivare la verifica X-Hub-Signature-256 per far passare i test.
