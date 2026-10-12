@@ -1,3 +1,18 @@
+## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
+
+- Richiesta e criteri del risultato aggiunti all'audit, con limite e fonti
+  citate protetti; vecchie interpretazioni distinte dai dati correnti.
+- Revisione delle premesse collegata ai passaggi di fonte e ai controesempi
+  compatibili; correzioni circoscritte che preservano derivazioni sostenute.
+- Osservazioni limitate della rivalutazione dopo un fallimento, senza
+  alterare decisioni, ritorni, cancellazioni o clock.
+- Corretto il riconoscimento di “note salvate” con prove positive e negative;
+  i testi storici con affermazioni non sostenute restano respinti manualmente.
+- Due test del clock ora confrontano il JSON decodificato; data, fuso,
+  autorità, ore e minuti attesi restano controllati.
+- Archiviato il report reale f188, 6/9 limitati e rifiuto manuale aggiuntivo.
+- Verifica locale: **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni.
+
 ## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
 
 - Chooser senza perdita di fonti: deduplica solo delle definizioni identiche

@@ -9,7 +9,8 @@ import pytest
 
 from agent import preparation, reasoning
 from agent.execution import StepExecutor
-from agent.models import ActionStep, AgentBudget, AutonomousGoal, ExecutionResult
+from agent.models import ActionPlan, ActionStep, AgentBudget, AgentRun, AutonomousGoal, ExecutionResult
+from agent.service import AgentService
 from scripts import autonomy_completion_eval_v162 as gate
 from scripts.phase1_read_provider_eval import EvaluationBoundaryError
 
@@ -437,3 +438,158 @@ async def test_unmarked_unit_executor_trace_retains_legacy_minimal_shape(monkeyp
                                            may_touch_the_world=False)
     assert result is returned and probe.steps == [{"capability": "document.create", "status": "unavailable"}]
     assert "private" not in json.dumps(gate.model_observations(probe))
+
+
+@pytest.mark.asyncio
+async def test_rejected_real_audit_records_the_actual_reconsidered_wait(monkeypatch):
+    calls = []
+    decision = {"decision": "wait", "reasoning": "Synthetic decision to await a changed premise.",
+                "wait_minutes": 17, "wait_until": None,
+                "requires_user_input": False, "requires_user_authority": False}
+    original_decision = deepcopy(decision)
+
+    async def answer(system, user):
+        payload = json.loads(user)
+        calls.append(payload)
+        if "what_happened" in payload:
+            return decision
+        if "draft" in payload:
+            return {"verified": False, "content": "", "evidence_ids": [],
+                    "reason": "An unsupported consequence was rejected."}
+        return {"content": gate.baseline.DRAFT, "evidence_ids": [payload["evidence"][0]["id"]]}
+
+    monkeypatch.setattr(gate.baseline, "scripted_draft", answer)
+    db = AsyncMongoMockClient().preparation_reconsider_wait
+    goal = await seed(db, source=True)
+    with gate.isolated_engine(db) as probe:
+        await read_source(db, goal)
+        item, budget = prepare_step(capability="document.create"), AgentBudget()
+        plan = ActionPlan(owner_id=gate.OWNER, goal_id=goal.id, steps=[item], status="active")
+        service = AgentService(db)
+        await service.repo.save_plan(plan)
+        result = await service._do_step(gate.OWNER, goal, plan, item,
+            AgentRun(owner_id=gate.OWNER, goal_id=goal.id), budget, language="it")
+    assert result["state"] == "waiting" and goal.status == plan.status == "waiting"
+    assert goal.next_run_at and not goal.prepared_text and item.status == "failed"
+    assert len(calls) == 3 and budget.cognitive_calls == 3 and budget.capability_calls == 1
+    assert decision == original_decision  # Observation does not add or rewrite decision fields.
+    assert [row["stage"] for row in probe.structured_decisions] == [
+        "preparation_generation", "preparation_audit", "reconsider",
+    ]
+    audit, rethink = probe.structured_decisions[-2:]
+    assert audit["verified"] is False
+    assert rethink["input"]["what_happened"] == {
+        "step_id": item.id, "step_type": "prepare", "status": "unavailable",
+        "error_type": "preparation_not_supported", "retryable": True,
+    }
+    assert calls[-1]["what_happened"]["result"]["problem"] == "preparation_not_supported"
+    assert rethink["decision"] == "wait" and rethink["reasoning"] == decision["reasoning"]
+    assert rethink["wait_minutes"] == 17 and rethink["wait_minutes_kind"] == "integer"
+    assert rethink["wait_until_kind"] == "none" and "wait_until" not in rethink
+    assert rethink["requires_user_input"] is False and rethink["requires_user_authority"] is False
+    assert "Non ho ancora prodotto una bozza verificabile." not in json.dumps(rethink)
+    assert all(row["model_attempts_before"] == row["model_attempts_after"] == 0
+               for row in probe.structured_decisions)
+    assert probe.model_attempts == probe.model_http_requests == probe.blocked_effects == probe.push_attempts == 0
+    assert not probe.network.blocked and await db.agent_action_attempts.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scope", ["unmarked", "owner", "goal_owner", "database", "marker_removed", "outside_service"])
+async def test_reconsider_observation_requires_the_owned_marked_service_scope(monkeypatch, scope):
+    calls = []
+    response = {"decision": "wait", "reasoning": "private-reconsideration-reason", "wait_minutes": 19}
+    kwargs = {"plan": {}, "what_happened": {"result": {
+        "status": "unavailable", "problem": "private_problem", "what_happened": "private free observation",
+    }}, "capabilities": []}
+
+    async def original_reconsider(goal, **forwarded):
+        calls.append((goal, forwarded))
+        return response
+
+    async def original_service(self, owner, goal):
+        if scope == "marker_removed":
+            await self.db.eval_guards.delete_many({})
+        return await reasoning.reconsider(goal.for_ai(), **kwargs)
+
+    monkeypatch.setattr(reasoning, "reconsider", original_reconsider)
+    monkeypatch.setattr(AgentService, "_reconsider", original_service)
+    db = AsyncMongoMockClient().reconsider_owner_boundary
+    goal = await seed(db, marked=scope != "unmarked")
+    if scope == "goal_owner":
+        goal.owner_id = "foreign-owner"
+    owner = "foreign-owner" if scope == "owner" else gate.OWNER
+    other = AsyncMongoMockClient().foreign_reconsider_boundary
+    await other.eval_guards.insert_one({"_id": gate.VERSION, "owner": gate.OWNER})
+    with gate.isolated_engine(db) as probe:
+        if scope == "outside_service":
+            result = await reasoning.reconsider(goal.for_ai(), **kwargs)
+        else:
+            result = await AgentService(other if scope == "database" else db)._reconsider(owner, goal)
+    assert result is response and calls == [(goal.for_ai(), kwargs)]
+    assert probe.structured_decisions == [] and "private" not in json.dumps(gate.model_observations(probe))
+    assert probe.model_attempts == probe.model_http_requests == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("exception", [RuntimeError("private-reconsider-error"), asyncio.CancelledError("private-reconsider-cancel")])
+async def test_reconsider_keeps_exception_identity_and_resets_scope(monkeypatch, exception):
+    calls = []
+    response = {"decision": "continue", "reasoning": "outside-service-private-reason"}
+
+    async def original_reconsider(goal, **kwargs):
+        calls.append((goal, kwargs))
+        if len(calls) == 1:
+            raise exception
+        return response
+
+    async def original_service(self, owner, goal):
+        return await reasoning.reconsider(goal.for_ai(), plan={}, what_happened={}, capabilities=[])
+
+    monkeypatch.setattr(reasoning, "reconsider", original_reconsider)
+    monkeypatch.setattr(AgentService, "_reconsider", original_service)
+    db = AsyncMongoMockClient().reconsider_cancellation
+    goal = await seed(db)
+    with gate.isolated_engine(db) as probe:
+        with pytest.raises(type(exception)) as caught:
+            await AgentService(db)._reconsider(gate.OWNER, goal)
+        assert caught.value is exception
+        assert await reasoning.reconsider(goal.for_ai(), plan={}, what_happened={}, capabilities=[]) is response
+    row, = probe.structured_decisions
+    assert row["stage"] == "reconsider" and row["response_kind"] == "raised"
+    assert row["exception_type"] == type(exception).__name__ and len(calls) == 2
+    assert "private" not in json.dumps(gate.model_observations(probe))
+    assert probe.model_attempts == probe.model_http_requests == 0
+
+
+@pytest.mark.asyncio
+async def test_reconsider_wait_and_authority_fields_are_observed_without_coercion(monkeypatch):
+    secret = "synthetic-reconsider-api-key"
+    monkeypatch.setenv("GEMINI_API_KEY_2", secret)
+    response = {"decision": "wait", "reasoning": secret + "x" * 500,
+                "wait_minutes": "17", "wait_until": "2099-01-01T12:34:00+01:00",
+                "requires_user_authority": "false", "ask_kind": "authority", "asks": "private-request"}
+    original = deepcopy(response)
+
+    async def original_reconsider(goal, **kwargs):
+        return response
+
+    async def original_service(self, owner, goal):
+        return await reasoning.reconsider(goal.for_ai(), plan={}, what_happened={}, capabilities=[])
+
+    monkeypatch.setattr(reasoning, "reconsider", original_reconsider)
+    monkeypatch.setattr(AgentService, "_reconsider", original_service)
+    db = AsyncMongoMockClient().reconsider_typed_observation
+    goal = await seed(db)
+    with gate.isolated_engine(db) as probe:
+        result = await AgentService(db)._reconsider(gate.OWNER, goal)
+    assert result is response and response == original
+    row, = probe.structured_decisions
+    assert row["decision"] == "wait" and row["wait_minutes_kind"] == "text" and "wait_minutes" not in row
+    assert row["wait_until"] == response["wait_until"] and row["wait_until_kind"] == "text"
+    assert row["requires_user_authority_kind"] == "text" and "requires_user_authority" not in row
+    assert "requires_user_input" not in row and "requires_user_input_kind" not in row
+    assert row["ask_kind"] == "authority" and row["has_asks"] is True
+    assert len(row["reasoning"]) == 400 and secret not in row["reasoning"]
+    assert "private-request" not in json.dumps(gate.model_observations(probe))
+    assert probe.model_attempts == probe.model_http_requests == 0

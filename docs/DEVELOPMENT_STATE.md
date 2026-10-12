@@ -1,3 +1,27 @@
+## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
+
+Il gate reale `f188b4bb0f0a3eaad4042761eac11130e709e7db` riporta
+**6/9 controlli limitati PASS**, 64 chiamate logiche e 73 HTTP. La revisione
+manuale respinge inoltre il testo di `home_write_retry`. Il [report originale](evidence/autonomy_v162_live_2026-10-12_f188b4b.json)
+rimane invariato. Il collaudo pubblico successivo non è stato eseguito.
+
+L'audit riceve anche obiettivo, risultato atteso e criteri del lavoro,
+protetti insieme alla bozza e alle fonti citate entro gli stessi 9000
+caratteri. Distingue la richiesta della persona dalle interpretazioni
+precedenti, che non possono prevalere su una fonte corretta. Il controllo
+delle premesse collega le clausole ai passaggi disponibili e considera
+controesempi compatibili con quei fatti; una caratteristica tipica della
+categoria non sostituisce una premessa documentata. Le correzioni devono
+conservare i risultati e le differenze già sostenuti. Restano due chiamate,
+generazione e audit, con lo stesso parser operativo e senza regole di dominio.
+
+Verifica locale: **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni. L'aggregato include anche i due moduli del clock
+coinvolti dalla serializzazione compatta. La CI precedente si fermava su un
+confronto degli spazi JSON; l'orario era corretto. I controlli ora decodificano
+la struttura e preservano data, fuso, autorità e checkpoint atteso.
+Un nuovo gate reale deve ancora dimostrare la qualità di questa revisione.
+Dettagli nel [QA](QA_AUTONOMY_COMPLETION_V162.md).
+
 ## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
 
 Il gate reale del head `e4b68b1c9a30eda285d39b7d203a1ca897dc71fd`

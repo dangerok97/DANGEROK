@@ -1,3 +1,18 @@
+## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
+
+**Checkpoint corrente:** **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni.
+Il gate reale `f188b4bb0f0a3eaad4042761eac11130e709e7db` riporta
+**6/9 controlli limitati PASS**, 64 chiamate logiche e 73 HTTP. La revisione
+manuale respinge inoltre il testo di `home_write_retry`. Il [report originale](evidence/autonomy_v162_live_2026-10-12_f188b4b.json)
+rimane invariato. Il collaudo pubblico successivo non è stato eseguito.
+
+Il lavoro corrente corregge premesse inventate e risultati corretti persi
+durante l'audit, mantenendo visibile il recupero. Il passo successivo è
+pubblicare il candidato, attendere la CI completa e ripetere i nove scenari
+reali con revisione manuale dei testi, quindi le letture pubbliche se il gate
+passa. Il controllo Railway ha già rifiutato il rilascio dei servizi app:
+non viene aggirato. Build firmata e ricezione nativa restano prove distinte.
+
 ## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
 
 **Checkpoint corrente:** **463 PASS su 26 moduli in 5,82 secondi**, più CLI scripted **9/9** con zero chiamate LLM, HTTP del modello ed effetti esterni.

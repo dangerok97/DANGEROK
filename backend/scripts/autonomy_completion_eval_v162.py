@@ -249,6 +249,20 @@ def _decision_result(stage, value):
     )))
     if "outcome_assessment" in value:
         out["outcome_assessment"] = _outcome_assessment(value["outcome_assessment"])
+    if stage == "reconsider":
+        for key, expected_type, kind in (
+            ("wait_minutes", int, "integer"), ("wait_until", str, "text"),
+            ("requires_user_input", bool, "boolean"), ("requires_user_authority", bool, "boolean"),
+            ("ask_kind", str, "text"),
+        ):
+            if key in value:
+                out[key + "_kind"] = kind if type(value[key]) is expected_type else _response_kind(value[key])
+                if type(value[key]) is expected_type:
+                    out[key] = _safe_text(value[key], 80) if expected_type is str else value[key]
+        if "asks" in value:
+            out["asks_kind"] = _response_kind(value["asks"])
+            if type(value["asks"]) is str:
+                out["has_asks"] = bool(value["asks"].strip())
     if stage in ("preparation_generation", "preparation_audit"):
         out.update(_preparation_text_fields(value, "content"))
         out.update(_diagnostic_refs(value, "evidence_ids"))
@@ -315,6 +329,22 @@ def _decision_input(stage, value, kwargs):
         return out
     if stage not in ("opportunity_scan", "opportunity_audit"):
         out = _decision_fields(value, ("status",), limit=60)
+        if stage == "reconsider":
+            event = kwargs.get("what_happened")
+            out["what_happened_kind"] = _response_kind(event)
+            if isinstance(event, dict):
+                technical = {}
+                step = event.get("step")
+                if isinstance(step, dict):
+                    technical.update(_decision_fields({"step_id": step.get("id"), "step_type": step.get("type")},
+                                                       ("step_id", "step_type"), limit=80))
+                result = event.get("result")
+                if isinstance(result, dict):
+                    technical.update(_decision_fields(result, ("status",), limit=40))
+                    technical["error_type"] = _error_code(result.get("problem"))
+                    if type(result.get("worth_retrying")) is bool:
+                        technical["retryable"] = result["worth_retrying"]
+                out["what_happened"] = technical
         evidence = kwargs.get("evidence")
         out["evidence_kind"] = _response_kind(evidence)
         if isinstance(evidence, (list, dict)):
@@ -455,6 +485,8 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
     original_prepare = preparation.prepare
     original_prepare_model = baseline.scripted_draft if mode == "scripted" else reasoning._ask_model
     preparation_context = ContextVar("autonomy_eval_preparation", default=None)
+    original_service_reconsider, original_reconsider = AgentService._reconsider, reasoning.reconsider
+    reconsider_context = ContextVar("autonomy_eval_reconsider", default=False)
     base_plan = baseline.scripted_make_plan if mode == "scripted" else reasoning.make_plan
     base_verify = baseline.scripted_verify if mode == "scripted" else reasoning.verify_goal
     base_choose = baseline.scripted_choose if mode == "scripted" else reasoning.choose_next_action
@@ -571,6 +603,20 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
             return await original_prepare_model(system, user)
 
         return await observed_decision(stage, call, payload, execution=context)
+
+    async def service_reconsider(self, owner_id, goal, *args, **kwargs):
+        enabled = (self.db is db and owner_id == getattr(goal, "owner_id", None) == OWNER
+                   and await _synthetic_diagnostics_allowed(db, owner_id))
+        token = reconsider_context.set(enabled)
+        try:
+            return await original_service_reconsider(self, owner_id, goal, *args, **kwargs)
+        finally:
+            reconsider_context.reset(token)
+
+    async def reconsider(*args, **kwargs):
+        if not reconsider_context.get() or not await _synthetic_diagnostics_allowed(db, OWNER):
+            return await original_reconsider(*args, **kwargs)
+        return await observed_decision("reconsider", original_reconsider, *args, **kwargs)
 
     async def bounded_first_read(self, owner_id, goal_id, **kwargs):
         # A documented technical interruption after one real read proves that
@@ -720,11 +766,13 @@ def isolated_engine(db, *, mode="scripted", scenario="completed_result", probe=N
         stack.enter_context(patch.object(CapabilityResolver, "available", available))
         stack.enter_context(patch.object(StepExecutor, "run", step))
         stack.enter_context(patch.object(AgentService, "advance", bounded_first_read))
+        stack.enter_context(patch.object(AgentService, "_reconsider", service_reconsider))
         stack.enter_context(patch.object(DeliveryService, "note_activity", note))
         stack.enter_context(patch.object(provider, "get_provider", lambda: BlockedPush(probe)))
         stack.enter_context(patch.object(reasoning, "make_plan", plan))
         stack.enter_context(patch.object(reasoning, "verify_goal", verify))
         stack.enter_context(patch.object(reasoning, "choose_next_action", choose))
+        stack.enter_context(patch.object(reasoning, "reconsider", reconsider))
         stack.enter_context(patch.object(OpportunityService, "scan", scan))
         stack.enter_context(patch.object(reasoning, "decide_goal", decide_goal))
         stack.enter_context(patch.object(opportunity_reasoning, "scan", discover_decision))
@@ -967,7 +1015,8 @@ def review_comparison(text, *, values=(180, 120, 60)):
             reasons.append(f"MISSING_COMPARISON_VALUE_{value}")
     if not re.search(r"\b12\b|dodici", text, re.I):
         reasons.append("PERIOD_NOT_PRESERVED")
-    if not re.search(r"nota|dati.{0,35}(?:intern|utente)", text, re.I):
+    if not re.search(r"\bnota\b|\bnote\s+(?:salvate|interne|registrate|dell['’]utente)\b|"
+                     r"dati.{0,35}(?:intern|utente)", text, re.I):
         reasons.append("INTERNAL_SOURCE_NOT_ATTRIBUTED")
     if not re.search(r"non.{0,35}rimbors|senza.{0,20}rimborso|nessun.{0,20}rimborso", text, re.I):
         reasons.append("NONREFUNDABLE_CONSTRAINT_MISSING")

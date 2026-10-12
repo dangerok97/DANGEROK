@@ -1,3 +1,22 @@
+## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
+
+Un confronto deve conservare i risultati utili e le condizioni realmente
+note. Una proprietà associata abitualmente a un'etichetta non può diventare
+una promessa dell'app. Se la fonte non specifica una condizione, ORA deve
+mantenerla ignota anche nel testo corretto; la revisione non può cancellare
+un calcolo valido mentre corregge un'altra frase.
+
+Il gate reale `f188b4bb0f0a3eaad4042761eac11130e709e7db` riporta
+**6/9 controlli limitati PASS**, 64 chiamate logiche e 73 HTTP. La revisione
+manuale respinge inoltre il testo di `home_write_retry`. Il [report originale](evidence/autonomy_v162_live_2026-10-12_f188b4b.json)
+rimane invariato. Il collaudo pubblico successivo non è stato eseguito.
+
+Il recupero della Home funziona tecnicamente nel caso col guasto iniettato,
+ma il suo testo viene respinto per una proprietà inventata. Il caso ordinario
+produce invece un testo valido e recuperabile nella Home. L'app non è ancora
+attestata come completamente autonoma. Verifica locale corrente: **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni.
+Il precedente bucato di Tarquinia resta chiuso; il collaudo non lo riattiva.
+
 ## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
 
 ORA deve consegnare un risultato sostenuto dai dati disponibili e gestire

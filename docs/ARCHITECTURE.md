@@ -1,3 +1,29 @@
+## 12 ottobre 2026 — v162, audit della richiesta e delle premesse
+
+L'audit riceve anche obiettivo, risultato atteso e criteri del lavoro,
+protetti insieme alla bozza e alle fonti citate entro gli stessi 9000
+caratteri. Distingue la richiesta della persona dalle interpretazioni
+precedenti, che non possono prevalere su una fonte corretta. Il controllo
+delle premesse collega le clausole ai passaggi disponibili e considera
+controesempi compatibili con quei fatti; una caratteristica tipica della
+categoria non sostituisce una premessa documentata. Le correzioni devono
+conservare i risultati e le differenze già sostenuti. Restano due chiamate,
+generazione e audit, con lo stesso parser operativo e senza regole di dominio.
+
+Il payload dell'audit può eliminare soltanto righe non citate per rispettare
+il limite. Se richiesta, bozza e fonti necessarie non entrano, restituisce
+l'errore tecnico già previsto prima della chiamata; non accorcia le prove.
+Il salvataggio resta vincolato a `verified is True`, testo utilizzabile,
+citazioni valide e fonti correnti dello stesso owner.
+
+Il collaudo osserva ora anche la rivalutazione successiva a un fallimento,
+nel contesto del metodo effettivo `_reconsider`, solo sul database sintetico
+marcato e con owner esatto. Riusa il limite di dodici osservazioni e
+conserva tipi, ritorni, eccezioni e cancellazioni, senza decidere o accelerare
+attese. La correzione lessicale del reporter riconosce “note salvate” come
+attribuzione, senza accettare “condizioni note” o “notazione” come provenienza.
+Nessun criterio sostanziale della fixture è rimosso. Verifica locale: **493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni.
+
 ## 12 ottobre 2026 — v162, contesto integro e recupero della preparazione
 
 `choose_next_action` usa un serializer dedicato entro gli stessi 9000

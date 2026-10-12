@@ -160,6 +160,13 @@ async def test_claim_review_reaches_real_sdk_with_complete_sources_and_only_audi
 ):
     db, goal, plan, source, text = await seed_recovery()
     assert text == SOURCE
+    goal.success_criteria = [
+        "Confrontare i totali sul medesimo orizzonte e mostrare la differenza.",
+        "Distinguere i vincoli riportati dalle condizioni non specificate.",
+        "Attribuire i dati alla nota, conservando il limite della conferma esterna e ogni premessa necessaria.",
+    ]
+    plan.steps[1].expected_result = "Un confronto completo con differenza, condizioni e provenienza."
+    await AgentService(db).repo.save_goal(goal)
     unsupported = RESULT + " B permette sempre di interrompere senza vincoli."
     corrected = RESULT + " La nota non specifica i vincoli di interruzione di B."
     captured_rows = []
@@ -182,11 +189,6 @@ async def test_claim_review_reaches_real_sdk_with_complete_sources_and_only_audi
         assert payload["draft"] == unsupported
         assert captured_rows[0] == captured_rows[1]
         assert system.index('{"claim_review"') < system.index('"verified": true')
-        assert "necessary premises" in system
-        assert "BOTH sides for that same property" in system
-        assert "including any new clause introduced while correcting" in system
-        assert "return verified=false, content empty, evidence_ids empty" in system
-        assert "without withholding supported work" in system
         # This controlled review proves the transport and persistence
         # contract. It does not assert that a live model finds this error.
         return {
@@ -213,6 +215,15 @@ async def test_claim_review_reaches_real_sdk_with_complete_sources_and_only_audi
         assert len(transported) == probe.model_attempts == probe.model_http_requests == 2
         assert budget.cognitive_calls == 2 and budget.capability_calls == 1
         assert not probe.network.blocked and not probe.blocked_effects
+    request = transported[1]["payload"]["request"]
+    assert request["objective"] == goal.objective
+    assert request["desired_outcome"] == goal.desired_outcome
+    assert request["success_criteria"] == goal.success_criteria
+    assert request["step_intent"] == plan.steps[1].intent
+    assert request["expected_result"] == plan.steps[1].expected_result
+    assert request["goal_origin"] == goal.origin
+    assert request["previous_interpretation_may_be_obsolete"] is False
+    assert request["source_update_reason"] is None
     saved = await db.agent_goals.find_one({"owner_id": OWNER, "id": goal.id})
     evidence = await EvidenceStore(db).for_goal(OWNER, goal.id)
     generated = [item for item in evidence if item.provenance.provider == "generated_draft"]
@@ -266,3 +277,107 @@ async def test_finish_propagates_reconsidered_wait_with_exact_failure_and_within
         assert journal["note"] == "La preparazione non è disponibile: riprovare più tardi."
         evidence, = await service.evidence.for_goal(OWNER, goal.id)
         assert evidence.id == source.id and evidence.claim == text
+
+
+@pytest.mark.asyncio
+async def test_audit_request_keeps_original_interpretation_qualified_after_current_memory_read(monkeypatch):
+    from agent.source_refresh import refresh
+
+    db, goal, plan, old_source, _ = await seed_recovery()
+    goal.objective = "Confrontare le formule annotate e il precedente totale di 84 crediti."
+    goal.desired_outcome = "Il confronto riferito a quattro periodi, prima stimato con differenza 16 crediti."
+    goal.success_criteria = ["Mostrare i totali e la differenza precedente di 16 crediti.",
+                             "Conservare i vincoli documentati e le condizioni ignote."]
+    old_requirements = deepcopy((goal.objective, goal.desired_outcome, goal.success_criteria))
+    service = AgentService(db)
+    await service.repo.save_goal(goal)
+    current_text = SOURCE.replace("84 crediti", "88 crediti")
+    await db.memories.update_one({"id": MEMORY, "user_id": OWNER},
+                                {"$set": {"statement": current_text, "revision": 2}})
+    assert await refresh(service, goal)
+    reason = goal.source_situation["memory_refresh_reason"]
+    assert reason and (goal.objective, goal.desired_outcome, goal.success_criteria) == old_requirements
+    # A later process reads the corrected source; the old derived target is
+    # retained as historical interpretation, never rewritten by this test.
+    goal = await AgentService(db).repo.get_goal(OWNER, goal.id)
+    result = await StepExecutor(db).run(OWNER, goal, ActionStep(
+        step_type="inspect", capability_needed="information.read", input_refs=[MEMORY],
+        intent="Rileggere la fonte corretta.",
+    ), may_touch_the_world=False)
+    assert result.status == "succeeded"
+    source, = await EvidenceStore(db).for_goal(OWNER, goal.id)
+    assert source.id != old_source.id and source.claim == current_text
+    corrected = RESULT.replace("84 crediti", "88 crediti").replace("16 crediti", "12 crediti")
+    audited = []
+
+    def reply(_system, payload):
+        row, = payload["evidence"]
+        assert row["id"] == source.id and row["claim"] == current_text
+        assert row["memory_reads"] == source.provenance.for_ai()["memory_reads"]
+        if "draft" in payload:
+            audited.append(payload)
+            assert "88 crediti" in row["claim"] and "84 crediti" not in row["claim"]
+        return {"verified": True, "content": corrected, "evidence_ids": [source.id]}
+
+    transported = fake_gemini(monkeypatch, reply)
+    with gate.isolated_engine(db, mode="live") as probe:
+        result = await StepExecutor(db).run(OWNER, goal, ActionStep(
+            step_type="prepare", capability_needed="document.create",
+            intent="Preparare il confronto sulle condizioni correnti.",
+            expected_result="Un risultato con premesse e limiti attuali.",
+        ), may_touch_the_world=False)
+        assert result.status == "succeeded"
+        assert len(transported) == probe.model_attempts == probe.model_http_requests == 2
+        assert not probe.network.blocked and not probe.blocked_effects
+    assert len(audited) == 1 and goal.prepared_text == corrected
+    request = audited[0]["request"]
+    assert (request["objective"], request["desired_outcome"], request["success_criteria"]) == old_requirements
+    assert request["source_update_reason"] == reason
+    assert request["previous_interpretation_may_be_obsolete"] is True
+    assert request["goal_origin"] == "agent_initiated"
+    assert goal.prepared_sources == [source.id]
+    assert (goal.objective, goal.desired_outcome, goal.success_criteria) == old_requirements
+
+
+@pytest.mark.asyncio
+async def test_request_and_cited_source_overflow_stops_before_audit_without_truncation(monkeypatch):
+    db, goal, plan, source, _ = await seed_recovery()
+    # The generation request fits, while the complete returned draft plus
+    # these material criteria and its sole cited source exceed the audit cap.
+    goal.success_criteria = [
+        ("Condizione materiale da conservare. " * 25) + f"FINE_CRITERIO_{i}"
+        for i in range(6)
+    ]
+    await AgentService(db).repo.save_goal(goal)
+    draft = ("Confronto sintetico attribuito, con condizioni e limiti espliciti. " * 70)[:3900]
+    seen = []
+
+    def reply(_system, payload):
+        seen.append(payload)
+        row, = payload["evidence"]
+        assert row["id"] == source.id and row["claim"] == SOURCE
+        if "draft" in payload:
+            return {"verified": True, "content": draft, "evidence_ids": [source.id]}
+        assert payload["goal"]["success_criteria"] == goal.success_criteria
+        request = {"objective": goal.objective, "desired_outcome": goal.desired_outcome,
+                   "success_criteria": goal.success_criteria, "step_intent": plan.steps[1].intent,
+                   "expected_result": plan.steps[1].expected_result}
+        assert len(json.dumps({"request": request, "draft": draft, "evidence": [row]},
+                              ensure_ascii=False)) > 9000
+        return {"content": draft, "evidence_ids": [source.id]}
+
+    transported = fake_gemini(monkeypatch, reply)
+    with gate.isolated_engine(db, mode="live") as probe:
+        result = await StepExecutor(db).run(
+            OWNER, goal, plan.steps[1], may_touch_the_world=False, budget=AgentBudget(),
+        )
+        assert result.status == "unavailable" and result.error_type == "preparation_context_too_large"
+        assert result.retryable is False
+        assert len(seen) == len(transported) == probe.model_attempts == probe.model_http_requests == 1
+        assert not probe.network.blocked and not probe.blocked_effects
+    assert not goal.prepared_text and not result.evidence_refs
+    persisted = await AgentService(db).repo.get_goal(OWNER, goal.id)
+    assert not persisted.prepared_text and not persisted.prepared_sources
+    assert persisted.success_criteria == goal.success_criteria
+    evidence, = await EvidenceStore(db).for_goal(OWNER, goal.id)
+    assert evidence.id == source.id and evidence.claim == SOURCE

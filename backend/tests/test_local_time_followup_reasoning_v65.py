@@ -1,3 +1,4 @@
+import json
 from unittest.mock import AsyncMock
 
 import pytest
@@ -150,9 +151,7 @@ async def test_next_action_reasoning_receives_same_local_clock(monkeypatch):
     assert result is not None
     assert result["decision"] == "wait"
     assert result["wait_hours"] == 4
-    assert '"local_time": "11:28"' in captured["user"]
-    assert '"timezone": "Europe/Rome"' in captured["user"]
-    assert '"authority": "user_confirmed"' in captured["user"]
+    assert json.loads(captured["user"])["local_clock"] == CLOCK
 
 
 @pytest.mark.asyncio

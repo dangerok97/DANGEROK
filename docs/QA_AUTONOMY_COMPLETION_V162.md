@@ -1,3 +1,119 @@
+# QA v162 — premesse documentate e risultato preservato nell'audit
+
+## Candidato successivo a f188: verifica locale
+
+**493 PASS su 28 moduli in 6,44 secondi**, più CLI scripted **9/9**, senza chiamate LLM reali, HTTP del modello o effetti esterni. I 28 moduli includono l'insieme v162 della CI, la prova del runner
+dei provider pubblici e i due moduli del clock modificati. Il modulo di
+preparazione/recupero conta **10** casi, quello della diagnostica
+**42**, i due moduli del clock **12**. I conteggi
+sono inclusi nell'aggregato e non si sommano. Le nuove sei varianti di
+attribuzione riconoscono le note salvate senza trattare parole simili come
+provenienza. Codice congelato prima dell'aggregato.
+
+L'audit riceve anche obiettivo, risultato atteso e criteri del lavoro,
+protetti insieme alla bozza e alle fonti citate entro gli stessi 9000
+caratteri. Distingue la richiesta della persona dalle interpretazioni
+precedenti, che non possono prevalere su una fonte corretta. Il controllo
+delle premesse collega le clausole ai passaggi disponibili e considera
+controesempi compatibili con quei fatti; una caratteristica tipica della
+categoria non sostituisce una premessa documentata. Le correzioni devono
+conservare i risultati e le differenze già sostenuti. Restano due chiamate,
+generazione e audit, con lo stesso parser operativo e senza regole di dominio.
+
+I test controllati verificano trasporto, limiti, conservazione delle fonti,
+persistenza e rifiuto operativo. Non dimostrano che il modello reale non
+inventi una premessa. La revisione manuale resta obbligatoria. Il collaudo
+osserva ora anche la funzione di rivalutazione nel contesto del metodo
+eseguito sul database sintetico marcato, con il budget osservativo esistente
+e senza modificare la risposta o l'attesa decisa.
+
+## Gate reale f188: esito originale e revisione manuale
+
+Head `f188b4bb0f0a3eaad4042761eac11130e709e7db`, deployment tecnico
+`31f71e3f-0988-4f9c-a3f6-196e003cbe72`. Esecuzione dalle
+**04:00:25.729633 alle 04:03:48.606785 UTC del 12 ottobre 2026**:
+**6/9 controlli limitati PASS**, **64 chiamate logiche** e **73 HTTP**.
+Il [report originale](evidence/autonomy_v162_live_2026-10-12_f188b4b.json) è
+stato recuperato concatenando senza separatore due frammenti consecutivi
+di log: JSON valido, 111883 caratteri, revisione esatta verificata. Non è
+stato modificato per incorporare i giudizi manuali. Letture pubbliche non
+eseguite perché subordinate al superamento del gate.
+
+| Caso | Gate limitato | Revisione e prova effettiva |
+|---|---|---|
+| `completed_result` | PASS | 1111 caratteri validi, identici fra generazione/audit/persistenza; Home, replay e isolamento verificati |
+| `planning_outage` | FAIL | Completa il lavoro interno, ma “disdetta gestibile sul mensile” non è sostenuta; anche falso negativo lessicale su “note salvate” |
+| `home_write_retry` | PASS, manualmente respinto | Recupero Home verificato; testo di 1691 caratteri ratifica una premessa inventata sulla flessibilità |
+| `source_revoked` | PASS | Fonte chiusa, cancellazione, wake rimossa e replay senza riapertura |
+| `memory_revoked` | PASS | Abbandono dopo ritiro della Memory |
+| `memory_corrected` | FAIL | Rilegge 150 euro/30 di differenza; audit negativo, nessuna bozza salvata, attesa persistita e non anticipata dal runner |
+| `source_change_crash` | FAIL | Recupera, legge e prepara; audit elimina il delta corretto di 60 euro presente nella generazione |
+| `already_resolved`, `irrelevant` | PASS | `no_goal` coerente con le fonti |
+
+### Diagnosi sostenuta dagli intermedi
+
+In `home_write_retry` generazione e audit Groq `qwen/qwen3.8-27b` conservano
+lo stesso testo. La premessa dichiarata è un'assenza di anticipo “implicita”
+nel modello mensile; l'audit la classifica come derivazione e descrive la
+flessibilità come caratteristica intrinseca. Il difetto è la sostituzione
+di una premessa documentata con una convenzione di categoria, non una
+perdita di contesto o una riga mancante nella diagnostica.
+
+In `planning_outage` generazione e audit Gemini conservano la clausola non
+sostenuta sulla disdetta, che non compare nelle sei righe della revisione.
+Il report non ha omesso righe. L'attribuzione alle note salvate è presente,
+quindi correggere il riconoscitore lessicale non rende semanticamente valido
+il testo. Quel gate storico resta fallito.
+
+In `source_change_crash`, la generazione di 901 caratteri contiene il delta
+corretto di 60 euro. L'audit restituisce 863 caratteri con 180 contro 120,
+aggiunge il limite sulla conferma esterna e rimuove il delta. L'audit non
+riceveva l'obiettivo né i criteri del risultato e non esaminava quella
+derivazione nella propria revisione. È la perdita corretta dal nuovo
+contratto di conservazione; i numeri della fixture non vengono riscritti.
+
+In `memory_corrected`, la generazione di 1478 caratteri inventa la facoltà
+di interrompere in qualsiasi momento. L'audit la respinge con booleano
+negativo; il testo proposto di 1533 caratteri contiene ancora l'assenza di
+una clausola che la fonte semplicemente non specifica. Il rifiuto evita
+correttamente il salvataggio. Le ultime tre chiamate Mistral erano contate,
+ma la decisione della rivalutazione non era osservata: non vengono
+retroattivamente attribuite a chiamate o risposte particolari. Il nuovo
+wrapper serve a distinguere questi casi futuri, senza anticipare le attese.
+
+### CI f188: errore nel confronto della serializzazione
+
+**10 job PASS, 2 FAIL, 2 SKIPPED** sui quattro workflow:
+[CI PR](https://github.com/dangerok97/DANGEROK/actions/runs/38201953132),
+[CI push](https://github.com/dangerok97/DANGEROK/actions/runs/38201951231),
+[Situation PR](https://github.com/dangerok97/DANGEROK/actions/runs/38201953172),
+[Situation push](https://github.com/dangerok97/DANGEROK/actions/runs/38201951361).
+I due backend si fermano nel test
+`test_exact_minute_followups_v68.py::test_reasoning_payload_accepts_absolute_minute_checkpoint`:
+il risultato `18:35:00+02:00` è corretto, ma l'assert richiede spazi nel JSON
+che ora è compatto. PR: 1 failed/145 passed; push: 1 failed/138 passed,
+conteggi parziali da failfast parallelo. Anche il test chooser del modulo
+v65 contieneva lo stesso confronto fragile; entrambi ora confrontano la
+struttura del clock completa. Il test della rivalutazione v65 è invariato.
+
+I gate v162/scripted9, Mongo e v39, successivi allo step fallito, non sono
+stati eseguiti su f188. Frontend, sicurezza telefonica, scansione dei segreti
+e Situation sono verdi. Il merge tecnico
+`d0cda7b812ebba03fb006f250d9ad79efca3e441` ha parent da6c/f188 e albero
+`3249b9ff1886be727d55c19edccc9191c48b7b15`, identico al candidato.
+
+### Limiti invariati
+
+Il servizio tecnico usa record sintetici, senza messaggi, chiamate,
+notifiche, pagamenti, prenotazioni o scritture di calendario reali. Le
+letture pubbliche sono un gate separato, non ancora eseguito in questo giro.
+Il bucato precedente di Tarquinia resta chiuso. L'approvazione automatica
+Railway ha rifiutato l'applicazione della patch ai servizi app; nessun
+aggiramento. Build nativa firmata e ricevuta del dispositivo restano prove
+distinte da backend, web e SDK con HTTP finto.
+
+---
+
 # QA v162 — fonti integre, premesse e recupero della preparazione
 
 ## Candidato successivo a e4b: verifica locale

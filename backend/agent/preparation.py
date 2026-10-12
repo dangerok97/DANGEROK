@@ -91,13 +91,27 @@ async def prepare(db, owner_id, goal, step):
     content = content.strip()
     refs = list(dict.fromkeys(refs))
     audit_rows = list(rows)
-    audit_payload = {"draft": content, "evidence": audit_rows,
+    # The audit needs the intended deliverable, not only the draft's own
+    # selection of facts. Preserve requirements whole, while carrying the
+    # existing source-refresh qualification: old derived targets are not
+    # independent facts or newly invented user requirements.
+    prior_goal = payload["goal"]
+    refresh_reason = str((prior_goal.get("current_source_situation") or {}).get("memory_refresh_reason") or "")[:300]
+    request = {
+        "objective": prior_goal["objective"], "desired_outcome": prior_goal["desired_outcome"],
+        "success_criteria": prior_goal["success_criteria"],
+        "user_clarifications_not_authority": prior_goal["user_clarifications_not_authority"],
+        "step_intent": step.intent, "expected_result": step.expected_result,
+        "goal_origin": goal.origin, "source_update_reason": refresh_reason or None,
+        "previous_interpretation_may_be_obsolete": bool(refresh_reason),
+    }
+    audit_payload = {"request": request, "draft": content, "evidence": audit_rows,
                      "evidence_truncated": payload["evidence_truncated"]}
     while len(json.dumps(audit_payload, ensure_ascii=False, default=str)) > 9000:
         unused = next((index for index, row in enumerate(audit_rows) if row["id"] not in refs), None)
         if unused is None:
-            # A source-consistency audit may not silently lose the draft's
-            # cited claims or their read limits. This is a bounded-context
+            # A source-consistency audit may not silently lose requirements,
+            # the draft's cited claims or their read limits. This is a bounded-context
             # problem for reconsideration, not a transient retry request.
             return unavailable("preparation_context_too_large")
         audit_rows.pop(unused)
@@ -109,15 +123,21 @@ async def prepare(db, owner_id, goal, step):
         "Check every explanatory clause and conditional conclusion, not only cited IDs or numerical totals. "
         "A correct calculation does not validate a surrounding unsupported claim. The earlier draft's "
         "wording is not additional evidence. "
-        "Before the verdict and corrected text, return a compact claim_review of the material "
-        "statements, comparisons and consequences. For each check, identify its supporting evidence "
-        "and necessary premises, distinguish stated facts, derivations, conditional claims and "
-        "unsupported claims, and state the correction or limitation needed. For a comparative "
-        "advantage, check the factual premises on BOTH sides for that same property; a fact about "
-        "one property does not establish another. Mark a missing premise as unknown. "
-        "Review the wording you will actually return, including any new clause introduced while "
-        "correcting. Do not let a correction introduce a claim that was never checked. "
-        "Correct unsupported wording and arithmetic, retaining material costs and limitations. "
+        "request describes the intended work; earlier model interpretations and derived targets "
+        "in it are not source evidence. If previous_interpretation_may_be_obsolete is true, "
+        "reconcile those earlier assumptions with current evidence, preserving the person's "
+        "outcome, explicit requirements and authority limits. Do not preserve an obsolete "
+        "calculated value as a requirement or invent a replacement goal. "
+        "Before the verdict, return claim_review covering the actual material clauses, including "
+        "qualitative consequences. In premises, identify the short source passages that establish "
+        "each factual premise and distinguish any unstated assumption or category default. "
+        "An evidence ID or a category label alone does not establish the premise. Test a derived "
+        "claim against a counterexample compatible with ALL those source passages. If such a case "
+        "remains possible, record the missing premise and make it explicitly conditional or remove "
+        "the claim; do not label it established or derived. A caveat cannot turn an assumed premise "
+        "into a sourced one. Make minimal corrections against request: retain supported findings, "
+        "calculations, comparison differences, time horizons and limitations. Check the corrected "
+        "wording too; no material clause may escape review by being grouped with supported numbers. "
         "Review proposed options too: do not relax a stated minimum requirement, invent extra "
         "resources, turn unavailable time into available time, or invent a restriction. "
         "A proposal requiring a changed condition must explicitly say so; it is not feasible "
@@ -128,14 +148,16 @@ async def prepare(db, owner_id, goal, step):
         "hours and original-document prerequisites. Frame unconfirmed alternatives as questions "
         "requiring the recipient's acceptance; do not imply a time is free or travel is feasible. "
         "Return one complete JSON object, positive or negative: "
-        "{\"claim_review\": [{\"claim\": \"material statement, short\", "
-        "\"evidence_ids\": [\"supplied supporting IDs\"], \"premises\": \"necessary conditions, short\", "
+        "{\"claim_review\": [{\"claim\": \"actual material clause, short\", "
+        "\"evidence_ids\": [\"supplied supporting IDs\"], "
+        "\"premises\": \"source passages, missing premises and any compatible counterexample, short\", "
         "\"support\": \"stated|derived|conditional|unsupported\", "
         "\"correction\": \"needed correction or limitation, empty if none\"}], "
         "\"verified\": true, \"content\": \"corrected complete draft, max 4000 characters\", "
         "\"evidence_ids\": [\"supplied IDs supporting it\"], \"reason\": \"short reason for the verdict\"}. "
         "Keep claim_review to at most 12 brief checks; group only claims that share the same "
-        "premises without concealing a different condition. If no useful corrected draft is "
+        "premises without concealing a different condition. The verdict applies to the complete "
+        "corrected content returned, not the original draft. If no useful corrected draft is "
         "supported, return verified=false, content empty, evidence_ids empty, and explain the "
         "specific missing support in claim_review and reason. Missing support for one optional "
         "claim can be handled by removing or qualifying that claim, without withholding supported work. "

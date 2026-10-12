@@ -220,6 +220,25 @@ def test_source_limit_check_preserves_negation_in_equivalent_wording(qualificati
     assert ("SOURCE_VERIFICATION_LIMIT_MISSING" in result["reasons"]) is not accepted
 
 
+@pytest.mark.parametrize("attribution,accepted", [
+    ("Confronto basato sulle note salvate.", True),
+    ("Valori ricavati dalle note interne.", True),
+    ("Confronto basato sulle note dell'utente.", True),
+    ("Le condizioni del fornitore sono note.", False),
+    ("La notazione contabile è standard.", False),
+    ("Confronto senza riferimenti di provenienza.", False),
+])
+def test_internal_source_attribution_accepts_plural_notes_without_matching_unrelated_words(attribution, accepted):
+    # f188 used "note salvate". Its separate unsupported cancellation claim
+    # remains a manual rejection; this only fixes attribution morphology.
+    text = gate.baseline.DRAFT.replace(
+        "Secondo la nota interna non verificata presso il fornitore, ", "",
+    ).replace("uguali nella nota", "uguali")
+    result = gate.review_comparison(attribution + " " + text)
+    assert result["passed"] is accepted
+    assert ("INTERNAL_SOURCE_NOT_ATTRIBUTED" in result["reasons"]) is not accepted
+
+
 @pytest.mark.asyncio
 async def test_live_requested_without_credentials_is_blocked_and_nonzero(monkeypatch, tmp_path, capsys):
     for key in gate.LLM_KEYS:
