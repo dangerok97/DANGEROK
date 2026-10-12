@@ -195,3 +195,26 @@ def test_disabled_without_secrets(monkeypatch):
                 "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_DATA_KEY"]:
         monkeypatch.delenv(key, raising=False)
     assert not CloudConfig.available()
+
+def test_verification_needs_only_verify_token(monkeypatch):
+    """Meta can verify callback before app-secret/API transport provisioning."""
+    for key in ("WHATSAPP_APP_SECRET", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_DATA_KEY"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("WHATSAPP_VERIFY_TOKEN", "preview-independent-webhook-token")
+    from whatsapp.router import router
+    app = FastAPI()
+    app.include_router(router)
+    with TestClient(app) as client:
+        assert client.get("/whatsapp/webhook", params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "preview-independent-webhook-token",
+            "hub.challenge": "challenge-ok",
+        }).text == "challenge-ok"
+        assert client.get("/whatsapp/webhook", params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "wrong-token",
+            "hub.challenge": "challenge-ok",
+        }).status_code == 403
+        assert client.post("/whatsapp/webhook", json={"object": "whatsapp_business_account"}).status_code == 503
+
+
