@@ -38,7 +38,7 @@ test('all 25 catalogue families load and have selectable explanatory parts',asyn
   await expect(page.getByTestId('vision-close-model')).toBeVisible();
   if(['smartphone','soap_dispenser','stapler','earbud_charging_case'].includes(entry.canonical_key)){
    await page.getByTestId('vision-overview').click();await page.screenshot({path:'../.vision-evidence/catalog25-'+entry.canonical_key+'-'+info.project.name+'.png',fullPage:true});
-   await expect(page.getByTestId('vision-how-it-works')).toHaveCount(0);
+   await expect(page.getByTestId('vision-how-it-works')).toBeVisible();
   }
  }
  expect(errors).toEqual([]);

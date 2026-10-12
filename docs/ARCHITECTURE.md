@@ -1,3 +1,9 @@
+## 12 ottobre 2026 — Vision: percorsi per tutte le 25 famiglie
+
+walkthroughLibrary.ts contiene i 20 nuovi percorsi e i contratti chiave/forma delle parti. walkthroughFor accetta solo seed illustrativi compatibili, rifiuta duplicati, metadati errati e collegamenti estranei ai gruppi evidenziati. sourcesForStep associa i riferimenti al passaggio. Nessuna modifica a backend, database, flash, crop, zoom o runtime dependencies.
+
+---
+
 ## 12 ottobre 2026 — v161: disposizione adattabile del contatto
 
 `prepara-chiamata.tsx` consente ai dati del contatto di andare sotto l'avatar

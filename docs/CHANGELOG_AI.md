@@ -1,3 +1,9 @@
+## 12 ottobre 2026 — Vision: percorsi per tutte le 25 famiglie
+
+Estesi i percorsi Mostrami come funziona a smartphone, tablet, portatile, tastiera, controller, USB, auricolare/custodia, cancelleria, molletta, dispenser/spruzzatore, borraccia e cacciavite. Note adatte a meccanica, fluidi e materiali; fonti relative al passaggio. Conservati schema fissato, X sulla stessa traccia, zoom indipendenti e catalogo generico automatico.
+
+---
+
 ## 12 ottobre 2026 — v161: nome e numero del contatto leggibili
 
 - Eliminata la compressione del contatto in una colonna di singoli caratteri:

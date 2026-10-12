@@ -12,14 +12,14 @@ function load(name){
  const module={exports:{}};const require=n=>load(n.replace('./','')+'.ts');
  vm.runInNewContext(js,{module,exports:module.exports,require,Math,Map,Set,Number,Float32Array});cache.set(name,module.exports);return module.exports;
 }
-const {walkthroughFor,TourClock}=load('walkthrough.ts');
+const {walkthroughFor,sourcesForStep,TourClock}=load('walkthrough.ts');
 const {arrivalAt,currentBox,originInView,ARRIVAL_MS}=load('arrival.ts');
 const {VisionPresentation}=load('presentation.ts');
 const seeds=JSON.parse(readFileSync(resolve(here,'../../../.vision-evidence/seeds.json'),'utf8'));
 const remote=seeds.find(s=>s.canonical_key==='remote_control');
 const ctx=()=>new Proxy({},{get:(obj,key)=>obj[key]??(()=>{}),set:(obj,key,value)=>(obj[key]=value,true)});
 const opts={progress:1,yaw:.46,pitch:-.22,selected:'',focus:0,zoom:1};
-const reviewed=new Set(['remote_control','click_pen','water_bottle','computer_mouse','flashlight']);
+const reviewed=new Set(seeds.map(s=>s.canonical_key));
 for(const manifest of seeds.filter(s=>reviewed.has(s.canonical_key)))test('reviewed tour has real parts, valid sources and finite drawing: '+manifest.canonical_key,()=>{
  const original=JSON.stringify(manifest),tour=walkthroughFor(manifest,'seed');assert.equal(tour.steps.length,3);
  assert.ok(tour.sources.length>0);assert.ok(tour.sources.every(s=>new URL(s.url).protocol==='https:'));
@@ -76,4 +76,55 @@ test('assembled model starts in detected region and finishes exactly in study sp
  scene.draw(c,390,500,opts);assert.ok(scene.partBounds('pcb').every((v,i)=>Math.abs(v-atEnd[i])<1e-8));
 });
 
-for(const manifest of seeds.filter(s=>!reviewed.has(s.canonical_key)))test('new catalog family has no invented tour: '+manifest.canonical_key,()=>{assert.equal(walkthroughFor(manifest,'seed'),null);});
+
+
+const extra=seeds.filter(s=>!['remote_control','click_pen','water_bottle','computer_mouse','flashlight'].includes(s.canonical_key));
+test('all 25 authored families expose exactly 75 bounded steps',()=>{
+ assert.equal(seeds.length,25);assert.equal(seeds.reduce((n,m)=>n+walkthroughFor(m,'seed').steps.length,0),75);
+});
+for(const manifest of extra)test('new authored template cannot be inherited by changed parts or AI output: '+manifest.canonical_key,()=>{
+ assert.equal(walkthroughFor(manifest,'generated'),null);
+ const clone=JSON.parse(JSON.stringify(manifest));clone.parts[0].shape='spring';
+ if(manifest.parts[0].shape==='spring')clone.parts[0].shape='box';
+ assert.equal(walkthroughFor(clone,'seed'),null);
+ assert.equal(walkthroughFor({...manifest,parts:manifest.parts.slice(1)},'seed'),null);
+ const duplicate={...manifest,parts:[...manifest.parts,manifest.parts[0]]};
+ assert.equal(walkthroughFor(duplicate,'seed'),null);
+ assert.equal(walkthroughFor({...manifest,evidence_level:'model_verified'},'seed'),null);
+ assert.equal(walkthroughFor({...manifest,schema_version:99},'seed'),null);
+});
+test('prototype-like keys and incompatible evidence never unlock a path',()=>{
+ for(const key of ['toString','constructor','__proto__'])assert.equal(walkthroughFor({...remote,canonical_key:key},'seed'),null);
+ assert.equal(walkthroughFor({...remote,parts:[...remote.parts,remote.parts[0]]},'seed'),null);
+});
+test('sources are relevant to the active step, bounded, HTTPS and unique',()=>{
+ for(const manifest of seeds){
+  const tour=walkthroughFor(manifest,'seed');
+  for(let i=0;i<tour.steps.length;i++){
+   const step=tour.steps[i],refs=sourcesForStep(tour,i);
+   assert.ok(step.title.length>=8&&step.title.length<=100);
+   assert.ok(step.text.length>=50&&step.text.length<=440);
+   assert.ok(refs.length>=1&&refs.length<=4);
+   assert.equal(new Set(refs.map(s=>s.url)).size,refs.length);
+   assert.ok(refs.every(s=>new URL(s.url).protocol==='https:'));
+   assert.ok(step.links.every(([a,b])=>step.parts.includes(a)&&step.parts.includes(b)&&a!==b));
+  }
+  for(const bad of [-1,99,NaN,.5])assert.equal(sourcesForStep(tour,bad).length,0);
+ }
+ const phone=walkthroughFor(seeds.find(m=>m.canonical_key==='smartphone'),'seed');
+ assert.equal(sourcesForStep(phone,0)[0].url,'https://support.apple.com/en-us/100308');
+ assert.equal(sourcesForStep(phone,1)[0].url,'https://www.analog.com/en/products/max11855.html');
+ assert.equal(sourcesForStep({...phone,steps:[{...phone.steps[0],sourceIndexes:[99]}]},0).length,0);
+});
+test('mechanics, flow and materials do not masquerade as measured circuits',()=>{
+ const get=key=>walkthroughFor(seeds.find(m=>m.canonical_key===key),'seed');
+ assert.match(get('clothespin').steps[1].text,/torsione/);
+ assert.match(get('insulated_bottle').steps[1].text,/Non elimina tutti/);
+ assert.match(get('adhesive_tape_roll').note,/Strati e regioni/);
+ assert.match(get('wooden_pencil').steps[1].text,/regione/);
+ assert.match(get('screwdriver').note,/non elettrico/);
+ const pump=get('soap_dispenser');
+ assert.equal(pump.steps[0].effect,'press');assert.equal(pump.steps[2].effect,'flow');
+ assert.ok(pump.steps[2].links.some(([a,b])=>a==='bottle'&&b==='tube'));
+ assert.ok(pump.steps[2].links.some(([a,b])=>a==='tube'&&b==='pump'));
+});
