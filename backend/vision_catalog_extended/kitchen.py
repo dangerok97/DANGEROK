@@ -88,7 +88,7 @@ def recipes(r, p):
             p("housing", "Involucro e vano pila", "Proteggono l'elettronica.", "Pila, supporto o magnete posteriore dipendono dalla variante e sono raggruppati.", "shell", (73,68,15), (0,0,-3)),
         ]),
         r("salad_spinner", "Centrifuga per insalata", "Cucina", ("centrifuga_insalata", "lettuce_spinner", "salad_dryer"), [
-            p("bowl", "Ciotola", "Raccoglie l'acqua che esce dal cestello.", "Resta esterna al gruppo che ruota.", "ring", (105,69,105), (0,-7,0)),
+            p("bowl", "Ciotola", "Raccoglie l'acqua che esce dal cestello.", "La ciotola resta ferma all’esterno del cestello che ruota e raccoglie le gocce espulse.", "ring", (105,69,105), (0,-7,0)),
             p("basket", "Cestello forato", "Sostiene e fa ruotare le foglie.", "Le aperture permettono all'acqua di separarsi dalle foglie; le forature sono schematiche.", "ring", (87,57,87), (0,0,0)),
             p("lid", "Coperchio e trasmissione", "Guidano il cestello e trasmettono il movimento.", "Gli ingranaggi sono raggruppati; sono possibili comandi a pompa, corda o manovella.", "cylinder", (110,12,110), (0,37,0)),
             p("pump", "Comando a pressione", "Aziona la rotazione nella variante illustrata.", "La corsa verticale viene trasmessa al meccanismo nel coperchio.", "cylinder", (32,21,32), (0,54,0)),
