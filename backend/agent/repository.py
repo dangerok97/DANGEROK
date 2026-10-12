@@ -39,6 +39,39 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _canonical_utc_stamp(value):
+    """Normalize a known offset-aware deadline before indexed Mongo writes."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.astimezone(timezone.utc).isoformat() if parsed.tzinfo else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _normalize_goal_clock(goal: AutonomousGoal) -> None:
+    # Do not guess offsets on malformed legacy rows: wake execution then
+    # refuses to act from those rows until the source is corrected.
+    for field in ("next_run_at", "user_deferred_until"):
+        original = getattr(goal, field)
+        fixed = _canonical_utc_stamp(original)
+        if fixed is not None:
+            setattr(goal, field, fixed)
+
+
+def _goal_from_doc(doc) -> Optional[AutonomousGoal]:
+    if doc is None:
+        return None
+    goal = AutonomousGoal.model_validate(doc)
+    # Old rows are translated in memory for every downstream due/deferral
+    # check, including AgentService.advance. Reading never mutates the DB.
+    _normalize_goal_clock(goal)
+    return goal
+
+
 class AgentRepository:
     def __init__(self, db):
         self.db = db
@@ -78,6 +111,7 @@ class AgentRepository:
     # --- goals ------------------------------------------------------------
 
     async def save_goal(self, goal: AutonomousGoal) -> AutonomousGoal:
+        _normalize_goal_clock(goal)
         goal.touch()
         from pymongo.errors import DuplicateKeyError
 
@@ -127,6 +161,10 @@ class AgentRepository:
         self, owner_id: str, goal_id: str, *, until: str
     ) -> Optional[AutonomousGoal]:
         """Atomically apply an explicit user defer to an open, autonomous goal."""
+        until = _canonical_utc_stamp(until)
+        if until is None:
+            # An unknown timezone cannot establish an executable defer.
+            return None
         doc = await self.db[GOALS].find_one_and_update(
             {
                 "id": goal_id,
@@ -156,6 +194,7 @@ class AgentRepository:
         Returns None when the index refuses it — which is not a failure. The
         second attempt is the bug, and the database is the place to catch it.
         """
+        _normalize_goal_clock(goal)
         try:
             await self.db[GOALS].insert_one(goal.model_dump())
             return goal
@@ -169,7 +208,7 @@ class AgentRepository:
         doc = await self.db[GOALS].find_one(
             {"id": goal_id, "owner_id": owner_id}, {"_id": 0}
         )
-        return AutonomousGoal.model_validate(doc) if doc else None
+        return _goal_from_doc(doc)
 
     async def open_goals(self, owner_id: str, *, limit: int = 20) -> List[AutonomousGoal]:
         docs = await self.db[GOALS].find(
@@ -177,7 +216,7 @@ class AgentRepository:
         ).sort("created_at", 1).to_list(limit)
         # Do not delegate the public limit contract to a driver's interpretation
         # of to_list(length). The caller asked for at most this many rows.
-        return [AutonomousGoal.model_validate(d) for d in docs[:limit]]
+        return [_goal_from_doc(d) for d in docs[:limit]]
 
     async def goal_for_opportunity(
         self, owner_id: str, opportunity_id: str
@@ -190,7 +229,7 @@ class AgentRepository:
             },
             {"_id": 0},
         )
-        return AutonomousGoal.model_validate(doc) if doc else None
+        return _goal_from_doc(doc)
 
     # --- plans ------------------------------------------------------------
 

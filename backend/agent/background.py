@@ -10,6 +10,21 @@ from ambient.models import WakeOutcome
 logger = logging.getLogger(__name__)
 
 
+def _utc_instant(value):
+    """Parse a goal's instant, never compare offset ISO timestamps as strings.
+
+    Legacy goals can contain local IANA-offset instants even though new writes
+    are normalized to UTC. A naive or malformed time proves no due action.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.astimezone(timezone.utc) if parsed.tzinfo else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 async def consider_opportunities(db, owner_id, scan):
     from agent.admission import drain
     # scan is only an accelerator; durable opportunity records own the work.
@@ -202,15 +217,27 @@ async def advance_wake(db, wake):
         outcome.result = "waiting_for_person"
         return outcome
     now = datetime.now(timezone.utc)
-    # An owner-verified revision correction may arrive before the previous
-    # physical checkpoint. Dispatch that *review* now; the Agent re-reads and
-    # invalidates old evidence under its own execution lease. A user-requested
-    # defer still wins and must not be bypassed by the correction.
-    user_deferred = bool(
-        goal.user_deferred_until and goal.user_deferred_until > now.isoformat()
-    )
-    if (goal.next_run_at and goal.next_run_at > now.isoformat()
-            and (not source_was_revised or user_deferred)):
+    next_run = _utc_instant(goal.next_run_at) if goal.next_run_at else None
+    defer_until = _utc_instant(goal.user_deferred_until) if goal.user_deferred_until else None
+    # Malformed/naive legacy timestamps are not permission to run early.
+    # Requeue through the bounded worker retry rather than executing on an
+    # unverified clock interpretation.
+    if goal.next_run_at and next_run is None:
+        outcome.result = "goal_time_unverified"
+        outcome.retry_after_seconds = 300
+        return outcome
+    if goal.user_deferred_until and defer_until is None:
+        outcome.result = "defer_time_unverified"
+        outcome.retry_after_seconds = 300
+        return outcome
+    # Explicit postponement dominates even if a *different*, older deadline
+    # is already due. The early source-review path cannot override the person.
+    if defer_until and defer_until > now:
+        outcome.result = "goal_not_due"
+        return outcome
+    # A verified Situation revision may override only its previous checkpoint,
+    # after owner-scoped source retrieval. Compare actual instants in UTC.
+    if next_run and next_run > now and not source_was_revised:
         outcome.result = "goal_not_due"
         return outcome
     result = await service.advance(wake.owner_id, goal_id, worker_id=f"ambient:{wake.id}")
