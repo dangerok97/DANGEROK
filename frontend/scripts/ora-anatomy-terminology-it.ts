@@ -91,7 +91,7 @@ const word:Record<string,Gloss>={
  primary:{it:'primario'},secondary:{it:'secondario'},tertiary:{it:'terziario'},
  terminal:{it:'terminale'},marginal:{it:'marginale'},
  apical:{it:'apicale'},basal:{it:'basale'},digital:{it:'digitale'},
- dorsal:{it:'dorsale'},plantar:{it:'plantare'},metacarpal:{it:'metacarpale'},
+ metacarpal:{it:'metacarpale'},
  metatarsal:{it:'metatarsale'},interosseous:{it:'interosseo'},
  epigastric:{it:'epigastrico'},vertebral:{it:'vertebrale'},
  phrenic:{it:'frenico'},genicular:{it:'genicolato'},
@@ -106,9 +106,9 @@ const word:Record<string,Gloss>={
  pollicis:{it:'del pollice'},hallucis:{it:'dell’alluce'},minimi:{it:'minimo'},
  pollex:{it:'pollice'},hallux:{it:'alluce'},
  intervertebral:{it:'intervertebrale'},epidural:{it:'epidurale'},
- papillary:{it:'papillare'},septal:{it:'settale'},molar:{it:'molare'},
+ papillary:{it:'papillare'},molar:{it:'molare'},
  premolar:{it:'premolare'},incisor:{it:'incisivo'},canine:{it:'canino'},
- visceral:{it:'viscerale'},parietal:{it:'parietale'},
+ visceral:{it:'viscerale'},
 };
 const direct:Record<string,string>={
  'heart':'Cuore','brain':'Encefalo','cerebellum':'Cervelletto','liver':'Fegato',
@@ -135,11 +135,10 @@ const originals=new Set(['of','the','to','and','with','from','for']);
 const capitalize=(s:string)=>s?s.charAt(0).toLocaleUpperCase('it')+s.slice(1):s;
 const feminine=new Set(['arteria','vena','gingiva','cavità','camera','parete','gengiva','ossa','costa','cartilagine','retina','coroide','fossa','milza','valvola','mano','falange','cute','suddivisione','radice','ghiandola','trachea','lingua','mascella','mandibola','rete']);
 function agree(s:string,gender:Gender):string{
- if(gender==='f' && /(?:o|i)$/.test(s) && !/^(?:prossimale|distale|laterale|mediale|superiore|inferiore|anteriore|posteriore|cervicale|toracico)$/.test(s)){
+ if(gender==='f' && s.endsWith('ico'))return s.slice(0,-1)+'a';
+ if(gender==='f' && /o$/.test(s)){
   if(s.endsWith('o'))return s.slice(0,-1)+'a';
  }
- if(gender==='f' && s.endsWith('ico'))return s.slice(0,-1)+'a';
- if(gender==='f' && s.endsWith('ale'))return s;
  return s;
 }
 const normal=(name:string)=>name.toLowerCase().replace(/[\u2010-\u2015-]/g,' ').replace(/\s+/g,' ').trim();
