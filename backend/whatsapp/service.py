@@ -41,6 +41,7 @@ async def ensure_indexes(db) -> None:
     await db.whatsapp_link_codes.create_index("expires_at", expireAfterSeconds=0)
     await db.whatsapp_inbox.create_index([("status", 1), ("next_attempt_at", 1), ("received_at", 1)])
     await db.whatsapp_inbox.create_index("expires_at", expireAfterSeconds=0)
+    await db.whatsapp_sender_locks.create_index("lease_until", expireAfterSeconds=0)
 
 
 class WhatsAppService:
@@ -174,11 +175,29 @@ class WhatsAppService:
             },
             {"$set": {
                 "status": "processing",
-                "lease_until": timestamp + timedelta(minutes=10),
-            }, "$inc": {"attempts": 1}},
+                "lease_until": timestamp + timedelta(minutes=20),
+            }},
             sort=[("received_at", 1)],
             return_document=ReturnDocument.AFTER,
         )
+
+    async def _acquire_sender(self, item: dict) -> bool:
+        """Serialize turns from the same phone across API replicas."""
+        timestamp = now()
+        try:
+            held = await self.db.whatsapp_sender_locks.find_one_and_update(
+                {
+                    "_id": item["phone_hash"],
+                    "$or": [{"lease_until": {"$lt": timestamp}}, {"lease_until": {"$exists": False}}],
+                },
+                {"$set": {"owner": item["_id"], "lease_until": timestamp + timedelta(minutes=20)}},
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+            return bool(held and held.get("owner") == item["_id"])
+        except DuplicateKeyError:
+            # Another process owns this sender. Defer without counting a failure.
+            return False
 
     async def _answer_ai(self, user_id: str, linked: dict, body: str, incoming_id: str) -> str:
         """Use precisely the app's AI Core orchestration, not a second chatbot."""
@@ -239,6 +258,12 @@ class WhatsAppService:
         if not item:
             return False
         item_id = item["_id"]
+        if not await self._acquire_sender(item):
+            await self.db.whatsapp_inbox.update_one(
+                {"_id": item_id, "status": "processing"},
+                {"$set": {"status": "received", "next_attempt_at": now() + timedelta(seconds=3)}},
+            )
+            return True
         try:
             if item.get("reply_enc"):
                 # The cognition result is already durable: a transport retry must
@@ -272,7 +297,7 @@ class WhatsAppService:
             )
         except Exception as exc:
             # Avoid all secrets, text, names and phone numbers in logs.
-            attempts = int(item.get("attempts", 1))
+            attempts = int(item.get("attempts", 0)) + 1
             failed = attempts >= 5
             await self.db.whatsapp_inbox.update_one(
                 {"_id": item_id},
@@ -280,7 +305,11 @@ class WhatsAppService:
                     "status": "failed" if failed else "ready" if item.get("reply_enc") else "received",
                     "next_attempt_at": now() + timedelta(seconds=min(120, 5 * (2 ** min(attempts, 5)))),
                     "lease_until": now(),
-                }},
+                }, "$inc": {"attempts": 1}},
             )
             log.warning("WhatsApp delivery attempt failed: category=%s", type(exc).__name__)
+        finally:
+            await self.db.whatsapp_sender_locks.delete_one(
+                {"_id": item["phone_hash"], "owner": item_id},
+            )
         return True
