@@ -167,6 +167,23 @@ def _step_declaration(raw: Any):
         return reject("parameters", "wrong_type")
     data["parameters"] = parameters
 
+    # A non-effect step may explicitly say that effect metadata is N/A.
+    # Some providers serialize optional fields as JSON null rather than
+    # omitting them. Treat null exactly like omission ONLY when the step
+    # cannot touch anything outside ORA: the existing default effect value
+    # is then inert. No such repair is allowed for execute, an external
+    # effect, a third-party impact, or a named effect target.
+    internal_only = (
+        data.get("step_type") in ("inspect", "research", "compare", "prepare", "ask_user", "verify", "wait")
+        and data.get("external_effect") in (None, False)
+        and data.get("reaches_somebody_else") in (None, False)
+        and data.get("effect_target") in (None, "")
+    )
+    if internal_only:
+        for optional in ("effect_type", "reversibility"):
+            if optional in data and data[optional] is None:
+                data.pop(optional)
+
     enums = {
         "step_type": ("inspect", "research", "compare", "prepare", "ask_user", "execute", "verify", "wait"),
         "effect_type": ("create", "modify", "cancel", "send", "transfer", "publish", "remove"),
