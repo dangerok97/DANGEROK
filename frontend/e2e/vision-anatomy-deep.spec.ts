@@ -1,0 +1,64 @@
+/** Browser anatomy QA with a synthetic photo; not medical validation or a physical camera test. */
+import {test,expect,type Page} from '@playwright/test';
+import {mkdirSync} from 'node:fs';
+mkdirSync('../.vision-evidence',{recursive:true});
+async function launchAnatomy(page:Page){
+ await page.addInitScript(()=>localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice')));
+ await page.route('**/api/vision-xray/scan',route=>route.fulfill({
+  status:200,contentType:'application/json',
+  body:JSON.stringify({status:'anatomy',body_region:'full_body',identification:{canonical_key:'human_anatomy',body_region:'full_body'}})
+ }));
+ await page.goto('/vision-xray');
+ const pixels=await page.evaluate(()=>{
+  const c=document.createElement('canvas');c.width=160;c.height=160;
+  const ctx=c.getContext('2d')!;ctx.fillStyle='#ddd';ctx.fillRect(0,0,160,160);
+  return Array.from(atob(c.toDataURL('image/jpeg').split(',')[1]),v=>v.charCodeAt(0));
+ });
+ await page.locator('input[type=file]').setInputFiles({name:'synthetic-atlas.jpg',mimeType:'image/jpeg',buffer:Buffer.from(pixels)});
+ await expect(page.getByTestId('vision-anatomy')).toBeVisible();
+}
+test('a vascular anatomy layer is searchable and users can switch regions without new scan',async({page},info)=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ let scans=0;page.on('request',request=>{if(request.url().endsWith('/api/vision-xray/scan'))scans++;});
+ await launchAnatomy(page);
+ await page.getByTestId('vision-anatomy-layer-vessels').click();
+ await expect(page.getByTestId('vision-anatomy-select-aorta')).toBeVisible();
+ await expect(page.getByTestId('vision-anatomy-select-carotid_arteries')).toBeVisible();
+ await page.getByTestId('vision-anatomy-search').fill('carotidi');
+ await expect(page.getByTestId('vision-anatomy-select-carotid_arteries')).toHaveCount(1);
+ await expect(page.getByTestId('vision-anatomy-select-aorta')).toHaveCount(0);
+ await page.getByTestId('vision-anatomy-region-torso').click();
+ await expect(page.getByTestId('vision-anatomy-search')).toHaveValue('');
+ await page.getByTestId('vision-anatomy-layer-organs').click();
+ await expect(page.getByTestId('vision-anatomy-select-heart')).toBeVisible();
+ await page.getByTestId('vision-anatomy-select-heart').click();
+ await expect(page.getByTestId('vision-anatomy-description')).toContainText('Cuore');
+ await page.screenshot({path:'../.vision-evidence/vision-anatomy-deep-'+info.project.name+'.png',fullPage:true});
+ expect(scans).toBe(1);
+ expect(errors).toEqual([]);
+});
+test('3D isolation, keyboard rotation and compact controls work on narrow screens',async({page},info)=>{
+ await launchAnatomy(page);
+ await page.getByTestId('vision-anatomy-region-torso').click();
+ await page.getByTestId('vision-anatomy-layer-organs').click();
+ await page.getByTestId('vision-anatomy-select-heart').click();
+ const volume=page.getByTestId('vision-anatomy-volume');
+ await expect(volume).toBeVisible();
+ await expect.poll(async()=>Number(await volume.getAttribute('data-face-count'))).toBeGreaterThan(1);
+ await page.getByTestId('vision-anatomy-tools').click();
+ await expect(page.getByTestId('vision-anatomy-isolate')).toBeVisible();
+ await page.getByTestId('vision-anatomy-isolate').click();
+ await expect(volume).toHaveAttribute('data-face-count','1');
+ await page.getByTestId('vision-anatomy-explode').press('ArrowRight');
+ const before=await volume.getAttribute('data-yaw');
+ await volume.focus();await volume.press('ArrowRight');
+ await expect.poll(async()=>volume.getAttribute('data-yaw')).not.toBe(before);
+ await page.getByTestId('vision-anatomy-isolate').click();
+ await expect.poll(async()=>Number(await volume.getAttribute('data-face-count'))).toBeGreaterThan(1);
+ const close=await page.getByTestId('vision-anatomy-close').boundingBox();
+ const viewport=page.viewportSize()!;
+ expect(close).not.toBeNull();
+ expect(close!.x).toBeGreaterThanOrEqual(0);
+ expect(close!.x+close!.width).toBeLessThanOrEqual(viewport.width);
+ await page.screenshot({path:'../.vision-evidence/vision-anatomy-isolate-'+info.project.name+'.png',fullPage:true});
+});
