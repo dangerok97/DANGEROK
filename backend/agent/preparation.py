@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import re
+from agent.contract_claims import unsupported_contract_exit_claims
 from agent.evidence import EvidenceStore, REAL_SOURCES
 from agent.models import ResultProvenance
 from agent.prepared_review import new_prepared_result_id
@@ -592,6 +593,23 @@ async def prepare(db, owner_id, goal, step):
         await _remember_feedback(db, owner_id, goal.id, scope, feedback)
         return unavailable("preparation_review_invalid", feedback=feedback)
     content, refs = content.strip(), list(dict.fromkeys(refs))
+    # A literal source quote does not establish an unstated consumer right.
+    # Refuse the known high-risk affirmative exit/refund claims before saving
+    # an otherwise valid draft. Do not rewrite, infer or publish the claim.
+    # A bounded, non-authoritative correction note may guide the next attempt.
+    risks = unsupported_contract_exit_claims(content, audit_rows)
+    if risks:
+        feedback = _review_feedback({
+            "reason": (
+                "La bozza afferma assenza di penali/vincoli o possibilità di rimborso "
+                "non dichiarate dalla fonte per la stessa formula. "
+                "Non dedurre diritti dalla mancata menzione di clausole: "
+                "indicare che tali condizioni sono sconosciute e da verificare."
+            ),
+        }, allowed)
+        if feedback:
+            await _remember_feedback(db, owner_id, goal.id, scope, feedback)
+        return unavailable("preparation_unsupported_contract_term", feedback=feedback)
     prepared_id = new_prepared_result_id()
     saved = await db.agent_goals.update_one(
         {"id": goal.id, "owner_id": owner_id, "status": {"$in": ["active", "waiting"]}},
