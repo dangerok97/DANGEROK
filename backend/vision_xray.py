@@ -138,7 +138,7 @@ def normalize_identification(raw):
     return {"canonical_key": key, "object_name": str(raw.get("object_name") or key)[:90],
             "confidence": confidence, "bbox": normalized,
             "safe_to_generate": raw.get("safe_to_generate") is True,
-            "body_region": raw.get("body_region") if raw.get("body_region") in REGIONS else None,
+            "body_region": raw.get("body_region") if isinstance(raw.get("body_region"), str) and raw.get("body_region") in REGIONS else None,
             "uncertainty": str(raw.get("uncertainty") or "")[:220]}
 
 def focused_object_crop(image: bytes) -> bytes:
