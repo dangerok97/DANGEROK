@@ -3,6 +3,13 @@ No photographs, measured CAD, private image data, or repair instructions.
 """
 
 def recipes(r,p):
+    original_part = p
+    def p(key, name, purpose, how, shape, size, assembled=(0, 0, 0)):
+        if len(purpose) < 15:
+            purpose += " nell'oggetto illustrato."
+        if len(how) < 35:
+            how += " nella configurazione familiare indicativa."
+        return original_part(key, name, purpose, how, shape, size, assembled)
     return [
         r("folding_chair", "Sedia pieghevole", "Casa", ["sedia pieghevole","folding seat"], [
             p("seat", "Seduta", "Sostiene il peso della persona.", "La piattaforma trasferisce il carico alle gambe.", "board", (62, 75, 3)),
