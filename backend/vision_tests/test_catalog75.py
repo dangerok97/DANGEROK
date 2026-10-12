@@ -21,11 +21,11 @@ def fingerprint(model):
 
 def test_exactly_126_families_without_counting_aliases_or_versions():
     assert EXPECTED_ADDITIONS == 50
-    assert len(ALL) == len({m.canonical_key for m in ALL}) == 126
-    assert len(ADDED) == 101
+    assert len(ALL) == len({m.canonical_key for m in ALL}) == 160
+    assert len(ADDED) == 135
     assert len(all_recipes()) == 121
-    assert len(METADATA) == 126
-    assert PACK_VERSION == 'common-126-v1'
+    assert len(METADATA) == 160
+    assert PACK_VERSION == 'common-160-v1'
     assert set(BASELINE).issubset({m.canonical_key for m in ALL})
 
 
@@ -64,7 +64,7 @@ def test_recipes_are_not_duplicate_geometries_with_relabelled_names():
     assert len(signatures) == len(set(signatures)) == 50
     for model in ADDED[50:]:
         assert len({p.name for p in model.parts}) == len(model.parts)
-    assert len({m.title for m in ALL}) == 126
+    assert len({m.title for m in ALL}) == 160
 
 
 def test_references_are_scoped_https_not_private_media():
@@ -108,11 +108,11 @@ async def test_all_added_families_reused_by_a_new_user_without_generation(databa
         assert first['status'] == 'family' and first['cache_hit'] and not first['generation_used']
         assert first['version_id'] == second['version_id']
         assert first['source_type'] == 'seed' and first['shared']
-    assert await database[MODELS].count_documents({}) == 126
-    assert await database[VERSIONS].count_documents({}) == 126
+    assert await database[MODELS].count_documents({}) == 160
+    assert await database[VERSIONS].count_documents({}) == 160
     assert await database[JOBS].count_documents({}) == 0
     await CatalogService(database).initialize()
-    assert await database[VERSIONS].count_documents({}) == 126
+    assert await database[VERSIONS].count_documents({}) == 160
 
 
 @pytest.mark.asyncio
@@ -125,7 +125,7 @@ async def test_expansion_adds_fifty_to_preexisting_twentyfive_without_replacing_
     assert len(old) == 25
     await CatalogService(database).initialize()
     current = {m['canonical_key']:m['current_version'] for m in await database[MODELS].find({}).to_list(250)}
-    assert len(current) == 126 and {key: current[key] for key in old} == old
+    assert len(current) == 160 and {key: current[key] for key in old} == old
 
 
 @pytest.mark.asyncio
