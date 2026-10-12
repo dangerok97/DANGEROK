@@ -81,14 +81,7 @@ class WhatsAppService:
         }
 
     async def disconnect(self, user_id: str) -> None:
-        await self.db.whatsapp_link_codes.delete_many({"user_id": user_id})
-        await self.db.whatsapp_links.delete_many({"user_id": user_id})
-        # No user text or phone ciphertext from pending inbound messages may
-        # survive account revocation: the existing inbox has no business replying.
-        await self.db.whatsapp_inbox.update_many(
-            {"reply_user_id": user_id, "status": {"$ne": "delivered"}},
-            {"$set": {"status": "discarded", "phone_enc": None, "text_enc": None, "reply_enc": None}},
-        )
+        await disconnect_account(self.db, user_id)
 
     async def _limit_pair_attempts(self, phone_hash: str) -> bool:
         from security.rate_limit import _bucket_id
@@ -313,3 +306,13 @@ class WhatsAppService:
                 {"_id": item["phone_hash"], "owner": item_id},
             )
         return True
+
+
+async def disconnect_account(db, user_id: str) -> None:
+    """Revocation always works, even when Meta credentials are no longer set."""
+    await db.whatsapp_link_codes.delete_many({"user_id": user_id})
+    await db.whatsapp_links.delete_many({"user_id": user_id})
+    await db.whatsapp_inbox.update_many(
+        {"reply_user_id": user_id, "status": {"$ne": "delivered"}},
+        {"$set": {"status": "discarded", "phone_enc": None, "text_enc": None, "reply_enc": None}},
+    )
