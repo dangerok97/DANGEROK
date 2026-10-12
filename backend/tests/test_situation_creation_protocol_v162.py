@@ -267,3 +267,59 @@ async def test_real_loop_sends_create_requirement_and_canonical_target_contract(
                                      db=db, decision_fn=checked_decision(decide), max_steps=1)
     assert result.ok and result.tool_calls == 0 and len(calls) == 1
     assert await db.situations.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_terminal_missing_refs_saves_first_then_schedules_with_real_id(monkeypatch):
+    """Regression for the actual live model: made-up schedule + missing arrays twice.
+
+    Only a user-owned Situation may be persisted; no phantom scheduling side
+    effect may happen before the database confirms its ID.
+    """
+    monkeypatch.setenv("AMBIENT_RUNTIME", "1")
+    db = AsyncMongoMockClient().synthetic_missing_refs_recovery
+    await db.agent_goals.create_index("id", unique=True)
+    await db.agent_runs.create_index("goal_id", unique=True)
+    await db.ambient_wakes.create_index("identity", unique=True)
+    sess = session()
+    due = (datetime.now(timezone.utc) + timedelta(minutes=24)).isoformat()
+    declared = deepcopy({**CREATE_636, "summary": SUMMARY})
+    declared.pop("source_refs")
+    declared.pop("linked_object_refs")
+    calls = []
+    real_id = {}
+
+    async def decide(system, user):
+        payload = json.loads(user)
+        calls.append(payload)
+        if len(calls) in (1, 2):
+            assert await db.situations.count_documents({}) == 0
+            assert await db.ambient_wakes.count_documents({}) == 0
+            return {"response_mode": "tool",
+                    "situation_update": deepcopy(declared),
+                    "tool_call": schedule(PLACE_REF, 1, due)["tool_call"]}
+        if len(calls) == 3:
+            ack = observation(payload, "situation_mutation")
+            assert ack["status"] == "ok"
+            sid = ack["payload"]["situation"]["id"]
+            real_id["id"] = sid
+            assert sid.startswith("sit_") and sid != PLACE_REF
+            assert await db.situations.count_documents({"user_id": OWNER}) == 1
+            return schedule(sid, ack["payload"]["situation"]["revision"], due)
+        assert len(calls) == 4
+        ack = observation(payload, "schedule_situation_check")
+        assert ack["status"] == "ok" and ack["payload"]["next_check_at"] == due
+        return {"response_mode": "answer", "message_to_user": "Ho fissato il controllo."}
+
+    result = await run_cognitive_loop(
+        sess=sess, user_message=USER_MESSAGE, db=db,
+        decision_fn=checked_decision(decide), max_steps=5,
+    )
+    assert result.ok and result.tool_calls == 1 and len(calls) == 4
+    assert (await db.situations.count_documents({"user_id": OWNER})) == 1
+    assert (await db.agent_goals.count_documents({"owner_id": OWNER})) == 1
+    assert (await db.ambient_wakes.count_documents({"owner_id": OWNER, "status": "pending"})) == 1
+    state = await SituationRepository(db).get(OWNER, real_id["id"])
+    assert state.summary == SUMMARY and state.desired_outcome == declared["desired_outcome"]
+    assert state.started_at == declared["started_at"]
+    assert (await read_followup(db, OWNER, real_id["id"]))["next_check_at"] == due
