@@ -119,8 +119,15 @@ export function anatomicalRegion(atlas:Atlas,requested:StudyRegion,side:ModelSid
  const preferredSide=side==='unknown'?'right':side;
  const seed=conceptAnchor(atlas,region,preferredSide,full);
  let roi:Bounds,source:'source-concept'|'fallback';
- if(seed.length>0){
-  roi=extend(bounds(seed),full,...spec.factors);
+ const expected=normalizedROI(full,spec.location);
+ const seedBox=seed.length?bounds(seed):null;
+ const local=seedBox?extend(seedBox,full,...spec.factors):null;
+ const expectedWidth=(expected[1]-expected[0]),expectedHeight=(expected[3]-expected[2]);
+ const localEnough=local&&
+   (local[1]-local[0])<expectedWidth*1.27&&
+   (local[3]-local[2])<expectedHeight*1.27;
+ if(localEnough&&local){
+  roi=local;
   source='source-concept';
  } else {
   roi=normalizedROI(full,spec.location);
@@ -131,7 +138,13 @@ export function anatomicalRegion(atlas:Atlas,requested:StudyRegion,side:ModelSid
   source='fallback';
  }
  // Center-in-volume test avoids keeping huge unrelated body structures.
- const spatial=all.filter(p=>within(p,roi));
+ const spatial=all.filter(p=>{
+  const b=p.bounds,spanY=b[1][1]-b[0][1],spanX=b[1][0]-b[0][0];
+  // Exclude whole-body skins and long structures whose centers happen to lie in
+  // the local ROI; this is a part view, not a body-wide slice.
+  if(spanY>(roi[3]-roi[2])*1.70||spanX>(roi[1]-roi[0])*2.5)return false;
+  return within(p,roi);
+ });
  const ids=Array.from(new Set([...seed.filter(p=>within(p,roi)).map(p=>p.id),...spatial.map(p=>p.id)]));
  // Fail closed (never silently replace a hand with the full body).
  const available=ids.length>=spec.min&&ids.length<all.length*.87;
