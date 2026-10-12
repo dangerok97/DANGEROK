@@ -40,7 +40,6 @@ export const visualStyle = `
 .vx-header .vx-catalog{margin-left:0;white-space:nowrap}
 @media(max-width:500px){.vx-header{gap:4px;padding-left:5px;padding-right:7px}.vx-back{width:38px;min-width:38px}.vx-brand{font-size:16px;letter-spacing:2px;white-space:nowrap}.vx-brand span{font-size:9px;margin-left:2px;letter-spacing:1px}.vx-version{font-size:7px;letter-spacing:.6px}.vx-anatomy-nav,.vx-header .vx-catalog{min-height:43px;padding:8px 7px;font-size:11px!important;border-radius:9px}.vx-anatomy-nav{margin-left:auto}}
 @media(max-width:345px){.vx-version{display:none}.vx-brand{font-size:14px}.vx-anatomy-nav,.vx-header .vx-catalog{font-size:10px!important;padding:7px 5px}}
-`;
 
 /* Person recognition holds an anatomy model over live video, never a separate page. */
 .vx-shade-anatomy{background:linear-gradient(180deg,#05162070,transparent 20%,transparent 79%,#04182265)!important;}
@@ -48,3 +47,5 @@ export const visualStyle = `
 .has-anatomy .vx-status{z-index:2;left:12px;right:12px;bottom:8px;opacity:0;pointer-events:none;}
 .has-anatomy .vx-canvas{pointer-events:none;}
 .has-anatomy .vx-stage>video{visibility:visible!important;opacity:1;}
+
+`;
