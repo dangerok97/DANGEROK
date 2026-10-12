@@ -360,6 +360,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         return _fail("open_navigation", "NOT_CONFIGURED")
 
     service = _service(runtime)
+    platform = str(runtime.get("platform") or "web").lower()
     spoken = str(arguments.get("destination") or arguments.get("name") or "").strip()
     resolution = await service.resolve_destination(uid, spoken)
     if not resolution.resolved or resolution.place is None:
@@ -374,16 +375,23 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
             from places import routing
 
             origin = None
-            if routing.configured_provider() is not None:
+            if routing.configured_provider() is not None and platform != "whatsapp":
                 origin, bridge = await _fresh_origin_or_location_bridge(runtime)
                 if origin is None and bridge is not None:
                     return _navigation_needs_location(uid, spoken, bridge)
 
-            preview = await _public_route_preview(
-                spoken,
-                runtime,
-                origin=origin,
-                arrival_request=arguments.get("arrival_request"),
+            # WhatsApp cannot request a foreground GPS fix. The user asked
+            # to OPEN navigation, not for an ORA-owned current-traffic ETA:
+            # Google Maps resolves the public query using its own device fix.
+            # Route/traffic estimates remain unavailable until a real origin.
+            preview = (
+                await _public_route_preview(
+                    spoken,
+                    runtime,
+                    origin=origin,
+                    arrival_request=arguments.get("arrival_request"),
+                )
+                if platform != "whatsapp" else None
             )
             return _ok("open_navigation", {
                 "ready": True,
@@ -442,10 +450,17 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
     from places import routing
 
     origin = None
-    if routing.configured_provider() is not None:
+    if routing.configured_provider() is not None and platform != "whatsapp":
         origin, bridge = await _fresh_origin_or_location_bridge(runtime)
         if origin is None and bridge is not None:
             return _navigation_needs_location(uid, spoken or place.label, bridge)
+
+    # The account's saved map preference is respected. If none is set,
+    # WhatsApp uses a Google Maps HTTPS handoff rather than asking for a
+    # client-only choice it cannot render as native app controls.
+    preferred_app = await _preferred_app(runtime["db"], uid)
+    if platform == "whatsapp" and not preferred_app:
+        preferred_app = "google_maps"
 
     plan = handoff(
         latitude=place.coordinates.latitude,
@@ -456,8 +471,8 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
         # turn-by-turn guidance to a place the person has since left.
         origin=None,
         mode=str(arguments.get("mode") or "driving"),
-        preferred_app=await _preferred_app(runtime["db"], uid),
-        platform=str(runtime.get("platform") or "web"),
+        preferred_app=preferred_app,
+        platform=platform,
     )
 
     # How long it will take, when there is a service that knows and a position
@@ -508,7 +523,7 @@ async def open_navigation(arguments: Dict[str, Any], runtime: Dict[str, Any]) ->
                 route_weather = await briefing.weather_along_route(
                     best["polyline"], best["duration_seconds"],
                 )
-    if not route_weather:
+    if not route_weather and platform != "whatsapp":
         # Current weather at the confirmed destination is useful even without
         # live routing, but must never be described as weather along the road.
         from weather import now_at
