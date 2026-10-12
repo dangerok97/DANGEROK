@@ -95,6 +95,48 @@ class _InvalidNextSelection(Exception):
         self.context = context
 
 
+def _ready_to_verify_existing_internal_result(goal, plan, pending, evidence) -> bool:
+    """Avoid another choice call when all useful work has reached verification.
+
+    This does NOT validate or complete the content. _finish must still judge
+    the exact owned sources, the result, the person's criteria and any other
+    completion gates. Any unfinished observation, external effect, source
+    cursor, person request or negative review returns to the normal planner.
+    """
+    if (getattr(goal, "status", None) != "active"
+            or getattr(plan, "status", None) != "active"
+            or getattr(goal, "source_kind", "") in ("situation_initial_review", "situation_followup")
+            or getattr(goal, "requires_user_input", False)
+            or getattr(goal, "requires_user_authority", False)
+            or getattr(goal, "user_deferred_until", None)
+            or not getattr(goal, "prepared_text", "")
+            or not getattr(goal, "prepared_sources", None)
+            or not evidence or not pending):
+        return False
+    from agent.prepared_review import current_prepared_review
+    if current_prepared_review(goal) is not None:
+        return False
+    seen = {item.id for item in evidence}
+    if not set(goal.prepared_sources).issubset(seen):
+        return False
+    if any(step.external_effect or step.reaches_somebody_else or step.step_type == "execute"
+           for step in plan.steps):
+        return False
+    if not any(step.step_type == "prepare" and step.status == "succeeded"
+               and step.capability_needed == "document.create" for step in plan.steps):
+        return False
+    return all(
+        step.step_type == "verify"
+        and step.capability_needed in ("", "information.read")
+        and not step.input_refs
+        and not step.parameters
+        and not step.asks
+        and not step.effect_target
+        and not step.authority_requirement
+        for step in pending
+    )
+
+
 def _step_declaration(raw: Any):
     """Normalize only supplied, unambiguous aliases from ActionStep.for_ai.
 
@@ -1181,6 +1223,12 @@ class AgentService:
                     "selection": {"candidate_step_ids": [item.id for item in pending[:MAX_PLAN_STEPS]]},
                 })
             return ("execute", first)
+
+        if _ready_to_verify_existing_internal_result(goal, plan, pending, evidence):
+            # Only an internal draft and non-effect verification steps remain.
+            # _finish itself spends the bounded verifier call and may refuse
+            # completion; do not waste a separate model call to select it.
+            return ("finish", None)
 
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             # Out of judgement for this run is NOT the same as out of work.
