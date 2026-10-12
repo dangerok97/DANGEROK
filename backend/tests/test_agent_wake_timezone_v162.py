@@ -86,6 +86,28 @@ async def test_wake_dispatch_uses_instants_and_honors_person_defer(
 
 
 @pytest.mark.asyncio
+async def test_legacy_goal_reads_normalize_in_memory_for_later_agent_checks_without_mutating_store():
+    db = AsyncMongoMockClient().synthetic_legacy_offset
+    repo = AgentRepository(db)
+    raw_due = "2026-10-12T23:20:00+02:00"
+    raw_defer = "2026-10-13T00:00:00+02:00"
+    older = goal("gol_legacy_offset", due=raw_due, deferred=raw_defer)
+    await db.agent_goals.insert_one(older.model_dump())
+
+    loaded = await repo.get_goal(OWNER, older.id)
+    assert loaded.next_run_at == "2026-10-12T21:20:00+00:00"
+    assert loaded.user_deferred_until == "2026-10-12T22:00:00+00:00"
+    opened = await repo.open_goals(OWNER)
+    assert len(opened) == 1
+    assert opened[0].next_run_at == loaded.next_run_at
+    # The model/worker gets one canonical instant while storage remains
+    # untouched until a legitimate owned write occurs.
+    stored = await db.agent_goals.find_one({"owner_id": OWNER, "id": older.id})
+    assert stored["next_run_at"] == raw_due
+    assert stored["user_deferred_until"] == raw_defer
+
+
+@pytest.mark.asyncio
 async def test_new_and_deferred_goals_are_saved_in_canonical_utc_and_stale_workers_cannot_erase_defer():
     db = AsyncMongoMockClient().synthetic_canonical_goal
     await db.agent_goals.create_index("id", unique=True)

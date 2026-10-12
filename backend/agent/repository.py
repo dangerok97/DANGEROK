@@ -62,6 +62,16 @@ def _normalize_goal_clock(goal: AutonomousGoal) -> None:
             setattr(goal, field, fixed)
 
 
+def _goal_from_doc(doc) -> Optional[AutonomousGoal]:
+    if doc is None:
+        return None
+    goal = AutonomousGoal.model_validate(doc)
+    # Old rows are translated in memory for every downstream due/deferral
+    # check, including AgentService.advance. Reading never mutates the DB.
+    _normalize_goal_clock(goal)
+    return goal
+
+
 class AgentRepository:
     def __init__(self, db):
         self.db = db
@@ -198,7 +208,7 @@ class AgentRepository:
         doc = await self.db[GOALS].find_one(
             {"id": goal_id, "owner_id": owner_id}, {"_id": 0}
         )
-        return AutonomousGoal.model_validate(doc) if doc else None
+        return _goal_from_doc(doc)
 
     async def open_goals(self, owner_id: str, *, limit: int = 20) -> List[AutonomousGoal]:
         docs = await self.db[GOALS].find(
@@ -206,7 +216,7 @@ class AgentRepository:
         ).sort("created_at", 1).to_list(limit)
         # Do not delegate the public limit contract to a driver's interpretation
         # of to_list(length). The caller asked for at most this many rows.
-        return [AutonomousGoal.model_validate(d) for d in docs[:limit]]
+        return [_goal_from_doc(d) for d in docs[:limit]]
 
     async def goal_for_opportunity(
         self, owner_id: str, opportunity_id: str
@@ -219,7 +229,7 @@ class AgentRepository:
             },
             {"_id": 0},
         )
-        return AutonomousGoal.model_validate(doc) if doc else None
+        return _goal_from_doc(doc)
 
     # --- plans ------------------------------------------------------------
 
