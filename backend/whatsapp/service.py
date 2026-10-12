@@ -300,7 +300,14 @@ class WhatsAppService:
                     "lease_until": now(),
                 }, "$inc": {"attempts": 1}},
             )
-            log.warning("WhatsApp delivery attempt failed: category=%s", type(exc).__name__)
+            from whatsapp.cloud import CloudSendError
+            if isinstance(exc, CloudSendError):
+                log.warning(
+                    "WhatsApp delivery rejected: http=%s meta_code=%s meta_subcode=%s",
+                    exc.status, exc.code, exc.subcode,
+                )
+            else:
+                log.warning("WhatsApp delivery attempt failed: category=%s", type(exc).__name__)
         finally:
             await self.db.whatsapp_sender_locks.delete_one(
                 {"_id": item["phone_hash"], "owner": item_id},

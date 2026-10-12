@@ -218,3 +218,38 @@ def test_verification_needs_only_verify_token(monkeypatch):
         assert client.post("/whatsapp/webhook", json={"object": "whatsapp_business_account"}).status_code == 503
 
 
+
+
+@pytest.mark.asyncio
+async def test_meta_send_failure_reports_only_numeric_diagnostics(config, monkeypatch):
+    """Provider body may expose personal message / phone: never retain those."""
+    from whatsapp import cloud
+    class FakeResponse:
+        status_code = 400
+        def json(self):
+            return {"error": {
+                "code": 131030,
+                "error_subcode": 42,
+                "message": "PRIVATE_MESSAGE_TEXT 393331112233 secret_access_token",
+                "error_data": {"details": "PRIVATE_MESSAGE_TEXT"},
+            }}
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *exc):
+            return None
+        async def post(self, *args, **kwargs):
+            return FakeResponse()
+    monkeypatch.setattr(cloud.httpx, "AsyncClient", FakeClient)
+    with pytest.raises(cloud.CloudSendError) as raised:
+        await config.send_text("393331112233", "PRIVATE_MESSAGE_TEXT")
+    err = raised.value
+    assert err.status == 400
+    assert err.code == 131030
+    assert err.subcode == 42
+    assert "PRIVATE_MESSAGE_TEXT" not in str(err)
+    assert "393331112233" not in str(err)
+    assert "secret_access_token" not in str(err)
+

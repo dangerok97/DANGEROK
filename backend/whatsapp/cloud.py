@@ -99,8 +99,24 @@ class CloudConfig:
                 "Content-Type": "application/json",
             }, json=data)
         if response.status_code >= 400:
-            # Provider errors can echo sensitive message content/number: never log body.
-            raise CloudSendError(response.status_code)
+            # Meta may echo recipient, message content or authorization context
+            # in free-form error fields. Keep ONLY bounded numeric diagnostics.
+            error_code = None
+            error_subcode = None
+            try:
+                api_error = response.json().get("error") or {}
+                if isinstance(api_error, dict):
+                    for name in ("code", "error_subcode"):
+                        value = api_error.get(name)
+                        parsed = int(value) if isinstance(value, int) and not isinstance(value, bool) else None
+                        if parsed is not None and 0 <= parsed <= 9999999:
+                            if name == "code":
+                                error_code = parsed
+                            else:
+                                error_subcode = parsed
+            except (ValueError, TypeError, AttributeError):
+                pass
+            raise CloudSendError(response.status_code, error_code, error_subcode)
         try:
             parsed = response.json()
             if not parsed.get("messages"):
@@ -110,9 +126,13 @@ class CloudConfig:
 
 
 class CloudSendError(Exception):
-    def __init__(self, status: int):
+    """Safe Meta failure diagnostics; never retain error text or the raw body."""
+
+    def __init__(self, status: int, code: int | None = None, subcode: int | None = None):
         self.status = status
-        super().__init__(f"Meta Cloud API status {status}")
+        self.code = code
+        self.subcode = subcode
+        super().__init__(f"Meta Cloud API HTTP {status}, code {code}, subcode {subcode}")
 
 
 def iter_inbound_messages(payload: dict, expected_phone_number_id: str):
