@@ -47,6 +47,7 @@ OBSERVATION_SCHEMA = {
                  "description": "[ymin,xmin,ymax,xmax], 0..1000; [0,0,0,0] if not localizable."},
         "safe_to_generate": {"type": "BOOLEAN"},
         "uncertainty": {"type": "STRING"},
+        "body_region": {"type": "STRING", "enum": ["full_body","face","hand","arm","torso","abdomen","leg"]},
     },
     "required": ["recognized", "canonical_key", "object_name", "confidence", "bbox", "safe_to_generate", "uncertainty"],
 }
