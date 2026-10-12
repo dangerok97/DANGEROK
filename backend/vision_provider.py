@@ -1,8 +1,7 @@
 """Bounded vision-provider transport. Never log keys, image bytes or model prose.
 
 A provider timeout/configuration error is NOT evidence that a photo is unclear.
-Keep this module independent of application state so the real HTTP contract can
-be tested with MockTransport rather than stubbing the recognition function.
+The transport is independent of application state for HTTP-contract tests.
 """
 from __future__ import annotations
 import asyncio
@@ -17,7 +16,8 @@ import time
 import httpx
 
 log = logging.getLogger("ora.vision.provider")
-DEFAULT_MODELS = "gemini-flash-latest,gemini-flash-lite-latest"
+# This variation responded in the production trace; keep another alias as fallback.
+DEFAULT_MODELS = "gemini-flash-lite-latest,gemini-flash-latest"
 _BACKOFF: dict[tuple[str, str], tuple[float, str]] = {}
 _PREFERRED: tuple[str, str] | None = None
 
@@ -34,7 +34,6 @@ class VisionProviderError(RuntimeError):
         self.code = code if code in MESSAGES else "provider_unavailable"
         super().__init__(MESSAGES[self.code])
 
-# The identity is open-vocabulary. This schema is NOT a list of catalog models.
 OBSERVATION_SCHEMA = {
     "type": "OBJECT",
     "properties": {
@@ -115,7 +114,7 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
     candidates.sort(key=lambda mk: _route(*mk) != _PREFERRED)
     failures: list[str] = []
     owned = client is None
-    session = client or httpx.AsyncClient(timeout=httpx.Timeout(11, connect=4))
+    session = client or httpx.AsyncClient(timeout=httpx.Timeout(9, connect=4))
     try:
         for model, key in candidates[:4]:
             route = _route(model, key)
@@ -139,7 +138,12 @@ async def ask_json(system: str, prompt: str, image: bytes | None = None,
                 result = parse_response(body)
                 _PREFERRED = route
                 return result
+            except asyncio.CancelledError:
+                # The phase deadline must not cause its retry to select this same stalled route.
+                _BACKOFF[route] = (time.monotonic() + 5, "provider_timeout")
+                raise
             except (httpx.TimeoutException, asyncio.TimeoutError):
+                _BACKOFF[route] = (time.monotonic() + 5, "provider_timeout")
                 failures.append("provider_timeout")
                 log.warning("vision_provider model=%s code=provider_timeout", model)
             except httpx.HTTPError:
