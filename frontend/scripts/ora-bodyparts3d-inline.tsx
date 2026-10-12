@@ -43,11 +43,12 @@ export default function OraOverlay(){
   const controller=new AbortController();
   fetch('/bodyparts3d/models/atlas.json',{signal:controller.signal,cache:'force-cache'})
    .then(response=>{if(!response.ok)throw new Error('Non riesco a caricare il modello anatomico.');return response.json();})
-   .then((source:Atlas)=>{
+   .then((source:unknown)=>{
+    const atlasSource=source as Atlas;
     if(controller.signal.aborted)return;
-    if(source.version!=='BodyParts3D 4.0'||source.parts.length!==2234||source.concepts.length!==3432)
+    if(atlasSource.version!=='BodyParts3D 4.0'||atlasSource.parts.length!==2234||atlasSource.concepts.length!==3432)
      throw new Error('Il modello anatomico non corrisponde alla versione verificata.');
-    const next=italianAtlas(source);
+    const next=italianAtlas(atlasSource);
     setAtlas(next);
     const name=REGION_QUERY[zone];
     if(name){
