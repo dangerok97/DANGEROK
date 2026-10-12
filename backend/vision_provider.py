@@ -86,7 +86,10 @@ def parse_response(data):
     if not candidates or not isinstance(candidates[0],dict): raise VisionProviderError("invalid_model_response")
     candidate=candidates[0]
     if candidate.get("finishReason") not in (None,"STOP"): raise VisionProviderError("invalid_model_response")
-    parts=candidate.get("content",{}).get("parts",[])
+    content=candidate.get("content")
+    if not isinstance(content,dict) or not isinstance(content.get("parts"),list):
+        raise VisionProviderError("invalid_model_response")
+    parts=content["parts"]
     text="".join(p.get("text","") for p in parts if isinstance(p,dict) and isinstance(p.get("text",""),str) and not p.get("thought"))
     try:
         value=json.loads(text)

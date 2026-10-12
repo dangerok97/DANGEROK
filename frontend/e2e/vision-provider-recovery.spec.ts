@@ -31,3 +31,24 @@ test('uncertain image offers a hint and sends it for visual verification',async(
  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-part-count','8');
  await expect(page.getByTestId('vision-recovery')).toHaveCount(0);
 });
+
+
+test('automatic retries pause while the user supplies an object hint',async({page,browserName})=>{
+ test.skip(browserName==='webkit','Synthetic canvas video is not a physical WebKit camera test.');
+ let scans=0;
+ await page.addInitScript(()=>{
+  const devices={getUserMedia:async()=>{
+   const canvas=document.createElement('canvas');canvas.width=320;canvas.height=480;const ctx=canvas.getContext('2d')!;let n=0;
+   const draw=()=>{ctx.fillStyle=++n%2?'#aabbcc':'#334455';ctx.fillRect(0,0,320,480);ctx.fillStyle='#222';ctx.fillRect(90,90,140,250);};
+   draw();setInterval(draw,120);return canvas.captureStream(24);
+  }};Object.defineProperty(navigator,'mediaDevices',{configurable:true,get:()=>devices});
+ });
+ await page.route('**/api/vision-xray/scan',route=>{scans++;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'unknown',code:'recognition_uncertain',can_describe:true,reason:'Puoi indicarmi che oggetto è.'})});});
+ await page.goto('/vision-xray');await page.getByTestId('vision-open-camera').click();
+ await expect(page.getByTestId('vision-recovery')).toBeVisible();
+ await page.getByTestId('vision-object-hint').fill('un telecomando');
+ await page.waitForTimeout(7000);
+ expect(scans).toBe(1);await expect(page.getByTestId('vision-object-hint')).toHaveValue('un telecomando');
+ await page.getByTestId('vision-identify-hint').click();await expect.poll(()=>scans).toBe(2);
+ await page.getByTestId('vision-stop-camera').click();await expect(page.getByTestId('vision-recovery')).toHaveCount(0);
+});

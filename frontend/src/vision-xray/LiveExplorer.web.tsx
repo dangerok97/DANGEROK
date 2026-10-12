@@ -26,6 +26,7 @@ export default function LiveExplorer(){
   const [error,setError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
   const [needsHint,setNeedsHint]=useState(false);
+  const needsHintRef=useRef(false);needsHintRef.current=needsHint;
   const [objectHint,setObjectHint]=useState('');
   const [result,setResult]=useState<CatalogResult|null>(null);
   const [selected,setSelected]=useState('');
@@ -256,7 +257,7 @@ export default function LiveExplorer(){
       const node=canvas.current;if(!node)return;const ctx=node.getContext('2d');if(!ctx)return;
       const w=node.clientWidth,h=node.clientHeight,dpr=Math.min(2,window.devicePixelRatio||1);if(!w||!h)return;
       const live=modeRef.current==='live',v=video.current;
-      if(live&&!scene.current&&v?.videoWidth&&pixels&&time-lastSample>120){
+      if(live&&!scene.current&&!needsHintRef.current&&v?.videoWidth&&pixels&&time-lastSample>120){
         const rect=stageElement.current?.getBoundingClientRect();
         const crop=cameraCrop(v.videoWidth,v.videoHeight,rect?.width||w,rect?.height||h,cameraZoomRef.current);
         lastSample=time;small.width=160;small.height=Math.round(160*crop.height/crop.width);

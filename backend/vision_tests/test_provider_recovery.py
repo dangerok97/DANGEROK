@@ -170,3 +170,8 @@ async def test_generation_provider_failure_does_not_publish_or_hide_the_cause(ap
         resp=await client.post('/api/vision-xray/scan',headers={'Authorization':'Bearer vision-test-alice'},json={'mime_type':'image/jpeg','image_base64':jpeg(),'allow_generation':True})
         assert resp.status_code==503 and resp.json()['detail']['code']=='provider_billing'
     assert await database.vision_catalog_models.count_documents({'canonical_key':'lidded_waste_bin'})==0
+
+@pytest.mark.parametrize('content',[None,[],42,{'parts':None},{'parts':'invalid'}])
+def test_bad_content_envelope_returns_structured_error(content):
+    with pytest.raises(provider.VisionProviderError):
+        provider.parse_response({'candidates':[{'content':content}]})
