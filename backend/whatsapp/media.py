@@ -27,7 +27,7 @@ _AUDIO_TYPES = frozenset((
     "audio/wav", "audio/x-wav", "audio/webm",
 ))
 _MAX_IMAGE_DOC = 12 * 1024 * 1024
-_MAX_AUDIO = 16 * 1024 * 1024
+_MAX_AUDIO = 8 * 1024 * 1024
 
 
 class MediaNotUsable(Exception):
@@ -129,7 +129,7 @@ async def transcribe_voice(audio: bytes, mime_type: str, *, api_key: str | None 
             response = await client.post(
                 "https://api.openai.com/v1/audio/transcriptions",
                 headers={"Authorization": f"Bearer {key}"},
-                data={"model": "gpt-4o-mini-transcribe", "language": "it"},
+                data={"model": "gpt-4o-mini-transcribe"},
                 files={"file": ("ora_whatsapp" + ext, audio, mime_type)},
             )
             if response.status_code != 200:
