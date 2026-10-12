@@ -6264,3 +6264,12 @@ Riferimenti API: https://www.w3.org/TR/image-capture/ e
 https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
 Lo zoom qui è digitale, non un comando hardware o zoom ottico. Le sorgenti
 generali per i seed sono elencate nel modulo; nessun CAD o immagine è copiato.
+
+
+
+### 2026-10-12 — ORA on WhatsApp V1 (Meta Cloud API)
+
+- Added verified Cloud API callbacks and durable per-sender inbox; no sender is trusted as an ORA account before challenge pairing.
+- Reused AI Core, user-scoped memory and permission gates; encrypted phone/message storage, duplicate filtering, and disconnect.
+- Added WhatsApp connection card in Settings; fail-closed if Meta credentials absent.
+- Added CI tests and deployment/activation guide docs/WHATSAPP_CLOUD_API_V1.md. Live Meta integration requires external credentials.
