@@ -25,18 +25,23 @@ _SAFE_PLAN = re.compile(r"lop_[a-zA-Z0-9_-]{4,76}\Z")
 
 def _app_origin() -> str:
     value = (os.environ.get("WHATSAPP_ORA_WEB_URL") or _DEFAULT_ORA_WEB).strip()
-    parsed = urlparse(value)
+    try:
+        parsed = urlparse(value)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        return _DEFAULT_ORA_WEB
     if (
         parsed.scheme == "https"
-        and parsed.hostname
+        and hostname
         and (
-            parsed.hostname == "ora-web-production-fb67.up.railway.app"
-            or parsed.hostname.endswith(".up.railway.app")
+            hostname == "ora-web-production-fb67.up.railway.app"
+            or hostname.endswith(".up.railway.app")
         )
-        and not parsed.username and not parsed.password and not parsed.port
+        and not parsed.username and not parsed.password and port is None
         and parsed.path in ("", "/") and not parsed.query and not parsed.fragment
     ):
-        return f"https://{parsed.hostname}"
+        return f"https://{hostname}"
     return _DEFAULT_ORA_WEB
 
 
