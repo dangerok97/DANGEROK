@@ -14,24 +14,31 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Clarify new bowl description without changing the old 25 models
+      - name: Fit perspective envelopes without changing stored models or controls
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin feat/vision-catalog-75
-          test "$(git rev-parse FETCH_HEAD)" = "8e543d648a02b67c2df8beb929b56cc4e1b081a4"
-          git switch -c polished-catalog75 FETCH_HEAD
+          test "$(git rev-parse FETCH_HEAD)" = "b3604460700e4aeffd35db72171d5402f8022851"
+          git switch -c fitted-catalog75 FETCH_HEAD
           python - <<'PY'
           from pathlib import Path
-          p=Path('backend/vision_catalog_extended/kitchen.py')
-          s=p.read_text()
-          old='Resta esterna al gruppo che ruota.'
-          assert s.count(old)==1
-          p.write_text(s.replace(old,'La ciotola resta ferma all’esterno del cestello che ruota e raccoglie le gocce espulse.',1))
+          def once(path,old,new):
+            s=path.read_text();assert s.count(old)==1,(str(path),old[:70]);path.write_text(s.replace(old,new,1))
+          p=Path('frontend/src/vision-xray/presentation.ts')
+          once(p,'const envelope:Point[]=[];','const envelope:Point[]=[];let nearestDepth=0;')
+          once(p,'rotated[i].forEach(v=>envelope.push([v[0]+offset[0],v[1]+offset[1]]));','rotated[i].forEach(v=>{envelope.push([v[0]+offset[0],v[1]+offset[1]]);nearestDepth=Math.max(nearestDepth,v[2]+offset[2]);});')
+          once(p,'const s=Math.min(w*.84/Math.max(1,r-l),available*.83/Math.max(1,b-t));','const flatScale=Math.min(w*.84/Math.max(1,r-l),available*.83/Math.max(1,b-t));\n    // Bound the maximum perspective magnification before fitting, so wide or\n    // deep families do not clip at zoom 1. User-requested zoom may still crop.\n    const s=flatScale*(850-Math.min(350,nearestDepth*flatScale))/850;')
+          once(p,'const focusScale=selectedIndex<0?s:Math.min(w*.63/Math.max(1,selectedBounds[2]-selectedBounds[0]),available*.63/Math.max(1,selectedBounds[3]-selectedBounds[1]));','const flatFocusScale=selectedIndex<0?s:Math.min(w*.63/Math.max(1,selectedBounds[2]-selectedBounds[0]),available*.63/Math.max(1,selectedBounds[3]-selectedBounds[1]));\n    const nearestFocusDepth=selectedIndex<0?0:Math.max(0,...rotated[selectedIndex].map(v=>v[2]));\n    const focusScale=flatFocusScale*(1000-Math.min(350,nearestFocusDepth*flatFocusScale))/1000;')
+          tests=Path('frontend/src/vision-xray/presentation.test.mjs')
+          with tests.open('a') as out:
+            out.write("\ntest('all 75 families fit perspective overview and focused parts at default zoom',()=>{\n assert.equal(seeds.length,75);\n for(const [w,h] of [[390,490],[844,310],[1440,800]])for(const m of seeds){\n  const scene=new VisionPresentation(m);\n  for(const [yaw,pitch] of [[.46,-.22],[1.1,.5],[-.8,-.6]]){\n   const settings={...options,yaw,pitch};scene.draw(context(),w,h,settings);\n   for(const p of m.parts){const b=scene.partBounds(p.key);assert.ok(b[0]>=0&&b[1]>=0&&b[2]<=w&&b[3]<=h,m.canonical_key+' overview '+p.key+' '+JSON.stringify(b));}\n   for(const p of m.parts){scene.draw(context(),w,h,{...settings,selected:p.key,focus:1});const b=scene.partBounds(p.key);assert.ok(b[0]>=0&&b[1]>=0&&b[2]<=w&&b[3]<=h,m.canonical_key+' focus '+p.key+' '+JSON.stringify(b));}\n  }\n }\n});\n")
+          d=Path('docs/ARCHITECTURE.md')
+          once(d,'Nessuna modifica a schema dati, servizio di pubblicazione o motore grafico.','Nessuna modifica a schema dati o servizio di pubblicazione. Il renderer include il massimo ingrandimento prospettico nel calcolo di adattamento: insieme e componente focalizzato restano entro la visuale allo zoom iniziale, anche per i nuovi gruppi larghi o profondi.')
           PY
           git diff --check
-          git add backend/vision_catalog_extended/kitchen.py
+          git add frontend/src/vision-xray/presentation.ts frontend/src/vision-xray/presentation.test.mjs docs/ARCHITECTURE.md
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'docs(vision): clarify stationary bowl versus rotating basket'
+          git commit -m 'fix(vision): fit all family perspective bounds before user zoom'
           git push origin HEAD:refs/heads/feat/vision-catalog-75
