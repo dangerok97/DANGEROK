@@ -45,7 +45,8 @@ async def test_status_failure_and_cooldown(status,code):
   for _ in range(2):
    with pytest.raises(VisionProviderError) as err:await ask_json('system','p',client=client)
    assert err.value.code==code
- assert len(calls)==4
+ # A billing failure blocks the whole credential across model aliases.
+ assert len(calls)==(2 if status==402 else 4)
 
 @pytest.mark.asyncio
 async def test_transport_timeout_not_uncertain():
