@@ -225,19 +225,31 @@ class ContextBroker:
         )
 
     async def _memory_index_facts(self, user_id: str) -> List[ContextFact]:
-        """Expose existence only; durable Memory detail remains Stage B-only."""
+        """Index only; the precise remembered facts require Stage B.
+
+        Count neither missing sources nor a read failure as a claim that there
+        are no memories. Recurring reminders are also a governed memory source.
+        """
         try:
-            exists = await self.db.memories.find_one(
+            memory = await self.db.memories.find_one(
                 {"user_id": user_id, "status": "active"}, {"_id": 0, "id": 1}
+            )
+            memo = await self.db.recurring_memos.find_one(
+                {"owner_id": user_id, "status": "active", "recurrence": "annual"},
+                {"_id": 0, "memory_ref": 1},
             )
         except Exception as exc:
             logger.info("context broker memory index soft-fail: %s", type(exc).__name__)
             return []
-        if not exists:
+        if not memory and not memo:
             return []
         statement = (
-            "Governed durable Memory contains active personal evidence; details are not "
-            "loaded in Stage A; unresolved_personal_context=true."
+            "L'account contiene informazioni personali persistenti"
+            + (" e ricorrenze annuali programmate" if memo else "")
+            + ". I dettagli non sono ancora stati consultati: "
+            "per rispondere a una domanda su cosa e' stato ricordato, "
+            "usa response_mode=context e recupera evidence da memory e "
+            "recurring_memos. Non dedurre che la memoria sia vuota."
         )
         return [
             ContextFact(

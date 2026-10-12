@@ -108,7 +108,7 @@ class ContextSourceRegistry:
             # Situation, Profile and governed Memory are generic personal-context
             # anchors once the AI explicitly requests Stage B. This prevents a
             # language-dependent zero-overlap tie from excluding durable evidence.
-            anchor = 2 if source.name in ("situations", "profile", "memory") else 0
+            anchor = 2 if source.name in ("situations", "profile", "memory", "recurring_memos") else 0
             scored.append((hint + overlap + anchor, source.name, source))
         scored.sort(key=lambda row: (-row[0], row[1]))
         return [row[2] for row in scored[:maximum]], excluded
@@ -130,6 +130,14 @@ class ContextSourceRegistry:
                 "personal",
                 "durable",
                 self._memory,
+            ),
+            (
+                "recurring_memos",
+                "saved annual birthdays anniversaries reminders compleanni anniversari ricorrenze",
+                "user-confirmed",
+                "personal",
+                "durable",
+                self._recurring_memos,
             ),
             (
                 "situations",
@@ -309,6 +317,61 @@ class ContextSourceRegistry:
                     )
                 )
         return out
+
+    async def _recurring_memos(
+        self, user_id: str, need: ContextNeed, session_id: Optional[str]
+    ) -> List[ContextFact]:
+        """Read saved annual reminders by owner, *and* verify the governed Memory.
+
+        The recurring_memos collection is the scheduling source of truth.
+        The joined Memory must still be active: revoked/superseded memories
+        can never reappear as a confirmed personal fact through a stale memo.
+        No new memory, reminder or notification is created during retrieval.
+        """
+        import calendar
+
+        rows = await self.db.recurring_memos.find(
+            {"owner_id": user_id, "status": "active", "recurrence": "annual"},
+            {"_id": 0, "id": 1, "memory_ref": 1, "category": 1,
+             "label": 1, "person": 1, "month": 1, "day": 1,
+             "updated_at": 1},
+        ).limit(32).to_list(32)
+        facts: List[ContextFact] = []
+        for row in rows:
+            ref = str(row.get("memory_ref") or "")
+            if not ref:
+                continue
+            memory = await self.db.memories.find_one(
+                {"user_id": user_id, "id": ref, "status": "active"},
+                {"_id": 0, "id": 1, "status": 1},
+            )
+            if not memory:
+                continue
+            try:
+                month, day = int(row["month"]), int(row["day"])
+                if not (1 <= month <= 12 and 1 <= day <= calendar.monthrange(2000, month)[1]):
+                    continue
+            except (TypeError, ValueError, KeyError):
+                continue
+            label = str(row.get("label") or row.get("person") or "Ricorrenza").strip()
+            category = str(row.get("category") or "annual").strip().lower()
+            # Bounded personal evidence, not the full memo document.
+            statement = (
+                f"Promemoria annuale attivo ({category}): "
+                f"{label[:180]} — ogni {day:02d}/{month:02d}."
+            )
+            facts.append(_fact(
+                statement, "recurring_memos", "user-confirmed", "known",
+                str(row.get("updated_at") or "") or None,
+                f"recurring_memo_read_only:{str(row.get('id') or ref)[:110]}",
+                provenance=[f"memory:{ref[:110]}", "recurring_memo"],
+            ))
+        # Prefer the reminders whose visible wording matches the semantic
+        # question, not only the most recently scheduled reminders.
+        keywords = _tokens(" ".join([need.query, need.purpose or "", *need.desired_evidence]))
+        if keywords:
+            facts.sort(key=lambda fact: -len(keywords & _tokens(fact.statement)))
+        return facts[:16]
 
     async def _situations(
         self, user_id: str, need: ContextNeed, session_id: Optional[str]
