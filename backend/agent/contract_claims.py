@@ -26,7 +26,7 @@ _NO_PENALTY = re.compile(
     r"(?:penal\w*|vincol\w*|oner\w*|(?:costi?|spese)\s+di\s+(?:disdetta|recesso)|perdite)"
     r"|nessun\w*\s+(?:penal\w*|vincol\w*|oner\w*|"
     r"(?:costi?|spese)\s+di\s+(?:disdetta|recesso))"
-    r"|(?:penal\w*|vincol\w*)\s+(?:assent\w*|non\s+previst\w*|non\s+applicat\w*))\b",
+    r"|(?:penal\w*|vincol\w*)\s+(?:assent\w*|non\s+previst\w*|non\s+applicat\w*)|non\s+(?:prevede|applica)\s+(?:alcun\w*\s+)?penal\w*)\b",
     re.I,
 )
 _REFUND_ALLOWED = re.compile(
@@ -36,7 +36,7 @@ _REFUND_ALLOWED = re.compile(
 )
 _FREE_EXIT = re.compile(
     r"\b(?:disdire|interrompere|interruzione|disdetta)\b.{0,65}"
-    r"\b(?:liberamente|in\s+qualsiasi\s+momento|senza\s+perdite)\b",
+    r"\b(?:liberamente|in\s+qualsiasi\s+momento)\b",
     re.I | re.S,
 )
 
