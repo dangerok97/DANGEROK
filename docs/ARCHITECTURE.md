@@ -1,3 +1,9 @@
+## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
+
+`vision_catalog_extended` compone tre raccolte additive, 50 ricette originali in nove primitive. `common_recipes()` conserva le venti ricette storiche; `all_recipes()` le integra con la nuova raccolta. `seeds()` e `METADATA` usano lo stesso insieme. Nessuna modifica a schema dati o servizio di pubblicazione. Il renderer include il massimo ingrandimento prospettico nel calcolo di adattamento: insieme e componente focalizzato restano entro la visuale allo zoom iniziale, anche per i nuovi gruppi larghi o profondi. I manifest dei 25 seed storici conservano il fingerprint canonico.
+
+---
+
 # 12 ottobre 2026 — v162, contratto dei passi e schema della preparazione
 
 ## Rivalutazione del piano

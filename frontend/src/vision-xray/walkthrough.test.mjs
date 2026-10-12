@@ -19,7 +19,8 @@ const seeds=JSON.parse(readFileSync(resolve(here,'../../../.vision-evidence/seed
 const remote=seeds.find(s=>s.canonical_key==='remote_control');
 const ctx=()=>new Proxy({},{get:(obj,key)=>obj[key]??(()=>{}),set:(obj,key,value)=>(obj[key]=value,true)});
 const opts={progress:1,yaw:.46,pitch:-.22,selected:'',focus:0,zoom:1};
-const reviewed=new Set(seeds.map(s=>s.canonical_key));
+const reviewed=new Set(Object.keys(JSON.parse(readFileSync(resolve(here,'../../../backend/vision_tests/fixtures/legacy25_sha256.json'),'utf8'))));
+const authored=seeds.filter(s=>reviewed.has(s.canonical_key));
 for(const manifest of seeds.filter(s=>reviewed.has(s.canonical_key)))test('reviewed tour has real parts, valid sources and finite drawing: '+manifest.canonical_key,()=>{
  const original=JSON.stringify(manifest),tour=walkthroughFor(manifest,'seed');assert.equal(tour.steps.length,3);
  assert.ok(tour.sources.length>0);assert.ok(tour.sources.every(s=>new URL(s.url).protocol==='https:'));
@@ -78,9 +79,9 @@ test('assembled model starts in detected region and finishes exactly in study sp
 
 
 
-const extra=seeds.filter(s=>!['remote_control','click_pen','water_bottle','computer_mouse','flashlight'].includes(s.canonical_key));
+const extra=authored.filter(s=>!['remote_control','click_pen','water_bottle','computer_mouse','flashlight'].includes(s.canonical_key));
 test('all 25 authored families expose exactly 75 bounded steps',()=>{
- assert.equal(seeds.length,25);assert.equal(seeds.reduce((n,m)=>n+walkthroughFor(m,'seed').steps.length,0),75);
+ assert.equal(seeds.length,75);assert.equal(authored.length,25);assert.equal(authored.reduce((n,m)=>n+walkthroughFor(m,'seed').steps.length,0),75);
 });
 for(const manifest of extra)test('new authored template cannot be inherited by changed parts or AI output: '+manifest.canonical_key,()=>{
  assert.equal(walkthroughFor(manifest,'generated'),null);
@@ -98,7 +99,7 @@ test('prototype-like keys and incompatible evidence never unlock a path',()=>{
  assert.equal(walkthroughFor({...remote,parts:[...remote.parts,remote.parts[0]]},'seed'),null);
 });
 test('sources are relevant to the active step, bounded, HTTPS and unique',()=>{
- for(const manifest of seeds){
+ for(const manifest of authored){
   const tour=walkthroughFor(manifest,'seed');
   for(let i=0;i<tour.steps.length;i++){
    const step=tour.steps[i],refs=sourcesForStep(tour,i);
@@ -127,4 +128,9 @@ test('mechanics, flow and materials do not masquerade as measured circuits',()=>
  assert.equal(pump.steps[0].effect,'press');assert.equal(pump.steps[2].effect,'flow');
  assert.ok(pump.steps[2].links.some(([a,b])=>a==='bottle'&&b==='tube'));
  assert.ok(pump.steps[2].links.some(([a,b])=>a==='tube'&&b==='pump'));
+});
+
+test('fifty additional seed families never inherit an unauthored tour',()=>{
+ const added=seeds.filter(m=>!reviewed.has(m.canonical_key));assert.equal(added.length,50);
+ for(const m of added){assert.equal(walkthroughFor(m,'seed'),null);assert.equal(walkthroughFor(m,'generated'),null);}
 });

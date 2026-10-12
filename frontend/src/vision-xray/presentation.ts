@@ -130,13 +130,18 @@ export class VisionPresentation {
     const rotated=this.meshes.map(m=>m.v.map(v=>rotate(v,opts.yaw,opts.pitch)));
     const positions=this.manifest.parts.map(p=>rotate(p.assembled.map((n,j)=>lerp(n,p.exploded[j],progress)) as Vec3,opts.yaw,opts.pitch));
     // Fit against the entire exploded envelope to avoid a zoom-pump on recomposition.
-    const envelope:Point[]=[];
-    this.manifest.parts.forEach((p,i)=>{const offset=rotate(p.exploded,opts.yaw,opts.pitch);rotated[i].forEach(v=>envelope.push([v[0]+offset[0],v[1]+offset[1]]));});
+    const envelope:Point[]=[];let nearestDepth=0;
+    this.manifest.parts.forEach((p,i)=>{const offset=rotate(p.exploded,opts.yaw,opts.pitch);rotated[i].forEach(v=>{envelope.push([v[0]+offset[0],v[1]+offset[1]]);nearestDepth=Math.max(nearestDepth,v[2]+offset[2]);});});
     const [l,t,r,b]=bounds(envelope),midX=(l+r)/2,midY=(t+b)/2;
-    const s=Math.min(w*.84/Math.max(1,r-l),available*.83/Math.max(1,b-t));
+    const flatScale=Math.min(w*.84/Math.max(1,r-l),available*.83/Math.max(1,b-t));
+    // Bound the maximum perspective magnification before fitting, so wide or
+    // deep families do not clip at zoom 1. User-requested zoom may still crop.
+    const s=flatScale*(850-Math.min(350,nearestDepth*flatScale))/850;
     const zoom=Math.min(3.2,Math.max(.65,opts.zoom));
     const selectedBounds=selectedIndex<0?[0,0,1,1]:bounds(rotated[selectedIndex].map(v=>[v[0],v[1]]));
-    const focusScale=selectedIndex<0?s:Math.min(w*.63/Math.max(1,selectedBounds[2]-selectedBounds[0]),available*.63/Math.max(1,selectedBounds[3]-selectedBounds[1]));
+    const flatFocusScale=selectedIndex<0?s:Math.min(w*.63/Math.max(1,selectedBounds[2]-selectedBounds[0]),available*.63/Math.max(1,selectedBounds[3]-selectedBounds[1]));
+    const nearestFocusDepth=selectedIndex<0?0:Math.max(0,...rotated[selectedIndex].map(v=>v[2]));
+    const focusScale=flatFocusScale*(1000-Math.min(350,nearestFocusDepth*flatFocusScale))/1000;
     const fcx=(selectedBounds[0]+selectedBounds[2])/2,fcy=(selectedBounds[1]+selectedBounds[3])/2;
     const focusCenterY=top+available*.37;
     // Map the compact assembled representation to the observed region, then move

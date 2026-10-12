@@ -1,3 +1,9 @@
+## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
+
+Aggiunte 50 ricette di oggetti quotidiani e rispettivi sinonimi/categorie. Preservati manifest e percorsi dei 25 oggetti precedenti. Aggiunti test di migrazione da 25 a 75, riuso senza generazione, isolamento delle vecchie voci private, mancata riattivazione dei ritirati e apertura/selezione delle 50 nuove famiglie su mobile e desktop.
+
+---
+
 # 12 ottobre 2026 — v162, schema delle risposte e rivalutazione integra
 
 ## Correzioni

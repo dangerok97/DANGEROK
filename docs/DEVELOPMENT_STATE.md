@@ -1,3 +1,9 @@
+## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
+
+Preparata espansione a 75 famiglie/50 aggiunte sul ramo Vision, lasciando intatte le riparazioni della roadmap. Preflight controlla manifest, conteggi, alias e immutabilità dei 25 seed precedenti. Nuovi test Mongo e browser coprono tutte le famiglie aggiunte; rilascio e stato dei gate saranno documentati nella PR finale, non presunti completati qui.
+
+---
+
 # 12 ottobre 2026 — v162, candidato con schema nativo e recupero atomico
 
 ## Stato verificato prima della pubblicazione del candidato

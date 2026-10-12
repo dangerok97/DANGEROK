@@ -1,5 +1,6 @@
 """Real disposable Mongo tests, using the existing isolated fixtures."""
 import json
+from pathlib import Path
 import pytest
 from test_catalog import database, api_module
 from vision_catalog import CatalogService, Manifest, MODELS, VERSIONS, JOBS, seeds
@@ -7,7 +8,8 @@ from vision_seed_library import common_recipes, METADATA, canonical_key, recogni
 
 
 def test_pack_has_twenty_new_original_families_and_124_total_parts():
-    items = seeds()
+    baseline = json.loads((Path(__file__).parent / 'fixtures' / 'legacy25_sha256.json').read_text())
+    items = [m for m in seeds() if m.canonical_key in baseline]
     assert len(items) == 25
     assert len(common_recipes()) == 20
     assert len({x.canonical_key for x in items}) == 25
@@ -58,7 +60,7 @@ async def test_alias_reuses_persisted_seed_without_generation(database):
 @pytest.mark.asyncio
 async def test_catalog_has_categories_and_new_counts(database):
     rows = await CatalogService(database).list_models('alice')
-    assert len(rows) == 25
+    assert len(rows) == 75
     phone = next(r for r in rows if r['canonical_key'] == 'smartphone')
     assert phone['category'] == 'Elettronica' and phone['shared']
     assert 'telefono_cellulare' in phone['aliases']
