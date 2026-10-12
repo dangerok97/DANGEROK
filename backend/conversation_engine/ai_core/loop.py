@@ -1913,11 +1913,18 @@ async def run_cognitive_loop(
         elif decision.situation_update and decision.situation_update.operation != "none":
             try:
                 from situations.service import SituationService
+                from situations.declared_place_link import restore_owned_place_reference
 
+                resolved_situation_update = await restore_owned_place_reference(
+                    db, owner_id=sess.user_id, user_message=user_message,
+                    update=decision.situation_update,
+                )
+                if resolved_situation_update is not decision.situation_update:
+                    add_step(trace, event="SITUATION_OWNED_PLACE_REF_RECOVERED")
                 situation_result = await SituationService(db).apply(
                     user_id=sess.user_id,
                     session_id=sess.id,
-                    update=decision.situation_update,
+                    update=resolved_situation_update,
                     reasoning_epoch=epoch,
                 )
                 st["active_situation_ref"] = dict(
@@ -1933,7 +1940,7 @@ async def run_cognitive_loop(
                         status="ok",
                         payload=situation_result,
                         provenance=list(
-                            decision.situation_update.source_refs
+                            resolved_situation_update.source_refs
                             or ["user_conversation"]
                         ),
                     ).model_dump()
