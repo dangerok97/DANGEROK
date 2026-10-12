@@ -17,6 +17,8 @@ export function AnatomyVolume({regions,layer,region,selected,onSelect,zoom,onZoo
  const [yaw,setYaw]=React.useState(.34);
  const [pitch,setPitch]=React.useState(-.12);
  const [explode,setExplode]=React.useState(.03);
+ const [isolated,setIsolated]=React.useState(false);
+ React.useEffect(()=>{setIsolated(false);},[layer,region]);
  const pose=React.useMemo(()=>poseFromLandmarks(posePoints),[posePoints]);
  React.useEffect(()=>{
   const node=canvas.current;if(!node)return;
@@ -30,7 +32,7 @@ export function AnatomyVolume({regions,layer,region,selected,onSelect,zoom,onZoo
    const ctx=node.getContext('2d');if(!ctx)return;
    ctx.setTransform(dpr,0,0,dpr,0,0);
    ctx.clearRect(0,0,width,height);
-   hits.current=drawVolume(ctx,width,height,regions,layer,region,
+   hits.current=drawVolume(ctx,width,height,isolated&&selected?regions.filter(part=>part.id===selected):regions,layer,region,
      {yaw,pitch,zoom,selected,explode,pose},viewBox);
    node.dataset.faceCount=String(hits.current.length);
    node.dataset.poseMode=pose.reliability;
@@ -39,7 +41,7 @@ export function AnatomyVolume({regions,layer,region,selected,onSelect,zoom,onZoo
   const render=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(draw);};
   const observer=new ResizeObserver(render);observer.observe(node);render();
   return()=>{cancelAnimationFrame(frame);observer.disconnect();};
- },[regions,layer,region,selected,yaw,pitch,zoom,explode,pose,viewBox]);
+ },[regions,layer,region,selected,yaw,pitch,zoom,explode,pose,viewBox,isolated]);
  const down=(e:React.PointerEvent<HTMLCanvasElement>)=>{
   pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY});
   moved.current=false;
@@ -79,6 +81,8 @@ export function AnatomyVolume({regions,layer,region,selected,onSelect,zoom,onZoo
    <span>{pose.reliability==='approximate'?'ORIENTAMENTO STIMATO · 1 FOTOGRAMMA':'ORIENTAMENTO ILLUSTRATIVO'}</span>
   </div>
   <div className="vx-anatomy-volume-controls">
+   <button type="button" data-testid="vision-anatomy-isolate" aria-pressed={isolated} disabled={!selected} onClick={()=>setIsolated(v=>!v)} title="Mostra solo la struttura selezionata o tutte">{isolated?'Mostra tutte':'Isola parte'}</button>
+   <label style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#d7edf0'}}>Separa <input data-testid="vision-anatomy-explode" aria-label="Distanza di separazione anatomica" type="range" min="0" max="0.7" step="0.05" value={explode} onChange={e=>setExplode(Number(e.target.value))}/></label>
    <button type="button" data-testid="vision-anatomy-turn-left" onClick={()=>setYaw(v=>Math.max(-1.3,v-.22))} aria-label="Ruota a sinistra">↶</button>
    <button type="button" data-testid="vision-anatomy-reset-orbit" onClick={()=>{setYaw(.34);setPitch(-.12);setExplode(.03);}} aria-label="Reimposta la visuale">⊙</button>
    <button type="button" data-testid="vision-anatomy-turn-right" onClick={()=>setYaw(v=>Math.min(1.3,v+.22))} aria-label="Ruota a destra">↷</button>
