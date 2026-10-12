@@ -1603,7 +1603,14 @@ def build_user_payload(
             "what_ora_can_do": what_ora_can_do(tools),
             "observations": observations[-6:],
             "epistemic_reminder": (
-                "Operational external claims require TOOL_OBSERVATION. "
+                "TOOL_OBSERVATION is necessary for operational external claims, but a "
+                "successful read alone is not sufficient to support every claim. "
+                "Preserve the returned data's nature, precision, applicable time and "
+                "stated limitations. Estimates and forecasts are not physical certainty. "
+                "Keep ORA's retrieval time distinct from the source's observation time; "
+                "an unknown source observation time remains unknown. An aggregate value "
+                "does not establish the absence of individual problems that the returned "
+                "evidence does not address. "
                 "web_search ≠ live traffic/routing. "
                 "current_facts override durable residence for the active goal only. "
                 "Device presence ≠ residence. STALE/UNKNOWN location → do not claim 'you are here now'. "

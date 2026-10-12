@@ -7,7 +7,6 @@ from agent.evidence import EvidenceStore, REAL_SOURCES
 from agent.models import ResultProvenance
 from agent.prepared_review import new_prepared_result_id
 from agent.preparation_schema import audit_schema, draft_schema
-from agent.comparison_math import complete_explicit_price_comparison
 
 
 _FEEDBACK_FIELD = "preparation_feedback_non_authoritative"
@@ -406,11 +405,7 @@ async def prepare(db, owner_id, goal, step):
         feedback = _protocol_feedback("generation", errors)
         await _remember_feedback(db, owner_id, goal.id, scope, feedback)
         return unavailable("preparation_ungrounded", feedback=feedback)
-    content = complete_explicit_price_comparison(
-        content.strip(),
-        "\n".join(row["claim"] for row in rows if isinstance(row.get("claim"), str)),
-        " ".join(str(x) for x in (goal.objective, goal.desired_outcome, step.intent)),
-    )
+    content = content.strip()
     refs = list(dict.fromkeys(refs))
     audit_rows = list(rows)
     # The audit needs the intended deliverable, not only the draft's own
@@ -455,8 +450,15 @@ async def prepare(db, owner_id, goal, step):
         "reconcile those earlier assumptions with current evidence, preserving the person's "
         "outcome, explicit requirements and authority limits. Do not preserve an obsolete "
         "calculated value as a requirement or invent a replacement goal. "
+        "Check completeness as well as the claims already written. Identify any material "
+        "finding needed for the supported intended result but missing from this draft. "
+        "A list of source inputs does not complete a requested synthesis: express the "
+        "supported relationships, differences and consequences that make those inputs useful. "
+        "Add such a missing finding to the corrected content and review its premises and "
+        "source_quotes too. If a necessary premise is absent, identify that specific gap; "
+        "do not invent it from request or the model's success criteria. "
         "Before the verdict, return claim_review covering the actual material clauses, including "
-        "calculations, qualitative consequences and every material clause you change or remove. "
+        "calculations, qualitative consequences and every material clause you add, change or remove. "
         "Account for those changes against the intended result. In premises, identify the short source passages that establish "
         "each factual premise and distinguish any unstated assumption or category default. "
         "For each stated or derived check, source_quotes must contain 1–3 verbatim passages "

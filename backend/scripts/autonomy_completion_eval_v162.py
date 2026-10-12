@@ -58,6 +58,7 @@ ASSESSMENT_TEXT_LIMIT = 280
 MAX_DIAGNOSTIC_ADMISSIONS = 3
 MAX_DIAGNOSTIC_SCANS = 3
 MAX_DIAGNOSTIC_PLANNING = 4
+RESULT_CHECK_NAMES = ("preconditions", "semantic", "home", "replay", "owner_isolation", "isolation")
 PLANNING_ERROR_FIELDS = frozenset({"step", "parameters", "step_type", "effect_type",
     "reversibility", "intent", "capability_needed", "expected_result", "effect_target",
     "asks", "external_effect", "reaches_somebody_else", "input_refs", "ask_kind"})
@@ -109,8 +110,26 @@ class Probe:
     faults: list[str] = field(default_factory=list)
     blocked_effects: int = 0
     push_attempts: int = 0
+    result_checks: dict[str, dict[str, Any]] = field(default_factory=lambda: {
+        name: {"status": "not_run"} for name in RESULT_CHECK_NAMES})
     network: Any = None
     database: Any = None  # Evaluator-created DB only; never serialized.
+
+
+@contextmanager
+def _result_check(probe, name):
+    """Fixed, bounded check metadata; exceptions and cancellation still propagate."""
+    probe.result_checks[name] = {"status": "running"}
+    try:
+        yield
+    except BaseException as exc:
+        code = str(exc) if isinstance(exc, EvaluationFailure) else ""
+        reason = code if re.fullmatch(r"[A-Z][A-Z0-9_]{0,79}", code) else type(exc).__name__[:80]
+        probe.result_checks[name] = {
+            "status": "failed" if isinstance(exc, Exception) else "interrupted", "reason": reason}
+        raise
+    else:
+        probe.result_checks[name] = {"status": "passed"}
 
 
 def model_observations(probe):
@@ -128,6 +147,7 @@ def model_observations(probe):
             "admission_observations": probe.admission_observations,
             "planning_observations": probe.planning_observations,
             "planning_observations_omitted": probe.planning_observations_omitted,
+            "result_checks": probe.result_checks,
             "discovery_results": probe.discovery_results,
             "executed_capabilities": (probe.steps if len(probe.steps) <= MAX_DECISION_OBSERVATIONS
                                       else probe.steps[:2] + probe.steps[-(MAX_DECISION_OBSERVATIONS - 2):]),
@@ -1226,43 +1246,55 @@ async def recover_home(db):
     return await VisibilityService(db).recover_pending_home()
 
 
-async def verify_result(db, goal_id, probe, *, recover=True, source_corrected=False):
+async def verify_result(db, goal_id, probe, *, recover=True, source_corrected=False,
+                        defer_semantic_failure=False):
     from agent.service import AgentService
     from delivery.service import DeliveryService
-    goal = await AgentService(db).repo.get_goal(OWNER, goal_id)
-    require(goal and goal.status == "completed", "GOAL_NOT_COMPLETED")
-    plan = await AgentService(db).repo.plan_for(OWNER, goal_id)
-    require(plan and plan.status == "completed", "PLAN_NOT_COMPLETED")
-    # A recovered failed attempt is terminal history, not unfinished work.
-    # Goal/plan completion and the result's evidence are checked separately;
-    # pending, running, blocked and waiting steps must still be retired.
-    require(all(step.status in ("succeeded", "skipped", "failed") for step in plan.steps), "UNFINISHED_PLAN_STEPS")
-    require(goal.prepared_text and goal.prepared_sources, "GROUNDED_RESULT_MISSING")
-    evidence = await AgentService(db).evidence.for_goal(OWNER, goal_id)
-    require(set(goal.prepared_sources).issubset({item.id for item in evidence}), "UNOWNED_RESULT_EVIDENCE")
-    require(sum(item.provenance.capability == "information.read" for item in evidence) == 1, "READ_REPEATED_AFTER_RESUME")
-    total_reads = await db.agent_evidence.count_documents({"owner_id": OWNER, "goal_id": goal_id,
-                                                         "provenance.capability": "information.read"})
-    require(total_reads == (2 if source_corrected else 1), "UNEXPECTED_TOTAL_SOURCE_READS")
+    probe.result_checks = {name: {"status": "not_run"} for name in RESULT_CHECK_NAMES}
+    with _result_check(probe, "preconditions"):
+        require(await db.eval_guards.find_one({"_id": VERSION, "owner": OWNER}),
+                "SYNTHETIC_RESULT_GUARD_MISSING")
+        goal = await AgentService(db).repo.get_goal(OWNER, goal_id)
+        require(goal and goal.status == "completed", "GOAL_NOT_COMPLETED")
+        plan = await AgentService(db).repo.plan_for(OWNER, goal_id)
+        require(plan and plan.status == "completed", "PLAN_NOT_COMPLETED")
+        # A recovered failed attempt is terminal history, not unfinished work.
+        # Goal/plan completion and the result's evidence are checked separately;
+        # pending, running, blocked and waiting steps must still be retired.
+        require(all(step.status in ("succeeded", "skipped", "failed") for step in plan.steps), "UNFINISHED_PLAN_STEPS")
+        require(goal.prepared_text and goal.prepared_sources, "GROUNDED_RESULT_MISSING")
+        evidence = await AgentService(db).evidence.for_goal(OWNER, goal_id)
+        require(set(goal.prepared_sources).issubset({item.id for item in evidence}), "UNOWNED_RESULT_EVIDENCE")
+        require(sum(item.provenance.capability == "information.read" for item in evidence) == 1, "READ_REPEATED_AFTER_RESUME")
+        total_reads = await db.agent_evidence.count_documents({"owner_id": OWNER, "goal_id": goal_id,
+                                                             "provenance.capability": "information.read"})
+        require(total_reads == (2 if source_corrected else 1), "UNEXPECTED_TOTAL_SOURCE_READS")
     semantic = review_comparison(goal.prepared_text, values=(180, 150, 30) if source_corrected else (180, 120, 60))
-    require(semantic["passed"], "SEMANTIC_RESULT_REJECTED:" + ",".join(semantic["reasons"]))
-    if recover:
+    probe.result_checks["semantic"] = {"status": "passed" if semantic["passed"] else "failed", "review": semantic}
+    # Observing the existing synthetic handoff does not approve its content.
+    # Keep the semantic verdict even when a later structural check fails.
+    with _result_check(probe, "home"):
+        if recover:
+            await recover_home(db)
+        updates = await db.agent_updates.find({"owner_id": OWNER, "goal_id": goal_id}, {"_id": 0}).to_list(8)
+        require(any(not row.get("home_pending") and row.get("home_delivered_at") for row in updates), "HOME_OUTBOX_NOT_DELIVERED")
+        activities = await db.ambient_activity.find({"owner_id": OWNER, "visibility": "ambient",
+            "cognitive_provenance.agent": "visibility", "cognitive_provenance.goal": goal_id}, {"_id": 0}).to_list(8)
+        require(activities, "VALIDATED_HOME_ACTIVITY_MISSING")
+        home = await DeliveryService(db).ambient_line(OWNER)
+        require(home and any(home["id"] == row["id"] for row in activities), "RESULT_NOT_RETRIEVABLE_FROM_HOME")
+    with _result_check(probe, "replay"):
+        before = await snapshot_counts(db, goal_id)
+        model_before = probe.model_attempts
+        replay = await AgentService(db).advance(OWNER, goal_id, worker_id="ambient:v162-replay")
+        require(replay.get("state") == "completed", "TERMINAL_REPLAY_CHANGED_STATE")
         await recover_home(db)
-    updates = await db.agent_updates.find({"owner_id": OWNER, "goal_id": goal_id}, {"_id": 0}).to_list(8)
-    require(any(not row.get("home_pending") and row.get("home_delivered_at") for row in updates), "HOME_OUTBOX_NOT_DELIVERED")
-    activities = await db.ambient_activity.find({"owner_id": OWNER, "visibility": "ambient",
-        "cognitive_provenance.agent": "visibility", "cognitive_provenance.goal": goal_id}, {"_id": 0}).to_list(8)
-    require(activities, "VALIDATED_HOME_ACTIVITY_MISSING")
-    home = await DeliveryService(db).ambient_line(OWNER)
-    require(home and any(home["id"] == row["id"] for row in activities), "RESULT_NOT_RETRIEVABLE_FROM_HOME")
-    before = await snapshot_counts(db, goal_id)
-    model_before = probe.model_attempts
-    replay = await AgentService(db).advance(OWNER, goal_id, worker_id="ambient:v162-replay")
-    require(replay.get("state") == "completed", "TERMINAL_REPLAY_CHANGED_STATE")
-    await recover_home(db)
-    require(await snapshot_counts(db, goal_id) == before and probe.model_attempts == model_before, "REPLAY_DUPLICATED_WORK")
-    foreign = await AgentService(db).advance("another-synthetic-owner", goal_id)
-    require(foreign.get("reason") == "unknown_goal", "CROSS_OWNER_ACCESS")
+        require(await snapshot_counts(db, goal_id) == before and probe.model_attempts == model_before, "REPLAY_DUPLICATED_WORK")
+    with _result_check(probe, "owner_isolation"):
+        foreign = await AgentService(db).advance("another-synthetic-owner", goal_id)
+        require(foreign.get("reason") == "unknown_goal", "CROSS_OWNER_ACCESS")
+    if not defer_semantic_failure:
+        require(semantic["passed"], "SEMANTIC_RESULT_REJECTED:" + ",".join(semantic["reasons"]))
     return {"state": goal.status, "read_reused": not source_corrected,
             "corrected_source_reread": source_corrected, "prepared": True,
             **_prepared_text_fields(goal.prepared_text),
@@ -1355,18 +1387,22 @@ async def run_case(scenario, *, mode="scripted", probe=None):
                 require(reads and all(changed["current"] in row.provenance.source_refs
                                      and changed["old"] not in row.provenance.source_refs for row in reads),
                         "SUPERSEDED_MEMORY_USED_AS_CURRENT")
-                result = await verify_result(db, goal_id, probe, source_corrected=True)
+                result = await verify_result(db, goal_id, probe, source_corrected=True, defer_semantic_failure=True)
             else:
                 await complete_due_work(db, goal_id, probe)
                 if scenario == "home_write_retry":
                     require(await db.agent_updates.count_documents({"owner_id": OWNER, "home_pending": True}) == 1,
                             "FAILED_HOME_HANDOFF_NOT_DURABLE")
-                result = await verify_result(db, goal_id, probe)
-        require(await db.agent_action_attempts.count_documents({}) == 0, "WORLD_ACTION_ATTEMPT_CREATED")
-        require(await db.action_intents.count_documents({}) == 0, "WORLD_ACTION_INTENT_CREATED")
-        require(not probe.blocked_effects and not probe.push_attempts and not probe.network.blocked, "ISOLATION_BOUNDARY_ATTEMPTED")
-        require(mode != "live" or bool(probe.model_calls), "LIVE_MODEL_NOT_OBSERVED")
-        require(mode != "scripted" or not probe.model_attempts, "OFFLINE_MODEL_CALL")
+                result = await verify_result(db, goal_id, probe, defer_semantic_failure=True)
+        with _result_check(probe, "isolation"):
+            require(await db.agent_action_attempts.count_documents({}) == 0, "WORLD_ACTION_ATTEMPT_CREATED")
+            require(await db.action_intents.count_documents({}) == 0, "WORLD_ACTION_INTENT_CREATED")
+            require(not probe.blocked_effects and not probe.push_attempts and not probe.network.blocked, "ISOLATION_BOUNDARY_ATTEMPTED")
+            require(mode != "live" or bool(probe.model_calls), "LIVE_MODEL_NOT_OBSERVED")
+            require(mode != "scripted" or not probe.model_attempts, "OFFLINE_MODEL_CALL")
+        semantic = result.get("semantic_review")
+        if semantic is not None:
+            require(semantic["passed"], "SEMANTIC_RESULT_REJECTED:" + ",".join(semantic["reasons"]))
         return {"version": VERSION, "fixture_revision": FIXTURE_REVISION,
                 "scenario": scenario, "mode": mode, "passed": True,
                 "scope": "synthetic_internal_note_to_home_no_external_effects",
@@ -1429,6 +1465,7 @@ async def main(*, mode="scripted", scenario="all", output=""):
                               "structured_decisions_per_case": MAX_DECISION_OBSERVATIONS,
                               "admission_observations_per_case": MAX_DIAGNOSTIC_ADMISSIONS,
                               "planning_observations_per_case": MAX_DIAGNOSTIC_PLANNING,
+                              "result_checks_per_case": len(RESULT_CHECK_NAMES),
                               "discovery_results_per_case": MAX_DIAGNOSTIC_SCANS,
                               "preparation_text_characters": PREPARATION_TEXT_LIMIT,
                               "preparation_claims_per_audit": MAX_PREPARATION_CLAIMS,

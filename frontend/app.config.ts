@@ -14,6 +14,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim();
   const iosUrlScheme = iosGoogleUrlScheme(iosClientId);
   const plugins = [...(base.plugins || [])];
+  const extra = config.extra ?? base.extra;
+  const easProjectId = (process.env.EXPO_PUBLIC_EAS_PROJECT_ID || '').trim();
 
   // The native plugin requires the real reversed iOS client ID. Keeping it
   // conditional lets web/email builds remain valid when Google is not configured.
@@ -30,6 +32,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: { ...base.ios, ...config.ios },
     android: { ...base.android, ...config.android },
     web: { ...base.web, ...config.web },
+    ...(easProjectId && !extra?.eas?.projectId ? {
+      extra: { ...extra, eas: { ...extra?.eas, projectId: easProjectId } },
+    } : {}),
     plugins,
   };
 };

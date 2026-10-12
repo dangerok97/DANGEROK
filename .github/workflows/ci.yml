@@ -227,7 +227,6 @@ jobs:
             tests/test_pending_outcome_contract_v162.py \
             tests/test_discovery_outcome_contract_v162.py \
             tests/test_agent_preparation_grounding_v162.py \
-            tests/test_agent_comparison_math_v162.py \
             tests/test_preparation_response_schema_v162.py \
             tests/test_preparation_source_quotes_v162.py \
             tests/test_agent_preparation_dependency_v162.py \
@@ -248,6 +247,7 @@ jobs:
             tests/test_preparation_recovery_v162.py \
             tests/test_preparation_feedback_v162.py \
             tests/test_autonomy_preparation_diagnostics_v162.py \
+            tests/test_autonomy_result_diagnostics_v162.py \
             tests/test_autonomy_worker_recovery_v162.py \
             tests/test_autonomy_wait_recovery_v162.py \
             tests/test_agent_connector_readiness_v162.py \

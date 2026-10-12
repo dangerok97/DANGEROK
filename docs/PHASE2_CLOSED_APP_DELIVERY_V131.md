@@ -4,6 +4,12 @@
 
 La v130 preserva ricordi e promemoria dopo gli arresti del server. Resta separata la prova della **consegna**: un promemoria scaduto viene trasformato in un'Opportunity, analizzato dalla politica di Delivery, eventualmente affidato a Expo e infine mostrato dal sistema operativo del dispositivo. Ognuno di questi confini richiede una prova distinta.
 
+## Collegamento EAS — aggiornamento v162
+
+[app.config.ts](../frontend/app.config.ts) conserva l'eventuale `extra.eas.projectId` già configurato; in sua assenza usa `EXPO_PUBLIC_EAS_PROJECT_ID`, eliminando gli spazi esterni. Una variabile assente o vuota non aggiunge un ID. Usare l'UUID reale del progetto già presente nell'account EAS titolare. La voce è documentata in [.env.example](../frontend/.env.example); per la build, `EXPO_PUBLIC_BACKEND_URL` deve indicare l'origine del backend raggiungibile dal telefono, senza il suffisso `/api`.
+
+La risoluzione locale con Expo sui file effettivi ha superato **6/6 controlli**, inclusi variabile impostata/assente, precedenza dell'ID preesistente e conservazione degli altri campi. Questa verifica della configurazione non attesta build firmata, installazione, consenso OS o notifica osservata ad app chiusa: le prove sul dispositivo restano pendenti.
+
 ## Test isolato
 
 Il test `test_recurring_memo_delivery_v131.py` usa il codice reale di Memo, OpportunityRepository, DeliveryAdmission, DeliveryService, PushEndpointService e ExpoNotificationProvider. Crea soltanto un utente, un compleanno e un token Expo **sintetici**. Sostituisce esclusivamente il giudizio AI, il contesto di permesso del dispositivo e l'HTTP esterno Expo con risposte deterministiche: non vengono inviate notifiche vere.

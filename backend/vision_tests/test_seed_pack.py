@@ -97,10 +97,18 @@ async def test_new_seed_does_not_resurrect_retired_generated_head(database):
 
 
 @pytest.mark.asyncio
-async def test_recognizer_uses_canonical_family_without_claiming_exact_hardware(api_module):
+async def test_recognizer_maps_known_aliases_without_limiting_open_vocabulary(api_module):
     raw = dict(recognized=True, canonical_key='mobile_phone', object_name='Telefono',
                confidence='high', bbox=[100,200,900,800], safe_to_generate=True)
     value = api_module.normalize_identification(raw)
     assert value['canonical_key'] == 'smartphone'
-    assert 'computer_keyboard' in api_module.IDENTIFY
+    assert '[VISION_OBSERVATION_V2]' in api_module.IDENTIFY
     assert 'membrana' in api_module.IDENTIFY
+    for row in common_recipes():
+        for alias in row['aliases']:
+            found = api_module.normalize_identification({**raw, 'canonical_key': alias})
+            assert found['canonical_key'] == row['key']
+    unknown = api_module.normalize_identification({**raw, 'canonical_key': 'unknown_common_container'})
+    assert unknown['canonical_key'] == 'unknown_common_container'
+    mechanical = api_module.normalize_identification({**raw, 'canonical_key': 'mechanical_keyboard'})
+    assert mechanical['canonical_key'] != 'computer_keyboard'

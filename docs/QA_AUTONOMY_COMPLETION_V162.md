@@ -1,3 +1,141 @@
+# 12 ottobre 2026 — v162, integrazione del ramo concorrente verificata
+
+La cronologia conserva il ramo concorrente fino a `06d2d9e`. Restano i suoi
+log diagnostici compatti e il relativo test, integrati con i controlli separati
+di risultato, Home, replay, owner e isolamento del candidato locale `e624015`.
+
+La trasformazione automatica introdotta da `7c28019` viene ritirata dopo due
+review indipendenti e controprove sul suo blob esatto. Associava tutti gli importi
+a tutti i periodi della frase: due durate diverse diventavano falsamente comuni.
+Un canone mensile precedente all'importo veniva trattato come totale; separatori
+delle migliaia, componenti del costo e attribuzioni fra fonti producevano altri
+errori. Quattro controprove sono state riprodotte anche dal root, senza modello,
+HTTP, esecuzione dell'app o dati dell'utente. L'audit successivo era presente:
+non si afferma che ogni aggiunta errata sia stata salvata. Il risultato utile
+resta responsabilità dei contratti di preparazione, audit e verifica sulle fonti.
+
+Verifica dell'integrazione: **1.416 PASS, 1 SKIP, 115 moduli, 37,60 s**;
+scripted **9/9**, zero chiamate modello, HTTP modello ed effetti esterni.
+La produzione coincide con il candidato già verificato: il solo nuovo codice
+mantenuto è il diagnostico nel runner, con il suo test. Configurazione nativa e
+TypeScript sono invariati rispetto alle verifiche precedenti. Il test del log
+attesta formato e limite, non una troncatura reale o un redattore di dati arbitrari.
+CI e prove reali devono ancora attestare l'head integrato dopo la pubblicazione.
+
+Evidenze: `docs/evidence/autonomy_v162_concurrent_math_review_2026-10-12_7c28019.json`
+e `docs/evidence/autonomy_v162_local_integration_2026-10-12.json`.
+Tarquinia e l'obiettivo del ritiro restano confermati; la vecchia stesura è chiusa.
+Il limite già documentato sul deploy dell'app e sulla verifica nativa resta aperto.
+
+---
+
+# 12 ottobre 2026 — v162, completezza del risultato e collegamento nativo
+
+La prova reale del padre `5b4efd5` termina **5/9 macchina**, con **84 chiamate
+logiche e 90 HTTP**. La revisione indipendente considera completi e fedeli quattro
+dei cinque testi salvati. Tre di essi sono respinti da un matcher che non riconosce
+attribuzioni italiane effettive; i loro controlli successivi Home/replay non sono
+stati eseguiti e non vengono promossi. Nel quinto testo manca la differenza utile
+già nell'ultima generation: l'audit e il verifier accettano il confronto incompleto.
+La correzione Memory a 150 euro, differenza 30, supera anche Home e replay.
+
+La prova pubblica dello stesso padre supera il controllo automatico con due HTTP
+reali e quattro chiamate Gemini. La review la respinge per certezza attribuita alla
+stima e assenza di rallentamenti non sostenuta dai dati. La CI del padre è **15/15
+job** su cinque workflow: **927 PASS v162**, **6 PASS Mongo reale**, **36 PASS browser**.
+Queste evidenze riguardano il padre e il suo merge tecnico originario, non questo candidato.
+
+## Riscontri del padre, verdetti originali preservati
+
+| Scenario | Macchina | Riscontro indipendente |
+| --- | --- | --- |
+| completed_result | FAIL attribuzione | Confronto 180/120/60 completo, «informazioni riferite dalla persona e registrate in ORA»; Home/replay successivi non attestati. |
+| planning_outage | FAIL attribuzione | Confronto completo, informazioni dell'utente e memoria attribuite; Home/replay successivi non attestati. |
+| home_write_retry | FAIL manca 60 | Ultima generation 572 caratteri già senza differenza; audit 581 e verifier achieved. Vincolo annuale corretto. |
+| source_revoked | PASS | Revoca e replay senza riprendere il lavoro revocato. |
+| memory_revoked | PASS | Arresto dopo revoca della Memory. |
+| memory_corrected | PASS | 150 corrente e differenza 30; rilettura, Home e replay verificati. |
+| source_change_crash | FAIL attribuzione | Confronto completo e «dati riportati da te»; una sola lettura, quattro preparazioni, Home/replay successivi non attestati. |
+| already_resolved | PASS | Nessun goal riaperto. |
+| irrelevant | PASS | Nessun goal creato. |
+
+Le 84 risposte logiche riuscite provengono da Gemini2 (71) e Mistral (13), senza
+modificare l'ordine dei provider. Dei 37 passaggi citati conservati nel report,
+quattro non letterali appartengono ad audit intermedi respinti. Tutte le 25
+citazioni degli audit dei risultati salvati sono autentiche. La completezza e
+il supporto semantico sono giudizi separati. Otto decisioni omesse nel ramo
+source_change impediscono di ricostruire il primo audit respinto.
+
+Il pubblico restituisce 672 secondi e 2.765 metri: circa 11 minuti e 2,8 km sono
+corretti. I dati delle 11:00 e il massimo previsto di 24 °C hanno riscontro. Il
+titolo «Certezze da dati live» e l'assenza di rallentamenti eccedono le prove.
+Una lieve imprecisione associa 1–2% di pioggia anche a pomeriggio/sera, i cui
+valori riportati sono invece 0%. Il PASS automatico originale non viene alterato.
+
+## Correzioni del candidato e verifiche
+
+L'audit della preparazione controlla ora anche i risultati sostanziali mancanti
+rispetto al bisogno attestato. Deve integrare le conclusioni sostenute dalle fonti
+correnti e verificarne premesse e citazioni. Il verifier confronta il contenuto con
+l'esito personale: un criterio generato che dice soltanto «documento disponibile»
+non sostituisce il confronto richiesto. Requisiti derivati e richiesta non sono
+promossi a prove; non si inventano premesse o condizioni.
+
+Il promemoria accanto alle osservazioni degli strumenti conserva natura, precisione,
+tempo e limiti dei dati. Una lettura riuscita non sostiene qualsiasi conclusione,
+una stima non è certezza fisica e un aggregato non dimostra assenza di criticità.
+La sezione di sistema precedente era già inoltrata: non è stata trovata una perdita
+del prompt. Questa è una precisazione delle istruzioni, da collaudare sul modello.
+
+Il runner registra separatamente i controlli di risultato, Home, replay, owner e
+isolamento anche quando il testo non supera il matcher. Il controllo semantico
+originale e il suo FAIL restano obbligatori; un controllo non eseguito resta tale.
+Non è una modifica al percorso di consegna dell'app o alle fonti sintetiche.
+
+La configurazione Expo usa `EXPO_PUBLIC_EAS_PROJECT_ID` quando non è già presente
+`extra.eas.projectId`, preservando gli altri campi. Sei verifiche sul resolver
+effettivo passano; nessun ID, account o credenziale è stato inventato. Occorrono
+l'UUID del progetto reale e un backend raggiungibile dal telefono per la build.
+
+Verifica locale del candidato: **1.415 PASS, 1 SKIP, 115 moduli, 38,78 s**; scripted **9/9**, zero chiamate modello, HTTP modello ed effetti esterni.
+
+Il test del nuovo report diagnostico è incluso nella CI v162. I controlli mirati
+sono parte o sovrapposizioni della verifica completa e non vengono sommati.
+Le sei prove EAS usano @expo/config 12.0.14, plugin attivi, copie temporanee,
+ambiente sintetico e rete bloccata. La baseline aveva due FAIL sui casi env;
+la patch e poi i file effettivamente modificati superano tutti e sei i casi.
+
+La ricostruzione del prompt post-tool conserva tutte le altre chiavi e le due
+osservazioni originali. Il sistema di 94.837 caratteri non cambia. La prova
+osserva il callback reale _call_ai, non è una cattura HTTP storica del modello.
+Le nuove istruzioni richiedono ancora la verifica reale del nuovo commit.
+
+La nuova base `c59db28` (Vision PR 215) è integrata: i dodici file interessati
+restano identici a quel commit. Non cambiano provider predefiniti, budget di
+esecuzione, scheduler, dipendenze o schema del database. I limiti locali della
+bozza e l'autenticazione letterale delle citazioni restano invariati; autenticità
+non significa automaticamente supporto della conclusione.
+
+Tarquinia resta la località confermata e la vecchia stesura resta chiusa. Il percorso
+del bucato è coperto da motore reale con risposte sintetiche; non è ancora attestata
+una prova unica con meteo/ricerca reali, attesa fisica e notifica nativa osservata.
+La patch app Railway `eb9c3870` è bloccata dal rifiuto automatico precedente e non
+viene aggirata tramite merge. La lettura primaria delle 09:22 UTC attesta backend
+e web su `c59db28` (Vision), mentre la patch resta STAGED con cinque modifiche.
+Il candidato di autonomia non è applicato all'app; il servizio tecnico è distinto.
+Export e browser non provano firma, installazione o comparsa della notifica ad app chiusa.
+
+## Artefatti e integrità
+
+- `docs/evidence/autonomy_v162_live_2026-10-12_5b4efd5.json` — SHA-256 `c8fed7a830e4eadbe0e824d9123423b22825e703f37121219e17a4e35295d3be`.
+- `docs/evidence/autonomy_v162_manual_review_2026-10-12_5b4efd5.json` — SHA-256 `9767af54efb9573b12bb022edd1e5597a2b2bcbc7f4a9e248e3abaaec4793cb6`.
+- `docs/evidence/public_read_v162_live_2026-10-12_5b4efd5.json` — SHA-256 `ce4c1443faf594ae2a5a2362bd63b24d325868eed6bc1e39db68604722e02be8`.
+- `docs/evidence/public_read_v162_manual_review_2026-10-12_5b4efd5.json` — SHA-256 `32a802235316ff76f8cb4356313dde5a5501a3a3e61eff9084d542de37142e04`.
+- `docs/evidence/ci_v162_2026-10-12_5b4efd5.json` — SHA-256 `de8dac0ec4d8cb08b07efc8ba7d82b7cbbc83f8883419b7926436082de3131bf`.
+- `docs/evidence/app_deployment_v162_2026-10-12_0922.json` — SHA-256 `816fb57c92d002875b3bad88bc4c34987d8695a81b624ee7266f39119569785d`.
+
+---
+
 # 12 ottobre 2026 — v162, calcoli conservati e qualificazione delle fonti
 
 La prova reale del padre `96e8513` termina **6/9 macchina**, con **74 chiamate
