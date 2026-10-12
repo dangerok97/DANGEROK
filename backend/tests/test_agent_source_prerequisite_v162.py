@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from agent.models import ActionStep
+from agent.models import ActionStep, AgentBudget
 from agent.service import AgentService, _InvalidNextSelection
 
 
@@ -37,7 +37,7 @@ async def test_source_read_is_selected_before_a_premature_draft():
                          input_refs=["mem_synthetic"])
     service, goal, plan, read, journal = fixture(prepare, inspect)
     decision, step = await AgentService._next(service, "synthetic-owner", goal, plan,
-                                             SimpleNamespace(), language="it")
+                                             SimpleNamespace(), AgentBudget(), language="it")
     assert decision == "execute" and step.id == inspect.id
     read.assert_awaited_once_with("synthetic-owner", "synthetic-owned-goal")
     journal.assert_not_awaited()
@@ -52,7 +52,7 @@ async def test_missing_read_triggers_bounded_replanning_not_preparation():
     service, goal, plan, read, journal = fixture(prepare, verify)
     with pytest.raises(_InvalidNextSelection) as error:
         await AgentService._next(service, "synthetic-owner", goal, plan,
-                                 SimpleNamespace(), language="it")
+                                 SimpleNamespace(), AgentBudget(), language="it")
     assert error.value.context["problem"] == "preparation_sources_required"
     assert error.value.context["result"]["problem"] == "preparation_sources_required"
     assert error.value.context["selection"]["candidate_step_ids"] == [prepare.id, verify.id]
@@ -69,7 +69,7 @@ async def test_normal_first_read_still_executes_without_a_model():
                          capability_needed="document.create", status="pending")
     service, goal, plan, _, journal = fixture(inspect, prepare)
     decision, step = await AgentService._next(service, "synthetic-owner", goal, plan,
-                                             SimpleNamespace(), language="it")
+                                             SimpleNamespace(), AgentBudget(), language="it")
     assert decision == "execute" and step.id == inspect.id
     journal.assert_not_awaited()
 
@@ -84,7 +84,7 @@ async def test_missing_read_does_not_start_unrelated_external_effect():
     service, goal, plan, _, journal = fixture(prepare, effect)
     with pytest.raises(_InvalidNextSelection):
         await AgentService._next(service, "synthetic-owner", goal, plan,
-                                 SimpleNamespace(), language="it")
+                                 SimpleNamespace(), AgentBudget(), language="it")
     assert effect.status == "pending"
     journal.assert_awaited_once()
 
@@ -106,7 +106,7 @@ async def test_single_current_owned_memory_gets_one_readonly_prerequisite(monkey
 
     monkeypatch.setattr("agent.memory_sources.read_memory_previews", owned_preview)
     decision, step = await AgentService._next(service, "synthetic-owner", goal, plan,
-                                             SimpleNamespace(), language="it")
+                                             SimpleNamespace(), AgentBudget(), language="it")
     assert decision == "execute" and step.step_type == "inspect"
     assert step.capability_needed == "information.read"
     assert step.input_refs == ["mem_owned"] and step.external_effect is False
@@ -135,7 +135,7 @@ async def test_missing_or_unusable_memory_cannot_be_auto_read(monkeypatch, case)
     monkeypatch.setattr("agent.memory_sources.read_memory_previews", preview)
     with pytest.raises(_InvalidNextSelection):
         await AgentService._next(service, "synthetic-owner", goal, plan,
-                                 SimpleNamespace(), language="it")
+                                 SimpleNamespace(), AgentBudget(), language="it")
     assert len(plan.steps) == 1
     service.repo.save_plan.assert_not_awaited()
     journal.assert_awaited_once()
