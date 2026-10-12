@@ -524,9 +524,9 @@ export function systemExplanation(system:string,label:string):string{
 }
 const connector=(text:string):string=>{
  if(/^arteria\b|^aorta\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
- if(/^osso\b|^organo\b|^occhio\b|^arco\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
+ if(/^osso\b|^organo\b|^occhio\b|^arco\b|^emisfero\b|^orecchio\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^(?:vena|rete|ghiandola|cartilagine|parete|cavità|falange|trachea|mandibola)\b/.test(text.toLowerCase()))return 'della '+text.charAt(0).toLowerCase()+text.slice(1);
- if(/^(?:cuore|bulbo|nervo|bronco|giro|cranio|polmone|ventricolo|capo|pene|ginocchio|polso|sacco|miocardio|fegato|rene|emisfero|occhio|orecchio)\b/.test(text.toLowerCase()))return 'del '+text.charAt(0).toLowerCase()+text.slice(1);
+ if(/^(?:cuore|bulbo|nervo|bronco|giro|cranio|polmone|ventricolo|capo|pene|ginocchio|polso|sacco|miocardio|fegato|rene)\b/.test(text.toLowerCase()))return 'del '+text.charAt(0).toLowerCase()+text.slice(1);
  return 'di '+text.charAt(0).toLowerCase()+text.slice(1);
 };
 function manualDental(s:string):string|null{
