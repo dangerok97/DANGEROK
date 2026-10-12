@@ -1406,10 +1406,24 @@ def _fit_prepared_context(
     if len(encoded := encode()) <= 9000:
         return encoded
 
-    # Keep exactly one complete definition of a matching candidate. An id
-    # alone cannot establish equality after a revision of effects/parameters.
+    # First share identical fields inside plan.steps, keeping the pending
+    # candidates fully readable. A bigger goal context must not silently
+    # replace a live candidate with a pointer when a lossless plan table fits.
+    # All source rows, result limits and clock values remain unchanged.
     if action:
         candidates = compact.get("still_to_do") or []
+        steps_holder["steps"] = _record_table(original_steps)
+        compact["what_ora_can_do"] = _record_table(compact.get("what_ora_can_do"))
+        # Each plan-row reference is self-describing (details_in=still_to_do).
+        # The extra list of repeated ids is redundant once a table fits.
+        omitted.pop("repeated_step_details", None)
+        if len(encoded := encode()) <= 9000:
+            return encoded
+
+    # If the complete candidates and a shared plan table still do not fit,
+    # use the pre-existing reversible id binding. It is permitted only for
+    # a byte-for-byte matching definition; unknown/changed candidates stay.
+    if action:
         definitions = original_steps
         replacement = []
         for candidate in candidates:
