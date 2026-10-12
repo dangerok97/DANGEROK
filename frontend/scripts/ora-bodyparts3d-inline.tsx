@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import AnatomyScene from './scene';
-import {DEFAULT_VISIBLE,SYSTEMS,explanation,type Atlas,type Concept,type SystemId,type SceneState} from './anatomy';
+import {DEFAULT_VISIBLE,SYSTEMS,EXPLANATIONS,type Atlas,type Concept,type SystemId,type SceneState} from './anatomy';
 import {italianAtlas} from './ora-locale-it';
 import {systemExplanation} from './ora-anatomy-terminology-it';
 import {anatomicalRegion,STUDY_LABEL,expansion,type StudyRegion,type ModelSide} from './ora-regions';
@@ -214,7 +214,7 @@ export default function OraOverlay(){
      <button type="button" aria-label="Torna alla vista precedente"
       onClick={returnToExplosion}>×</button>
     </div>
-    <p data-testid="ora-inline-explanation">{explanation(chosen.name,selected.system)||
+    <p data-testid="ora-inline-explanation">{EXPLANATIONS[(chosen.originalName||'').toLowerCase()]||EXPLANATIONS[chosen.name.toLowerCase()]||
       systemExplanation(selected.system,title)}</p>
     <div className="ora-inline-terminology">
      <strong>Denominazione anatomica</strong>
