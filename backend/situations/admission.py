@@ -169,6 +169,11 @@ async def ensure_initial_review(db, owner: str, sid: str) -> dict:
                 if wake:
                     return {"status": "source_recheck_queued", "goal_id": gid}
                 return {"status": "source_recheck_unconfirmed", "goal_id": gid}
+            # A personal deferral is an intentional deadline, not a missing
+            # scheduler row. Do not "repair" that choice into a second wake
+            # merely because an old physical checkpoint is still present.
+            if explicit_defer and explicit_defer > now:
+                return {"status": "user_deferred", "goal_id": gid}
             state = await read_followup(db, owner, sid)
             if state["status"] in ("scheduled", "due", "running", "waiting_for_user", "review_pending"):
                 return {"status": "already_admitted", "goal_id": gid}
