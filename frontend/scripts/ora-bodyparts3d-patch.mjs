@@ -12,7 +12,8 @@ for(const [from,to] of [
  ['ora-bodyparts3d-inline.tsx','app/ora-overlay.tsx'],
  ['ora-bodyparts3d-inline.css','app/ora-overlay.css'],
  ['ora-bodyparts3d-locale-it.ts','app/ora-locale-it.ts'],
- ['ora-bodyparts3d-regions.ts','app/ora-regions.ts']
+ ['ora-bodyparts3d-regions.ts','app/ora-regions.ts'],
+ ['ora-anatomy-terminology-it.ts','app/ora-anatomy-terminology-it.ts']
 ])copyFileSync(join(source,from),join(root,to));
 
 let anatomy=read('app/anatomy.ts');
@@ -20,6 +21,12 @@ anatomy=once(anatomy,'export interface Part {id:string;name:string;conceptId:str
  'export interface Part {id:string;name:string;originalName?:string;conceptId:string;');
 anatomy=once(anatomy,'export interface Concept {id:string;name:string;elements:string[]}',
  'export interface Concept {id:string;name:string;originalName?:string;elements:string[]}');
+anatomy=once(anatomy,
+ 'export interface Part {id:string;name:string;originalName?:string;conceptId:string;',
+ 'export interface Part {id:string;name:string;originalName?:string;translationReviewed?:boolean;conceptId:string;');
+anatomy=once(anatomy,
+ 'export interface Concept {id:string;name:string;originalName?:string;elements:string[]}',
+ 'export interface Concept {id:string;name:string;originalName?:string;translationReviewed?:boolean;elements:string[]}');
 anatomy=once(anatomy,'export interface SceneState {inspectorOpen?:boolean;explode:number;',
  'export interface SceneState {inspectorOpen?:boolean;allowed?:string[]|null;explode:number;');
 anatomy="import {SISTEMI_IT,SPIEGAZIONI_IT} from './ora-locale-it';\n"+anatomy;
