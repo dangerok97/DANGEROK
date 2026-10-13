@@ -87,6 +87,38 @@ def _review_feedback(checked, allowed, *, origin="preparation_audit"):
     return _fit_feedback(result, 1400)
 
 
+def _positive_audit_contradictions(review):
+    """Reject contradictions *admitted by the review itself*, not infer meaning.
+
+    Source-quote authenticity is not entailment. This gate is deliberately
+    narrower: a stated/derived claim cannot simultaneously carry a compatible
+    counterexample that defeats it; a clause labeled unsupported cannot be
+    published verbatim as the corrected result. This is not a semantic oracle:
+    an auditor that mislabels unsupported prose still needs independent review.
+    """
+    if not isinstance(review, dict) or review.get("verified") is not True:
+        return []
+    checks = review.get("claim_review")
+    if not isinstance(checks, list):
+        return []
+    content = " ".join(str(review.get("content") or "").casefold().split())
+    problems = []
+    for row in checks[:12]:
+        if not isinstance(row, dict):
+            continue
+        support = row.get("support")
+        counterexample = row.get("compatible_counterexample")
+        if (support in ("stated", "derived")
+                and isinstance(counterexample, str) and counterexample.strip()):
+            problems.append("counterexample_defeats_asserted_support")
+        claim = row.get("claim")
+        if (support == "unsupported" and isinstance(claim, str)
+                and len(" ".join(claim.split())) >= 16
+                and " ".join(claim.casefold().split()) in content):
+            problems.append("unsupported_clause_kept_in_corrected_text")
+    return list(dict.fromkeys(problems))
+
+
 def _response_kind(value):
     if value is None:
         return "null"
@@ -578,6 +610,15 @@ async def prepare(db, owner_id, goal, step):
         feedback = _protocol_feedback("audit", errors)
         await _remember_feedback(db, owner_id, goal.id, scope, feedback)
         return unavailable("preparation_review_invalid", feedback=feedback)
+    contradictions = _positive_audit_contradictions(checked)
+    if contradictions:
+        # A positive model verdict does not erase contrary information in its
+        # own evidence review. Nothing newly generated may be saved here.
+        feedback = _review_feedback(checked, allowed)
+        if feedback:
+            await _remember_feedback(db, owner_id, goal.id, scope, feedback)
+        return unavailable("preparation_review_self_contradiction", True,
+                           feedback=feedback)
     content, refs = content.strip(), list(dict.fromkeys(refs))
     prepared_id = new_prepared_result_id()
     saved = await db.agent_goals.update_one(

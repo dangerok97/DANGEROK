@@ -267,6 +267,7 @@ jobs:
             tests/test_preparation_recovery_v162.py \
             tests/test_preparation_feedback_v162.py \
             tests/test_preparation_entailment_v162.py \
+            tests/test_preparation_audit_contradictions_v162.py \
             tests/test_autonomy_preparation_diagnostics_v162.py \
             tests/test_autonomy_result_diagnostics_v162.py \
             tests/test_autonomy_case_progress_v162.py \

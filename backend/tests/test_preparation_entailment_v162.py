@@ -198,10 +198,12 @@ async def test_new_reasoning_text_never_changes_the_model_verdict_or_proves_enta
 
     monkeypatch.setattr(reasoning, "_ask_model", model)
     result = await preparation.prepare(h.db, OWNER, h.goal, h.step)
-    # This deliberately inconsistent positive response is still a model error.
-    # Formatting checks must not be presented as an independent semantic oracle.
-    assert result.status == ("succeeded" if verified else "unavailable")
-    if verified:
-        assert h.goal.prepared_text == "Una conclusione deliberatamente non sostenuta."
-    else:
-        assert result.error_type == "preparation_not_supported" and not h.goal.prepared_text
+    # A reviewer that provides its own compatible counterexample cannot
+    # also certify the claim as derived. This checks internal contradiction,
+    # not whether the text follows from the real source.
+    assert result.status == "unavailable"
+    assert not h.goal.prepared_text
+    assert result.error_type == (
+        "preparation_review_self_contradiction" if verified
+        else "preparation_not_supported"
+    )
