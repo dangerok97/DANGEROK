@@ -12,6 +12,7 @@ import type {Box} from './scene';
 import {CameraTorch, type TorchState, TORCH_UNAVAILABLE, cameraCrop, sameCrop, drawCameraCrop, clampCameraZoom} from './cameraControls';
 import {filterCatalog} from './catalogSearch';
 import {AnatomyExplorer} from './AnatomyExplorer.web';
+import {projectAnatomyAnchor,sameAnatomyAnchor,type AnatomyCaptureAnchor} from './anatomyCameraAnchor';
 import {warmAnatomyReference} from './anatomyWarmup.web';
 import type {BodyRegion} from './anatomyFocus';
 
@@ -30,6 +31,7 @@ export default function LiveExplorer(){
   const [anatomyRegion,setAnatomyRegion]=useState<BodyRegion>('full_body');
   const [anatomySide,setAnatomySide]=useState<'left'|'right'|'unknown'>('unknown');
   const [anatomyBox,setAnatomyBox]=useState<Box|null>(null);
+  const anatomyCapture=useRef<AnatomyCaptureAnchor|null>(null);
   const [anatomyPosePoints,setAnatomyPosePoints]=useState<Record<string,[number,number]>|null>(null);
   const anatomyActiveRef=useRef(false);
   const [stage,setStage]=useState('Inquadra. Esplora. Capisci.');
@@ -78,6 +80,30 @@ export default function LiveExplorer(){
   const gestures=useRef(new VisionGestures());
   const arrival=useRef<{elapsed:number;box:Box|null;sw:number;sh:number}|null>(null);
   const tour=useRef<{definition:Walkthrough;clock:TourClock;before:typeof view.current}|null>(null);
+  // Geometry can change after the photo analysis: once the retry controls
+  // disappear, the stage grows. Always project the saved source ROI against
+  // the CURRENT stage size; also update on rotation and camera zoom changes.
+  useEffect(()=>{
+    if(!anatomyActive)return;
+    const element=stageElement.current;
+    if(!element)return;
+    const sync=()=>{
+      const capture=anatomyCapture.current;
+      if(!capture||!alive.current)return;
+      const rect=element.getBoundingClientRect();
+      if(rect.width<=0||rect.height<=0)return;
+      try{
+        const viewCrop=cameraCrop(capture.sourceWidth,capture.sourceHeight,
+          rect.width,rect.height,capture.photo?1:cameraZoomRef.current);
+        const projected=projectAnatomyAnchor(capture,viewCrop);
+        setAnatomyBox(previous=>sameAnatomyAnchor(previous,projected)?previous:projected);
+      }catch{/* Missing camera dimensions: keep current held anchor. */}
+    };
+    sync();
+    const observer=new ResizeObserver(sync);
+    observer.observe(element);
+    return()=>observer.disconnect();
+  },[anatomyActive,cameraZoom]);
   const finishArrival=useCallback(()=>{if(arrival.current){arrival.current=null;view.current.progress=1;}},[]);
   const endTour=useCallback((restore=true)=>{
     const active=tour.current;if(active){active.clock.stop();if(restore){const reduced=view.current.reduceMotion;Object.assign(view.current,active.before,{reduceMotion:reduced});if(alive.current){setOpening(Math.round(view.current.target*100));setExpanded(view.current.target>.5);}}}
@@ -111,7 +137,7 @@ export default function LiveExplorer(){
     photoObjectURL.current=null;photo.current=null;modeRef.current='idle';
     busyRef.current=false;nextScan.current=Infinity;scene.current=null;heldResult.current=null;scanReference.current=null;
     resetView();objectHintRef.current='';
-    anatomyActiveRef.current=false;
+    anatomyActiveRef.current=false;anatomyCapture.current=null;
     if(alive.current){setAnatomyActive(false);setAnatomyRegion('full_body');setAnatomyBox(null);setAnatomyPosePoints(null);setAnatomyPosePoints(null);setCanHint(false);setObjectHint('');setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setAnatomyBox(null);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
   },[resetView]);
   const apply=useCallback((value:CatalogResult,origin?:{box:Box;sw:number;sh:number}|null)=>{
@@ -165,14 +191,12 @@ export default function LiveExplorer(){
       let value=await catalogApi.scan(dataURI,String(ticket)+'-'+Date.now(),controller.signal,hintOverride??objectHintRef.current);
       const identification=value.identification;
       if(value.status==='anatomy'){
-        // Live capture is already cropped to the visible stage. Only map photo
-        // coordinates through CSS cover when the photo has a different aspect.
         const recognizedBox=value.identification?.bbox||null;
-        const stageRect=stageElement.current?.getBoundingClientRect();
-        const mappedBox=recognizedBox&&modeRef.current==='photo'&&stageRect
-          ?originInView(recognizedBox,sw,sh,stageRect.width,stageRect.height)
-          :recognizedBox;
-        if(epoch.current===ticket&&alive.current) activateAtlas(value.body_region||value.identification?.body_region||'full_body',value.identification?.pose_points||null,mappedBox,value.identification?.body_side||value.body_side||'unknown');
+        const anchor:AnatomyCaptureAnchor|null=recognizedBox?{
+         box:recognizedBox,sourceWidth:rawWidth,sourceHeight:rawHeight,
+         capturedCrop:crop,photo:!liveCapture,zoom:cameraZoomRef.current
+        }:null;
+        if(epoch.current===ticket&&alive.current) activateAtlas(value.body_region||value.identification?.body_region||'full_body',value.identification?.pose_points||null,recognizedBox,value.identification?.body_side||value.body_side||'unknown',anchor);
         return;
       }
       for(let attempt=0;value.status==='building'&&attempt<12;attempt++){
@@ -229,9 +253,12 @@ export default function LiveExplorer(){
       stop();setError(e?.name==='NotAllowedError'?'Permesso negato. Abilita la fotocamera nelle impostazioni del sito.':String(e?.message||'Fotocamera non disponibile.'));
     }
   },[stop]);
-  const activateAtlas=(region:BodyRegion='full_body',posePoints:Record<string,[number,number]>|null=null,box:Box|null=null,bodySide:'left'|'right'|'unknown'='unknown')=>{
+  const activateAtlas=(region:BodyRegion='full_body',posePoints:Record<string,[number,number]>|null=null,box:Box|null=null,bodySide:'left'|'right'|'unknown'='unknown',capture:AnatomyCaptureAnchor|null=null)=>{
     setAnatomyRegion(region);setAnatomySide(bodySide);setAnatomyPosePoints(posePoints);
-    setAnatomyBox(box&&box.length===4&&box.every(n=>Number.isFinite(n))&&box[2]>.03&&box[3]>.03?box:null);
+    anatomyCapture.current=capture;
+    // This placeholder is replaced after React has resized the stage to the
+    // anatomy layout, avoiding an early 3D iframe load at stale coordinates.
+    setAnatomyBox(capture?null:box&&box.length===4&&box.every(n=>Number.isFinite(n))&&box[2]>.03&&box[3]>.03?box:null);
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     anatomyActiveRef.current=true;setAnatomyActive(true);scene.current=null;
     heldResult.current=null;scanReference.current=null;resetView();setResult(null);
@@ -244,7 +271,7 @@ export default function LiveExplorer(){
     // Dismiss only the model. Keep the stream and invalidate every old AI reply.
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     scene.current=null;heldResult.current=null;scanReference.current=null;resetView();
-    anatomyActiveRef.current=false;setAnatomyActive(false);setAnatomyRegion('full_body');
+    anatomyActiveRef.current=false;anatomyCapture.current=null;setAnatomyActive(false);setAnatomyRegion('full_body');
     objectHintRef.current='';setObjectHint('');setCanHint(false);
     setResult(null);setBusy(false);setError(null);setInfoOpen(false);setLibraryOpen(false);setCameraPanel(false);
     setStage('Inquadra il nuovo oggetto: lo riconosco automaticamente.');nextScan.current=performance.now()+300;

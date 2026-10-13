@@ -176,6 +176,8 @@ assert.match(technicalScene,/const explodedPage=oraInline&&latest\.current\.expl
 assert.match(technicalScene,/const requestedIds=new Set\(latest\.current\.allowed\|\|\[\]\)/);
 assert.match(technicalScene,/const preferredSystems=new Set\(latest\.current\.visible\)/);
 assert.match(technicalScene,/scores\[b\]-scores\[a\]/);
+assert.match(technicalScene,/lastState=null;loaded\+\+;ready=true;onProgress\(/);
+assert.doesNotMatch(technicalScene,/loaded\+\+;onProgress\(/);
 assert.match(technicalScene,/camera\.setViewOffset\(w,h,w\/2-centerX\*w,h\/2-centerY\*h,w,h\)/);
 assert.match(technicalScene,/const positionMix=T\.MathUtils\.smoothstep\(amount,\.16,\.86\)/);
 assert.match(technicalScene,/visibleIds\.has\(part\.id\)&&data\[i\*4\+3\]>/);
