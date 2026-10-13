@@ -139,6 +139,56 @@ async def test_blind_critic_accepts_compact_grounded_comparison_when_opted_in(mo
 
 
 @pytest.mark.asyncio
+async def test_blind_challenge_cannot_exceed_agent_cognitive_budget(monkeypatch):
+    from agent.execution import StepExecutor
+    from agent.models import AgentBudget
+
+    monkeypatch.setenv("ORA_PREPARATION_BLIND_CHALLENGE", "1")
+    h = await seed()
+    budget = AgentBudget(max_cognitive_calls=2)
+    from unittest.mock import AsyncMock
+    model = AsyncMock(side_effect=AssertionError("Insufficient budget must not call the model"))
+    monkeypatch.setattr(reasoning, "_ask_model", model)
+    result = await StepExecutor(h.db).run(
+        OWNER, h.goal, h.step, may_touch_the_world=False, budget=budget,
+    )
+    assert result.status == "waiting"
+    assert result.error_type == "preparation_cognitive_budget_spent"
+    assert budget.cognitive_calls == 0
+    model.assert_not_awaited()
+    assert (await h.db.agent_goals.find_one({"owner_id": OWNER, "id": h.goal.id}))["prepared_text"] == ""
+
+
+@pytest.mark.asyncio
+async def test_opted_in_third_model_call_is_accounted_for_in_agent_budget(monkeypatch):
+    from agent.execution import StepExecutor
+    from agent.models import AgentBudget
+
+    monkeypatch.setenv("ORA_PREPARATION_BLIND_CHALLENGE", "1")
+    h = await seed()
+    checked = audit(h)
+    calls = []
+
+    async def model(_system, encoded, *, response_schema=None):
+        payload = json.loads(encoded)
+        calls.append(payload)
+        if payload.get("stage") == "blind_source_challenge":
+            return response(True)
+        return checked if "draft" in payload else {
+            "content": TEXT, "evidence_ids": [s.id for s in h.sources],
+        }
+
+    monkeypatch.setattr(reasoning, "_ask_model", model)
+    budget = AgentBudget(max_cognitive_calls=3)
+    result = await StepExecutor(h.db).run(
+        OWNER, h.goal, h.step, may_touch_the_world=False, budget=budget,
+    )
+    assert result.status == "succeeded"
+    assert len(calls) == budget.cognitive_calls == 3
+    assert h.goal.prepared_text == TEXT
+
+
+@pytest.mark.asyncio
 async def test_challenge_stays_off_by_default_and_does_not_add_provider_calls(monkeypatch):
     monkeypatch.delenv("ORA_PREPARATION_BLIND_CHALLENGE", raising=False)
     h = await seed()
