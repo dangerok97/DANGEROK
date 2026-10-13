@@ -154,6 +154,7 @@ _GENERIC_COPY = frozenset({
     "ora ha un aggiornamento importante per te",
     "un aggiornamento importante", "aggiornamento importante",
     "aggiornamento", "una novità per te",
+    "avviso riservato", "avviso riservato di ora", "un avviso riservato",
     "apri ora per i dettagli", "apri ora per la situazione",
     "apri ora per saperne di più", "apri ora per maggiori dettagli",
     "c'è un aggiornamento importante",
