@@ -9,11 +9,12 @@ type Props={
  bodySide?:'left'|'right'|'unknown';
  posePoints?:Record<string,[number,number]>|null;
  anchorBox?:[number,number,number,number]|null;
+ hasPixelContour?:boolean;
 };
 
 /** Only source-verified BodyParts3D meshes are anatomy. Never render the old
  * procedural human preview or replace a failed atlas with a fabricated body. */
-export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',anchorBox}:Props){
+export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',anchorBox,hasPixelContour=false}:Props){
  const [status,setStatus]=React.useState<AtlasStatus>('checking');
  const [meshReady,setMeshReady]=React.useState(false);
  const [attempt,setAttempt]=React.useState(0);
@@ -87,7 +88,7 @@ export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',a
     aria-label="Chiudi l'atlante e scansiona altro"
     data-testid="vision-anatomy-close" onClick={onClose}>×</button>
   </header>
-  {aiming&&<div className="vx-anatomy-inline-preview vx-anatomy-target"
+  {aiming&&!hasPixelContour&&<div className="vx-anatomy-inline-preview vx-anatomy-target"
     data-testid="vision-anatomy-preview" data-anchored={placement?'true':'false'}
     aria-hidden="true"
     style={placement?{left:(placement.x*100)+'%',top:(placement.y*100)+'%',
