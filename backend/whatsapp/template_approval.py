@@ -28,13 +28,14 @@ async def approval_status(
     *, use_cache: bool = True,
 ) -> str:
     """approved_dynamic | approved (static) | not_configured | pending |
-    rejected | paused | wrong_category | requires_parameters | not_found |
-    waba_not_configured | unverified.
+    rejected | paused | wrong_category | wrong_content | requires_parameters |
+    not_found | waba_not_configured | unverified.
 
     Only approved_dynamic permits an informative proactive alert; proof
     that Meta accepted or delivered a particular message.
     """
     from whatsapp.alerts import template_settings
+    from whatsapp.template_provisioning import TEMPLATE_BODY
 
     template = template_settings()
     if not template:
@@ -140,7 +141,15 @@ async def approval_status(
                                         and "}}" not in body_text.replace("{{1}}", "")
                                         and "{{" not in outside_text
                                         and "}}" not in outside_text):
-                                        status = "approved_dynamic"
+                                        # A single approved variable is NOT
+                                        # permission to use it for any topic.
+                                        # Fixed text must match the actual
+                                        # user-requested recurrence template.
+                                        status = (
+                                            "approved_dynamic"
+                                            if body_text == TEMPLATE_BODY
+                                            else "wrong_content"
+                                        )
                                     elif "{{" in json.dumps(components, ensure_ascii=False):
                                         status = "requires_parameters"
                                     else:

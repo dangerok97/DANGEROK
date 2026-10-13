@@ -125,6 +125,7 @@ class WhatsAppService:
                 and link.get("details_opted_in_at")
             ),
             "template_configured": bool(template),
+            "template_scope": "recurring_memo" if template else None,
             "template_approval_status": approval,
             "notification_channel_ready": bool(
                 link and link.get("notifications_enabled") is True

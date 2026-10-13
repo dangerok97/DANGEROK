@@ -151,7 +151,7 @@ export function WhatsAppConnection() {
               <Text testID="whatsapp-alerts-enabled" style={[styles.description, { color: colors.textSecondary }]}>
                 Consenso agli avvisi attivo.
                 {status.template_approval_status === 'approved_dynamic'
-                  ? ' Modello Meta con dettagli approvato: gli avvisi concreti sono abilitati anche oltre 24 ore.'
+                  ? ' Modello Meta approvato: fuori dalle 24 ore sono consentiti soltanto i promemoria ricorrenti salvati da te (es. compleanni). Gli altri avvisi restano nell’app ORA.'
                   : status.template_approval_status === 'approved'
                     ? ' Modello Meta statico approvato ma non adatto: per informazioni dirette occorre un modello con {{1}} nel corpo.'
                   : status.template_approval_status === 'pending'
@@ -162,11 +162,13 @@ export function WhatsAppConnection() {
                         ? ' Il modello Meta deve essere approvato nella categoria Utility per questi avvisi.'
                         : status.template_approval_status === 'requires_parameters'
                           ? ' Il modello Meta deve avere una sola variabile {{1}} nel corpo, senza altri parametri.'
+                          : status.template_approval_status === 'wrong_content'
+                            ? ' Il contenuto del modello Meta non coincide con il promemoria ricorrente approvato: gli invii sono bloccati.'
                           : status.template_approval_status === 'waba_not_configured'
                             ? ' Il server deve ancora collegare il WhatsApp Business Account usato per verificare i modelli.'
                             : status.template_approval_status === 'unverified'
                               ? ' Non è stato possibile verificare l’approvazione del modello Meta.'
-                              : ' Fuori dalle 24 ore serve un modello Utility con dettaglio approvato da Meta.'}
+                              : ' Fuori dalle 24 ore serve un modello Meta Utility specifico e approvato per i promemoria ricorrenti. Non è valido per qualsiasi notifica AI.'}
                 {status.notification_channel_ready && status.template_approval_status !== 'approved_dynamic'
                   ? ' Per ora il canale può inviare soltanto nella finestra di conversazione attiva.'
                   : ''}

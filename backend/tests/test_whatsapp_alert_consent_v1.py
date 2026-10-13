@@ -18,10 +18,14 @@ from delivery.models import DeliveryPlan, PushCopy
 from whatsapp.alerts import (
     AlertWorker, enqueue, ensure_indexes, in_service_window,
     may_notify, record_status, set_opt_in, set_detail_preference, template_settings,
-    public_copy,
+    public_copy, recurring_template_detail,
 )
 from whatsapp.cloud import CloudConfig, CloudSendError, iter_signed_delivery_statuses
 from whatsapp.service import WhatsAppService, ensure_indexes as ensure_whatsapp_indexes
+from whatsapp.template_provisioning import (
+    TEMPLATE_NAME, TEMPLATE_BODY, TEMPLATE_SCOPE, TEMPLATE_LANGUAGE,
+    EXAMPLE_TEXT, review_payload, request_review,
+)
 
 
 PHONE = "393331112233"
@@ -41,6 +45,7 @@ def cfg(monkeypatch):
     for key, value in vars.items():
         monkeypatch.setenv(key, value)
     monkeypatch.delenv("WHATSAPP_ALERT_TEMPLATE_NAME", raising=False)
+    monkeypatch.delenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", raising=False)
     return CloudConfig.load()
 
 
@@ -183,21 +188,26 @@ async def test_outside_window_requires_configured_meta_template(cfg, monkeypatch
     await set_opt_in(db, OWNER, True)
     assert not await may_notify(db, OWNER)
     assert not await enqueue(db, OWNER, plan())
-    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
     from whatsapp import template_approval
 
     async def meta_approved(*args, **kwargs):
         return "approved_dynamic"
 
     monkeypatch.setattr(template_approval, "approval_status", meta_approved)
-    assert template_settings() == ("ora_aggiornamento_importante", "it")
+    assert template_settings() == (TEMPLATE_NAME, TEMPLATE_LANGUAGE)
     assert await may_notify(db, OWNER)
     item = plan()
     await db.delivery_plans.insert_one(item.model_dump())
-    await enqueue(db, OWNER, item)
+    await db.opportunities.insert_one({
+        "id": item.source_id, "owner_id": OWNER,
+        "status": "active", "source_context": TEMPLATE_SCOPE,
+    })
+    assert await enqueue(db, OWNER, item)
     from delivery.service import DeliveryService
     async def source(*_):
-        return SimpleNamespace(status="active")
+        return SimpleNamespace(status="active", source_context=TEMPLATE_SCOPE)
     async def not_muted(*_):
         return False
     seen = []
@@ -208,7 +218,7 @@ async def test_outside_window_requires_configured_meta_template(cfg, monkeypatch
     monkeypatch.setattr(DeliveryService, "_muted", not_muted)
     monkeypatch.setattr(CloudConfig, "send_proactive", fake_send)
     assert await AlertWorker(db, cfg).process_one()
-    assert seen == [(PHONE, "", ("ora_aggiornamento_importante", "it", public_copy(item)[:450]))]
+    assert seen == [(PHONE, "", (TEMPLATE_NAME, "it", recurring_template_detail(public_copy(item))))]
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["status"] == "accepted"
     assert row["kind"] == "approved_template"
@@ -388,7 +398,8 @@ async def test_template_name_alone_never_authorizes_external_outreach(cfg, monke
     db = AsyncMongoMockClient().wa_alert_template_unverified
     await linked(db, cfg, last_at=datetime.now(timezone.utc) - timedelta(days=2))
     await set_opt_in(db, OWNER, True)
-    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
     monkeypatch.delenv("WHATSAPP_WABA_ID", raising=False)
     assert await approval_status(cfg) == "waba_not_configured"
     assert not await may_notify(db, OWNER)
@@ -401,7 +412,8 @@ async def test_template_name_alone_never_authorizes_external_outreach(cfg, monke
     ("PENDING", "UTILITY", "ORA ha un aggiornamento.", "pending"),
     ("REJECTED", "UTILITY", "ORA ha un aggiornamento.", "rejected"),
     ("APPROVED", "MARKETING", "ORA ha un aggiornamento.", "wrong_category"),
-    ("APPROVED", "UTILITY", "ORA: {{1}}", "approved_dynamic"),
+    ("APPROVED", "UTILITY", TEMPLATE_BODY, "approved_dynamic"),
+    ("APPROVED", "UTILITY", "ORA: {{1}}", "wrong_content"),
 ])
 async def test_real_meta_template_metadata_required_before_outreach(
     cfg, monkeypatch, status, category, body, expected
@@ -410,7 +422,8 @@ async def test_real_meta_template_metadata_required_before_outreach(
     from whatsapp.template_approval import _CACHE, approval_status
 
     _CACHE.clear()
-    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
     monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
     calls = []
 
@@ -418,7 +431,7 @@ async def test_real_meta_template_metadata_required_before_outreach(
         calls.append((url, params.get("name"), params.get("fields")))
         assert headers.get("Authorization") == "Bearer " + cfg.access_token
         return httpx.Response(200, json={"data": [{
-            "name": "ora_aggiornamento_importante",
+            "name": TEMPLATE_NAME,
             "language": "it",
             "status": status,
             "category": category,
@@ -438,7 +451,8 @@ async def test_unavailable_meta_validation_fails_closed(cfg, monkeypatch):
     from whatsapp.template_approval import _CACHE, approval_status
 
     _CACHE.clear()
-    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
     monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
 
     async def fail_get(self, url, *, headers, params):
@@ -457,12 +471,13 @@ async def test_template_with_required_media_header_is_not_approved_for_static_al
     from whatsapp.template_approval import _CACHE, approval_status
 
     _CACHE.clear()
-    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
     monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
 
     async def fake_get(self, url, *, headers, params):
         return httpx.Response(200, json={"data": [{
-            "name": "ora_aggiornamento_importante",
+            "name": TEMPLATE_NAME,
             "language": "it",
             "status": "APPROVED", "category": "UTILITY",
             "components": [
@@ -683,7 +698,8 @@ async def test_outside_window_static_template_is_not_misrepresented_as_detailed(
     db = AsyncMongoMockClient().wa_static_template_rejection
     await linked(db, cfg, last_at=datetime.now(timezone.utc) - timedelta(days=2))
     await set_opt_in(db, OWNER, True)
-    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_avviso_statico")
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
     async def static_approved(*args, **kwargs):
         return "approved"
     monkeypatch.setattr(template_approval, "approval_status", static_approved)
@@ -701,7 +717,7 @@ async def test_dynamic_approved_meta_template_binds_informative_summary(cfg, mon
     monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
     mid = await cfg.send_proactive(
         PHONE,
-        template=("ora_avviso_contenuto", "it",
+        template=(TEMPLATE_NAME, "it",
                   "*ORA — aggiornamento*\\nSpedizione in consegna oggi"),
     )
     assert mid == "wamid.synthetic_realshape"
@@ -715,7 +731,7 @@ async def test_dynamic_approved_meta_template_binds_informative_summary(cfg, mon
         }]
     }]
     with pytest.raises(ValueError, match="invalid_template_detail_parameter"):
-        await cfg.send_proactive(PHONE, template=("ora_avviso_contenuto", "it", "{{unexpected}}"))
+        await cfg.send_proactive(PHONE, template=(TEMPLATE_NAME, "it", "{{unexpected}}"))
     assert len(sent) == 1
 
 
@@ -724,13 +740,14 @@ async def test_template_with_two_variables_or_button_variable_fails_closed(cfg, 
     import httpx
     from whatsapp.template_approval import _CACHE, approval_status
     _CACHE.clear()
-    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_avviso_contenuto")
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
     monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
     components = [{"type": "BODY", "text": "ORA: {{1}} ({{2}})"}]
 
     async def fake_get(self, url, *, headers, params):
         return httpx.Response(200, json={"data": [{
-            "name": "ora_avviso_contenuto", "language": "it",
+            "name": TEMPLATE_NAME, "language": "it",
             "status": "APPROVED", "category": "UTILITY",
             "components": components,
         }]})
@@ -741,7 +758,7 @@ async def test_template_with_two_variables_or_button_variable_fails_closed(cfg, 
         {"type": "BUTTONS", "buttons": [{"type": "URL", "url": "https://example.com/{{2}}"}]},
     ]
     assert await approval_status(cfg, use_cache=False) == "requires_parameters"
-    components[:] = [{"type": "BODY", "text": "ORA: {{1}}"}]
+    components[:] = [{"type": "BODY", "text": TEMPLATE_BODY}]
     assert await approval_status(cfg, use_cache=False) == "approved_dynamic"
 
 
@@ -787,3 +804,164 @@ def test_delivery_lock_screen_never_falls_back_to_expanded_private_copy():
     assert "Private expanded" not in str(_lockscreen_copy_for(item))
     item.sensitivity = "ordinary"
     assert _lockscreen_copy_for(item)["title"] == item.words.title
+
+
+def test_recurring_template_parameter_keeps_the_fact_not_the_ora_heading():
+    item = plan()
+    copy = public_copy(item)
+    detail = recurring_template_detail(copy)
+    assert detail == "Spedizione in consegna. Il corriere ha confermato la consegna per oggi"
+    assert "ORA — aggiornamento" not in detail
+    assert recurring_template_detail("*ORA — aggiornamento*") is None
+    assert recurring_template_detail("*ORA — aggiornamento*\\n{{malicious}}") is None
+
+
+def test_recurring_meta_template_review_payload_is_specific_and_sampled():
+    payload = review_payload()
+    assert payload["name"] == TEMPLATE_NAME
+    assert payload["language"] == TEMPLATE_LANGUAGE
+    assert payload["category"] == "UTILITY"
+    assert payload["allow_category_change"] is False
+    assert len(payload["components"]) == 1
+    body = payload["components"][0]
+    assert body["type"] == "BODY"
+    assert body["text"] == TEMPLATE_BODY
+    assert body["text"].count("{{1}}") == 1
+    assert not body["text"].startswith("{{1}}")
+    assert not body["text"].endswith("{{1}}")
+    assert body["example"]["body_text"] == [[EXAMPLE_TEXT]]
+    assert "telefono" not in str(payload).lower()
+    assert "account" not in str(payload).lower()
+
+
+def test_template_name_without_reviewed_scope_cannot_activate_outreach(cfg, monkeypatch):
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    assert template_settings() is None
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", "all_ai_updates")
+    assert template_settings() is None
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+    assert template_settings() == (TEMPLATE_NAME, TEMPLATE_LANGUAGE)
+
+
+@pytest.mark.asyncio
+async def test_nonrecurring_source_never_uses_approved_recurring_template(cfg, monkeypatch):
+    from whatsapp import template_approval
+    db = AsyncMongoMockClient().wa_scope_admission
+    await linked(db, cfg, last_at=datetime.now(timezone.utc) - timedelta(days=2))
+    await set_opt_in(db, OWNER, True)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+
+    async def approved(*_args, **_kwargs):
+        return "approved_dynamic"
+    monkeypatch.setattr(template_approval, "approval_status", approved)
+    assert await may_notify(db, OWNER)
+    item = plan()
+    await db.opportunities.insert_one({
+        "id": item.source_id, "owner_id": OWNER,
+        "status": "active", "source_context": "financial_update",
+    })
+    assert not await enqueue(db, OWNER, item)
+    assert await db.whatsapp_alert_outbox.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_queued_unrelated_alert_never_crosses_meta_scope_after_window_expires(
+    cfg, monkeypatch,
+):
+    from delivery.service import DeliveryService
+
+    db = AsyncMongoMockClient().wa_scope_window_close
+    await linked(db, cfg)
+    await set_opt_in(db, OWNER, True)
+    item = plan()
+    await db.delivery_plans.insert_one(item.model_dump())
+    assert await enqueue(db, OWNER, item)
+    await db.whatsapp_links.update_one(
+        {"user_id": OWNER},
+        {"$set": {"last_inbound_at": datetime.now(timezone.utc) - timedelta(days=2)}},
+    )
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+
+    async def current(self, uid, requested_plan):
+        assert uid == OWNER
+        return SimpleNamespace(status="active", source_context="financial_update")
+
+    async def not_muted(self, *_):
+        return False
+
+    async def never_send(*_args, **_kwargs):
+        pytest.fail("Non-recurring details must never go into recurring Utility template")
+
+    monkeypatch.setattr(DeliveryService, "_current_subject_for_plan", current)
+    monkeypatch.setattr(DeliveryService, "_muted", not_muted)
+    monkeypatch.setattr(CloudConfig, "send_proactive", never_send)
+    assert await AlertWorker(db, cfg).process_one()
+    row = await db.whatsapp_alert_outbox.find_one({})
+    assert row["status"] == "cancelled"
+    assert row["failure_code"] == "template_scope_unsupported"
+
+
+@pytest.mark.asyncio
+async def test_operator_submission_requires_explicit_confirm_and_real_not_found(
+    cfg, monkeypatch,
+):
+    import httpx
+    from whatsapp.template_approval import _CACHE
+
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+    seen = []
+
+    async def get_template(self, url, *, headers, params):
+        assert headers["Authorization"] == "Bearer " + cfg.access_token
+        assert url.endswith("/1234567890123/message_templates")
+        return httpx.Response(200, json={"data": []})
+
+    async def create_template(self, url, *, headers, json):
+        seen.append(json)
+        assert headers["Authorization"] == "Bearer " + cfg.access_token
+        return httpx.Response(200, json={"id": "123456789123", "status": "PENDING"})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", get_template)
+    monkeypatch.setattr(httpx.AsyncClient, "post", create_template)
+    with pytest.raises(ValueError, match="explicit_review_confirmation_required"):
+        await request_review()
+    assert not seen
+    result = await request_review(confirm=True)
+    assert result == {"requested": True, "template": TEMPLATE_NAME, "status": "PENDING"}
+    assert seen == [review_payload()]
+    assert "Bearer" not in str(result)
+
+
+@pytest.mark.asyncio
+async def test_operator_does_not_resubmit_if_template_exists_or_meta_unknown(
+    cfg, monkeypatch,
+):
+    import httpx
+    from whatsapp.template_approval import _CACHE
+
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+    response = {"data": [{
+        "name": TEMPLATE_NAME, "language": TEMPLATE_LANGUAGE,
+        "status": "APPROVED", "category": "UTILITY",
+        "components": [{"type": "BODY", "text": TEMPLATE_BODY}],
+    }]}
+    async def get_template(self, url, *, headers, params):
+        return httpx.Response(200, json=response)
+    async def never_post(*_args, **_kwargs):
+        pytest.fail("No second template request for an already approved or uncertain state")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", get_template)
+    monkeypatch.setattr(httpx.AsyncClient, "post", never_post)
+    result = await request_review(confirm=True)
+    assert result["requested"] is False
+    assert result["status"] == "approved_dynamic"
+    response.clear()
+    assert (await request_review(confirm=True))["status"] == "unverified"

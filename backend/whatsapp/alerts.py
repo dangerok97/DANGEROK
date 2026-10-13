@@ -31,11 +31,32 @@ def as_utc(value: datetime | None) -> datetime | None:
 
 
 def template_settings() -> tuple[str, str] | None:
+    """Allow only an explicitly scoped recurring reminder template.
+
+    A general-purpose Utility slot for arbitrary AI notices would overclaim
+    the context Meta reviewed. New scopes require their own verified routing.
+    """
+    from whatsapp.template_provisioning import (
+        TEMPLATE_NAME, TEMPLATE_LANGUAGE, TEMPLATE_SCOPE,
+    )
     name = (os.environ.get("WHATSAPP_ALERT_TEMPLATE_NAME") or "").strip()
     language = (os.environ.get("WHATSAPP_ALERT_TEMPLATE_LANGUAGE") or "it").strip()
-    if _TEMPLATE_NAME.fullmatch(name) and _TEMPLATE_LANGUAGE.fullmatch(language):
+    scope = (os.environ.get("WHATSAPP_ALERT_TEMPLATE_SCOPE") or "").strip()
+    if (name == TEMPLATE_NAME and language == TEMPLATE_LANGUAGE
+            and scope == TEMPLATE_SCOPE
+            and _TEMPLATE_NAME.fullmatch(name)
+            and _TEMPLATE_LANGUAGE.fullmatch(language)):
         return name, language
     return None
+
+
+def template_scope_matches(plan, subject) -> bool:
+    """The only approved category is a *stored user-requested* recurring memo."""
+    return (
+        getattr(plan, "source_type", "") == "opportunity"
+        and getattr(subject, "status", "") == "active"
+        and getattr(subject, "source_context", "") == "recurring_memo"
+    )
 
 
 def in_service_window(link: dict, now: datetime | None = None) -> bool:
@@ -207,6 +228,26 @@ def public_copy(plan, *, detailed: bool = False) -> str | None:
     return ("*ORA — aggiornamento*\n" + content)[:500]
 
 
+def recurring_template_detail(copy: str) -> str | None:
+    """One truthful bounded Meta BODY parameter; fixed template supplies context.
+
+    Remove only ORA's presentational heading, never infer a date or edit the
+    verified fact. This also prevents a missing/invalid value from being
+    mislabeled as an uncertain network send.
+    """
+    if not isinstance(copy, str):
+        return None
+    parts = [part.strip().strip("*. ").strip() for part in copy.splitlines()]
+    parts = [part for part in parts if part]
+    if parts and parts[0] == "ORA — aggiornamento":
+        parts.pop(0)
+    detail = ". ".join(parts).strip()[:450]
+    if (not detail or "{{" in detail or "}}" in detail
+            or any(ord(ch) < 32 for ch in detail)):
+        return None
+    return detail
+
+
 def alert_id(user_id: str, plan_id: str) -> str:
     return hashlib.sha256(f"ora-wa-alert-v1:{user_id}:{plan_id}".encode()).hexdigest()
 
@@ -215,14 +256,29 @@ async def enqueue(db, user_id: str, plan) -> bool:
     """Called only after the canonical delivery service verified the source."""
     if getattr(plan, "owner_id", "") != user_id or getattr(plan, "mode", "") != "push":
         return False
-    if not await may_notify(db, user_id):
-        return False
     link = await db.whatsapp_links.find_one(
         {"user_id": user_id, "notifications_enabled": True,
          "opted_in_at": {"$exists": True}},
-        {"_id": 0, "phone_hash": 1, "notifications_detail_enabled": 1},
+        {"_id": 0, "phone_hash": 1, "last_inbound_at": 1,
+         "notifications_detail_enabled": 1},
     )
     if not link:
+        return False
+    if not in_service_window(link):
+        # Don't enqueue a shipping/finance/agent alert under a recurrence
+        # template merely because Meta approved its shape.
+        if getattr(plan, "source_type", "") != "opportunity":
+            return False
+        known = await db.opportunities.find_one(
+            {"owner_id": user_id, "id": plan.source_id,
+             "status": "active", "source_context": "recurring_memo"},
+            {"_id": 1},
+        )
+        if known is None:
+            return False
+    # Only after source/scope admission check may we spend a Meta approval
+    # read. Unsupported categories must not even query provider readiness.
+    if not await may_notify(db, user_id):
         return False
     copy = public_copy(plan, detailed=link.get("notifications_detail_enabled") is True)
     if not copy:
@@ -324,6 +380,9 @@ class AlertWorker:
         template = template_settings()
         template_approval = None
         if not in_service_window(link, moment):
+            if not template_scope_matches(plan, subject):
+                await cancel(self.db, item, "template_scope_unsupported")
+                return True
             from whatsapp.template_approval import approval_status
 
             template_approval = await approval_status(self.config)
@@ -358,11 +417,15 @@ class AlertWorker:
             # The safe-side branch above must have established approval.
             await cancel(self.db, item, "template_not_verified")
             return True
+        detail = recurring_template_detail(copy) if not fresh_window else None
+        if not fresh_window and not detail:
+            await cancel(self.db, item, "template_detail_invalid")
+            return True
         recipient = self.config.decrypt(latest["phone_enc"])
         try:
             wamid = await self.config.send_proactive(
                 recipient, message=copy if fresh_window else "",
-                template=None if fresh_window else (*template, copy[:450]),
+                template=None if fresh_window else (*template, detail),
             )
         except CloudSendError as exc:
             if exc.status == 429 and item.get("attempts", 0) < 3:
