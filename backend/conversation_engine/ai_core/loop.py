@@ -1594,6 +1594,18 @@ async def run_cognitive_loop(
             out.trace = public_trace(trace)
             return out
 
+        # A capability has already asked for this specific authority. More
+        # same-turn tool attempts cannot supply a new user reply. Narrow to
+        # its factual question and use the ordinary durable pending-act exit.
+        calendar_wait = pending_request(observations[turn_start:])
+        if calendar_wait:
+            raw = {
+                "response_mode": "ask", "reasoning_status": "needs_user_input",
+                "question": calendar_wait["question"],
+                "situation_update": {"operation": "none"},
+            }
+            add_step(trace, event="CALENDAR_AUTHORITY_HANDOFF")
+
         gov = validate_decision(
             raw,
             tools=tools,

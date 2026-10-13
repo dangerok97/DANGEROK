@@ -245,7 +245,7 @@ def intent_for_request(
 async def assess(
     db, owner_id: str, *, capability: str, effect: ActionEffect,
     parameters: Dict[str, Any], summary: str, command: UserCommand,
-    expected: str = "", answered_proposal: bool = False,
+    expected: str = "", answered_proposal: bool = False, confirmation=None,
 ) -> CommandedAct:
     """
     Whether this can go ahead now, and on what basis.
@@ -273,11 +273,22 @@ async def assess(
     # sentence is interpreted: not recognising a no is not the same as
     # hearing a yes, and an unrecognised reply simply leaves the act where a
     # proposal leaves it.
-    if answered_proposal and reads_as_an_approval(command.spoken):
-        await authority.consent(
+    from agent.calendar_assent import CalendarCancellationConfirmation
+    bound_reply = (
+        type(confirmation) is CalendarCancellationConfirmation
+        and confirmation.permits(owner_id, intent, command.spoken)
+    )
+    if answered_proposal and (reads_as_an_approval(command.spoken) or bound_reply):
+        consent = await authority.consent(
             owner_id, intent, decision="approved",
             shown=(command.asked_for or summary)[:300],
         )
+        if bound_reply:
+            # Keep the real utterance, never replace it with a synthetic yes.
+            await db.autonomy_consents.update_one(
+                {"id": consent.id, "owner_id": owner_id},
+                {"$set": {"confirmation_evidence": confirmation.audit()}},
+            )
     elif answered_proposal:
         # A correction, alternative, question or refusal is not approval of
         # the act ORA proposed one turn ago. Stop *before* standing grants are
