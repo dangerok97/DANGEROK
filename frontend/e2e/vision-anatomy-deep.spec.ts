@@ -114,6 +114,32 @@ test('validated BodyParts3D geometry opens by default, stays sandboxed, and fall
  await expect(page.getByTestId('vision-anatomy-close')).toBeVisible();
  expect(requests).toBe(1);
 });
+test('first streamed 3D mesh replaces the instant overlay preview without trusting other senders',async({page})=>{
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
+   model_is_person_specific:false,parts:2234,concepts:3432
+  })
+ }));
+ // Only the exact sandboxed iframe is allowed to announce real geometry.
+ // The test frame sends the same message that the pinned atlas sends when
+ // its first source chunk is decoded and ready for interaction.
+ await page.route('**/bodyparts3d/index.html?*',route=>route.fulfill({
+  status:200,contentType:'text/html',
+  body:`<!doctype html><meta charset="utf-8"><script>
+   setTimeout(()=>parent.postMessage({type:'ora:anatomy-mesh-ready',version:1},'*'),3000);
+  </script>`
+ }));
+ await launchAnatomy(page);
+ const preview=page.getByTestId('vision-anatomy-preview');
+ await expect(preview).toBeVisible();
+ await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
+ await page.evaluate(()=>window.postMessage({type:'ora:anatomy-mesh-ready',version:1},'*'));
+ await expect(preview).toBeVisible(); // window message has wrong source
+ await expect(preview).toHaveCount(0,{timeout:12000});
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
+ await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
+});
 test('mismatched or missing BodyParts3D provenance never hides the original ORA atlas',async({page})=>{
  await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
   status:200,contentType:'application/json',body:JSON.stringify({
