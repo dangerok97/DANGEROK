@@ -107,9 +107,18 @@ async def approval_status(
                                      and part.get("type") == "BODY"),
                                     None,
                                 )
+                                media_required = any(
+                                    isinstance(part, dict)
+                                    and part.get("type") == "HEADER"
+                                    and str(part.get("format") or "").upper()
+                                    in ("IMAGE", "VIDEO", "DOCUMENT", "LOCATION")
+                                    for part in components
+                                )
                                 if not isinstance(body, dict) or not str(body.get("text") or "").strip():
                                     status = "requires_parameters"
-                                elif _VARIABLE.search(json.dumps(components, ensure_ascii=False)):
+                                elif media_required or _VARIABLE.search(
+                                    json.dumps(components, ensure_ascii=False)
+                                ):
                                     status = "requires_parameters"
                                 else:
                                     status = "approved"
