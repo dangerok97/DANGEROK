@@ -19,6 +19,7 @@ from pymongo.errors import DuplicateKeyError
 from whatsapp.cloud import CloudConfig
 from whatsapp.handoff import render_core_answer_for_whatsapp
 from whatsapp.media import MediaNotUsable, fetch_whatsapp_media, transcribe_voice
+from whatsapp.parity import public_whatsapp_parity_status
 
 log = logging.getLogger("ora.whatsapp")
 
@@ -54,7 +55,20 @@ class WhatsAppService:
 
     async def status(self, user_id: str) -> dict:
         link = await self.db.whatsapp_links.find_one({"user_id": user_id}, {"_id": 0})
+        try:
+            parity = public_whatsapp_parity_status()
+        except Exception as exc:
+            # A status badge must never make pairing/unlinking unavailable.
+            # Log no personal details or provider secrets.
+            log.warning("WhatsApp shared catalog unavailable: category=%s", type(exc).__name__)
+            parity = {
+                "shared_ai_core": True,
+                "shared_capability_count": None,
+                "capability_contract_version": None,
+                "device_handoff_supported": True,
+            }
         return {
+            **parity,
             "configured": True,
             "linked": bool(link),
             "phone_last4": link.get("phone_last4") if link else None,
