@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 import pytest
+import pytest_asyncio
 from mongomock_motor import AsyncMongoMockClient
 
 from agent.calendar_assent import confirms_named_cancellation, cancellation_confirmation
@@ -40,7 +41,7 @@ def test_ambiguous_conditional_quoted_or_different_effect_never_grants_assent(re
     assert not confirms_named_cancellation(reply, TITLE)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def world(monkeypatch):
     db = AsyncMongoMockClient().cal163_bound_confirmation
     async def tz(*_args):
@@ -83,9 +84,10 @@ async def test_exact_live_reply_deletes_same_event_and_audits_original_words(wor
     assert consent and consent['used_at']
     assert consent['confirmation_evidence']['calendar_ref'] == 'calendar:' + own
     assert await db.autonomy_consents.count_documents({'owner_id': OTHER}) == 0
-    count = await db.agent_execution_receipts.count_documents({'owner_id': OWNER})
+    count = await db.agent_receipts.count_documents({'owner_id': OWNER})
+    assert count == 1
     await calendar_caps.continue_calendar_action({}, runtime)
-    assert await db.agent_execution_receipts.count_documents({'owner_id': OWNER}) == count
+    assert await db.agent_receipts.count_documents({'owner_id': OWNER}) == count
     assert (await db.life_nodes.find_one({'id': other}))['status'] == 'active'
 
 
