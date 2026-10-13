@@ -93,7 +93,7 @@ async def test_exhausted_worker_reschedules_one_owned_review_without_replanning_
     assert len(recorded) == 1
     assert recorded[0]["detail"]["attempt"] == 1
     assert recorded[0]["detail"]["failure_code"] == failure
-    assert run.stopped_because == ""
+    assert run.stopped_because == "source_review_retry_scheduled"
 
 
 @pytest.mark.asyncio
