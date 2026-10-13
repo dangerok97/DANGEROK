@@ -5,6 +5,8 @@ on:
     paths:
       - .github/workflows/ora-cal163-repair.yml
       - scripts/apply_calendar_assent_patch.py
+      - backend/agent/calendar_assent.py
+      - backend/tests/test_calendar_bound_confirmation_v163.py
 permissions:
   contents: write
 jobs:
@@ -49,7 +51,7 @@ jobs:
         working-directory: backend
         run: |
           python -m compileall -q agent/calendar_assent.py agent/commanded.py home/calendar_event.py conversation_engine/ai_core/loop.py conversation_engine/ai_core/tools/calendar_caps.py
-          python -m pytest -q -n 0 --tb=short tests/test_calendar_bound_confirmation_v163.py tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py --junitxml=/tmp/cal163-regression.xml
+          python -m pytest -q -n 0 --disable-warnings --tb=short tests/test_calendar_bound_confirmation_v163.py tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py --junitxml=/tmp/cal163-regression.xml
       - name: Save evidence and modified files
         if: always()
         run: |
