@@ -771,3 +771,19 @@ async def test_private_copy_cancelled_if_detail_consent_removed_before_send(cfg,
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["status"] == "cancelled"
     assert row["failure_code"] == "no_informative_copy"
+
+
+def test_delivery_lock_screen_never_falls_back_to_expanded_private_copy():
+    from delivery.service import _lockscreen_copy_for
+    item = plan()
+    item.words.public_title = ""
+    item.words.public_body = ""
+    item.sensitivity = "private"
+    locked = _lockscreen_copy_for(item)
+    assert locked["title"] == "Avviso riservato di ORA"
+    assert locked["body"] == "Apri ORA per i dettagli."
+    assert "Private expanded" not in str(locked)
+    item.sensitivity = "personal"
+    assert "Private expanded" not in str(_lockscreen_copy_for(item))
+    item.sensitivity = "ordinary"
+    assert _lockscreen_copy_for(item)["title"] == item.words.title
