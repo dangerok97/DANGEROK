@@ -18,7 +18,7 @@ from delivery.models import DeliveryPlan, PushCopy
 from whatsapp.alerts import (
     AlertWorker, enqueue, ensure_indexes, in_service_window,
     may_notify, record_status, set_opt_in, set_detail_preference, template_settings,
-    public_copy,
+    public_copy, recurring_template_detail,
 )
 from whatsapp.cloud import CloudConfig, CloudSendError, iter_signed_delivery_statuses
 from whatsapp.service import WhatsAppService, ensure_indexes as ensure_whatsapp_indexes
@@ -218,7 +218,7 @@ async def test_outside_window_requires_configured_meta_template(cfg, monkeypatch
     monkeypatch.setattr(DeliveryService, "_muted", not_muted)
     monkeypatch.setattr(CloudConfig, "send_proactive", fake_send)
     assert await AlertWorker(db, cfg).process_one()
-    assert seen == [(PHONE, "", (TEMPLATE_NAME, "it", public_copy(item)[:450]))]
+    assert seen == [(PHONE, "", (TEMPLATE_NAME, "it", recurring_template_detail(public_copy(item))))]
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["status"] == "accepted"
     assert row["kind"] == "approved_template"
@@ -804,6 +804,16 @@ def test_delivery_lock_screen_never_falls_back_to_expanded_private_copy():
     assert "Private expanded" not in str(_lockscreen_copy_for(item))
     item.sensitivity = "ordinary"
     assert _lockscreen_copy_for(item)["title"] == item.words.title
+
+
+def test_recurring_template_parameter_keeps_the_fact_not_the_ora_heading():
+    item = plan()
+    copy = public_copy(item)
+    detail = recurring_template_detail(copy)
+    assert detail == "Spedizione in consegna. Il corriere ha confermato la consegna per oggi"
+    assert "ORA — aggiornamento" not in detail
+    assert recurring_template_detail("*ORA — aggiornamento*") is None
+    assert recurring_template_detail("*ORA — aggiornamento*\\n{{malicious}}") is None
 
 
 def test_recurring_meta_template_review_payload_is_specific_and_sampled():
