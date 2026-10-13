@@ -80,6 +80,62 @@ PLANNING_RETRY_SECONDS = (60, 300, 1800)
 MAX_PLANNING_ATTEMPTS = len(PLANNING_RETRY_SECONDS) + 1
 
 
+def _source_read_prerequisite(goal, steps, evidence, capabilities):
+    """Order an owned Memory read before its first unsourced written result.
+
+    A planner may see a Memory preview and mistakenly believe document.create
+    can use it directly. A preview is NOT evidence read by this goal. Code may
+    add only an owned read of the exact existing governed Memory references,
+    never new facts, sources, permissions, research or external effects.
+    Other source types require a genuine model-planned read, not a guessed one.
+    """
+    first_draft = next((index for index, step in enumerate(steps)
+                        if step.status == "pending" and step.step_type == "prepare"
+                        and step.capability_needed == "document.create"), None)
+    if first_draft is None or real_support(evidence):
+        return steps, ""
+    from agent.memory_sources import memory_source_id
+
+    memory_refs = list(dict.fromkeys(
+        ref for ref in (goal.source_refs or []) if memory_source_id(ref)
+    ))[:8]
+    preceding = steps[:first_draft]
+    if memory_refs:
+        prior_read = any(
+            step.step_type == "inspect" and step.capability_needed == "information.read"
+            for step in preceding
+        )
+    else:
+        prior_read = any(
+            step.step_type in ("inspect", "research")
+            and step.capability_needed not in ("", "document.create")
+            for step in preceding
+        )
+    if prior_read:
+        return steps, ""
+    if not memory_refs or not any(
+        isinstance(item, dict) and item.get("capability") == "information.read"
+        and item.get("can_be_used_now") is True
+        for item in capabilities
+    ):
+        return steps, "source_read_required"
+    if len(steps) >= MAX_PLAN_STEPS:
+        return steps, "step_limit"
+
+    # Only the exact already-owned handles; input_refs carry no facts. This
+    # makes the first step's result evidence-provenanced and owner-scoped.
+    prerequisite = ActionStep(
+        ordinal=0, step_type="inspect", capability_needed="information.read",
+        intent="Leggere le memorie già indicate prima del confronto scritto.",
+        input_refs=memory_refs,
+        expected_result="Lettura effettiva e attribuita delle memorie citate.",
+    )
+    ordered = [prerequisite, *steps]
+    for ordinal, step in enumerate(ordered):
+        step.ordinal = ordinal
+    return ordered, "added_owned_memory_read"
+
+
 class _PlanNotPossible(Exception):
     """A validated negative planning judgement, never an adapter failure."""
 
@@ -1827,6 +1883,33 @@ class AgentService:
         if not steps:
             goal.planning_unavailable = True
             run.stopped_because = "invalid_response"
+            return None
+
+        # Grounded document preparation cannot run from a Memory preview:
+        # enforce the real source read even when the model put "verify"
+        # after a premature "prepare". Never persist or execute an invalid
+        # fallback plan for other sources.
+        existing_evidence = await self.evidence.for_goal(owner_id, goal.id)
+        steps, prerequisite = _source_read_prerequisite(
+            goal, steps, existing_evidence, available,
+        )
+        if prerequisite == "added_owned_memory_read":
+            await self.repo.journal(
+                owner_id, goal.id, kind="planning_read_prerequisite_inserted",
+                note="Lettura delle memorie citate richiesta prima della preparazione.",
+                detail={"run_id": run.id, "source_type": "governed_memory",
+                        "step_count": len(steps)},
+            )
+        elif prerequisite:
+            await self.repo.journal(
+                owner_id, goal.id, kind="planning_protocol_invalid",
+                note="La bozza richiede fonti lette realmente prima della preparazione.",
+                detail={"run_id": run.id, "attempt": goal.planning_attempts,
+                        "validation_errors": [{"index": 0, "field": "step_type",
+                                               "issue": "source_read_required"}]},
+            )
+            goal.planning_unavailable = True
+            run.stopped_because = prerequisite
             return None
 
         plan = ActionPlan(
