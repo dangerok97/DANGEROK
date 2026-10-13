@@ -326,7 +326,7 @@ async def event_detail(db, user_id: str, item_id: str) -> Optional[Dict[str, Any
 
 async def delete_event(
     db, user_id: str, item_id: str, *, confirmed_title: str = "",
-    command=None, answered_proposal: bool = True,
+    command=None, answered_proposal: bool = True, confirmation=None,
 ) -> Dict[str, Any]:
     """
     Toglilo dal calendario vero, e dillo solo dopo averlo verificato.
@@ -386,6 +386,14 @@ async def delete_event(
         ):
             return {"ok": False, "reason": "authority_required", "title": title}
 
+    if confirmation is not None:
+        from agent.calendar_assent import CalendarCancellationConfirmation
+        latest = await event_detail(db, user_id, item_id)
+        if (type(confirmation) is not CalendarCancellationConfirmation or not latest
+                or not row.get("ora_manual")
+                or not confirmation.matches_readback(user_id, "calendar:" + str(row["id"]), latest)):
+            return {"ok": False, "reason": "event_changed", "title": title}
+
     # --- chi lo ha chiesto, e per cosa esattamente -----------------------
     effect = commanded.calendar_effect({"title": title, "delete": True})
     act = await commanded.assess(
@@ -411,7 +419,7 @@ async def delete_event(
             words=f"elimina {title}",
             asked_for=f"eliminare «{title}»",
         ),
-        answered_proposal=answered_proposal,
+        answered_proposal=answered_proposal, confirmation=confirmation,
     )
     if not act.may_execute:
         return {"ok": False, "reason": "authority_required", "title": title}

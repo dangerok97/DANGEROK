@@ -1964,7 +1964,9 @@ async def continue_calendar_action(
             "PENDING_CALENDAR_ACTION_EXPIRED",
             "La conferma precedente è scaduta: bisogna rileggere l'evento.",
         )
-    if not reads_as_an_approval(str(runtime.get("user_message") or "")):
+    from agent.calendar_assent import cancellation_confirmation
+    if (not reads_as_an_approval(str(runtime.get("user_message") or ""))
+            and cancellation_confirmation(runtime) is None):
         return _fail(
             "continue_calendar_action",
             "USER_CONFIRMATION_REQUIRED",
@@ -2107,9 +2109,14 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
                      "reason": "L’impegno è cambiato dopo la proposta. Rileggilo e chiedi una nuova conferma; non è stato eliminato."},
         )
 
+    from agent.calendar_assent import cancellation_confirmation
+    confirmation = cancellation_confirmation(runtime)
+    if confirmation is not None and not confirmation.matches_readback(uid, _ref(ref), snapshot):
+        return _fail("cancel_calendar_event", "event_changed", "La proposta non corrisponde più all'evento.")
     out = await delete_event(
         db, uid, handle, confirmed_title=detail["title"],
         command=_user_command(arguments, runtime), answered_proposal=_answered_a_proposal(runtime),
+        confirmation=confirmation,
     )
 
     if not out.get("ok"):
@@ -2125,7 +2132,7 @@ async def cancel_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
             return Observation(
                 kind="tool", name="cancel_calendar_event", status="partial",
                 payload={"status": "authority_required", "calendar_ref": _ref(ref),
-                         "confirmation_request": {"question": question, "arguments": {
+                         "confirmation_request": {"owner_id": uid, "question": question, "arguments": {
                              "calendar_ref": _ref(ref), "confirmation_snapshot": snapshot}},
                          "reason": "Mostra la domanda di conferma preparata. Non è stato eliminato."},
             )
