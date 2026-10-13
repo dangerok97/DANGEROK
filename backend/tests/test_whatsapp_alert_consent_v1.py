@@ -474,6 +474,50 @@ async def test_template_with_required_media_header_is_not_approved_for_static_al
 
 
 @pytest.mark.asyncio
+async def test_delayed_stop_revokes_consent_without_reopening_meta_window(cfg, monkeypatch):
+    """STOP remains immediate, but a delayed worker cannot invent fresh activity."""
+    from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
+
+    moment = datetime.now(timezone.utc)
+    sent_at = moment - timedelta(hours=25)
+    db = AsyncMongoMockClient().wa_delayed_signed_stop
+    await linked(db, cfg, last_at=moment - timedelta(hours=30))
+    await set_opt_in(db, OWNER, True)
+    svc = WhatsAppService(db, cfg)
+
+    async def do_not_call_ai(self, *args, **kwargs):
+        pytest.fail("STOP must revoke consent without consulting the AI Core")
+
+    monkeypatch.setattr(AICoreOrchestrator, "start", do_not_call_ai)
+    monkeypatch.setattr(AICoreOrchestrator, "message", do_not_call_ai)
+    msg = {
+        "id": "wamid.delayed.signed.stop.111",
+        "from": PHONE,
+        "type": "text",
+        "text": "STOP",
+        "sent_at": int(sent_at.timestamp()),
+    }
+    assert await svc.persist_incoming(msg)
+    before = await db.whatsapp_links.find_one({"user_id": OWNER})
+    assert not in_service_window(before)
+
+    queued = await db.whatsapp_inbox.find_one({})
+    response, owner = await svc.prepare_reply(queued)
+    assert owner == OWNER
+    assert "disattivati" in response.lower()
+    after = await db.whatsapp_links.find_one({"user_id": OWNER})
+    assert after["notifications_enabled"] is False
+    assert "opted_in_at" not in after
+    assert not in_service_window(after)
+    recorded = after["last_inbound_at"].replace(tzinfo=timezone.utc).timestamp()
+    assert abs(recorded - sent_at.timestamp()) <= 1
+
+    # Replayed signed callbacks must not open another service window.
+    assert not await svc.persist_incoming(msg)
+    assert not in_service_window(await db.whatsapp_links.find_one({"user_id": OWNER}))
+
+
+@pytest.mark.asyncio
 async def test_signed_message_time_does_not_reopen_expired_meta_window(cfg, monkeypatch):
     """A delayed worker cannot claim a message was received just now."""
     from whatsapp.service import _sender_message_moment

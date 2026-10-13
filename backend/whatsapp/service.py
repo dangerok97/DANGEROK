@@ -340,10 +340,9 @@ class WhatsAppService:
             # consent; no LLM/skill choice may intercept this preference.
             from whatsapp.alerts import set_opt_in
             await set_opt_in(self.db, linked["user_id"], False)
-            await self.db.whatsapp_links.update_one(
-                {"user_id": linked["user_id"], "phone_hash": phone_hash},
-                {"$set": {"last_inbound_at": now()}},
-            )
+            # The signed webhook already fixed last_inbound_at at the
+            # customer's message time (or first receipt if no valid stamp).
+            # Never extend Meta's service window at delayed STOP processing.
             return (
                 "Avvisi automatici WhatsApp disattivati. "
                 "Continuerò a rispondere alle tue domande qui. "
