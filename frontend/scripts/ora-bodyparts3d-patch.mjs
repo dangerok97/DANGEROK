@@ -1,6 +1,7 @@
 /** Deterministic adaptation of pinned BodyParts3D. No changes to geometry or ids. */
 import {readFileSync,writeFileSync,copyFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
+import {applyOraBlueprint} from './ora-bodyparts3d-blueprint.mjs';
 const root=resolve(process.argv[2]||'.'),source=resolve(process.argv[3]||'.');
 const read=file=>readFileSync(join(root,file),'utf8');
 const save=(file,body)=>writeFileSync(join(root,file),body);
@@ -30,7 +31,7 @@ anatomy=once(anatomy,
 anatomy=once(anatomy,'export interface SceneState {inspectorOpen?:boolean;explode:number;',
  'export interface SceneState {inspectorOpen?:boolean;allowed?:string[]|null;detailZoom?:number;explode:number;');
 anatomy="import {SISTEMI_IT,SPIEGAZIONI_IT} from './ora-locale-it';\n"+anatomy;
-anatomy+="\nfor(const system of SYSTEMS){const it=SISTEMI_IT[system.id];if(!it)throw Error('Lingua italiana mancante');system.name=it.name;system.description=it.description;}\nObject.assign(EXPLANATIONS,SPIEGAZIONI_IT);\n";
+anatomy+="\nconst ORA_SYSTEM_BLUE:Record<string,string>={skeletal:'#b9e7f6',muscular:'#83c7df',arterial:'#7fcde8',venous:'#77bddc',nervous:'#a6e3f0',digestive:'#8ac6dd',respiratory:'#8ed5e8',urinary:'#88c9e2',cardiac:'#8fc9dd',sensory:'#acddea',endocrine:'#8ec9de',lymphatic:'#8bd1e5',integumentary:'#93c4d3',connective:'#a0cfdf',reproductive:'#8ac5da'};\nfor(const system of SYSTEMS){const it=SISTEMI_IT[system.id];if(!it)throw Error('Lingua italiana mancante');system.name=it.name;system.description=it.description;system.color=ORA_SYSTEM_BLUE[system.id]||'#81cfe9';}\nObject.assign(EXPLANATIONS,SPIEGAZIONI_IT);\n";
 save('app/anatomy.ts',anatomy);
 
 let scene=read('app/scene.tsx');
@@ -57,6 +58,7 @@ scene=once(scene,"const distance=T.MathUtils.lerp(normalDistance,Math.max(.2,atl
 scene=once(scene,"const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect:'';","const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect+':'+(s.detailZoom||1):'';");
 scene=once(scene,"if(s.inspectorOpen){if(landscape){right=w-335;top=100;bottom=h-125;}","if(oraInline){left=15;right=w>900?w-365:w-15;top=w<768?95:110;bottom=h-(w<768?220:100);}\n     else if(s.inspectorOpen){if(landscape){right=w-335;top=100;bottom=h-125;}");
 scene=once(scene,"const distance=Math.max(.07,Math.max(size.y*h/availableHeight,size.x*w/availableWidth/camera.aspect,size.z)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.35);","const distance=Math.max(.07,Math.max(size.y*h/availableHeight,size.x*w/availableWidth/camera.aspect,size.z)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.35)/(oraInline?Math.max(1,Math.min(3,s.detailZoom||1)):1);");
+scene=applyOraBlueprint(scene);
 save('app/scene.tsx',scene);
 
 let page=read('app/page.tsx');
