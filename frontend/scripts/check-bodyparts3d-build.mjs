@@ -152,5 +152,28 @@ assert.match(oraOverlay,/value=\{Math.round\(displayedExplosion\*100\)\} disable
 assert.doesNotMatch(oraOverlay,/title=\{part.originalName\|\|part.name\}/);
 assert.match(sourceFile('app/scene.tsx'),/detailZoom\|\|1/);
 
+// ORA technical blueprint: real cyan 3D edges, subdued blue anatomical system
+// colors and a bounded per-page GPU edge cache, not colored textbook solids.
+const technicalScene=sourceFile('app/scene.tsx');
+const technicalAtlas=sourceFile('app/anatomy.ts');
+const blueprintSource=readFileSync(resolve('scripts/ora-bodyparts3d-blueprint.mjs'),'utf8');
+assert.match(technicalScene,/technicalColor\(system\)/);
+assert.match(technicalScene,/vec3\(0\.25, 0\.76, 0\.99\)/);
+assert.match(technicalScene,/new T\.EdgesGeometry\(mesh\.geometry,32\)/);
+assert.match(technicalScene,/const EDGE_LIMIT=20,EDGE_CACHE_LIMIT=42/);
+assert.match(technicalScene,/syncBlueprintEdges\(s,amount\)/);
+assert.match(technicalScene,/blueprintEdges\.forEach\(line=>\{scene\.remove\(line\)/);
+assert.match(technicalScene,/partVisible < 0\.5/);
+assert.match(technicalScene,/partSelected/);
+assert.doesNotMatch(technicalScene,/color:SYSTEMS\.find\(s=>s\.id===system\)/);
+assert.match(technicalAtlas,/const ORA_SYSTEM_BLUE/);
+assert.match(technicalAtlas,/system\.color=ORA_SYSTEM_BLUE/);
+assert.match(blueprintSource,/const EDGE_LIMIT=20,EDGE_CACHE_LIMIT=42/);
+console.log('ORA_BLUEPRINT_RENDERER '+JSON.stringify({
+ style:'ORA blue technical',edges:'real THREE.EdgesGeometry',
+ maximumVisibleOutlinedParts:20,maximumCachedOutlinedParts:42,
+ defaultSystemColors:'cyan spectrum',personSpecific:false
+}));
+
 console.log(JSON.stringify({status:'PASS',parts:model.parts.length,concepts:model.concepts.length,
  chunks:model.chunks.length,rawBytes:bytes,source:provenance.distributor_commit}));

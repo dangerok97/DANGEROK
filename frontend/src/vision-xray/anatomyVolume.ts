@@ -195,24 +195,23 @@ function mesh(cluster:Cluster,layer:AtlasLayer,options:VolumeOptions,view:number
  }
  return tris;
 }
+/** Unified blueprint palette for the local fallback anatomy, aligned with ORA 3D. */
 function colorLayer(layer:AtlasLayer):[number,number,number]{
- return {skin:[70,209,217],muscles:[237,115,91],nerves:[246,196,99],
-         vessels:[228,86,113],organs:[201,132,233],bones:[195,231,238],reproductive:[97,204,186]}[layer] as [number,number,number];
+ return {
+  skin:[139,191,206],muscles:[119,176,201],nerves:[140,210,231],
+  vessels:[117,193,224],organs:[138,194,213],bones:[176,220,234],
+  reproductive:[135,187,208]
+ }[layer] as [number,number,number];
 }
-/** Distinct colors improve the study model, but do not imply diagnostic imaging. */
 function colorPart(layer:AtlasLayer,id:string):[number,number,number]{
- if(layer==='vessels')return /vena|vein|portal/i.test(id)?[111,176,225]:[228,83,105];
- if(layer==='organs'){
-  if(id==='heart')return [208,81,101];
-  if(id==='lungs')return [210,144,164];
-  if(id==='liver')return [154,88,110];
-  if(id==='stomach')return [225,157,143];
-  if(id==='pancreas')return [221,164,113];
-  if(id==='kidneys')return [180,96,125];
-  if(/intestine/.test(id))return [226,171,157];
-  if(id==='bladder')return [213,179,125];
- }
- return colorLayer(layer);
+ // No artificial red/purple organ surfaces: functional differentiation comes
+ // from labels/selection and softly varying blue technical materials.
+ const base=colorLayer(layer);
+ if(layer==='organs')return /heart|lung|kidney|liver/.test(id)
+  ?[148,206,228]:[123,181,205];
+ if(layer==='vessels')return /vein|vena|portal/i.test(id)
+  ?[109,174,209]:[120,210,237];
+ return base;
 }
 
 const safe=(v:number)=>Math.max(0,Math.min(255,Math.round(v)));
@@ -261,21 +260,21 @@ export function drawVolume(
  triangles.sort((a,b)=>b.z-a.z);
  for(const t of triangles){
   const factor=(.36+t.shade*.76)*(t.active?1.15:1);
-  const [r,g,b]=t.active?[247,177,118]:colorPart(layer,t.part);
+  const [r,g,b]=t.active?[172,243,255]:colorPart(layer,t.part);
   ctx.beginPath();ctx.moveTo(t.p[0][0],t.p[0][1]);ctx.lineTo(t.p[1][0],t.p[1][1]);ctx.lineTo(t.p[2][0],t.p[2][1]);ctx.closePath();
-  ctx.fillStyle='rgba('+safe(r*factor)+','+safe(g*factor)+','+safe(b*factor)+','+(t.active ? .94 : .83)+')';
+  ctx.fillStyle='rgba('+safe(r*factor)+','+safe(g*factor)+','+safe(b*factor)+','+(t.active ? .92 : .75)+')';
   ctx.fill();
-  ctx.strokeStyle=t.active?'rgba(255,195,130,.45)':'rgba(155,241,244,.17)';
-  ctx.lineWidth=t.active ? .7 : .28;ctx.stroke();
+  ctx.strokeStyle=t.active?'rgba(145,239,255,.79)':'rgba(68,198,238,.36)';
+  ctx.lineWidth=t.active ? 1.2 : .49;ctx.stroke();
  }
  // HUD markers remain clickable and correspond to the 3D geometry above.
  hits.forEach(hit=>{
   if(hit.x<0||hit.x>w||hit.y<0||hit.y>h)return;
   const active=hit.id===options.selected;
   ctx.beginPath();ctx.arc(hit.x,hit.y,active?4.7:2.7,0,2*Math.PI);
-  ctx.fillStyle=active?'#ffc18b':'#a5f4fb';ctx.fill();
+  ctx.fillStyle=active?'#b4f5ff':'#64d3f2';ctx.fill();
   if(active){
-   ctx.strokeStyle='rgba(255,196,130,.8)';ctx.lineWidth=1;
+   ctx.strokeStyle='rgba(83,214,250,.92)';ctx.lineWidth=1;
    ctx.beginPath();ctx.arc(hit.x,hit.y,10.5,0,Math.PI*2);ctx.stroke();
   }
  });

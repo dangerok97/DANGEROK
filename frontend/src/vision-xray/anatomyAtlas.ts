@@ -8,13 +8,13 @@ export type AnatomyRegion = {
  id:string; label:string; detail:string; d:string; fill?:string; stroke?:string;
 };
 export const LAYERS:{key:AtlasLayer;label:string; color:string}[]=[
- {key:'skin',label:'Pelle',color:'#9be7f3'},
- {key:'muscles',label:'Muscoli',color:'#ef9277'},
- {key:'nerves',label:'Nervi',color:'#f6c97e'},
- {key:'vessels',label:'Circolazione',color:'#ec728b'},
- {key:'organs',label:'Organi',color:'#dba3f6'},
- {key:'bones',label:'Ossa',color:'#d7ecf2'},
- {key:'reproductive',label:'Apparato riproduttivo',color:'#9fd9cf'}
+ {key:'skin',label:'Pelle',color:'#a4dfef'},
+ {key:'muscles',label:'Muscoli',color:'#75bbd7'},
+ {key:'nerves',label:'Nervi',color:'#94daf0'},
+ {key:'vessels',label:'Circolazione',color:'#74c5e7'},
+ {key:'organs',label:'Organi',color:'#85c4df'},
+ {key:'bones',label:'Ossa',color:'#b4e5f3'},
+ {key:'reproductive',label:'Apparato riproduttivo',color:'#8ac7dc'}
 ];
 const region=(id:string,label:string,detail:string,d:string):AnatomyRegion=>({id,label,detail,d});
 const anatomy:Record<AtlasLayer,AnatomyRegion[]>={
