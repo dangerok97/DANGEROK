@@ -187,3 +187,27 @@ async def test_nonmemory_plan_without_prior_read_is_rejected_without_persistence
     assert journal["detail"]["validation_errors"][0] == {
         "index": 0, "field": "step_type", "issue": "source_read_required",
     }
+
+
+def test_unrelated_real_evidence_is_not_a_memory_read():
+    from agent.models import AgentEvidence, ResultProvenance
+
+    goal = AutonomousGoal(owner_id=SYNTHETIC_OWNER, source_refs=[SYNTHETIC_MEMORY],
+        objective="Confronto da nota", desired_outcome="Documento fondato")
+    weather = AgentEvidence(owner_id=SYNTHETIC_OWNER, goal_id=goal.id,
+        claim="La temperatura odierna è rilevata dal meteo.",
+        provenance=ResultProvenance(source_class="internal_observation",
+            capability="weather.read", source_refs=["weather:synthetic"]))
+    assert weather.is_real
+    steps, reason = _source_read_prerequisite(goal, [_draft()], [weather], _available_read())
+    assert reason == "added_owned_memory_read"
+    assert steps[0].capability_needed == "information.read"
+    assert steps[0].input_refs == [SYNTHETIC_MEMORY]
+
+    matching = AgentEvidence(owner_id=SYNTHETIC_OWNER, goal_id=goal.id,
+        claim="La nota governata è stata letta nel contesto dell'obiettivo.",
+        provenance=ResultProvenance(source_class="internal_observation",
+            capability="information.read", source_refs=[SYNTHETIC_MEMORY]))
+    only_draft = _draft()
+    steps, reason = _source_read_prerequisite(goal, [only_draft], [weather, matching], _available_read())
+    assert reason == "" and steps == [only_draft]
