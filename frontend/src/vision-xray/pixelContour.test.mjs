@@ -94,8 +94,13 @@ test('smoothing preserves a stepped asymmetric object without turning it into a 
    (x>69&&x<106&&y>=111&&y<156),[28,93,145]);
  const s=extractPixelContour(f,[.17,.29,.67,.56]);
  assert.ok(s);
- const uniqueX=new Set(s.points.map(p=>Math.round(p[0]*192)));
- const uniqueY=new Set(s.points.map(p=>Math.round(p[1]*192)));
- assert.ok(uniqueX.size>5&&uniqueY.size>5);
- assert.ok(s.points.length<=170);
+ // The stepped T-shape is deliberately concave. A real curved/stepped
+ // contour encloses much less area than its bounding rectangle. Counting
+ // extra vertices would reward the very aliasing SCAN 2 is meant to remove.
+ const area=Math.abs(s.points.reduce((sum,a,i)=>{
+  const b=s.points[(i+1)%s.points.length];return sum+a[0]*b[1]-b[0]*a[1];
+ },0))/2;
+ const fillRatio=area/(s.box[2]*s.box[3]);
+ assert.ok(fillRatio>.36&&fillRatio<.86,'must preserve the nonrectangular captured profile');
+ assert.ok(s.points.length>=7&&s.points.length<=170);
 });
