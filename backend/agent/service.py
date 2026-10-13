@@ -1504,6 +1504,7 @@ class AgentService:
                 detail={"step_id": step.id, "attempt": step.attempts,
                         "failure_code": result.error_type, "limiter": spent},
             )
+            run.stopped_because = "source_review_retry_scheduled"
             return await self._continue_later(
                 owner_id, goal, plan, run, "source_review_rejected",
                 retry_minutes=5,
