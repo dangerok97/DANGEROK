@@ -17,70 +17,55 @@ async function launchAnatomy(page:Page){
  await page.locator('input[type=file]').setInputFiles({name:'synthetic-atlas.jpg',mimeType:'image/jpeg',buffer:Buffer.from(pixels)});
  await expect(page.getByTestId('vision-anatomy')).toBeVisible();
 }
-test('a vascular anatomy layer is searchable and users can switch regions without new scan',async({page},info)=>{
- const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+test('recognized human never shows the old anatomical illustration while loading',async({page},info)=>{
+ const pageErrors:string[]=[];page.on('pageerror',error=>pageErrors.push(error.message));
  let scans=0;page.on('request',request=>{if(request.url().endsWith('/api/vision-xray/scan'))scans++;});
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
+   model_is_person_specific:false,parts:2234,concepts:3432
+  })
+ }));
+ await page.route('**/bodyparts3d/index.html?*',route=>route.fulfill({
+  status:200,contentType:'text/html',body:'<!doctype html><title>Waiting for 3D geometry</title>'
+ }));
  await launchAnatomy(page);
- await page.getByTestId('vision-anatomy-layer-vessels').click();
- await expect(page.getByTestId('vision-anatomy-select-aorta')).toBeVisible();
- await expect(page.getByTestId('vision-anatomy-select-carotid_arteries')).toBeVisible();
- await page.getByTestId('vision-anatomy-search').fill('carotidi');
- await expect(page.getByTestId('vision-anatomy-select-carotid_arteries')).toHaveCount(1);
- await expect(page.getByTestId('vision-anatomy-select-aorta')).toHaveCount(0);
- await page.getByTestId('vision-anatomy-region-torso').click();
- await expect(page.getByTestId('vision-anatomy-search')).toHaveValue('');
- await page.getByTestId('vision-anatomy-layer-organs').click();
- await expect(page.getByTestId('vision-anatomy-select-heart')).toBeVisible();
- await page.getByTestId('vision-anatomy-select-heart').click();
- await expect(page.getByTestId('vision-anatomy-description')).toContainText('Cuore');
- await page.screenshot({path:'../.vision-evidence/vision-anatomy-deep-'+info.project.name+'.png',fullPage:true});
+ const target=page.getByTestId('vision-anatomy-preview');
+ await expect(target).toBeVisible();
+ await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
+ await expect(page.getByTestId('vision-anatomy-volume')).toHaveCount(0);
+ await expect(page.getByTestId('vision-anatomy-svg')).toHaveCount(0);
+ await expect(page.locator('.vx-anatomy-shell')).toHaveCount(0);
+ await expect(target.locator('canvas,svg')).toHaveCount(0);
+ await expect(target.locator('.vx-target-corner')).toHaveCount(4);
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
+ await page.screenshot({path:'../.vision-evidence/anatomy-no-legacy-loading-'+info.project.name+'.png',fullPage:true});
  expect(scans).toBe(1);
- expect(errors).toEqual([]);
+ expect(pageErrors).toEqual([]);
 });
-test('3D isolation, keyboard rotation and compact controls work on narrow screens',async({page},info)=>{
+test('only the real BodyParts3D frame is interactive; close button fits on every screen',async({page},info)=>{
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',body:JSON.stringify({
+   provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
+   model_is_person_specific:false,parts:2234,concepts:3432
+  })
+ }));
+ await page.route('**/bodyparts3d/index.html?*',route=>route.fulfill({
+  status:200,contentType:'text/html',body:'<!doctype html><title>Real anatomy test iframe</title>'
+ }));
  await launchAnatomy(page);
- await page.getByTestId('vision-anatomy-region-torso').click();
- await page.getByTestId('vision-anatomy-layer-organs').click();
- await page.getByTestId('vision-anatomy-select-heart').click();
- const volume=page.getByTestId('vision-anatomy-volume');
- await expect(volume).toBeVisible();
- await expect.poll(async()=>Number(await volume.getAttribute('data-face-count'))).toBeGreaterThan(1);
- await page.evaluate(()=>{
-  const element=document.querySelector('[data-testid=vision-anatomy-volume]')!;
-  const event=(type:string,id:number,x:number,y:number)=>element.dispatchEvent(
-   new PointerEvent(type,{bubbles:true,pointerId:id,pointerType:'touch',clientX:x,clientY:y}));
-  event('pointerdown',41,100,200);event('pointerdown',42,160,200);
-  event('pointermove',42,205,200);
-  event('pointerup',42,205,200);event('pointerup',41,100,200);
- });
- await expect.poll(async()=>Number(await volume.getAttribute('data-zoom'))).toBeGreaterThan(1.2);
-
- await page.getByTestId('vision-anatomy-tools').click();
- await expect(page.getByTestId('vision-anatomy-isolate')).toBeVisible();
- await page.getByTestId('vision-anatomy-isolate').click();
- await expect(volume).toHaveAttribute('data-face-count','1');
- await page.getByTestId('vision-anatomy-explode').press('ArrowRight');
- const before=await volume.getAttribute('data-yaw');
- await volume.focus();await volume.press('ArrowRight');
- await expect.poll(async()=>volume.getAttribute('data-yaw')).not.toBe(before);
- await page.getByTestId('vision-anatomy-isolate').click();
- await expect.poll(async()=>Number(await volume.getAttribute('data-face-count'))).toBeGreaterThan(1);
- const orbit=await page.locator('.vx-anatomy-volume-controls').boundingBox();
- const zoomControls=await page.locator('.vx-anatomy-zoom').boundingBox();
- if(page.viewportSize()!.width<=650){
-  expect(orbit).not.toBeNull();expect(zoomControls).not.toBeNull();
-  expect(orbit!.y+orbit!.height).toBeLessThanOrEqual(zoomControls!.y);
- }
  const close=await page.getByTestId('vision-anatomy-close').boundingBox();
  const viewport=page.viewportSize()!;
  expect(close).not.toBeNull();
  expect(close!.x).toBeGreaterThanOrEqual(0);
  expect(close!.x+close!.width).toBeLessThanOrEqual(viewport.width);
- await page.screenshot({path:'../.vision-evidence/vision-anatomy-isolate-'+info.project.name+'.png',fullPage:true});
+ await expect(page.getByTestId('vision-anatomy-volume')).toHaveCount(0);
+ await expect(page.locator('.vx-anatomy-shell')).toHaveCount(0);
+ await expect(page.getByTestId('vision-anatomy-inline-pending')).toBeVisible();
+ await page.screenshot({path:'../.vision-evidence/anatomy-no-legacy-mobile-'+info.project.name+'.png',fullPage:true});
 });
 
-
-test('validated BodyParts3D geometry opens by default, stays sandboxed, and fallback needs no rescan',async({page})=>{
+test('verified BodyParts3D geometry opens without the obsolete anatomy model',async({page})=>{
  let requests=0;
  page.on('request',r=>{if(r.url().endsWith('/api/vision-xray/scan'))requests++;});
  await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
@@ -106,7 +91,7 @@ test('validated BodyParts3D geometry opens by default, stays sandboxed, and fall
  await expect(fullScreen).toHaveAttribute('target','_blank');
  await expect(fullScreen).toHaveAttribute('rel','noopener noreferrer');
  await expect(fullScreen).toBeHidden(); // Person view must not become a separate full-screen page.
- await expect(page.getByTestId('vision-bp3d-toggle')).toHaveAttribute('aria-pressed','true');
+ await expect(page.getByTestId('vision-bp3d-toggle')).toHaveCount(0);
  await expect(page.getByText('2.234 mesh')).toBeHidden(); // Camera overlay has no standalone atlas footer.
  await expect(page.getByTestId('vision-bp3d-fallback')).toBeHidden();
  await expect(page.getByTestId('vision-anatomy-region-torso')).toBeHidden();
@@ -143,6 +128,7 @@ test('first streamed 3D mesh replaces the instant overlay preview without trusti
   .getByTestId('ora-test-frame-ready')).toBeVisible();
  await page.evaluate(()=>window.postMessage({type:'ora:anatomy-mesh-ready',version:1},'*'));
  await expect(preview).toBeVisible(); // window message has wrong source
+ await expect(preview.locator('canvas,svg')).toHaveCount(0);
  await page.evaluate(()=>{
   document.querySelector<HTMLIFrameElement>('[data-testid="vision-bp3d-frame"]')!
    .contentWindow?.postMessage({type:'ora:test-release-first-mesh'},'*');
@@ -151,7 +137,7 @@ test('first streamed 3D mesh replaces the instant overlay preview without trusti
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
  await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
 });
-test('mismatched or missing BodyParts3D provenance never hides the original ORA atlas',async({page})=>{
+test('mismatched source provenance shows an honest error instead of a fake human',async({page})=>{
  await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
   status:200,contentType:'application/json',body:JSON.stringify({
    provider:'BodyParts3D',dataset_version:'4.0',reference:'adult female',
@@ -160,8 +146,10 @@ test('mismatched or missing BodyParts3D provenance never hides the original ORA 
  }));
  await launchAnatomy(page);
  await expect(page.getByTestId('vision-bp3d-unavailable')).toBeVisible();
- await expect(page.getByTestId('vision-bp3d-toggle')).toBeDisabled();
- await expect(page.getByTestId('vision-anatomy-volume')).toBeVisible();
+ await expect(page.getByTestId('vision-bp3d-retry')).toBeVisible();
+ await expect(page.getByTestId('vision-anatomy-volume')).toHaveCount(0);
+ await expect(page.locator('.vx-anatomy-shell')).toHaveCount(0);
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-atlas-status','unavailable');
  await expect(page.getByTestId('vision-bp3d-frame')).toHaveCount(0);
 });
 

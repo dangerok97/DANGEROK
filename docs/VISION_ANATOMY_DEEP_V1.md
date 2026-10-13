@@ -72,3 +72,10 @@ scaricare né distribuire automaticamente modelli terzi privi di verifica.
 - I componenti 3D già decodificati diventano **selezionabili dopo il primo chunk**, senza attendere tutti i 15 file del riferimento. La selezione tramite canvas considera soltanto le mesh effettivamente caricate; l'eventuale catalogo di parti può mostrare parti che devono ancora arrivare. Il caricamento continua in background.
 
 - **Ancoraggio dopo il cambio layout:** il riquadro della foto non viene proiettato una sola volta prima di nascondere i comandi. Conserviamo il riquadro nel crop sorgente e lo riproiettiamo dopo il render, ai ridimensionamenti della stage e al cambio zoom. In live il calcolo passa dall'originale frame e dal crop iniziale al nuovo crop visibile; in foto usa object-fit:cover aggiornato. Evita slittamenti di alcuni punti percentuali fra desktop e telefoni.
+
+## Disattivazione completa del vecchio modello anatomico (13 ottobre 2026)
+
+- Per una persona o parte del corpo riconosciuta, **l'unica geometria anatomica visibile** è il riferimento verificato BodyParts3D. Nessun rendering `AnatomyVolume`, silhouette schematica, organo fittizio o vecchio renderer di fallback.
+- Durante il caricamento si vede soltanto la fotocamera e un **rettangolo di aggancio tecnico** con quattro angoli azzurri, non una figura umana, poi i componenti reali compaiono senza schermata percentuale.
+- Se la fonte BodyParts3D è indisponibile o non corrisponde alla versione attesa, ORA non sostituisce il modello con figure inventate: mostra un avviso chiaro con pulsante **Riprova modello 3D**, mantenendo attiva la fotocamera e l'uscita X.
+- I controlli browser e una nuova regressione statica proibiscono esplicitamente `AnatomyVolume`, `silhouettePath` e `vx-anatomy-shell` nel componente di produzione.
