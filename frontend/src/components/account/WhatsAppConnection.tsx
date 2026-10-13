@@ -137,9 +137,24 @@ export function WhatsAppConnection() {
             <>
               <Text testID="whatsapp-alerts-enabled" style={[styles.description, { color: colors.textSecondary }]}>
                 Consenso agli avvisi attivo.
-                {status.notification_channel_ready
-                  ? ' Canale disponibile secondo le condizioni attuali.'
-                  : ' Invii fuori finestra in attesa di un modello Meta autorizzato.'}
+                {status.template_approval_status === 'approved'
+                  ? ' Modello Meta approvato: avvisi disponibili anche oltre 24 ore, quando ORA rileva un aggiornamento utile.'
+                  : status.template_approval_status === 'pending'
+                    ? ' Il modello di messaggio è ancora in revisione da Meta.'
+                    : status.template_approval_status === 'rejected' || status.template_approval_status === 'paused'
+                      ? ' Il modello di messaggio non è attualmente autorizzato da Meta.'
+                      : status.template_approval_status === 'wrong_category'
+                        ? ' Il modello Meta deve essere approvato nella categoria Utility per questi avvisi.'
+                        : status.template_approval_status === 'requires_parameters'
+                          ? ' Il modello Meta richiede variabili non supportate: usa un modello statico.'
+                          : status.template_approval_status === 'waba_not_configured'
+                            ? ' Il server deve ancora collegare il WhatsApp Business Account usato per verificare i modelli.'
+                            : status.template_approval_status === 'unverified'
+                              ? ' Non è stato possibile verificare l’approvazione del modello Meta.'
+                              : ' Fuori dalle 24 ore serve un modello Utility approvato da Meta.'}
+                {status.notification_channel_ready && status.template_approval_status !== 'approved'
+                  ? ' Per ora il canale può inviare soltanto nella finestra di conversazione attiva.'
+                  : ''}
               </Text>
               <ActionBtn
                 variant="danger"
