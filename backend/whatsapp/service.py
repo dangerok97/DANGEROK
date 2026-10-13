@@ -38,6 +38,21 @@ def _pair_command(text: str) -> str | None:
     return match.group(1).upper() if match else None
 
 
+# User opt-out must work from WhatsApp itself, even when AI/provider is down.
+# Exact-message matching prevents e.g. "Cosa significa STOP?" disabling it.
+_ALERT_OPTOUT = re.compile(
+    r"(?i)^\s*(?:"
+    r"STOP(?:\s+(?:NOTIFICHE|AVVISI))?"
+    r"|DISATTIVA\s+(?:LE\s+)?(?:NOTIFICHE|AVVISI)(?:\s+WHATSAPP)?"
+    r"|NON\s+(?:MANDARMI|INVIARMI)\s+PI[UÙ]\s+(?:NOTIFICHE|AVVISI)"
+    r")\s*[.!]?\s*$"
+)
+
+
+def _is_alert_optout(text: str) -> bool:
+    return bool(_ALERT_OPTOUT.fullmatch(str(text or "")))
+
+
 async def ensure_indexes(db) -> None:
     await db.whatsapp_links.create_index("user_id", unique=True)
     await db.whatsapp_links.create_index("phone_hash", unique=True)
@@ -276,6 +291,20 @@ class WhatsAppService:
             return ("Per parlarmi qui, apri ORA → Connessioni e servizi → WhatsApp. "
                     "Genera il codice e invia COLLEGA seguito dal codice in questa chat."), None
         kind = str(item.get("kind") or "")
+        if kind == "text" and _is_alert_optout(body):
+            # An authenticated pairing + a signed sender is enough to REVOKE
+            # consent; no LLM/skill choice may intercept this preference.
+            from whatsapp.alerts import set_opt_in
+            await set_opt_in(self.db, linked["user_id"], False)
+            await self.db.whatsapp_links.update_one(
+                {"user_id": linked["user_id"], "phone_hash": phone_hash},
+                {"$set": {"last_inbound_at": now()}},
+            )
+            return (
+                "Avvisi automatici WhatsApp disattivati. "
+                "Continuerò a rispondere alle tue domande qui. "
+                "Puoi riattivare gli avvisi da ORA → Connessioni e servizi → WhatsApp."
+            ), linked["user_id"]
         attachments: list[dict] = []
         if kind in ("image", "document", "audio"):
             try:
