@@ -321,3 +321,37 @@ async def test_finish_reserves_optional_third_audit_before_starting_fallback(mon
     assert await db.ambient_wakes.count_documents({
         "owner_id": owner, "source_ref": f"goal:{goal.id}", "status": "pending",
     }) == 1
+
+
+@pytest.mark.asyncio
+async def test_finish_allows_one_documented_transport_retry_but_not_an_unbounded_loop():
+    """Two independent transient model outages cannot mint unlimited fallback steps."""
+    from test_preparation_recovery_v162 import seed_recovery
+
+    db, goal, plan, _source, _note = await seed_recovery()
+    owner = goal.owner_id
+    service = AgentService(db)
+    plan.steps[1].status = "skipped"
+    await service.repo.save_plan(plan)
+    service.executor.run = AsyncMock(return_value=ExecutionResult(
+        step_id="stp_synthetic_temporary", status="unavailable",
+        observation="Modello temporaneamente non disponibile.",
+        error_type="preparation_model_unavailable", retryable=True,
+        provenance=ResultProvenance(
+            source_class="internal_observation", capability="document.create",
+            provider="generated_draft",
+        ),
+    ))
+    service._reconsider = AsyncMock(return_value=None)
+    for expected in (3, 4):
+        outcome = await service._finish(owner, goal, plan,
+            AgentRun(owner_id=owner, goal_id=goal.id), AgentBudget(), language="it")
+        assert outcome["state"] == "in_progress"
+        assert len(plan.steps) == expected
+        assert plan.steps[-1].status == "failed"
+    paused = await service._finish(owner, goal, plan,
+        AgentRun(owner_id=owner, goal_id=goal.id), AgentBudget(), language="it")
+    assert paused["state"] == "in_progress"
+    assert len(plan.steps) == 4
+    assert service.executor.run.await_count == 2
+    assert goal.status == "active" and not goal.prepared_text
