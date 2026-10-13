@@ -592,6 +592,18 @@ class DeliveryService:
                 )
                 return
 
+        # The source was just revalidated by the canonical DeliveryService.
+        # This additional channel uses that SAME judgement; it never bypasses
+        # consent or performs a second AI decision. A queued WhatsApp alert
+        # is independently rechecked again immediately before Meta sends it.
+        try:
+            from whatsapp.alerts import enqueue as enqueue_whatsapp_alert
+
+            await enqueue_whatsapp_alert(self.db, user_id, plan)
+        except Exception as exc:
+            # Expo delivery must remain usable even if WhatsApp is offline.
+            logger.info("WhatsApp alert admission deferred: %s", type(exc).__name__)
+
         public = plan.words.public()
         outcome = await get_provider().send(
             owner_id=user_id,
