@@ -25,7 +25,7 @@ test('live crop is remapped from its captured video coordinates',()=>{
   capturedCrop:{x:0,y:0,width:1280,height:720},photo:false,zoom:1};
  const same=projectAnatomyAnchor(capture,{x:0,y:0,width:1280,height:720});
  const newCrop=projectAnatomyAnchor(capture,{x:280,y:0,width:720,height:720});
- assert.deepEqual(JSON.parse(JSON.stringify(same)),[.2,.3,.4,.4]);
+ assert.ok(same&&same.every((v,i)=>Math.abs(v-[.2,.3,.4,.4][i])<1e-9));
  assert.ok(newCrop&&newCrop[2]>.4);
  assert.ok(newCrop[0]>=0&&newCrop[0]+newCrop[2]<=1);
 });
