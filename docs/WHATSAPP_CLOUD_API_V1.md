@@ -171,3 +171,14 @@ Verificare su un account e un telefono reale:
 
 Sono **test funzionali sul codice** finché il test reale WhatsApp/Meta non
 viene eseguito; nessuna chiamata Meta con token reali è effettuata dai test.
+
+
+### Protezione parallela della notifica sul telefono
+
+Il canale push dell'app conserva la differenza fra testo `public_*`
+(schermata di blocco) ed espanso. Per `personal` e `private` non può più
+usare il testo espanso come fallback qualora `public_title` o
+`public_body` siano vuoti: usa un titolo/corpo neutro in quel caso.
+WhatsApp riconosce quei fallback come non informativi e non li invia
+all'insaputa del destinatario. L'opt-in ai dettagli riguarda WhatsApp,
+non abbassa la riservatezza delle notifiche della schermata di blocco.
