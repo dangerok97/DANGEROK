@@ -43,7 +43,7 @@ def _pair_command(text: str) -> str | None:
 _ALERT_OPTOUT = re.compile(
     r"(?i)^\s*(?:"
     r"STOP(?:\s+(?:NOTIFICHE|AVVISI))?"
-    r"|DISATTIVA\s+(?:LE\s+)?(?:NOTIFICHE|AVVISI)(?:\s+WHATSAPP)?"
+    r"|DISATTIVA\s+(?:(?:LE|GLI)\s+)?(?:NOTIFICHE|AVVISI)(?:\s+WHATSAPP)?"
     r"|NON\s+(?:MANDARMI|INVIARMI)\s+PI[UÙ]\s+(?:NOTIFICHE|AVVISI)"
     r")\s*[.!]?\s*$"
 )
