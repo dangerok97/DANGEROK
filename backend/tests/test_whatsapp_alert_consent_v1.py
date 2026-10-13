@@ -17,7 +17,8 @@ from mongomock_motor import AsyncMongoMockClient
 from delivery.models import DeliveryPlan, PushCopy
 from whatsapp.alerts import (
     AlertWorker, enqueue, ensure_indexes, in_service_window,
-    may_notify, record_status, set_opt_in, template_settings,
+    may_notify, record_status, set_opt_in, set_detail_preference, template_settings,
+    public_copy,
 )
 from whatsapp.cloud import CloudConfig, CloudSendError, iter_signed_delivery_statuses
 from whatsapp.service import WhatsAppService, ensure_indexes as ensure_whatsapp_indexes
@@ -62,8 +63,8 @@ def plan(id="dp_alert_1"):
         words=PushCopy(
             title="Private expanded title",
             body="Private expanded details, do not deliver via WhatsApp",
-            public_title="Un aggiornamento importante",
-            public_body="Apri ORA per la situazione",
+            public_title="Spedizione in consegna",
+            public_body="Il corriere ha confermato la consegna per oggi.",
         ),
     )
 
@@ -92,8 +93,9 @@ async def test_owner_opt_in_then_deduplicated_alert_and_opt_out(cfg):
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["owner_id"] == OWNER
     assert "copy" not in row
-    assert row["copy_enc"] != "Un aggiornamento importante. Apri ORA per la situazione"
-    assert cfg.decrypt(row["copy_enc"]) == "Un aggiornamento importante. Apri ORA per la situazione"
+    assert "Spedizione in consegna" not in str(row)
+    assert "Spedizione in consegna" in cfg.decrypt(row["copy_enc"])
+    assert "Il corriere ha confermato" in cfg.decrypt(row["copy_enc"])
     assert "Private expanded" not in str(row)
     assert "phone_enc" not in row
     assert await db.whatsapp_alert_outbox.count_documents({}) == 1
@@ -148,7 +150,7 @@ async def test_worker_sends_once_in_real_customer_window(cfg, monkeypatch):
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["status"] == "accepted"
     assert row["wamid"] == "wamid.synthetic_outbound_1"
-    assert calls == [(PHONE, "Un aggiornamento importante. Apri ORA per la situazione", None)]
+    assert calls == [(PHONE, public_copy(item), None)]
     assert row["status"] != "delivered"  # Meta accepted, did not prove device delivery.
 
 
@@ -185,7 +187,7 @@ async def test_outside_window_requires_configured_meta_template(cfg, monkeypatch
     from whatsapp import template_approval
 
     async def meta_approved(*args, **kwargs):
-        return "approved"
+        return "approved_dynamic"
 
     monkeypatch.setattr(template_approval, "approval_status", meta_approved)
     assert template_settings() == ("ora_aggiornamento_importante", "it")
@@ -206,7 +208,7 @@ async def test_outside_window_requires_configured_meta_template(cfg, monkeypatch
     monkeypatch.setattr(DeliveryService, "_muted", not_muted)
     monkeypatch.setattr(CloudConfig, "send_proactive", fake_send)
     assert await AlertWorker(db, cfg).process_one()
-    assert seen == [(PHONE, "", ("ora_aggiornamento_importante", "it"))]
+    assert seen == [(PHONE, "", ("ora_aggiornamento_importante", "it", public_copy(item)[:450]))]
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["status"] == "accepted"
     assert row["kind"] == "approved_template"
@@ -399,7 +401,7 @@ async def test_template_name_alone_never_authorizes_external_outreach(cfg, monke
     ("PENDING", "UTILITY", "ORA ha un aggiornamento.", "pending"),
     ("REJECTED", "UTILITY", "ORA ha un aggiornamento.", "rejected"),
     ("APPROVED", "MARKETING", "ORA ha un aggiornamento.", "wrong_category"),
-    ("APPROVED", "UTILITY", "ORA: {{1}}", "requires_parameters"),
+    ("APPROVED", "UTILITY", "ORA: {{1}}", "approved_dynamic"),
 ])
 async def test_real_meta_template_metadata_required_before_outreach(
     cfg, monkeypatch, status, category, body, expected
