@@ -12,28 +12,12 @@ import type {Box} from './scene';
 import {CameraTorch, type TorchState, TORCH_UNAVAILABLE, cameraCrop, sameCrop, drawCameraCrop, clampCameraZoom} from './cameraControls';
 import {filterCatalog} from './catalogSearch';
 import {AnatomyExplorer} from './AnatomyExplorer.web';
-import {ScanOutline} from './ScanOutline.web';
-import {extractPixelContour,projectPixelContour,relocateContour,type PixelContour} from './pixelContour';
 import {projectAnatomyAnchor,sameAnatomyAnchor,type AnatomyCaptureAnchor} from './anatomyCameraAnchor';
 import {warmAnatomyReference} from './anatomyWarmup.web';
 import type {BodyRegion} from './anatomyFocus';
 
 type Mode = 'idle' | 'opening' | 'live' | 'photo' | 'catalog';
 const sleep = (ms:number) => new Promise<void>(resolve=>setTimeout(resolve,ms));
-/** Analyze only the recognized still frame, never an invented template mask.
- * Small, bounded RGBA buffers keep the CPU cost low even on mobile. */
-function pixelScan(snapshot:HTMLCanvasElement,box:Box):PixelContour|null{
- try{
-  const scale=Math.min(1,288/Math.max(snapshot.width,snapshot.height));
-  const sample=document.createElement('canvas');
-  sample.width=Math.max(48,Math.round(snapshot.width*scale));
-  sample.height=Math.max(48,Math.round(snapshot.height*scale));
-  const context=sample.getContext('2d',{willReadFrequently:true});
-  if(!context)return null;
-  context.drawImage(snapshot,0,0,sample.width,sample.height);
-  return extractPixelContour(context.getImageData(0,0,sample.width,sample.height),box);
- }catch{return null;}
-}
 function difference(a:GrayFrame|null,b:GrayFrame|null){
   if(!a||!b||a.data.length!==b.data.length)return 1;
   let d=0;for(let i=0;i<a.data.length;i+=8)d+=Math.abs(a.data[i]-b.data[i]);
@@ -48,9 +32,6 @@ export default function LiveExplorer(){
   const [anatomySide,setAnatomySide]=useState<'left'|'right'|'unknown'>('unknown');
   const [anatomyBox,setAnatomyBox]=useState<Box|null>(null);
   const anatomyCapture=useRef<AnatomyCaptureAnchor|null>(null);
-  const scanCapture=useRef<(AnatomyCaptureAnchor&{shape:PixelContour|null})|null>(null);
-  const [scanContour,setScanContour]=useState<PixelContour|null>(null);
-  const [scanArea,setScanArea]=useState<Box|null>(null);
   const [anatomyPosePoints,setAnatomyPosePoints]=useState<Record<string,[number,number]>|null>(null);
   const anatomyActiveRef=useRef(false);
   const [stage,setStage]=useState('Inquadra. Esplora. Capisci.');
@@ -123,32 +104,6 @@ export default function LiveExplorer(){
     observer.observe(element);
     return()=>observer.disconnect();
   },[anatomyActive,cameraZoom]);
-  // A saved silhouette belongs to the recognized capture. Reproject on stage
-  // resize and camera crop changes; do not rescan every frame or hallucinate
-  // edges if the subject subsequently leaves the camera.
-  useEffect(()=>{
-    if(!anatomyActive&&!result?.manifest)return;
-    const element=stageElement.current;if(!element)return;
-    const sync=()=>{
-      const capture=scanCapture.current;if(!capture)return;
-      const rect=element.getBoundingClientRect();if(rect.width<1||rect.height<1)return;
-      try{
-        const viewCrop=cameraCrop(capture.sourceWidth,capture.sourceHeight,
-          rect.width,rect.height,capture.photo?1:cameraZoomRef.current);
-        const projected=capture.shape?projectPixelContour(capture.shape,capture.capturedCrop,viewCrop):null;
-        setScanContour(prev=>{
-          if(!projected)return prev===null?prev:null;
-          if(prev&&sameAnatomyAnchor(prev.box,projected.box,.001)&&
-            Math.abs(prev.tilt-projected.tilt)<.001)return prev;
-          return projected;
-        });
-        const fallback=projectAnatomyAnchor(capture,viewCrop);
-        setScanArea(prev=>sameAnatomyAnchor(prev,fallback)?prev:fallback);
-      }catch{setScanContour(null);}
-    };
-    sync();const observer=new ResizeObserver(sync);observer.observe(element);
-    return()=>observer.disconnect();
-  },[anatomyActive,result?.version_id,cameraZoom]);
   const finishArrival=useCallback(()=>{if(arrival.current){arrival.current=null;view.current.progress=1;}},[]);
   const endTour=useCallback((restore=true)=>{
     const active=tour.current;if(active){active.clock.stop();if(restore){const reduced=view.current.reduceMotion;Object.assign(view.current,active.before,{reduceMotion:reduced});if(alive.current){setOpening(Math.round(view.current.target*100));setExpanded(view.current.target>.5);}}}
@@ -181,7 +136,6 @@ export default function LiveExplorer(){
     if(photoObjectURL.current)URL.revokeObjectURL(photoObjectURL.current);
     photoObjectURL.current=null;photo.current=null;modeRef.current='idle';
     busyRef.current=false;nextScan.current=Infinity;scene.current=null;heldResult.current=null;scanReference.current=null;
-    scanCapture.current=null;setScanContour(null);setScanArea(null);
     resetView();objectHintRef.current='';
     anatomyActiveRef.current=false;anatomyCapture.current=null;
     if(alive.current){setAnatomyActive(false);setAnatomyRegion('full_body');setAnatomyBox(null);setAnatomyPosePoints(null);setAnatomyPosePoints(null);setCanHint(false);setObjectHint('');setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setAnatomyBox(null);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
@@ -238,30 +192,26 @@ export default function LiveExplorer(){
       const identification=value.identification;
       if(value.status==='anatomy'){
         const recognizedBox=value.identification?.bbox||null;
-        let trackedBox=recognizedBox,contour:PixelContour|null=null;
-        if(recognizedBox){
-          contour=pixelScan(snapshot,recognizedBox);
-          if(identification?.confidence==='medium'&&contour!==null&&contour.confidence<.78)contour=null;
-          if(liveCapture){
-            const freshRect=stageElement.current?.getBoundingClientRect();
-            const fresh=cameraCrop(rawWidth,rawHeight,freshRect?.width||rawWidth,
-              freshRect?.height||rawHeight,cameraZoomRef.current);
-            const gray=sc&&video.current&&sameCrop(crop,fresh)?(
-              drawCameraCrop(sc,video.current,fresh,small.width,small.height),
-              grayFrame(sc.getImageData(0,0,small.width,small.height))):null;
-            trackedBox=currentBox(scanReference.current,gray,recognizedBox);
-            contour=trackedBox&&contour?relocateContour(contour,recognizedBox,trackedBox):null;
-          }
+        let observedBox=recognizedBox;
+        if(liveCapture&&recognizedBox){
+          const stage=stageElement.current?.getBoundingClientRect();
+          const fresh=cameraCrop(rawWidth,rawHeight,stage?.width||rawWidth,
+            stage?.height||rawHeight,cameraZoomRef.current);
+          if(sc&&video.current&&sameCrop(crop,fresh)){
+            drawCameraCrop(sc,video.current,fresh,small.width,small.height);
+            observedBox=currentBox(scanReference.current,
+              grayFrame(sc.getImageData(0,0,small.width,small.height)),recognizedBox);
+          }else observedBox=null;
         }
-        const finalBox=contour?.box||trackedBox||recognizedBox;
-        const anchor:AnatomyCaptureAnchor|null=finalBox?{
-         box:finalBox,sourceWidth:rawWidth,sourceHeight:rawHeight,
-         capturedCrop:crop,photo:!liveCapture,zoom:cameraZoomRef.current
+        // Region and side are identified; placement is at most an approximate
+        // 2D detector rectangle. Open large reference anatomy, not a fake scan.
+        const anchor:AnatomyCaptureAnchor|null=observedBox?{
+          box:observedBox,sourceWidth:rawWidth,sourceHeight:rawHeight,
+          capturedCrop:crop,photo:!liveCapture,zoom:cameraZoomRef.current
         }:null;
-        scanCapture.current=anchor?{...anchor,shape:contour}:null;
         if(epoch.current===ticket&&alive.current)
           activateAtlas(value.body_region||value.identification?.body_region||'full_body',
-            value.identification?.pose_points||null,finalBox,
+            value.identification?.pose_points||null,observedBox,
             value.identification?.body_side||value.body_side||'unknown',anchor);
         return;
       }
@@ -286,19 +236,7 @@ export default function LiveExplorer(){
             }
           }
         }
-        const detected=value.identification?.bbox||null;
-        let contour=detected?pixelScan(snapshot,detected):null;
-        if(identification?.confidence==='medium'&&contour!==null&&contour.confidence<.78)contour=null;
-        // The asynchronous AI response may arrive after the object moved.
-        // A live outline is only valid if the frozen frame was revalidated.
-        if(liveCapture){
-          contour=contour&&detected&&box?relocateContour(contour,detected,box):null;
-        }
-        const sourceBox=contour?.box||box;
-        scanCapture.current=sourceBox&&modeRef.current!=='catalog'?{
-          box:sourceBox,shape:contour,sourceWidth:rawWidth,sourceHeight:rawHeight,
-          capturedCrop:crop,photo:!liveCapture,zoom:cameraZoomRef.current}:null;
-        apply(value,sourceBox?{box:sourceBox,sw,sh,rotation:contour?.tilt||0}:null);
+        apply(value,box?{box,sw,sh}:null);
       }
       else{scene.current=null;heldResult.current=null;setResult(null);setCanHint(value.can_hint===true||value.error_code==='object_uncertain');setStage(value.reason||'Ricostruzione in corso. Premi Riprova per verificarla.');nextScan.current=performance.now()+6000;}
     }catch(e:any){
@@ -341,7 +279,7 @@ export default function LiveExplorer(){
     anatomyActiveRef.current=true;setAnatomyActive(true);scene.current=null;
     heldResult.current=null;scanReference.current=null;resetView();setResult(null);
     setBusy(false);setError(null);setCanHint(false);setLibraryOpen(false);setInfoOpen(false);
-    setStage('Persona riconosciuta · modello anatomico 3D fissato sull’immagine.');
+    setStage('Regione riconosciuta · esplora il modello anatomico 3D di riferimento.');
     nextScan.current=Infinity;
   };
   const newObject=()=>{
@@ -349,7 +287,6 @@ export default function LiveExplorer(){
     // Dismiss only the model. Keep the stream and invalidate every old AI reply.
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     scene.current=null;heldResult.current=null;scanReference.current=null;resetView();
-    scanCapture.current=null;setScanContour(null);setScanArea(null);
     anatomyActiveRef.current=false;anatomyCapture.current=null;setAnatomyActive(false);setAnatomyRegion('full_body');
     objectHintRef.current='';setObjectHint('');setCanHint(false);
     setResult(null);setBusy(false);setError(null);setInfoOpen(false);setLibraryOpen(false);setCameraPanel(false);
@@ -504,13 +441,12 @@ export default function LiveExplorer(){
       <div className="vx-brand">ORA <span>VISION</span><small className="vx-version">ESPLORA L’ESSENZIALE</small></div>
       <button className="vx-catalog" data-testid="vision-catalog-toggle" aria-expanded={libraryOpen} onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setInfoOpen(false);setLibraryOpen(v=>!v);}}>Catalogo <span>{entries.length}</span></button>
     </header>
-    <section ref={stageElement} className={'vx-stage'+(scanContour?' vx-scan-locked':'')} aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
+    <section ref={stageElement} className="vx-stage" aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
       <video ref={video} autoPlay playsInline muted data-testid="vision-camera-video" aria-label="Video live della fotocamera" style={{opacity:live?1:0,transform:`scale(${cameraZoom})`,transformOrigin:"center"}} data-camera-zoom={cameraZoom.toFixed(2)}/>
       {photoURL&&<img src={photoURL} alt="Foto scelta per l’analisi" className="vx-photo"/>}
       <div className={'vx-shade '+(result?'vx-shade-result':anatomyActive?'vx-shade-anatomy':'')}/>
       <canvas ref={canvas} className="vx-canvas" data-testid="vision-scene" tabIndex={result||live?0:-1} aria-label={result?"Scena 3D: trascina per ruotare, due dita per ingrandire i componenti.":"Fotocamera: due dita per lo zoom digitale. I comandi sono disponibili anche nei pulsanti."} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={e=>onUp(e,true)} onLostPointerCapture={e=>{gestures.current.up(e.pointerId,e.clientX,e.clientY,true);}} onKeyDown={keyboard}/>
-      {anatomyActive&&<AnatomyExplorer region={anatomyRegion} bodySide={anatomySide} posePoints={anatomyPosePoints} anchorBox={anatomyBox} hasPixelContour={Boolean(scanContour)} onClose={closeAtlas}/>} 
-      {(anatomyActive||result?.manifest)&&<ScanOutline contour={scanContour} box={anatomyActive?null:scanArea} label={anatomyActive?'ANATOMIA':'OGGETTO'}/>}
+      {anatomyActive&&<AnatomyExplorer region={anatomyRegion} bodySide={anatomySide} posePoints={anatomyPosePoints} anchorBox={anatomyBox} onClose={closeAtlas}/>}
       <div className="vx-topline"><span className={'vx-tag '+(live?'vx-tag-live':'')}>{live?'● LIVE':mode==='photo'?'FOTO':mode==='catalog'?'CATALOGO':'VISION X-RAY'}</span><button className="vx-evidence" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}} aria-label="Informazioni sullo schema indicativo">Schema indicativo ⓘ</button></div>
       {(mode==='idle'||mode==='opening')&&!result&&!anatomyActive&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
       {result?.manifest&&<><button className="vx-close-model" data-testid="vision-close-model" aria-label="Chiudi la scomposizione e scansiona un altro oggetto" title="Scansiona un altro oggetto" onClick={newObject}>×</button><div className={'vx-object-title'+(focused&&!tourUI?' is-focus':'')}><strong>{focused&&!tourUI&&currentPart?currentPart.name:result.manifest.title}</strong><small>{tourUI?'PERCORSO DIDATTICO':focused?'COMPONENTE TIPICO':result.manifest.parts.length+' parti'}</small></div><div className="vx-zoom" aria-label="Zoom della scomposizione"><button aria-label="Riduci lo zoom" data-testid="vision-zoom-out" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom/1.25);}}>−</button><button aria-label="Aumenta lo zoom" data-testid="vision-zoom-in" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom*1.25);}}>+</button></div></>}
@@ -521,7 +457,6 @@ export default function LiveExplorer(){
         {cameraPanel&&<div className="vx-camera-zoom-panel" data-testid="vision-camera-zoom-panel"><small>ZOOM FOTOCAMERA · DIGITALE</small><div>{[1,2,3].map(z=><button key={z} data-testid={'vision-camera-zoom-'+z} aria-pressed={Math.abs(cameraZoom-z)<.05} onClick={()=>changeCameraZoom(z)}>{z}×</button>)}</div><input data-testid="vision-camera-zoom-range" aria-label="Ingrandimento della fotocamera" type="range" min="1" max="3" step="0.1" value={cameraZoom} onChange={e=>changeCameraZoom(Number(e.target.value))}/><span>{result?'Non modifica lo zoom dello schema 3D.':'ORA analizza la stessa area ingrandita.'}</span></div>}
         {torchUI.message&&torchUI.supported&&<p role="status" className="vx-camera-message">{torchUI.message}</p>}
       </div>}
-      {busy&&<div className="vx-scanning" aria-hidden="true"/>}
       <div className={'vx-status'+(result?' vx-status-held':'')} role="status" data-testid="vision-status"><span className={busy?'vx-pulse':''}>{busy?'◌':'◇'}</span>{stage}</div>
       {libraryOpen&&<aside className="vx-library" data-testid="vision-catalog" aria-label="Catalogo delle scomposizioni"><h2>Esplora il catalogo</h2><p>Modelli indicativi salvati, non riconoscimenti della fotocamera.</p><input className="vx-catalog-search" data-testid="vision-catalog-search" type="search" aria-label="Cerca un oggetto nel catalogo" placeholder="Cerca: telefono, penna, USB…" value={catalogQuery} onChange={e=>setCatalogQuery(e.target.value)}/><select className="vx-catalog-category" data-testid="vision-catalog-category" aria-label="Categoria del catalogo" value={catalogCategory} onChange={e=>setCatalogCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><small role="status" data-testid="vision-catalog-count">{visibleEntries.length} di {entries.length} modelli</small>{visibleEntries.map(entry=><button key={entry.model_id} data-testid={'vision-catalog-'+entry.canonical_key} onClick={()=>void loadModel(entry)}><span>{entry.title}</span><small>{entry.category||'Altri oggetti'} · {entry.shared?'Condiviso':'Privato'}</small></button>)}{!visibleEntries.length&&<p>Nessun modello corrispondente. Prova un altro nome o inquadra l’oggetto.</p>}<button onClick={()=>setLibraryOpen(false)}>Chiudi catalogo</button></aside>}
       {infoOpen&&<aside className="vx-info" data-testid="vision-information" aria-label="Informazioni su Vision"><h2>Uno schema, non una radiografia</h2><p>{result?.manifest?.limitations||'Le forme e le parti interne sono indicative della famiglia di oggetti, non verificate sul tuo esemplare.'}</p><p>Per riconoscere l’oggetto invio fotogrammi all’AI. Dopo l’acquisizione l’analisi si ferma. Non registro il video e non salvo le foto nel catalogo.</p>{Boolean(result?.sources?.length)&&<div className="vx-seed-sources">Riferimenti generali, non verifica del tuo esemplare.{result!.sources!.map(s=><a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.title} ↗</a>)}</div>}<p>I nuovi schemi generici validati vengono salvati automaticamente nel catalogo comune. Le precedenti voci private restano private.</p><button onClick={()=>setInfoOpen(false)}>Torna all’oggetto</button></aside>}

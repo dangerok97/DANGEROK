@@ -30,15 +30,17 @@ test('recognized human never shows the old anatomical illustration while loading
   status:200,contentType:'text/html',body:'<!doctype html><title>Waiting for 3D geometry</title>'
  }));
  await launchAnatomy(page);
- const target=page.getByTestId('vision-anatomy-preview');
- await expect(target).toBeVisible();
+ const loading=page.getByTestId('vision-anatomy-inline-pending');
+ await expect(loading).toBeVisible();
+ await expect(page.getByTestId('vision-anatomy-preview')).toHaveCount(0);
+ await expect(page.getByTestId('vision-scan-overlay')).toHaveCount(0);
  await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
  await expect(page.getByTestId('vision-anatomy-volume')).toHaveCount(0);
  await expect(page.getByTestId('vision-anatomy-svg')).toHaveCount(0);
  await expect(page.locator('.vx-anatomy-shell')).toHaveCount(0);
- await expect(target.locator('canvas,svg')).toHaveCount(0);
- await expect(target.locator('.vx-target-corner')).toHaveCount(4);
+ await expect(page.locator('.vx-target-corner')).toHaveCount(0);
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
+ await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-display','study-first');
  await page.screenshot({path:'../.vision-evidence/anatomy-no-legacy-loading-'+info.project.name+'.png',fullPage:true});
  expect(scans).toBe(1);
  expect(pageErrors).toEqual([]);
@@ -99,7 +101,7 @@ test('verified BodyParts3D geometry opens without the obsolete anatomy model',as
  await expect(page.getByTestId('vision-anatomy-close')).toBeVisible();
  expect(requests).toBe(1);
 });
-test('first streamed 3D mesh replaces the instant overlay preview without trusting other senders',async({page})=>{
+test('first streamed 3D mesh hides loading status without trusting other senders',async({page})=>{
  await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
   status:200,contentType:'application/json',body:JSON.stringify({
    provider:'BodyParts3D',dataset_version:'4.0',reference:'adult male',
@@ -121,19 +123,20 @@ test('first streamed 3D mesh replaces the instant overlay preview without trusti
     </script></body>`
  }));
  await launchAnatomy(page);
- const preview=page.getByTestId('vision-anatomy-preview');
- await expect(preview).toBeVisible();
+ const loading=page.getByTestId('vision-anatomy-inline-pending');
+ await expect(loading).toBeVisible();
+ await expect(page.getByTestId('vision-anatomy-preview')).toHaveCount(0);
  await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
  await expect(page.frameLocator('[data-testid="vision-bp3d-frame"]')
   .getByTestId('ora-test-frame-ready')).toBeVisible();
  await page.evaluate(()=>window.postMessage({type:'ora:anatomy-mesh-ready',version:1},'*'));
- await expect(preview).toBeVisible(); // window message has wrong source
- await expect(preview.locator('canvas,svg')).toHaveCount(0);
+ await expect(loading).toBeVisible(); // window message has wrong source
+ await expect(page.getByTestId('vision-scan-overlay')).toHaveCount(0);
  await page.evaluate(()=>{
   document.querySelector<HTMLIFrameElement>('[data-testid="vision-bp3d-frame"]')!
    .contentWindow?.postMessage({type:'ora:test-release-first-mesh'},'*');
  });
- await expect(preview).toHaveCount(0,{timeout:5000});
+ await expect(loading).toHaveCount(0,{timeout:5000});
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
  await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
 });
@@ -216,7 +219,8 @@ test('held person overlay keeps the real camera stream and X reuses it for the n
  expect(Number(url.searchParams.get('bw'))).toBeLessThanOrEqual(.65);
  expect(Number(url.searchParams.get('bh'))).toBeGreaterThan(.65);
  expect(Number(url.searchParams.get('bh'))).toBeLessThanOrEqual(.85);
- await expect(page.getByTestId('vision-anatomy-preview')).toBeVisible();
+ expect(url.searchParams.get('study')).toBe('1');
+ await expect(page.getByTestId('vision-anatomy-preview')).toHaveCount(0);
  await expect(page.getByTestId('vision-camera-video')).toBeVisible();
  await expect(page.getByTestId('vision-camera-video')).not.toHaveJSProperty('paused',true);
  const previous=scans;
@@ -259,7 +263,7 @@ test('a close-up of a hand opens ONLY hand anatomy, not the whole-body reference
  await page.locator('input[type=file]').setInputFiles({name:'hand-test.jpg',mimeType:'image/jpeg',buffer:Buffer.from(pixels)});
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-region','hand');
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
- await expect(page.getByTestId('vision-anatomy-preview')).toHaveAttribute('data-anchored','true');
+ await expect(page.getByTestId('vision-anatomy-preview')).toHaveCount(0);
  // The source JPEG is square, but the camera stage is not. A photographed
  // region is fitted with object-fit:cover and clipped to the visible viewport.
  // Raw bbox values must NOT be reused as screen coordinates on desktop/mobile.
@@ -288,13 +292,9 @@ test('a close-up of a hand opens ONLY hand anatomy, not the whole-body reference
   expect(Number(params.get(key)),key+' must reflect the visible camera crop')
    .toBeCloseTo(expected[key],2);
  }
- const preview=await page.getByTestId('vision-anatomy-preview').boundingBox();
- expect(preview).not.toBeNull();
- expect(preview!.x-stageRect!.x).toBeCloseTo(left*w,0);
- expect(preview!.y-stageRect!.y).toBeCloseTo(top*h,0);
- expect(preview!.width).toBeCloseTo(expected.bw*w,0);
- expect(preview!.height).toBeCloseTo(expected.bh*h,0);
- await expect(page.getByTestId('vision-anatomy-preview')).toHaveAttribute('data-anchored','true');
+ expect(params.get('study')).toBe('1');
+ await expect(page.getByTestId('vision-scan-overlay')).toHaveCount(0);
+ await expect(page.locator('.vx-target-corner')).toHaveCount(0);
  await expect(page.getByTestId('vision-open-human-atlas')).toHaveCount(0);
  expect(scans).toBe(1);
 });

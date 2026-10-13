@@ -48,32 +48,4 @@ export const visualStyle = `
 .has-anatomy .vx-canvas{pointer-events:none;}
 
 
-/* SCAN V1: real high-contrast pixel contours only; weak observations remain a
-   clearly labeled rectangle, never a fabricated hand/person/object mask. */
-.vx-scan-surface{position:absolute;inset:0;z-index:18;overflow:hidden;
- pointer-events:none;contain:layout paint;}
-.vx-scan-surface-svg{position:absolute;inset:0;width:100%;height:100%;
- overflow:visible;filter:drop-shadow(0 0 6px rgba(56,191,236,.75));}
-.vx-scan-trace{fill:rgba(36,202,235,.045);stroke:#83ecff;
- stroke-width:2.5;vector-effect:non-scaling-stroke;stroke-linejoin:round;
- stroke-linecap:round;stroke-dasharray:11 5;
- animation:vx-scan-draw 1.05s ease-out both,vx-scan-breathe 3.8s ease-in-out 1.05s infinite;}
-.vx-scan-trace.is-box{stroke:rgba(125,203,221,.8);stroke-width:1.5;fill:none;
- stroke-dasharray:7 9;animation:none;}
-.vx-scan-halo{fill:none;stroke:#65dafe;stroke-width:.8;
- vector-effect:non-scaling-stroke;opacity:.62;stroke-linejoin:round;}
-.vx-scan-chip{position:absolute;padding:5px 9px;
- max-width:215px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
- border:1px solid rgba(87,188,220,.72);border-radius:8px;
- background:rgba(4,29,44,.83);color:#cff7ff;
- font:10px/1.25 ui-monospace,monospace;letter-spacing:.2px;
- box-shadow:0 2px 12px #00172499;}
-.vx-scan-dot{display:inline-block;width:6px;height:6px;margin-right:3px;
- border-radius:50%;background:#83edfc;box-shadow:0 0 8px #71f5ff;}
-@keyframes vx-scan-draw{
- from{stroke-dashoffset:450;opacity:.2}to{stroke-dashoffset:0;opacity:1}}
-@keyframes vx-scan-breathe{
- 0%,100%{stroke-opacity:.95}50%{stroke-opacity:.52}}
-@media(max-width:600px){.vx-scan-chip{font-size:9px;padding:4px 6px;max-width:175px;}}
-@media(prefers-reduced-motion:reduce){.vx-scan-trace{animation:none!important}}
 `;

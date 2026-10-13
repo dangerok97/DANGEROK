@@ -139,7 +139,7 @@ export class VisionPresentation {
     const s=flatScale*(850-Math.min(350,nearestDepth*flatScale))/850;
     const zoom=Math.min(3.2,Math.max(.65,opts.zoom));
     const selectedBounds=selectedIndex<0?[0,0,1,1]:bounds(rotated[selectedIndex].map(v=>[v[0],v[1]]));
-    const flatFocusScale=selectedIndex<0?s:Math.min(w*.63/Math.max(1,selectedBounds[2]-selectedBounds[0]),available*.63/Math.max(1,selectedBounds[3]-selectedBounds[1]));
+    const flatFocusScale=selectedIndex<0?s:Math.min(w*.72/Math.max(1,selectedBounds[2]-selectedBounds[0]),available*.72/Math.max(1,selectedBounds[3]-selectedBounds[1]));
     const nearestFocusDepth=selectedIndex<0?0:Math.max(0,...rotated[selectedIndex].map(v=>v[2]));
     const focusScale=flatFocusScale*(1000-Math.min(350,nearestFocusDepth*flatFocusScale))/1000;
     const fcx=(selectedBounds[0]+selectedBounds[2])/2,fcy=(selectedBounds[1]+selectedBounds[3])/2;

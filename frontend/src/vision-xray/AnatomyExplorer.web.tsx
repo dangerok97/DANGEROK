@@ -9,12 +9,11 @@ type Props={
  bodySide?:'left'|'right'|'unknown';
  posePoints?:Record<string,[number,number]>|null;
  anchorBox?:[number,number,number,number]|null;
- hasPixelContour?:boolean;
 };
 
 /** Only source-verified BodyParts3D meshes are anatomy. Never render the old
  * procedural human preview or replace a failed atlas with a fabricated body. */
-export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',anchorBox,hasPixelContour=false}:Props){
+export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',anchorBox}:Props){
  const [status,setStatus]=React.useState<AtlasStatus>('checking');
  const [meshReady,setMeshReady]=React.useState(false);
  const [attempt,setAttempt]=React.useState(0);
@@ -75,30 +74,19 @@ export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',a
  const dimensions=placement?'&cy='+placement.cy.toFixed(3)+
   '&bw='+placement.bw.toFixed(3)+'&bh='+placement.bh.toFixed(3):'';
  const src='/bodyparts3d/index.html?ora=inline&lang=it&region='+
-  encodeURIComponent(region)+'&cx='+center.toFixed(3)+'&side='+bodySide+dimensions;
+  encodeURIComponent(region)+'&cx='+center.toFixed(3)+'&side='+bodySide+dimensions+'&study=1';
  const aiming=status==='checking'||(status==='ready'&&!meshReady);
  return <div className={'vx-anatomy vx-anatomy-inline vx-bp3d-only '+
     (status==='ready'?'vx-has-bp3d':'vx-bp3d-pending')}
   data-testid="vision-anatomy" data-visual-mode="camera-overlay"
-  data-atlas-status={status} data-region={region}
+  data-atlas-status={status} data-region={region} data-display="study-first"
   role="region" aria-label={'Anatomia 3D: '+BODY_LABEL[region]}>
   <style>{ANATOMY_STYLES}</style>
   <header className="vx-anatomy-head">
    <button type="button" className="vx-anatomy-close"
-    aria-label="Chiudi l'atlante e scansiona altro"
+    aria-label="Chiudi il modello anatomico e riconosci altro"
     data-testid="vision-anatomy-close" onClick={onClose}>×</button>
   </header>
-  {aiming&&!hasPixelContour&&<div className="vx-anatomy-inline-preview vx-anatomy-target"
-    data-testid="vision-anatomy-preview" data-anchored={placement?'true':'false'}
-    aria-hidden="true"
-    style={placement?{left:(placement.x*100)+'%',top:(placement.y*100)+'%',
-     width:(placement.w*100)+'%',height:(placement.h*100)+'%'}:undefined}>
-    <span className="vx-target-corner vx-target-tl"/>
-    <span className="vx-target-corner vx-target-tr"/>
-    <span className="vx-target-corner vx-target-bl"/>
-    <span className="vx-target-corner vx-target-br"/>
-    <span className="vx-target-cross"/>
-   </div>}
   {status==='ready'&&<section className="vx-bp3d-panel"
     aria-label="Atlante anatomico tridimensionale BodyParts3D">
    <iframe ref={iframe} data-testid="vision-bp3d-frame"
@@ -117,7 +105,7 @@ export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',a
   </section>}
   {aiming&&<div className="vx-anatomy-preview-status" role="status"
     data-testid="vision-anatomy-inline-pending">
-    {status==='checking'?'Verifico il modello anatomico 3D…':'Appaiono i componenti 3D…'}
+    {status==='checking'?'Preparo il modello anatomico…':'Carico le strutture 3D di riferimento…'}
    </div>}
   {status==='unavailable'&&<div className="vx-bp3d-recovery"
     data-testid="vision-bp3d-unavailable" role="alert">
