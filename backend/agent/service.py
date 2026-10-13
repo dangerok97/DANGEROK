@@ -2264,10 +2264,51 @@ class AgentService:
         # This is a completion contract, not a new decision about relevance.
         if (goal.origin == "agent_initiated" and goal.opportunity_id and not intents
                 and not receipts and real_support(evidence) and not goal.prepared_text):
-            if budget.exhausted() or budget.cognitive_calls + 2 >= budget.max_cognitive_calls:
+            # This fallback is a last attempt to deliver a result after reading
+            # sources, not an unlimited factory of new document.create steps.
+            # Once its own review has failed, a second finish cannot silently
+            # create a brand-new step with a fresh attempts counter. A pending
+            # fallback is durable work after a crash: let the normal worker
+            # execute it rather than replacing or duplicating it.
+            fallback_intent = (
+                "Consegna le conclusioni utili, con confronto, limiti e conseguenze "
+                "sostenuti dalle fonti; non il resoconto della lettura."
+            )
+            prior_fallback = next((
+                item for item in reversed(plan.steps)
+                if item.step_type == "prepare"
+                and item.capability_needed == "document.create"
+                and item.intent == fallback_intent
+            ), None)
+            if prior_fallback is not None:
+                if prior_fallback.status == "pending" or any(
+                    item.step_type == "prepare" and item.status == "pending"
+                    for item in plan.steps
+                ):
+                    return await self._pause(
+                        owner_id, goal, plan, run,
+                        "Il confronto non è pronto: esiste già una preparazione in attesa.",
+                    )
+                note = (
+                    "Ho letto le fonti, ma non sono riuscito a produrre un "
+                    "confronto verificato. Non pubblicherò conclusioni non supportate."
+                )
+                await self.repo.journal(
+                    owner_id, goal.id, kind="completion_fallback_exhausted", note=note,
+                    detail={"step_id": prior_fallback.id,
+                            "status": prior_fallback.status,
+                            "attempts": prior_fallback.attempts},
+                )
+                return await self._stop(goal, run, note)
+
+            # The optional blind challenge consumes a third model decision.
+            # Keep one further call available for the actual goal verifier.
+            from agent.preparation_challenge import enabled as challenge_enabled
+            required_calls = 3 if challenge_enabled() else 2
+            if budget.exhausted() or budget.cognitive_calls + required_calls >= budget.max_cognitive_calls:
                 return await self._continue_later(owner_id, goal, plan, run, "result_budget")
             result_step = ActionStep(ordinal=len(plan.steps), step_type="prepare", capability_needed="document.create",
-                intent="Consegna le conclusioni utili, con confronto, limiti e conseguenze sostenuti dalle fonti; non il resoconto della lettura.",
+                intent=fallback_intent,
                 expected_result=goal.desired_outcome[:300])
             plan.steps.append(result_step)
             await self.repo.save_plan(plan)
