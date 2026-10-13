@@ -91,7 +91,9 @@ async def test_owner_opt_in_then_deduplicated_alert_and_opt_out(cfg):
     assert await enqueue(db, OWNER, plan()) is False
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["owner_id"] == OWNER
-    assert row["copy"] == "Un aggiornamento importante. Apri ORA per la situazione"
+    assert "copy" not in row
+    assert row["copy_enc"] != "Un aggiornamento importante. Apri ORA per la situazione"
+    assert cfg.decrypt(row["copy_enc"]) == "Un aggiornamento importante. Apri ORA per la situazione"
     assert "Private expanded" not in str(row)
     assert "phone_enc" not in row
     assert await db.whatsapp_alert_outbox.count_documents({}) == 1
