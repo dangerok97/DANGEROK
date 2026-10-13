@@ -12,7 +12,7 @@ import asyncio
 from contextlib import ExitStack
 from copy import deepcopy
 from datetime import datetime, timedelta
-import hashlib
+import re
 import json
 import logging
 import os
@@ -25,6 +25,8 @@ OWNER = "ora-v163-synthetic-calendar-only"
 OTHER = "ora-v163-isolation-canary"
 TITLE = "ORA COLLAUDO CAL163"
 ZONE = "Europe/Rome"
+WEEKDAYS = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")
+MONTHS = ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre")
 CAPS = frozenset({"get_calendar_events", "create_calendar_event",
                   "update_calendar_event", "cancel_calendar_event"})
 
@@ -71,6 +73,12 @@ def check_effect(stage, rows, first_id, start, moved):
     return errors
 
 
+def reply_errors(text, day):
+    pattern = r"\b(" + "|".join(WEEKDAYS) + rf")\s+{day.day}\s+{MONTHS[day.month - 1]}\b"
+    return ["WRONG_WEEKDAY"] if any(m.group(1).lower() != WEEKDAYS[day.weekday()]
+        for m in re.finditer(pattern, text, re.I)) else []
+
+
 def selftest():
     start = datetime(2030, 1, 3, 10, tzinfo=ZoneInfo(ZONE))
     moved = start.replace(hour=11)
@@ -86,7 +94,9 @@ def selftest():
     foreign = deepcopy(row)
     foreign["id"] = "different"
     require(bool(check_effect("replay", [foreign], "fixture", start, moved)), "IDENTITY_CHANGE_ACCEPTED")
-    print("ORA_CAL163_SELFTEST " + json.dumps({"passed": True, "checks": 6}), flush=True)
+    require(reply_errors("mercoledì 15 ottobre 2026", datetime(2026, 10, 15).date()) == ["WRONG_WEEKDAY"], "WRONG_DAY_ACCEPTED")
+    require(reply_errors("giovedì 15 ottobre 2026", datetime(2026, 10, 15).date()) == [], "CORRECT_DAY_REJECTED")
+    print("ORA_CAL163_SELFTEST " + json.dumps({"passed": True, "checks": 8}), flush=True)
 
 
 async def run(output):
@@ -107,6 +117,7 @@ async def run(output):
     day = (datetime.now(ZoneInfo(ZONE)) + timedelta(days=2)).date()
     start = datetime(day.year, day.month, day.day, 10, tzinfo=ZoneInfo(ZONE))
     moved = start.replace(hour=11)
+    edited = start.replace(minute=30)
     await db.users.insert_one({"id": OWNER, "user_id": OWNER, "name": "Collaudo sintetico",
         "settings": {"timezone": ZONE, "notifications_enabled": False}})
     canary = {"id": "cal163-foreign", "user_id": OTHER, "type": "event",
@@ -121,12 +132,13 @@ async def run(output):
     identity = {"user_id": OWNER}
     app.dependency_overrides[agenda_routes.get_current_user] = lambda: identity
     boundary = _ReadBoundary(model_live=True, provider_reply=None)
-    tool_calls, model_calls, rows_report = [], [], []
+    tool_calls, model_calls, rows_report, provider_reads = [], [], [], []
     model_http = 0
     stage = ""
     first_id = None
     original_execute = ToolRegistry.execute
     original_chat = ProviderManager.chat
+    original_read = calendar_caps.get_calendar_events
     original_send = httpx.AsyncClient.send
     inputs = [
         ("create", f"Crea nel calendario interno ORA, senza Google, l'appuntamento '{TITLE}' il {day.isoformat()} dalle 10:00 alle 10:45, fuso Europe/Rome. Conferma solo dopo averlo salvato."),
@@ -157,6 +169,14 @@ async def run(output):
             "arguments": {key: arguments[key] for key in (
                 "title", "calendar_ref", "start_datetime", "end_datetime", "timezone",
                 "calendar_target", "operation_intent", "time_min", "time_max", "when") if key in arguments}})
+        return result
+
+    async def observed_read(arguments, runtime):
+        require(runtime.get("db") is db and runtime.get("user_id") in (OWNER, OTHER), "READ_OWNER_OR_DB_MISMATCH")
+        result = await original_read(arguments, runtime)
+        provider_reads.append({"stage": stage, "owner": runtime.get("user_id"), "status": result.status,
+            "events": [{key: event.get(key) for key in ("calendar_ref", "title", "start_datetime", "end_datetime", "day_label")}
+                       for event in (result.payload or {}).get("events", [])]})
         return result
 
     async def counted_chat(manager, **kwargs):
@@ -194,18 +214,25 @@ async def run(output):
         stack.enter_context(patch.object(ProviderManager, "chat", counted_chat))
         stack.enter_context(patch.object(ToolRegistry, "execute", gated_execute))
         stack.enter_context(patch.object(calendar_caps, "_sync_service", no_google))
+        stack.enter_context(patch.object(calendar_caps, "get_calendar_events", observed_read))
         stack.enter_context(patch.object(agenda_routes, "db", db))
         stack.enter_context(patch.object(calendar_routes, "db", db))
         stack.enter_context(patch.object(core, "report_activity", AsyncMock()))
         for stage, message in inputs:
-            before_calls = len(tool_calls)
+            before_calls, before_reads = len(tool_calls), len(provider_reads)
             record = {"case": stage, "status": "running", "input": message}
             rows_report.append(record)
             try:
+                if stage == "read":
+                    changed = await db.life_nodes.update_one({"user_id": OWNER, "id": first_id}, {"$set": {
+                        "attributes.starts_at": edited.isoformat(),
+                        "attributes.ends_at": (edited + timedelta(minutes=45)).isoformat()}})
+                    require(changed.matched_count == 1, "SYNTHETIC_EDIT_TARGET_MISSING")
+                    record["injected_external_edit"] = {"start": edited.isoformat(), "purpose": "Reject stale conversation recall"}
                 result = await asyncio.wait_for(core.run_cognitive_loop(
                     sess=sess, user_message=message, db=db, max_steps=8), timeout=180)
                 saved = await db.life_nodes.find({"user_id": OWNER, "type": "event"}, {"_id": 0}).to_list(30)
-                errors = check_effect(stage, saved, first_id, start, moved)
+                errors = check_effect(stage, saved, first_id, edited if stage == "read" else start, moved)
                 if stage == "create" and not errors:
                     first_id = saved[0]["id"]
                 async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://ora.synthetic") as client:
@@ -216,9 +243,16 @@ async def run(output):
                     expected = 0 if stage == "cancel" else 1
                     if len(events) != expected or month.get("source_counts", {}).get("ora") != expected:
                         errors.append("AGENDA_EFFECT_MISMATCH")
+                    if expected and events:
+                        wanted_time = moved if stage == "move" else edited if stage == "read" else start
+                        if events[0].get("id") != first_id or events[0].get("title") != TITLE:
+                            errors.append("AGENDA_IDENTITY_MISMATCH")
+                        if datetime.fromisoformat(events[0]["starts_at"]) != wanted_time:
+                            errors.append("AGENDA_TIME_MISMATCH")
                     identity["user_id"] = OTHER
                     other = await client.get("/api/agenda/month", params={"month": day.strftime("%Y-%m")})
                     identity["user_id"] = OWNER
+                    require(other.status_code == 200, "OTHER_ACCOUNT_READ_FAILED")
                     if TITLE in other.text:
                         errors.append("CROSS_OWNER_AGENDA_LEAK")
                 current_canary = await db.life_nodes.find_one({"user_id": OTHER}, {"_id": 0})
@@ -226,18 +260,25 @@ async def run(output):
                     errors.append("OTHER_ACCOUNT_CHANGED")
                 if not result.ok:
                     errors.append("CORE_NOT_OK")
-                if stage == "read" and not any(c["capability"] == "get_calendar_events" and c["status"] == "ok"
-                                                  for c in tool_calls[before_calls:]):
-                    errors.append("CORE_DID_NOT_READ_CALENDAR")
+                if stage == "read":
+                    fresh = any(row["owner"] == OWNER and row["status"] == "ok" and any(
+                        event["calendar_ref"] == "calendar:" + first_id and event["start_datetime"] == edited.isoformat()
+                        for event in row["events"]) for row in provider_reads[before_reads:])
+                    if not fresh:
+                        errors.append("CURRENT_CALENDAR_NOT_OBSERVED")
+                    if "10:30" not in result.ora_text and "10.30" not in result.ora_text:
+                        errors.append("REPLY_MISSING_UPDATED_TIME")
+                errors.extend(reply_errors(result.ora_text, day))
                 record.update({"status": "passed" if not errors else "failed", "errors": errors,
                     "reply": _safe_text(result.ora_text, 2500), "reply_mode": result.mode,
                     "events": event_view(saved), "agenda_event_count": len(events),
-                    "core_ai_calls": result.ai_calls, "core_tool_calls": result.tool_calls})
+                    "core_ai_calls": result.ai_calls, "core_tool_calls": result.tool_calls,
+                    "provider_read_count": len(provider_reads) - before_reads})
             except Exception as exc:
                 code = str(exc) if isinstance(exc, AssertionError) else type(exc).__name__
                 record.update({"status": "failed", "errors": [code[:100]]})
             print("ORA_CAL163_CASE " + json.dumps(record, ensure_ascii=False), flush=True)
-            if record["status"] != "passed":
+            if record["status"] != "passed" and any(error not in ("WRONG_WEEKDAY", "REPLY_MISSING_UPDATED_TIME") for error in record.get("errors", [])):
                 break
     not_run = [name for name, _ in inputs if name not in {r["case"] for r in rows_report}]
     summary = {"version": VERSION, "revision": os.environ.get("RAILWAY_GIT_COMMIT_SHA"),
@@ -246,7 +287,7 @@ async def run(output):
                   and not boundary.blocked and bool(model_calls),
         "cases": rows_report, "not_run": not_run, "model_calls": len(model_calls),
         "model_http_requests": model_http, "model_outcomes": model_calls,
-        "tool_observations": tool_calls, "network_blocked": boundary.blocked,
+        "tool_observations": tool_calls, "provider_reads": provider_reads, "network_blocked": boundary.blocked,
         "real_user_accessed": False, "google_connected": False, "browser_tested": False,
         "notification_delivery_tested": False, "process_restart_tested": False,
         "human_semantic_review_required": True}
