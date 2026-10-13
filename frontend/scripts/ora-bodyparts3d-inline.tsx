@@ -46,6 +46,7 @@ export default function OraOverlay(){
  const [piecePage,setPiecePage]=useState(0);
  const [beforeInspect,setBeforeInspect]=useState<{explode:number;page:number;view:SceneState['view']}|null>(null);
  const [detailZoom,setDetailZoom]=useState(1);
+ const [explodedZoom,setExplodedZoom]=useState(1);
  const params=useMemo(()=>new URLSearchParams(window.location.search),[]);
  const requested=params.get('region')||'full_body';
  const detected:StudyRegion=(requested in STUDY_LABEL?requested:'full_body') as StudyRegion;
@@ -147,28 +148,28 @@ export default function OraOverlay(){
  };
  const changePreset=(systems:SystemId[])=>{
   setState(s=>({...s,visible:[...systems],selected:[],isolate:false,explode:0,reset:s.reset+1}));
-  setChosen(null);setBeforeInspect(null);setPiecePage(0);setSystemsOpen(false);
+  setChosen(null);setBeforeInspect(null);setPiecePage(0);setExplodedZoom(1);setSystemsOpen(false);
  };
- const setOpening=(percent:number)=>{setPiecePage(0);setState(s=>({...s,explode:Math.max(0,Math.min(1,percent/100)),rotate:false}));};
+ const setOpening=(percent:number)=>{setPiecePage(0);setExplodedZoom(1);setState(s=>({...s,explode:Math.max(0,Math.min(1,percent/100)),rotate:false}));};
  const reset=()=>{setState(s=>({...s,visible:visibleFor(focusRegion),selected:[],
   explode:0,isolate:false,view:'front',rotate:false,reset:s.reset+1}));
-  setChosen(null);setBeforeInspect(null);setPiecePage(0);
+  setChosen(null);setBeforeInspect(null);setPiecePage(0);setExplodedZoom(1);
   setQuery('');setSearchOpen(false);setSystemsOpen(false);
  };
  const setRegion=(next:StudyRegion)=>{
   if(next===focusRegion)return;
   setFocusRegion(next);setState(s=>({...s,visible:visibleFor(next),selected:[],
     explode:0,isolate:false,view:'front',rotate:false,reset:s.reset+1}));
-  setChosen(null);setBeforeInspect(null);setPiecePage(0);setSearchOpen(false);setSystemsOpen(false);setQuery('');
+  setChosen(null);setBeforeInspect(null);setPiecePage(0);setExplodedZoom(1);setSearchOpen(false);setSystemsOpen(false);setQuery('');
  };
  const changeSide=(side:ModelSide)=>{
   setModelSide(side);setState(s=>({...s,selected:[],explode:0,isolate:false,reset:s.reset+1}));
-  setChosen(null);setBeforeInspect(null);setPiecePage(0);
+  setChosen(null);setBeforeInspect(null);setPiecePage(0);setExplodedZoom(1);
  };
  const title=chosen?.name||'Anatomia di riferimento';
  const displayedExplosion=state.isolate&&beforeInspect?beforeInspect.explode:state.explode;
  return <main className="ora-overlay" data-testid="ora-bodyparts-inline" aria-label="Anatomia 3D in sovrimpressione, modello didattico">
-   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:renderedIds,detailZoom,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
+   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:renderedIds,detailZoom,explodedZoom,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
      onProgress={setProgress} onError={setError}/>}
    <div className="ora-overlay-header">
     <div className="ora-overlay-label"><strong>ORA · {STUDY_LABEL[focusRegion].toLocaleUpperCase('it')} 3D</strong>
@@ -240,6 +241,16 @@ export default function OraOverlay(){
       '← Torna ai pezzi esplosi':'← Torna alla vista anatomica'}
     </button>
    </aside>}
+   {exploded&&!chosen&&eligiblePieces.length>0&&<div className="ora-overlay-explode-zoom"
+    role="group" aria-label="Ingrandisci i componenti esplosi" data-testid="ora-inline-page-zoom">
+    <button type="button" data-testid="ora-inline-page-zoom-out" aria-label="Riduci i pezzi"
+     disabled={explodedZoom<=1} onClick={()=>setExplodedZoom(v=>Math.max(1,+(v-.25).toFixed(2)))}>−</button>
+    <span data-testid="ora-inline-page-zoom-value">{explodedZoom.toFixed(2)}×</span>
+    <button type="button" data-testid="ora-inline-page-zoom-in" aria-label="Ingrandisci i pezzi"
+     disabled={explodedZoom>=3} onClick={()=>setExplodedZoom(v=>Math.min(3,+(v+.25).toFixed(2)))}>+</button>
+    <button type="button" data-testid="ora-inline-page-recenter" aria-label="Centra e adatta i pezzi"
+     onClick={()=>{setExplodedZoom(1);setState(s=>({...s,reset:s.reset+1}));}}>Centra</button>
+   </div>}
    {exploded&&!chosen&&eligiblePieces.length>0&&<section className="ora-overlay-pager"
     data-testid="ora-inline-explosion-pager" aria-label="Esplora i componenti anatomici">
     <div className="ora-overlay-pager-top">
@@ -247,10 +258,10 @@ export default function OraOverlay(){
      <span data-testid="ora-inline-parts-count">Pezzi {displayedPage*EXPLODED_PAGE_SIZE+1}–
        {Math.min(eligiblePieces.length,(displayedPage+1)*EXPLODED_PAGE_SIZE)} di {eligiblePieces.length}</span>
      <button type="button" data-testid="ora-inline-prev-page" disabled={displayedPage===0}
-      aria-label="Pagina precedente" onClick={()=>setPiecePage(p=>Math.max(0,p-1))}>‹</button>
+      aria-label="Pagina precedente" onClick={()=>{setPiecePage(p=>Math.max(0,p-1));setExplodedZoom(1);}}>‹</button>
      <span data-testid="ora-inline-page-number">{displayedPage+1}/{pageCount}</span>
      <button type="button" data-testid="ora-inline-next-page" disabled={displayedPage>=pageCount-1}
-      aria-label="Pagina successiva" onClick={()=>setPiecePage(p=>Math.min(pageCount-1,p+1))}>›</button>
+      aria-label="Pagina successiva" onClick={()=>{setPiecePage(p=>Math.min(pageCount-1,p+1));setExplodedZoom(1);}}>›</button>
     </div>
     <div className="ora-overlay-page-parts" role="list" aria-label="Tocca una struttura per esaminarla">
      {currentPieces.map(part=><button role="listitem" type="button" key={part.id}
