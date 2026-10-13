@@ -6,6 +6,7 @@ import logging
 
 from whatsapp.cloud import CloudConfig
 from whatsapp.service import WhatsAppService
+from whatsapp.alerts import AlertWorker
 
 log = logging.getLogger("ora.whatsapp.worker")
 _task: asyncio.Task | None = None
@@ -13,10 +14,12 @@ _task: asyncio.Task | None = None
 
 async def _loop(db) -> None:
     service = WhatsAppService(db)
+    alerts = AlertWorker(db)
     while True:
         try:
-            processed = await service.process_one()
-            if not processed:
+            inbound = await service.process_one()
+            outgoing = await alerts.process_one()
+            if not (inbound or outgoing):
                 await asyncio.sleep(2)
         except asyncio.CancelledError:
             raise
