@@ -20,7 +20,7 @@ from whatsapp.cloud import (
     CloudConfig, WhatsAppNotConfigured,
     iter_inbound_messages, iter_signed_delivery_statuses,
 )
-from whatsapp.alerts import set_opt_in, record_status, template_settings
+from whatsapp.alerts import set_opt_in, set_detail_preference, record_status, template_settings
 from whatsapp.service import WhatsAppService
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
@@ -47,6 +47,7 @@ async def whatsapp_status(user=Depends(get_current_user)):
             "phone_last4": None,
             "display_number": None,
             "notifications_enabled": False,
+            "notifications_detail_enabled": False,
             "template_configured": False,
             "template_approval_status": "not_configured",
             "notification_channel_ready": False,
@@ -74,6 +75,20 @@ async def set_whatsapp_notifications(
     except ValueError as exc:
         if str(exc) == "whatsapp_not_linked":
             raise HTTPException(status_code=409, detail="whatsapp_not_linked") from exc
+        raise
+
+
+@router.put("/notifications/details")
+async def set_whatsapp_notification_details(
+    body: NotificationConsentIn, user=Depends(get_current_user),
+):
+    """Owner opt-in for expanded copy, including private content on Meta."""
+    _config()
+    try:
+        return await set_detail_preference(db, user["user_id"], body.enabled)
+    except ValueError as exc:
+        if str(exc) in ("whatsapp_not_linked", "whatsapp_alerts_not_enabled"):
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         raise
 
 
