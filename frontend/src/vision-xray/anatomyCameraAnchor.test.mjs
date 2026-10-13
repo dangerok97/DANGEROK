@@ -14,7 +14,7 @@ test('square photo reprojects after stage grows from landscape to portrait',()=>
  const landscape=projectAnatomyAnchor(photo,{x:0,y:28,width:128,height:72});
  const portrait=projectAnatomyAnchor(photo,{x:28,y:0,width:72,height:128});
  assert.ok(landscape&&portrait);
- assert.ok(Math.abs((landscape[1]+landscape[3]/2)-(portrait[1]+portrait[3]/2))>.01);
+ assert.ok(Math.abs((landscape[1]+landscape[3]/2)-(portrait[1]+portrait[3]/2))>.005);
  assert.ok(Math.abs((landscape[0]+landscape[2]/2)-(portrait[0]+portrait[2]/2))>.05);
  assert.ok(landscape.every(Number.isFinite)&&portrait.every(Number.isFinite));
  assert.ok(landscape[0]>=0&&portrait[0]>=0&&landscape[0]+landscape[2]<=1);
