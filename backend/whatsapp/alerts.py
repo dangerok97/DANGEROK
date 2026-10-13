@@ -23,6 +23,13 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def as_utc(value: datetime | None) -> datetime | None:
+    """Mongo returns UTC-naive datetimes by default even for aware writes."""
+    if not isinstance(value, datetime):
+        return None
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
 def template_settings() -> tuple[str, str] | None:
     name = (os.environ.get("WHATSAPP_ALERT_TEMPLATE_NAME") or "").strip()
     language = (os.environ.get("WHATSAPP_ALERT_TEMPLATE_LANGUAGE") or "it").strip()
@@ -179,7 +186,8 @@ class AlertWorker:
             return False
         owner = item["owner_id"]
         moment = utcnow()
-        if item.get("valid_until") is None or item["valid_until"] <= moment:
+        expires = as_utc(item.get("valid_until"))
+        if expires is None or expires <= moment:
             await cancel(self.db, item, "stale")
             return True
 
