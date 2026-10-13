@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 
-// Real exported UI; synthetic API, identities and barcode. No real account.
-const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASkAAABkCAIAAABVSlHTAAAABmJLR0QA/wD/AP+gvaeTAAABaElEQVR4nO3TMQ6DMBAAwTj//7PTUcQSAidom5kSfD4ktGPO+XrGGOPrybHreLVuX6fW8Vsr9sb/dWZv/NY9t8b3ptZXq5N/up7ZW7r3PVd27a340fuhe4Fz2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qDxAWKxRcVqtwaBAAAAAElFTkSuQmCC';
+// Real exported UI; synthetic API, identities and Code 128. No real account.
+const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAT0AAAB4AQAAAACoAhhbAAAAYElEQVR4nO3YsQ2AMAxEURulcJcsEIk1WIsNYAFYyaNkDBcRrBAJihT/6ldc/fWRocUy5kSAf8J0+3p6L96ztWy6ey0hx1ZLpMvm+AgEAoFAIBAIBAKBQCDwC1TqzKTwBdibEEa/1IglAAAAAElFTkSuQmCC';
 
 async function fixture(page: Page) {
   let cards: Record<string, any>[] = [];
@@ -53,11 +53,20 @@ test('phone wallet creates, displays without another API call, edits and deletes
   await context.setOffline(true);
   await page.getByTestId('wallet-checkout').click();
   await expect(page.getByTestId('wallet-close-checkout')).toBeVisible();
-  await expect(page.getByText('00012345', { exact: true }).last()).toBeVisible();
+  const barcode = page.locator('img[alt="Codice da mostrare alla cassa"]');
+  await expect.poll(() => barcode.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
+  // Actual modal, not the underlying detail panel or a partially transparent transition.
+  const modal = page.locator('[aria-modal="true"]');
+  await expect.poll(() => modal.evaluate(el => {
+    for (let parent: Element | null = el; parent; parent = parent.parentElement) {
+      if (Number(getComputedStyle(parent).opacity) < 1) return false;
+    }
+    return true;
+  })).toBe(true);
+  await expect(modal).toContainText('00012345');
   fs.mkdirSync('mobile-qa', { recursive: true });
-  await page.screenshot({ path: `mobile-qa/wallet-checkout-${info.project.name}.png`, fullPage: true });
+  await page.screenshot({ path: `mobile-qa/wallet-checkout-${info.project.name}.png`, fullPage: true, animations: 'disabled' });
   await page.getByTestId('wallet-close-checkout').click();
-  // Wait for RN Modal to release its focus trap, not just its close callback.
   await expect(page.getByTestId('wallet-close-checkout')).not.toBeVisible();
   await context.setOffline(false);
   await page.getByRole('button', { name: 'Modifica', exact: true }).click();
@@ -88,5 +97,5 @@ test('desktop wallet keeps a single left menu and readable empty state', async (
   const walletBox = await page.getByTestId('wallet-screen').boundingBox();
   expect(walletBox!.x).toBeGreaterThanOrEqual(railBox!.x + railBox!.width - 3);
   fs.mkdirSync('mobile-qa', { recursive: true });
-  await page.screenshot({ path: `mobile-qa/wallet-desktop-${info.project.name}.png`, fullPage: true });
+  await page.screenshot({ path: `mobile-qa/wallet-desktop-${info.project.name}.png`, fullPage: true, animations: 'disabled' });
 });
