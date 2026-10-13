@@ -221,7 +221,40 @@ test('a close-up of a hand opens ONLY hand anatomy, not the whole-body reference
  await page.locator('input[type=file]').setInputFiles({name:'hand-test.jpg',mimeType:'image/jpeg',buffer:Buffer.from(pixels)});
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-region','hand');
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
- await expect(page.getByTestId('vision-bp3d-frame')).toHaveAttribute('src',/ora=inline&lang=it&region=hand&cx=0\.375&side=right&cy=0\.445&bw=0\.350&bh=0\.530/);
+ // The source JPEG is square, but the camera stage is not. A photographed
+ // region is fitted with object-fit:cover and clipped to the visible viewport.
+ // Raw bbox values must NOT be reused as screen coordinates on desktop/mobile.
+ const stageRect=await page.getByTestId('vision-stage').boundingBox();
+ expect(stageRect).not.toBeNull();
+ const sw=128,sh=128,w=stageRect!.width,h=stageRect!.height;
+ const scale=Math.max(w/sw,h/sh),raw=[.20,.18,.35,.53];
+ const x=(raw[0]*sw*scale+(w-sw*scale)/2)/w;
+ const y=(raw[1]*sh*scale+(h-sh*scale)/2)/h;
+ const bw=raw[2]*sw*scale/w,bh=raw[3]*sh*scale/h;
+ const left=Math.max(0,x),top=Math.max(0,y);
+ const right=Math.min(1,x+bw),bottom=Math.min(1,y+bh);
+ expect(right-left).toBeGreaterThan(.04);
+ expect(bottom-top).toBeGreaterThan(.04);
+ const expected={cx:Math.min(.93,Math.max(.07,(left+right)/2)),
+  cy:Math.min(.93,Math.max(.07,(top+bottom)/2)),
+  bw:right-left,bh:bottom-top};
+ const src=await page.getByTestId('vision-bp3d-frame').getAttribute('src');
+ expect(src).not.toBeNull();
+ const params=new URL(src!,'https://ora.example').searchParams;
+ expect(params.get('ora')).toBe('inline');
+ expect(params.get('lang')).toBe('it');
+ expect(params.get('region')).toBe('hand');
+ expect(params.get('side')).toBe('right');
+ for(const key of ['cx','cy','bw','bh'] as const){
+  expect(Number(params.get(key)),key+' must reflect the visible camera crop')
+   .toBeCloseTo(expected[key],2);
+ }
+ const preview=await page.getByTestId('vision-anatomy-preview').boundingBox();
+ expect(preview).not.toBeNull();
+ expect(preview!.x-stageRect!.x).toBeCloseTo(left*w,0);
+ expect(preview!.y-stageRect!.y).toBeCloseTo(top*h,0);
+ expect(preview!.width).toBeCloseTo(expected.bw*w,0);
+ expect(preview!.height).toBeCloseTo(expected.bh*h,0);
  await expect(page.getByTestId('vision-anatomy-preview')).toHaveAttribute('data-anchored','true');
  await expect(page.getByTestId('vision-open-human-atlas')).toHaveCount(0);
  expect(scans).toBe(1);
