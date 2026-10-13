@@ -1,9 +1,10 @@
-"""Fail-closed validation of Meta-approved, static UTILITY alert templates.
+"""Fail-closed validation of approved UTILITY alerts with one detail parameter.
 
 A template name stored in Railway is not proof that Meta approved it. Check
 the *real* WhatsApp Business Account with the existing system-user token.
-The transport never sends unapproved templates or templates requiring
-unprovided parameters, and never exposes tokens or Meta error bodies.
+Only a BODY template with exactly one {{1}} slot can send an informative
+out-of-window alert. Unsupported parameters fail closed, as do unapproved
+templates. Do not expose tokens or Meta error bodies.
 """
 from __future__ import annotations
 
@@ -19,17 +20,18 @@ from whatsapp.cloud import CloudConfig
 
 _CACHE: dict[tuple[str, ...], tuple[float, str]] = {}
 _WABA_ID = re.compile(r"[0-9]{5,30}\Z")
-_VARIABLE = re.compile(r"\{\{\s*[0-9]+\s*\}\}")
+_VARIABLE = re.compile(r"\{\{[^{}]*\}\}")
 
 
 async def approval_status(
     config: CloudConfig | None = None,
     *, use_cache: bool = True,
 ) -> str:
-    """approved | not_configured | waba_not_configured | pending | rejected |
-    paused | wrong_category | requires_parameters | not_found | unverified.
+    """approved_dynamic | approved (static) | not_configured | pending |
+    rejected | paused | wrong_category | requires_parameters | not_found |
+    waba_not_configured | unverified.
 
-    Only 'approved' permits template outreach; no status is treated as proof
+    Only approved_dynamic permits an informative proactive alert; proof
     that Meta accepted or delivered a particular message.
     """
     from whatsapp.alerts import template_settings
@@ -116,15 +118,36 @@ async def approval_status(
                                 )
                                 if not isinstance(body, dict) or not str(body.get("text") or "").strip():
                                     status = "requires_parameters"
-                                elif media_required or _VARIABLE.search(
-                                    json.dumps(components, ensure_ascii=False)
-                                ):
+                                elif media_required:
                                     status = "requires_parameters"
                                 else:
-                                    status = "approved"
+                                    body_text = str(body["text"])
+                                    # Meta's one approved BODY variable lets us
+                                    # show the actual update, without interpolating
+                                    # unreviewed headers, buttons, or media.
+                                    mentions = _VARIABLE.findall(
+                                        json.dumps(components, ensure_ascii=False)
+                                    )
+                                    slots = _VARIABLE.findall(body_text)
+                                    outside = [
+                                        part for part in components
+                                        if isinstance(part, dict) and part is not body
+                                    ]
+                                    outside_text = json.dumps(outside, ensure_ascii=False)
+                                    if (slots == ["{{1}}"]
+                                        and mentions == ["{{1}}"]
+                                        and "{{" not in body_text.replace("{{1}}", "")
+                                        and "}}" not in body_text.replace("{{1}}", "")
+                                        and "{{" not in outside_text
+                                        and "}}" not in outside_text):
+                                        status = "approved_dynamic"
+                                    elif "{{" in json.dumps(components, ensure_ascii=False):
+                                        status = "requires_parameters"
+                                    else:
+                                        status = "approved"
     except (httpx.RequestError, ValueError, TypeError, OSError):
         status = "unverified"
-    _CACHE[key] = (time.monotonic() + (300 if status == "approved" else 30), status)
+    _CACHE[key] = (time.monotonic() + (300 if status in ("approved", "approved_dynamic") else 30), status)
     # Keep only a small set of recent template fingerprints in memory.
     if len(_CACHE) > 32:
         for old_key in list(_CACHE)[:16]:

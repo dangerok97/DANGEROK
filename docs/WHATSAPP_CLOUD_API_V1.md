@@ -91,3 +91,94 @@ La sezione «Stato reale» sopra documenta la prima V1, **non** lo stato corrent
 **Gate prima di dichiarare l'integrazione completa:** CI sulla revisione corrente; collaudo su numero reale di collegamento, isolamento tra utenti, conversazione multipla, memoria, foto, PDF, vocali, pin e navigazione; operazioni calendario con audit e autorizzazione; prova di opt-in/STOP, template UTILITY Meta APPROVED, ricevute di consegna; simulazione di webhook duplicato, errore rete, cambio account e retry senza doppie azioni. Un manifesto di skill o risposta HTTP 200 del webhook non sostituisce queste prove.
 
 **Vincolo di compatibilità:** mantenere intatta la telefonia Vonage. WhatsApp non sostituisce l'app ORA né costituisce un secondo motore conversazionale.
+
+
+## 13 ottobre 2026 — avvisi WhatsApp che dicono cosa è successo
+
+Il testo «ORA ha un aggiornamento importante per te. Apri ORA per i dettagli»
+era il fallback generico per piani non ordinari o privi di un testo pubblico
+concreto. Quel comportamento non soddisfa il requisito di avviso utilizzabile.
+
+### Nuovo comportamento nel backend
+- L'avviso usa solo il titolo e il corpo già decisi/verificati dal motore
+  canonico `DeliveryService` (nessun secondo motore AI né nuova ricerca
+  quando si invia). Se non contengono una **informazione concreta**,
+  l'avviso generico non viene emesso. Niente importi, orari, valutazioni o
+  collegamenti inventati.
+- Un piano **personale** può usare una sintesi pubblica esplicitamente
+  dichiarata sicura per la schermata di blocco. Per un piano classificato
+  **privato**, la notifica completa richiede sempre il secondo consenso;
+  un testo generico o un campo pubblico generato dal modello non è sufficiente.
+- In ORA → Connessioni e servizi → WhatsApp, la persona può abilitare
+  **Mostra dettagli personali su WhatsApp** dopo aver già attivato gli avvisi.
+  È un secondo consenso, **inizialmente disattivato**: consente anche
+  `words.title` e `words.body`, che possono includere informazioni riservate.
+  Questi contenuti transitano attraverso Meta e possono apparire sulla
+  schermata di blocco del dispositivo. Non si deduce tale consenso dal
+  semplice collegamento del telefono, dal consenso agli avvisi o da un
+  messaggio ambiguo del modello.
+- La disattivazione del secondo consenso torna immediatamente alla
+  versione pubblica quando consentita; i piani privati senza consenso sono
+  bloccati. Il worker rilegge la preferenza prima di ogni invio invece
+  di riprodurre una vecchia copia privata accodata. STOP e la
+  disattivazione totale degli avvisi azzerano anche il consenso ai dettagli.
+- Se la fonte non è più attiva, è muta o non è verificabile, il messaggio
+  non viene inviato. Restano deduplicazione, scadenza, isolamento account,
+  ricevute firmate e gestione conservativa degli esiti Meta incerti.
+
+### Fuori dalla finestra di WhatsApp
+Nelle 24 ore dall'ultimo messaggio autentico la Cloud API può accettare
+un testo libero. Fuori finestra un testo libero non è consentito. Per
+trasmettere **il contenuto effettivo dell'avviso** serve creare e ottenere
+approvazione in WhatsApp Manager per un **template Utility** in italiano
+con un singolo placeholder posizionale nel BODY. Esempio da sottoporre
+alla revisione di Meta:
+
+```
+Nome: ora_avviso_contenuto
+Categoria: UTILITY
+Lingua: it
+Corpo: ORA ti aggiorna: {{1}}
+```
+
+Il modello deve essere effettivamente `APPROVED` nel WhatsApp Business
+Account della stessa `WHATSAPP_WABA_ID`, con nessun'altra variabile e senza
+header multimediale obbligatorio. Il backend verifica in lettura l'oggetto
+reale Meta (non solo il nome impostato in Railway). Variabili server:
+`WHATSAPP_ALERT_TEMPLATE_NAME=ora_avviso_contenuto` e
+`WHATSAPP_ALERT_TEMPLATE_LANGUAGE=it` (oltre al WABA ID esistente).
+**Non impostare il nome finché il modello non risulta approvato.**
+L'approvazione dipende da Meta e dal contenuto; un template Utility generico
+non è necessariamente ammesso per ogni tipo di messaggio AI.
+
+I vecchi template *statici* restano riconosciuti ma non autorizzano più
+l'uscita di avvisi vuoti/generici fuori finestra: lo stato visibile spiega
+la necessità del template con il dettaglio. Senza approvazione, l'avviso
+fuori finestra non parte: viene segnalato come in attesa nel percorso tecnico.
+La chiamata di invio HTTP accettata da Meta **non certifica consegna**.
+
+### Accettazione
+Verificare su un account e un telefono reale:
+1. Avviso ordinario con argomento/novità direttamente nel testo WhatsApp.
+2. Avviso classificato privato con solo contenuto pubblico; opt-in dettagli
+   attivato => contenuto espanso; revoca => nessun contenuto privato.
+3. Avviso con solo parole generiche => nessun messaggio inutile.
+4. Invio fuori finestra solo con template Utility `APPROVED` e
+   `{{1}}` al posto giusto; statici, parametri extra e template
+   non approvati sono respinti.
+5. Rilettura della fonte, cambio account, coda, STOP, retry e ricevute
+   senza doppie notifiche o divulgazione dopo revoca.
+
+Sono **test funzionali sul codice** finché il test reale WhatsApp/Meta non
+viene eseguito; nessuna chiamata Meta con token reali è effettuata dai test.
+
+
+### Protezione parallela della notifica sul telefono
+
+Il canale push dell'app conserva la differenza fra testo `public_*`
+(schermata di blocco) ed espanso. Per `personal` e `private` non può più
+usare il testo espanso come fallback qualora `public_title` o
+`public_body` siano vuoti: usa un titolo/corpo neutro in quel caso.
+WhatsApp riconosce quei fallback come non informativi e non li invia
+all'insaputa del destinatario. L'opt-in ai dettagli riguarda WhatsApp,
+non abbassa la riservatezza delle notifiche della schermata di blocco.

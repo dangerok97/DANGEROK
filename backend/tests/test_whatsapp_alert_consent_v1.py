@@ -17,7 +17,8 @@ from mongomock_motor import AsyncMongoMockClient
 from delivery.models import DeliveryPlan, PushCopy
 from whatsapp.alerts import (
     AlertWorker, enqueue, ensure_indexes, in_service_window,
-    may_notify, record_status, set_opt_in, template_settings,
+    may_notify, record_status, set_opt_in, set_detail_preference, template_settings,
+    public_copy,
 )
 from whatsapp.cloud import CloudConfig, CloudSendError, iter_signed_delivery_statuses
 from whatsapp.service import WhatsAppService, ensure_indexes as ensure_whatsapp_indexes
@@ -62,8 +63,8 @@ def plan(id="dp_alert_1"):
         words=PushCopy(
             title="Private expanded title",
             body="Private expanded details, do not deliver via WhatsApp",
-            public_title="Un aggiornamento importante",
-            public_body="Apri ORA per la situazione",
+            public_title="Spedizione in consegna",
+            public_body="Il corriere ha confermato la consegna per oggi.",
         ),
     )
 
@@ -92,8 +93,9 @@ async def test_owner_opt_in_then_deduplicated_alert_and_opt_out(cfg):
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["owner_id"] == OWNER
     assert "copy" not in row
-    assert row["copy_enc"] != "Un aggiornamento importante. Apri ORA per la situazione"
-    assert cfg.decrypt(row["copy_enc"]) == "Un aggiornamento importante. Apri ORA per la situazione"
+    assert "Spedizione in consegna" not in str(row)
+    assert "Spedizione in consegna" in cfg.decrypt(row["copy_enc"])
+    assert "Il corriere ha confermato" in cfg.decrypt(row["copy_enc"])
     assert "Private expanded" not in str(row)
     assert "phone_enc" not in row
     assert await db.whatsapp_alert_outbox.count_documents({}) == 1
@@ -148,7 +150,7 @@ async def test_worker_sends_once_in_real_customer_window(cfg, monkeypatch):
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["status"] == "accepted"
     assert row["wamid"] == "wamid.synthetic_outbound_1"
-    assert calls == [(PHONE, "Un aggiornamento importante. Apri ORA per la situazione", None)]
+    assert calls == [(PHONE, public_copy(item), None)]
     assert row["status"] != "delivered"  # Meta accepted, did not prove device delivery.
 
 
@@ -185,7 +187,7 @@ async def test_outside_window_requires_configured_meta_template(cfg, monkeypatch
     from whatsapp import template_approval
 
     async def meta_approved(*args, **kwargs):
-        return "approved"
+        return "approved_dynamic"
 
     monkeypatch.setattr(template_approval, "approval_status", meta_approved)
     assert template_settings() == ("ora_aggiornamento_importante", "it")
@@ -206,7 +208,7 @@ async def test_outside_window_requires_configured_meta_template(cfg, monkeypatch
     monkeypatch.setattr(DeliveryService, "_muted", not_muted)
     monkeypatch.setattr(CloudConfig, "send_proactive", fake_send)
     assert await AlertWorker(db, cfg).process_one()
-    assert seen == [(PHONE, "", ("ora_aggiornamento_importante", "it"))]
+    assert seen == [(PHONE, "", ("ora_aggiornamento_importante", "it", public_copy(item)[:450]))]
     row = await db.whatsapp_alert_outbox.find_one({})
     assert row["status"] == "accepted"
     assert row["kind"] == "approved_template"
@@ -399,7 +401,7 @@ async def test_template_name_alone_never_authorizes_external_outreach(cfg, monke
     ("PENDING", "UTILITY", "ORA ha un aggiornamento.", "pending"),
     ("REJECTED", "UTILITY", "ORA ha un aggiornamento.", "rejected"),
     ("APPROVED", "MARKETING", "ORA ha un aggiornamento.", "wrong_category"),
-    ("APPROVED", "UTILITY", "ORA: {{1}}", "requires_parameters"),
+    ("APPROVED", "UTILITY", "ORA: {{1}}", "approved_dynamic"),
 ])
 async def test_real_meta_template_metadata_required_before_outreach(
     cfg, monkeypatch, status, category, body, expected
@@ -578,3 +580,210 @@ def test_parsed_sender_event_time_is_bounded_and_absent_is_not_invented():
     assert webhook("bogus")["sent_at"] is None
     assert webhook(None)["sent_at"] is None
     assert webhook("-1791920000")["sent_at"] is None
+
+
+def test_informative_whatsapp_copy_has_a_fact_and_obeys_sensitive_boundary():
+    item = plan()
+    item.sensitivity = "personal"
+    safe = public_copy(item)
+    assert "Spedizione in consegna" in safe
+    assert "Il corriere ha confermato" in safe
+    assert "Private expanded" not in safe
+    expanded = public_copy(item, detailed=True)
+    assert "Private expanded title" in expanded
+    assert "Private expanded details" in expanded
+    item.sensitivity = "private"
+    assert public_copy(item) is None  # private needs its own explicit opt-in
+
+    item.words.public_title = "Un aggiornamento importante"
+    item.words.public_body = "Apri ORA per i dettagli."
+    assert public_copy(item) is None
+    assert "Private expanded" in public_copy(item, detailed=True)
+    item.words.title = ""
+    item.words.body = ""
+    assert public_copy(item, detailed=True) is None
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_details_need_independent_explicit_consent_and_reset_on_stop(cfg):
+    db = AsyncMongoMockClient().wa_private_detail_consent
+    await linked(db, cfg)
+    with pytest.raises(ValueError, match="whatsapp_alerts_not_enabled"):
+        await set_detail_preference(db, OWNER, True)
+    await set_opt_in(db, OWNER, True)
+    assert (await WhatsAppService(db, cfg).status(OWNER))["notifications_detail_enabled"] is False
+    assert (await set_detail_preference(db, OWNER, True))["notifications_detail_enabled"] is True
+    state = await db.whatsapp_links.find_one({"user_id": OWNER})
+    assert state["details_opt_in_source"] == "authenticated_ora_app"
+    assert (await WhatsAppService(db, cfg).status(OWNER))["notifications_detail_enabled"] is True
+    await set_opt_in(db, OWNER, False)
+    state = await db.whatsapp_links.find_one({"user_id": OWNER})
+    assert state["notifications_detail_enabled"] is False
+    assert "details_opted_in_at" not in state
+    await set_opt_in(db, OWNER, True)
+    assert (await WhatsAppService(db, cfg).status(OWNER))["notifications_detail_enabled"] is False
+    with pytest.raises(ValueError, match="whatsapp_not_linked"):
+        await set_detail_preference(db, OTHER, True)
+
+
+@pytest.mark.asyncio
+async def test_private_alert_not_sent_until_detail_consent_when_public_copy_is_generic(cfg):
+    db = AsyncMongoMockClient().wa_detail_not_generic
+    await linked(db, cfg)
+    await set_opt_in(db, OWNER, True)
+    item = plan()
+    item.sensitivity = "private"
+    item.words.public_title = "Un aggiornamento importante"
+    item.words.public_body = "Apri ORA per i dettagli."
+    assert not await enqueue(db, OWNER, item)
+    assert await db.whatsapp_alert_outbox.count_documents({}) == 0
+    await set_detail_preference(db, OWNER, True)
+    assert await enqueue(db, OWNER, item)
+    encrypted = await db.whatsapp_alert_outbox.find_one({})
+    assert "Private expanded" not in str(encrypted)
+    assert "Private expanded" in cfg.decrypt(encrypted["copy_enc"])
+
+
+@pytest.mark.asyncio
+async def test_detail_revoked_before_send_never_replays_queued_private_text(cfg, monkeypatch):
+    from delivery.service import DeliveryService
+
+    db = AsyncMongoMockClient().wa_detail_revoked_before_transport
+    await linked(db, cfg)
+    await set_opt_in(db, OWNER, True)
+    await set_detail_preference(db, OWNER, True)
+    item = plan()
+    item.sensitivity = "personal"
+    await db.delivery_plans.insert_one(item.model_dump())
+    assert await enqueue(db, OWNER, item)
+    await set_detail_preference(db, OWNER, False)
+
+    async def source(self, owner, candidate):
+        assert owner == OWNER and candidate.id == item.id
+        return SimpleNamespace(status="active")
+    async def not_muted(self, *_):
+        return False
+    sent = []
+    async def fake_send(self, recipient, *, message="", template=None):
+        sent.append(message)
+        return "wamid.synthetic_redacted"
+
+    monkeypatch.setattr(DeliveryService, "_current_subject_for_plan", source)
+    monkeypatch.setattr(DeliveryService, "_muted", not_muted)
+    monkeypatch.setattr(CloudConfig, "send_proactive", fake_send)
+    assert await AlertWorker(db, cfg).process_one()
+    assert len(sent) == 1
+    assert "Spedizione in consegna" in sent[0]
+    assert "Private expanded" not in sent[0]
+
+
+@pytest.mark.asyncio
+async def test_outside_window_static_template_is_not_misrepresented_as_detailed(cfg, monkeypatch):
+    from whatsapp import template_approval
+    db = AsyncMongoMockClient().wa_static_template_rejection
+    await linked(db, cfg, last_at=datetime.now(timezone.utc) - timedelta(days=2))
+    await set_opt_in(db, OWNER, True)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_avviso_statico")
+    async def static_approved(*args, **kwargs):
+        return "approved"
+    monkeypatch.setattr(template_approval, "approval_status", static_approved)
+    assert not await may_notify(db, OWNER)
+    assert not await enqueue(db, OWNER, plan())
+
+
+@pytest.mark.asyncio
+async def test_dynamic_approved_meta_template_binds_informative_summary(cfg, monkeypatch):
+    import httpx
+    sent = []
+    async def fake_post(self, url, *, headers, json):
+        sent.append((url, json))
+        return httpx.Response(200, json={"messages": [{"id": "wamid.synthetic_realshape"}]})
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    mid = await cfg.send_proactive(
+        PHONE,
+        template=("ora_avviso_contenuto", "it",
+                  "*ORA — aggiornamento*\\nSpedizione in consegna oggi"),
+    )
+    assert mid == "wamid.synthetic_realshape"
+    assert len(sent) == 1
+    payload = sent[0][1]
+    assert payload["type"] == "template"
+    assert payload["template"]["components"] == [{
+        "type": "body", "parameters": [{
+            "type": "text",
+            "text": "*ORA — aggiornamento*\\nSpedizione in consegna oggi",
+        }]
+    }]
+    with pytest.raises(ValueError, match="invalid_template_detail_parameter"):
+        await cfg.send_proactive(PHONE, template=("ora_avviso_contenuto", "it", "{{unexpected}}"))
+    assert len(sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_template_with_two_variables_or_button_variable_fails_closed(cfg, monkeypatch):
+    import httpx
+    from whatsapp.template_approval import _CACHE, approval_status
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_avviso_contenuto")
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+    components = [{"type": "BODY", "text": "ORA: {{1}} ({{2}})"}]
+
+    async def fake_get(self, url, *, headers, params):
+        return httpx.Response(200, json={"data": [{
+            "name": "ora_avviso_contenuto", "language": "it",
+            "status": "APPROVED", "category": "UTILITY",
+            "components": components,
+        }]})
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    assert await approval_status(cfg, use_cache=False) == "requires_parameters"
+    components[:] = [
+        {"type": "BODY", "text": "ORA: {{1}}"},
+        {"type": "BUTTONS", "buttons": [{"type": "URL", "url": "https://example.com/{{2}}"}]},
+    ]
+    assert await approval_status(cfg, use_cache=False) == "requires_parameters"
+    components[:] = [{"type": "BODY", "text": "ORA: {{1}}"}]
+    assert await approval_status(cfg, use_cache=False) == "approved_dynamic"
+
+
+@pytest.mark.asyncio
+async def test_private_copy_cancelled_if_detail_consent_removed_before_send(cfg, monkeypatch):
+    from delivery.service import DeliveryService
+    db = AsyncMongoMockClient().wa_private_optout_pending
+    await linked(db, cfg)
+    await set_opt_in(db, OWNER, True)
+    await set_detail_preference(db, OWNER, True)
+    item = plan()
+    item.sensitivity = "private"
+    await db.delivery_plans.insert_one(item.model_dump())
+    assert await enqueue(db, OWNER, item)
+    await set_detail_preference(db, OWNER, False)
+
+    async def source(self, owner, candidate):
+        return SimpleNamespace(status="active")
+    async def not_muted(self, *_):
+        return False
+    async def never_send(*args, **kwargs):
+        pytest.fail("Revoked consent must not leak private copy via Meta")
+    monkeypatch.setattr(DeliveryService, "_current_subject_for_plan", source)
+    monkeypatch.setattr(DeliveryService, "_muted", not_muted)
+    monkeypatch.setattr(CloudConfig, "send_proactive", never_send)
+    assert await AlertWorker(db, cfg).process_one()
+    row = await db.whatsapp_alert_outbox.find_one({})
+    assert row["status"] == "cancelled"
+    assert row["failure_code"] == "no_informative_copy"
+
+
+def test_delivery_lock_screen_never_falls_back_to_expanded_private_copy():
+    from delivery.service import _lockscreen_copy_for
+    item = plan()
+    item.words.public_title = ""
+    item.words.public_body = ""
+    item.sensitivity = "private"
+    locked = _lockscreen_copy_for(item)
+    assert locked["title"] == "Avviso riservato di ORA"
+    assert locked["body"] == "Apri ORA per i dettagli."
+    assert "Private expanded" not in str(locked)
+    item.sensitivity = "personal"
+    assert "Private expanded" not in str(_lockscreen_copy_for(item))
+    item.sensitivity = "ordinary"
+    assert _lockscreen_copy_for(item)["title"] == item.words.title

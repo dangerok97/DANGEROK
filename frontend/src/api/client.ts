@@ -671,8 +671,9 @@ export type WhatsAppLinkStatus = {
   phone_last4: string | null;
   display_number: string | null;
   notifications_enabled: boolean;
+  notifications_detail_enabled: boolean;
   template_configured?: boolean;
-  template_approval_status?: 'approved' | 'not_configured' | 'waba_not_configured' | 'pending' | 'rejected' | 'paused' | 'wrong_category' | 'requires_parameters' | 'not_found' | 'unverified';
+  template_approval_status?: 'approved_dynamic' | 'approved' | 'not_configured' | 'waba_not_configured' | 'pending' | 'rejected' | 'paused' | 'wrong_category' | 'requires_parameters' | 'not_found' | 'unverified';
   notification_channel_ready?: boolean;
   shared_ai_core?: boolean;
   shared_capability_count?: number | null;
@@ -697,6 +698,10 @@ export const api = {
   whatsappSetNotifications: (enabled: boolean) =>
     request<{ notifications_enabled: boolean; template_configured: boolean }>(
       '/whatsapp/notifications', { method: 'PUT', body: JSON.stringify({ enabled }) },
+    ),
+  whatsappSetNotificationDetails: (enabled: boolean) =>
+    request<{ notifications_detail_enabled: boolean }>(
+      '/whatsapp/notifications/details', { method: 'PUT', body: JSON.stringify({ enabled }) },
     ),
   whatsappNotificationHistory: () =>
     request<{ alerts: Array<{

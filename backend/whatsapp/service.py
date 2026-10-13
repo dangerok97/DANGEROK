@@ -118,12 +118,18 @@ class WhatsAppService:
                 link and link.get("notifications_enabled") is True
                 and link.get("opted_in_at")
             ),
+            "notifications_detail_enabled": bool(
+                link and link.get("notifications_enabled") is True
+                and link.get("opted_in_at")
+                and link.get("notifications_detail_enabled") is True
+                and link.get("details_opted_in_at")
+            ),
             "template_configured": bool(template),
             "template_approval_status": approval,
             "notification_channel_ready": bool(
                 link and link.get("notifications_enabled") is True
                 and link.get("opted_in_at")
-                and (in_service_window(link) or approval == "approved")
+                and (in_service_window(link) or approval == "approved_dynamic")
             ),
         }
 

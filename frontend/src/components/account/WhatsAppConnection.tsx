@@ -61,6 +61,19 @@ export function WhatsAppConnection() {
     }
   };
 
+  const setDetails = async (enabled: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.whatsappSetNotificationDetails(enabled);
+      await refresh();
+    } catch (err) {
+      setError(humanizeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const disconnect = async () => {
     setBusy(true);
     setError(null);
@@ -126,19 +139,21 @@ export function WhatsAppConnection() {
       {status?.linked ? (
         <View style={styles.buttons}>
           <Text style={[styles.description, { color: colors.textSecondary }]}>
-            *Avvisi automatici WhatsApp.* Con il tuo consenso, ORA potrà
-            inviarti aggiornamenti importanti già verificati, anche se non
-            apri l'app. Le risposte normali sono possibili entro la finestra
-            WhatsApp; fuori da quella finestra servono modelli Meta approvati.
-            Puoi revocare il consenso in qualsiasi momento nell'app oppure
-            rispondendo STOP nella chat WhatsApp con ORA.
+            Gli avvisi WhatsApp riportano direttamente le informazioni concrete
+            che ORA può condividere, quando sono verificate. Per includere
+            anche dettagli personali serve la tua autorizzazione separata.
+            Fuori dalla finestra WhatsApp di 24 ore occorre un modello Meta
+            Utility approvato che supporti il dettaglio del messaggio.
+            Puoi disattivare gli avvisi anche scrivendo STOP a ORA.
           </Text>
           {status.notifications_enabled ? (
             <>
               <Text testID="whatsapp-alerts-enabled" style={[styles.description, { color: colors.textSecondary }]}>
                 Consenso agli avvisi attivo.
-                {status.template_approval_status === 'approved'
-                  ? ' Modello Meta approvato: avvisi disponibili anche oltre 24 ore, quando ORA rileva un aggiornamento utile.'
+                {status.template_approval_status === 'approved_dynamic'
+                  ? ' Modello Meta con dettagli approvato: gli avvisi concreti sono abilitati anche oltre 24 ore.'
+                  : status.template_approval_status === 'approved'
+                    ? ' Modello Meta statico approvato ma non adatto: per informazioni dirette occorre un modello con {{1}} nel corpo.'
                   : status.template_approval_status === 'pending'
                     ? ' Il modello di messaggio è ancora in revisione da Meta.'
                     : status.template_approval_status === 'rejected' || status.template_approval_status === 'paused'
@@ -146,16 +161,29 @@ export function WhatsAppConnection() {
                       : status.template_approval_status === 'wrong_category'
                         ? ' Il modello Meta deve essere approvato nella categoria Utility per questi avvisi.'
                         : status.template_approval_status === 'requires_parameters'
-                          ? ' Il modello Meta richiede variabili non supportate: usa un modello statico.'
+                          ? ' Il modello Meta deve avere una sola variabile {{1}} nel corpo, senza altri parametri.'
                           : status.template_approval_status === 'waba_not_configured'
                             ? ' Il server deve ancora collegare il WhatsApp Business Account usato per verificare i modelli.'
                             : status.template_approval_status === 'unverified'
                               ? ' Non è stato possibile verificare l’approvazione del modello Meta.'
-                              : ' Fuori dalle 24 ore serve un modello Utility approvato da Meta.'}
-                {status.notification_channel_ready && status.template_approval_status !== 'approved'
+                              : ' Fuori dalle 24 ore serve un modello Utility con dettaglio approvato da Meta.'}
+                {status.notification_channel_ready && status.template_approval_status !== 'approved_dynamic'
                   ? ' Per ora il canale può inviare soltanto nella finestra di conversazione attiva.'
                   : ''}
               </Text>
+              <Text style={[styles.description, { color: colors.textSecondary }]}>
+                {status.notifications_detail_enabled
+                  ? 'Dettagli completi abilitati: possono apparire dati privati (email, importi, appuntamenti) su WhatsApp e nelle notifiche del telefono. Meta gestisce il messaggio.'
+                  : 'Per leggere anche i dettagli personali direttamente su WhatsApp, puoi attivarli. Attenzione: i messaggi passano attraverso Meta e potrebbero comparire sulla schermata di blocco.'}
+              </Text>
+              <ActionBtn
+                icon={status.notifications_detail_enabled ? 'eye-off-outline' : 'eye-outline'}
+                label={status.notifications_detail_enabled ? 'Nascondi dettagli personali' : 'Mostra dettagli personali su WhatsApp'}
+                loading={busy}
+                disabled={busy}
+                onPress={() => void setDetails(!status.notifications_detail_enabled)}
+                testID="whatsapp-alerts-details"
+              />
               <ActionBtn
                 variant="danger"
                 icon="notifications-off-outline"

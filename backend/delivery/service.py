@@ -67,6 +67,20 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _lockscreen_copy_for(plan: DeliveryPlan) -> Dict[str, str]:
+    """Never fall back to expanded copy on a personal/private lock screen.
+
+    PushCopy.public() retains a legacy fallback needed by ordinary messages.
+    That fallback is inappropriate when sensitivity was explicitly elevated.
+    """
+    if plan.sensitivity == "ordinary":
+        return plan.words.public()
+    return {
+        "title": (plan.words.public_title or "").strip() or "Avviso riservato di ORA",
+        "body": (plan.words.public_body or "").strip() or "Apri ORA per i dettagli.",
+    }
+
+
 class DeliveryService:
     def __init__(self, db):
         self.db = db
@@ -604,7 +618,7 @@ class DeliveryService:
             # Expo delivery must remain usable even if WhatsApp is offline.
             logger.info("WhatsApp alert admission deferred: %s", type(exc).__name__)
 
-        public = plan.words.public()
+        public = _lockscreen_copy_for(plan)
         outcome = await get_provider().send(
             owner_id=user_id,
             plan_id=plan.id,
