@@ -20,6 +20,7 @@ from whatsapp.cloud import CloudConfig
 from whatsapp.handoff import render_core_answer_for_whatsapp
 from whatsapp.media import MediaNotUsable, fetch_whatsapp_media, transcribe_voice
 from whatsapp.parity import public_whatsapp_parity_status
+from whatsapp.alerts import template_settings, in_service_window
 
 log = logging.getLogger("ora.whatsapp")
 
@@ -46,6 +47,8 @@ async def ensure_indexes(db) -> None:
     await db.whatsapp_inbox.create_index([("status", 1), ("next_attempt_at", 1), ("received_at", 1)])
     await db.whatsapp_inbox.create_index("expires_at", expireAfterSeconds=0)
     await db.whatsapp_sender_locks.create_index("lease_until", expireAfterSeconds=0)
+    from whatsapp.alerts import ensure_indexes as ensure_alert_indexes
+    await ensure_alert_indexes(db)
 
 
 class WhatsAppService:
@@ -73,7 +76,16 @@ class WhatsAppService:
             "linked": bool(link),
             "phone_last4": link.get("phone_last4") if link else None,
             "display_number": self.config.display_number or None,
-            "notifications_enabled": False,  # future opt-in + approved templates
+            "notifications_enabled": bool(
+                link and link.get("notifications_enabled") is True
+                and link.get("opted_in_at")
+            ),
+            "template_configured": bool(template_settings()),
+            "notification_channel_ready": bool(
+                link and link.get("notifications_enabled") is True
+                and link.get("opted_in_at")
+                and (in_service_window(link) or template_settings())
+            ),
         }
 
     async def issue_pairing_code(self, user_id: str) -> dict:
@@ -412,7 +424,12 @@ async def disconnect_account(db, user_id: str) -> None:
     """Revocation always works, even when Meta credentials are no longer set."""
     linked = await db.whatsapp_links.find_one({"user_id": user_id}, {"_id": 0})
     await db.whatsapp_link_codes.delete_many({"user_id": user_id})
+    # Consent revocation is made durable before any pending alert is handled.
     await db.whatsapp_links.delete_many({"user_id": user_id})
+    await db.whatsapp_alert_outbox.update_many(
+        {"owner_id": user_id, "status": {"$in": ["ready", "held_template"]}},
+        {"$set": {"status": "cancelled", "failure_code": "account_unlinked"}},
+    )
     # Also discard messages received but not yet assigned a user_id.
     if linked:
         await db.whatsapp_inbox.update_many(

@@ -125,6 +125,81 @@ class CloudConfig:
             raise CloudSendError(502) from exc
 
 
+
+    async def send_proactive(
+        self, recipient: str, *, message: str = "",
+        template: tuple[str, str] | None = None,
+    ) -> str:
+        """Return Meta message id for a permitted alert; not proof of delivery.
+
+        A registered approved template is required outside the customer
+        service window. That policy is enforced by the owner-scoped worker
+        before this function; this method accepts only a vetted template
+        name/language and does not invent components.
+        """
+        if not re.fullmatch(r"[1-9][0-9]{6,14}", recipient):
+            raise ValueError("invalid_whatsapp_recipient")
+        data = {"messaging_product": "whatsapp",
+                "recipient_type": "individual", "to": recipient}
+        if template is not None:
+            name, language = template
+            if not re.fullmatch(r"[a-z][a-z0-9_]{0,120}", name) or not re.fullmatch(
+                r"[a-z]{2}(?:_[A-Z]{2})?", language
+            ):
+                raise ValueError("invalid_approved_template_reference")
+            data.update({
+                "type": "template",
+                "template": {"name": name, "language": {"code": language}},
+            })
+        else:
+            if not isinstance(message, str) or not message.strip():
+                raise ValueError("empty_alert")
+            data.update({
+                "type": "text",
+                "text": {"preview_url": False, "body": message[:4000]},
+            })
+        url = f"https://graph.facebook.com/{self.version}/{self.phone_number_id}/messages"
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(18.0)) as client:
+                response = await client.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {self.access_token}",
+                        "Content-Type": "application/json",
+                    },
+                    json=data,
+                )
+        except httpx.RequestError as exc:
+            # Acceptance is unknown after a network failure. Never blind retry.
+            raise CloudSendError(502) from exc
+        if response.status_code >= 400:
+            code = None
+            subcode = None
+            try:
+                raw = response.json().get("error") or {}
+                if isinstance(raw, dict):
+                    for field in ("code", "error_subcode"):
+                        val = raw.get(field)
+                        if isinstance(val, int) and not isinstance(val, bool) and 0 <= val <= 9999999:
+                            if field == "code":
+                                code = val
+                            else:
+                                subcode = val
+            except (ValueError, TypeError, AttributeError):
+                pass
+            raise CloudSendError(response.status_code, code, subcode)
+        try:
+            messages = response.json().get("messages") or []
+            mid = messages[0].get("id") if isinstance(messages[0], dict) else None
+            if not isinstance(mid, str) or not mid.startswith("wamid.") or len(mid) > 220:
+                raise ValueError("invalid_meta_message_id")
+            return mid
+        except (ValueError, TypeError, IndexError, AttributeError) as exc:
+            # A 200 with unparseable body might still have been accepted:
+            # the worker must mark acceptance_unknown, not resend.
+            raise CloudSendError(502) from exc
+
+
 class CloudSendError(Exception):
     """Safe Meta failure diagnostics; never retain error text or the raw body."""
 
@@ -201,3 +276,40 @@ def iter_inbound_messages(payload: dict, expected_phone_number_id: str):
                 if not isinstance(body, str):
                     body = ""
                 yield {"id": mid, "from": sender, "type": kind, "text": body[:8000], "media": media}
+
+
+
+def iter_signed_delivery_statuses(payload: dict, expected_phone_number_id: str):
+    """Read Meta receipt events from the same *signed* WhatsApp webhook.
+
+    This yields no freeform error details, recipient names, or message bodies.
+    Correlation against the owner's outbound record is enforced by the caller.
+    """
+    if not isinstance(payload, dict) or payload.get("object") != "whatsapp_business_account":
+        return
+    for entry in payload.get("entry") or []:
+        if not isinstance(entry, dict):
+            continue
+        for change in entry.get("changes") or []:
+            if not isinstance(change, dict) or change.get("field") != "messages":
+                continue
+            value = change.get("value") or {}
+            if not isinstance(value, dict):
+                continue
+            metadata = value.get("metadata") or {}
+            if not isinstance(metadata, dict) or metadata.get("phone_number_id") != expected_phone_number_id:
+                continue
+            for item in (value.get("statuses") or [])[:100]:
+                if not isinstance(item, dict):
+                    continue
+                mid = item.get("id")
+                status = item.get("status")
+                to = item.get("recipient_id")
+                if (
+                    isinstance(mid, str) and mid.startswith("wamid.")
+                    and len(mid) <= 220
+                    and status in ("sent", "delivered", "read", "failed")
+                    and isinstance(to, str)
+                    and re.fullmatch(r"[1-9][0-9]{6,14}", to)
+                ):
+                    yield {"id": mid, "status": status, "recipient_id": to}

@@ -671,6 +671,8 @@ export type WhatsAppLinkStatus = {
   phone_last4: string | null;
   display_number: string | null;
   notifications_enabled: boolean;
+  template_configured?: boolean;
+  notification_channel_ready?: boolean;
   shared_ai_core?: boolean;
   shared_capability_count?: number | null;
   capability_contract_version?: number | null;
@@ -691,6 +693,15 @@ export const api = {
     request<WhatsAppPairing>('/whatsapp/link/start', { method: 'POST' }),
   whatsappDisconnect: () =>
     request<{ ok: boolean; linked: boolean }>('/whatsapp/link', { method: 'DELETE' }),
+  whatsappSetNotifications: (enabled: boolean) =>
+    request<{ notifications_enabled: boolean; template_configured: boolean }>(
+      '/whatsapp/notifications', { method: 'PUT', body: JSON.stringify({ enabled }) },
+    ),
+  whatsappNotificationHistory: () =>
+    request<{ alerts: Array<{
+      plan_id: string; status: string; created_at?: string;
+      accepted_at?: string; failure_code?: string | null;
+    }>; template_configured: boolean }>('/whatsapp/notifications/history'),
   // --- Rubrica dispositivo -------------------------------------------------
   contactsDeviceStatus: () =>
     request<{ ok: boolean; status: string; synced_at: string; contact_count: number }>(

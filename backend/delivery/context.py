@@ -293,8 +293,16 @@ async def _permission(db, user_id: str, now: datetime) -> Dict[str, Any]:
     not, would choose silence where it should have chosen the screen.
     """
     from life_attention.context import notifications_allowed
+    from whatsapp.alerts import may_notify
 
-    return {"push": bool(await notifications_allowed(db, user_id))}
+    # One interruption policy, more than one possible delivery channel.
+    # WhatsApp consent is independent of Expo device push permission.
+    expo_allowed = bool(await notifications_allowed(db, user_id))
+    try:
+        whatsapp_allowed = bool(await may_notify(db, user_id))
+    except Exception:
+        whatsapp_allowed = False
+    return {"push": expo_allowed or whatsapp_allowed}
 
 
 async def _preferences(db, user_id: str, now: datetime) -> Dict[str, Any]:
