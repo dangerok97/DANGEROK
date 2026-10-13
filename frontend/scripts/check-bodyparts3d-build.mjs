@@ -91,6 +91,16 @@ console.log('REGION_HAND_SIDES '+JSON.stringify({
  right:rightHand.ids.length,left:leftHand.ids.length,shared:sharedHands
 }));
 assert.ok(leftHand.available,'Left-hand reference mesh is missing');
+const partBySourceId=new Map(model.parts.map(p=>[p.id,p]));
+for(const [side,ids] of [['right',rightHand.ids],['left',leftHand.ids]]){
+ const opposite=side==='right'?'left':'right';
+ const errors=ids.filter(id=>{
+  const name=(partBySourceId.get(id)?.name||'').toLowerCase();
+  return new RegExp('(?:^| )'+opposite+'(?: |$)').test(name)&&
+   !new RegExp('(?:^| )'+side+'(?: |$)').test(name);
+ });
+ assert.equal(errors.length,0,side+' hand contains source meshes explicitly labeled '+opposite+': '+errors.slice(0,12).join(','));
+}
 assert.ok(sharedHands<Math.min(rightHand.ids.length,leftHand.ids.length)*.45,
  'Both hand options cannot display the same anatomical reference');
 assert.ok(regions.anatomicalRegion(model,'full_body','unknown').ids.length===2234);
@@ -118,7 +128,11 @@ for(const [en,expected] of [
  ['External ear','Orecchio esterno'],
  ['Right external ear','Orecchio esterno destro'],
  ['Left lacrimal sac','Sacco lacrimale sinistro'],
- ['White matter of right cerebral hemisphere','Sostanza bianca dell’emisfero cerebrale destro']
+ ['White matter of right cerebral hemisphere','Sostanza bianca dell’emisfero cerebrale destro'],
+ ['Right hand','Mano destra'],
+ ['Set of lumbricals of right hand','Muscoli lombricali della mano destra'],
+ ['Set of dorsal interossei of right hand','Muscoli interossei dorsali della mano destra'],
+ ['Set of palmar interossei of left hand','Muscoli interossei palmari della mano sinistra']
 ]){
  const got=it.anatomyNameIt(en);
  assert.equal(got.name,expected,'Incorrect Italian term for '+en);

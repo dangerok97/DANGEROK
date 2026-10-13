@@ -70,3 +70,10 @@ scaricare né distribuire automaticamente modelli terzi privi di verifica.
 - **Limite dichiarato:** aggancio approssimato bidimensionale, non ricostruzione 3D metrica, né tracking persistente 6DoF né misura di strutture interne da RGB. L'atlante resta generico, didattico e non diagnostico.
 
 - I componenti 3D già decodificati diventano **selezionabili dopo il primo chunk**, senza attendere tutti i 15 file del riferimento. La selezione tramite canvas considera soltanto le mesh effettivamente caricate; l'eventuale catalogo di parti può mostrare parti che devono ancora arrivare. Il caricamento continua in background.
+
+## Correzione della lateralità e dei nomi della mano (13 ottobre 2026)
+
+- Un distretto esplicitamente selezionato destro/sinistro non può mostrare una mesh FMA chiaramente denominata dal lato opposto: viene filtrata mantenendo l'identificatore originale e la geometria invariati. Termini che nominano entrambi i lati restano governati dal criterio spaziale (non si inventa una lateralità).
+- La traduzione medica non cambia più i nomi femminili come **mano** in **mana**; le costruzioni di localizzazione usano **della mano**.
+- I raggruppamenti di muscoli lombricali e interossei della mano hanno termini italiani specifici per lato, senza misture inglesi; identificatori FMA e nomi originali restano disponibili per verifiche.
+- Controlli in build sul vero atlante BodyParts3D per nomi e coerenza destra/sinistra, separati dai test di riconoscimento della fotocamera.

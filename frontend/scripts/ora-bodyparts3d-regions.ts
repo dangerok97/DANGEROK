@@ -39,6 +39,14 @@ const SPEC:Record<Exclude<StudyRegion,'full_body'>,{name:string[];factors:[numbe
 };
 type Bounds=[number,number,number,number,number,number];
 const clean=(s:string)=>s.toLowerCase().trim().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ');
+/** Exclude only unambiguously opposite-laterality source meshes. An FMA label
+ * naming both sides remains governed by the geometry bounds instead. */
+function contradictsSide(part:Part,selected:ModelSide):boolean{
+ if(selected==='unknown')return false;
+ const name=clean(part.originalName||part.name);
+ const left=/(?:^| )left(?: |$)/.test(name),right=/(?:^| )right(?: |$)/.test(name);
+ return selected==='right'?left&&!right:right&&!left;
+}
 const bounds=(parts:Part[]):Bounds=>{
  let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity,z0=Infinity,z1=-Infinity;
  for(const part of parts){
@@ -142,10 +150,11 @@ export function anatomicalRegion(atlas:Atlas,requested:StudyRegion,side:ModelSid
   const spatial=all.filter(p=>{
    const b=p.bounds,spanY=b[1][1]-b[0][1],spanX=b[1][0]-b[0][0];
    // Avoid huge whole-body surfaces and structures spanning multiple limbs.
+   if(isSided(region)&&contradictsSide(p,preferredSide))return false;
    if(spanY>(area[3]-area[2])*1.70||spanX>(area[1]-area[0])*2.5)return false;
    return within(p,area);
   });
-  return Array.from(new Set([...seed.filter(p=>within(p,area)).map(p=>p.id),
+  return Array.from(new Set([...seed.filter(p=>within(p,area)&&(!isSided(region)||!contradictsSide(p,preferredSide))).map(p=>p.id),
    ...spatial.map(p=>p.id)]));
  };
  let ids=candidates(roi);

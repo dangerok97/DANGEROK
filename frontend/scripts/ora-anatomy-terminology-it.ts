@@ -525,7 +525,7 @@ export function systemExplanation(system:string,label:string):string{
 const connector=(text:string):string=>{
  if(/^arteria\b|^aorta\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^osso\b|^organo\b|^occhio\b|^arco\b|^emisfero\b|^orecchio\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
- if(/^(?:vena|rete|ghiandola|cartilagine|parete|cavità|falange|trachea|mandibola)\b/.test(text.toLowerCase()))return 'della '+text.charAt(0).toLowerCase()+text.slice(1);
+ if(/^(?:vena|rete|ghiandola|cartilagine|parete|cavità|falange|trachea|mandibola|mano)\b/.test(text.toLowerCase()))return 'della '+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^(?:cuore|bulbo|nervo|bronco|giro|cranio|polmone|ventricolo|capo|pene|ginocchio|polso|sacco|miocardio|fegato|rene)\b/.test(text.toLowerCase()))return 'del '+text.charAt(0).toLowerCase()+text.slice(1);
  return 'di '+text.charAt(0).toLowerCase()+text.slice(1);
 };
@@ -545,6 +545,17 @@ function translateCore(s:string,depth:number):{name:string;translated:boolean}{
  if(direct[s])return {name:direct[s],translated:true};
  const tooth=manualDental(s);
  if(tooth)return {name:tooth,translated:true};
+ // Source BodyParts3D groups hand muscles using "Set of ... of right hand".
+ // These are collections, not a single muscle; do not emit hybrid English or
+ // mechanically gender-convert the Italian noun "mano" to the invalid "mana".
+ const handMuscleSet=s.match(/^set of (lumbricals|dorsal interossei|palmar interossei) of (right|left) hand$/);
+ if(handMuscleSet){
+  const names:Record<string,string>={
+   lumbricals:'Muscoli lombricali', 'dorsal interossei':'Muscoli interossei dorsali',
+   'palmar interossei':'Muscoli interossei palmari'
+  };
+  return {name:names[handMuscleSet[1]]+' della mano '+(handMuscleSet[2]==='left'?'sinistra':'destra'),translated:true};
+ }
  const ofIndex=s.indexOf(' of ');
  if(ofIndex>0){
   const left=translateCore(s.slice(0,ofIndex),depth+1);
@@ -577,7 +588,9 @@ function translateCore(s:string,depth:number):{name:string;translated:boolean}{
   if(originals.has(token)){translated=false;return token;}
   const v=word[token];
   if(!v){translated=false;return token;}
-  return agree(v.it,gender);
+  // Nouns have lexical gender and must not be inflected like adjectives:
+  // "mano" is feminine, but must never become "mana".
+  return v.g||token===head?v.it:agree(v.it,gender);
  });
  const name=capitalize(translatedWords.join(' ')+(side?' '+(side==='left'?(gender==='f'?'sinistra':'sinistro'):(gender==='f'?'destra':'destro')):''));
  return {name,translated};
