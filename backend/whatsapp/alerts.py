@@ -63,7 +63,7 @@ async def may_notify(db, user_id: str) -> bool:
     # A configured string is not evidence of Meta's template approval.
     from whatsapp.template_approval import approval_status
 
-    return await approval_status() == "approved"
+    return await approval_status() == "approved_dynamic"
 
 
 async def ensure_indexes(db) -> None:
@@ -97,8 +97,10 @@ async def set_opt_in(db, user_id: str, enabled: bool) -> dict:
     else:
         await db.whatsapp_links.update_one(
             {"user_id": user_id, "phone_hash": link["phone_hash"]},
-            {"$set": {"notifications_enabled": False, "opted_out_at": moment},
-             "$unset": {"opted_in_at": "", "opt_in_scope": "", "opt_in_source": ""}},
+            {"$set": {"notifications_enabled": False, "opted_out_at": moment,
+                      "notifications_detail_enabled": False},
+             "$unset": {"opted_in_at": "", "opt_in_scope": "", "opt_in_source": "",
+                        "details_opted_in_at": "", "details_opt_in_source": ""}},
         )
         await db.whatsapp_alert_outbox.update_many(
             {"owner_id": user_id, "status": {"$in": ["ready", "held_template"]}},
@@ -111,15 +113,88 @@ async def set_opt_in(db, user_id: str, enabled: bool) -> dict:
     }
 
 
-def public_copy(plan) -> str:
-    """Read only expressly public lock-screen copy, never expanded details."""
-    if str(getattr(plan, "sensitivity", "ordinary")) != "ordinary":
-        return "ORA ha un aggiornamento importante per te. Apri ORA per i dettagli."
-    title = str(getattr(plan.words, "public_title", "") or "").strip()
-    body = str(getattr(plan.words, "public_body", "") or "").strip()
+async def set_detail_preference(db, user_id: str, enabled: bool) -> dict:
+    """Separate, explicit informed consent to expose expanded copy to Meta/WhatsApp.
+
+    The normal alert opt-in alone cannot authorize private expanded copy. The
+    owner may opt out independently; disabling all alerts also clears this.
+    """
+    link = await db.whatsapp_links.find_one(
+        {"user_id": user_id}, {"_id": 0, "phone_hash": 1,
+                              "notifications_enabled": 1, "opted_in_at": 1}
+    )
+    if not link:
+        raise ValueError("whatsapp_not_linked")
+    if enabled and not (link.get("notifications_enabled") is True
+                        and isinstance(link.get("opted_in_at"), datetime)):
+        raise ValueError("whatsapp_alerts_not_enabled")
+    moment = utcnow()
+    update = {"$set": {"notifications_detail_enabled": bool(enabled)}}
+    if enabled:
+        update["$set"].update({
+            "details_opted_in_at": moment,
+            "details_opt_in_source": "authenticated_ora_app",
+        })
+    else:
+        update["$unset"] = {
+            "details_opted_in_at": "", "details_opt_in_source": "",
+        }
+    await db.whatsapp_links.update_one(
+        {"user_id": user_id, "phone_hash": link["phone_hash"]}, update
+    )
+    return {"notifications_detail_enabled": bool(enabled)}
+
+
+_GENERIC_COPY = frozenset({
+    "ora ha un aggiornamento importante per te",
+    "un aggiornamento importante", "aggiornamento importante",
+    "aggiornamento", "una novità per te",
+    "apri ora per i dettagli", "apri ora per la situazione",
+    "apri ora per saperne di più", "apri ora per maggiori dettagli",
+    "c'è un aggiornamento importante",
+    "hai un aggiornamento importante",
+})
+
+
+def _meaningful_fragment(value: str) -> str:
+    """Never mistake a generic 'open the app' instruction for an actual fact."""
+    clean = " ".join(str(value or "").split()).strip(" .!…")
+    if not clean:
+        return ""
+    low = clean.casefold().replace("’", "'")
+    if low in _GENERIC_COPY or low.startswith(
+        ("apri ora per ", "consulta ora per ", "vai nell'app per ")
+    ):
+        return ""
+    return clean
+
+
+def public_copy(plan, *, detailed: bool = False) -> str | None:
+    """Send informative, source-governed plan copy; never invent the missing fact.
+
+    Public title/body were authored for a lock screen, and may be used even
+    when the whole plan is classified as personal. Expanded title/body require
+    separate opt-in; no raw subject/mail/bank data is copied into this channel.
+    """
+    words = getattr(plan, "words", None)
+    if words is None:
+        return None
+    title = _meaningful_fragment(
+        getattr(words, "title", "") if detailed else getattr(words, "public_title", "")
+    )
+    body = _meaningful_fragment(
+        getattr(words, "body", "") if detailed else getattr(words, "public_body", "")
+    )
+    if detailed:
+        title = title or _meaningful_fragment(getattr(words, "public_title", ""))
+        body = body or _meaningful_fragment(getattr(words, "public_body", ""))
     if not title and not body:
-        return "ORA ha un aggiornamento importante per te. Apri ORA per i dettagli."
-    return ". ".join(x.rstrip(" .") for x in (title, body) if x)[:500]
+        return None
+    if title and body and title.casefold() == body.casefold():
+        body = ""
+    # Never invent a date, amount, action, assessment, or source label here.
+    content = "\n".join(x for x in (title, body) if x)
+    return ("*ORA — aggiornamento*\n" + content)[:500]
 
 
 def alert_id(user_id: str, plan_id: str) -> str:
@@ -135,9 +210,13 @@ async def enqueue(db, user_id: str, plan) -> bool:
     link = await db.whatsapp_links.find_one(
         {"user_id": user_id, "notifications_enabled": True,
          "opted_in_at": {"$exists": True}},
-        {"_id": 0, "phone_hash": 1},
+        {"_id": 0, "phone_hash": 1, "notifications_detail_enabled": 1},
     )
     if not link:
+        return False
+    copy = public_copy(plan, detailed=link.get("notifications_detail_enabled") is True)
+    if not copy:
+        # A buzz without a usable fact is not a proactive notification.
         return False
     moment = utcnow()
     row = {
@@ -146,7 +225,7 @@ async def enqueue(db, user_id: str, plan) -> bool:
         "phone_hash": link["phone_hash"],
         # Encrypt even the public-facing copy at rest; decrypt only at the
         # Meta provider boundary, as already done for WhatsApp inbox text.
-        "copy_enc": CloudConfig.load().encrypt(public_copy(plan)),
+        "copy_enc": CloudConfig.load().encrypt(copy),
         "status": "ready", "attempts": 0,
         "next_attempt_at": moment, "created_at": moment,
         "valid_until": moment + MAX_NOTICE_AGE,
@@ -238,7 +317,7 @@ class AlertWorker:
             from whatsapp.template_approval import approval_status
 
             template_approval = await approval_status(self.config)
-            if template_approval != "approved":
+            if template_approval != "approved_dynamic":
                 await self.db.whatsapp_alert_outbox.update_one(
                     {"_id": item["_id"], "status": "sending"},
                     {"$set": {"status": "held_template",
@@ -251,24 +330,29 @@ class AlertWorker:
         latest = await self.db.whatsapp_links.find_one(
             {"user_id": owner, "phone_hash": item["phone_hash"],
              "notifications_enabled": True, "opted_in_at": {"$exists": True}},
-            {"_id": 0, "phone_enc": 1, "last_inbound_at": 1},
+            {"_id": 0, "phone_enc": 1, "last_inbound_at": 1,
+             "notifications_detail_enabled": 1},
         )
         if not latest or latest.get("phone_enc") != link["phone_enc"]:
             await cancel(self.db, item, "consent_changed")
+            return True
+        copy = public_copy(plan, detailed=latest.get("notifications_detail_enabled") is True)
+        if not copy:
+            await cancel(self.db, item, "no_informative_copy")
             return True
         fresh_window = in_service_window(latest)
         if not fresh_window and not template:
             await cancel(self.db, item, "customer_window_closed")
             return True
-        if not fresh_window and template_approval != "approved":
+        if not fresh_window and template_approval != "approved_dynamic":
             # The safe-side branch above must have established approval.
             await cancel(self.db, item, "template_not_verified")
             return True
         recipient = self.config.decrypt(latest["phone_enc"])
         try:
             wamid = await self.config.send_proactive(
-                recipient, message=self.config.decrypt(item["copy_enc"]) if fresh_window else "",
-                template=None if fresh_window else template,
+                recipient, message=copy if fresh_window else "",
+                template=None if fresh_window else (*template, copy[:450]),
             )
         except CloudSendError as exc:
             if exc.status == 429 and item.get("attempts", 0) < 3:
