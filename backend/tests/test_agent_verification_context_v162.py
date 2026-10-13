@@ -125,18 +125,34 @@ async def reconstruct(draft, *, partial=False):
         prepare = ActionStep(ordinal=1, step_type="prepare", capability_needed="document.create",
             input_refs=[ref], intent="Produrre il confronto scritto dei costi e dei vincoli per dodici mesi.",
             expected_result=goal.desired_outcome)
-        # The recorded drafts stay unchanged, including their limitations.
-        # These explicit authentic passages keep the preparation test setup
-        # valid; only the later verifier decides whether the result suffices.
+        # Current creation must NOT republish the historical raw mem_ handle.
+        # Build a valid new setup draft first, then explicitly seed the archived
+        # 1098-character artifact to exercise backward-compatible verification.
+        # Only this synthetic fixture writes the archival text directly; the
+        # production preparation gate still rejects such output.
+        legacy_recorded = draft == PLANNING_OUTAGE
+        setup_draft = (draft.replace(
+            "(mem_43262246ed92296b9353)",
+            "(secondo la nota salvata dalla persona)",
+        ) if legacy_recorded else draft)
         review = recorded_note_claim_review(source.id)
         replies = AsyncMock(side_effect=[
-            {"content": draft, "evidence_ids": [source.id]},
-            {"verified": True, "content": draft, "evidence_ids": [source.id], "claim_review": review},
+            {"content": setup_draft, "evidence_ids": [source.id]},
+            {"verified": True, "content": setup_draft,
+             "evidence_ids": [source.id], "claim_review": review},
         ])
         with patch.object(reasoning, "_ask_model", replies):
             made = await StepExecutor(db).run(OWNER, goal, prepare, may_touch_the_world=False)
         assert made.status == "succeeded" and replies.await_count == 2
         prepare.status, prepare.note = "succeeded", made.observation
+        if legacy_recorded:
+            # Reconstruct the already-saved legacy snapshot AFTER exercising
+            # today's protected preparation. This is not a publication path.
+            await db.agent_goals.update_one(
+                {"owner_id": OWNER, "id": goal.id},
+                {"$set": {"prepared_text": draft}},
+            )
+            goal.prepared_text = draft
         steps = [read, prepare]
         if draft == PLANNING_OUTAGE:
             pending = prepare.model_copy(deep=True, update={"id": "stp_pending_preparation", "status": "pending", "note": ""})
