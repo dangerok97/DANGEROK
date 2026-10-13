@@ -228,6 +228,26 @@ def public_copy(plan, *, detailed: bool = False) -> str | None:
     return ("*ORA — aggiornamento*\n" + content)[:500]
 
 
+def recurring_template_detail(copy: str) -> str | None:
+    """One truthful bounded Meta BODY parameter; fixed template supplies context.
+
+    Remove only ORA's presentational heading, never infer a date or edit the
+    verified fact. This also prevents a missing/invalid value from being
+    mislabeled as an uncertain network send.
+    """
+    if not isinstance(copy, str):
+        return None
+    parts = [part.strip().strip("*. ").strip() for part in copy.splitlines()]
+    parts = [part for part in parts if part]
+    if parts and parts[0] == "ORA — aggiornamento":
+        parts.pop(0)
+    detail = ". ".join(parts).strip()[:450]
+    if (not detail or "{{" in detail or "}}" in detail
+            or any(ord(ch) < 32 for ch in detail)):
+        return None
+    return detail
+
+
 def alert_id(user_id: str, plan_id: str) -> str:
     return hashlib.sha256(f"ora-wa-alert-v1:{user_id}:{plan_id}".encode()).hexdigest()
 
@@ -397,11 +417,15 @@ class AlertWorker:
             # The safe-side branch above must have established approval.
             await cancel(self.db, item, "template_not_verified")
             return True
+        detail = recurring_template_detail(copy) if not fresh_window else None
+        if not fresh_window and not detail:
+            await cancel(self.db, item, "template_detail_invalid")
+            return True
         recipient = self.config.decrypt(latest["phone_enc"])
         try:
             wamid = await self.config.send_proactive(
                 recipient, message=copy if fresh_window else "",
-                template=None if fresh_window else (*template, copy[:450]),
+                template=None if fresh_window else (*template, detail),
             )
         except CloudSendError as exc:
             if exc.status == 429 and item.get("attempts", 0) < 3:
