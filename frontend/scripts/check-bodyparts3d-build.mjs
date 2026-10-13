@@ -186,7 +186,7 @@ assert.match(technicalScene,/camera\.setViewOffset\(w,h/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-in"/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-out"/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-recenter"/);
-assert.match(oraOverlay,/explodedZoom,inspectorOpen:Boolean\(chosen\)/);
+assert.match(oraOverlay,/explodedZoom,anchor:sceneAnchor,inspectorOpen:Boolean\(chosen\)/);
 console.log('ORA_BLUEPRINT_RENDERER '+JSON.stringify({
  style:'ORA blue technical',edges:'real THREE.EdgesGeometry',
  maximumVisibleOutlinedParts:20,maximumCachedOutlinedParts:42,
