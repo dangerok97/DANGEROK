@@ -442,3 +442,30 @@ async def test_unavailable_meta_validation_fails_closed(cfg, monkeypatch):
 
     monkeypatch.setattr(httpx.AsyncClient, "get", fail_get)
     assert await approval_status(cfg, use_cache=False) == "unverified"
+
+
+
+@pytest.mark.asyncio
+async def test_template_with_required_media_header_is_not_approved_for_static_alerts(
+    cfg, monkeypatch
+):
+    import httpx
+    from whatsapp.template_approval import _CACHE, approval_status
+
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+
+    async def fake_get(self, url, *, headers, params):
+        return httpx.Response(200, json={"data": [{
+            "name": "ora_aggiornamento_importante",
+            "language": "it",
+            "status": "APPROVED", "category": "UTILITY",
+            "components": [
+                {"type": "HEADER", "format": "IMAGE"},
+                {"type": "BODY", "text": "ORA ha un aggiornamento."},
+            ],
+        }]})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    assert await approval_status(cfg, use_cache=False) == "requires_parameters"
