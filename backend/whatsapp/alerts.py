@@ -154,3 +154,162 @@ async def cancel(db, item: dict, reason: str) -> None:
         {"$set": {"status": "cancelled", "failure_code": reason,
                   "finished_at": utcnow()}},
     )
+
+
+class AlertWorker:
+    """One bounded queue consumer. Do not retry an uncertain provider send."""
+
+    def __init__(self, db, config: CloudConfig | None = None):
+        self.db = db
+        self.config = config or CloudConfig.load()
+
+    async def _claim(self):
+        moment = utcnow()
+        return await self.db.whatsapp_alert_outbox.find_one_and_update(
+            {"status": {"$in": ["ready", "held_template"]},
+             "next_attempt_at": {"$lte": moment}},
+            {"$set": {"status": "sending", "started_at": moment},
+             "$inc": {"attempts": 1}},
+            sort=[("created_at", 1)], return_document=ReturnDocument.AFTER,
+        )
+
+    async def process_one(self) -> bool:
+        item = await self._claim()
+        if not item:
+            return False
+        owner = item["owner_id"]
+        moment = utcnow()
+        if item.get("valid_until") is None or item["valid_until"] <= moment:
+            await cancel(self.db, item, "stale")
+            return True
+
+        link = await self.db.whatsapp_links.find_one(
+            {"user_id": owner, "phone_hash": item["phone_hash"],
+             "notifications_enabled": True, "opted_in_at": {"$exists": True}},
+            {"_id": 0, "phone_enc": 1, "last_inbound_at": 1},
+        )
+        if not link or not link.get("phone_enc"):
+            await cancel(self.db, item, "unlinked_or_opted_out")
+            return True
+
+        from delivery.models import DeliveryPlan
+        from delivery.service import DeliveryService
+
+        row = await self.db.delivery_plans.find_one(
+            {"owner_id": owner, "id": item["plan_id"]}, {"_id": 0}
+        )
+        if not row or row.get("status") in ("cancelled", "expired"):
+            await cancel(self.db, item, "plan_inactive")
+            return True
+        plan = DeliveryPlan.model_validate(row)
+        delivery = DeliveryService(self.db)
+        try:
+            subject = await delivery._current_subject_for_plan(owner, plan)
+            muted = await delivery._muted(owner, plan.source_id)
+        except Exception:
+            # Unknown validity must never turn into a sent notification.
+            await self.db.whatsapp_alert_outbox.update_one(
+                {"_id": item["_id"], "status": "sending"},
+                {"$set": {"status": "held_source",
+                          "failure_code": "source_verification_unavailable"}},
+            )
+            return True
+        if subject is None or muted:
+            await cancel(self.db, item, "source_closed_or_muted")
+            return True
+
+        template = template_settings()
+        if not in_service_window(link, moment) and not template:
+            await self.db.whatsapp_alert_outbox.update_one(
+                {"_id": item["_id"], "status": "sending"},
+                {"$set": {"status": "held_template",
+                          "next_attempt_at": moment + timedelta(minutes=15),
+                          "failure_code": "approved_template_missing"}},
+            )
+            return True
+
+        # Consent can be revoked while a verification is being performed.
+        latest = await self.db.whatsapp_links.find_one(
+            {"user_id": owner, "phone_hash": item["phone_hash"],
+             "notifications_enabled": True, "opted_in_at": {"$exists": True}},
+            {"_id": 0, "phone_enc": 1, "last_inbound_at": 1},
+        )
+        if not latest or latest.get("phone_enc") != link["phone_enc"]:
+            await cancel(self.db, item, "consent_changed")
+            return True
+        fresh_window = in_service_window(latest)
+        if not fresh_window and not template:
+            await cancel(self.db, item, "customer_window_closed")
+            return True
+        recipient = self.config.decrypt(latest["phone_enc"])
+        try:
+            wamid = await self.config.send_proactive(
+                recipient, message=item["copy"] if fresh_window else "",
+                template=None if fresh_window else template,
+            )
+        except CloudSendError as exc:
+            if exc.status == 429 and item.get("attempts", 0) < 3:
+                await self.db.whatsapp_alert_outbox.update_one(
+                    {"_id": item["_id"], "status": "sending"},
+                    {"$set": {"status": "ready",
+                              "next_attempt_at": moment + timedelta(minutes=5),
+                              "failure_code": "rate_limited"}},
+                )
+            elif 400 <= exc.status < 500:
+                await self.db.whatsapp_alert_outbox.update_one(
+                    {"_id": item["_id"], "status": "sending"},
+                    {"$set": {"status": "failed",
+                              "failure_code": f"meta_{exc.code or exc.status}",
+                              "finished_at": utcnow()}},
+                )
+            else:
+                await self.db.whatsapp_alert_outbox.update_one(
+                    {"_id": item["_id"], "status": "sending"},
+                    {"$set": {"status": "acceptance_unknown",
+                              "failure_code": "ambiguous_provider_result"}},
+                )
+            return True
+        except Exception as exc:
+            log.warning("WhatsApp alert acceptance unknown: category=%s", type(exc).__name__)
+            await self.db.whatsapp_alert_outbox.update_one(
+                {"_id": item["_id"], "status": "sending"},
+                {"$set": {"status": "acceptance_unknown",
+                          "failure_code": "transport_uncertain"}},
+            )
+            return True
+
+        await self.db.whatsapp_alert_outbox.update_one(
+            {"_id": item["_id"], "status": "sending"},
+            {"$set": {"status": "accepted", "wamid": wamid,
+                      "accepted_at": utcnow(),
+                      "kind": "text" if fresh_window else "approved_template",
+                      "failure_code": None}},
+        )
+        return True
+
+
+_ALLOWED_PREVIOUS = {
+    "sent": ["accepted", "sent"],
+    "delivered": ["accepted", "sent", "delivered"],
+    "read": ["accepted", "sent", "delivered", "read"],
+    "failed": ["accepted", "sent", "failed"],
+}
+
+
+async def record_status(db, config: CloudConfig, item: dict) -> bool:
+    """Observe Meta's signed receipt. Acceptance is not successful delivery."""
+    new = item.get("status")
+    wamid = item.get("id")
+    number = item.get("recipient_id")
+    if new not in _ALLOWED_PREVIOUS:
+        return False
+    if not isinstance(wamid, str) or not wamid.startswith("wamid.") or len(wamid) > 220:
+        return False
+    if not isinstance(number, str) or not re.fullmatch(r"[1-9][0-9]{6,14}", number):
+        return False
+    result = await db.whatsapp_alert_outbox.update_one(
+        {"wamid": wamid, "phone_hash": config.fingerprint("phone", number),
+         "status": {"$in": _ALLOWED_PREVIOUS[new]}},
+        {"$set": {"status": new, "meta_status_at": utcnow()}},
+    )
+    return bool(result.modified_count)
