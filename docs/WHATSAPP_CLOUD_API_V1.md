@@ -135,18 +135,20 @@ con un singolo placeholder posizionale nel BODY. Esempio da sottoporre
 alla revisione di Meta:
 
 ```
-Nome: ora_avviso_contenuto
+Nome: ora_promemoria_ricorrente_v1
 Categoria: UTILITY
 Lingua: it
-Corpo: ORA ti aggiorna: {{1}}
+Corpo: ORA ti ricorda una ricorrenza che hai salvato: {{1}}. Puoi modificare o interrompere il promemoria nelle impostazioni di ORA.
+Esempio per la revisione: Domani ricorre un anniversario che hai salvato in ORA.
 ```
 
 Il modello deve essere effettivamente `APPROVED` nel WhatsApp Business
 Account della stessa `WHATSAPP_WABA_ID`, con nessun'altra variabile e senza
 header multimediale obbligatorio. Il backend verifica in lettura l'oggetto
 reale Meta (non solo il nome impostato in Railway). Variabili server:
-`WHATSAPP_ALERT_TEMPLATE_NAME=ora_avviso_contenuto` e
-`WHATSAPP_ALERT_TEMPLATE_LANGUAGE=it` (oltre al WABA ID esistente).
+`WHATSAPP_ALERT_TEMPLATE_NAME=ora_promemoria_ricorrente_v1`,
+`WHATSAPP_ALERT_TEMPLATE_LANGUAGE=it` e
+`WHATSAPP_ALERT_TEMPLATE_SCOPE=recurring_memo` (oltre al WABA ID esistente).
 **Non impostare il nome finché il modello non risulta approvato.**
 L'approvazione dipende da Meta e dal contenuto; un template Utility generico
 non è necessariamente ammesso per ogni tipo di messaggio AI.
@@ -182,3 +184,68 @@ usare il testo espanso come fallback qualora `public_title` o
 WhatsApp riconosce quei fallback come non informativi e non li invia
 all'insaputa del destinatario. L'opt-in ai dettagli riguarda WhatsApp,
 non abbassa la riservatezza delle notifiche della schermata di blocco.
+
+
+## 13 ottobre 2026 — percorso operativo per il primo template Meta
+
+La promessa «qualsiasi aggiornamento autonomo direttamente su WhatsApp anche
+fuori dalle 24 ore» non può essere ottenuta con un template Utility generico
+e un campo `{{1}}` contenente qualsiasi prosa AI. Meta può respingere il
+template o ritenere il messaggio incompatibile con la categoria approvata.
+Il primo ambito verificabile è **ricorrenze esplicitamente salvate
+dall'utente**, con `source_context=recurring_memo` e stato `active`.
+Questo non equivale alla copertura di spedizioni, banca o ricerche autonome.
+
+### Preflight e richiesta alla revisione Meta
+
+La CLI di operatore `backend/whatsapp/template_provisioning.py` offre tre azioni:
+
+```bash
+cd backend
+python -m whatsapp.template_provisioning preview
+python -m whatsapp.template_provisioning inspect
+python -m whatsapp.template_provisioning submit --confirm-request
+```
+
+- `preview` funziona senza credenziali: mostra il JSON esatto di revisione.
+  Il BODY contiene testo fisso PRIMA e DOPO `{{1}}` e una riga di esempio
+  **fittizia e non personale** (`example.body_text`).
+- `inspect` verifica in sola lettura la risposta Meta del WABA associato.
+  Prima di chiamarlo impostare, *solo su server Railway*, `WHATSAPP_WABA_ID`,
+  `WHATSAPP_ALERT_TEMPLATE_NAME=ora_promemoria_ricorrente_v1`,
+  `WHATSAPP_ALERT_TEMPLATE_SCOPE=recurring_memo` e opzionalmente
+  `WHATSAPP_ALERT_TEMPLATE_LANGUAGE=it`. Le altre credenziali Cloud API
+  sono quelle già esistenti. Non copiare alcun token in GitHub o chat.
+- `submit --confirm-request` **richiede intenzionalmente un'azione
+  esplicita dell'operatore**: tenta un solo POST Meta se e solo se la
+  verifica read-only dimostra che il nome non esiste. Nessun invio di messaggi
+  a destinatari e nessuna abilitazione di notifiche in questa fase.
+  La risposta `PENDING` non è un'approvazione. Se la rete dà esito
+  ambiguo, non ritenta automaticamente: prima va ripetuta la lettura.
+
+Questo comando va eseguito in un ambiente autorizzato con i token già
+presenti (es. shell del backend Railway); la CI non esegue richieste Meta.
+In alternativa si può inserire manualmente l'identico payload nel
+WhatsApp Manager con l'account Business appropriato.
+
+### Contratti prima dell'invio
+
+- Il backend confronta con Meta **nome, lingua, categoria `UTILITY`,
+  stato `APPROVED`, un solo placeholder BODY e il testo fisso completo
+  esatto**. Un template approvato ma modificato non autorizza ORA a inviare.
+- L'account deve aver attivato gli avvisi. Per i dettagli classificati come
+  privati serve inoltre il consenso WhatsApp dedicato.
+- Il worker rilegge promemoria, account e consenso appena prima dell'invio.
+  Un messaggio di un'altra categoria non può transitare per il template delle
+  ricorrenze; la richiesta viene lasciata sull'app ORA.
+- Nelle 24 ore dall'ultimo messaggio autenticato continua a funzionare il
+  testo WhatsApp diretto per qualsiasi aggiornamento informativo, anche
+  quando il template non è approvato.
+- La consegna è attestata separatamente dalle ricevute firmate Meta:
+  `accepted` non equivale a `delivered`.
+
+**Ancora da fare per copertura completa fuori finestra:** ottenere e
+verificare template appropriati per ciascun tipo di aggiornamento
+effettivamente richiesto/ammesso (es. servizio, spedizione), con routing
+strutturato alla fonte e verifica delle regole Meta. Non dichiarare
+approvazione o compatibilità prima del collaudo reale.
