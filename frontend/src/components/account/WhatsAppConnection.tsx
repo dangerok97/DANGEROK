@@ -102,6 +102,14 @@ export function WhatsAppConnection() {
         Nessun avviso WhatsApp automatico è attivo senza consenso esplicito.
       </Text>
 
+      {status?.linked && status.shared_ai_core && typeof status.shared_capability_count === 'number' ? (
+        <Text testID="whatsapp-shared-core" style={[styles.description, { color: colors.textSecondary }]}>
+          Motore AI condiviso con l'app: {status.shared_capability_count} competenze nel catalogo unico.
+          Le nuove competenze del motore centrale sono visibili anche qui senza un secondo collegamento.
+          Quelle che richiedono sensori o interfacce dedicate si completano nell'app ORA.
+        </Text>
+      ) : null}
+
       {status?.linked ? (
         <View style={styles.buttons}>
           <ActionBtn
