@@ -48,6 +48,19 @@ export function WhatsAppConnection() {
     }
   };
 
+  const setAlerts = async (enabled: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.whatsappSetNotifications(enabled);
+      await refresh();
+    } catch (err) {
+      setError(humanizeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const disconnect = async () => {
     setBusy(true);
     setError(null);
@@ -112,6 +125,41 @@ export function WhatsAppConnection() {
 
       {status?.linked ? (
         <View style={styles.buttons}>
+          <Text style={[styles.description, { color: colors.textSecondary }]}>
+            *Avvisi automatici WhatsApp.* Con il tuo consenso, ORA potrà
+            inviarti aggiornamenti importanti già verificati, anche se non
+            apri l'app. Le risposte normali sono possibili entro la finestra
+            WhatsApp; fuori da quella finestra servono modelli Meta approvati.
+            Puoi revocare il consenso in qualsiasi momento.
+          </Text>
+          {status.notifications_enabled ? (
+            <>
+              <Text testID="whatsapp-alerts-enabled" style={[styles.description, { color: colors.textSecondary }]}>
+                Consenso agli avvisi attivo.
+                {status.notification_channel_ready
+                  ? ' Canale disponibile secondo le condizioni attuali.'
+                  : ' Invii fuori finestra in attesa di un modello Meta autorizzato.'}
+              </Text>
+              <ActionBtn
+                variant="danger"
+                icon="notifications-off-outline"
+                label="Disattiva avvisi WhatsApp"
+                loading={busy}
+                disabled={busy}
+                onPress={() => void setAlerts(false)}
+                testID="whatsapp-alerts-disable"
+              />
+            </>
+          ) : (
+            <ActionBtn
+              icon="notifications-outline"
+              label="Attiva avvisi WhatsApp"
+              loading={busy}
+              disabled={busy}
+              onPress={() => void setAlerts(true)}
+              testID="whatsapp-alerts-enable"
+            />
+          )}
           <ActionBtn
             primary
             icon="chatbubble-outline"
