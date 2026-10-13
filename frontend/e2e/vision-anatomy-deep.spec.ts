@@ -126,17 +126,28 @@ test('first streamed 3D mesh replaces the instant overlay preview without trusti
  // its first source chunk is decoded and ready for interaction.
  await page.route('**/bodyparts3d/index.html?*',route=>route.fulfill({
   status:200,contentType:'text/html',
-  body:`<!doctype html><meta charset="utf-8"><script>
-   setTimeout(()=>parent.postMessage({type:'ora:anatomy-mesh-ready',version:1},'*'),3000);
-  </script>`
+  body:`<!doctype html><meta charset="utf-8"><body>
+    <span data-testid="ora-test-frame-ready">Atlas test frame ready</span>
+    <script>
+      window.addEventListener('message',event=>{
+        if(event.data?.type==='ora:test-release-first-mesh')
+         parent.postMessage({type:'ora:anatomy-mesh-ready',version:1},'*');
+      });
+    </script></body>`
  }));
  await launchAnatomy(page);
  const preview=page.getByTestId('vision-anatomy-preview');
  await expect(preview).toBeVisible();
  await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
+ await expect(page.frameLocator('[data-testid="vision-bp3d-frame"]')
+  .getByTestId('ora-test-frame-ready')).toBeVisible();
  await page.evaluate(()=>window.postMessage({type:'ora:anatomy-mesh-ready',version:1},'*'));
  await expect(preview).toBeVisible(); // window message has wrong source
- await expect(preview).toHaveCount(0,{timeout:12000});
+ await page.evaluate(()=>{
+  document.querySelector<HTMLIFrameElement>('[data-testid="vision-bp3d-frame"]')!
+   .contentWindow?.postMessage({type:'ora:test-release-first-mesh'},'*');
+ });
+ await expect(preview).toHaveCount(0,{timeout:5000});
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
  await expect(page.getByTestId('vision-bp3d-frame')).toBeVisible();
 });
