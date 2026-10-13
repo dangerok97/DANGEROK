@@ -28,5 +28,44 @@ jobs:
         run: python -c 'import zxingcpp; assert hasattr(zxingcpp, "create_barcode")'
       - name: Compile wallet modules
         run: python -m compileall -q backend/loyalty_wallet.py backend/routers/loyalty_wallet.py
-      - name: Wallet privacy, concurrency and exact code round-trips
-        run: python -m pytest -q tests/test_loyalty_wallet.py -ra
+      - name: Wallet HTTP privacy concurrency and exact code round-trips
+        run: python -m pytest -q tests/test_loyalty_wallet*.py -ra
+  wallet-ui:
+    name: Wallet mobile and desktop (Chromium + WebKit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      CI: 'true'
+      EXPO_PUBLIC_BACKEND_URL: same-origin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Typecheck actual components
+        run: npx tsc --noEmit
+      - name: Export production web UI
+        run: npx expo export --platform web --output-dir dist-mobile-qa
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Test wallet CRUD checkout and navigation
+        run: npx playwright test --config=e2e/wallet-qa.config.ts
+      - name: Retain synthetic-data screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loyalty-wallet-ui
+          path: |
+            frontend/mobile-qa/
+            frontend/test-results/
+          retention-days: 3
+          if-no-files-found: warn
