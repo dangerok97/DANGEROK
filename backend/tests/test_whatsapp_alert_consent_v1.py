@@ -285,3 +285,29 @@ async def test_channel_permission_is_not_tied_to_expo_push(cfg, monkeypatch):
     allowed = await delivery_context._permission(db, OWNER, datetime.now(timezone.utc))
     assert allowed["push"] is True
     assert (await delivery_context._permission(db, OTHER, datetime.now(timezone.utc)))["push"] is False
+
+@pytest.mark.asyncio
+async def test_canonical_delivery_service_adds_whatsapp_alert_once(cfg, monkeypatch):
+    db = AsyncMongoMockClient().wa_alert_delivery_bridge
+    await linked(db, cfg)
+    await set_opt_in(db, OWNER, True)
+    item = plan("dp_integrated")
+    await db.delivery_plans.insert_one(item.model_dump())
+    from delivery.service import DeliveryService
+    from delivery import provider as delivery_provider
+
+    async def current_subject(*_):
+        return SimpleNamespace(status="active", evidence=[])
+
+    class FakeProvider:
+        async def send(self, **kwargs):
+            return {"ok": True, "provider": "test"}
+
+    monkeypatch.setattr(DeliveryService, "_current_subject_for_plan", current_subject)
+    monkeypatch.setattr(delivery_provider, "get_provider", lambda: FakeProvider())
+    await DeliveryService(db)._send(OWNER, item)
+    assert item.status == "delivered"
+    assert await db.whatsapp_alert_outbox.count_documents({"owner_id": OWNER}) == 1
+    row = await db.whatsapp_alert_outbox.find_one({"owner_id": OWNER})
+    assert row["plan_id"] == "dp_integrated"
+    assert row["status"] == "ready"
