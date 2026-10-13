@@ -44,6 +44,7 @@ async def test_positive_audit_cannot_publish_its_own_admitted_contradiction(
     checked = audit(h)
     if case == "refuted_derived":
         checked["claim_review"][0].update(
+            inference_or_gap="The chosen source premises leave a defeating alternative open.",
             compatible_counterexample="A distinct source-compatible alternative defeats the conclusion.",
         )
     else:
