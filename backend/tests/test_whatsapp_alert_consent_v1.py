@@ -311,3 +311,60 @@ async def test_canonical_delivery_service_adds_whatsapp_alert_once(cfg, monkeypa
     row = await db.whatsapp_alert_outbox.find_one({"owner_id": OWNER})
     assert row["plan_id"] == "dp_integrated"
     assert row["status"] == "ready"
+
+
+
+@pytest.mark.parametrize("utterance", [
+    "STOP", "stop.", "Stop notifiche", "STOP AVVISI",
+    "Disattiva notifiche WhatsApp", "disattiva gli avvisi", 
+    "Non inviarmi più notifiche", "Non mandarmi piu avvisi",
+])
+def test_explicit_whatsapp_opt_out_words(utterance):
+    from whatsapp.service import _is_alert_optout
+    assert _is_alert_optout(utterance)
+
+
+@pytest.mark.parametrize("utterance", [
+    "Cosa significa STOP?", "Voglio un cartello STOP",
+    "STOP per favore, dimmi altro", "Non disattivare avvisi",
+    "Attiva notifiche WhatsApp", "Stop! Ma che succede?",
+])
+def test_conversation_about_stop_does_not_revoke_consent(utterance):
+    from whatsapp.service import _is_alert_optout
+    assert not _is_alert_optout(utterance)
+
+
+@pytest.mark.asyncio
+async def test_stop_on_paired_whatsapp_revokes_notifications_immediately(cfg, monkeypatch):
+    from conversation_engine.ai_core.orchestrator import AICoreOrchestrator
+
+    db = AsyncMongoMockClient().wa_alert_stop_direct
+    await linked(db, cfg)
+    await set_opt_in(db, OWNER, True)
+    assert await enqueue(db, OWNER, plan())
+    outgoing = await db.whatsapp_alert_outbox.find_one({})
+    assert outgoing["status"] == "ready"
+
+    async def do_not_call_ai(self, *args, **kwargs):
+        pytest.fail("STOP is a consent revoke, not an AI task")
+
+    monkeypatch.setattr(AICoreOrchestrator, "start", do_not_call_ai)
+    monkeypatch.setattr(AICoreOrchestrator, "message", do_not_call_ai)
+    sender_item = {
+        "phone_enc": cfg.encrypt(PHONE),
+        "phone_hash": cfg.fingerprint("phone", PHONE),
+        "text_enc": cfg.encrypt("STOP"),
+        "kind": "text",
+        "provider_message_id": "wamid.synthetic_user_stop",
+    }
+    response, owner = await WhatsAppService(db, cfg).prepare_reply(sender_item)
+    assert owner == OWNER
+    assert "disattivati" in response.lower()
+    assert "Continuerò a rispondere" in response
+    link = await db.whatsapp_links.find_one({"user_id": OWNER})
+    assert link["notifications_enabled"] is False
+    assert "opted_in_at" not in link
+    assert await db.whatsapp_alert_outbox.count_documents({"status": "cancelled"}) == 1
+    assert not await may_notify(db, OWNER)
+    # Stop notifications must never unlink conversational access.
+    assert (await WhatsAppService(db, cfg).status(OWNER))["linked"] is True

@@ -130,7 +130,8 @@ export function WhatsAppConnection() {
             inviarti aggiornamenti importanti già verificati, anche se non
             apri l'app. Le risposte normali sono possibili entro la finestra
             WhatsApp; fuori da quella finestra servono modelli Meta approvati.
-            Puoi revocare il consenso in qualsiasi momento.
+            Puoi revocare il consenso in qualsiasi momento nell'app oppure
+            rispondendo STOP nella chat WhatsApp con ORA.
           </Text>
           {status.notifications_enabled ? (
             <>
