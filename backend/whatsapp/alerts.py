@@ -184,6 +184,10 @@ def public_copy(plan, *, detailed: bool = False) -> str | None:
     words = getattr(plan, "words", None)
     if words is None:
         return None
+    # "private" is stricter than "personal". Even words labelled public by
+    # a model cannot override the private classification by default.
+    if getattr(plan, "sensitivity", "ordinary") == "private" and not detailed:
+        return None
     title = _meaningful_fragment(
         getattr(words, "title", "") if detailed else getattr(words, "public_title", "")
     )
