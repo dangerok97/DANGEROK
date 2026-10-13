@@ -270,6 +270,7 @@ jobs:
             tests/test_preparation_audit_contradictions_v162.py \
             tests/test_preparation_blind_challenge_v162.py \
             tests/test_preparation_reference_hygiene_v162.py \
+            tests/test_agent_source_repair_budget_v162.py \
             tests/test_autonomy_preparation_diagnostics_v162.py \
             tests/test_autonomy_result_diagnostics_v162.py \
             tests/test_autonomy_case_progress_v162.py \
