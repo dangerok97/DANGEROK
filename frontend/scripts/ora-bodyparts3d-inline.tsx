@@ -17,7 +17,8 @@ const PRESETS:{key:string;label:string;systems:SystemId[]}[]=[
 ];
 const INITIAL_SYSTEMS:SystemId[]=['skeletal','cardiac','respiratory','digestive'];
 const EXPLODED_PAGE_SIZE=14;
-const EXPLODED_PAGE_THRESHOLD=.64;
+// Enter structured pagination before large anatomical systems overlap.
+const EXPLODED_PAGE_THRESHOLD=.50;
 const initial=():SceneState=>({
  explode:0,visible:[...INITIAL_SYSTEMS],selected:[],isolate:false,view:'front',rotate:false,reset:0
 });
