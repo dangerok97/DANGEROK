@@ -258,6 +258,7 @@ test('a close-up of a hand opens ONLY hand anatomy, not the whole-body reference
  await page.locator('input[type=file]').setInputFiles({name:'hand-test.jpg',mimeType:'image/jpeg',buffer:Buffer.from(pixels)});
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-region','hand');
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
+ await expect(page.getByTestId('vision-anatomy-preview')).toHaveAttribute('data-anchored','true');
  // The source JPEG is square, but the camera stage is not. A photographed
  // region is fitted with object-fit:cover and clipped to the visible viewport.
  // Raw bbox values must NOT be reused as screen coordinates on desktop/mobile.

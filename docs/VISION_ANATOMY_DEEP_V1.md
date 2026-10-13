@@ -70,3 +70,5 @@ scaricare né distribuire automaticamente modelli terzi privi di verifica.
 - **Limite dichiarato:** aggancio approssimato bidimensionale, non ricostruzione 3D metrica, né tracking persistente 6DoF né misura di strutture interne da RGB. L'atlante resta generico, didattico e non diagnostico.
 
 - I componenti 3D già decodificati diventano **selezionabili dopo il primo chunk**, senza attendere tutti i 15 file del riferimento. La selezione tramite canvas considera soltanto le mesh effettivamente caricate; l'eventuale catalogo di parti può mostrare parti che devono ancora arrivare. Il caricamento continua in background.
+
+- **Ancoraggio dopo il cambio layout:** il riquadro della foto non viene proiettato una sola volta prima di nascondere i comandi. Conserviamo il riquadro nel crop sorgente e lo riproiettiamo dopo il render, ai ridimensionamenti della stage e al cambio zoom. In live il calcolo passa dall'originale frame e dal crop iniziale al nuovo crop visibile; in foto usa object-fit:cover aggiornato. Evita slittamenti di alcuni punti percentuali fra desktop e telefoni.
