@@ -42,7 +42,12 @@ async def test_short_source_draft_and_audit_keep_compact_attributed_comparison(m
     assert "structured source_refs/evidence_ids" in audit_prompt
     assert "aim for a complete draft under 1800 characters" in draft_prompt
     assert "does not allow omission of the useful calculation" in draft_prompt
+    assert "An unknown condition is NOT a positive or negative property" in draft_prompt
+    assert "a caveat never supplies a missing premise" in draft_prompt
+    assert "speculative pros/cons" in draft_prompt
     assert "comparison specifically requested from figures recorded by the user" in audit_prompt
     assert "unless the goal actually requires external verification" in audit_prompt
+    assert "monthly/annual or prepaid labels cannot prove" in audit_prompt
+    assert "Remove it and record only the missing condition" in audit_prompt
     assert draft_payload["evidence"][0]["claim"] == evidence.claim
     assert audit_payload["draft"] == content
