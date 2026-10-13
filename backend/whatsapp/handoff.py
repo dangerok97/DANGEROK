@@ -11,6 +11,7 @@ import re
 from urllib.parse import quote, urlparse, parse_qs
 
 from whatsapp.formatting import render_whatsapp_answer
+from conversation_engine.ai_core.channel_actions import safe_ora_screen_path
 
 # Trusted ORA web deployment. Other arbitrary environment URLs are never
 # interpolated into a WhatsApp link sent to a third party.
@@ -132,6 +133,20 @@ def render_core_answer_for_whatsapp(answer: dict) -> str:
             plan = str(item.get("plan_id") or "")
             if _SAFE_PLAN.fullmatch(plan):
                 add("Apri il piano in ORA", f"{_app_origin()}/goal-workspace/{quote(plan, safe='')}")
+        elif item.get("kind") == "ora_screen":
+            # A new UI skill can open any safe ORA feature route without a
+            # new hardcoded WhatsApp handler. The tool supplied a relative
+            # in-app path, not an arbitrary provider URL or authorization.
+            path = safe_ora_screen_path(item.get("path"))
+            if path:
+                label = str(item.get("label") or "Apri in ORA").strip()[:64]
+                add(label or "Apri in ORA", f"{_app_origin()}{path}")
+            else:
+                add("Continua nella tua app ORA", _app_conversation_url(answer))
+        else:
+            # Unknown future visual actions never vanish silently. The
+            # authenticated conversation remains the portable safe fallback.
+            add("Continua nella tua app ORA", _app_conversation_url(answer))
 
     # Links are only handoffs; no WhatsApp webhook may silently perform a
     # client permission, device GPS acquisition or irreversible confirmation.
