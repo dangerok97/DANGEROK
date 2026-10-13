@@ -31,8 +31,11 @@ test('a visually distinct hand silhouette has pixel-derived fingers, not a bbox 
  });
  const s=extractPixelContour(f,[.25,.19,.48,.65]);
  assert.ok(s,'real high-contrast hand mask should be extractable');
- assert.ok(s.points.length>=18);
+ assert.ok(s.points.length>=12,'distinct finger silhouette must keep multiple bends');
  assert.ok(s.points.length<=170);
+ const smoothed=new Set(s.points.map(p=>p.join(',')));
+ assert.equal(smoothed.size,s.points.length,'no duplicate points after adaptive contour simplification');
+ assert.ok(s.points.every(p=>p.every(Number.isFinite)));
  assert.ok(s.confidence>=.5);
  assert.ok(s.box[2]>.3&&s.box[3]>.45);
  const distinct=new Set(s.points.map(p=>Math.round(p[0]*160)+','+Math.round(p[1]*160)));
@@ -67,4 +70,32 @@ test('retarget and stage crop preserve actual geometry (not the detector rectang
    {x:24,y:0,width:112,height:160});
  assert.ok(projected);assert.ok(projected.box[2]>shifted.box[2]);
  assert.ok(projected.points.every(p=>p.every(Number.isFinite)));
+});
+
+test('small salt pixels near a real hand do not create spurious silhouette branches',()=>{
+ const f=photo();
+ paint(f,(x,y)=>(x>=47&&x<=109&&y>=74&&y<=125)||
+   (x>=57&&x<=68&&y>=38&&y<=82)||(x>=77&&x<=88&&y>=45&&y<=83));
+ for(let y=61;y<111;y+=7)for(let x=39;x<119;x+=13){
+  if((x>=47&&x<=109&&y>=74&&y<=125)||
+    (x>=57&&x<=68&&y>=38&&y<=82)||
+    (x>=77&&x<=88&&y>=45&&y<=83))continue;
+  const i=(y*f.width+x)*4;f.data.set([38,88,151,255],i);
+ }
+ const s=extractPixelContour(f,[.22,.18,.53,.67]);
+ assert.ok(s,'visible subject must survive salt-noise cleanup');
+ assert.ok(s.points.length<=170);
+ assert.ok(s.box[0]>.27&&s.box[0]<.33);
+ assert.ok(s.box[2]>.35&&s.box[2]<.48);
+});
+test('smoothing preserves a stepped asymmetric object without turning it into a rectangle',()=>{
+ const f=photo(192,192);
+ paint(f,(x,y)=>(x>36&&x<153&&y>65&&y<112)||
+   (x>69&&x<106&&y>=111&&y<156),[28,93,145]);
+ const s=extractPixelContour(f,[.17,.29,.67,.56]);
+ assert.ok(s);
+ const uniqueX=new Set(s.points.map(p=>Math.round(p[0]*192)));
+ const uniqueY=new Set(s.points.map(p=>Math.round(p[1]*192)));
+ assert.ok(uniqueX.size>5&&uniqueY.size>5);
+ assert.ok(s.points.length<=170);
 });
