@@ -60,3 +60,11 @@ scaricare né distribuire automaticamente modelli terzi privi di verifica.
 - Le superfici anatomiche conservano contorni tecnici azzurri e le relative fonti BodyParts3D: è una ricostruzione didattica, non un'immagine diagnostica della persona inquadrata.
 - Il test di distribuzione vincola la generazione alla vera geometria BodyParts3D, al framing per pagina e ai comandi dedicati; l'uso del sensore fisico resta da collaudare sul dispositivo.
 - Cambiando pagina senza muovere il cursore, l'inquadratura viene ricalcolata **dopo** aver aggiornato le trasformazioni delle mesh della nuova pagina; evita la visualizzazione dei pezzi fuori scena.
+
+## Aggancio alla parte riconosciuta e caricamento progressivo (13 ottobre 2026)
+
+- Una foto o il frame live forniscono un **riquadro 2D normalizzato** (x,y,larghezza,altezza). Il viewer ora usa il centro e le dimensioni di quel riquadro per inquadrare le mesh della stessa regione, non più una traslazione orizzontale CSS; dal 50% la scomposizione passa gradualmente verso il centro dell'area studio.
+- Una foto con proporzioni diverse dallo schermo è convertita tramite il medesimo calcolo cover degli oggetti, mentre il frame live usa il crop visibile della fotocamera. Dopo un'espansione manuale ad altra regione, l'aggancio originale viene disattivato.
+- Il canvas didattico procedurale compare **subito e in posizione**, restando una anteprima dichiarata; i veri modelli BodyParts3D arrivano in streaming senza una schermata modale o una percentuale centrale. La fotocamera resta visibile.
+- All'apertura di fotocamera/foto, scaricamento best-effort anticipato di shell, indice, metadati e JS/CSS del riferimento pubblico (nessun frame personale); rispetta risparmio dati/2G. I 15 chunk anatomici vengono prioritizzati usando le mesh della regione attuale; altri chunk continuano per le espansioni successive. Cache 24h per geometry e 30 giorni per asset con hash.
+- **Limite dichiarato:** aggancio approssimato bidimensionale, non ricostruzione 3D metrica, né tracking persistente 6DoF né misura di strutture interne da RGB. L'atlante resta generico, didattico e non diagnostico.

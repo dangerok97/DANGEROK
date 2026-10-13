@@ -5,7 +5,7 @@ import {ANATOMY_STYLES} from './anatomyStyle';
 import {AnatomyVolume,type VisiblePosePoints} from './AnatomyVolume.web';
 
 /** Contextual educational atlas in the live camera, not an X-ray of this person. */
-export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',posePoints,anchorCenter=.5}: {onClose:()=>void;region?:BodyRegion;bodySide?:'left'|'right'|'unknown';posePoints?:VisiblePosePoints|null;anchorCenter?:number}){
+export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',posePoints,anchorBox}: {onClose:()=>void;region?:BodyRegion;bodySide?:'left'|'right'|'unknown';posePoints?:VisiblePosePoints|null;anchorBox?:[number,number,number,number]|null}){
  const [layer,setLayer]=React.useState<AtlasLayer>('skin');
  const [viewRegion,setViewRegion]=React.useState<BodyRegion>(region);
  const [search,setSearch]=React.useState('');
@@ -18,6 +18,19 @@ export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',p
  const [info,setInfo]=React.useState(false);
  const [bp3dStatus,setBp3dStatus]=React.useState<'checking'|'ready'|'unavailable'>('checking');
  const [bp3dActive,setBp3dActive]=React.useState(false);
+ const [meshReady,setMeshReady]=React.useState(false);
+ const iframe=React.useRef<HTMLIFrameElement>(null);
+ // The embedded reference has an opaque origin. Only trust THIS frame's messages.
+ React.useEffect(()=>{
+  const listener=(event:MessageEvent)=>{
+   if(event.source!==iframe.current?.contentWindow||!event.data||event.data.version!==1)return;
+   if(event.data.type==='ora:anatomy-mesh-ready')setMeshReady(true);
+   if(event.data.type==='ora:anatomy-error'){setBp3dActive(false);setBp3dStatus('unavailable');}
+  };
+  window.addEventListener('message',listener);
+  return()=>window.removeEventListener('message',listener);
+ },[]);
+ React.useEffect(()=>{setMeshReady(false);},[region]);
  React.useEffect(()=>{
   let active=true;
   const controller=new AbortController();
@@ -47,7 +60,18 @@ export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',p
  const changeVariant=(next:AnatomyVariant)=>{setVariant(next);setSelected('');};
  const focus=(part:AnatomyRegion)=>{setSelected(part.id);setExpanded(true);};
  const onCamera=bp3dActive&&bp3dStatus==='ready';
- const bodyCenter=Number.isFinite(anchorCenter)?Math.max(.22,Math.min(.78,anchorCenter)):.5;
+ const placement=React.useMemo(()=>{
+  if(!anchorBox||anchorBox.length!==4||anchorBox.some(x=>!Number.isFinite(x)))return null;
+  const [x,y,w,h]=anchorBox;
+  if(x<0||y<0||w<.03||h<.03||x+w>1.01||y+h>1.01)return null;
+  const clamp=(value:number,low:number,high:number)=>Math.min(high,Math.max(low,value));
+  return {cx:clamp(x+w/2,.07,.93),cy:clamp(y+h/2,.07,.93),
+   bw:clamp(w,.03,1),bh:clamp(h,.03,1),x,y,w,h};
+ },[anchorBox?.[0],anchorBox?.[1],anchorBox?.[2],anchorBox?.[3]]);
+ const bodyCenter=placement?.cx??.5;
+ const iframeAnchor=placement?'&cy='+placement.cy.toFixed(3)+'&bw='+placement.bw.toFixed(3)+'&bh='+placement.bh.toFixed(3):'';
+ const showPreview=bp3dStatus==='checking'||(onCamera&&!meshReady);
+ const previewRegions=React.useMemo(()=>focusedRegions(viewRegion,'bones','neutral'),[viewRegion]);
  return <div className={'vx-anatomy vx-anatomy-inline'+(onCamera?' vx-has-bp3d':bp3dStatus==='checking'?' vx-bp3d-pending':'')} data-testid="vision-anatomy" data-visual-mode={onCamera?'camera-overlay':'schematic-overlay'} data-region={viewRegion} role="region" aria-label="Atlante anatomico contestuale, illustrativo">
   <style>{ANATOMY_STYLES}</style>
   <div aria-hidden="true" className="vx-anatomy-grid"/>
@@ -73,11 +97,18 @@ export function AnatomyExplorer({onClose,region='full_body',bodySide='unknown',p
    {bp3dStatus==='ready'&&<a href="/bodyparts3d/ATTRIBUTION.md" target="_blank" rel="noopener noreferrer">
     Fonti e licenza</a>}
   </div>
-  {bp3dStatus==='checking'?<div className="vx-anatomy-inline-pending" role="status" data-testid="vision-anatomy-inline-pending">
-    Preparo la scomposizione anatomica 3D…
-   </div>:bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
-   <iframe data-testid="vision-bp3d-frame" title="BodyParts3D: modello anatomico sovrapposto alla fotocamera"
-    src={'/bodyparts3d/index.html?ora=inline&lang=it&region='+encodeURIComponent(viewRegion)+'&cx='+bodyCenter.toFixed(3)+'&side='+bodySide} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" loading="eager"
+  {showPreview&&<div className="vx-anatomy-inline-preview" data-testid="vision-anatomy-preview"
+     data-anchored={placement?'true':'false'} aria-hidden="true"
+     style={placement?{left:(placement.x*100)+'%',top:(placement.y*100)+'%',
+      width:(placement.w*100)+'%',height:(placement.h*100)+'%'}:undefined}>
+     <AnatomyVolume regions={previewRegions} layer="bones" region={viewRegion}
+       selected="" onSelect={()=>{}} zoom={1} onZoom={()=>{}} viewBox={viewFor(viewRegion)} posePoints={posePoints}/>
+   </div>}
+   {showPreview&&<div className="vx-anatomy-preview-status" role="status"
+     data-testid="vision-anatomy-inline-pending">Schema provvisorio · aggiungo dettagli 3D</div>}
+   {bp3dStatus==='checking'?null:bp3dActive&&bp3dStatus==='ready'?<section className="vx-bp3d-panel" aria-label="Atlante anatomico 3D BodyParts3D">
+   <iframe ref={iframe} data-testid="vision-bp3d-frame" title="BodyParts3D: modello anatomico sovrapposto alla fotocamera"
+    src={'/bodyparts3d/index.html?ora=inline&lang=it&region='+encodeURIComponent(viewRegion)+'&cx='+bodyCenter.toFixed(3)+'&side='+bodySide+iframeAnchor} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" loading="eager"
     onError={()=>setBp3dActive(false)} />
    <div className="vx-bp3d-caption">
     <span>Modello didattico della regione inquadrata · non mostra strutture interne reali</span>
