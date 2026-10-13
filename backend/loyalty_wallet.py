@@ -25,6 +25,7 @@ FORMATS = {
 }
 MAX_CARDS = 100
 MAX_UPLOAD = 8 * 1024 * 1024
+MAX_ENCRYPTED_BYTES = 12_000_000
 
 
 class WalletError(Exception):
@@ -99,12 +100,15 @@ def render_code(fmt: str, code: str) -> str:
         image = Image.fromarray(barcode.to_image(scale=4, add_hrt=False, add_quiet_zones=True)).convert("L")
         image = ImageOps.expand(image, border=16, fill=255)
         found = zx.read_barcodes(image, formats=barcode_format, text_mode=zx.TextMode.Plain)
-        if not any(b.text == code and b.format == barcode_format for b in found):
+        # ZXing 3 transmits UPC-A as 13-digit EAN content (ISO/IEC 15420).
+        # Compare that exact standard representation, not a truncated guess.
+        expected_text = "0" + code if fmt == "UPC_A" else code
+        if not any(b.text == expected_text and b.format == barcode_format for b in found):
             raise WalletError("Non riesco a riprodurre fedelmente questo codice. Usa la tessera originale.", 422)
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         png = buffer.getvalue()
-        if len(png) > 96_000:
+        if len(png) > 48_000:
             raise WalletError("Codice troppo complesso per questa versione.", 422)
         return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
     except WalletError:
@@ -137,14 +141,28 @@ def decode_image(raw: bytes) -> list[dict]:
     seen: set[tuple[str, str]] = set()
     for result in results:
         fmt = next((key for key, value in FORMATS.items() if result.format == getattr(zx.BarcodeFormat, value)), None)
-        if not fmt or (fmt, result.text) in seen:
+        if not fmt:
             continue
-        try:
-            validate_code(fmt, result.text)
-        except ValueError:
-            continue
-        seen.add((fmt, result.text))
-        candidates.append({"format": fmt, "code": result.text})
+        text = result.text
+        # UPC-A and an EAN-13 beginning with 0 have the same physical bars.
+        # Offer both explicitly when a photo cannot establish the printed
+        # 12/13-digit representation. Never discard an EAN leading zero.
+        if fmt == "UPC_A" and len(text) == 13 and text.startswith("0"):
+            text = text[1:]
+        variants = [(fmt, text)]
+        if fmt == "EAN_13" and len(text) == 13 and text.startswith("0"):
+            variants.append(("UPC_A", text[1:]))
+        for variant_fmt, variant_text in variants:
+            if (variant_fmt, variant_text) in seen:
+                continue
+            try:
+                validate_code(variant_fmt, variant_text)
+            except ValueError:
+                continue
+            seen.add((variant_fmt, variant_text))
+            candidates.append({"format": variant_fmt, "code": variant_text})
+            if len(candidates) == 8:
+                break
         if len(candidates) == 8:
             break
     if not candidates:
@@ -199,6 +217,8 @@ class WalletService:
         return sorted(cards, key=lambda c: (not c["favorite"], c["name"].casefold(), c["id"]))
 
     async def _commit(self, before: dict, cards: list[dict]) -> bool:
+        if sum(len(c["ciphertext"]) for c in cards) > MAX_ENCRYPTED_BYTES:
+            raise WalletError("Spazio del portafoglio esaurito. Rimuovi una tessera prima di aggiungerne altre.", 409)
         after = {**before, "revision": before["revision"] + 1, "cards": cards}
         if before["revision"] == 0:
             try:
