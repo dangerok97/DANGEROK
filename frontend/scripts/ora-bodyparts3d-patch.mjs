@@ -61,6 +61,8 @@ scene=once(scene,"if(s.inspectorOpen){if(landscape){right=w-335;top=100;bottom=h
 scene=once(scene,"const distance=Math.max(.07,Math.max(size.y*h/availableHeight,size.x*w/availableWidth/camera.aspect,size.z)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.35);","const distance=Math.max(.07,Math.max(size.y*h/availableHeight,size.x*w/availableWidth/camera.aspect,size.z)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.35)/(oraInline?Math.max(1,Math.min(3,s.detailZoom||1)):1);");
 scene=once(scene,"let packingWidth=1,packingHeight=1;","let packingWidth=1,packingHeight=1,lastOverviewZoom:number|undefined;");
 scene=once(scene,"if(s.view!==lastView||s.reset!==lastReset){fit(s.view,amount);lastView=s.view;lastReset=s.reset;}","if(s.view!==lastView||s.reset!==lastReset||(oraInline&&s.explodedZoom!==lastOverviewZoom)){fit(s.view,amount);lastView=s.view;lastReset=s.reset;lastOverviewZoom=s.explodedZoom;}");
+// Changing a page at a stationary 80% slider must reframe new meshes after updating their offsets.
+scene=once(scene,"partTexture.needsUpdate=true;selectionTexture.needsUpdate=true;markerGeometry.attributes.position.needsUpdate=true;lastState=s;lastExtent=amount;dirty=true;","partTexture.needsUpdate=true;selectionTexture.needsUpdate=true;markerGeometry.attributes.position.needsUpdate=true;lastState=s;lastExtent=amount;dirty=true;if(oraInline&&s.explode>=.50&&!s.isolate&&!moving)fit(s.view,Math.max(0,(amount-.3)/.7));");
 scene=applyOraBlueprint(scene);
 save('app/scene.tsx',scene);
 

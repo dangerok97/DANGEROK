@@ -174,6 +174,7 @@ assert.match(technicalScene,/const explodedPage=oraInline&&latest\.current\.expl
 assert.match(technicalScene,/visibleIds\.has\(part\.id\)&&data\[i\*4\+3\]>/);
 assert.match(technicalScene,/area\.union\(bounds\[i\]\.clone\(\)\.translate\(/);
 assert.match(technicalScene,/lastOverviewZoom=s\.explodedZoom/);
+assert.match(technicalScene,/s\.explode>=\.50&&!s\.isolate&&!moving\)fit\(s\.view/);
 assert.match(technicalScene,/camera\.setViewOffset\(w,h/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-in"/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-out"/);

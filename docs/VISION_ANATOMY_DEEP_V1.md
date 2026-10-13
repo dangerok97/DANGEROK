@@ -59,3 +59,4 @@ scaricare né distribuire automaticamente modelli terzi privi di verifica.
 - Zoom autonomo dei pezzi esplosi (1×–3×), pulsanti accessibili anche da cellulare e comando **Centra**; il ritorno da un dettaglio conserva pagina e grado di esplosione.
 - Le superfici anatomiche conservano contorni tecnici azzurri e le relative fonti BodyParts3D: è una ricostruzione didattica, non un'immagine diagnostica della persona inquadrata.
 - Il test di distribuzione vincola la generazione alla vera geometria BodyParts3D, al framing per pagina e ai comandi dedicati; l'uso del sensore fisico resta da collaudare sul dispositivo.
+- Cambiando pagina senza muovere il cursore, l'inquadratura viene ricalcolata **dopo** aver aggiornato le trasformazioni delle mesh della nuova pagina; evita la visualizzazione dei pezzi fuori scena.
