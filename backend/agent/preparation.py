@@ -633,7 +633,7 @@ async def prepare(db, owner_id, goal, step):
         if challenge_input is None:
             return unavailable("preparation_challenge_context_too_large")
         challenge = await _ask_model(
-            _DISCIPLINE + "\\n" + _GROUNDED_RESULT + "\\n" + challenge_prompt,
+            _DISCIPLINE + "\n" + _GROUNDED_RESULT + "\n" + challenge_prompt,
             challenge_input,
             response_schema=challenge_schema(row["id"] for row in audit_rows),
         )
