@@ -275,7 +275,21 @@ def iter_inbound_messages(payload: dict, expected_phone_number_id: str):
                         body = str(reply.get("title") or "")[:400]
                 if not isinstance(body, str):
                     body = ""
-                yield {"id": mid, "from": sender, "type": kind, "text": body[:8000], "media": media}
+                # Meta's signed message timestamp is the moment the
+                # customer contacted ORA. Worker backlog must never extend
+                # the 24-hour service window beyond that event.
+                sent_at = message.get("timestamp")
+                if (
+                    not isinstance(sent_at, str)
+                    or not sent_at.isascii()
+                    or not re.fullmatch(r"[1-9][0-9]{8,11}", sent_at)
+                ):
+                    sent_at = None
+                yield {
+                    "id": mid, "from": sender, "type": kind,
+                    "text": body[:8000], "media": media,
+                    "sent_at": int(sent_at) if sent_at is not None else None,
+                }
 
 
 
