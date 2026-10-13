@@ -211,3 +211,33 @@ def test_unrelated_real_evidence_is_not_a_memory_read():
     only_draft = _draft()
     steps, reason = _source_read_prerequisite(goal, [only_draft], [weather, matching], _available_read())
     assert reason == "" and steps == [only_draft]
+
+
+@pytest.mark.asyncio
+async def test_unrelated_wait_plan_survives_evidence_store_outage(monkeypatch):
+    """The added evidence query is restricted to document preparation."""
+    db = AsyncMongoMockClient().unrelated_wait_plan_v162
+    goal = AutonomousGoal(owner_id=SYNTHETIC_OWNER, status="active",
+        objective="Aspettare il momento previsto",
+        desired_outcome="Controllare quando una fonte tornerà disponibile",
+        source_refs=["calendar:synthetic"])
+    service = AgentService(db)
+    await service.repo.save_goal(goal)
+    monkeypatch.setattr(service.capabilities, "available", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_planning_source_context", AsyncMock(return_value=([], False)))
+    monkeypatch.setattr(service, "_planning_fence", AsyncMock())
+    service.evidence.for_goal = AsyncMock(side_effect=TimeoutError("synthetic store outage"))
+    monkeypatch.setattr(reasoning, "make_plan", AsyncMock(return_value={
+        "planning_outcome": "plan", "steps": [
+            {"step_type": "wait", "intent": "Ricontrollare più tardi",
+             "parameters": {"wait_minutes": 20}},
+        ],
+    }))
+    plan = await service._build_plan(
+        SYNTHETIC_OWNER, goal, AgentRun(owner_id=SYNTHETIC_OWNER, goal_id=goal.id),
+        AgentBudget(), language="it",
+    )
+    assert plan is not None
+    assert len(plan.steps) == 1 and plan.steps[0].step_type == "wait"
+    assert not goal.planning_unavailable
+    assert service.evidence.for_goal.await_count == 1  # Existing bounded inventory only.
