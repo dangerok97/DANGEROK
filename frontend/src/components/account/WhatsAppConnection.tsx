@@ -126,7 +126,7 @@ export function WhatsAppConnection() {
       {status?.linked ? (
         <View style={styles.buttons}>
           <Text style={[styles.description, { color: colors.textSecondary }]}>
-            *Avvisi automatici WhatsApp.* Con il tuo consenso, ORA potrà
+            Avvisi automatici WhatsApp. Con il tuo consenso, ORA potrà
             inviarti aggiornamenti importanti già verificati, anche se non
             apri l'app. Le risposte normali sono possibili entro la finestra
             WhatsApp; fuori da quella finestra servono modelli Meta approvati.
