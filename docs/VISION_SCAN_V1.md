@@ -28,3 +28,12 @@ Questa V1 **non è un segmentatore universale** (es. Segment Anything) e non pro
 - Test geometrici su silhouette sintetiche non rettangolari, fondali piatti o caotici, ricalcolo cover e rinuncia ai falsi positivi.
 - Browser Playwright: su persona si usa soltanto BodyParts3D e la maschera da pixel non genera `AnatomyVolume`; su oggetti sono disponibili la scomposizione e il contorno; sfondo uniforme = fallback onesto.
 - Build Expo web e typecheck. Deploy Railway del commit esatto, poi controllo con un vero telefono (non sostituibile da fixture).
+
+## SCAN V2 — profilo tecnico cinematografico (13 ottobre 2026)
+
+- La geometria proviene **sempre dai pixel reali** del frame già riconosciuto. Campionamento locale massimo 288px sul lato lungo, pulizia conservativa del rumore di un pixel e semplificazione Ramer–Douglas–Peucker in funzione delle curvature, per evitare il tracciato seghettato senza sostituirlo con un ovale inventato.
+- Overlay futuristico azzurro formato da un profilo luminoso con **passata di scansione una tantum**, texture a griglia ritagliata dentro la sagoma autentica, nove nodi distribuiti lungo il perimetro reale (solo elementi grafici, non landmark anatomici), reticolo, angoli e piccolo HUD. Nessun valore numerico di profondità, misure o precisione fittizia.
+- Il modello schematico degli oggetti e il visualizzatore reale BodyParts3D entrano con una rapida transizione ottica dopo il bordo. Fotocamera e immagine personale non vengono mai nascoste.
+- Se l'estrazione del contorno fallisce, resta un indicatore semplice e **esplicitamente stimato**, non una silhouette decorativa presentata come rilevamento. Non viene riabilitato il vecchio modello umano.
+- Gli elementi HUD non intercettano tocchi, hanno un'entrata animata che termina e rispettano le preferenze **riduci movimento**. Il video live non viene analizzato continuamente dal nuovo motore e non vengono inviati fotogrammi a servizi aggiuntivi.
+- Questo è un miglioramento sostanziale di **pulizia geometrica e qualità dell'interfaccia**; non realizza ricostruzione 3D accurata, profondità o tracking AR alla qualità del cinema. La capacità di isolare soggetti su sfondi complessi rimane limitata senza un segmentatore dedicato.

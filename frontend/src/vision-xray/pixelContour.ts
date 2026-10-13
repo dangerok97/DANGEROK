@@ -109,11 +109,76 @@ function boundary(mask:Uint8Array,w:number,h:number):ScanPoint[]{
  }
  return winner;
 }
+/**
+ * Local three-by-three majority cleanup. Unlike morphological dilation, this
+ * never fabricates wide foreground in gaps between individual fingers.
+ * Runs only in the already bounded detection region, not on the live video.
+ */
+function denoiseMask(mask:Uint8Array,w:number,h:number,loX:number,loY:number,hiX:number,hiY:number):Uint8Array{
+ const clean=mask.slice();
+ for(let y=Math.max(1,loY);y<Math.min(h-1,hiY);y++)
+  for(let x=Math.max(1,loX);x<Math.min(w-1,hiX);x++){
+   const i=y*w+x;let count=0;
+   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)count+=mask[i+dy*w+dx];
+   // Remove a single salt pixel; close a one-pixel pinhole. Preserve narrow,
+   // true extensions if at least three pixels support their connectivity.
+   if(mask[i]&&count<=2)clean[i]=0;
+   else if(!mask[i]&&count>=8)clean[i]=1;
+  }
+ return clean;
+}
+function perpendicular(p:ScanPoint,a:ScanPoint,b:ScanPoint):number{
+ const dx=b[0]-a[0],dy=b[1]-a[1],len=dx*dx+dy*dy;
+ if(len<1e-8)return Math.hypot(p[0]-a[0],p[1]-a[1]);
+ const t=clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dy)/len,0,1);
+ return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);
+}
+/** Iterative Ramer-Douglas-Peucker: keeps real high-curvature corners/fingers
+ * while removing long runs of staircase raster pixels. */
+function simplifyOpen(points:ScanPoint[],epsilon:number):ScanPoint[]{
+ const n=points.length;
+ if(n<4)return points;
+ const keep=new Uint8Array(n);keep[0]=1;keep[n-1]=1;
+ const stack:Array<[number,number]>=[[0,n-1]];
+ while(stack.length){
+  const [from,to]=stack.pop()!;
+  let max=0,index=-1;
+  for(let i=from+1;i<to;i++){
+   const d=perpendicular(points[i],points[from],points[to]);
+   if(d>max){max=d;index=i;}
+  }
+  if(index>=0&&max>epsilon){keep[index]=1;stack.push([from,index],[index,to]);}
+ }
+ return points.filter((_,i)=>keep[i]);
+}
+/** Bounded low-pass smoothing + curvature-aware simplification, not a generic
+ * oval placeholder. Points still come exclusively from the extracted pixels. */
 function simplify(points:ScanPoint[],maxPoints=170):ScanPoint[]{
- if(points.length<=maxPoints)return points;
- const stride=Math.ceil(points.length/maxPoints),out:ScanPoint[]=[];
- for(let i=0;i<points.length;i+=stride)out.push(points[i]);
- return out;
+ if(points.length<8)return points;
+ const count=points.length;
+ const filtered:ScanPoint[]=points.map(([x,y],i)=>{
+  const before=points[(i-1+count)%count],after=points[(i+1)%count];
+  return [x*.72+(before[0]+after[0])*.14,y*.72+(before[1]+after[1])*.14];
+ });
+ // Choose a cut far away from the original starting point to avoid creating
+ // an arbitrary straight segment at the closing seam.
+ let farthest=0,dist=0;
+ for(let i=1;i<count;i++){
+  const d=sq(filtered[i][0]-filtered[0][0])+sq(filtered[i][1]-filtered[0][1]);
+  if(d>dist){dist=d;farthest=i;}
+ }
+ const chain=[...filtered.slice(farthest),...filtered.slice(0,farthest),filtered[farthest]];
+ let epsilon=.38,out=chain;
+ for(let attempts=0;attempts<12;attempts++){
+  out=simplifyOpen(chain,epsilon);
+  if(out.length<=maxPoints+1)break;
+  epsilon*=1.34;
+ }
+ out=out.slice(0,-1); // closing point is implicit in the SVG
+ if(out.length<8)return filtered.filter((_,i)=>i%Math.max(1,Math.floor(count/22))===0).slice(0,maxPoints);
+ const areaError=Math.abs(polygonArea(out)-polygonArea(points))/Math.max(1,polygonArea(points));
+ if(areaError>.075)return filtered.filter((_,i)=>i%Math.ceil(count/maxPoints)===0).slice(0,maxPoints);
+ return out.length>maxPoints?out.filter((_,i)=>i%Math.ceil(out.length/maxPoints)===0):out;
 }
 /** Pixel-only segmentation for distinct subjects on relatively simple backgrounds.
  * The predicted box localizes the target, but the outline is from image pixels. */
@@ -144,7 +209,8 @@ export function extractPixelContour(frame:PixelFrame,box:ScanBox):PixelContour|n
   if(dF*1.12+7<dB&&dF<Math.max(38,contrast*1.25))mask[y*w+x]=1;
  }
  // Discard isolated image noise using a 4-connected foreground component.
- const result=component(mask,w,h,x0+bw/2,y0+bh/2);
+ const clean=denoiseMask(mask,w,h,loX,loY,hiX,hiY);
+ const result=component(clean,w,h,x0+bw/2,y0+bh/2);
  if(!result.pixels.length)return null;
  const pixels=result.pixels;
  const area=pixels.length,relativeArea=area/(bw*bh);

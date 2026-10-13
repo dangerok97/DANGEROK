@@ -24,7 +24,7 @@ const sleep = (ms:number) => new Promise<void>(resolve=>setTimeout(resolve,ms));
  * Small, bounded RGBA buffers keep the CPU cost low even on mobile. */
 function pixelScan(snapshot:HTMLCanvasElement,box:Box):PixelContour|null{
  try{
-  const scale=Math.min(1,192/Math.max(snapshot.width,snapshot.height));
+  const scale=Math.min(1,288/Math.max(snapshot.width,snapshot.height));
   const sample=document.createElement('canvas');
   sample.width=Math.max(48,Math.round(snapshot.width*scale));
   sample.height=Math.max(48,Math.round(snapshot.height*scale));
@@ -504,7 +504,7 @@ export default function LiveExplorer(){
       <div className="vx-brand">ORA <span>VISION</span><small className="vx-version">ESPLORA L’ESSENZIALE</small></div>
       <button className="vx-catalog" data-testid="vision-catalog-toggle" aria-expanded={libraryOpen} onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setInfoOpen(false);setLibraryOpen(v=>!v);}}>Catalogo <span>{entries.length}</span></button>
     </header>
-    <section ref={stageElement} className="vx-stage" aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
+    <section ref={stageElement} className={'vx-stage'+(scanContour?' vx-scan-locked':'')} aria-label="Fotocamera e scomposizione interattiva" data-testid="vision-stage">
       <video ref={video} autoPlay playsInline muted data-testid="vision-camera-video" aria-label="Video live della fotocamera" style={{opacity:live?1:0,transform:`scale(${cameraZoom})`,transformOrigin:"center"}} data-camera-zoom={cameraZoom.toFixed(2)}/>
       {photoURL&&<img src={photoURL} alt="Foto scelta per l’analisi" className="vx-photo"/>}
       <div className={'vx-shade '+(result?'vx-shade-result':anatomyActive?'vx-shade-anatomy':'')}/>
