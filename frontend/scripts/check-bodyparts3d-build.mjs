@@ -50,7 +50,9 @@ assert.match(read('index.html'),/ORA · Anatomia 3D/);
 assert.match(sourceFile('app/page.tsx'),/Atlante umano/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/ORA · \{STUDY_LABEL\[focusRegion\]/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/Scomponi/);
-assert.match(sourceFile('app/ora-overlay.tsx'),/Preparo il corpo umano 3D/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/Dettagli anatomici in arrivo/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/ora:anatomy-mesh-ready/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/anchor:sceneAnchor/);
 assert.match(sourceFile('app/scene.tsx'),/alpha:oraInline/);
 assert.match(sourceFile('app/scene.tsx'),/oraInline\?0:1/);
 assert.match(sourceFile('app/ora-overlay.css'),/background:transparent/);
@@ -171,6 +173,11 @@ assert.match(technicalAtlas,/const ORA_SYSTEM_BLUE/);
 assert.match(technicalAtlas,/system\.color=ORA_SYSTEM_BLUE/);
 assert.match(blueprintSource,/const EDGE_LIMIT=20,EDGE_CACHE_LIMIT=42/);
 assert.match(technicalScene,/const explodedPage=oraInline&&latest\.current\.explode>=\.50/);
+assert.match(technicalScene,/const requestedIds=new Set\(latest\.current\.allowed\|\|\[\]\)/);
+assert.match(technicalScene,/const preferredSystems=new Set\(latest\.current\.visible\)/);
+assert.match(technicalScene,/scores\[b\]-scores\[a\]/);
+assert.match(technicalScene,/camera\.setViewOffset\(w,h,w\/2-centerX\*w,h\/2-centerY\*h,w,h\)/);
+assert.match(technicalScene,/const positionMix=T\.MathUtils\.smoothstep\(amount,\.16,\.86\)/);
 assert.match(technicalScene,/visibleIds\.has\(part\.id\)&&data\[i\*4\+3\]>/);
 assert.match(technicalScene,/area\.union\(bounds\[i\]\.clone\(\)\.translate\(/);
 assert.match(technicalScene,/lastOverviewZoom=s\.explodedZoom/);
@@ -179,7 +186,7 @@ assert.match(technicalScene,/camera\.setViewOffset\(w,h/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-in"/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-out"/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-recenter"/);
-assert.match(oraOverlay,/explodedZoom,inspectorOpen:Boolean\(chosen\)/);
+assert.match(oraOverlay,/explodedZoom,anchor:sceneAnchor,inspectorOpen:Boolean\(chosen\)/);
 console.log('ORA_BLUEPRINT_RENDERER '+JSON.stringify({
  style:'ORA blue technical',edges:'real THREE.EdgesGeometry',
  maximumVisibleOutlinedParts:20,maximumCachedOutlinedParts:42,

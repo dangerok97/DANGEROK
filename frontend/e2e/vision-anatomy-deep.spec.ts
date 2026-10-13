@@ -177,7 +177,8 @@ test('held person overlay keeps the real camera stream and X reuses it for the n
  await expect(page.getByTestId('vision-anatomy')).toBeVisible({timeout:20000});
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
  const frame=page.getByTestId('vision-bp3d-frame');
- await expect(frame).toHaveAttribute('src',/ora=inline&lang=it&region=full_body&cx=0.500/);
+ await expect(frame).toHaveAttribute('src',/ora=inline&lang=it&region=full_body&cx=0.500&side=unknown&cy=0.500&bw=0.500&bh=0.800/);
+ await expect(page.getByTestId('vision-anatomy-preview')).toBeVisible();
  await expect(page.getByTestId('vision-camera-video')).toBeVisible();
  await expect(page.getByTestId('vision-camera-video')).not.toHaveJSProperty('paused',true);
  const previous=scans;
@@ -220,7 +221,8 @@ test('a close-up of a hand opens ONLY hand anatomy, not the whole-body reference
  await page.locator('input[type=file]').setInputFiles({name:'hand-test.jpg',mimeType:'image/jpeg',buffer:Buffer.from(pixels)});
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-region','hand');
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
- await expect(page.getByTestId('vision-bp3d-frame')).toHaveAttribute('src',/ora=inline&lang=it&region=hand&cx=0\.375&side=right/);
+ await expect(page.getByTestId('vision-bp3d-frame')).toHaveAttribute('src',/ora=inline&lang=it&region=hand&cx=0\.375&side=right&cy=0\.445&bw=0\.350&bh=0\.530/);
+ await expect(page.getByTestId('vision-anatomy-preview')).toHaveAttribute('data-anchored','true');
  await expect(page.getByTestId('vision-open-human-atlas')).toHaveCount(0);
  expect(scans).toBe(1);
 });

@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react';
+import React,{useEffect,useMemo,useState} from 'react';
 import AnatomyScene from './scene';
 import {DEFAULT_VISIBLE,SYSTEMS,EXPLANATIONS,type Atlas,type Concept,type SystemId,type SceneState} from './anatomy';
 import {italianAtlas} from './ora-locale-it';
@@ -54,7 +54,15 @@ export default function OraOverlay(){
  // Reference-side control, never guessed from a mirror image.
  const observedSide=params.get('side');
  const [modelSide,setModelSide]=useState<ModelSide>(observedSide==='left'?'left':'right');
- const focusX=Number(params.get('cx'));
+ // 2D camera rectangle: values from the one photographed body region only.
+ const value=(name:string)=>{const raw=params.get(name);return raw===null?NaN:Number(raw);};
+ const sourceCenter=value('cx'),sourceY=value('cy'),sourceWidth=value('bw'),sourceHeight=value('bh');
+ const anchor=useMemo(()=>{
+  if(![sourceCenter,sourceY,sourceWidth,sourceHeight].every(Number.isFinite)||
+     sourceCenter<0||sourceCenter>1||sourceY<0||sourceY>1||
+     sourceWidth<.03||sourceWidth>1||sourceHeight<.03||sourceHeight>1)return null;
+  return {cx:sourceCenter,cy:sourceY,width:sourceWidth,height:sourceHeight};
+ },[sourceCenter,sourceY,sourceWidth,sourceHeight]);
  const subset=useMemo(()=>atlas?anatomicalRegion(atlas,focusRegion,modelSide):null,
   [atlas,focusRegion,modelSide]);
  const permittedIds=useMemo(()=>new Set(subset?.ids||[]),[subset]);
@@ -85,10 +93,6 @@ export default function OraOverlay(){
   [state.isolate,state.selected,exploded,currentPieces,subset?.ids]);
  useEffect(()=>{
   document.documentElement.lang='it';
-  if(Number.isFinite(focusX)){
-   const clamped=Math.min(.75,Math.max(.25,focusX));
-   document.documentElement.style.setProperty('--ora-person-offset',((clamped-.5)*100).toFixed(1)+'%');
-  }
   const controller=new AbortController();
   fetch('/bodyparts3d/models/atlas.json',{signal:controller.signal,cache:'force-cache'})
    .then(response=>{if(!response.ok)throw new Error('Non riesco a caricare il modello anatomico.');return response.json();})
@@ -103,8 +107,8 @@ export default function OraOverlay(){
       explode:0,reset:s.reset+1}));
    })
    .catch(e=>{if(!controller.signal.aborted)setError(String(e?.message||'Atlante non disponibile.'));});
-  return()=>{controller.abort();document.documentElement.style.removeProperty('--ora-person-offset');};
- },[detected,focusX]);
+  return()=>{controller.abort();};
+ },[detected]);
  const byId=useMemo(()=>new Map(atlas?.parts.map(p=>[p.id,p])),[atlas]);
  const active=state.selected.filter(id=>permittedIds.has(id)).map(id=>byId.get(id)).filter((part)=>!!part);
  const selected=active[0];
@@ -167,10 +171,23 @@ export default function OraOverlay(){
   setChosen(null);setBeforeInspect(null);setPiecePage(0);setExplodedZoom(1);
  };
  const title=chosen?.name||'Anatomia di riferimento';
+ const sceneAnchor=focusRegion===detected?anchor:null;
+ const meshAnnounced=React.useRef(false);
+ const reportProgress=(value:number)=>{
+  setProgress(value);
+  if(value>0&&!meshAnnounced.current&&window.parent!==window){
+   meshAnnounced.current=true;
+   window.parent.postMessage({type:'ora:anatomy-mesh-ready',version:1},'*');
+  }
+ };
+ const reportError=(value:string)=>{
+  setError(value);
+  if(window.parent!==window)window.parent.postMessage({type:'ora:anatomy-error',version:1},'*');
+ };
  const displayedExplosion=state.isolate&&beforeInspect?beforeInspect.explode:state.explode;
  return <main className="ora-overlay" data-testid="ora-bodyparts-inline" aria-label="Anatomia 3D in sovrimpressione, modello didattico">
-   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:renderedIds,detailZoom,explodedZoom,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
-     onProgress={setProgress} onError={setError}/>}
+   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:renderedIds,detailZoom,explodedZoom,anchor:sceneAnchor,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
+     onProgress={reportProgress} onError={reportError}/>}
    <div className="ora-overlay-header">
     <div className="ora-overlay-label"><strong>ORA · {STUDY_LABEL[focusRegion].toLocaleUpperCase('it')} 3D</strong>
      <span data-testid="ora-inline-region-label">{focusRegion===detected?'ZONA RILEVATA · MODELLO DIDATTICO':'VISTA AMPLIATA · MODELLO DIDATTICO'}</span></div>
@@ -280,9 +297,8 @@ export default function OraOverlay(){
     <button type="button" onClick={reset} data-testid="ora-inline-reset">Ricomponi</button>
     <button type="button" onClick={()=>setAboutOpen(v=>!v)} aria-expanded={aboutOpen} aria-label="Informazioni e licenza">ⓘ</button>
    </div>
-   {progress<100&&!error&&<div className="ora-overlay-loading" role="status" data-testid="ora-inline-loading">
-    <strong>Preparo il corpo umano 3D…</strong><span>{progress}%</span>
-   </div>}
+   {progress<100&&!error&&<div className="ora-overlay-streaming" role="status"
+     data-testid="ora-inline-loading">Dettagli anatomici in arrivo · {progress>0?'modello visibile':'anteprima illustrativa'}</div>}
    {availabilityWarning&&<div role="status" className="ora-overlay-loading ora-overlay-error"
     data-testid="ora-inline-region-unavailable">
     Non trovo sufficienti componenti BodyParts3D per questa zona. Puoi espandere la visualizzazione.
