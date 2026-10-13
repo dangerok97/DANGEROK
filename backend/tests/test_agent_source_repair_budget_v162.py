@@ -97,6 +97,79 @@ async def test_exhausted_worker_reschedules_one_owned_review_without_replanning_
 
 
 @pytest.mark.asyncio
+async def test_rejected_result_does_not_trigger_immediate_replanning_even_with_budget_left(monkeypatch):
+    db, service, goal, plan, step, run, budget = await fixture(
+        failure="preparation_reference_leak",
+    )
+    budget.started_at = datetime.now(timezone.utc).isoformat()
+    budget.cognitive_calls = 1
+    monkeypatch.setattr(service, "_reconsider", AsyncMock(
+        side_effect=AssertionError("Only the next bounded pass may reconsider"),
+    ))
+    result = await service._do_step(OWNER, goal, plan, step, run, budget, language="it")
+    assert result["state"] == "in_progress"
+    service._reconsider.assert_not_awaited()
+    saved = await db.agent_plans.find_one({"owner_id": OWNER, "goal_id": goal.id})
+    assert saved["steps"][0]["status"] == "pending"
+    assert saved["steps"][0]["attempts"] == 1
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{goal.id}", "status": "pending",
+    }) == 1
+    assert await db.agent_action_attempts.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_insufficient_reserved_cognitive_calls_pause_before_consume_attempt_or_model(monkeypatch):
+    monkeypatch.setenv("ORA_PREPARATION_BLIND_CHALLENGE", "1")
+    db, service, goal, plan, step, run, budget = await fixture()
+    budget.started_at = datetime.now(timezone.utc).isoformat()
+    budget.cognitive_calls = 6
+    budget.max_cognitive_calls = 8
+    service.executor.run = AsyncMock(
+        side_effect=AssertionError("The model/preparation must not start"),
+    )
+    replan = AsyncMock(side_effect=AssertionError("No immediate replan"))
+    monkeypatch.setattr(service, "_reconsider", replan)
+    result = await service._do_step(OWNER, goal, plan, step, run, budget, language="it")
+    assert result["ok"] is True and result["state"] == "in_progress"
+    service.executor.run.assert_not_awaited()
+    replan.assert_not_awaited()
+    assert budget.cognitive_calls == 6 and budget.steps_executed == 0
+    assert run.steps_executed == 0
+    saved = await db.agent_plans.find_one({"owner_id": OWNER, "goal_id": goal.id})
+    assert saved["steps"][0]["status"] == "pending"
+    assert saved["steps"][0]["attempts"] == 0
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{goal.id}", "status": "pending",
+    }) == 1
+    assert (await db.agent_goals.find_one({"owner_id": OWNER}))["prepared_text"] == ""
+    assert await db.agent_action_attempts.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_preparation_reservation_does_not_override_future_explicit_defer(monkeypatch):
+    monkeypatch.setenv("ORA_PREPARATION_BLIND_CHALLENGE", "1")
+    db, service, goal, plan, step, run, budget = await fixture()
+    budget.started_at = datetime.now(timezone.utc).isoformat()
+    budget.cognitive_calls, budget.max_cognitive_calls = 7, 8
+    deferred = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
+    await db.agent_goals.update_one(
+        {"owner_id": OWNER, "id": goal.id},
+        {"$set": {"user_deferred_until": deferred, "next_run_at": deferred, "status": "waiting"}},
+    )
+    service.executor.run = AsyncMock(
+        side_effect=AssertionError("Do not act after user deferral"),
+    )
+    result = await service._do_step(OWNER, goal, plan, step, run, budget, language="it")
+    assert result["state"] == "user_deferred"
+    service.executor.run.assert_not_awaited()
+    assert await db.ambient_wakes.count_documents({}) == 0
+    current = await db.agent_goals.find_one({"owner_id": OWNER, "id": goal.id})
+    assert current["user_deferred_until"] == deferred
+    assert current["next_run_at"] == deferred
+
+
+@pytest.mark.asyncio
 async def test_corrective_review_retry_is_bounded_by_original_step_attempt_cap(monkeypatch):
     db, service, goal, plan, step, run, budget = await fixture(attempts=2)
     reconsider = AsyncMock(return_value={"ok": True, "state": "replan_required"})
