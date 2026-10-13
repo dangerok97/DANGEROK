@@ -128,29 +128,41 @@ class CloudConfig:
 
     async def send_proactive(
         self, recipient: str, *, message: str = "",
-        template: tuple[str, str] | None = None,
+        template: tuple[str, str] | tuple[str, str, str] | None = None,
     ) -> str:
         """Return Meta message id for a permitted alert; not proof of delivery.
 
         A registered approved template is required outside the customer
-        service window. That policy is enforced by the owner-scoped worker
-        before this function; this method accepts only a vetted template
-        name/language and does not invent components.
+        service window. The owner-scoped worker verifies APPROVED, UTILITY
+        and the exact single-body-variable contract before this function binds
+        the verified summary to that slot. No unverified components.
         """
         if not re.fullmatch(r"[1-9][0-9]{6,14}", recipient):
             raise ValueError("invalid_whatsapp_recipient")
         data = {"messaging_product": "whatsapp",
                 "recipient_type": "individual", "to": recipient}
         if template is not None:
-            name, language = template
+            if len(template) not in (2, 3):
+                raise ValueError("invalid_template_shape")
+            name, language = template[:2]
             if not re.fullmatch(r"[a-z][a-z0-9_]{0,120}", name) or not re.fullmatch(
                 r"[a-z]{2}(?:_[A-Z]{2})?", language
             ):
                 raise ValueError("invalid_approved_template_reference")
-            data.update({
-                "type": "template",
-                "template": {"name": name, "language": {"code": language}},
-            })
+            payload = {"name": name, "language": {"code": language}}
+            if len(template) == 3:
+                detail = template[2]
+                if (
+                    not isinstance(detail, str)
+                    or not detail.strip() or len(detail) > 500
+                    or "{{" in detail or "}}" in detail
+                    or any(ord(ch) < 32 and ch not in "\n\t" for ch in detail)
+                ):
+                    raise ValueError("invalid_template_detail_parameter")
+                payload["components"] = [{
+                    "type": "body", "parameters": [{"type": "text", "text": detail}]
+                }]
+            data.update({"type": "template", "template": payload})
         else:
             if not isinstance(message, str) or not message.strip():
                 raise ValueError("empty_alert")
