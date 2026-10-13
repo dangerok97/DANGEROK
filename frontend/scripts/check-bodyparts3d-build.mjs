@@ -170,6 +170,16 @@ assert.doesNotMatch(technicalScene,/color:SYSTEMS\.find\(s=>s\.id===system\)/);
 assert.match(technicalAtlas,/const ORA_SYSTEM_BLUE/);
 assert.match(technicalAtlas,/system\.color=ORA_SYSTEM_BLUE/);
 assert.match(blueprintSource,/const EDGE_LIMIT=20,EDGE_CACHE_LIMIT=42/);
+assert.match(technicalScene,/const explodedPage=oraInline&&latest\.current\.explode>=\.50/);
+assert.match(technicalScene,/visibleIds\.has\(part\.id\)&&data\[i\*4\+3\]>/);
+assert.match(technicalScene,/area\.union\(bounds\[i\]\.clone\(\)\.translate\(/);
+assert.match(technicalScene,/lastOverviewZoom=s\.explodedZoom/);
+assert.match(technicalScene,/s\.explode>=\.50&&!s\.isolate&&!moving\)fit\(s\.view/);
+assert.match(technicalScene,/camera\.setViewOffset\(w,h/);
+assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-in"/);
+assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-out"/);
+assert.match(oraOverlay,/data-testid="ora-inline-page-recenter"/);
+assert.match(oraOverlay,/explodedZoom,inspectorOpen:Boolean\(chosen\)/);
 console.log('ORA_BLUEPRINT_RENDERER '+JSON.stringify({
  style:'ORA blue technical',edges:'real THREE.EdgesGeometry',
  maximumVisibleOutlinedParts:20,maximumCachedOutlinedParts:42,
