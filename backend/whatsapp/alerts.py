@@ -139,9 +139,14 @@ async def set_detail_preference(db, user_id: str, enabled: bool) -> dict:
         update["$unset"] = {
             "details_opted_in_at": "", "details_opt_in_source": "",
         }
-    await db.whatsapp_links.update_one(
-        {"user_id": user_id, "phone_hash": link["phone_hash"]}, update
-    )
+    match = {"user_id": user_id, "phone_hash": link["phone_hash"]}
+    if enabled:
+        # Consent may be revoked concurrently with this request.
+        match.update({"notifications_enabled": True,
+                      "opted_in_at": {"$exists": True}})
+    result = await db.whatsapp_links.update_one(match, update)
+    if result.matched_count != 1:
+        raise ValueError("whatsapp_alerts_not_enabled" if enabled else "whatsapp_not_linked")
     return {"notifications_detail_enabled": bool(enabled)}
 
 
