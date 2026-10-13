@@ -19,6 +19,33 @@ from scripts import autonomy_completion_eval_v162 as gate
 CHECKS = {"preconditions", "semantic", "home", "replay", "owner_isolation", "isolation"}
 
 
+@pytest.mark.parametrize("candidate,reasons", [
+    (
+        "Confronto secondo quanto riferito dalla persona: su 12 mesi, "
+        "il mensile vale 180 euro, l'annuale 120 euro e la differenza è 60 euro. "
+        "L'annuale non prevede rimborso. Dati non verificati dal fornitore.",
+        [],
+    ),
+    (
+        "Su 12 mesi il mensile vale 180 euro, l'annuale 120 euro e la differenza "
+        "è 60 euro. L'annuale non prevede rimborso. Dati non verificati dal fornitore.",
+        ["INTERNAL_SOURCE_NOT_ATTRIBUTED"],
+    ),
+    (
+        "Confronto secondo quanto riferito dalla persona e dal record "
+        "mem_43262246ed92296b9353: su 12 mesi il mensile vale 180 euro, "
+        "l'annuale 120 euro e la differenza è 60 euro. L'annuale non prevede "
+        "rimborso. Dati non verificati dal fornitore.",
+        ["OPAQUE_EXECUTION_ID_EXPOSED"],
+    ),
+])
+def test_synthetic_semantic_oracle_accepts_personal_provenance_but_rejects_raw_ids(candidate, reasons):
+    result = gate.review_comparison(candidate)
+    assert result["reasons"] == reasons
+    assert result["passed"] is (not reasons)
+    assert result["human_review_still_required"] is True
+
+
 @pytest.fixture
 def missing_comparison(monkeypatch):
     # A deliberately incomplete model answer, with the original source and

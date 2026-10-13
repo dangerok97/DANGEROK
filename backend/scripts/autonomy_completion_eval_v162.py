@@ -1410,9 +1410,18 @@ def review_comparison(text, *, values=(180, 120, 60)):
             reasons.append(f"MISSING_COMPARISON_VALUE_{value}")
     if not re.search(r"\b12\b|dodici", text, re.I):
         reasons.append("PERIOD_NOT_PRESERVED")
+    # An attributed source can be described naturally without the word "nota".
+    # Require an explicit reported-by-person phrase, not a generic mention.
     if not re.search(r"\bnota\b|\bnote\s+(?:salvate|interne|registrate|dell['’]utente)\b|"
-                     r"dati.{0,35}(?:intern|utente)", text, re.I):
+                     r"dati.{0,35}(?:intern|utente)|"
+                     r"(?:riferit[oi]|dichiarat[oi])\s+(?:dall['’]utente|dalla\s+persona)\b",
+                     text, re.I):
         reasons.append("INTERNAL_SOURCE_NOT_ATTRIBUTED")
+    # Independent synthetic acceptance: a database handle is not a
+    # human-readable source, even with correct figures and limitation copy.
+    if re.search(r"(?<![A-Za-z0-9_])(?:mem|evd|gol|sit|prep)_[0-9a-f]{12,}(?![A-Za-z0-9_])",
+                 text, re.I):
+        reasons.append("OPAQUE_EXECUTION_ID_EXPOSED")
     if not re.search(r"non.{0,35}rimbors|senza.{0,20}rimborso|nessun.{0,20}rimborso", text, re.I):
         reasons.append("NONREFUNDABLE_CONSTRAINT_MISSING")
     if not re.search(r"non\s+(?:(?:è|sono)\s+)?(?:ancora\s+)?(?:stat\w*\s+)?"
