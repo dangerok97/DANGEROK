@@ -127,3 +127,5 @@ watchfiles==1.2.0
 websockets==16.1.1
 yarl==1.24.5
 zipp==4.1.0
+# Static loyalty-card decoding and exact read-back verification.
+zxing-cpp==3.1.1

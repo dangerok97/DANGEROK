@@ -236,3 +236,7 @@ ALL_ROUTERS.append(vision_xray_router)
 # Import errors must not mask a broken integration in staging.
 from whatsapp.router import router as whatsapp_router
 ALL_ROUTERS.append(whatsapp_router)
+
+# Static loyalty cards: existing authentication, isolated encrypted storage.
+from .loyalty_wallet import router as loyalty_wallet_router
+ALL_ROUTERS.append(loyalty_wallet_router)
