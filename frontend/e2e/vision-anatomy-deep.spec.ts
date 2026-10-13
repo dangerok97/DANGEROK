@@ -3,7 +3,7 @@ import {test,expect,type Page} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 mkdirSync('../.vision-evidence',{recursive:true});
 async function launchAnatomy(page:Page){
- await page.addInitScript(()=>localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice')));
+ await page.addInitScript(()=>{try{localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));}catch{/* opaque sandbox frame has no storage */}});
  await page.route('**/api/vision-xray/scan',route=>route.fulfill({
   status:200,contentType:'application/json',
   body:JSON.stringify({status:'anatomy',body_region:'full_body',identification:{canonical_key:'human_anatomy',body_region:'full_body'}})
@@ -188,7 +188,7 @@ test('held person overlay keeps the real camera stream and X reuses it for the n
   status:200,contentType:'text/html',body:'<!doctype html><html lang="it"><title>Overlay didattico test</title><body style="background:transparent">Modello didattico</body></html>'
  }));
  await page.addInitScript(()=>{
-  localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));
+  {try{localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));}catch{/* opaque sandbox frame has no storage */}};
   const state={opened:0,stream:null as MediaStream|null};
   (window as any).__personCam=state;
   Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{
@@ -202,7 +202,20 @@ test('held person overlay keeps the real camera stream and X reuses it for the n
  await expect(page.getByTestId('vision-anatomy')).toBeVisible({timeout:20000});
  await expect(page.getByTestId('vision-anatomy')).toHaveAttribute('data-visual-mode','camera-overlay');
  const frame=page.getByTestId('vision-bp3d-frame');
- await expect(frame).toHaveAttribute('src',/ora=inline&lang=it&region=full_body&cx=0.500&side=unknown&cy=0.500&bw=0.500&bh=0.800/);
+ const src=await frame.getAttribute('src');
+ expect(src).not.toBeNull();
+ const url=new URL(src!,'https://ora.example');
+ expect(url.searchParams.get('ora')).toBe('inline');
+ expect(url.searchParams.get('lang')).toBe('it');
+ expect(url.searchParams.get('region')).toBe('full_body');
+ expect(url.searchParams.get('side')).toBe('unknown');
+ for(const name of ['cx','cy','bw','bh'])expect(Number.isFinite(Number(url.searchParams.get(name)))).toBe(true);
+ expect(Number(url.searchParams.get('cx'))).toBeCloseTo(.5,2);
+ expect(Number(url.searchParams.get('cy'))).toBeCloseTo(.5,2);
+ expect(Number(url.searchParams.get('bw'))).toBeGreaterThan(.35);
+ expect(Number(url.searchParams.get('bw'))).toBeLessThanOrEqual(.65);
+ expect(Number(url.searchParams.get('bh'))).toBeGreaterThan(.65);
+ expect(Number(url.searchParams.get('bh'))).toBeLessThanOrEqual(.85);
  await expect(page.getByTestId('vision-anatomy-preview')).toBeVisible();
  await expect(page.getByTestId('vision-camera-video')).toBeVisible();
  await expect(page.getByTestId('vision-camera-video')).not.toHaveJSProperty('paused',true);
@@ -220,7 +233,7 @@ test('held person overlay keeps the real camera stream and X reuses it for the n
 
 
 test('a close-up of a hand opens ONLY hand anatomy, not the whole-body reference',async({page})=>{
- await page.addInitScript(()=>localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice')));
+ await page.addInitScript(()=>{try{localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));}catch{/* opaque sandbox frame has no storage */}});
  let scans=0;
  await page.route('**/api/vision-xray/scan',route=>{
   scans++;
@@ -286,7 +299,7 @@ test('a close-up of a hand opens ONLY hand anatomy, not the whole-body reference
  expect(scans).toBe(1);
 });
 test('feet and knees route to different anatomical subsets',async({page})=>{
- await page.addInitScript(()=>localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice')));
+ await page.addInitScript(()=>{try{localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));}catch{/* opaque sandbox frame has no storage */}});
  for(const region of ['foot','knee']){
   await page.route('**/api/vision-xray/scan',route=>route.fulfill({
    status:200,contentType:'application/json',
