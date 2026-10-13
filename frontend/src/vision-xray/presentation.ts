@@ -8,7 +8,7 @@ export type Point = [number, number];
 type Mesh = ReturnType<typeof geometry>;
 type Face = { points: Point[]; depth: number; light: number };
 type Projected = { key: string; index: number; points: Point[]; faces: Face[]; mesh: Mesh; depth: number; alpha: number; selected: boolean; bounds: [number,number,number,number]; badge?: Point };
-export type PresentationOptions = { progress: number; yaw: number; pitch: number; selected: string; focus: number; zoom: number; origin?: {box:Box; mix:number}; tour?: {step:TourStep; phase:number} };
+export type PresentationOptions = { progress: number; yaw: number; pitch: number; selected: string; focus: number; zoom: number; origin?: {box:Box; mix:number;rotation?:number}; tour?: {step:TourStep; phase:number} };
 const lerp = (a: number, b: number, t: number) => a+(b-a)*t;
 function ring(m: Mesh, points: Vec3[]) {
   const start=m.v.length; m.v.push(...points);
@@ -150,7 +150,17 @@ export class VisionPresentation {
     this.manifest.parts.forEach((p,i)=>{const offset=rotate(p.assembled,opts.yaw,opts.pitch);rotated[i].forEach(v=>assembledEnvelope.push([v[0]+offset[0],v[1]+offset[1]]));});
     const [al,at,ar,ab]=bounds(assembledEnvelope);
     const origin=opts.origin;
-    const originScale=origin?Math.min(origin.box[2]*w/Math.max(1,ar-al),origin.box[3]*h/Math.max(1,ab-at)):s;
+    // Initial assembled drawing follows the major axis of the real pixel mask,
+    // but the parts remain schematic. No 3D pose or camera depth is inferred.
+    const originAngle=origin?.rotation||0;
+    const sin=Math.sin(originAngle),cos=Math.cos(originAngle);
+    const rotatedAssembly=assembledEnvelope.map(([x,y]):Point=>{
+      const dx=x-(al+ar)/2,dy=-(y-(at+ab)/2);
+      return [dx*cos-dy*sin,dx*sin+dy*cos];
+    });
+    const [oL,oT,oR,oB]=bounds(rotatedAssembly);
+    const originScale=origin?Math.min(origin.box[2]*w*.89/Math.max(1,oR-oL),
+      origin.box[3]*h*.89/Math.max(1,oB-oT)):s;
     const originMix=origin?Math.max(0,Math.min(1,origin.mix)):1;
     this.projected=this.meshes.map((mesh,i)=>{
       const part=this.manifest.parts[i],active=i===selectedIndex,pos=positions[i];
@@ -159,8 +169,10 @@ export class VisionPresentation {
         const perspective=850/(850-Math.min(350,Math.max(-350,(v[2]+pos[2])*s)));
         const x=(v[0]+pos[0]-midX)*s*perspective,y=-(v[1]+pos[1]-midY)*s*perspective;
         const study:Point=[cx+x*zoom,cy+y*zoom];
-        const source:Point=origin?[(origin.box[0]+origin.box[2]/2)*w+(v[0]+pos[0]-(al+ar)/2)*originScale,
-          (origin.box[1]+origin.box[3]/2)*h-(v[1]+pos[1]-(at+ab)/2)*originScale]:study;
+        const dx=v[0]+pos[0]-(al+ar)/2,dy=-(v[1]+pos[1]-(at+ab)/2);
+        const source:Point=origin?[(origin.box[0]+origin.box[2]/2)*w+
+             (dx*cos-dy*sin)*originScale,
+          (origin.box[1]+origin.box[3]/2)*h+(dx*sin+dy*cos)*originScale]:study;
         const base:Point=[lerp(source[0],study[0],originMix),lerp(source[1],study[1],originMix)];
         if(active){
           const k=1000/(1000-Math.min(350,Math.max(-350,v[2]*focusScale)));

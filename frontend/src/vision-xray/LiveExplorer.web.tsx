@@ -12,12 +12,28 @@ import type {Box} from './scene';
 import {CameraTorch, type TorchState, TORCH_UNAVAILABLE, cameraCrop, sameCrop, drawCameraCrop, clampCameraZoom} from './cameraControls';
 import {filterCatalog} from './catalogSearch';
 import {AnatomyExplorer} from './AnatomyExplorer.web';
+import {ScanOutline} from './ScanOutline.web';
+import {extractPixelContour,projectPixelContour,relocateContour,type PixelContour} from './pixelContour';
 import {projectAnatomyAnchor,sameAnatomyAnchor,type AnatomyCaptureAnchor} from './anatomyCameraAnchor';
 import {warmAnatomyReference} from './anatomyWarmup.web';
 import type {BodyRegion} from './anatomyFocus';
 
 type Mode = 'idle' | 'opening' | 'live' | 'photo' | 'catalog';
 const sleep = (ms:number) => new Promise<void>(resolve=>setTimeout(resolve,ms));
+/** Analyze only the recognized still frame, never an invented template mask.
+ * Small, bounded RGBA buffers keep the CPU cost low even on mobile. */
+function pixelScan(snapshot:HTMLCanvasElement,box:Box):PixelContour|null{
+ try{
+  const scale=Math.min(1,192/Math.max(snapshot.width,snapshot.height));
+  const sample=document.createElement('canvas');
+  sample.width=Math.max(48,Math.round(snapshot.width*scale));
+  sample.height=Math.max(48,Math.round(snapshot.height*scale));
+  const context=sample.getContext('2d',{willReadFrequently:true});
+  if(!context)return null;
+  context.drawImage(snapshot,0,0,sample.width,sample.height);
+  return extractPixelContour(context.getImageData(0,0,sample.width,sample.height),box);
+ }catch{return null;}
+}
 function difference(a:GrayFrame|null,b:GrayFrame|null){
   if(!a||!b||a.data.length!==b.data.length)return 1;
   let d=0;for(let i=0;i<a.data.length;i+=8)d+=Math.abs(a.data[i]-b.data[i]);
@@ -32,6 +48,9 @@ export default function LiveExplorer(){
   const [anatomySide,setAnatomySide]=useState<'left'|'right'|'unknown'>('unknown');
   const [anatomyBox,setAnatomyBox]=useState<Box|null>(null);
   const anatomyCapture=useRef<AnatomyCaptureAnchor|null>(null);
+  const scanCapture=useRef<(AnatomyCaptureAnchor&{shape:PixelContour|null})|null>(null);
+  const [scanContour,setScanContour]=useState<PixelContour|null>(null);
+  const [scanArea,setScanArea]=useState<Box|null>(null);
   const [anatomyPosePoints,setAnatomyPosePoints]=useState<Record<string,[number,number]>|null>(null);
   const anatomyActiveRef=useRef(false);
   const [stage,setStage]=useState('Inquadra. Esplora. Capisci.');
@@ -78,7 +97,7 @@ export default function LiveExplorer(){
   const selectedRef=useRef('');
   const view=useRef({progress:0,target:1,yaw:.46,pitch:-.22,zoom:1,focus:0,focusTarget:0,reduceMotion:false});
   const gestures=useRef(new VisionGestures());
-  const arrival=useRef<{elapsed:number;box:Box|null;sw:number;sh:number}|null>(null);
+  const arrival=useRef<{elapsed:number;box:Box|null;sw:number;sh:number;rotation:number}|null>(null);
   const tour=useRef<{definition:Walkthrough;clock:TourClock;before:typeof view.current}|null>(null);
   // Geometry can change after the photo analysis: once the retry controls
   // disappear, the stage grows. Always project the saved source ROI against
@@ -104,6 +123,32 @@ export default function LiveExplorer(){
     observer.observe(element);
     return()=>observer.disconnect();
   },[anatomyActive,cameraZoom]);
+  // A saved silhouette belongs to the recognized capture. Reproject on stage
+  // resize and camera crop changes; do not rescan every frame or hallucinate
+  // edges if the subject subsequently leaves the camera.
+  useEffect(()=>{
+    if(!anatomyActive&&!result?.manifest)return;
+    const element=stageElement.current;if(!element)return;
+    const sync=()=>{
+      const capture=scanCapture.current;if(!capture)return;
+      const rect=element.getBoundingClientRect();if(rect.width<1||rect.height<1)return;
+      try{
+        const viewCrop=cameraCrop(capture.sourceWidth,capture.sourceHeight,
+          rect.width,rect.height,capture.photo?1:cameraZoomRef.current);
+        const projected=capture.shape?projectPixelContour(capture.shape,capture.capturedCrop,viewCrop):null;
+        setScanContour(prev=>{
+          if(!projected)return prev===null?prev:null;
+          if(prev&&sameAnatomyAnchor(prev.box,projected.box,.001)&&
+            Math.abs(prev.tilt-projected.tilt)<.001)return prev;
+          return projected;
+        });
+        const fallback=projectAnatomyAnchor(capture,viewCrop);
+        setScanArea(prev=>sameAnatomyAnchor(prev,fallback)?prev:fallback);
+      }catch{setScanContour(null);}
+    };
+    sync();const observer=new ResizeObserver(sync);observer.observe(element);
+    return()=>observer.disconnect();
+  },[anatomyActive,result?.version_id,cameraZoom]);
   const finishArrival=useCallback(()=>{if(arrival.current){arrival.current=null;view.current.progress=1;}},[]);
   const endTour=useCallback((restore=true)=>{
     const active=tour.current;if(active){active.clock.stop();if(restore){const reduced=view.current.reduceMotion;Object.assign(view.current,active.before,{reduceMotion:reduced});if(alive.current){setOpening(Math.round(view.current.target*100));setExpanded(view.current.target>.5);}}}
@@ -136,17 +181,18 @@ export default function LiveExplorer(){
     if(photoObjectURL.current)URL.revokeObjectURL(photoObjectURL.current);
     photoObjectURL.current=null;photo.current=null;modeRef.current='idle';
     busyRef.current=false;nextScan.current=Infinity;scene.current=null;heldResult.current=null;scanReference.current=null;
+    scanCapture.current=null;setScanContour(null);setScanArea(null);
     resetView();objectHintRef.current='';
     anatomyActiveRef.current=false;anatomyCapture.current=null;
     if(alive.current){setAnatomyActive(false);setAnatomyRegion('full_body');setAnatomyBox(null);setAnatomyPosePoints(null);setAnatomyPosePoints(null);setCanHint(false);setObjectHint('');setMode('idle');setBusy(false);setResult(null);setPhotoURL(null);setInfoOpen(false);setAnatomyBox(null);setCameraZoomUI(1);setCameraPanel(false);setTorchUI({supported:false,on:false,busy:false,message:TORCH_UNAVAILABLE});}
   },[resetView]);
-  const apply=useCallback((value:CatalogResult,origin?:{box:Box;sw:number;sh:number}|null)=>{
+  const apply=useCallback((value:CatalogResult,origin?:{box:Box;sw:number;sh:number;rotation?:number}|null)=>{
     if(!value.manifest||!value.version_id)return;
     if(heldResult.current?.version_id!==value.version_id){
       scene.current=new VisionPresentation(value.manifest);resetView();
       view.current.progress=view.current.reduceMotion?1:0;
     }
-    if(modeRef.current!=='catalog')arrival.current={elapsed:0,box:origin?.box||null,sw:origin?.sw||1,sh:origin?.sh||1};
+    if(modeRef.current!=='catalog')arrival.current={elapsed:0,box:origin?.box||null,sw:origin?.sw||1,sh:origin?.sh||1,rotation:origin?.rotation||0};
     heldResult.current=value;setResult(value);setCanHint(false);
     setStage(modeRef.current==='catalog'?'Anteprima catalogo · non è un riconoscimento':'Schema fissato · tocca una parte');
     nextScan.current=Infinity;
@@ -192,11 +238,31 @@ export default function LiveExplorer(){
       const identification=value.identification;
       if(value.status==='anatomy'){
         const recognizedBox=value.identification?.bbox||null;
-        const anchor:AnatomyCaptureAnchor|null=recognizedBox?{
-         box:recognizedBox,sourceWidth:rawWidth,sourceHeight:rawHeight,
+        let trackedBox=recognizedBox,contour:PixelContour|null=null;
+        if(recognizedBox){
+          contour=pixelScan(snapshot,recognizedBox);
+          if(identification?.confidence==='medium'&&contour!==null&&contour.confidence<.78)contour=null;
+          if(liveCapture){
+            const freshRect=stageElement.current?.getBoundingClientRect();
+            const fresh=cameraCrop(rawWidth,rawHeight,freshRect?.width||rawWidth,
+              freshRect?.height||rawHeight,cameraZoomRef.current);
+            const gray=sc&&video.current&&sameCrop(crop,fresh)?(
+              drawCameraCrop(sc,video.current,fresh,small.width,small.height),
+              grayFrame(sc.getImageData(0,0,small.width,small.height))):null;
+            trackedBox=currentBox(scanReference.current,gray,recognizedBox);
+            contour=trackedBox&&contour?relocateContour(contour,recognizedBox,trackedBox):null;
+          }
+        }
+        const finalBox=contour?.box||trackedBox||recognizedBox;
+        const anchor:AnatomyCaptureAnchor|null=finalBox?{
+         box:finalBox,sourceWidth:rawWidth,sourceHeight:rawHeight,
          capturedCrop:crop,photo:!liveCapture,zoom:cameraZoomRef.current
         }:null;
-        if(epoch.current===ticket&&alive.current) activateAtlas(value.body_region||value.identification?.body_region||'full_body',value.identification?.pose_points||null,recognizedBox,value.identification?.body_side||value.body_side||'unknown',anchor);
+        scanCapture.current=anchor?{...anchor,shape:contour}:null;
+        if(epoch.current===ticket&&alive.current)
+          activateAtlas(value.body_region||value.identification?.body_region||'full_body',
+            value.identification?.pose_points||null,finalBox,
+            value.identification?.body_side||value.body_side||'unknown',anchor);
         return;
       }
       for(let attempt=0;value.status==='building'&&attempt<12;attempt++){
@@ -220,7 +286,19 @@ export default function LiveExplorer(){
             }
           }
         }
-        apply(value,box?{box,sw,sh}:null);
+        const detected=value.identification?.bbox||null;
+        let contour=detected?pixelScan(snapshot,detected):null;
+        if(identification?.confidence==='medium'&&contour!==null&&contour.confidence<.78)contour=null;
+        // The asynchronous AI response may arrive after the object moved.
+        // A live outline is only valid if the frozen frame was revalidated.
+        if(liveCapture){
+          contour=contour&&detected&&box?relocateContour(contour,detected,box):null;
+        }
+        const sourceBox=contour?.box||box;
+        scanCapture.current=sourceBox&&modeRef.current!=='catalog'?{
+          box:sourceBox,shape:contour,sourceWidth:rawWidth,sourceHeight:rawHeight,
+          capturedCrop:crop,photo:!liveCapture,zoom:cameraZoomRef.current}:null;
+        apply(value,sourceBox?{box:sourceBox,sw,sh,rotation:contour?.tilt||0}:null);
       }
       else{scene.current=null;heldResult.current=null;setResult(null);setCanHint(value.can_hint===true||value.error_code==='object_uncertain');setStage(value.reason||'Ricostruzione in corso. Premi Riprova per verificarla.');nextScan.current=performance.now()+6000;}
     }catch(e:any){
@@ -271,6 +349,7 @@ export default function LiveExplorer(){
     // Dismiss only the model. Keep the stream and invalidate every old AI reply.
     epoch.current++;request.current?.abort();request.current=null;busyRef.current=false;
     scene.current=null;heldResult.current=null;scanReference.current=null;resetView();
+    scanCapture.current=null;setScanContour(null);setScanArea(null);
     anatomyActiveRef.current=false;anatomyCapture.current=null;setAnatomyActive(false);setAnatomyRegion('full_body');
     objectHintRef.current='';setObjectHint('');setCanHint(false);
     setResult(null);setBusy(false);setError(null);setInfoOpen(false);setLibraryOpen(false);setCameraPanel(false);
@@ -336,13 +415,13 @@ export default function LiveExplorer(){
         }
       }
       const settings=view.current;
-      let origin:{box:Box;mix:number}|undefined;
+      let origin:{box:Box;mix:number;rotation?:number}|undefined;
       if(arrival.current){
         arrival.current.elapsed+=elapsed;
         const state=arrivalAt(arrival.current.elapsed,settings.reduceMotion);
         settings.progress=state.progress;
         const box=arrival.current.box?originInView(arrival.current.box,arrival.current.sw,arrival.current.sh,w,h):null;
-        if(box&&state.active)origin={box,mix:state.mix};
+        if(box&&state.active)origin={box,mix:state.mix,rotation:arrival.current.rotation};
         if(!state.active)arrival.current=null;
       }else settings.progress=approach(settings.progress,settings.target,elapsed,settings.reduceMotion);
       const activeTour=tour.current;
@@ -430,7 +509,8 @@ export default function LiveExplorer(){
       {photoURL&&<img src={photoURL} alt="Foto scelta per l’analisi" className="vx-photo"/>}
       <div className={'vx-shade '+(result?'vx-shade-result':anatomyActive?'vx-shade-anatomy':'')}/>
       <canvas ref={canvas} className="vx-canvas" data-testid="vision-scene" tabIndex={result||live?0:-1} aria-label={result?"Scena 3D: trascina per ruotare, due dita per ingrandire i componenti.":"Fotocamera: due dita per lo zoom digitale. I comandi sono disponibili anche nei pulsanti."} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={e=>onUp(e,true)} onLostPointerCapture={e=>{gestures.current.up(e.pointerId,e.clientX,e.clientY,true);}} onKeyDown={keyboard}/>
-      {anatomyActive&&<AnatomyExplorer region={anatomyRegion} bodySide={anatomySide} posePoints={anatomyPosePoints} anchorBox={anatomyBox} onClose={closeAtlas}/>}
+      {anatomyActive&&<AnatomyExplorer region={anatomyRegion} bodySide={anatomySide} posePoints={anatomyPosePoints} anchorBox={anatomyBox} hasPixelContour={Boolean(scanContour)} onClose={closeAtlas}/>} 
+      {(anatomyActive||result?.manifest)&&<ScanOutline contour={scanContour} box={anatomyActive?null:scanArea} label={anatomyActive?'ANATOMIA':'OGGETTO'}/>}
       <div className="vx-topline"><span className={'vx-tag '+(live?'vx-tag-live':'')}>{live?'● LIVE':mode==='photo'?'FOTO':mode==='catalog'?'CATALOGO':'VISION X-RAY'}</span><button className="vx-evidence" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}} aria-label="Informazioni sullo schema indicativo">Schema indicativo ⓘ</button></div>
       {(mode==='idle'||mode==='opening')&&!result&&!anatomyActive&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
       {result?.manifest&&<><button className="vx-close-model" data-testid="vision-close-model" aria-label="Chiudi la scomposizione e scansiona un altro oggetto" title="Scansiona un altro oggetto" onClick={newObject}>×</button><div className={'vx-object-title'+(focused&&!tourUI?' is-focus':'')}><strong>{focused&&!tourUI&&currentPart?currentPart.name:result.manifest.title}</strong><small>{tourUI?'PERCORSO DIDATTICO':focused?'COMPONENTE TIPICO':result.manifest.parts.length+' parti'}</small></div><div className="vx-zoom" aria-label="Zoom della scomposizione"><button aria-label="Riduci lo zoom" data-testid="vision-zoom-out" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom/1.25);}}>−</button><button aria-label="Aumenta lo zoom" data-testid="vision-zoom-in" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom*1.25);}}>+</button></div></>}
