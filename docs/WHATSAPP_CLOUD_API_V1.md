@@ -80,3 +80,14 @@ con la sola variabile WHATSAPP_VERIFY_TOKEN gia' impostata, Meta puo' eseguire
 Questo NON abilita il traffico in ingresso: i POST richiedono ancora una firma
 Meta valida, l'App Secret, l'access token e un Phone Number ID coerente.
 Non disattivare la verifica X-Hub-Signature-256 per far passare i test.
+
+
+## Aggiornamento audit 13 ottobre 2026 — prevale su limitazioni V1 obsolete
+
+La sezione «Stato reale» sopra documenta la prima V1, **non** lo stato corrente del codice. Sul ramo `staging/cloud` sono ora presenti `whatsapp/media.py`, `whatsapp/parity.py`, `whatsapp/handoff.py`, `whatsapp/alerts.py` e il worker separato degli avvisi. Il bridge gestisce nel codice messaggi di testo, immagini, documenti, vocali trascritti, pin e risposte interattive. Sono implementati anche consenso/revoca per notifiche proattive e controllo dell'approvazione dei template Meta; la riuscita della consegna non è certificata dal solo codice.
+
+**Parità applicativa:** WhatsApp e app usano `AICoreOrchestrator` e il catalogo `ToolRegistry` condivisi. Una nuova skill registrata nell'AI Core non deve essere duplicata nel bridge. Questo garantisce la stessa *scoperta delle capacità*, non la riuscita di tutte le azioni: accesso ai sensori, permessi sul dispositivo, conferme e UI richiedono un collegamento autenticato all'app. Non inventare che WhatsApp abbia GPS live o autorizzazioni del telefono.
+
+**Gate prima di dichiarare l'integrazione completa:** CI sulla revisione corrente; collaudo su numero reale di collegamento, isolamento tra utenti, conversazione multipla, memoria, foto, PDF, vocali, pin e navigazione; operazioni calendario con audit e autorizzazione; prova di opt-in/STOP, template UTILITY Meta APPROVED, ricevute di consegna; simulazione di webhook duplicato, errore rete, cambio account e retry senza doppie azioni. Un manifesto di skill o risposta HTTP 200 del webhook non sostituisce queste prove.
+
+**Vincolo di compatibilità:** mantenere intatta la telefonia Vonage. WhatsApp non sostituisce l'app ORA né costituisce un secondo motore conversazionale.
