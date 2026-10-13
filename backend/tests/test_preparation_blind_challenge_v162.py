@@ -78,6 +78,11 @@ async def test_blind_critic_can_block_a_falsely_positive_first_audit_without_dat
     original["content"] = UNSUPPORTED
     original["claim_review"][0]["claim"] = UNSUPPORTED
     original["claim_review"][0]["support"] = "derived"
+    # Supply the complete separated-reasoning protocol, even though this
+    # initial audit deliberately draws the wrong positive conclusion.
+    original["claim_review"][0]["inference_or_gap"] = (
+        "The price evidence does not establish B's exit conditions."
+    )
     original["claim_review"][0]["compatible_counterexample"] = ""
     previous = "Bozza precedente valida."
     h.goal.prepared_text, h.goal.prepared_sources = previous, [h.sources[0].id]
