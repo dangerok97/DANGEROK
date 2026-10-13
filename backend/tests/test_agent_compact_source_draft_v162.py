@@ -36,6 +36,10 @@ async def test_short_source_draft_and_audit_keep_compact_attributed_comparison(m
     assert len(messages) == 2
     draft_prompt, draft_payload = messages[0]
     audit_prompt, audit_payload = messages[1]
+    assert "Opaque internal handles such as mem_, evd_, gol_, sit_ and prep_" in draft_prompt
+    assert "never in a user-facing content sentence" in draft_prompt
+    assert "never in a user-facing content sentence" in audit_prompt
+    assert "structured source_refs/evidence_ids" in audit_prompt
     assert "aim for a complete draft under 1800 characters" in draft_prompt
     assert "does not allow omission of the useful calculation" in draft_prompt
     assert "comparison specifically requested from figures recorded by the user" in audit_prompt
