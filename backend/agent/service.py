@@ -92,17 +92,35 @@ def _source_read_prerequisite(goal, steps, evidence, capabilities):
     first_draft = next((index for index, step in enumerate(steps)
                         if step.status == "pending" and step.step_type == "prepare"
                         and step.capability_needed == "document.create"), None)
-    if first_draft is None or real_support(evidence):
+    if first_draft is None:
         return steps, ""
     from agent.memory_sources import memory_source_id
 
     memory_refs = list(dict.fromkeys(
         ref for ref in (goal.source_refs or []) if memory_source_id(ref)
     ))[:8]
+    memory_ids = {memory_source_id(ref) for ref in memory_refs}
+    if memory_ids:
+        # Unrelated weather, web or calendar evidence cannot validate a
+        # Memory-only claim merely because real_support(evidence) is true.
+        has_owned_read = any(
+            row.is_real and row.provenance.capability == "information.read"
+            and any(memory_source_id(ref) in memory_ids
+                    for ref in row.provenance.source_refs)
+            for row in evidence
+        )
+        if has_owned_read:
+            return steps, ""
+    elif real_support(evidence):
+        return steps, ""
+
     preceding = steps[:first_draft]
     if memory_refs:
         prior_read = any(
             step.step_type == "inspect" and step.capability_needed == "information.read"
+            and (not step.input_refs or any(
+                memory_source_id(ref) in memory_ids for ref in step.input_refs
+            ))
             for step in preceding
         )
     else:
@@ -1956,7 +1974,7 @@ class AgentService:
                       "expected_result", "external_effect", "effect_type", "effect_target",
                       "reaches_somebody_else", "reversibility", "asks", "ask_kind"}
             issues = {"wrong_type", "missing", "empty", "unsupported_field", "conflicting_alias",
-                      "unsupported_value", "invalid_shape"}
+                      "unsupported_value", "invalid_shape", "source_read_required"}
             kept = [{"index": item["index"], "field": item["field"], "issue": item["issue"]}
                     for item in errors[:1] if isinstance(item, dict)
                     and type(item.get("index")) is int and 0 <= item["index"] < MAX_PLAN_STEPS
