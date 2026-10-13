@@ -2,7 +2,7 @@
 import asyncio
 import copy
 import pytest
-from test_loyalty_wallet import service, card
+from tests.test_loyalty_wallet import service, card
 from loyalty_wallet import WalletError, render_code, decode_image
 
 
