@@ -673,7 +673,8 @@ export type WhatsAppLinkStatus = {
   notifications_enabled: boolean;
   notifications_detail_enabled: boolean;
   template_configured?: boolean;
-  template_approval_status?: 'approved_dynamic' | 'approved' | 'not_configured' | 'waba_not_configured' | 'pending' | 'rejected' | 'paused' | 'wrong_category' | 'requires_parameters' | 'not_found' | 'unverified';
+  template_scope?: 'recurring_memo' | null;
+  template_approval_status?: 'approved_dynamic' | 'approved' | 'not_configured' | 'waba_not_configured' | 'pending' | 'rejected' | 'paused' | 'wrong_category' | 'wrong_content' | 'requires_parameters' | 'not_found' | 'unverified';
   notification_channel_ready?: boolean;
   shared_ai_core?: boolean;
   shared_capability_count?: number | null;
