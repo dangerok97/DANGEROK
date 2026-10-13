@@ -13,9 +13,14 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 
 from deps import db, get_current_user
-from whatsapp.cloud import CloudConfig, WhatsAppNotConfigured, iter_inbound_messages
+from whatsapp.cloud import (
+    CloudConfig, WhatsAppNotConfigured,
+    iter_inbound_messages, iter_signed_delivery_statuses,
+)
+from whatsapp.alerts import set_opt_in, record_status, template_settings
 from whatsapp.service import WhatsAppService
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
@@ -42,6 +47,8 @@ async def whatsapp_status(user=Depends(get_current_user)):
             "phone_last4": None,
             "display_number": None,
             "notifications_enabled": False,
+            "template_configured": False,
+            "notification_channel_ready": False,
             # Credentials are missing, but the shared AI catalog still exists.
             # This is not a claim that the provider transport is usable.
             "shared_ai_core": True,
@@ -49,6 +56,37 @@ async def whatsapp_status(user=Depends(get_current_user)):
             "capability_contract_version": 1,
             "device_handoff_supported": True,
         }
+
+
+class NotificationConsentIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/notifications")
+async def set_whatsapp_notifications(
+    body: NotificationConsentIn, user=Depends(get_current_user),
+):
+    """Opt in or revoke ORA proactive WhatsApp messages independently of pairing."""
+    _config()
+    try:
+        return await set_opt_in(db, user["user_id"], body.enabled)
+    except ValueError as exc:
+        if str(exc) == "whatsapp_not_linked":
+            raise HTTPException(status_code=409, detail="whatsapp_not_linked") from exc
+        raise
+
+
+@router.get("/notifications/history")
+async def whatsapp_notification_history(user=Depends(get_current_user)):
+    """Bounded owner-only provider delivery statuses; never expose message bodies."""
+    owner = user["user_id"]
+    cursor = db.whatsapp_alert_outbox.find(
+        {"owner_id": owner}, {"_id": 0, "plan_id": 1, "status": 1,
+                             "created_at": 1, "accepted_at": 1,
+                             "meta_status_at": 1, "failure_code": 1},
+    ).sort("created_at", -1).limit(20)
+    return {"alerts": await cursor.to_list(20),
+            "template_configured": bool(template_settings())}
 
 
 @router.post("/link/start")
@@ -108,4 +146,8 @@ async def whatsapp_receive_webhook(request: Request):
             raise HTTPException(status_code=413, detail="too_many_messages")
         await svc.persist_incoming(message)
         count += 1
+    # Meta reports outgoing message receipt states in the *same signed
+    # webhook*, but they are not new inbound conversations.
+    for receipt in iter_signed_delivery_statuses(payload, config.phone_number_id):
+        await record_status(db, config, receipt)
     return Response(status_code=200)
