@@ -105,9 +105,10 @@ concreto. Quel comportamento non soddisfa il requisito di avviso utilizzabile.
   quando si invia). Se non contengono una **informazione concreta**,
   l'avviso generico non viene emesso. Niente importi, orari, valutazioni o
   collegamenti inventati.
-- Anche un piano personale/riservato può contenere una **sintesi pubblica
-  esplicitamente dichiarata** per le notifiche della schermata di blocco:
-  quella sintesi può arrivare su WhatsApp senza trasmettere il testo espanso.
+- Un piano **personale** può usare una sintesi pubblica esplicitamente
+  dichiarata sicura per la schermata di blocco. Per un piano classificato
+  **privato**, la notifica completa richiede sempre il secondo consenso;
+  un testo generico o un campo pubblico generato dal modello non è sufficiente.
 - In ORA → Connessioni e servizi → WhatsApp, la persona può abilitare
   **Mostra dettagli personali su WhatsApp** dopo aver già attivato gli avvisi.
   È un secondo consenso, **inizialmente disattivato**: consente anche
@@ -117,8 +118,9 @@ concreto. Quel comportamento non soddisfa il requisito di avviso utilizzabile.
   semplice collegamento del telefono, dal consenso agli avvisi o da un
   messaggio ambiguo del modello.
 - La disattivazione del secondo consenso torna immediatamente alla
-  versione pubblica: il worker rilegge la preferenza prima di ogni invio,
-  invece di riprodurre una vecchia copia privata accodata. STOP e la
+  versione pubblica quando consentita; i piani privati senza consenso sono
+  bloccati. Il worker rilegge la preferenza prima di ogni invio invece
+  di riprodurre una vecchia copia privata accodata. STOP e la
   disattivazione totale degli avvisi azzerano anche il consenso ai dettagli.
 - Se la fonte non è più attiva, è muta o non è verificabile, il messaggio
   non viene inviato. Restano deduplicazione, scadenza, isolamento account,
