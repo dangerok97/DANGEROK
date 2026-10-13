@@ -154,6 +154,41 @@ def _source_read_prerequisite(goal, steps, evidence, capabilities):
     return ordered, "added_owned_memory_read"
 
 
+def _pending_owned_source_read(goal, pending, evidence):
+    """Select an already planned, owned Memory read before a dependent draft.
+
+    A draft-first model choice must not bypass a source prerequisite merely
+    because unrelated weather, calendar or web evidence already exists.
+    Code selects only a pending information.read for exact goal-owned Memory
+    handles; it neither fabricates a source nor marks that read successful.
+    """
+    from agent.memory_sources import memory_source_id
+
+    wanted = {memory_source_id(ref) for ref in (goal.source_refs or [])}
+    wanted.discard("")
+    if not wanted or not any(
+        step.step_type == "prepare" and step.capability_needed == "document.create"
+        for step in pending
+    ):
+        return None
+    if any(
+        item.is_real and item.provenance.capability == "information.read"
+        and any(memory_source_id(ref) in wanted for ref in item.provenance.source_refs)
+        for item in evidence
+    ):
+        return None
+
+    for step in pending:
+        if step.step_type != "inspect" or step.capability_needed != "information.read":
+            continue
+        refs = [memory_source_id(ref) for ref in step.input_refs]
+        # An empty ref list uses the exact goal refs in the read provider.
+        # A model-supplied unknown or foreign handle is never forced by code.
+        if not refs or (all(refs) and set(refs).issubset(wanted)):
+            return step
+    return None
+
+
 class _PlanNotPossible(Exception):
     """A validated negative planning judgement, never an adapter failure."""
 
@@ -1212,6 +1247,12 @@ class AgentService:
             return ("finish", None)
 
         evidence = await self.evidence.for_goal(owner_id, goal.id)
+        required_read = _pending_owned_source_read(goal, pending, evidence)
+        if required_read is not None:
+            # The plan already owns this non-effecting prerequisite. Choosing
+            # another step here could publish a comparison of an unread note;
+            # force the actual read before spending a model call on ordering.
+            return ("execute", required_read)
         if not evidence:
             return ("execute", pending[0])
 
