@@ -1,7 +1,9 @@
 """Planning sees bounded recorded-work metadata, never an implicit source read.
 
 The service/store and installed Gemini SDK are real; HTTP answers are synthetic.
-This verifies transport and scope, not that a real model chooses a useful plan.
+The model reply is retained, while the execution gate may enforce a missing
+owned read or pause on an evidence-store outage. No fact is inferred from
+missing or unavailable data.
 """
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
@@ -62,7 +64,7 @@ async def record_other(db, goal, *, index=0, provider="synthetic_read", owner=OW
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("state", ["empty", "recorded", "unavailable"])
-async def test_actual_planner_sdk_separates_empty_recorded_and_unavailable_without_changing_plan(
+async def test_actual_planner_sdk_preserves_reply_but_enforces_source_read_dependency(
     monkeypatch, state,
 ):
     db = AsyncMongoMockClient().planning_inventory_sdk
@@ -89,8 +91,21 @@ async def test_actual_planner_sdk_separates_empty_recorded_and_unavailable_witho
 
     inventory = transported[0]["payload"]["context"]["executed_evidence"]
     assert len(transported) == 1 and budget.cognitive_calls == run.model_calls == 1
-    assert [step.step_type for step in plan.steps] == ["prepare"]
-    assert plan.steps[0].input_refs == REPLY["steps"][0]["input_refs"]
+    assert transported[0]["payload"]["goal"]["source_refs"] == [MEMORY]
+    if state == "empty":
+        # This is an intentional execution-layer correction, not a change
+        # to the model's JSON reply or a fake existing evidence record.
+        assert [step.step_type for step in plan.steps] == ["inspect", "prepare"]
+        assert plan.steps[0].capability_needed == "information.read"
+        assert plan.steps[0].input_refs == [MEMORY]
+        assert plan.steps[1].input_refs == REPLY["steps"][0]["input_refs"]
+    elif state == "recorded":
+        assert [step.step_type for step in plan.steps] == ["prepare"]
+        assert plan.steps[0].input_refs == REPLY["steps"][0]["input_refs"]
+    else:
+        assert plan is None and goal.planning_unavailable
+        assert run.stopped_because == "source_read_inventory_unavailable"
+        assert await service.repo.plan_for(OWNER, goal.id) is None
     assert await db.agent_evidence.count_documents({}) == before_records
     assert await db.agent_action_attempts.count_documents({}) == 0
     assert not goal.prepared_text
