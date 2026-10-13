@@ -141,6 +141,7 @@ assert.ok(translated.length/candidates.length>.80,
 // and tapping an individual piece isolates it while remembering the prior page.
 const oraOverlay=sourceFile('app/ora-overlay.tsx');
 assert.match(oraOverlay,/const EXPLODED_PAGE_SIZE=14/);
+assert.match(oraOverlay,/const EXPLODED_PAGE_THRESHOLD=\.50/);
 assert.match(oraOverlay,/data-testid="ora-inline-explosion-pager"/);
 assert.match(oraOverlay,/data-testid="ora-inline-return-explosion"/);
 assert.match(oraOverlay,/isolate:true,explode:0/);
