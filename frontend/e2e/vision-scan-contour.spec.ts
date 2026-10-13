@@ -4,7 +4,7 @@ import {test,expect,type Page} from '@playwright/test';
 const headers={Authorization:'Bearer vision-test-alice'};
 const box=[.23,.20,.54,.65];
 async function session(page:Page){
- await page.addInitScript(()=>try{localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));}catch{/* opaque iframe has no storage */});
+ await page.addInitScript(()=>{try{localStorage.setItem('ora_auth_token',JSON.stringify('vision-test-alice'));}catch{/* opaque iframe has no storage */}});
 }
 async function coloredHand(page:Page,highContrast=true):Promise<Buffer>{
  const bytes=await page.evaluate((contrasting:boolean)=>{
