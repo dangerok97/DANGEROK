@@ -619,6 +619,39 @@ async def prepare(db, owner_id, goal, step):
             await _remember_feedback(db, owner_id, goal.id, scope, feedback)
         return unavailable("preparation_review_self_contradiction", True,
                            feedback=feedback)
+    # Explicit opt-in for a third model judgement. The critic receives only
+    # the corrected candidate, user objective and original source passages:
+    # not the prior verdict or any fabricated "proof". Any unavailable or
+    # negative answer keeps this candidate unsaved.
+    from agent.preparation_challenge import (
+        enabled as challenge_enabled, input_payload as challenge_payload,
+        schema as challenge_schema, verdict as challenge_verdict,
+        fallible_feedback as challenge_feedback, PROMPT as challenge_prompt,
+    )
+    if challenge_enabled():
+        challenge_input = challenge_payload(
+            request, content, projected_rows,
+            evidence_truncated=audit_payload["evidence_truncated"],
+        )
+        if challenge_input is None:
+            return unavailable("preparation_challenge_context_too_large")
+        challenge = await _ask_model(
+            _DISCIPLINE + "\n" + _GROUNDED_RESULT + "\n" + challenge_prompt,
+            challenge_input,
+            response_schema=challenge_schema(row["id"] for row in audit_rows),
+        )
+        if await memory_changed():
+            return unavailable("preparation_memory_changed", True)
+        judgement = challenge_verdict(challenge, {row["id"] for row in audit_rows})
+        if judgement != "accepted":
+            feedback = challenge_feedback(challenge, {row["id"] for row in audit_rows})
+            if feedback:
+                await _remember_feedback(db, owner_id, goal.id, scope, feedback)
+            return unavailable(
+                "preparation_challenge_rejected" if judgement == "rejected"
+                else "preparation_challenge_unavailable",
+                True, feedback=feedback,
+            )
     content, refs = content.strip(), list(dict.fromkeys(refs))
     prepared_id = new_prepared_result_id()
     saved = await db.agent_goals.update_one(
