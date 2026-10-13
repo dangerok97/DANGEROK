@@ -214,3 +214,144 @@ async def test_unrelated_failure_still_calls_model_reconsideration(monkeypatch):
     decision.assert_awaited_once()
     assert (await db.agent_plans.find_one({"goal_id": goal.id}))["steps"][0]["status"] == "failed"
     assert await db.ambient_wakes.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_finish_fallback_cannot_regenerate_a_rejected_unsourced_draft():
+    """Finishing twice must not invent fresh step IDs after an audit failure."""
+    from test_preparation_recovery_v162 import seed_recovery
+
+    db, goal, plan, _source, _note = await seed_recovery()
+    owner = goal.owner_id
+    service = AgentService(db)
+    # No ordinary preparation is pending; the fallback is needed once.
+    plan.steps[1].status = "skipped"
+    await service.repo.save_plan(plan)
+    service.executor.run = AsyncMock(return_value=ExecutionResult(
+        step_id="stp_synthetic_failed_fallback", status="unavailable",
+        observation="La bozza non è sostenuta dalle fonti correnti.",
+        error_type="preparation_not_supported", retryable=True,
+        provenance=ResultProvenance(
+            source_class="internal_observation", capability="document.create",
+            provider="generated_draft",
+        ),
+    ))
+    service._reconsider = AsyncMock(return_value=None)
+    first = await service._finish(owner, goal, plan,
+        AgentRun(owner_id=owner, goal_id=goal.id), AgentBudget(), language="it")
+    assert first["state"] == "in_progress"
+    assert len(plan.steps) == 3
+    fallback = plan.steps[-1]
+    assert fallback.status == "failed" and fallback.attempts == 1
+    assert not goal.prepared_text and not goal.prepared_sources
+    assert service.executor.run.await_count == 1
+    assert service._reconsider.await_count == 1
+
+    # An unchanged source and plan do not license a second auto fallback.
+    second = await service._finish(owner, goal, plan,
+        AgentRun(owner_id=owner, goal_id=goal.id), AgentBudget(), language="it")
+    assert second["state"] == "failed"
+    assert len(plan.steps) == 3 and plan.steps[-1].id == fallback.id
+    assert service.executor.run.await_count == 1
+    assert service._reconsider.await_count == 1
+    assert not goal.prepared_text and goal.status == "failed"
+    recorded = await db.agent_journal.find_one({
+        "owner_id": owner, "goal_id": goal.id,
+        "kind": "completion_fallback_exhausted",
+    })
+    assert recorded["detail"]["step_id"] == fallback.id
+    assert recorded["detail"]["attempts"] == 1
+
+
+@pytest.mark.asyncio
+async def test_finish_preserves_pending_repair_after_fallback_rejection():
+    """A replanned pending correction is not replaced by another auto fallback."""
+    from test_preparation_recovery_v162 import seed_recovery
+
+    db, goal, plan, _source, _note = await seed_recovery()
+    owner = goal.owner_id
+    service = AgentService(db)
+    service.executor.run = AsyncMock(return_value=ExecutionResult(
+        step_id="stp_synthetic_rejected", status="unavailable",
+        observation="Revisione della bozza negativa.",
+        error_type="preparation_not_supported", retryable=True,
+        provenance=ResultProvenance(
+            source_class="internal_observation", capability="document.create",
+            provider="generated_draft",
+        ),
+    ))
+    service._reconsider = AsyncMock(return_value=None)
+    await service._finish(owner, goal, plan,
+        AgentRun(owner_id=owner, goal_id=goal.id), AgentBudget(), language="it")
+    assert len(plan.steps) == 3
+    assert plan.steps[1].status == "pending"
+    calls = service.executor.run.await_count
+    resumed = await service._finish(owner, goal, plan,
+        AgentRun(owner_id=owner, goal_id=goal.id), AgentBudget(), language="it")
+    assert resumed["state"] == "in_progress"
+    assert len(plan.steps) == 3 and plan.steps[1].status == "pending"
+    assert service.executor.run.await_count == calls
+    assert goal.status == "active" and not goal.prepared_text
+
+
+@pytest.mark.asyncio
+async def test_finish_reserves_optional_third_audit_before_starting_fallback(monkeypatch):
+    """Never start a 3-call preparation that leaves no budget for verification."""
+    from test_preparation_recovery_v162 import seed_recovery
+
+    monkeypatch.setenv("ORA_PREPARATION_BLIND_CHALLENGE", "1")
+    db, goal, plan, _source, _note = await seed_recovery()
+    owner = goal.owner_id
+    service = AgentService(db)
+    plan.steps[1].status = "skipped"
+    await service.repo.save_plan(plan)
+    service.executor.run = AsyncMock(
+        side_effect=AssertionError("Insufficient budget must not start a preparation"),
+    )
+    budget = AgentBudget(cognitive_calls=5, max_cognitive_calls=8)
+    result = await service._finish(owner, goal, plan,
+        AgentRun(owner_id=owner, goal_id=goal.id), budget, language="it")
+    assert result["state"] == "in_progress"
+    assert len(plan.steps) == 2
+    service.executor.run.assert_not_awaited()
+    assert budget.cognitive_calls == 5
+    assert not goal.prepared_text
+    saved = await db.agent_goals.find_one({"owner_id": owner, "id": goal.id})
+    assert saved["next_run_at"]
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": owner, "source_ref": f"goal:{goal.id}", "status": "pending",
+    }) == 1
+
+
+@pytest.mark.asyncio
+async def test_finish_allows_one_documented_transport_retry_but_not_an_unbounded_loop():
+    """Two independent transient model outages cannot mint unlimited fallback steps."""
+    from test_preparation_recovery_v162 import seed_recovery
+
+    db, goal, plan, _source, _note = await seed_recovery()
+    owner = goal.owner_id
+    service = AgentService(db)
+    plan.steps[1].status = "skipped"
+    await service.repo.save_plan(plan)
+    service.executor.run = AsyncMock(return_value=ExecutionResult(
+        step_id="stp_synthetic_temporary", status="unavailable",
+        observation="Modello temporaneamente non disponibile.",
+        error_type="preparation_model_unavailable", retryable=True,
+        provenance=ResultProvenance(
+            source_class="internal_observation", capability="document.create",
+            provider="generated_draft",
+        ),
+    ))
+    service._reconsider = AsyncMock(return_value=None)
+    for expected in (3, 4):
+        outcome = await service._finish(owner, goal, plan,
+            AgentRun(owner_id=owner, goal_id=goal.id), AgentBudget(), language="it")
+        assert outcome["state"] == "in_progress"
+        assert len(plan.steps) == expected
+        assert plan.steps[-1].status == "failed"
+    paused = await service._finish(owner, goal, plan,
+        AgentRun(owner_id=owner, goal_id=goal.id), AgentBudget(), language="it")
+    assert paused["state"] == "in_progress"
+    assert len(plan.steps) == 4
+    assert service.executor.run.await_count == 2
+    assert goal.status == "active" and not goal.prepared_text

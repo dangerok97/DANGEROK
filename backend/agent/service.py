@@ -2264,10 +2264,76 @@ class AgentService:
         # This is a completion contract, not a new decision about relevance.
         if (goal.origin == "agent_initiated" and goal.opportunity_id and not intents
                 and not receipts and real_support(evidence) and not goal.prepared_text):
-            if budget.exhausted() or budget.cognitive_calls + 2 >= budget.max_cognitive_calls:
+            # This fallback is a last attempt to deliver a result after reading
+            # sources, not an unlimited factory of new document.create steps.
+            # Once its own review has failed, a second finish cannot silently
+            # create a brand-new step with a fresh attempts counter. A pending
+            # fallback is durable work after a crash: let the normal worker
+            # execute it rather than replacing or duplicating it.
+            fallback_intent = (
+                "Consegna le conclusioni utili, con confronto, limiti e conseguenze "
+                "sostenuti dalle fonti; non il resoconto della lettura."
+            )
+            fallbacks = [
+                item for item in plan.steps
+                if item.step_type == "prepare"
+                and item.capability_needed == "document.create"
+                and item.intent == fallback_intent
+            ]
+            prior_fallback = fallbacks[-1] if fallbacks else None
+            if prior_fallback is not None:
+                if prior_fallback.status == "pending":
+                    return await self._pause(
+                        owner_id, goal, plan, run,
+                        "Il confronto non è pronto: il tentativo già programmato è ancora in attesa.",
+                    )
+                # Only a known, recorded transient MODEL outage can consume
+                # one more fallback on the next bounded run. A source-review
+                # rejection or an unknown legacy failure never earns a fresh
+                # attempt counter merely by asking to finish again.
+                last_attempt = await self.db.agent_journal.find_one({
+                    "owner_id": owner_id, "goal_id": goal.id,
+                    "kind": "step_done", "detail.step_id": prior_fallback.id,
+                }, {"_id": 0, "detail": 1})
+                error_type = (last_attempt or {}).get("detail", {}).get("error_type")
+                temporary_outage = (
+                    prior_fallback.status == "failed"
+                    and error_type == "preparation_model_unavailable"
+                )
+                if temporary_outage and len(fallbacks) >= 2:
+                    return await self._pause(
+                        owner_id, goal, plan, run,
+                        "Il modello non ha risposto dopo due tentativi: "
+                        "non avvio altre bozze automatiche senza un nuovo piano.",
+                    )
+                if not temporary_outage:
+                    if any(item.step_type == "prepare" and item.status == "pending"
+                           for item in plan.steps):
+                        return await self._pause(
+                            owner_id, goal, plan, run,
+                            "Il confronto non è pronto: esiste già una correzione in attesa.",
+                        )
+                    note = (
+                        "Ho letto le fonti, ma non sono riuscito a produrre un "
+                        "confronto verificato. Non pubblicherò conclusioni non supportate."
+                    )
+                    await self.repo.journal(
+                        owner_id, goal.id, kind="completion_fallback_exhausted", note=note,
+                        detail={"step_id": prior_fallback.id,
+                                "status": prior_fallback.status,
+                                "attempts": prior_fallback.attempts,
+                                "failure_code": error_type or "unknown"},
+                    )
+                    return await self._stop(goal, run, note)
+
+            # The optional blind challenge consumes a third model decision.
+            # Keep one further call available for the actual goal verifier.
+            from agent.preparation_challenge import enabled as challenge_enabled
+            required_calls = 3 if challenge_enabled() else 2
+            if budget.exhausted() or budget.cognitive_calls + required_calls >= budget.max_cognitive_calls:
                 return await self._continue_later(owner_id, goal, plan, run, "result_budget")
             result_step = ActionStep(ordinal=len(plan.steps), step_type="prepare", capability_needed="document.create",
-                intent="Consegna le conclusioni utili, con confronto, limiti e conseguenze sostenuti dalle fonti; non il resoconto della lettura.",
+                intent=fallback_intent,
                 expected_result=goal.desired_outcome[:300])
             plan.steps.append(result_step)
             await self.repo.save_plan(plan)
