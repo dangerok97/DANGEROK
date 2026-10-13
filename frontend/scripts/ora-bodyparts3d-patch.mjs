@@ -64,6 +64,12 @@ scene=once(scene,"if(s.view!==lastView||s.reset!==lastReset){fit(s.view,amount);
 // Changing a page at a stationary 80% slider must reframe new meshes after updating their offsets.
 scene=once(scene,"partTexture.needsUpdate=true;selectionTexture.needsUpdate=true;markerGeometry.attributes.position.needsUpdate=true;lastState=s;lastExtent=amount;dirty=true;","partTexture.needsUpdate=true;selectionTexture.needsUpdate=true;markerGeometry.attributes.position.needsUpdate=true;lastState=s;lastExtent=amount;dirty=true;if(oraInline&&s.explode>=.50&&!s.isolate&&!moving)fit(s.view,Math.max(0,(amount-.3)/.7));");
 scene=once(scene,"(async()=>{try{let cursor=0;await Promise.all(Array.from({length:3},async()=>{while(cursor<atlas.chunks.length){const i=cursor++;await loadChunk(i);}}));if(!disposed){ready=true;dirty=true;}}catch(e){if(!disposed)onError(e instanceof Error?e.message:'Could not load the anatomy.');}})();","// Prioritize the geometry chunks containing the visible body region. All\n  // other public chunks keep loading in the background for region expansion.\n  const requestedIds=new Set(latest.current.allowed||[]);\n  const preferredSystems=new Set(latest.current.visible);\n  const scores=atlas.chunks.map(()=>0);\n  atlas.parts.forEach(p=>{\n   if(requestedIds.has(p.id))scores[p.chunk]+=preferredSystems.has(p.system)?8:3;\n  });\n  const order=atlas.chunks.map((_,i)=>i).sort((a,b)=>scores[b]-scores[a]||a-b);\n  (async()=>{try{let cursor=0;await Promise.all(Array.from({length:3},async()=>{while(cursor<order.length){const i=order[cursor++];await loadChunk(i);}}));if(!disposed){ready=true;dirty=true;}}catch(e){if(!disposed)onError(e instanceof Error?e.message:'Could not load the anatomy.');}})();");
+// As soon as the first source chunk has been decoded and its meshes exist,
+// picking can safely run against already-loaded geometry. Remaining chunks
+// continue streaming without a non-interactive 3D waiting period.
+scene=once(scene,
+ "lastState=null;loaded++;onProgress(Math.round(loaded/atlas.chunks.length*100));dirty=true;",
+ "lastState=null;loaded++;ready=true;onProgress(Math.round(loaded/atlas.chunks.length*100));dirty=true;");
 scene=applyOraBlueprint(scene);
 save('app/scene.tsx',scene);
 
