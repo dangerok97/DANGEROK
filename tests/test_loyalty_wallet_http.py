@@ -7,7 +7,7 @@ from types import ModuleType
 import pytest
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.testclient import TestClient
-from test_loyalty_wallet import SECRET, card, service
+from tests.test_loyalty_wallet import SECRET, card, service
 
 
 @pytest.fixture
