@@ -1907,7 +1907,21 @@ class AgentService:
         # enforce the real source read even when the model put "verify"
         # after a premature "prepare". Never persist or execute an invalid
         # fallback plan for other sources.
-        existing_evidence = await self.evidence.for_goal(owner_id, goal.id)
+        try:
+            existing_evidence = await self.evidence.for_goal(owner_id, goal.id)
+        except Exception as exc:
+            # An unavailable evidence store is not an empty evidence store.
+            # Never insert a compensating read or persist the draft-first
+            # plan when the actual prior work cannot be checked.
+            logger.info("planning evidence check unavailable error=%s", type(exc).__name__)
+            goal.planning_unavailable = True
+            run.stopped_because = "source_read_inventory_unavailable"
+            await self.repo.journal(
+                owner_id, goal.id, kind="planning_evidence_unavailable",
+                note="La lettura delle prove già raccolte non è verificabile.",
+                detail={"run_id": run.id, "attempt": goal.planning_attempts},
+            )
+            return None
         steps, prerequisite = _source_read_prerequisite(
             goal, steps, existing_evidence, available,
         )
