@@ -49,6 +49,7 @@ async def whatsapp_status(user=Depends(get_current_user)):
             "notifications_enabled": False,
             "notifications_detail_enabled": False,
             "template_configured": False,
+            "template_scope": None,
             "template_approval_status": "not_configured",
             "notification_channel_ready": False,
             # Credentials are missing, but the shared AI catalog still exists.
