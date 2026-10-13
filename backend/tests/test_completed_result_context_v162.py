@@ -7,6 +7,7 @@ Only fake HTTP replies supply judgements, and no external effect is allowed.
 """
 from copy import deepcopy
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -52,18 +53,34 @@ def expand_records(value):
 async def prepared_case(scenario="completed_result", *, partial=False):
     h = await reconstruct(partial=partial)
     draft = recorded_text(scenario)
+    # Archived machine IDs in this recorded diagnostic are not publishable
+    # under today's source-hygiene policy. Prepare a safe synthetic setup
+    # result, then replay the untouched archived artifact at the verification
+    # boundary after it has been persisted as a legacy row below.
+    setup_draft = re.sub(
+        r"(?<![A-Za-z0-9_])(?:mem|evd|gol|sit|prep)_[0-9a-f]{12,}(?![A-Za-z0-9_])",
+        "nota salvata dalla persona", draft, flags=re.IGNORECASE,
+    )
     with gate.isolated_engine(h.db):
         service = AgentService(h.db)
         prepare = h.plan.steps[1]
         replies = AsyncMock(side_effect=[
-            {"content": draft, "evidence_ids": [h.source.id]},
-            {"verified": True, "content": draft, "evidence_ids": [h.source.id],
+            {"content": setup_draft, "evidence_ids": [h.source.id]},
+            {"verified": True, "content": setup_draft, "evidence_ids": [h.source.id],
              "claim_review": recorded_note_claim_review(h.source.id)},
         ])
         with patch.object(reasoning, "_ask_model", replies):
             made = await service.executor.run(OWNER, h.goal, prepare, may_touch_the_world=False)
         assert made.status == "succeeded" and replies.await_count == 2
         prepare.status, prepare.note = "succeeded", made.observation
+        if setup_draft != draft:
+            # This synthetic-only DB mutation reconstructs a past prepared
+            # result. It is NOT a current model-approved publication.
+            await h.db.agent_goals.update_one(
+                {"owner_id": OWNER, "id": h.goal.id},
+                {"$set": {"prepared_text": draft}},
+            )
+            h.goal.prepared_text = draft
         await service.repo.save_plan(h.plan)
         # No in-process result or plan is passed on: use a new worker service.
         service = AgentService(h.db)
