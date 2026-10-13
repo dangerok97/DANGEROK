@@ -128,9 +128,23 @@ test('denied camera permission is explained without a fake live state',async({pa
 
 
 
+/** This fixture verifies camera routing, not real source geometry.
+ * The pinned full BodyParts3D atlas is independently built and verified by CI. */
+async function fixtureBodyParts3D(page:Page){
+ await page.route('**/bodyparts3d/ora-integrated.json',route=>route.fulfill({
+  status:200,contentType:'application/json',
+  body:JSON.stringify({provider:'BodyParts3D',dataset_version:'4.0',
+   reference:'adult male',model_is_person_specific:false,parts:2234,concepts:3432})
+ }));
+ await page.route('**/bodyparts3d/index.html?*',route=>route.fulfill({
+  status:200,contentType:'text/html',
+  body:'<!doctype html><html lang="it"><meta charset="utf-8"><title>BodyParts3D fixture</title><body>Modello di riferimento</body></html>'
+ }));
+}
+
 test('person automatically opens ONLY the source-verified 3D anatomy overlay',async({page,browserName},info)=>{
  test.skip(browserName==='webkit','Synthetic canvas-camera test uses Chromium; iPhone hardware remains separate');
- await session(page);await virtualCamera(page);await page.goto('/vision-xray');
+ await session(page);await virtualCamera(page);await fixtureBodyParts3D(page);await page.goto('/vision-xray');
  await page.evaluate(()=>{(window as any).__visionFixture.bodyRegion='full_body';});
  await page.getByTestId('vision-open-camera').click();
  const atlas=page.getByTestId('vision-anatomy');
@@ -155,7 +169,7 @@ test('person automatically opens ONLY the source-verified 3D anatomy overlay',as
 
 test('hand and face detections switch BodyParts3D regions without an obsolete illustrated human',async({page,browserName},info)=>{
  test.skip(browserName==='webkit','Synthetic canvas-camera test uses Chromium; physical mobile remains separate');
- await session(page);await virtualCamera(page);await page.goto('/vision-xray');
+ await session(page);await virtualCamera(page);await fixtureBodyParts3D(page);await page.goto('/vision-xray');
  await page.evaluate(()=>{(window as any).__visionFixture.bodyRegion='hand';});
  await page.getByTestId('vision-open-camera').click();
  const atlas=page.getByTestId('vision-anatomy');
