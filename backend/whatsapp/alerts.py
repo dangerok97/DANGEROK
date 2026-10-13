@@ -31,11 +31,32 @@ def as_utc(value: datetime | None) -> datetime | None:
 
 
 def template_settings() -> tuple[str, str] | None:
+    """Allow only an explicitly scoped recurring reminder template.
+
+    A general-purpose Utility slot for arbitrary AI notices would overclaim
+    the context Meta reviewed. New scopes require their own verified routing.
+    """
+    from whatsapp.template_provisioning import (
+        TEMPLATE_NAME, TEMPLATE_LANGUAGE, TEMPLATE_SCOPE,
+    )
     name = (os.environ.get("WHATSAPP_ALERT_TEMPLATE_NAME") or "").strip()
     language = (os.environ.get("WHATSAPP_ALERT_TEMPLATE_LANGUAGE") or "it").strip()
-    if _TEMPLATE_NAME.fullmatch(name) and _TEMPLATE_LANGUAGE.fullmatch(language):
+    scope = (os.environ.get("WHATSAPP_ALERT_TEMPLATE_SCOPE") or "").strip()
+    if (name == TEMPLATE_NAME and language == TEMPLATE_LANGUAGE
+            and scope == TEMPLATE_SCOPE
+            and _TEMPLATE_NAME.fullmatch(name)
+            and _TEMPLATE_LANGUAGE.fullmatch(language)):
         return name, language
     return None
+
+
+def template_scope_matches(plan, subject) -> bool:
+    """The only approved category is a *stored user-requested* recurring memo."""
+    return (
+        getattr(plan, "source_type", "") == "opportunity"
+        and getattr(subject, "status", "") == "active"
+        and getattr(subject, "source_context", "") == "recurring_memo"
+    )
 
 
 def in_service_window(link: dict, now: datetime | None = None) -> bool:
@@ -220,10 +241,23 @@ async def enqueue(db, user_id: str, plan) -> bool:
     link = await db.whatsapp_links.find_one(
         {"user_id": user_id, "notifications_enabled": True,
          "opted_in_at": {"$exists": True}},
-        {"_id": 0, "phone_hash": 1, "notifications_detail_enabled": 1},
+        {"_id": 0, "phone_hash": 1, "last_inbound_at": 1,
+         "notifications_detail_enabled": 1},
     )
     if not link:
         return False
+    if not in_service_window(link):
+        # Don't enqueue a shipping/finance/agent alert under a recurrence
+        # template merely because Meta approved its shape.
+        if getattr(plan, "source_type", "") != "opportunity":
+            return False
+        known = await db.opportunities.find_one(
+            {"owner_id": user_id, "id": plan.source_id,
+             "status": "active", "source_context": "recurring_memo"},
+            {"_id": 1},
+        )
+        if known is None:
+            return False
     copy = public_copy(plan, detailed=link.get("notifications_detail_enabled") is True)
     if not copy:
         # A buzz without a usable fact is not a proactive notification.
@@ -324,6 +358,9 @@ class AlertWorker:
         template = template_settings()
         template_approval = None
         if not in_service_window(link, moment):
+            if not template_scope_matches(plan, subject):
+                await cancel(self.db, item, "template_scope_unsupported")
+                return True
             from whatsapp.template_approval import approval_status
 
             template_approval = await approval_status(self.config)
