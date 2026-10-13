@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 
 // Real exported UI; synthetic API, identities and barcode. No real account.
-const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASkAAABkCAIAAABVSlHTAAAABmJLR0QA/wD/AP+gvaeTAAABaElEQVR4nO3TMQ6DMBAAwTj//7PTUcQSAidom5kSfD4ktGPO+XrGGOPrybHreLVuX6fW8Vsr9sb/dWZv/NY9t8b3ptZXq5N/up7ZW7r3PVd27a340fuhe4Fz2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qDxAWKxRcVqtwaBAAAAAElFTkSuQmCC';
+const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASkAAABkCAIAAABVSlHTAAAABmJLR0QA/wD/AP+gvaeTAAABaElEQVR4nO3TMQ6DMBAAwTj//7PTUcQSAidom5kSfD4ktGPO+XrGGOPrybHreLVuX6fW8Vsr9sb/dWZv/NY9t8b3ptZXq5N/up7ZW7r3PVd27a340fuhe4Fz2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qChPWhoDxrag4b2oKE9aGgPGtqDhvagoT1oaA8a2oOG9qDxAWKxRcVqtwaBAAAAAElFTkSuQmCC';
 
 async function fixture(page: Page) {
   let cards: Record<string, any>[] = [];
@@ -22,6 +22,7 @@ async function fixture(page: Page) {
       const input = request.postDataJSON();
       expect(input.code).toBe('00012345');
       expect(input.static_confirmed).toBe(true);
+      expect(input.name).toBe(input.revision === 0 ? 'Supermercato prova' : 'Tessera aggiornata');
       const card = { ...input, revision: input.revision + 1, image, acceptance: 'not_verified_at_checkout',
         created_at: '2026-10-13T12:00:00Z', updated_at: '2026-10-13T12:00:00Z' };
       cards = [...cards.filter(c => c.id !== card.id), card];
@@ -56,9 +57,13 @@ test('phone wallet creates, displays without another API call, edits and deletes
   fs.mkdirSync('mobile-qa', { recursive: true });
   await page.screenshot({ path: `mobile-qa/wallet-checkout-${info.project.name}.png`, fullPage: true });
   await page.getByTestId('wallet-close-checkout').click();
+  // Wait for RN Modal to release its focus trap, not just its close callback.
+  await expect(page.getByTestId('wallet-close-checkout')).not.toBeVisible();
   await context.setOffline(false);
   await page.getByRole('button', { name: 'Modifica', exact: true }).click();
+  await expect(page.getByTestId('wallet-editor')).toBeVisible();
   await page.getByTestId('wallet-name').fill('Tessera aggiornata');
+  await expect(page.getByTestId('wallet-name')).toHaveValue('Tessera aggiornata');
   await page.getByTestId('wallet-save').click();
   await expect(page.getByTestId('wallet-card-detail')).toContainText('Tessera aggiornata');
   await page.getByRole('button', { name: 'Tutte le tessere', exact: true }).click();
