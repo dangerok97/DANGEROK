@@ -248,8 +248,25 @@ class StepExecutor:
             )
 
         if how == "prepare":
+            # The optional blind source challenge is a THIRD model call.
+            # Reserve its cognitive capacity before any generated draft, so
+            # enabling it cannot silently exceed the bounded Agent budget.
+            from agent.preparation_challenge import enabled as challenge_enabled
+            challenge = challenge_enabled()
+            reserved_calls = 3 if challenge else 2
             if budget is not None:
-                budget.cognitive_calls += 2  # draft plus source-consistency review
+                if challenge and budget.cognitive_calls + reserved_calls > budget.max_cognitive_calls:
+                    return providers.CapabilityOutcome(
+                        status="waiting",
+                        observation="Il limite di analisi per questo ciclo non consente un'altra verifica completa.",
+                        provenance=ResultProvenance(
+                            source_class="internal_observation",
+                            capability=capability or "document.create",
+                        ),
+                        error_type="preparation_cognitive_budget_spent",
+                        retryable=True,
+                    )
+                budget.cognitive_calls += reserved_calls
             return await providers.prepare_locally(self.db, owner_id, goal, step)
 
         # A read. Which one is settled by the capability the model named, and
