@@ -40,11 +40,21 @@ Lingua: Italiano (codice it)
 sono una proposta, soggetta a revisione. Dopo approvazione nel WABA giusto,
 impostare sul backend Railway:
 
+  WHATSAPP_WABA_ID = ID del vero account WhatsApp Business ORA
   WHATSAPP_ALERT_TEMPLATE_NAME = nome reale approvato
   WHATSAPP_ALERT_TEMPLATE_LANGUAGE = it
 
+ORA interroga il catalogo template del WABA reale con il token di sistema:
+solo un template con stato APPROVED, categoria UTILITY, lingua esatta e
+contenuto statico senza parametri viene considerato pronto. Un nome
+configurato su Railway, da solo, non vale come prova di approvazione.
+
+Se Meta non risponde, nega l'accesso, rifiuta o sospende il template,
+ORA deve mostrare lo stato non verificato e non inviare messaggi fuori
+dalla finestra di assistenza.
+
 Non servono nuove copie del token WhatsApp se quello di sistema è valido.
-Il modulo non funziona fuori finestra senza template approvato e configurato.
+La categoria e il testo proposti restano soggetti alla revisione Meta.
 
 ## Verifica operativa
 

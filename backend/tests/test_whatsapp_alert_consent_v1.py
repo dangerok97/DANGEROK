@@ -180,6 +180,12 @@ async def test_outside_window_requires_configured_meta_template(cfg, monkeypatch
     assert not await may_notify(db, OWNER)
     assert not await enqueue(db, OWNER, plan())
     monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    from whatsapp import template_approval
+
+    async def meta_approved(*args, **kwargs):
+        return "approved"
+
+    monkeypatch.setattr(template_approval, "approval_status", meta_approved)
     assert template_settings() == ("ora_aggiornamento_importante", "it")
     assert await may_notify(db, OWNER)
     item = plan()
@@ -368,3 +374,98 @@ async def test_stop_on_paired_whatsapp_revokes_notifications_immediately(cfg, mo
     assert not await may_notify(db, OWNER)
     # Stop notifications must never unlink conversational access.
     assert (await WhatsAppService(db, cfg).status(OWNER))["linked"] is True
+
+
+
+@pytest.mark.asyncio
+async def test_template_name_alone_never_authorizes_external_outreach(cfg, monkeypatch):
+    from whatsapp.template_approval import approval_status
+
+    db = AsyncMongoMockClient().wa_alert_template_unverified
+    await linked(db, cfg, last_at=datetime.now(timezone.utc) - timedelta(days=2))
+    await set_opt_in(db, OWNER, True)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.delenv("WHATSAPP_WABA_ID", raising=False)
+    assert await approval_status(cfg) == "waba_not_configured"
+    assert not await may_notify(db, OWNER)
+    assert not await enqueue(db, OWNER, plan())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("status", "category", "body", "expected"), [
+    ("APPROVED", "UTILITY", "ORA ha un aggiornamento.", "approved"),
+    ("PENDING", "UTILITY", "ORA ha un aggiornamento.", "pending"),
+    ("REJECTED", "UTILITY", "ORA ha un aggiornamento.", "rejected"),
+    ("APPROVED", "MARKETING", "ORA ha un aggiornamento.", "wrong_category"),
+    ("APPROVED", "UTILITY", "ORA: {{1}}", "requires_parameters"),
+])
+async def test_real_meta_template_metadata_required_before_outreach(
+    cfg, monkeypatch, status, category, body, expected
+):
+    import httpx
+    from whatsapp.template_approval import _CACHE, approval_status
+
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+    calls = []
+
+    async def fake_get(self, url, *, headers, params):
+        calls.append((url, params.get("name"), params.get("fields")))
+        assert headers.get("Authorization") == "Bearer " + cfg.access_token
+        return httpx.Response(200, json={"data": [{
+            "name": "ora_aggiornamento_importante",
+            "language": "it",
+            "status": status,
+            "category": category,
+            "components": [{"type": "BODY", "text": body}],
+        }]})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    actual = await approval_status(cfg, use_cache=False)
+    assert actual == expected
+    assert calls and "/1234567890123/message_templates" in calls[0][0]
+    assert "category" in calls[0][2]
+
+
+@pytest.mark.asyncio
+async def test_unavailable_meta_validation_fails_closed(cfg, monkeypatch):
+    import httpx
+    from whatsapp.template_approval import _CACHE, approval_status
+
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+
+    async def fail_get(self, url, *, headers, params):
+        return httpx.Response(403, json={"error": {"message": "private-token"}})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fail_get)
+    assert await approval_status(cfg, use_cache=False) == "unverified"
+
+
+
+@pytest.mark.asyncio
+async def test_template_with_required_media_header_is_not_approved_for_static_alerts(
+    cfg, monkeypatch
+):
+    import httpx
+    from whatsapp.template_approval import _CACHE, approval_status
+
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", "ora_aggiornamento_importante")
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+
+    async def fake_get(self, url, *, headers, params):
+        return httpx.Response(200, json={"data": [{
+            "name": "ora_aggiornamento_importante",
+            "language": "it",
+            "status": "APPROVED", "category": "UTILITY",
+            "components": [
+                {"type": "HEADER", "format": "IMAGE"},
+                {"type": "BODY", "text": "ORA ha un aggiornamento."},
+            ],
+        }]})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    assert await approval_status(cfg, use_cache=False) == "requires_parameters"

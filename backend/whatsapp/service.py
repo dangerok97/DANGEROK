@@ -73,6 +73,12 @@ class WhatsAppService:
 
     async def status(self, user_id: str) -> dict:
         link = await self.db.whatsapp_links.find_one({"user_id": user_id}, {"_id": 0})
+        # A template name in Railway is only a request to inspect Meta.
+        # A genuine APPROVED UTILITY template is what permits outreach.
+        from whatsapp.template_approval import approval_status
+
+        template = template_settings()
+        approval = await approval_status(self.config) if template else "not_configured"
         try:
             parity = public_whatsapp_parity_status()
         except Exception as exc:
@@ -95,11 +101,12 @@ class WhatsAppService:
                 link and link.get("notifications_enabled") is True
                 and link.get("opted_in_at")
             ),
-            "template_configured": bool(template_settings()),
+            "template_configured": bool(template),
+            "template_approval_status": approval,
             "notification_channel_ready": bool(
                 link and link.get("notifications_enabled") is True
                 and link.get("opted_in_at")
-                and (in_service_window(link) or template_settings())
+                and (in_service_window(link) or approval == "approved")
             ),
         }
 

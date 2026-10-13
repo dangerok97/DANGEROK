@@ -56,10 +56,14 @@ async def may_notify(db, user_id: str) -> bool:
          "opted_in_at": {"$exists": True}},
         {"_id": 0, "last_inbound_at": 1, "phone_hash": 1, "phone_enc": 1},
     )
-    return bool(
-        link and link.get("phone_hash") and link.get("phone_enc")
-        and (in_service_window(link) or template_settings())
-    )
+    if not link or not link.get("phone_hash") or not link.get("phone_enc"):
+        return False
+    if in_service_window(link):
+        return True
+    # A configured string is not evidence of Meta's template approval.
+    from whatsapp.template_approval import approval_status
+
+    return await approval_status() == "approved"
 
 
 async def ensure_indexes(db) -> None:
@@ -227,14 +231,19 @@ class AlertWorker:
             return True
 
         template = template_settings()
-        if not in_service_window(link, moment) and not template:
-            await self.db.whatsapp_alert_outbox.update_one(
-                {"_id": item["_id"], "status": "sending"},
-                {"$set": {"status": "held_template",
-                          "next_attempt_at": moment + timedelta(minutes=15),
-                          "failure_code": "approved_template_missing"}},
-            )
-            return True
+        template_approval = None
+        if not in_service_window(link, moment):
+            from whatsapp.template_approval import approval_status
+
+            template_approval = await approval_status(self.config)
+            if template_approval != "approved":
+                await self.db.whatsapp_alert_outbox.update_one(
+                    {"_id": item["_id"], "status": "sending"},
+                    {"$set": {"status": "held_template",
+                              "next_attempt_at": moment + timedelta(minutes=15),
+                              "failure_code": "template_" + template_approval}},
+                )
+                return True
 
         # Consent can be revoked while a verification is being performed.
         latest = await self.db.whatsapp_links.find_one(
@@ -248,6 +257,10 @@ class AlertWorker:
         fresh_window = in_service_window(latest)
         if not fresh_window and not template:
             await cancel(self.db, item, "customer_window_closed")
+            return True
+        if not fresh_window and template_approval != "approved":
+            # The safe-side branch above must have established approval.
+            await cancel(self.db, item, "template_not_verified")
             return True
         recipient = self.config.decrypt(latest["phone_enc"])
         try:
