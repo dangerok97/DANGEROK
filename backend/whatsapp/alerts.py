@@ -236,8 +236,6 @@ async def enqueue(db, user_id: str, plan) -> bool:
     """Called only after the canonical delivery service verified the source."""
     if getattr(plan, "owner_id", "") != user_id or getattr(plan, "mode", "") != "push":
         return False
-    if not await may_notify(db, user_id):
-        return False
     link = await db.whatsapp_links.find_one(
         {"user_id": user_id, "notifications_enabled": True,
          "opted_in_at": {"$exists": True}},
@@ -258,6 +256,10 @@ async def enqueue(db, user_id: str, plan) -> bool:
         )
         if known is None:
             return False
+    # Only after source/scope admission check may we spend a Meta approval
+    # read. Unsupported categories must not even query provider readiness.
+    if not await may_notify(db, user_id):
+        return False
     copy = public_copy(plan, detailed=link.get("notifications_detail_enabled") is True)
     if not copy:
         # A buzz without a usable fact is not a proactive notification.
