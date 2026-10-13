@@ -1291,6 +1291,32 @@ class AgentService:
         """
         Run one step. Returns a stopping outcome, or None to keep going.
         """
+        if step.step_type == "prepare":
+            from agent.preparation_challenge import enabled as challenge_enabled
+            # A third, opted-in model check must fit before starting a draft.
+            # This is a capacity check, NOT a failed source-review attempt.
+            # The original pending step and its attempt counter survive.
+            if challenge_enabled() and budget.cognitive_calls + 3 > budget.max_cognitive_calls:
+                from agent.source_refresh import changed, refresh
+                if await changed(self.db, goal):
+                    await refresh(self, goal)
+                    run.stopped_because = "source_changed"
+                    return {"ok": True, "state": "source_changed" if goal.is_open else goal.status}
+                latest = await self.repo.get_goal(owner_id, goal.id)
+                if latest is None or not latest.is_open:
+                    goal.status = latest.status if latest else "cancelled"
+                    goal.next_run_at = None
+                    return {"ok": True, "state": goal.status}
+                if latest.user_deferred_until and latest.user_deferred_until > _now().isoformat():
+                    goal.status = latest.status
+                    goal.next_run_at = latest.next_run_at
+                    goal.user_deferred_until = latest.user_deferred_until
+                    return {"ok": True, "state": "user_deferred"}
+                run.stopped_because = "preparation_budget_continuation"
+                return await self._continue_later(
+                    owner_id, goal, plan, run, "preparation_cognitive_budget",
+                    retry_minutes=5,
+                )
         step.attempts += 1
         if step.attempts > MAX_STEP_ATTEMPTS:
             step.status = "failed"
@@ -1462,12 +1488,11 @@ class AgentService:
         )
 
         # A source-grounded draft rejected by its own review or blind critic
-        # must never be published. Once this run's technical budget is spent,
-        # asking for an immediate full replan can itself time out, stranding a
-        # still-recoverable goal. Preserve the critic's bounded journal
-        # feedback, reopen only this failed *preparation* step and let the
-        # model choose the next action on the next, persistently scheduled
-        # pass. This is not code deciding that the critic's semantics are true.
+        # must never be published. Do not spend more model calls immediately
+        # replanning the SAME evidence-backed preparation, whether the budget
+        # is nearly spent or still has capacity: preserve the bounded feedback
+        # and revisit under a fresh Agent budget. The model owns the next
+        # decision; code never invents corrected facts or an external action.
         _correctable_preparation_failures = frozenset({
             "preparation_challenge_rejected",
             "preparation_challenge_unavailable",
@@ -1477,7 +1502,7 @@ class AgentService:
         spent = budget.exhausted()
         if (step.step_type == "prepare" and result.status == "unavailable"
                 and result.retryable and result.error_type in _correctable_preparation_failures
-                and step.attempts < MAX_STEP_ATTEMPTS and spent):
+                and step.attempts < MAX_STEP_ATTEMPTS):
             from agent.source_refresh import changed, refresh
             if await changed(self.db, goal):
                 await refresh(self, goal)
@@ -1502,7 +1527,7 @@ class AgentService:
                 owner_id, goal.id, kind="source_review_retry_queued",
                 note="Il risultato non ha superato la revisione; riesame fissato senza pubblicarlo.",
                 detail={"step_id": step.id, "attempt": step.attempts,
-                        "failure_code": result.error_type, "limiter": spent},
+                        "failure_code": result.error_type, "limiter": spent or "source_review_rejected"},
             )
             run.stopped_because = "source_review_retry_scheduled"
             return await self._continue_later(
