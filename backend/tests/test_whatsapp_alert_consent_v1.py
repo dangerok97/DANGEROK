@@ -471,3 +471,66 @@ async def test_template_with_required_media_header_is_not_approved_for_static_al
 
     monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
     assert await approval_status(cfg, use_cache=False) == "requires_parameters"
+
+
+@pytest.mark.asyncio
+async def test_signed_message_time_does_not_reopen_expired_meta_window(cfg, monkeypatch):
+    """A delayed worker cannot claim a message was received just now."""
+    from whatsapp.service import _sender_message_moment
+
+    moment = datetime.now(timezone.utc)
+    old = moment - timedelta(hours=25)
+    assert _sender_message_moment({"sent_at": int(old.timestamp())}, moment) <= old + timedelta(seconds=1)
+
+    db = AsyncMongoMockClient().wa_sender_event_window
+    await linked(db, cfg, last_at=moment - timedelta(hours=30))
+    svc = WhatsAppService(db, cfg)
+    msg = {
+        "id": "wamid.delayed.signed.sender.111",
+        "from": PHONE,
+        "type": "text",
+        "text": "Portami al Colosseo",
+        "sent_at": int(old.timestamp()),
+    }
+    assert await svc.persist_incoming(msg)
+    link = await db.whatsapp_links.find_one({"user_id": OWNER})
+    assert not in_service_window(link)
+    assert abs(link["last_inbound_at"].replace(tzinfo=timezone.utc).timestamp() - old.timestamp()) <= 1
+
+    async def simple_answer(self, user_id, linked, body, incoming_id, **kwargs):
+        return "Risposta tecnica al messaggio."
+    monkeypatch.setattr(WhatsAppService, "_answer_ai", simple_answer)
+    item = await db.whatsapp_inbox.find_one({})
+    response, owner = await svc.prepare_reply(item)
+    assert owner == OWNER
+    assert response == "Risposta tecnica al messaggio."
+    # The application worker performed work now, but Meta's sender window
+    # still started 25 hours ago and must not be extended by that work.
+    assert not in_service_window(await db.whatsapp_links.find_one({"user_id": OWNER}))
+
+    assert not await svc.persist_incoming(msg)
+    assert not in_service_window(await db.whatsapp_links.find_one({"user_id": OWNER}))
+
+
+def test_parsed_sender_event_time_is_bounded_and_absent_is_not_invented():
+    from whatsapp.cloud import iter_inbound_messages
+
+    def webhook(timestamp):
+        payload = {
+            "object": "whatsapp_business_account",
+            "entry": [{"changes": [{"field": "messages", "value": {
+                "metadata": {"phone_number_id": "12345678909876"},
+                "messages": [{
+                    "id": "wamid.timestamp.signed.111",
+                    "from": PHONE, "type": "text",
+                    "text": {"body": "Ciao"},
+                    **({"timestamp": timestamp} if timestamp is not None else {}),
+                }],
+            }}]}],
+        }
+        return list(iter_inbound_messages(payload, "12345678909876"))[0]
+
+    assert webhook("1791920000")["sent_at"] == 1791920000
+    assert webhook("bogus")["sent_at"] is None
+    assert webhook(None)["sent_at"] is None
+    assert webhook("-1791920000")["sent_at"] is None

@@ -275,7 +275,20 @@ def iter_inbound_messages(payload: dict, expected_phone_number_id: str):
                         body = str(reply.get("title") or "")[:400]
                 if not isinstance(body, str):
                     body = ""
-                yield {"id": mid, "from": sender, "type": kind, "text": body[:8000], "media": media}
+                # A delayed AI worker must never artificially reopen Meta's
+                # 24-hour conversation window. Carry the signed sender time.
+                raw_time = message.get("timestamp")
+                if (
+                    not isinstance(raw_time, str)
+                    or not raw_time.isascii()
+                    or not re.fullmatch(r"[1-9][0-9]{8,11}", raw_time)
+                ):
+                    raw_time = None
+                yield {
+                    "id": mid, "from": sender, "type": kind,
+                    "text": body[:8000], "media": media,
+                    "sent_at": int(raw_time) if raw_time is not None else None,
+                }
 
 
 
