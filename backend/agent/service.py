@@ -2274,32 +2274,57 @@ class AgentService:
                 "Consegna le conclusioni utili, con confronto, limiti e conseguenze "
                 "sostenuti dalle fonti; non il resoconto della lettura."
             )
-            prior_fallback = next((
-                item for item in reversed(plan.steps)
+            fallbacks = [
+                item for item in plan.steps
                 if item.step_type == "prepare"
                 and item.capability_needed == "document.create"
                 and item.intent == fallback_intent
-            ), None)
+            ]
+            prior_fallback = fallbacks[-1] if fallbacks else None
             if prior_fallback is not None:
-                if prior_fallback.status == "pending" or any(
-                    item.step_type == "prepare" and item.status == "pending"
-                    for item in plan.steps
-                ):
+                if prior_fallback.status == "pending":
                     return await self._pause(
                         owner_id, goal, plan, run,
-                        "Il confronto non è pronto: esiste già una preparazione in attesa.",
+                        "Il confronto non è pronto: il tentativo già programmato è ancora in attesa.",
                     )
-                note = (
-                    "Ho letto le fonti, ma non sono riuscito a produrre un "
-                    "confronto verificato. Non pubblicherò conclusioni non supportate."
+                # Only a known, recorded transient MODEL outage can consume
+                # one more fallback on the next bounded run. A source-review
+                # rejection or an unknown legacy failure never earns a fresh
+                # attempt counter merely by asking to finish again.
+                last_attempt = await self.db.agent_journal.find_one({
+                    "owner_id": owner_id, "goal_id": goal.id,
+                    "kind": "step_done", "detail.step_id": prior_fallback.id,
+                }, {"_id": 0, "detail": 1})
+                error_type = (last_attempt or {}).get("detail", {}).get("error_type")
+                temporary_outage = (
+                    prior_fallback.status == "failed"
+                    and error_type == "preparation_model_unavailable"
                 )
-                await self.repo.journal(
-                    owner_id, goal.id, kind="completion_fallback_exhausted", note=note,
-                    detail={"step_id": prior_fallback.id,
-                            "status": prior_fallback.status,
-                            "attempts": prior_fallback.attempts},
-                )
-                return await self._stop(goal, run, note)
+                if temporary_outage and len(fallbacks) >= 2:
+                    return await self._pause(
+                        owner_id, goal, plan, run,
+                        "Il modello non ha risposto dopo due tentativi: "
+                        "non avvio altre bozze automatiche senza un nuovo piano.",
+                    )
+                if not temporary_outage:
+                    if any(item.step_type == "prepare" and item.status == "pending"
+                           for item in plan.steps):
+                        return await self._pause(
+                            owner_id, goal, plan, run,
+                            "Il confronto non è pronto: esiste già una correzione in attesa.",
+                        )
+                    note = (
+                        "Ho letto le fonti, ma non sono riuscito a produrre un "
+                        "confronto verificato. Non pubblicherò conclusioni non supportate."
+                    )
+                    await self.repo.journal(
+                        owner_id, goal.id, kind="completion_fallback_exhausted", note=note,
+                        detail={"step_id": prior_fallback.id,
+                                "status": prior_fallback.status,
+                                "attempts": prior_fallback.attempts,
+                                "failure_code": error_type or "unknown"},
+                    )
+                    return await self._stop(goal, run, note)
 
             # The optional blind challenge consumes a third model decision.
             # Keep one further call available for the actual goal verifier.
