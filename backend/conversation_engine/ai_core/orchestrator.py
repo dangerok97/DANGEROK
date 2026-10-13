@@ -99,7 +99,9 @@ def _public_attachments(meta: Optional[Dict[str, Any]]) -> list:
 
 
 def _ui_actions(actions) -> list:
-    """Project only destinations that this client knows how to open."""
+    """Project skill action contracts once for every conversational channel."""
+    from conversation_engine.ai_core.channel_actions import portable_ui_action
+
     out = []
     for action in (actions or [])[:3]:
         if not isinstance(action, dict):
@@ -116,6 +118,10 @@ def _ui_actions(actions) -> list:
             plan_id = str(action.get("plan_id") or "")
             if re.fullmatch(r"lop_[A-Za-z0-9_-]{4,76}", plan_id):
                 out.append({"kind": "workspace", "label": "Apri il piano", "plan_id": plan_id})
+        else:
+            portable = portable_ui_action(action)
+            if portable and portable not in out:
+                out.append(portable)
     return out[:2]
 
 
