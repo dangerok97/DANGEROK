@@ -241,3 +241,100 @@ async def test_unrelated_wait_plan_survives_evidence_store_outage(monkeypatch):
     assert len(plan.steps) == 1 and plan.steps[0].step_type == "wait"
     assert not goal.planning_unavailable
     assert service.evidence.for_goal.await_count == 1  # Existing bounded inventory only.
+
+
+@pytest.mark.asyncio
+async def test_next_forces_owned_memory_read_before_draft_despite_other_real_evidence(monkeypatch):
+    """A weather observation cannot make the model skip the unread Memory dependency."""
+    from agent.models import ActionPlan, AgentEvidence, ResultProvenance
+    from agent.evidence import EvidenceStore
+
+    db = AsyncMongoMockClient().owned_source_next_v162
+    goal = AutonomousGoal(owner_id=SYNTHETIC_OWNER, status="active",
+        objective="Confrontare opzioni annotate", desired_outcome="Confronto basato sulla nota",
+        source_refs=[SYNTHETIC_MEMORY])
+    service = AgentService(db)
+    read = ActionStep(ordinal=0, step_type="inspect", capability_needed="information.read",
+        intent="Leggere la memoria citata.", input_refs=[SYNTHETIC_MEMORY])
+    draft = _draft()
+    draft.ordinal = 1
+    plan = ActionPlan(owner_id=SYNTHETIC_OWNER, goal_id=goal.id, steps=[read, draft])
+    await service.repo.save_goal(goal)
+    await service.repo.save_plan(plan)
+    await EvidenceStore(db).record(AgentEvidence(
+        owner_id=SYNTHETIC_OWNER, goal_id=goal.id,
+        claim="La temperatura è nota da un altro provider.",
+        provenance=ResultProvenance(source_class="internal_observation",
+            capability="weather.read", source_refs=["weather:synthetic"]),
+    ))
+    monkeypatch.setattr(reasoning, "choose_next_action", AsyncMock(
+        side_effect=AssertionError("A read prerequisite is not discretionary"),
+    ))
+    budget = AgentBudget()
+    choice, selected = await service._next(
+        SYNTHETIC_OWNER, goal, plan,
+        AgentRun(owner_id=SYNTHETIC_OWNER, goal_id=goal.id),
+        budget, language="it",
+    )
+    assert choice == "execute" and selected.id == read.id
+    assert budget.cognitive_calls == 0
+    assert await db.agent_action_attempts.count_documents({}) == 0
+    assert await db.agent_evidence.count_documents({"owner_id": SYNTHETIC_OWNER}) == 1
+
+
+@pytest.mark.asyncio
+async def test_next_allows_model_choice_after_qualifying_owned_memory_read(monkeypatch):
+    """Don't repeat a supported owned read or silently decide the useful next step."""
+    from agent.models import ActionPlan, AgentEvidence, ResultProvenance
+    from agent.evidence import EvidenceStore
+
+    db = AsyncMongoMockClient().owned_source_next_satisfied_v162
+    goal = AutonomousGoal(owner_id=SYNTHETIC_OWNER, status="active",
+        objective="Confrontare opzioni annotate", desired_outcome="Confronto basato sulla nota",
+        source_refs=[SYNTHETIC_MEMORY])
+    service = AgentService(db)
+    read = ActionStep(ordinal=0, step_type="inspect", capability_needed="information.read",
+        intent="Rileggere la memoria citata.", input_refs=[SYNTHETIC_MEMORY])
+    draft = _draft()
+    draft.ordinal = 1
+    plan = ActionPlan(owner_id=SYNTHETIC_OWNER, goal_id=goal.id, steps=[read, draft])
+    await service.repo.save_goal(goal)
+    await EvidenceStore(db).record(AgentEvidence(
+        owner_id=SYNTHETIC_OWNER, goal_id=goal.id,
+        claim="La nota governata dell'utente è stata letta.",
+        provenance=ResultProvenance(source_class="internal_observation",
+            capability="information.read", source_refs=[SYNTHETIC_MEMORY]),
+    ))
+    choose = AsyncMock(return_value={
+        "decision": "execute", "step_id": draft.id,
+        "reasoning": "Fonte letta e bozza ancora da preparare.",
+    })
+    monkeypatch.setattr(reasoning, "choose_next_action", choose)
+    monkeypatch.setattr(service, "_reasoning_goal", AsyncMock(return_value=goal.for_ai()))
+    monkeypatch.setattr(service, "_record_situation_outcome", AsyncMock())
+    monkeypatch.setattr(service.capabilities, "available", AsyncMock(return_value=_available_read()))
+    budget = AgentBudget()
+    choice, selected = await service._next(
+        SYNTHETIC_OWNER, goal, plan,
+        AgentRun(owner_id=SYNTHETIC_OWNER, goal_id=goal.id),
+        budget, language="it",
+    )
+    assert choice == "execute" and selected.id == draft.id
+    assert budget.cognitive_calls == 1
+    choose.assert_awaited_once()
+
+
+def test_selector_never_forces_unknown_or_foreign_memory_handles():
+    from agent.service import _pending_owned_source_read
+
+    goal = AutonomousGoal(owner_id=SYNTHETIC_OWNER, status="active",
+        objective="Confrontare la nota", desired_outcome="Confronto",
+        source_refs=[SYNTHETIC_MEMORY])
+    foreign = ActionStep(ordinal=0, step_type="inspect",
+        capability_needed="information.read", input_refs=["mem_foreign"],
+        intent="Leggere una fonte diversa da quella del goal")
+    draft = _draft()
+    draft.ordinal = 1
+    assert _pending_owned_source_read(goal, [foreign, draft], []) is None
+    assert _pending_owned_source_read(goal, [foreign], []) is None
+    assert _pending_owned_source_read(goal, [draft], []) is None
