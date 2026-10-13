@@ -33,6 +33,23 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _sender_message_moment(message: dict, received_at: datetime) -> datetime:
+    """The verified customer event, never the eventual AI processing time.
+
+    A missing Meta timestamp safely falls back to the first signed webhook
+    receipt. Duplicate webhook callbacks cannot reopen the service window.
+    """
+    value = message.get("sent_at")
+    if isinstance(value, int) and not isinstance(value, bool):
+        try:
+            sent = datetime.fromtimestamp(value, tz=timezone.utc)
+            if sent <= received_at:
+                return sent
+        except (ValueError, OSError, OverflowError):
+            pass
+    return received_at
+
+
 def _pair_command(text: str) -> str | None:
     match = re.fullmatch(r"\s*COLLEGA\s+([A-HJ-NP-Z2-9]{10})\s*", text, re.IGNORECASE)
     return match.group(1).upper() if match else None
@@ -145,7 +162,10 @@ class WhatsAppService:
         )
         return int((res or {}).get("count", 0)) <= MAX_ATTEMPTS_PER_DAY
 
-    async def pair(self, sender: str, code: str) -> tuple[str, str | None]:
+    async def pair(
+        self, sender: str, code: str, *,
+        message_at: datetime | None = None,
+    ) -> tuple[str, str | None]:
         phone_hash = self.config.fingerprint("phone", sender)
         if not await self._limit_pair_attempts(phone_hash):
             return "Troppi tentativi di collegamento. Riprova domani dall'app ORA.", None
@@ -163,6 +183,11 @@ class WhatsAppService:
         if existing and existing["user_id"] != user_id:
             return "Questo numero è già collegato a un altro account. Scollegalo dal vecchio account prima di riprovare.", None
         timestamp = now()
+        authenticated_at = message_at if isinstance(message_at, datetime) else timestamp
+        if authenticated_at.tzinfo is None:
+            authenticated_at = authenticated_at.replace(tzinfo=timezone.utc)
+        if authenticated_at > timestamp:
+            authenticated_at = timestamp
         previous = await self.db.whatsapp_links.find_one({"user_id": user_id}, {"_id": 0})
         same_phone = bool(previous and previous.get("phone_hash") == phone_hash)
         row = {
@@ -172,7 +197,7 @@ class WhatsAppService:
             "phone_last4": sender[-4:],
             "last_session_id": previous.get("last_session_id") if same_phone else None,
             "linked_at": timestamp,
-            "last_inbound_at": timestamp,
+            "last_inbound_at": authenticated_at,
             "notifications_enabled": False,
         }
         try:
@@ -187,6 +212,7 @@ class WhatsAppService:
         mid = message["id"]
         key = hashlib.sha256((self.config.phone_number_id + ":" + mid).encode()).hexdigest()
         timestamp = now()
+        sender_at = _sender_message_moment(message, timestamp)
         try:
             result = await self.db.whatsapp_inbox.update_one(
                 {"_id": key},
@@ -204,10 +230,18 @@ class WhatsAppService:
                     "attempts": 0,
                     "next_attempt_at": timestamp,
                     "received_at": timestamp,
+                    "service_window_started_at": sender_at,
                     "expires_at": timestamp + timedelta(days=7),
                 }},
                 upsert=True,
             )
+            if result.upserted_id:
+                # Only newly persisted signed inbound messages extend the
+                # user-service window. Model delays and Meta webhook replays do not.
+                await self.db.whatsapp_links.update_one(
+                    {"phone_hash": self.config.fingerprint("phone", sender)},
+                    {"$max": {"last_inbound_at": sender_at}},
+                )
             return bool(result.upserted_id)
         except DuplicateKeyError:
             return False
@@ -292,7 +326,10 @@ class WhatsAppService:
         phone_hash = item["phone_hash"]
         code = _pair_command(body) if item.get("kind") == "text" else None
         if code:
-            return await self.pair(sender, code)
+            return await self.pair(
+                sender, code,
+                message_at=item.get("service_window_started_at") or item.get("received_at"),
+            )
         linked = await self.db.whatsapp_links.find_one({"phone_hash": phone_hash}, {"_id": 0})
         if not linked:
             return ("Per parlarmi qui, apri ORA → Connessioni e servizi → WhatsApp. "
@@ -378,10 +415,8 @@ class WhatsAppService:
             return "Scrivimi cosa desideri fare.", linked["user_id"]
         if len(body) > 5000:
             return "Il messaggio è troppo lungo. Inviami un testo più breve.", linked["user_id"]
-        await self.db.whatsapp_links.update_one(
-            {"user_id": linked["user_id"], "phone_hash": phone_hash},
-            {"$set": {"last_inbound_at": now()}},
-        )
+        # The signed webhook already recorded sender activity. Delayed AI
+        # execution cannot redefine the service window for proactive outreach.
         return await self._answer_ai(
             linked["user_id"], linked, body, item["provider_message_id"],
             attachments=attachments,
