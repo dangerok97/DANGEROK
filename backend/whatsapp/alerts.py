@@ -140,7 +140,9 @@ async def enqueue(db, user_id: str, plan) -> bool:
         "_id": alert_id(user_id, plan.id),
         "owner_id": user_id, "plan_id": plan.id,
         "phone_hash": link["phone_hash"],
-        "copy": public_copy(plan),
+        # Keep even lock-screen-safe copy encrypted at rest, consistent with
+        # the WhatsApp inbox; decrypt only at the provider boundary.
+        "copy_enc": CloudConfig.load().encrypt(public_copy(plan)),
         "status": "ready", "attempts": 0,
         "next_attempt_at": moment, "created_at": moment,
         "valid_until": moment + MAX_NOTICE_AGE,
@@ -252,7 +254,8 @@ class AlertWorker:
         recipient = self.config.decrypt(latest["phone_enc"])
         try:
             wamid = await self.config.send_proactive(
-                recipient, message=item["copy"] if fresh_window else "",
+                recipient,
+                message=self.config.decrypt(item["copy_enc"]) if fresh_window else "",
                 template=None if fresh_window else template,
             )
         except CloudSendError as exc:
