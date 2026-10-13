@@ -1,0 +1,32 @@
+name: Loyalty wallet tests
+on:
+  push:
+    branches: ['feat/ora-loyalty-wallet-v1', 'staging/cloud']
+  pull_request:
+    branches: ['staging/cloud']
+permissions:
+  contents: read
+concurrency:
+  group: loyalty-wallet-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  wallet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Install runtime dependencies
+        run: python -m pip install -r backend/requirements-cloud.txt
+      - name: Require real barcode engine (never silently skip in CI)
+        run: python -c 'import zxingcpp; assert hasattr(zxingcpp, "create_barcode")'
+      - name: Compile wallet modules
+        run: python -m compileall -q backend/loyalty_wallet.py backend/routers/loyalty_wallet.py
+      - name: Wallet privacy, concurrency and exact code round-trips
+        run: python -m pytest -q tests/test_loyalty_wallet.py -ra
