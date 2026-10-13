@@ -276,3 +276,40 @@ def iter_inbound_messages(payload: dict, expected_phone_number_id: str):
                 if not isinstance(body, str):
                     body = ""
                 yield {"id": mid, "from": sender, "type": kind, "text": body[:8000], "media": media}
+
+
+
+def iter_signed_delivery_statuses(payload: dict, expected_phone_number_id: str):
+    """Read Meta receipt events from the same *signed* WhatsApp webhook.
+
+    This yields no freeform error details, recipient names, or message bodies.
+    Correlation against the owner's outbound record is enforced by the caller.
+    """
+    if not isinstance(payload, dict) or payload.get("object") != "whatsapp_business_account":
+        return
+    for entry in payload.get("entry") or []:
+        if not isinstance(entry, dict):
+            continue
+        for change in entry.get("changes") or []:
+            if not isinstance(change, dict) or change.get("field") != "messages":
+                continue
+            value = change.get("value") or {}
+            if not isinstance(value, dict):
+                continue
+            metadata = value.get("metadata") or {}
+            if not isinstance(metadata, dict) or metadata.get("phone_number_id") != expected_phone_number_id:
+                continue
+            for item in (value.get("statuses") or [])[:100]:
+                if not isinstance(item, dict):
+                    continue
+                mid = item.get("id")
+                status = item.get("status")
+                to = item.get("recipient_id")
+                if (
+                    isinstance(mid, str) and mid.startswith("wamid.")
+                    and len(mid) <= 220
+                    and status in ("sent", "delivered", "read", "failed")
+                    and isinstance(to, str)
+                    and re.fullmatch(r"[1-9][0-9]{6,14}", to)
+                ):
+                    yield {"id": mid, "status": status, "recipient_id": to}
