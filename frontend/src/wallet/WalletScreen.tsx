@@ -78,7 +78,7 @@ function WalletScreen() {
       if (result.candidates.length === 1) {
         change({ ...result.candidates[0], source: 'image', static_confirmed: false });
         setCandidates([]); setNotice('Codice letto. Controlla il nome e conferma che sia una tessera statica.');
-      } else { setCandidates(result.candidates); setNotice('La foto contiene più codici: scegli quello della tessera.'); }
+      } else { setCandidates(result.candidates); setNotice('Sono possibili più codici o formati: scegli quello che coincide con il numero stampato sulla tessera.'); }
     } catch (e) { if (alive.current) setError(message(e)); }
     finally { if (alive.current) setBusy(false); }
   };
@@ -113,7 +113,7 @@ function WalletScreen() {
   const text = { color: colors.textPrimary };
   const secondary = { color: colors.textSecondary };
   const button = (title: string, action: () => void, disabled = false, primary = false, id?: string) => (
-    <Pressable onPress={action} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled }} testID={id}
+    <Pressable key={id} onPress={action} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled }} testID={id}
       style={({ pressed }) => [s.button, panel, primary && { backgroundColor: colors.accent }, (pressed || disabled) && { opacity: 0.5 }]}>
       <Text style={[s.buttonText, primary ? { color: colors.onAccent } : text]}>{title}</Text>
     </Pressable>
@@ -141,7 +141,7 @@ function WalletScreen() {
 
       {draft ? <View style={[s.panel, panel]} testID="wallet-editor">
         <Text style={[s.heading, text]}>{draft.revision ? 'Modifica tessera' : 'Aggiungi tessera'}</Text>
-        <Text style={[s.small, secondary]}>La foto viene inviata al server ORA solo per leggere il codice e non viene conservata né inviata a un modello AI.</Text>
+        <Text style={[s.small, secondary]}>La foto viene inviata al server ORA solo per leggere il codice. Il server non la conserva e non la invia a un modello AI.</Text>
         <View style={s.row}>
           {Platform.OS === 'web' ? button('Fotografa il codice', () => { void importPhoto(true); }, busy, false, 'wallet-camera') : null}
           {button('Importa foto', () => { void importPhoto(false); }, busy, false, 'wallet-import')}
@@ -176,14 +176,14 @@ function WalletScreen() {
           <View style={s.row}>{button('Elimina definitivamente', () => { void remove(); }, busy, false, 'wallet-confirm-delete')}{button('Non eliminare', () => setConfirmDelete(false), busy)}</View></View>
           : button('Elimina da ORA', () => setConfirmDelete(true), busy, false, 'wallet-delete')}
       </View> : <>
-        <View style={s.row}>{button('Aggiungi tessera', begin, busy, true, 'wallet-add')}{button('Aggiorna', () => { void load(); }, loading || busy, false, 'wallet-refresh')}</View>
+        <View style={s.row}>{button('Aggiungi tessera', begin, loading || busy, true, 'wallet-add')}{button('Aggiorna', () => { void load(); }, loading || busy, false, 'wallet-refresh')}</View>
         <TextInput value={query} onChangeText={setQuery} placeholder="Cerca una tessera" placeholderTextColor={colors.textTertiary}
           accessibilityLabel="Cerca tessera" style={[s.input, panel, text]} testID="wallet-search" />
         {loading ? <ActivityIndicator accessibilityLabel="Caricamento tessere" color={colors.accent} /> : null}
         {!loading && !cards.length && !error ? <View style={[s.panel, panel]} testID="wallet-empty"><Ionicons name="wallet-outline" size={38} color={colors.textSecondary} />
           <Text style={[s.heading, text]}>La prossima tessera, qui.</Text><Text style={[s.body, secondary]}>Aggiungi il codice dalla foto oppure inseriscilo manualmente. Nessuna carta di esempio viene aggiunta al tuo account.</Text></View> : null}
         {!loading && cards.length > 0 && !visible.length ? <Text style={[s.body, secondary]}>Nessuna tessera corrisponde alla ricerca.</Text> : null}
-        <View style={s.grid}>{visible.map(card => <Pressable key={card.id} onPress={() => { setSelected(card); setError(''); setNotice(''); }} accessibilityRole="button"
+        <View style={s.grid}>{visible.map(card => <Pressable key={card.id} disabled={loading || busy} onPress={() => { setSelected(card); setError(''); setNotice(''); }} accessibilityRole="button"
           accessibilityLabel={`Apri ${card.name}`} testID={`wallet-card-${card.id}`} style={({ pressed }) => [s.card, panel, { opacity: pressed ? 0.75 : 1 }]}>
           <Ionicons name={card.favorite ? 'star' : 'barcode-outline'} size={24} color={colors.accent} />
           <Text style={[s.heading, text]}>{card.name}</Text><Text style={[s.small, secondary]}>{label(card.format)} · Mostra il codice</Text>
