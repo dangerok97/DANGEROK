@@ -671,6 +671,10 @@ export type WhatsAppLinkStatus = {
   phone_last4: string | null;
   display_number: string | null;
   notifications_enabled: boolean;
+  shared_ai_core?: boolean;
+  shared_capability_count?: number | null;
+  capability_contract_version?: number | null;
+  device_handoff_supported?: boolean;
 };
 export type WhatsAppPairing = {
   code: string;

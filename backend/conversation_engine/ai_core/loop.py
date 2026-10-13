@@ -5037,9 +5037,10 @@ def _journey_from(observations) -> dict:
 
 
 def _ui_actions_from(observations) -> list:
-    """Only successful, openable destinations produced during this turn."""
+    """Project verified skill UI results to any channel, including WhatsApp."""
     from urllib.parse import parse_qs, urlparse
     import re
+    from conversation_engine.ai_core.channel_actions import portable_ui_action
 
     out = []
     for obs in reversed(list(observations or [])):
@@ -5054,6 +5055,17 @@ def _ui_actions_from(observations) -> list:
         capability = getattr(obs, "name", None) or (
             obs.get("name") if isinstance(obs, dict) else None
         )
+        # Future skills use one portable UI action contract. WhatsApp and
+        # the app can both consume it without adding a per-skill adapter.
+        proposals = []
+        if payload.get("ui_action") is not None:
+            proposals.append(payload["ui_action"])
+        if isinstance(payload.get("ui_actions"), list):
+            proposals.extend(payload["ui_actions"][:3])
+        for raw_action in proposals:
+            normalized = portable_ui_action(raw_action)
+            if normalized and normalized not in out:
+                out.append(normalized)
         if capability == "prepare_amazon_search" and not any(a["kind"] == "amazon_search" for a in out):
             url = str(payload.get("search_url") or "")
             try:
