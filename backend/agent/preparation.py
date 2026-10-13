@@ -629,7 +629,10 @@ async def prepare(db, owner_id, goal, step):
         fallible_feedback as challenge_feedback, PROMPT as challenge_prompt,
     )
     if challenge_enabled():
-        challenge_input = challenge_payload(request, content, projected_rows)
+        challenge_input = challenge_payload(
+            request, content, projected_rows,
+            evidence_truncated=audit_payload["evidence_truncated"],
+        )
         if challenge_input is None:
             return unavailable("preparation_challenge_context_too_large")
         challenge = await _ask_model(

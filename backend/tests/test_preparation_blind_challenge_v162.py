@@ -46,6 +46,9 @@ def test_challenge_input_omits_earlier_audit_verdict():
     payload = json.loads(encoded)
     assert payload["stage"] == "blind_source_challenge"
     assert payload["request"] == request and payload["evidence"] == original
+    assert payload["evidence_truncated"] is False
+    second = input_payload(request, "Da fonte A costa 5.", sources, evidence_truncated=True)
+    assert json.loads(second)["evidence_truncated"] is True
     assert "verified" not in encoded and "previous_audit" not in encoded
     assert sources == original
     assert schema(["ev_one"])["properties"]["issues"]["items"]["properties"]["evidence_ids"]["items"]["enum"] == ["ev_one"]

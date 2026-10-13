@@ -40,7 +40,7 @@ def schema(allowed_ids):
     }, "required": ["accepted", "issues", "reason"], "additionalProperties": False}
 
 
-def input_payload(request, corrected_content, source_rows):
+def input_payload(request, corrected_content, source_rows, *, evidence_truncated=False):
     # The original audit has already reduced source rows without dropping a
     # cited source. Do not further trim or silently remove material premises.
     payload = {
@@ -48,6 +48,7 @@ def input_payload(request, corrected_content, source_rows):
         "request": request,
         "candidate_result": corrected_content,
         "evidence": source_rows,
+        "evidence_truncated": evidence_truncated is True,
     }
     encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)
     return encoded if len(encoded) <= MAX_CONTEXT_CHARACTERS else None
@@ -116,6 +117,7 @@ PROMPT = (
     "Do NOT write a revised draft or grant permission. Return JSON with "
     "accepted (boolean), issues (0–8 entries with claim, missing_premise, "
     "evidence_ids selected only from supplied source IDs), and short reason. "
-    "If source data is partial or not readable enough to check the material "
-    "result, do NOT claim acceptance."
+    "If evidence_truncated is true, parts of the source were omitted. "
+    "Do not treat that omission as proof of absence. If the remaining source "
+    "does not establish a material claim, do NOT claim acceptance."
 )
