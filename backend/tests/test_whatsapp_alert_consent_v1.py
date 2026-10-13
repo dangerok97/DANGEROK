@@ -313,3 +313,75 @@ async def test_canonical_delivery_service_adds_whatsapp_alert_once(cfg, monkeypa
     row = await db.whatsapp_alert_outbox.find_one({"owner_id": OWNER})
     assert row["plan_id"] == "dp_integrated"
     assert row["status"] == "ready"
+
+
+
+@pytest.mark.asyncio
+async def test_meta_proactive_transport_uses_exact_approved_template_payload(cfg, monkeypatch):
+    """Mock the Graph transport; this test never contacts Meta."""
+    import whatsapp.cloud as cloud
+
+    seen = []
+    class FakeResponse:
+        status_code = 200
+        def json(self):
+            return {"messages": [{"id": "wamid.synthetic_graph_reply"}]}
+
+    class FakeHttp:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            return False
+        async def post(self, url, *, headers, json):
+            assert cfg.phone_number_id in url
+            assert headers["Authorization"].startswith("Bearer ")
+            seen.append(json)
+            return FakeResponse()
+
+    monkeypatch.setattr(cloud.httpx, "AsyncClient", FakeHttp)
+    mid = await cfg.send_proactive(
+        PHONE, message="", template=("ora_aggiornamento_importante", "it")
+    )
+    assert mid == "wamid.synthetic_graph_reply"
+    assert seen == [{
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual", "to": PHONE,
+        "type": "template",
+        "template": {"name": "ora_aggiornamento_importante",
+                     "language": {"code": "it"}},
+    }]
+    assert "text" not in seen[0]
+
+
+@pytest.mark.asyncio
+async def test_meta_proactive_freeform_only_uses_server_approved_copy(cfg, monkeypatch):
+    import whatsapp.cloud as cloud
+
+    seen = []
+    class FakeResponse:
+        status_code = 200
+        def json(self):
+            return {"messages": [{"id": "wamid.synthetic_graph_text"}]}
+
+    class FakeHttp:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            return False
+        async def post(self, url, *, headers, json):
+            seen.append(json)
+            return FakeResponse()
+
+    monkeypatch.setattr(cloud.httpx, "AsyncClient", FakeHttp)
+    mid = await cfg.send_proactive(
+        PHONE, message="ORA ha un aggiornamento importante."
+    )
+    assert mid == "wamid.synthetic_graph_text"
+    assert len(seen) == 1
+    assert seen[0]["type"] == "text"
+    assert seen[0]["text"]["body"] == "ORA ha un aggiornamento importante."
+    assert "template" not in seen[0]
