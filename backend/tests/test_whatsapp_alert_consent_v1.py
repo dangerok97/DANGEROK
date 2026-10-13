@@ -804,3 +804,154 @@ def test_delivery_lock_screen_never_falls_back_to_expanded_private_copy():
     assert "Private expanded" not in str(_lockscreen_copy_for(item))
     item.sensitivity = "ordinary"
     assert _lockscreen_copy_for(item)["title"] == item.words.title
+
+
+def test_recurring_meta_template_review_payload_is_specific_and_sampled():
+    payload = review_payload()
+    assert payload["name"] == TEMPLATE_NAME
+    assert payload["language"] == TEMPLATE_LANGUAGE
+    assert payload["category"] == "UTILITY"
+    assert payload["allow_category_change"] is False
+    assert len(payload["components"]) == 1
+    body = payload["components"][0]
+    assert body["type"] == "BODY"
+    assert body["text"] == TEMPLATE_BODY
+    assert body["text"].count("{{1}}") == 1
+    assert not body["text"].startswith("{{1}}")
+    assert not body["text"].endswith("{{1}}")
+    assert body["example"]["body_text"] == [[EXAMPLE_TEXT]]
+    assert "telefono" not in str(payload).lower()
+    assert "account" not in str(payload).lower()
+
+
+def test_template_name_without_reviewed_scope_cannot_activate_outreach(cfg, monkeypatch):
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    assert template_settings() is None
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", "all_ai_updates")
+    assert template_settings() is None
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+    assert template_settings() == (TEMPLATE_NAME, TEMPLATE_LANGUAGE)
+
+
+@pytest.mark.asyncio
+async def test_nonrecurring_source_never_uses_approved_recurring_template(cfg, monkeypatch):
+    from whatsapp import template_approval
+    db = AsyncMongoMockClient().wa_scope_admission
+    await linked(db, cfg, last_at=datetime.now(timezone.utc) - timedelta(days=2))
+    await set_opt_in(db, OWNER, True)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+
+    async def approved(*_args, **_kwargs):
+        return "approved_dynamic"
+    monkeypatch.setattr(template_approval, "approval_status", approved)
+    assert await may_notify(db, OWNER)
+    item = plan()
+    await db.opportunities.insert_one({
+        "id": item.source_id, "owner_id": OWNER,
+        "status": "active", "source_context": "financial_update",
+    })
+    assert not await enqueue(db, OWNER, item)
+    assert await db.whatsapp_alert_outbox.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_queued_unrelated_alert_never_crosses_meta_scope_after_window_expires(
+    cfg, monkeypatch,
+):
+    from delivery.service import DeliveryService
+
+    db = AsyncMongoMockClient().wa_scope_window_close
+    await linked(db, cfg)
+    await set_opt_in(db, OWNER, True)
+    item = plan()
+    await db.delivery_plans.insert_one(item.model_dump())
+    assert await enqueue(db, OWNER, item)
+    await db.whatsapp_links.update_one(
+        {"user_id": OWNER},
+        {"$set": {"last_inbound_at": datetime.now(timezone.utc) - timedelta(days=2)}},
+    )
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+
+    async def current(self, uid, requested_plan):
+        assert uid == OWNER
+        return SimpleNamespace(status="active", source_context="financial_update")
+
+    async def not_muted(self, *_):
+        return False
+
+    async def never_send(*_args, **_kwargs):
+        pytest.fail("Non-recurring details must never go into recurring Utility template")
+
+    monkeypatch.setattr(DeliveryService, "_current_subject_for_plan", current)
+    monkeypatch.setattr(DeliveryService, "_muted", not_muted)
+    monkeypatch.setattr(CloudConfig, "send_proactive", never_send)
+    assert await AlertWorker(db, cfg).process_one()
+    row = await db.whatsapp_alert_outbox.find_one({})
+    assert row["status"] == "cancelled"
+    assert row["failure_code"] == "template_scope_unsupported"
+
+
+@pytest.mark.asyncio
+async def test_operator_submission_requires_explicit_confirm_and_real_not_found(
+    cfg, monkeypatch,
+):
+    import httpx
+    from whatsapp.template_approval import _CACHE
+
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+    seen = []
+
+    async def get_template(self, url, *, headers, params):
+        assert headers["Authorization"] == "Bearer " + cfg.access_token
+        assert url.endswith("/1234567890123/message_templates")
+        return httpx.Response(200, json={"data": []})
+
+    async def create_template(self, url, *, headers, json):
+        seen.append(json)
+        assert headers["Authorization"] == "Bearer " + cfg.access_token
+        return httpx.Response(200, json={"id": "123456789123", "status": "PENDING"})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", get_template)
+    monkeypatch.setattr(httpx.AsyncClient, "post", create_template)
+    with pytest.raises(ValueError, match="explicit_review_confirmation_required"):
+        await request_review()
+    assert not seen
+    result = await request_review(confirm=True)
+    assert result == {"requested": True, "template": TEMPLATE_NAME, "status": "PENDING"}
+    assert seen == [review_payload()]
+    assert "Bearer" not in str(result)
+
+
+@pytest.mark.asyncio
+async def test_operator_does_not_resubmit_if_template_exists_or_meta_unknown(
+    cfg, monkeypatch,
+):
+    import httpx
+    from whatsapp.template_approval import _CACHE
+
+    _CACHE.clear()
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_NAME", TEMPLATE_NAME)
+    monkeypatch.setenv("WHATSAPP_ALERT_TEMPLATE_SCOPE", TEMPLATE_SCOPE)
+    monkeypatch.setenv("WHATSAPP_WABA_ID", "1234567890123")
+    response = {"data": [{
+        "name": TEMPLATE_NAME, "language": TEMPLATE_LANGUAGE,
+        "status": "APPROVED", "category": "UTILITY",
+        "components": [{"type": "BODY", "text": TEMPLATE_BODY}],
+    }]}
+    async def get_template(self, url, *, headers, params):
+        return httpx.Response(200, json=response)
+    async def never_post(*_args, **_kwargs):
+        pytest.fail("No second template request for an already approved or uncertain state")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", get_template)
+    monkeypatch.setattr(httpx.AsyncClient, "post", never_post)
+    result = await request_review(confirm=True)
+    assert result["requested"] is False
+    assert result["status"] == "approved_dynamic"
+    response.clear()
+    assert (await request_review(confirm=True))["status"] == "unverified"
