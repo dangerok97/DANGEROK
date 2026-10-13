@@ -49,6 +49,9 @@ export function applyOraBlueprint(source){
   JSON.stringify(rimShader)+");";
  scene=replaceOne(scene,'   };materials.push(m);return m;',
    '    '+shaderInjection+'\n   };materials.push(m);return m;');
+ scene=replaceOne(scene,
+  "renderer.domElement.setAttribute('aria-label','Anatomia 3D: trascina per ruotare, pizzica per ingrandire e tocca una parte per selezionarla.');",
+  "renderer.domElement.setAttribute('aria-label','Anatomia 3D con superfici tecniche e linee blu ORA; ruota e seleziona i componenti.');renderer.domElement.setAttribute('data-ora-blueprint','active');");
  const outlines=[
   '  // Build true outline geometry only for meshes on the current exploded page.',
   '  // Full body contains 2,234 parts: never outline all of them in WebGL.',
@@ -59,10 +62,10 @@ export function applyOraBlueprint(source){
   '   const relevant:number[]=[],selectedIds=new Set(s.selected);',
   '   for(let i=0;i<atlas.parts.length;i++){',
   '    if(data[i*4+3]<.5||!pickers[i])continue;',
-  '    if(amount>.45||selectedIds.has(atlas.parts[i].id))relevant.push(i);',
+  '    if(atlas.parts[i].system!=="integumentary"||selectedIds.has(atlas.parts[i].id))relevant.push(i);',
   '   }',
-  '   relevant.sort((a,b)=>Number(selectedIds.has(atlas.parts[b].id))-Number(selectedIds.has(atlas.parts[a].id)));',
-  '   const displayed=new Set(relevant.slice(0,EDGE_LIMIT));',
+  '   relevant.sort((a,b)=>{const active=Number(selectedIds.has(atlas.parts[b].id))-Number(selectedIds.has(atlas.parts[a].id));if(active)return active;return bounds[b].getSize(new T.Vector3()).length()-bounds[a].getSize(new T.Vector3()).length();});',
+  '   const displayed=new Set(relevant.slice(0,amount<.18?12:EDGE_LIMIT));',
   '   for(const [i,line] of blueprintEdges){',
   '    line.visible=displayed.has(i);',
   '    if(!line.visible)continue;',
