@@ -1239,7 +1239,8 @@ class AgentService:
         return (decision, chosen)
 
     async def _continue_later(
-        self, owner_id, goal, plan: ActionPlan, run: AgentRun, why: str
+        self, owner_id, goal, plan: ActionPlan, run: AgentRun, why: str,
+        *, retry_minutes: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Out of budget, not out of work. Arrange to come back.
@@ -1252,7 +1253,14 @@ class AgentService:
         is being handled and nothing that will ever handle it.
         """
         plan.status = "active"
-        goal.next_run_at = (_now() + timedelta(hours=CONTINUE_IN_HOURS)).isoformat()
+        # A bounded, source-review correction is worth revisiting sooner than
+        # ordinary budget exhaustion. Neither delay is an outcome estimate.
+        delay = (
+            timedelta(minutes=max(5, min(30, int(retry_minutes))))
+            if retry_minutes is not None else timedelta(hours=CONTINUE_IN_HOURS)
+        )
+        due = _now() + delay
+        goal.next_run_at = due.isoformat()
         await self.repo.save_goal(goal)
         await self.repo.save_plan(plan)
         await self.repo.journal(
@@ -1265,7 +1273,7 @@ class AgentService:
             await AmbientService(self.db).schedule(
                 owner_id,
                 reason="opportunity_revisit",
-                when=_now() + timedelta(hours=CONTINUE_IN_HOURS),
+                when=due,
                 source_ref=f"goal:{goal.id}",
                 # A ceiling is a technical fact, not a judgement anybody made.
                 provenance="code_schedule",
@@ -1452,6 +1460,55 @@ class AgentService:
                 "evidence": len(result.evidence_refs),
             },
         )
+
+        # A source-grounded draft rejected by its own review or blind critic
+        # must never be published. Once this run's technical budget is spent,
+        # asking for an immediate full replan can itself time out, stranding a
+        # still-recoverable goal. Preserve the critic's bounded journal
+        # feedback, reopen only this failed *preparation* step and let the
+        # model choose the next action on the next, persistently scheduled
+        # pass. This is not code deciding that the critic's semantics are true.
+        _correctable_preparation_failures = frozenset({
+            "preparation_challenge_rejected",
+            "preparation_challenge_unavailable",
+            "preparation_review_self_contradiction",
+            "preparation_reference_leak",
+        })
+        spent = budget.exhausted()
+        if (step.step_type == "prepare" and result.status == "unavailable"
+                and result.retryable and result.error_type in _correctable_preparation_failures
+                and step.attempts < MAX_STEP_ATTEMPTS and spent):
+            from agent.source_refresh import changed, refresh
+            if await changed(self.db, goal):
+                await refresh(self, goal)
+                run.stopped_because = "source_changed"
+                return {"ok": True, "state": "source_changed" if goal.is_open else goal.status}
+            latest = await self.repo.get_goal(owner_id, goal.id)
+            if latest is None or not latest.is_open:
+                goal.status = latest.status if latest else "cancelled"
+                goal.next_run_at = None
+                return {"ok": True, "state": goal.status}
+            if latest.user_deferred_until and latest.user_deferred_until > _now().isoformat():
+                goal.status, goal.next_run_at = latest.status, latest.next_run_at
+                goal.user_deferred_until = latest.user_deferred_until
+                return {"ok": True, "state": "user_deferred"}
+            step.status = "pending"
+            plan.status = "active"
+            # This is a deliberate bounded correction, not a blind new goal.
+            # MAX_STEP_ATTEMPTS remains the hard ceiling for the same step.
+            goal.background_runs = 0
+            await self.repo.save_plan(plan)
+            await self.repo.journal(
+                owner_id, goal.id, kind="source_review_retry_queued",
+                note="Il risultato non ha superato la revisione; riesame fissato senza pubblicarlo.",
+                detail={"step_id": step.id, "attempt": step.attempts,
+                        "failure_code": result.error_type, "limiter": spent},
+            )
+            run.stopped_because = "source_review_retry_scheduled"
+            return await self._continue_later(
+                owner_id, goal, plan, run, "source_review_rejected",
+                retry_minutes=5,
+            )
 
         if result.status in ("partial", "failed", "unavailable", "waiting") or result.error_type:
             # Something did not go as the plan assumed — it broke, it was not
@@ -1953,11 +2010,13 @@ class AgentService:
             if changed_review is not None:
                 return changed_review
 
-        if budget.cognitive_calls >= budget.max_cognitive_calls:
-            # Nothing left to think with. Stopping here is honest; carrying
-            # on with the old plan after it has just been contradicted is not.
+        spent = budget.exhausted()
+        if spent:
+            # Never start an unbounded reconsideration after this run's time,
+            # action or cognitive budget is already spent. The fresh pass owns
+            # the later judgement, not this failed technical window.
             return await self._continue_later(
-                owner_id, goal, plan, run, "cognitive_calls"
+                owner_id, goal, plan, run, spent
             )
 
         budget.cognitive_calls += 1
