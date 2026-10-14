@@ -5,6 +5,7 @@ import { OraPresence } from '@/src/components/ora/presence/OraPresence';
 import { useKnowledgeMap } from '@/src/components/ora/presence/useKnowledgeMap';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { PlacesSection } from '@/src/components/vita/PlacesSection';
+import { WalletEntry } from '@/src/wallet/WalletEntry';
 /**
  * The guided first setup.
  *
@@ -1340,6 +1341,10 @@ export function GuidedSetupScreen() {
               </View>
               <Ionicons name="arrow-forward" size={19} color={ora.cta} />
             </Pressable>
+            <View testID="vita-wallet-section" style={{ gap: 8 }}>
+              <Text style={[oraType.small, { color: ora.ink2, fontWeight: '700' }]}>TESSERE FEDELTÀ</Text>
+              <WalletEntry />
+            </View>
             <BankSummaryCard />
             {uploadedContractId ? <EnergyOffersPanel documentId={uploadedContractId} pollMs={15000} /> : null}
             {error ? (
