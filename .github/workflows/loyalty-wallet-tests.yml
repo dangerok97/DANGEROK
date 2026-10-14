@@ -30,6 +30,17 @@ jobs:
         run: python -m compileall -q backend/loyalty_wallet.py backend/routers/loyalty_wallet.py
       - name: Wallet HTTP privacy concurrency and exact code round-trips
         run: python -m pytest -q tests/test_loyalty_wallet*.py -ra
+      - name: Prepare codec for isolated local photo validation
+        run: |
+          mkdir -p /tmp/ora-wallet-local
+          python -m pip download --only-binary=:all: --no-deps zxing-cpp==3.1.1 -d /tmp/ora-wallet-local
+          cp backend/loyalty_wallet.py /tmp/ora-wallet-local/
+          printf '%s\n' "$GITHUB_SHA" > /tmp/ora-wallet-local/source-commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wallet-local-validation
+          path: /tmp/ora-wallet-local/
+          retention-days: 1
   wallet-ui:
     name: Wallet mobile and desktop (Chromium + WebKit)
     runs-on: ubuntu-latest
@@ -53,11 +64,13 @@ jobs:
         run: npm ci
       - name: Typecheck actual components
         run: npx tsc --noEmit
+      - name: Equivalent-code and preview security regressions
+        run: node --experimental-strip-types --test src/wallet/scanCandidates.test.ts
       - name: Export production web UI
         run: npx expo export --platform web --output-dir dist-mobile-qa
       - name: Install browser engines
         run: npx playwright install --with-deps chromium webkit
-      - name: Test wallet CRUD checkout and navigation
+      - name: Test wallet photo import cashier and VITA discovery
         run: npx playwright test --config=e2e/wallet-qa.config.ts
       - name: Retain synthetic-data screenshots and results
         if: always()

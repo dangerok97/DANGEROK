@@ -10,7 +10,7 @@ export type LoyaltyCard = CardInput & {
   image: string; created_at: string; updated_at: string;
   acceptance: 'not_verified_at_checkout';
 };
-export type Candidate = { format: CodeFormat; code: string };
+export type Candidate = { format: CodeFormat; code: string; image?: string };
 
 async function request<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
   if (!token || (await authToken.get()) !== token) throw new Error('Sessione cambiata. Riapri il portafoglio.');
@@ -26,7 +26,7 @@ async function request<T>(token: string, path: string, init: RequestInit = {}): 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const message = typeof data.detail === 'string' ? data.detail
-        : response.status === 422 ? 'Controlla nome, formato e codice della tessera originale.'
+        : response.status === 422 ? 'Controlla il codice della tessera originale o carica una foto più nitida.'
         : response.status === 401 ? 'Accedi nuovamente a ORA.' : 'Portafoglio non disponibile. Riprova.';
       throw new Error(message);
     }

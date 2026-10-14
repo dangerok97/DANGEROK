@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from deps import db, get_current_user
-from loyalty_wallet import CardInput, FORMATS, MAX_UPLOAD, WalletCipher, WalletError, WalletService, decode_image
+from loyalty_wallet import CardInput, FORMATS, MAX_UPLOAD, WalletCipher, WalletError, WalletService, decode_image, render_code
 
 
 def _private(response: Response):
@@ -26,6 +26,17 @@ async def _call(operation):
         return await operation
     except WalletError as exc:
         raise HTTPException(exc.status, str(exc)) from None
+
+
+def _decode_preview(raw: bytes) -> list[dict]:
+    """Add deterministic, exact-read-back PNG previews; never retain input photo.
+
+    `image` is additive to the existing candidates contract. Older clients
+    still work; newer ones collapse physically equivalent EAN/UPC readings.
+    Both decoding and preview rendering run off the async event loop.
+    """
+    return [{**candidate, "image": render_code(candidate["format"], candidate["code"])}
+            for candidate in decode_image(raw)]
 
 
 @router.get("/cards")
@@ -53,12 +64,12 @@ async def scan_card(request: Request, user=Depends(get_current_user)):
     if request.headers.get("content-type", "").split(";")[0].lower() not in ("image/jpeg", "image/png", "image/webp"):
         raise HTTPException(415, "Usa una foto JPEG, PNG o WebP.")
     raw = bytearray()
-    async for chunk in request.stream():
-        if len(raw) + len(chunk) > MAX_UPLOAD:
-            raise HTTPException(413, "La foto supera 8 MB: ritaglia il codice.")
-        raw.extend(chunk)
     try:
-        candidates = await run_in_threadpool(decode_image, bytes(raw))
+        async for chunk in request.stream():
+            if len(raw) + len(chunk) > MAX_UPLOAD:
+                raise HTTPException(413, "La foto supera 8 MB: ritaglia il codice.")
+            raw.extend(chunk)
+        candidates = await run_in_threadpool(_decode_preview, bytes(raw))
         return {"candidates": candidates, "saved": False}
     except WalletError as exc:
         raise HTTPException(exc.status, str(exc)) from None
