@@ -36,7 +36,7 @@ logger = logging.getLogger("ora.home.calendar_event")
 # Quello che si dice a una persona di un appuntamento. Non e' la riga del
 # database: e' cosa e', quando, dove, e da dove lo sappiamo.
 HUMAN_FIELDS = (
-    "title", "starts_at", "ends_at", "all_day", "location", "description",
+    "title", "starts_at", "ends_at", "end_time_known", "all_day", "location", "description",
     "calendar_name", "status", "timezone",
 )
 
@@ -80,7 +80,9 @@ async def _row(db, user_id: str, item_id: str) -> Optional[Dict[str, Any]]:
             "updated_at": local.get("updated_at"),
             "normalized_payload": {
                 "title": local["label"], "starts_at": attrs.get("starts_at"),
-                "ends_at": attrs.get("ends_at"), "timezone": attrs.get("timezone"),
+                "ends_at": attrs.get("ends_at"),
+                "end_time_known": attrs.get("end_time_known", True) is not False,
+                "timezone": attrs.get("timezone"),
                 "location": attrs.get("location"), "description": local.get("description"),
                 "calendar_name": "Calendario ORA", "all_day": bool(attrs.get("all_day")),
                 "status": "confirmed" if local.get("status") == "active" else "cancelled",
@@ -132,6 +134,7 @@ async def _row(db, user_id: str, item_id: str) -> Optional[Dict[str, Any]]:
                 "title": node.get("label") or "Evento",
                 "starts_at": attrs.get("starts_at"),
                 "ends_at": attrs.get("ends_at"),
+                "end_time_known": attrs.get("end_time_known", True) is not False,
                 "all_day": bool(attrs.get("all_day")),
                 "location": attrs.get("location"),
                 "description": node.get("description"),
@@ -188,6 +191,7 @@ async def _from_our_own_record(
             "title": draft.get("title") or "Evento",
             "starts_at": draft.get("start_datetime"),
             "ends_at": draft.get("end_datetime"),
+            "end_time_known": draft.get("end_time_known", True) is not False,
             "all_day": bool(draft.get("all_day")),
             "location": draft.get("venue_name") or draft.get("location"),
             "description": draft.get("description"),
@@ -303,6 +307,7 @@ async def event_detail(db, user_id: str, item_id: str) -> Optional[Dict[str, Any
         "title": payload.get("title") or "Evento",
         "starts_at": payload.get("starts_at"),
         "ends_at": payload.get("ends_at"),
+        "end_time_known": payload.get("end_time_known", True) is not False,
         "all_day": bool(payload.get("all_day")),
         "location": payload.get("location") or None,
         "description": _human_notes(payload.get("description")),

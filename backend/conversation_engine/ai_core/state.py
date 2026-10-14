@@ -69,7 +69,8 @@ def get_ai_state(sess: ConversationSession) -> Dict[str, Any]:
 
 def save_ai_state(sess: ConversationSession, state: Dict[str, Any]) -> None:
     sess.meta = dict(sess.meta or {})
-    sess.meta["ai_core"] = state
+    from connected.source_read import redact_private_source_content
+    sess.meta["ai_core"] = redact_private_source_content(state)
     sess.meta["ui_mode"] = "ai_core"
     sess.touch()
 

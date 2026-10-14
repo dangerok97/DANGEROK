@@ -23,6 +23,8 @@ class ToolRegistry:
         self._register_defaults()
 
     def _register_defaults(self) -> None:
+        from connected.source_read import register_source_reader
+        register_source_reader(self)
         from situations.followup import register_followup_tools
         register_followup_tools(self)
         from shipping.caps import get_shipment_status
@@ -1227,15 +1229,31 @@ class ToolRegistry:
                     "was also copied to Google or Apple. Do not create an event when "
                     "the user wants to MOVE an existing one; use update_calendar_event. "
                     "Direct instructions can supply authority; suggestions need an "
-                    "actual user confirmation. Resolve timezone from evidence."
+                    "actual user confirmation. Resolve timezone from evidence. "
+                    "A confirmed commitment with a known start is actionable even when "
+                    "the source does not state its end: omit end_datetime and "
+                    "duration_minutes in that case. Never infer duration from the event type; "
+                    "the calendar records the display fallback as an unknown end."
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "title": {"type": "string"},
                         "start_datetime": {"type": "string", "description": "ISO 8601"},
-                        "end_datetime": {"type": "string", "description": "ISO 8601, optional"},
-                        "duration_minutes": {"type": "number"},
+                        "end_datetime": {
+                            "type": "string",
+                            "description": (
+                                "ISO 8601, optional. Omit when the source/user did not "
+                                "state an end time; a known start is enough."
+                            ),
+                        },
+                        "duration_minutes": {
+                            "type": "number",
+                            "description": (
+                                "Optional. Use only when duration is actually stated or "
+                                "grounded; never guess it from the event category."
+                            ),
+                        },
                         "timezone": {"type": "string", "description": "IANA name, optional"},
                         "all_day": {"type": "boolean"},
                         "location": {"type": "string"},

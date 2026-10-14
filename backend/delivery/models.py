@@ -51,7 +51,7 @@ PlanStatus = Literal["pending", "held", "cancelled", "delivered", "expired"]
 # been three lines and a lie: an opportunity is something ORA noticed about a
 # life, and "I am stuck and need you" is not that. Two source types cost less
 # than one dishonest one.
-DeliverySource = Literal["opportunity", "agent_need"]
+DeliverySource = Literal["opportunity", "agent_need", "source_result"]
 
 DeliveryProvenance = Literal["model", "code_cancel", "code_expiry", "code_safety"]
 

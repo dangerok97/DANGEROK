@@ -760,6 +760,24 @@ _CALENDAR_CLAIM_RE = re.compile(
     r"i('|’)?ve\s+(created|added|scheduled|moved|rescheduled|cancel(l)?ed|deleted|removed)\b.{0,60}\b(calendar|event)"
     r")\b"
 )
+
+def _has_positive_calendar_mutation_claim(text: str) -> bool:
+    """Return True only for an asserted calendar mutation, not its explicit denial."""
+    rendered = unicodedata.normalize("NFKC", html.unescape(str(text or "")))
+    rendered = re.sub(r"<[^>]*>", "", rendered)
+    rendered = re.sub(r"[*_`]", "", rendered)
+    rendered = " ".join(rendered.split())
+    for match in _CALENDAR_CLAIM_RE.finditer(rendered):
+        prefix = re.split(r"[.!?;,:]", rendered[:match.start()])[-1]
+        local = " ".join(prefix.lower().split()[-7:])
+        if re.search(
+            r"\b(?:non|not|never)\b(?:\s+[\w'’à-öø-ÿ]+){0,6}\s*$",
+            local,
+            flags=re.IGNORECASE,
+        ):
+            continue
+        return True
+    return False
 _LIKELY_EMPIRICAL_ESTIMATE_RE = re.compile(
     r"(?i)("
     r"\b(circa|indicativamente|all'incirca|approssimativamente|pi[uù]\s+o\s+meno|"
@@ -1307,6 +1325,7 @@ async def run_cognitive_loop(
     decision_fn: Optional[DecisionFn] = None,
     max_steps: int = MAX_STEPS,
     resume_client: bool = False,
+    source_activation=None,
 ) -> CognitiveTurnResult:
     t0 = time.perf_counter()
     trace = new_trace()
@@ -1319,6 +1338,14 @@ async def run_cognitive_loop(
     def _fase(nome: str, da: float) -> None:
         fasi[nome] = round(fasi.get(nome, 0.0) + (time.perf_counter() - da) * 1000, 1)
     tools = ToolRegistry(db)
+    source_instruction = ""
+    if source_activation is not None:
+        if user_message or resume_client:
+            raise ValueError("source_activation_is_not_a_user_turn")
+        await source_activation.validate(db, sess.user_id)
+        tools = source_activation.restrict_registry(tools)
+        from conversation_engine.ai_core.source_activation import SOURCE_INSTRUCTION
+        source_instruction = SOURCE_INSTRUCTION
     broker = ContextBroker(db)
     st = state_mod.get_ai_state(sess)
     # WhatsApp is a conversational channel, not an app with permission to
@@ -1331,7 +1358,7 @@ async def run_cognitive_loop(
     )
 
     # Client-resume continues the SAME user turn — do not duplicate recent_turns.
-    if not resume_client:
+    if not resume_client and source_activation is None:
         state_mod.append_turn(st, role="user", text=user_message)
 
         # Conversation is AI-first. Pending skill state is exposed below to the
@@ -1545,10 +1572,28 @@ async def run_cognitive_loop(
             calendar_next_48h=calendar_ahead,
             clock_context=clock_context,
         )
+        if source_activation is not None:
+            await source_activation.validate(db, sess.user_id)
+            decoded_payload = json.loads(payload)
+            decoded_payload["source_activation"] = source_activation.context
+            payload = json.dumps(decoded_payload, ensure_ascii=False)
+        from conversation_engine.ai_core.instruction_contract import (
+            instruction_surface, input_surface, compact_source_enabled,
+        )
+        source_turn = source_activation is not None
+        payload = input_surface(payload, source_turn=source_turn)
+        cognitive_system = instruction_surface(
+            legacy=COGNITIVE_SYSTEM_PROMPT, source_turn=source_turn,
+            source_instruction=source_instruction,
+            followup_instruction=followup_gate.instruction(),
+        )
+        add_step(trace, event="COGNITIVE_CONTRACT",
+                 compact=compact_source_enabled(source_turn),
+                 system_chars=len(cognitive_system), payload_chars=len(payload))
         _t = time.perf_counter()
         raw = await _call_ai(
             decision_fn=decision_fn,
-            system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction(),
+            system=cognitive_system,
             user=payload,
             user_preference=user_llm_preference,
             # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
@@ -1589,7 +1634,7 @@ async def run_cognitive_loop(
         if not gov.ok or not gov.decision:
             raw2 = await _call_ai(
                 decision_fn=decision_fn,
-                system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction()
+                system=cognitive_system
                 + "\nPrevious output was invalid. Return valid JSON only.",
                 user=payload,
                 user_preference=user_llm_preference,
@@ -1626,6 +1671,11 @@ async def run_cognitive_loop(
                 has_question=bool(decision.question),
             )
 
+        if source_activation is not None and source_activation.implicit_mutations(decision):
+            observations.append(Observation(kind="system", name="source_effect_scope", status="blocked",
+                payload={"reason": "This source turn can use only the offered tools, not implicit memory, graph, Situation or act mutations. Choose a supported tool or explain the actual limitation."}).model_dump())
+            add_step(trace, event="SOURCE_IMPLICIT_MUTATION_BLOCKED")
+            continue
         last_decision = decision
         if decision.skill_plan:
             skill_plan_declared_this_turn = True
@@ -2607,7 +2657,7 @@ async def run_cognitive_loop(
             unconfirmed_calendar_claim = (
                 mode in ("answer", "finish", "act")
                 and not calendar_write_confirmed_this_turn
-                and _CALENDAR_CLAIM_RE.search(ora or "")
+                and _has_positive_calendar_mutation_claim(ora or "")
             )
             if (
                 unconfirmed_calendar_claim

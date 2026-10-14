@@ -38,13 +38,18 @@ function humanDay(value?: string | null): string {
 }
 
 /** «10:00 – 11:00», o solo l'inizio quando non c'e' una fine. */
-function humanTime(start?: string | null, end?: string | null, allDay?: boolean): string {
+function humanTime(
+  start?: string | null,
+  end?: string | null,
+  allDay?: boolean,
+  endTimeKnown?: boolean,
+): string {
   if (allDay) return 'Tutto il giorno';
   if (!start) return '';
   const from = new Date(start);
   if (Number.isNaN(from.getTime())) return '';
   const fmt = (d: Date) => d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-  if (!end) return fmt(from);
+  if (endTimeKnown === false || !end) return fmt(from);
   const to = new Date(end);
   if (Number.isNaN(to.getTime())) return fmt(from);
   return `${fmt(from)} – ${fmt(to)}`;
@@ -114,8 +119,8 @@ export default function CalendarEventScreen() {
 
   const day = useMemo(() => humanDay(event?.starts_at), [event?.starts_at]);
   const time = useMemo(
-    () => humanTime(event?.starts_at, event?.ends_at, event?.all_day),
-    [event?.starts_at, event?.ends_at, event?.all_day],
+    () => humanTime(event?.starts_at, event?.ends_at, event?.all_day, event?.end_time_known),
+    [event?.starts_at, event?.ends_at, event?.all_day, event?.end_time_known],
   );
 
   return (
