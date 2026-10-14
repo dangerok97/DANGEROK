@@ -494,6 +494,43 @@ export default function VitaScreen() {
         )}
       </ScrollView>
 
+      {/* Persistent phone shortcut: remains reachable even halfway down VITA.
+          It opens the existing protected route; no card data is embedded here. */}
+      {!twoColumn ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Apri Portafoglio tessere"
+          testID="vita-wallet-floating"
+          onPress={() => router.push('/portafoglio' as any)}
+          style={({ pressed }) => [
+            {
+              position: 'absolute',
+              right: padH,
+              bottom: ambient.paddingBottom + tokens.spacing.lg,
+              minHeight: 48,
+              paddingHorizontal: 18,
+              borderRadius: 24,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.surfaceElevated,
+              opacity: pressed ? 0.78 : 1,
+              elevation: 5,
+              shadowColor: '#000',
+              shadowOpacity: 0.14,
+              shadowRadius: 9,
+              shadowOffset: { width: 0, height: 3 },
+            },
+          ]}
+        >
+          <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary }}>
+            Tessere
+          </Text>
+        </Pressable>
+      ) : null}
       <WhyItMattersDialog open={whyOpen} onClose={() => setWhyOpen(false)} />
     </SafeAreaView>
   );
