@@ -12,6 +12,7 @@ import type {Box} from './scene';
 import {CameraTorch, type TorchState, TORCH_UNAVAILABLE, cameraCrop, sameCrop, drawCameraCrop, clampCameraZoom} from './cameraControls';
 import {filterCatalog} from './catalogSearch';
 import {AnatomyExplorer} from './AnatomyExplorer.web';
+import {objectPage,OBJECT_PARTS_PER_PAGE} from './objectPage';
 import {projectAnatomyAnchor,sameAnatomyAnchor,type AnatomyCaptureAnchor} from './anatomyCameraAnchor';
 import {warmAnatomyReference} from './anatomyWarmup.web';
 import type {BodyRegion} from './anatomyFocus';
@@ -47,6 +48,9 @@ export default function LiveExplorer(){
   const [moreDetail,setMoreDetail]=useState(false);
   const [expanded,setExpanded]=useState(true);
   const [opening,setOpening]=useState(100);
+  const [objectPageIndex,setObjectPageIndex]=useState(0);
+  const [objectShowAll,setObjectShowAll]=useState(false);
+  const objectPageRef=useRef(0),objectShowAllRef=useRef(false);
   const [entries,setEntries]=useState<CatalogEntry[]>([]);
   const [libraryOpen,setLibraryOpen]=useState(false);
   const [catalogQuery,setCatalogQuery]=useState('');
@@ -113,14 +117,20 @@ export default function LiveExplorer(){
   const changeMode=(m:Mode)=>{modeRef.current=m;if(alive.current)setMode(m);};
   const resetView=useCallback(()=>{
     endTour(false);arrival.current=null;gestures.current.clear();selectedRef.current='';
+    objectPageRef.current=0;objectShowAllRef.current=false;
     Object.assign(view.current,{yaw:.46,pitch:-.22,zoom:1,focus:0,focusTarget:0,progress:0,target:1});
-    if(alive.current){setSelected('');setFocused(false);setDetailOpen(true);setMoreDetail(false);setOpening(100);setExpanded(true);}
+    if(alive.current){setSelected('');setFocused(false);setDetailOpen(true);setMoreDetail(false);setOpening(100);setExpanded(true);setObjectPageIndex(0);setObjectShowAll(false);}
   },[endTour]);
   const choose=useCallback((key:string)=>{
     if(!heldResult.current?.manifest?.parts.some(p=>p.key===key))return;
     endTour();finishArrival();
     if(selectedRef.current!==key)view.current.focus=0;
     selectedRef.current=key;view.current.focusTarget=1;view.current.zoom=1;
+    const index=heldResult.current?.manifest?.parts.findIndex(p=>p.key===key)??-1;
+    if(index>=0){
+      const page=Math.floor(index/OBJECT_PARTS_PER_PAGE);
+      objectPageRef.current=page;setObjectPageIndex(page);
+    }
     setSelected(key);setFocused(true);setDetailOpen(true);setMoreDetail(false);
     const button=tabs.current?.querySelector<HTMLButtonElement>('[data-testid="vision-part-'+key+'"]');
     button?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'auto'});
@@ -369,7 +379,12 @@ export default function LiveExplorer(){
           setTourUI({index:activeTour.clock.index,playing:activeTour.clock.playing,done:activeTour.clock.done});
       }
       settings.focus=approach(settings.focus,settings.focusTarget,elapsed,settings.reduceMotion);
-      const signature=[w,h,dpr,arrival.current?.elapsed,activeTour?.clock.index,activeTour?.clock.phase.toFixed(3),Boolean(activeTour),modeRef.current,heldResult.current?.version_id,selectedRef.current,settings.progress.toFixed(3),settings.focus.toFixed(3),settings.yaw.toFixed(3),settings.pitch.toFixed(3),settings.zoom.toFixed(3)].join('|');
+      const manifest=heldResult.current?.manifest;
+      const page=objectPage(manifest?.parts||[],objectPageRef.current);
+      const enlargedPages=Boolean(manifest&&page.pages>1&&settings.progress>.97&&
+        settings.focusTarget===0&&settings.focus<.15&&!activeTour&&!objectShowAllRef.current);
+      const visibleKeys=enlargedPages?page.keys:undefined;
+      const signature=[w,h,dpr,arrival.current?.elapsed,activeTour?.clock.index,activeTour?.clock.phase.toFixed(3),Boolean(activeTour),modeRef.current,heldResult.current?.version_id,selectedRef.current,settings.progress.toFixed(3),settings.focus.toFixed(3),settings.yaw.toFixed(3),settings.pitch.toFixed(3),settings.zoom.toFixed(3),objectPageRef.current,objectShowAllRef.current].join('|');
       if(signature===lastSignature)return;lastSignature=signature;
       if(node.width!==Math.round(w*dpr)||node.height!==Math.round(h*dpr)){node.width=Math.round(w*dpr);node.height=Math.round(h*dpr);}
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
@@ -378,9 +393,11 @@ export default function LiveExplorer(){
       node.dataset.sceneState=anatomyActiveRef.current?'anatomy':scene.current?'held':'acquiring';node.dataset.focusedPart=settings.focusTarget?selectedRef.current:'';
       node.dataset.zoom=settings.zoom.toFixed(3);node.dataset.yaw=settings.yaw.toFixed(3);
       if(scene.current){
-        scene.current.draw(ctx,w,h,{progress:settings.progress,yaw:settings.yaw,pitch:settings.pitch,selected:activeTour?'':selectedRef.current,focus:activeTour?0:settings.focus,zoom:settings.zoom,origin,tour:activeTour?{step:activeTour.definition.steps[activeTour.clock.index],phase:settings.reduceMotion?1:activeTour.clock.phase}:undefined});
+        scene.current.draw(ctx,w,h,{progress:settings.progress,yaw:settings.yaw,pitch:settings.pitch,selected:activeTour?'':selectedRef.current,focus:activeTour?0:settings.focus,zoom:settings.zoom,origin,visibleKeys,tour:activeTour?{step:activeTour.definition.steps[activeTour.clock.index],phase:settings.reduceMotion?1:activeTour.clock.phase}:undefined});
         node.dataset.partCount=String(scene.current.manifest.parts.length);node.dataset.selectedPart=selectedRef.current;
-      }else{node.dataset.partCount='0';node.dataset.selectedPart='';}
+        node.dataset.visiblePartCount=String(visibleKeys?.length||scene.current.manifest.parts.length);
+        node.dataset.visiblePage=enlargedPages?String(page.page+1):'all';
+      }else{node.dataset.partCount='0';node.dataset.selectedPart='';node.dataset.visiblePartCount='0';node.dataset.visiblePage='none';}
       if(live&&!scene.current){
         const x=w*.26,y=h*.22,bw=w*.48,bh=h*.55;
         ctx.strokeStyle='rgba(144,221,237,.65)';ctx.lineWidth=1.3;
@@ -433,6 +450,19 @@ export default function LiveExplorer(){
   const currentPart=result?.manifest?.parts.find(p=>p.key===selected),live=mode==='live';
   const visibleEntries=filterCatalog(entries,catalogQuery,catalogCategory);
   const categories=['Tutti',...Array.from(new Set(entries.map(e=>e.category||'Altri oggetti'))).sort()];
+  const objectPages=objectPage(result?.manifest?.parts||[],objectPageIndex);
+  const showObjectPager=Boolean(result?.manifest&&objectPages.pages>1&&opening>=80&&!focused&&!tourUI);
+  const openObjectPage=(index:number)=>{
+    const page=objectPage(result?.manifest?.parts||[],index);
+    finishArrival();view.current.zoom=1;
+    objectPageRef.current=page.page;setObjectPageIndex(page.page);
+    objectShowAllRef.current=false;setObjectShowAll(false);
+  };
+  const toggleAllObjects=()=>{
+    finishArrival();view.current.zoom=1;
+    objectShowAllRef.current=!objectShowAllRef.current;
+    setObjectShowAll(objectShowAllRef.current);
+  };
 
   return <div className={'vx-root'+(result?' has-model':'')+(anatomyActive?' has-anatomy':'')} data-testid="vision-live-explorer" data-version="visual-v2" data-experience="guided-v3" data-recognition="body-region-v4">
     <style>{visualStyle+recognitionHelpStyle}</style>
@@ -450,6 +480,23 @@ export default function LiveExplorer(){
       <div className="vx-topline"><span className={'vx-tag '+(live?'vx-tag-live':'')}>{live?'● LIVE':mode==='photo'?'FOTO':mode==='catalog'?'CATALOGO':'VISION X-RAY'}</span><button className="vx-evidence" onClick={()=>{if(tour.current){tour.current.clock.stop();syncTour();}setLibraryOpen(false);setInfoOpen(true);}} aria-label="Informazioni sullo schema indicativo">Schema indicativo ⓘ</button></div>
       {(mode==='idle'||mode==='opening')&&!result&&!anatomyActive&&<div className="vx-empty"><div className="vx-reticle">⌖</div><h1>Guarda più da vicino.<br/>Scopri come è fatto.</h1><p>Inquadra un oggetto. Esplora i suoi componenti.<br/>Tocca una parte per portarla davanti a te.</p>{mode==='idle'&&<><button className="vx-main" data-testid="vision-open-camera" onClick={()=>void openCamera()}>Apri fotocamera</button><button className="vx-minor" onClick={()=>picker.current?.click()}>Scegli una foto</button></>}</div>}
       {result?.manifest&&<><button className="vx-close-model" data-testid="vision-close-model" aria-label="Chiudi la scomposizione e scansiona un altro oggetto" title="Scansiona un altro oggetto" onClick={newObject}>×</button><div className={'vx-object-title'+(focused&&!tourUI?' is-focus':'')}><strong>{focused&&!tourUI&&currentPart?currentPart.name:result.manifest.title}</strong><small>{tourUI?'PERCORSO DIDATTICO':focused?'COMPONENTE TIPICO':result.manifest.parts.length+' parti'}</small></div><div className="vx-zoom" aria-label="Zoom della scomposizione"><button aria-label="Riduci lo zoom" data-testid="vision-zoom-out" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom/1.25);}}>−</button><button aria-label="Aumenta lo zoom" data-testid="vision-zoom-in" onClick={()=>{view.current.zoom=clampZoom(view.current.zoom*1.25);}}>+</button></div></>}
+      {showObjectPager&&<nav className="vx-object-pager" aria-label="Esplora i componenti in gruppi"
+        data-testid="vision-object-pager" data-page={String(objectPages.page+1)}
+        data-pages={String(objectPages.pages)} data-mode={objectShowAll?'all':'paged'}>
+        <span>{objectShowAll?'Vista completa':
+          'Pezzi '+(objectPages.from+1)+'–'+objectPages.to+' di '+objectPages.count}</span>
+        <button type="button" data-testid="vision-object-prev-page"
+          aria-label="Pezzi precedenti" disabled={objectShowAll||objectPages.page===0}
+          onClick={()=>openObjectPage(objectPages.page-1)}>‹</button>
+        <span className="vx-object-page-number">{objectShowAll?'—':
+          (objectPages.page+1)+'/'+objectPages.pages}</span>
+        <button type="button" data-testid="vision-object-next-page"
+          aria-label="Pezzi successivi" disabled={objectShowAll||objectPages.page>=objectPages.pages-1}
+          onClick={()=>openObjectPage(objectPages.page+1)}>›</button>
+        <button type="button" data-testid="vision-object-all-toggle"
+          aria-pressed={objectShowAll} onClick={toggleAllObjects}>
+          {objectShowAll?'A gruppi':'Tutti'}</button>
+      </nav>}
       {focused&&!tourUI&&<button className="vx-whole" data-testid="vision-overview" onClick={overview}>← Vista d’insieme</button>}
       {live&&<div className="vx-camera-tools" data-testid="vision-camera-controls">
         <button className={torchUI.on?'is-on':''} data-testid="vision-torch" aria-label={torchUI.supported?(torchUI.on?'Spegni il flash':'Accendi il flash'):TORCH_UNAVAILABLE} aria-pressed={torchUI.on} disabled={!torchUI.supported||torchUI.busy} title={torchUI.message||'Luce continua della fotocamera'} onClick={()=>void torch.current?.toggle()}>{torchUI.busy?'…':torchUI.supported?(torchUI.on?'⚡ On':'⚡ Off'):'Flash non disponibile'}</button>

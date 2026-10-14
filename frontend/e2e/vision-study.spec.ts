@@ -89,3 +89,45 @@ test('no detector rectangle still displays honest enlarged anatomical reference'
  await expect(page.getByTestId('vision-scan-overlay')).toHaveCount(0);
  await expect(page.getByTestId('vision-anatomy-preview')).toHaveCount(0);
 });
+
+test('crowded objects show readable exploded groups; each part remains selectable',async({page})=>{
+ await session(page);
+ await page.goto('/vision-xray');
+ await page.getByTestId('vision-catalog-toggle').click();
+ await page.getByTestId('vision-catalog-remote_control').click();
+ const canvas=page.getByTestId('vision-scene');
+ await expect(canvas).toHaveAttribute('data-part-count','8');
+ const pager=page.getByTestId('vision-object-pager');
+ await expect(pager).toBeVisible();
+ await expect(pager).toHaveAttribute('data-pages','2');
+ await expect(pager).toHaveAttribute('data-mode','paged');
+ await expect.poll(()=>canvas.getAttribute('data-visible-part-count')).toBe('6');
+ await expect(canvas).toHaveAttribute('data-visible-page','1');
+ await page.getByTestId('vision-object-next-page').click();
+ await expect(pager).toHaveAttribute('data-page','2');
+ await expect.poll(()=>canvas.getAttribute('data-visible-part-count')).toBe('2');
+ await expect(canvas).toHaveAttribute('data-visible-page','2');
+ await page.getByTestId('vision-part-battery_b').click();
+ await expect(page.getByTestId('vision-part-detail')).toBeVisible();
+ await expect(canvas).toHaveAttribute('data-selected-part','battery_b');
+ await expect(page.getByTestId('vision-object-pager')).toHaveCount(0);
+ await page.getByTestId('vision-overview').click();
+ await expect(page.getByTestId('vision-object-pager')).toHaveAttribute('data-page','2');
+ await expect.poll(()=>canvas.getAttribute('data-visible-part-count')).toBe('2');
+ await page.getByTestId('vision-object-all-toggle').click();
+ await expect(pager).toHaveAttribute('data-mode','all');
+ await expect.poll(()=>canvas.getAttribute('data-visible-part-count')).toBe('8');
+ await page.getByTestId('vision-object-all-toggle').click();
+ await expect(pager).toHaveAttribute('data-mode','paged');
+ await expect.poll(()=>canvas.getAttribute('data-visible-part-count')).toBe('2');
+ // A mobile viewport can still reach the controls without hiding the 3D stage.
+ const stage=await page.getByTestId('vision-stage').boundingBox();
+ const rect=await pager.boundingBox();
+ expect(stage&&rect).toBeTruthy();
+ expect(rect!.x).toBeGreaterThanOrEqual(stage!.x-1);
+ expect(rect!.x+rect!.width).toBeLessThanOrEqual(stage!.x+stage!.width+1);
+ expect(rect!.y).toBeGreaterThan(stage!.y);
+ expect(rect!.y+rect!.height).toBeLessThanOrEqual(stage!.y+stage!.height+1);
+ await expect(page.getByTestId('vision-close-model')).toBeVisible();
+ await expect(page.getByTestId('vision-scan-overlay')).toHaveCount(0);
+});

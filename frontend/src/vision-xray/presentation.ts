@@ -8,7 +8,7 @@ export type Point = [number, number];
 type Mesh = ReturnType<typeof geometry>;
 type Face = { points: Point[]; depth: number; light: number };
 type Projected = { key: string; index: number; points: Point[]; faces: Face[]; mesh: Mesh; depth: number; alpha: number; selected: boolean; bounds: [number,number,number,number]; badge?: Point };
-export type PresentationOptions = { progress: number; yaw: number; pitch: number; selected: string; focus: number; zoom: number; origin?: {box:Box; mix:number;rotation?:number}; tour?: {step:TourStep; phase:number} };
+export type PresentationOptions = { progress: number; yaw: number; pitch: number; selected: string; focus: number; zoom: number; origin?: {box:Box; mix:number;rotation?:number}; tour?: {step:TourStep; phase:number}; visibleKeys?:readonly string[] };
 const lerp = (a: number, b: number, t: number) => a+(b-a)*t;
 function ring(m: Mesh, points: Vec3[]) {
   const start=m.v.length; m.v.push(...points);
@@ -123,15 +123,24 @@ export class VisionPresentation {
     const progress=Math.max(0,Math.min(1,opts.progress));
     const selectedIndex=this.manifest.parts.findIndex(p=>p.key===opts.selected);
     const focus=selectedIndex<0?0:Math.max(0,Math.min(1,opts.focus));
-    // Leave named controls/title above and hints below. Never draw under the X.
-    const top=h<310?65:82,bottom=48,available=Math.max(90,h-top-bottom);
+    // Only zoom a crowded object when the caller explicitly opens a page.
+    // Keep the original geometry/version/part identifiers untouched.
+    const allowed=opts.visibleKeys?.length&&focus<.2&&!opts.tour
+      ?new Set(opts.visibleKeys):null;
+    const displayed=this.manifest.parts.map((_,i)=>i)
+      .filter(i=>!allowed||allowed.has(this.manifest.parts[i].key));
+    const indices=displayed.length?displayed:this.manifest.parts.map((_,i)=>i);
+    // The page controls live above the opening footer; do not draw pieces under them.
+    const top=h<310?65:82,bottom=allowed?111:48,available=Math.max(90,h-top-bottom);
     const cx=w/2,cy=top+available*.48;
     const highlighted=new Set(opts.tour?.step.parts||[]);
     const rotated=this.meshes.map(m=>m.v.map(v=>rotate(v,opts.yaw,opts.pitch)));
     const positions=this.manifest.parts.map(p=>rotate(p.assembled.map((n,j)=>lerp(n,p.exploded[j],progress)) as Vec3,opts.yaw,opts.pitch));
     // Fit against the entire exploded envelope to avoid a zoom-pump on recomposition.
     const envelope:Point[]=[];let nearestDepth=0;
-    this.manifest.parts.forEach((p,i)=>{const offset=rotate(p.exploded,opts.yaw,opts.pitch);rotated[i].forEach(v=>{envelope.push([v[0]+offset[0],v[1]+offset[1]]);nearestDepth=Math.max(nearestDepth,v[2]+offset[2]);});});
+    for(const i of indices){const p=this.manifest.parts[i],offset=rotate(p.exploded,opts.yaw,opts.pitch);
+      rotated[i].forEach(v=>{envelope.push([v[0]+offset[0],v[1]+offset[1]]);
+        nearestDepth=Math.max(nearestDepth,v[2]+offset[2]);});}
     const [l,t,r,b]=bounds(envelope),midX=(l+r)/2,midY=(t+b)/2;
     const flatScale=Math.min(w*.84/Math.max(1,r-l),available*.83/Math.max(1,b-t));
     // Bound the maximum perspective magnification before fitting, so wide or
@@ -147,7 +156,8 @@ export class VisionPresentation {
     // Map the compact assembled representation to the observed region, then move
     // smoothly into study space. A bounding box is not an exact object silhouette.
     const assembledEnvelope:Point[]=[];
-    this.manifest.parts.forEach((p,i)=>{const offset=rotate(p.assembled,opts.yaw,opts.pitch);rotated[i].forEach(v=>assembledEnvelope.push([v[0]+offset[0],v[1]+offset[1]]));});
+    for(const i of indices){const p=this.manifest.parts[i],offset=rotate(p.assembled,opts.yaw,opts.pitch);
+      rotated[i].forEach(v=>assembledEnvelope.push([v[0]+offset[0],v[1]+offset[1]]));}
     const [al,at,ar,ab]=bounds(assembledEnvelope);
     const origin=opts.origin;
     // Initial assembled drawing follows the major axis of the real pixel mask,
@@ -162,7 +172,7 @@ export class VisionPresentation {
     const originScale=origin?Math.min(origin.box[2]*w*.89/Math.max(1,oR-oL),
       origin.box[3]*h*.89/Math.max(1,oB-oT)):s;
     const originMix=origin?Math.max(0,Math.min(1,origin.mix)):1;
-    this.projected=this.meshes.map((mesh,i)=>{
+    this.projected=indices.map(i=>{const mesh=this.meshes[i];
       const part=this.manifest.parts[i],active=i===selectedIndex,pos=positions[i];
       const transform=(v:Vec3):Point=>{
         // Mild perspective creates depth without unstable camera clipping.

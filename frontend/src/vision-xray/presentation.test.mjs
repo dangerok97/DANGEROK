@@ -40,6 +40,24 @@ test('selected battery becomes larger and can be returned to the whole view',()=
   scene.draw(ctx,390,470,{...options,selected:'battery_a',focus:0});const restored=scene.partBounds('battery_a');
   assert.ok(restored.every((v,i)=>Math.abs(v-original[i])<.0001));
 });
+test('six enlarged exploded pieces per page preserve stable pick IDs and selection',()=>{
+  const scene=new VisionPresentation(remote),ctx=context();
+  const parts=remote.parts;
+  assert.equal(parts.length,8);
+  const first=parts.slice(0,6).map(p=>p.key),second=parts.slice(6).map(p=>p.key);
+  scene.draw(ctx,390,490,{...options,visibleKeys:first});
+  for(const part of first){const b=scene.partBounds(part);assert.ok(b&&b.every(Number.isFinite));}
+  for(const part of second)assert.equal(scene.partBounds(part),undefined);
+  const firstBounds=scene.partBounds(first[0]);
+  assert.ok(firstBounds&&firstBounds[0]>=0&&firstBounds[2]<=390);
+  scene.draw(ctx,390,490,{...options,visibleKeys:second});
+  for(const part of second)assert.ok(scene.partBounds(part));
+  for(const part of first)assert.equal(scene.partBounds(part),undefined);
+  scene.draw(ctx,390,490,options);
+  for(const part of parts)assert.ok(scene.partBounds(part.key));
+  scene.draw(ctx,390,490,{...options,visibleKeys:second,selected:first[0],focus:1});
+  assert.ok(scene.partBounds(first[0]),'focused part remains visible even outside previous page');
+});
 test('hollow / diagonal shapes do not pick their empty rectangular corners',()=>{
   assert.equal(inPolygon(1,1,[[0,5],[5,0],[10,5],[5,10]]),false);
   assert.equal(inPolygon(5,5,[[0,5],[5,0],[10,5],[5,10]]),true);
