@@ -1559,10 +1559,23 @@ async def run_cognitive_loop(
             decoded_payload = json.loads(payload)
             decoded_payload["source_activation"] = source_activation.context
             payload = json.dumps(decoded_payload, ensure_ascii=False)
+        from conversation_engine.ai_core.instruction_contract import (
+            instruction_surface, input_surface, compact_source_enabled,
+        )
+        source_turn = source_activation is not None
+        payload = input_surface(payload, source_turn=source_turn)
+        cognitive_system = instruction_surface(
+            legacy=COGNITIVE_SYSTEM_PROMPT, source_turn=source_turn,
+            source_instruction=source_instruction,
+            followup_instruction=followup_gate.instruction(),
+        )
+        add_step(trace, event="COGNITIVE_CONTRACT",
+                 compact=compact_source_enabled(source_turn),
+                 system_chars=len(cognitive_system), payload_chars=len(payload))
         _t = time.perf_counter()
         raw = await _call_ai(
             decision_fn=decision_fn,
-            system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction() + source_instruction,
+            system=cognitive_system,
             user=payload,
             user_preference=user_llm_preference,
             # Vale a ogni passo del ragionamento, e non c'è nessun tetto per
@@ -1603,7 +1616,7 @@ async def run_cognitive_loop(
         if not gov.ok or not gov.decision:
             raw2 = await _call_ai(
                 decision_fn=decision_fn,
-                system=COGNITIVE_SYSTEM_PROMPT + followup_gate.instruction() + source_instruction
+                system=cognitive_system
                 + "\nPrevious output was invalid. Return valid JSON only.",
                 user=payload,
                 user_preference=user_llm_preference,
