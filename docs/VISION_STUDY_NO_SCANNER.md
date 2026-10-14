@@ -29,3 +29,12 @@ Decisione del prodotto (13 ottobre 2026): nessun bordo SCAN, griglia pixel, fasc
 - TypeScript + test geometria su 160 famiglie, incluso component focus senza clipping.
 - Playwright desktop/mobile/WebKit su riconoscimento umano e oggetti **senza overlay SCAN**, modello accessibile, cursori e X funzionanti.
 - Build di BodyParts3D verificata e staging Railway sul commit corretto. Il collaudo fisico mobile resta separato e non è certificato dai test browser simulati.
+
+
+## Aggiornamento: navigazione componenti 14 ottobre 2026
+
+- Nell'esploso degli oggetti compare **Studia i pezzi**. Attiva la vista ingrandita del primo componente senza modificare la geometria o la memoria dell'oggetto.
+- I pulsanti precedente/successivo nella spiegazione fanno avanzare ordinatamente tra i componenti reali del catalogo, mantenendo le parti selezionabili e lo zoom. Nessun nuovo modello AI o elaborazione immagini.
+- Per mano, polso, avambraccio, gomito, ginocchio e piede la vista anatomica apre **prima le ossa verificate BodyParts3D**; Muscoli e altri sistemi rimangono disponibili dai comandi esistenti.
+- Le strutture anatomiche isolate si aprono con un ingrandimento iniziale del 112% e la vista studio può essere ampliata manualmente fino a 2,5×. I pezzi grandi possono quindi essere analizzati uno alla volta senza ridurre l'intero corpo a un modello minuscolo.
+- Il layout riserva più spazio verticale ai mesh e conserva cursori, zoom, X, pannelli e stato chiaro anche su telefono. Rimossi anche i vecchi CSS SCAN rimasti inattivi.

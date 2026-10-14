@@ -24,10 +24,13 @@ const initial=():SceneState=>({
 });
 const normalized=(v:string)=>v.toLocaleLowerCase('it').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 const SIDED=new Set<StudyRegion>(['hand','wrist','forearm','arm','elbow','shoulder','leg','knee','foot']);
+// Compact regions display source bone geometry first; other systems remain
+// available through the existing Ossa, Muscoli and Organi controls.
+const BONE_FIRST=new Set<StudyRegion>(['hand','wrist','forearm','elbow','knee','foot']);
 const REGION_SYSTEMS:Partial<Record<StudyRegion,SystemId[]>>={
- hand:['skeletal','muscular'],wrist:['skeletal','muscular'],forearm:['skeletal','muscular'],
- arm:['skeletal','muscular'],elbow:['skeletal','muscular'],shoulder:['skeletal','muscular'],
- foot:['skeletal','muscular'],knee:['skeletal','muscular'],leg:['skeletal','muscular'],
+ hand:['skeletal'],wrist:['skeletal'],forearm:['skeletal'],
+ arm:['skeletal','muscular'],elbow:['skeletal'],shoulder:['skeletal','muscular'],
+ foot:['skeletal'],knee:['skeletal'],leg:['skeletal','muscular'],
  face:['skeletal','sensory','nervous'],neck:['skeletal','muscular','nervous'],
  torso:['skeletal','cardiac','respiratory'],abdomen:['digestive','urinary','skeletal'],
  back:['muscular','skeletal'],pelvis:['skeletal','urinary']
@@ -133,7 +136,7 @@ export default function OraOverlay(){
   const localElements=part.elements.filter(id=>permittedIds.has(id)&&(!onlyId||id===onlyId));
   if(!localElements.length)return;
   if(!state.isolate)setBeforeInspect({explode:state.explode,page:displayedPage,view:state.view});
-  setDetailZoom(1);
+  setDetailZoom(1.12);
   setChosen({...part,elements:localElements});
   // Isolate FIRST, then frame that structure. Do not reassemble the whole skull.
   setState(s=>({...s,selected:localElements,isolate:true,explode:0,
@@ -195,7 +198,8 @@ export default function OraOverlay(){
      onProgress={reportProgress} onError={reportError}/>}
    <div className="ora-overlay-header">
     <div className="ora-overlay-label"><strong>ORA · {STUDY_LABEL[focusRegion].toLocaleUpperCase('it')} 3D</strong>
-     <span data-testid="ora-inline-region-label">{studyMode?'VISTA STUDIO · MODELLO DI RIFERIMENTO':
+     <span data-testid="ora-inline-region-label">{studyMode?(BONE_FIRST.has(focusRegion)&&state.visible.length===1&&state.visible[0]==='skeletal'?
+     'VISTA STUDIO · OSSA IN EVIDENZA':'VISTA STUDIO · MODELLO DI RIFERIMENTO'):
     focusRegion===detected?'POSIZIONE INDICATIVA · NON SOVRAPPOSIZIONE ESATTA':'VISTA AMPLIATA · MODELLO DIDATTICO'}</span></div>
     <button type="button" data-testid="ora-inline-search-toggle" aria-expanded={searchOpen} onClick={()=>{setSearchOpen(v=>!v);setSystemsOpen(false);}}>⌕ <span>Cerca</span></button>
     <button type="button" data-testid="ora-inline-systems-toggle" aria-expanded={systemsOpen} onClick={()=>{setSystemsOpen(v=>!v);setSearchOpen(false);}}>☷ <span>Sistemi</span></button>
@@ -278,8 +282,8 @@ export default function OraOverlay(){
       onClick={()=>setStudyZoom(z=>Math.max(1,+(z-.15).toFixed(2)))}>−</button>
      <output data-testid="ora-inline-study-zoom-value">{studyZoom.toFixed(2)}×</output>
      <button type="button" data-testid="ora-inline-study-zoom-in"
-      aria-label="Ingrandisci il modello anatomico" disabled={studyZoom>=1.9}
-      onClick={()=>setStudyZoom(z=>Math.min(1.9,+(z+.15).toFixed(2)))}>+</button>
+      aria-label="Ingrandisci il modello anatomico" disabled={studyZoom>=2.5}
+      onClick={()=>setStudyZoom(z=>Math.min(2.5,+(z+.15).toFixed(2)))}>+</button>
     </div>}
     {exploded&&!chosen&&eligiblePieces.length>0&&<div className="ora-overlay-explode-zoom"
     role="group" aria-label="Ingrandisci i componenti esplosi" data-testid="ora-inline-page-zoom">
