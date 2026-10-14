@@ -165,3 +165,21 @@ test('favorite remains first even when recent changes; QR never offers rotation'
   await expect(page.getByTestId('wallet-favorite-' + ordinary.id))
     .toHaveAttribute('aria-label', 'Rimuovi Negozio secondario dalle preferite');
 });
+
+test('cashier next/previous preserves the original order across three cards', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const a = seed('1'.repeat(32), 'Alfa');
+  const b = seed('2'.repeat(32), 'Beta');
+  const c = seed('3'.repeat(32), 'Gamma');
+  await fixture(page, [a, b, c]);
+  await page.goto('/portafoglio');
+  await page.getByTestId('wallet-show-' + b.id).click();
+  await expect(page.getByText('Beta', { exact: true }).last()).toBeVisible();
+  // Navigating updates the recents but must not reorder the active carousel.
+  await page.getByTestId('wallet-next').click();
+  await expect(page.getByText('Gamma', { exact: true }).last()).toBeVisible();
+  await page.getByTestId('wallet-next').click();
+  await expect(page.getByText('Alfa', { exact: true }).last()).toBeVisible();
+  await page.getByTestId('wallet-prev').click();
+  await expect(page.getByText('Gamma', { exact: true }).last()).toBeVisible();
+});
