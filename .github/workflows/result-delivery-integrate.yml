@@ -5,9 +5,11 @@ on:
     paths:
       - .github/workflows/result-delivery-integrate.yml
       - scripts/apply_result_delivery_v170.py
+      - scripts/refine_result_delivery_v170.py
       - backend/delivery/source_results.py
       - backend/delivery/source_result_review.py
       - backend/tests/test_source_result_delivery_v170.py
+      - backend/tests/test_source_result_delivery_edges_v170.py
 permissions:
   contents: write
 concurrency:
@@ -56,12 +58,9 @@ jobs:
         run: |
           python -m pip install -q -r backend/requirements-cloud.txt mongomock-motor==0.0.36
           mkdir -p /tmp/ora-result-delivery-docs
-      - name: Apply exact reviewed integration hooks
-        run: python scripts/apply_result_delivery_v170.py
-      - name: Test source-to-provider boundary and existing delivery
+      - name: Initialize ordinary application indexes in isolated test database
         working-directory: backend
         run: |
-          python -m compileall -q delivery connected/core_work.py
           python - <<'PY'
           import asyncio, os
           from motor.motor_asyncio import AsyncIOMotorClient
@@ -79,16 +78,36 @@ jobs:
                   client.close()
           asyncio.run(initialize())
           PY
-          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/result-delivery-tests.xml tests/test_source_result_delivery_v170.py tests/test_durable_source_work_v169.py tests/test_source_work_races_v169.py tests/test_source_work_database_v169.py tests/test_delivery_v38.py tests/test_proactive_delivery_recheck_v66.py tests/test_recurring_memo_delivery_v131.py tests/test_expo_receipt_audit_v132.py tests/test_whatsapp_alert_consent_v1.py
+      - name: Reproduce only the two legacy test defects before runtime changes
+        working-directory: backend
+        run: |
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/result-delivery-baseline.xml tests/test_delivery_v38.py tests/test_whatsapp_alert_consent_v1.py || true
+          python - <<'PY'
+          import xml.etree.ElementTree as E
+          root=E.parse('/tmp/result-delivery-baseline.xml').getroot()
+          failures={t.attrib['name'] for t in root.iter('testcase') if t.find('failure') is not None}
+          assert not list(root.iter('error'))
+          assert failures == {'test_a_push_carries_its_own_reason_and_lands_where_it_is_about', 'test_channel_permission_is_not_tied_to_expo_push'}, failures
+          print('LEGACY_BASELINE_EXPECTED_FAILURES', sorted(failures))
+          PY
+      - name: Apply exact reviewed integration hooks
+        run: |
+          python scripts/apply_result_delivery_v170.py
+          python scripts/refine_result_delivery_v170.py
+      - name: Test source-to-provider boundary and existing delivery
+        working-directory: backend
+        run: |
+          python -m compileall -q delivery connected/core_work.py
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/result-delivery-tests.xml tests/test_source_result_delivery_v170.py tests/test_source_result_delivery_edges_v170.py tests/test_durable_source_work_v169.py tests/test_source_work_races_v169.py tests/test_source_work_database_v169.py tests/test_delivery_v38.py tests/test_proactive_delivery_recheck_v66.py tests/test_recurring_memo_delivery_v131.py tests/test_expo_receipt_audit_v132.py tests/test_whatsapp_alert_consent_v1.py
       - name: Preserve tests and reviewed hooks
         if: always()
         run: |
           git diff --binary > /tmp/result-delivery-hooks.patch
           python - <<'PY'
           import zipfile
-          paths=['backend/delivery/source_results.py','backend/delivery/source_result_review.py','backend/delivery/service.py','backend/delivery/models.py','backend/delivery/admission.py','backend/connected/core_work.py','backend/tests/test_source_result_delivery_v170.py','scripts/apply_result_delivery_v170.py']
+          paths=['backend/delivery/source_results.py','backend/delivery/source_result_review.py','backend/delivery/service.py','backend/delivery/models.py','backend/delivery/admission.py','backend/connected/core_work.py','backend/tests/test_source_result_delivery_v170.py','backend/tests/test_source_result_delivery_edges_v170.py','backend/tests/test_delivery_v38.py','scripts/apply_result_delivery_v170.py','scripts/refine_result_delivery_v170.py']
           with zipfile.ZipFile('/tmp/result-delivery-sources.zip','w',zipfile.ZIP_DEFLATED) as z:
-              for p in paths: z.write(p)
+              for p in paths:z.write(p)
           PY
       - uses: actions/upload-artifact@v4
         if: always()
@@ -103,6 +122,6 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
           git config user.name 'ORA test automation'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add backend/delivery/models.py backend/delivery/service.py backend/delivery/admission.py backend/connected/core_work.py
-          git commit -m 'feat(delivery): connect verified source results to the original delivery pipeline'
+          git add backend/delivery/models.py backend/delivery/service.py backend/delivery/admission.py backend/connected/core_work.py backend/delivery/source_results.py backend/tests/test_delivery_v38.py
+          git commit -m 'feat(delivery): integrate canonical receipt delivery with one original judgement site'
           git push origin HEAD:refs/heads/ora/v170-verified-result-delivery-20261014
