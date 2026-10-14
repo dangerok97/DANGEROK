@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/ora-cal164-integrate.yml
       - scripts/apply_cal164_patch.py
+      - backend/tests/test_calendar_repeat_and_dates_v164.py
 permissions:
   contents: write
 jobs:
@@ -43,7 +44,7 @@ jobs:
         run: |
           mkdir -p /tmp/ora-cal164-documents /tmp/cal164-evidence
           python -m pip install -q -r backend/requirements-cloud.txt mongomock-motor==0.0.36
-      - name: Confirm unpatched source fails the mutation-count regression
+      - name: Confirm unpatched source performs four writes instead of one
         working-directory: backend
         run: |
           set +e
@@ -51,6 +52,7 @@ jobs:
           result=$?
           set -e
           test "$result" -eq 1
+          python -c 'import xml.etree.ElementTree as E; r=E.parse("/tmp/cal164-evidence/baseline.xml"); f=r.findall(".//failure"); assert len(f)==1 and "assert 4 == 1" in (f[0].text or ""), "Baseline must reproduce actual duplicate writes, not an instrumentation error"'
       - name: Integrate SHA-fenced source changes
         run: python scripts/apply_cal164_patch.py
       - name: Calendar, consent and cross-skill safety
