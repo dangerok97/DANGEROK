@@ -26,8 +26,30 @@ def observation(*, source='source-A', owner=OWNER, value='first', kind='email', 
         changed_fields=[FieldChange(field='subject' if kind == 'email' else 'title', after=value)])
 
 
+class StableMockDatabase:
+    """Keep the actual mock collections stable so fault injection is exercised.
+
+    mongomock-motor can return a new wrapper on each attribute/item access.
+    Production code uses db[name], so patching a discarded db.name wrapper
+    would otherwise leave the fault test disconnected from its target.
+    """
+    def __init__(self, db):
+        self._db = db
+        self._collections = {}
+
+    def __getitem__(self, name):
+        if name not in self._collections:
+            self._collections[name] = self._db[name]
+        return self._collections[name]
+
+    def __getattr__(self, name):
+        if name.startswith('_'):
+            raise AttributeError(name)
+        return self[name]
+
+
 async def database():
-    db = AsyncMongoMockClient().source_integrity_v168
+    db = StableMockDatabase(AsyncMongoMockClient().source_integrity_v168)
     service = SignalService(db)
     await service.ensure_indexes()
     return db, service
@@ -66,9 +88,13 @@ async def test_failed_insert_is_not_a_duplicate_and_does_not_remove_previous_wor
     db, service = await database()
     a, b = observation(value='before'), observation(value='after')
     await service.record(a)
-    monkeypatch.setattr(db.connected_signals, 'insert_one', AsyncMock(side_effect=error))
-    with pytest.raises(type(error)):
-        await service.record(b)
+    injected = AsyncMock(side_effect=error)
+    monkeypatch.setattr(db.connected_signals, 'insert_one', injected)
+    try:
+        with pytest.raises(type(error)):
+            await service.record(b)
+    finally:
+        injected.assert_awaited_once()
     assert (await service.get(OWNER, a.id)).status == 'pending'
     assert await db.connected_signals.count_documents({'id': b.id}) == 0
 
@@ -197,12 +223,26 @@ async def test_old_fingerprint_on_other_connection_does_not_hide_a_new_source():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('indexes', [True, False])
-async def test_parallel_identical_observations_are_kept_once_even_without_optional_index(indexes):
-    db = AsyncMongoMockClient().source_integrity_concurrency
+async def test_parallel_identical_observations_are_kept_once_even_without_optional_index(monkeypatch, indexes):
+    db = StableMockDatabase(AsyncMongoMockClient().source_integrity_concurrency)
     service = SignalService(db)
     if indexes:
         await service.ensure_indexes()
-    results = await asyncio.gather(*(service.record(observation()) for _ in range(8)))
+    original = db.connected_signals.find_one
+    arrivals, gate = 0, asyncio.Event()
+    async def all_see_absence_first(query, *args, **kwargs):
+        nonlocal arrivals
+        result = await original(query, *args, **kwargs)
+        if 'fingerprint' in query and arrivals < 8:
+            arrivals += 1
+            if arrivals == 8:
+                gate.set()
+            await gate.wait()
+        return result
+    monkeypatch.setattr(db.connected_signals, 'find_one', all_see_absence_first)
+    results = await asyncio.wait_for(
+        asyncio.gather(*(service.record(observation()) for _ in range(8))), 5)
+    assert arrivals == 8
     assert sum(kept is not None for kept, _ in results) == 1
     assert await db.connected_signals.count_documents({}) == 1
     assert len(await service.pending(OWNER)) == 1
@@ -234,6 +274,7 @@ async def test_sync_failure_cannot_advance_watermark_and_retry_keeps_all_observa
     monkeypatch.setattr(db.connected_signals, 'insert_one', fail_second)
     with pytest.raises(AutoReconnect):
         await service.sync(OWNER, source.id)
+    assert count == 2
     success.assert_not_awaited()
     assert await service._watermark(OWNER, source.id) == earlier
     monkeypatch.setattr(db.connected_signals, 'insert_one', original)
@@ -241,3 +282,14 @@ async def test_sync_failure_cannot_advance_watermark_and_retry_keeps_all_observa
     assert recovered['ok'] and recovered['recorded'] == 1 and recovered['deduped'] == 1
     assert len(await signals.pending(OWNER)) == 2
     assert await service._watermark(OWNER, source.id) == max(a.observed_at, b.observed_at)
+
+
+@pytest.mark.asyncio
+async def test_fault_harness_targets_the_same_collection_on_both_access_paths(monkeypatch):
+    db, service = await database()
+    assert db.connected_signals is db['connected_signals']
+    injected = AsyncMock(side_effect=AutoReconnect('synthetic harness check'))
+    monkeypatch.setattr(db.connected_signals, 'insert_one', injected)
+    with pytest.raises(AutoReconnect):
+        await service.db['connected_signals'].insert_one({'id': 'probe'})
+    injected.assert_awaited_once()
