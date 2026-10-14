@@ -33,6 +33,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { api, LifeAreaCompleteness, LifeProfile, StudyPlan, TravelProject } from '@/src/api/client';
 import { PlacesSection } from '@/src/components/vita/PlacesSection';
+import { WalletEntry } from '@/src/wallet/WalletEntry';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { ErrorState } from '@/src/components/ui/ErrorState';
@@ -361,6 +362,14 @@ export default function VitaScreen() {
         <PlacesSection compact={!grid} onOpenOra={updateWithOra} />
       </VitaSection>
 
+      {/* A useful possession, not an inferred life-memory fact. It is always
+          available even when no cards have been saved and irrespective of
+          the bank integration. Position after Places to match the VITA flow
+          on mobile, next to the sections a person actually scrolls through. */}
+      <VitaSection title="TESSERE FEDELTÀ" testID="vita-wallet-section">
+        <WalletEntry />
+      </VitaSection>
+
       <VitaSection title="LA TUA VITA" testID="vita-areas">
         {vita.areas.length ? (
           <View style={grid ? styles.grid3 : styles.stack}>
@@ -418,11 +427,16 @@ export default function VitaScreen() {
             <VitaHeader onWhy={() => setWhyOpen(true)} />
 
             {error && !hasContent ? (
-              <ErrorState
-                title="Non riesco a caricare Vita"
-                message={error}
-                onRetry={() => void load()}
-              />
+              <>
+                <ErrorState
+                  title="Non riesco a caricare Vita"
+                  message={error}
+                  onRetry={() => void load()}
+                />
+                <VitaSection title="TESSERE FEDELTÀ" testID="vita-wallet-section">
+                  <WalletEntry />
+                </VitaSection>
+              </>
             ) : empty ? (
               /*
                 Places are knowledge of their own. Somebody who has told ORA
@@ -434,6 +448,9 @@ export default function VitaScreen() {
                 <VitaEmpty onTalk={updateWithOra} />
                 <VitaSection title="LUOGHI" testID="vita-places-empty">
                   <PlacesSection compact={!grid} onOpenOra={updateWithOra} />
+                </VitaSection>
+                <VitaSection title="TESSERE FEDELTÀ" testID="vita-wallet-section">
+                  <WalletEntry />
                 </VitaSection>
               </>
             ) : (
