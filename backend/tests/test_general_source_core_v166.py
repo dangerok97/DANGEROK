@@ -165,6 +165,46 @@ async def test_exact_core_path_can_act_under_existing_grant_without_fabricated_h
 
 
 @pytest.mark.asyncio
+async def test_source_create_without_calendar_target_defaults_to_native_ora(world):
+    db, signal, body = world
+    authority = AuthorityService(db)
+    await authority.set_mode(OWNER, 'act_within_grants')
+    await authority.grant(
+        OWNER, 'calendar.local.write', effect_scope=['create'], by='user',
+        scope_note='Registra nel calendario ORA gli impegni personali confermati.',
+    )
+    activation = await SourceActivation.load(db, OWNER, signal.id)
+    registry = activation.restrict_registry(ToolRegistry(db))
+    runtime = {'db': db, 'user_id': OWNER, 'user_message': ''}
+    read = await registry.execute(
+        'read_connected_source',
+        {'source_ref': 'signal:'+signal.id},
+        runtime=runtime,
+    )
+    assert read.status == 'ok'
+
+    args = action()
+    args.pop('calendar_target')
+    result = await registry.execute('create_calendar_event', args, runtime=runtime)
+
+    assert result.status == 'ok'
+    assert result.payload['verified'] is True
+    assert result.payload['provider'] == 'ora'
+    assert 'calendar_target' not in args  # wrapper must not mutate the model payload
+    events = await db.life_nodes.find(
+        {'user_id': OWNER, 'type': 'event'}, {'_id': 0}
+    ).to_list(10)
+    assert len(events) == 1
+    assert events[0]['attributes']['starts_at'] == '2031-05-16T14:00:00+02:00'
+    assert any(
+        row['capability'] == 'create_calendar_event'
+        and row['status'] == 'ok'
+        and row['verified'] is True
+        for row in activation.tool_outcomes
+    )
+
+
+@pytest.mark.asyncio
 async def test_email_cannot_supply_its_own_authority_or_override_observe_mode(world):
     db, signal, body = world
     activation = await SourceActivation.load(db, OWNER, signal.id)
