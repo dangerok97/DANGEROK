@@ -5,6 +5,7 @@ from test_general_source_core_v166 import world, OWNER, BODY
 from conversation_engine.ai_core.source_activation import (
     SourceActivation, content_access_for, run_source_turn,
 )
+from conversation_engine.ai_core.loop import _has_positive_calendar_mutation_claim
 from conversation_engine.ai_core.tools.registry import ToolRegistry
 
 
@@ -74,3 +75,55 @@ async def test_actual_payload_contains_exact_resource_access_and_allows_no_actio
     assert [row['capability'] for row in output['effects']] == ['read_connected_source']
     assert await db.life_nodes.count_documents({}) == 0
     assert not output['notifications_sent'] and not output['source_settled']
+
+
+@pytest.mark.parametrize('text', [
+    "Non è stato aggiunto al calendario.",
+    "Non ho aggiunto nulla al calendario.",
+    "L'evento non è stato aggiunto al tuo calendario.",
+    "I did not add the event to the calendar.",
+])
+def test_calendar_truth_guard_does_not_treat_explicit_denial_as_a_write(text):
+    assert not _has_positive_calendar_mutation_claim(text)
+
+
+@pytest.mark.parametrize('text', [
+    "Ho aggiunto l'evento al calendario.",
+    "L'ho spostato: l'evento è ora alle 18.",
+    "Non era nel calendario, quindi l'ho aggiunto al calendario.",
+    "I've added the appointment to the calendar.",
+])
+def test_calendar_truth_guard_still_requires_evidence_for_real_write_claims(text):
+    assert _has_positive_calendar_mutation_claim(text)
+
+
+@pytest.mark.asyncio
+async def test_source_no_action_calendar_wording_finishes_without_persist_nudge(world):
+    db, signal, body = world
+    calls = 0
+
+    async def decide(system, payload):
+        nonlocal calls
+        calls += 1
+        data = json.loads(payload)
+        if calls == 1:
+            return {
+                'response_mode': 'tool',
+                'tool_call': data['source_activation']['content_access']['reader'],
+            }
+        return {
+            'response_mode': 'finish',
+            'message_to_user': (
+                "Non è stato aggiunto nulla al calendario perché la fonte "
+                "non conferma alcun impegno."
+            ),
+        }
+
+    output = await run_source_turn(db, OWNER, signal.id, decision_fn=decide)
+    assert output['result'].ok
+    assert calls == 2
+    assert [row['capability'] for row in output['effects']] == ['read_connected_source']
+    events = [str(step.get('event')) for step in (output['result'].trace or {}).get('steps', [])]
+    assert 'CALENDAR_PERSIST_NUDGE' not in events
+    assert 'CALENDAR_CLAIM_BLOCKED_TERMINAL' not in events
+    assert await db.life_nodes.count_documents({}) == 0
