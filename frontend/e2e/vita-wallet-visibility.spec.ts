@@ -128,3 +128,15 @@ test('the wallet entry stays usable if VITA life-map and fallback services are u
   await page.getByTestId('vita-wallet-entry').click();
   await expect(page.getByTestId('wallet-screen')).toBeVisible();
 });
+
+test('persistent Tessere shortcut remains visible after scrolling through VITA', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page);
+  await page.goto('/contesti');
+  await expect(page.getByTestId('vita-wallet-floating')).toBeVisible();
+  await page.getByTestId('vita-scroll').evaluate((el) => { el.scrollTop = el.scrollHeight; el.dispatchEvent(new Event('scroll')); });
+  await expect(page.getByTestId('vita-wallet-floating')).toBeInViewport();
+  await page.getByTestId('vita-wallet-floating').click();
+  await expect(page).toHaveURL(/\/portafoglio$/);
+  await expect(page.getByTestId('wallet-screen')).toBeVisible();
+});
