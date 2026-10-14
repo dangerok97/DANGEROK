@@ -153,8 +153,22 @@ class SourceActivation:
                         self.context['content_access']['read_at'] = (result.payload or {}).get('read_at')
                     return result
                 except Exception as exc:
+                    known = {
+                        'source_is_not_user_command',
+                        'source_write_not_enabled',
+                        'source_read_required',
+                        'only_native_calendar_effect_supported',
+                        'activation_owner_mismatch',
+                        'activation_changed',
+                    }
+                    failure = str(exc) if isinstance(exc, ValueError) and str(exc) in known else type(exc).__name__
+                    self.tool_outcomes.append({
+                        'capability': name, 'status': 'partial',
+                        'operation': None, 'verified': False,
+                        'failure_kind': failure, 'provenance': [],
+                    })
                     return Observation(kind='tool', name=name, status='partial', payload={
-                        'status': 'source_execution_blocked', 'failure_kind': type(exc).__name__,
+                        'status': 'source_execution_blocked', 'failure_kind': failure,
                         'reason': 'Source freshness, ownership or execution scope could not be verified.',
                     })
             permitted[name] = replace(spec, handler=guarded)
