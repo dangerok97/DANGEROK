@@ -48,6 +48,22 @@ def _event_version(node):
                     ('id', 'user_id', 'type', 'status', 'label', 'description', 'attributes', 'updated_at')})
 
 
+def _home_summary(node, operation):
+    """One factual formatter shared by Home and subsequent receipt delivery."""
+    attrs = node['attributes']
+    moment = datetime.fromisoformat(attrs['starts_at'].replace('Z', '+00:00'))
+    if moment.tzinfo is None:
+        raise ValueError('result_event_timezone_missing')
+    moment = moment.astimezone(ZoneInfo(attrs.get('timezone') or 'Europe/Rome'))
+    verbs = {'created': 'Ho aggiunto', 'already_created': 'È già presente',
+             'updated': 'Ho aggiornato', 'already_updated': 'È già aggiornato'}
+    verb = verbs.get(operation)
+    if verb is None:
+        raise ValueError('unsupported_verified_operation')
+    return (f'{verb} nel calendario ORA «{node["label"][:95]}»: '
+            f'{moment:%d/%m/%Y} alle {moment:%H:%M}.')
+
+
 def _due_query(owner_id):
     stamp = _now().isoformat()
     return {'owner_id': owner_id, 'status': 'pending',
@@ -168,17 +184,7 @@ class SourceWork:
 
         try:
             node = await still_current()
-            attrs = node['attributes']
-            moment = datetime.fromisoformat(attrs['starts_at'].replace('Z', '+00:00'))
-            moment = moment.astimezone(ZoneInfo(attrs.get('timezone') or 'Europe/Rome'))
-            operation = effect['observation']['payload'].get('operation')
-            verbs = {'created': 'Ho aggiunto', 'already_created': 'È già presente',
-                     'updated': 'Ho aggiornato', 'already_updated': 'È già aggiornato'}
-            verb = verbs.get(operation)
-            if verb is None:
-                raise ValueError('unsupported_verified_operation')
-            summary = (f'{verb} nel calendario ORA «{node["label"][:95]}»: '
-                       f'{moment:%d/%m/%Y} alle {moment:%H:%M}.')
+            summary = _home_summary(node, effect['observation']['payload'].get('operation'))
             await DeliveryService(self.db).note_activity(
                 self.owner, kind='change_processed', summary=summary,
                 source_refs=[self.ref, ref], visible=True, activity_id=activity_id,
@@ -192,6 +198,7 @@ class SourceWork:
             await self.change({'status': 'interpreted', 'outcome': 'source_core_effect_verified',
                 'interpreted_at': _now().isoformat(), '_core_work.phase': 'completed',
                 '_core_work.home_pending': False, '_core_work.home_activity_id': activity_id,
+                '_core_work.delivery_review': {'phase': 'pending', 'due_at': _now().isoformat(), 'attempts': 0},
                 '_core_work.lease_until': _now().isoformat()})
             return {'state': 'completed', 'home_visible': True, 'activity_id': activity_id,
                     'notifications_sent': False}

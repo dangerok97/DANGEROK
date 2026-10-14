@@ -64,7 +64,7 @@ async def current_subject(db, owner_id, activity_id):
 
 
 async def _load(db, owner_id, activity_id):
-    from connected.core_work import _event_version
+    from connected.core_work import _event_version, _home_summary
     from connected.source_read import resolve_source
     from home.manual_event import get_manual_event
     row = await db.connected_signals.find_one({
@@ -99,7 +99,7 @@ async def _load(db, owner_id, activity_id):
     activity = await db.ambient_activity.find_one({
         'owner_id': owner_id, 'id': activity_id, 'visibility': 'ambient',
     }, {'_id': 0})
-    if not activity or not activity.get('summary'):
+    if not activity or activity.get('summary') != _home_summary(event, payload.get('operation'))[:200]:
         return None
     provenance = activity.get('cognitive_provenance') or {}
     if (provenance.get('source_core') is not True or provenance.get('verified') is not True
@@ -148,7 +148,7 @@ async def save_decision(service, subject, decision, *, held_reason=''):
     plan = DeliveryPlan(id=pid, owner_id=subject.owner_id, source_type=SOURCE_KIND,
         source_id=subject.id, mode='push', status='held' if held_reason else 'pending',
         not_before=decision.not_before,
-        not_after=min(filter(None, [decision.not_after, subject.valid_until])),
+        not_after=min(moment(value) for value in (decision.not_after, subject.valid_until) if value).isoformat(),
         words=PushCopy(title='Calendario ORA aggiornato', body=subject.semantic_summary[:200],
             public_title='Calendario ORA aggiornato',
             public_body='Un aggiornamento verificato è disponibile nel tuo calendario ORA.'),
@@ -161,6 +161,9 @@ async def save_decision(service, subject, decision, *, held_reason=''):
         plan.transport_retry_attempts = existing.get('transport_retry_attempts', 0)
         plan.transport_retry_due = existing.get('transport_retry_due')
         plan.transport_retry_alarm_queued = existing.get('transport_retry_alarm_queued', False)
+        if plan.transport_retry_due and moment(plan.transport_retry_due) > now():
+            plan.not_before = max(moment(plan.not_before or now().isoformat()), moment(plan.transport_retry_due)).isoformat()
+            plan.status = 'held'
     query = {'_id': pid, 'owner_id': subject.owner_id,
              'status': {'$nin': list(_CLOSED)},
              '_source_dispatch.state': {'$nin': list(_STOP_SEND)}}
