@@ -213,3 +213,31 @@ html:has(.ora-overlay),body:has(.ora-overlay),#root:has(.ora-overlay){
  border:1px solid #56b9d172;background:rgba(3,35,52,.74);
  color:#c4f3ff;font-size:10px;line-height:1.2;}
 @media(max-width:650px){.ora-overlay-streaming{left:5px;bottom:67px;font-size:9px}}
+
+/* Large reference-study view: no scanner, no false body silhouette. */
+.ora-overlay-study-backdrop{position:absolute;inset:0;pointer-events:none;z-index:0;
+ background:radial-gradient(ellipse 29% 57% at 50% 52%,
+ rgba(1,13,26,.63) 0%,rgba(2,19,35,.39) 42%,rgba(2,22,37,.06) 77%,transparent 100%);}
+.ora-overlay-study-controls{position:absolute;top:160px;right:10px;z-index:10;
+ display:flex;align-items:center;gap:4px;min-height:40px;
+ max-width:calc(100% - 20px);padding:4px 5px;
+ background:rgba(4,29,44,.92);border:1px solid rgba(110,197,219,.69);
+ border-radius:11px;box-shadow:0 7px 22px rgba(0,12,28,.45);
+ pointer-events:auto;}
+.ora-overlay-study-controls button{min-width:37px;min-height:34px;
+ padding:5px 9px;font-size:15px;background:#0d3e55;color:#dbf6fc;}
+.ora-overlay-study-controls button:first-child{min-width:132px;
+ font-size:11px;text-align:center;white-space:nowrap;}
+.ora-overlay-study-controls output{min-width:44px;text-align:center;
+ font-size:11px;font-weight:650;color:#d5f4fa;}
+.ora-overlay-study-controls button:disabled{opacity:.38;}
+.ora-overlay-streaming{top:166px;bottom:auto;max-width:245px;font-size:9px;opacity:.87;}
+@media(max-width:650px){
+ .ora-overlay-study-controls{top:136px;right:5px;gap:2px;padding:3px;}
+ .ora-overlay-study-controls button{min-width:32px;min-height:31px;padding:4px 7px;}
+ .ora-overlay-study-controls button:first-child{min-width:120px;font-size:10px;}
+ .ora-overlay-study-controls output{min-width:37px;}
+ .ora-overlay-streaming{top:137px;left:5px;bottom:auto;max-width:126px;font-size:8px;}
+ .ora-overlay-study-backdrop{background:radial-gradient(ellipse 62% 43% at 50% 50%,
+ rgba(1,13,27,.66),rgba(1,17,34,.25) 73%,transparent);}
+}

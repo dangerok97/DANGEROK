@@ -8,7 +8,8 @@ test('camera-person anatomy never renders a schematic human, including on failur
  assert.doesNotMatch(source,/\bsilhouettePath\b/);
  assert.doesNotMatch(source,/vx-anatomy-shell/);
  assert.match(source,/BodyParts3D/);
- assert.match(source,/vx-target-corner/);
+ assert.doesNotMatch(source,/vx-target-corner|vision-anatomy-preview/);
+ assert.match(source,/&study=1/);
  assert.match(source,/vision-bp3d-unavailable/);
  assert.match(source,/vision-bp3d-retry/);
 });

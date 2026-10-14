@@ -50,7 +50,7 @@ assert.match(read('index.html'),/ORA · Anatomia 3D/);
 assert.match(sourceFile('app/page.tsx'),/Atlante umano/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/ORA · \{STUDY_LABEL\[focusRegion\]/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/Scomponi/);
-assert.match(sourceFile('app/ora-overlay.tsx'),/Dettagli anatomici in arrivo/);
+assert.match(sourceFile('app/ora-overlay.tsx'),/Completo le strutture anatomiche/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/ora:anatomy-mesh-ready/);
 assert.match(sourceFile('app/ora-overlay.tsx'),/anchor:sceneAnchor/);
 assert.match(sourceFile('app/scene.tsx'),/alpha:oraInline/);
@@ -149,6 +149,10 @@ assert.match(oraOverlay,/data-testid="ora-inline-return-explosion"/);
 assert.match(oraOverlay,/isolate:true,explode:0/);
 assert.match(oraOverlay,/setState\(s=>\(\{\.\.\.s,selected:\[\],isolate:false,explode:previous\?\.explode/);
 assert.match(oraOverlay,/data-testid="ora-inline-zoom-in"/);
+assert.match(oraOverlay,/data-testid="ora-inline-study-controls"/);
+assert.match(oraOverlay,/data-testid="ora-inline-study-zoom-in"/);
+assert.match(oraOverlay,/const sceneAnchor=!studyMode&&focusRegion===detected/);
+assert.match(sourceFile('app/scene.tsx'),/studyZoom\|\|1/);
 assert.match(oraOverlay,/const displayedExplosion=state.isolate&&beforeInspect\?beforeInspect.explode:state.explode/);
 assert.match(oraOverlay,/data-testid="ora-inline-explode-percentage"/);
 assert.match(oraOverlay,/value=\{Math.round\(displayedExplosion\*100\)\} disabled=\{Boolean\(chosen\)\}/);
@@ -188,7 +192,7 @@ assert.match(technicalScene,/camera\.setViewOffset\(w,h/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-in"/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-zoom-out"/);
 assert.match(oraOverlay,/data-testid="ora-inline-page-recenter"/);
-assert.match(oraOverlay,/explodedZoom,anchor:sceneAnchor,inspectorOpen:Boolean\(chosen\)/);
+assert.match(oraOverlay,/explodedZoom,studyZoom,anchor:sceneAnchor,inspectorOpen:Boolean\(chosen\)/);
 console.log('ORA_BLUEPRINT_RENDERER '+JSON.stringify({
  style:'ORA blue technical',edges:'real THREE.EdgesGeometry',
  maximumVisibleOutlinedParts:20,maximumCachedOutlinedParts:42,

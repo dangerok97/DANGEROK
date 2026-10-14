@@ -47,6 +47,8 @@ export default function OraOverlay(){
  const [beforeInspect,setBeforeInspect]=useState<{explode:number;page:number;view:SceneState['view']}|null>(null);
  const [detailZoom,setDetailZoom]=useState(1);
  const [explodedZoom,setExplodedZoom]=useState(1);
+ const [studyMode,setStudyMode]=useState(new URLSearchParams(window.location.search).get('study')==='1');
+ const [studyZoom,setStudyZoom]=useState(1);
  const params=useMemo(()=>new URLSearchParams(window.location.search),[]);
  const requested=params.get('region')||'full_body';
  const detected:StudyRegion=(requested in STUDY_LABEL?requested:'full_body') as StudyRegion;
@@ -171,7 +173,7 @@ export default function OraOverlay(){
   setChosen(null);setBeforeInspect(null);setPiecePage(0);setExplodedZoom(1);
  };
  const title=chosen?.name||'Anatomia di riferimento';
- const sceneAnchor=focusRegion===detected?anchor:null;
+ const sceneAnchor=!studyMode&&focusRegion===detected?anchor:null;
  const meshAnnounced=React.useRef(false);
  const reportProgress=(value:number)=>{
   setProgress(value);
@@ -185,12 +187,16 @@ export default function OraOverlay(){
   if(window.parent!==window)window.parent.postMessage({type:'ora:anatomy-error',version:1},'*');
  };
  const displayedExplosion=state.isolate&&beforeInspect?beforeInspect.explode:state.explode;
- return <main className="ora-overlay" data-testid="ora-bodyparts-inline" aria-label="Anatomia 3D in sovrimpressione, modello didattico">
-   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:renderedIds,detailZoom,explodedZoom,anchor:sceneAnchor,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
+ return <main className={'ora-overlay'+(studyMode?' ora-overlay-study':'')}
+   data-testid="ora-bodyparts-inline" data-view-mode={studyMode?'study':'approximate-overlay'}
+   aria-label="Atlante anatomico 3D didattico">
+   {studyMode&&<div className="ora-overlay-study-backdrop" aria-hidden="true"/>}
+   {atlas&&subset?.available&&<AnatomyScene atlas={atlas} state={{...state,allowed:renderedIds,detailZoom,explodedZoom,studyZoom,anchor:sceneAnchor,inspectorOpen:Boolean(chosen)}} onSelect={choosePart}
      onProgress={reportProgress} onError={reportError}/>}
    <div className="ora-overlay-header">
     <div className="ora-overlay-label"><strong>ORA · {STUDY_LABEL[focusRegion].toLocaleUpperCase('it')} 3D</strong>
-     <span data-testid="ora-inline-region-label">{focusRegion===detected?'ZONA RILEVATA · MODELLO DIDATTICO':'VISTA AMPLIATA · MODELLO DIDATTICO'}</span></div>
+     <span data-testid="ora-inline-region-label">{studyMode?'VISTA STUDIO · MODELLO DI RIFERIMENTO':
+    focusRegion===detected?'POSIZIONE INDICATIVA · NON SOVRAPPOSIZIONE ESATTA':'VISTA AMPLIATA · MODELLO DIDATTICO'}</span></div>
     <button type="button" data-testid="ora-inline-search-toggle" aria-expanded={searchOpen} onClick={()=>{setSearchOpen(v=>!v);setSystemsOpen(false);}}>⌕ <span>Cerca</span></button>
     <button type="button" data-testid="ora-inline-systems-toggle" aria-expanded={systemsOpen} onClick={()=>{setSystemsOpen(v=>!v);setSearchOpen(false);}}>☷ <span>Sistemi</span></button>
    </div>
@@ -258,7 +264,24 @@ export default function OraOverlay(){
       '← Torna ai pezzi esplosi':'← Torna alla vista anatomica'}
     </button>
    </aside>}
-   {exploded&&!chosen&&eligiblePieces.length>0&&<div className="ora-overlay-explode-zoom"
+   {!chosen&&!exploded&&<div className="ora-overlay-study-controls"
+     role="group" aria-label="Visualizzazione e ingrandimento anatomico"
+     data-testid="ora-inline-study-controls">
+     <button type="button" data-testid="ora-inline-study-mode"
+      title={studyMode?'Mostra la posizione 2D indicativa sulla foto':'Ingrandisci la regione per studiarla'}
+      aria-pressed={studyMode}
+      onClick={()=>{setStudyMode(previous=>!previous);setStudyZoom(1);}}>
+      {studyMode?'Sulla foto · indicativo':'Vista studio'}
+     </button>
+     <button type="button" data-testid="ora-inline-study-zoom-out"
+      aria-label="Riduci il modello anatomico" disabled={studyZoom<=1}
+      onClick={()=>setStudyZoom(z=>Math.max(1,+(z-.15).toFixed(2)))}>−</button>
+     <output data-testid="ora-inline-study-zoom-value">{studyZoom.toFixed(2)}×</output>
+     <button type="button" data-testid="ora-inline-study-zoom-in"
+      aria-label="Ingrandisci il modello anatomico" disabled={studyZoom>=1.9}
+      onClick={()=>setStudyZoom(z=>Math.min(1.9,+(z+.15).toFixed(2)))}>+</button>
+    </div>}
+    {exploded&&!chosen&&eligiblePieces.length>0&&<div className="ora-overlay-explode-zoom"
     role="group" aria-label="Ingrandisci i componenti esplosi" data-testid="ora-inline-page-zoom">
     <button type="button" data-testid="ora-inline-page-zoom-out" aria-label="Riduci i pezzi"
      disabled={explodedZoom<=1} onClick={()=>setExplodedZoom(v=>Math.max(1,+(v-.25).toFixed(2)))}>−</button>
@@ -298,7 +321,7 @@ export default function OraOverlay(){
     <button type="button" onClick={()=>setAboutOpen(v=>!v)} aria-expanded={aboutOpen} aria-label="Informazioni e licenza">ⓘ</button>
    </div>
    {progress<100&&!error&&<div className="ora-overlay-streaming" role="status"
-     data-testid="ora-inline-loading">Dettagli anatomici in arrivo · {progress>0?'modello visibile':'anteprima illustrativa'}</div>}
+     data-testid="ora-inline-loading">{progress>0?'Completo le strutture anatomiche…':'Preparo le mesh del riferimento…'}</div>}
    {availabilityWarning&&<div role="status" className="ora-overlay-loading ora-overlay-error"
     data-testid="ora-inline-region-unavailable">
     Non trovo sufficienti componenti BodyParts3D per questa zona. Puoi espandere la visualizzazione.
