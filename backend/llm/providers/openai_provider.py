@@ -22,6 +22,28 @@ from llm.errors import (
 logger = logging.getLogger("ora.llm.openai")
 
 
+_REASONING_MODEL_PREFIXES = ("gpt-5.6", "gpt-6")
+_REASONING_EFFORTS = {"none", "low", "medium", "high", "xhigh", "max"}
+
+
+def _request_generation_options(model: str, *, json_mode: bool) -> Dict[str, Any]:
+    """Provider-wire compatibility; never a domain or user-intent decision."""
+    options: Dict[str, Any] = {}
+    if model.startswith(_REASONING_MODEL_PREFIXES):
+        configured = (os.environ.get("OPENAI_REASONING_EFFORT") or "medium").strip().lower()
+        options["reasoning_effort"] = (
+            configured if configured in _REASONING_EFFORTS else "medium"
+        )
+        # Current reasoning models reject custom sampling controls whenever
+        # reasoning is active. Omitting temperature is valid for every effort,
+        # including "none", and keeps one stable request shape across failover.
+    else:
+        options["temperature"] = 0.2 if json_mode else 0.4
+    if json_mode:
+        options["response_format"] = {"type": "json_object"}
+    return options
+
+
 class OpenAIProvider(BaseLLMProvider):
     name = "openai"
 
@@ -68,10 +90,8 @@ class OpenAIProvider(BaseLLMProvider):
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            "temperature": 0.2 if json_mode else 0.4,
+            **_request_generation_options(model, json_mode=json_mode),
         }
-        if json_mode:
-            kwargs["response_format"] = {"type": "json_object"}
         try:
             resp = await client.chat.completions.create(**kwargs)
         except RateLimitError as e:
