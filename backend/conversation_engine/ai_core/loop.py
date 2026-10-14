@@ -760,6 +760,32 @@ _CALENDAR_CLAIM_RE = re.compile(
     r"i('|’)?ve\s+(created|added|scheduled|moved|rescheduled|cancel(l)?ed|deleted|removed)\b.{0,60}\b(calendar|event)"
     r")\b"
 )
+
+def _has_positive_calendar_mutation_claim(text: str) -> bool:
+    """Return True only for an asserted calendar mutation, not its explicit denial.
+
+    This is a truth guard, not intent routing. It only decides whether a sentence
+    needs evidence of a successful calendar write before ORA may state it.
+    """
+    rendered = unicodedata.normalize("NFKC", html.unescape(str(text or "")))
+    rendered = re.sub(r"<[^>]*>", "", rendered)
+    rendered = re.sub(r"[*_`]", "", rendered)
+    rendered = " ".join(rendered.split())
+    for match in _CALENDAR_CLAIM_RE.finditer(rendered):
+        # Inspect only the grammatical lead-in since the latest strong
+        # punctuation/comma. This keeps "Non era nel calendario, quindi l'ho
+        # aggiunto al calendario" positive while treating "non è stato aggiunto
+        # al calendario" as a denial rather than a mutation claim.
+        prefix = re.split(r"[.!?;,:]", rendered[:match.start()])[-1]
+        local = " ".join(prefix.lower().split()[-7:])
+        if re.search(
+            r"\b(?:non|not|never)\b(?:\s+[\w'’à-öø-ÿ]+){0,6}\s*$",
+            local,
+            flags=re.IGNORECASE,
+        ):
+            continue
+        return True
+    return False
 _LIKELY_EMPIRICAL_ESTIMATE_RE = re.compile(
     r"(?i)("
     r"\b(circa|indicativamente|all'incirca|approssimativamente|pi[uù]\s+o\s+meno|"
@@ -2639,7 +2665,7 @@ async def run_cognitive_loop(
             unconfirmed_calendar_claim = (
                 mode in ("answer", "finish", "act")
                 and not calendar_write_confirmed_this_turn
-                and _CALENDAR_CLAIM_RE.search(ora or "")
+                and _has_positive_calendar_mutation_claim(ora or "")
             )
             if (
                 unconfirmed_calendar_claim
