@@ -124,6 +124,8 @@ test('one tap displays the cashier code; rotation and next-card navigation work 
   await expect(page.getByTestId('wallet-code-frame')).toBeVisible();
   await page.getByTestId('wallet-next').click();
   await expect(page.getByText('Alimentari prova', { exact: true }).last()).toBeVisible();
+  await page.getByTestId('wallet-prev').click();
+  await expect(page.getByText('Bar prova', { exact: true }).last()).toBeVisible();
   await page.getByTestId('wallet-close-checkout').click();
   await expect(page.getByTestId('wallet-close-checkout')).not.toBeVisible();
   // A cashier close goes back to the ready list, not an intermediate detail view.
