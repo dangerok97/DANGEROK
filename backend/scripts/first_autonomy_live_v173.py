@@ -214,10 +214,13 @@ async def run(output):
                     result = await asyncio.wait_for(
                         SourceCoreWorker(db).process_one(OWNER, signal.id), 180)
                     attempts.append(result["state"])
-                    if result["state"] != "retry":
+                    if result["state"] not in {"retry", "result_ready"}:
                         break
                     # Test-only clock acceleration: the production backoff is
                     # retained; only this isolated synthetic row becomes due.
+                    # result_ready means a verified effect already exists and
+                    # the next worker must finish from that receipt without
+                    # another model/tool execution.
                     await db.connected_signals.update_one(
                         {"id": signal.id, "owner_id": OWNER},
                         {"$set": {"_core_work.next_run_at":
