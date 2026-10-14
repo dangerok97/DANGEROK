@@ -72,3 +72,12 @@ The first release did not give the wallet an explicit place in VITA's normal sec
 The header override has been removed and the original `VitaHeader` contract restored. VITA now renders a clearly titled **TESSERE FEDELTÀ** section with a **Portafoglio tessere** entry immediately after **LUOGHI**, before **LA TUA VITA**. The section is visible on desktop and phone, and is rendered even when no cards exist or the Life Map is empty/unavailable. It opens the existing wallet route, requiring regular user authentication. No changes to loyalty-card storage, API, payments or offline capabilities.
 
 Validation: E2E `vita-wallet-visibility.spec.ts` visits the actual exported VITA route on Chromium and WebKit, with synthetic account and life data, checks explicit section order, one entry only, working navigation to the wallet page, an empty life model, and a Life Map failure. Current snapshot screenshots show the entry on an iPhone-sized viewport. No real account data is accessed or modified.
+
+
+## VITA canonical URL correction (14 October 2026)
+
+The app accidentally served two different screens under `/vita` and `/contesti`: the main navigation pointed to `/vita` (approved `GuidedSetupScreen`), whereas prior loyalty-wallet work was added to a separate older `/contesti` dashboard. This made a feature appear and disappear depending on which VITA link the user opened. **This is a routing/product regression, not a user cache issue.**
+
+Canonical route: **`/vita`**. The actual approved VITA/Conosciamoci screen now includes the `TESSERE FEDELTÀ` card immediately after `I tuoi luoghi` and before the bank summary. Legacy `/contesti` is a permanent *client-side* redirect to `/vita`, preserving existing bookmarks without continuing two independent UIs. The wallet's own back button now returns to `/vita`. No modification to the database, encrypted card records or backend authentication.
+
+Acceptance requirement: a real mobile browser logged into the same account must reach the exact same VITA via either path, see one wallet entry, and open the existing authenticated `/portafoglio` route; the old link must never present its own competing view. E2E fixtures must include the proper `/life-profile/knowledge-map` contract (stars and branches arrays): an empty object crashes the unrelated knowledge-map component and creates a misleading blank page.
