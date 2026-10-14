@@ -7,6 +7,7 @@ on:
       - backend/connectors/gmail/**
       - backend/conversation_engine/ai_core/**
       - backend/tests/test_general_source_core_v166.py
+      - backend/tests/test_source_entry_contract_v166.py
       - backend/scripts/source_core_live_v166.py
 permissions:
   contents: read
@@ -49,7 +50,7 @@ jobs:
         run: |
           python -m compileall -q connected/source_read.py conversation_engine/ai_core connectors/gmail scripts/source_core_live_v166.py
           python -m scripts.source_core_live_v166
-          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-core-tests.xml tests/test_general_source_core_v166.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_shipment_competency_v109.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_whatsapp_capability_parity_v1.py tests/test_recurring_memo_v113.py
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-core-tests.xml tests/test_source_entry_contract_v166.py tests/test_general_source_core_v166.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_shipment_competency_v109.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_whatsapp_capability_parity_v1.py tests/test_recurring_memo_v113.py
       - name: Preserve test evidence
         if: always()
         uses: actions/upload-artifact@v4
