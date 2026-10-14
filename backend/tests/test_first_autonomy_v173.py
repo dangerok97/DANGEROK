@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -23,29 +24,36 @@ async def test_unstable_no_effect_is_retried_then_can_settle_cleanly(world, monk
     db = StableMockDatabase(raw)
     clock = [core_work._now()]
     monkeypatch.setattr(core_work, "_now", lambda: clock[0])
-    calls = []
 
+    # First prove that the production trace event observed in live evaluation
+    # is one of the generic unstable-no-effect guards.
+    unstable = SimpleNamespace(trace={"steps": [
+        {"event": "TURN"},
+        {"event": "CALENDAR_PERSIST_NUDGE"},
+        {"event": "CALENDAR_CLAIM_BLOCKED_TERMINAL"},
+    ]})
+    clean = SimpleNamespace(trace={"steps": [
+        {"event": "TURN"}, {"event": "FINAL"},
+    ]})
+    assert core_work._no_effect_result_is_stable(unstable) is False
+    assert core_work._no_effect_result_is_stable(clean) is True
+
+    calls = []
     async def decide(system, payload):
         calls.append(json.loads(payload))
         source_ref = "signal:" + signal.id
-        # First leased attempt: read, then make the same unsupported durable
-        # calendar claim twice. The generic truth guard must catch it, and the
-        # durable worker must NOT settle this source as reviewed.
-        if len(calls) == 1:
-            return {"response_mode": "tool", "reasoning_status": "needs_tool",
-                    "tool_call": {"name": "read_connected_source",
-                                  "arguments": {"source_ref": source_ref}}}
-        if len(calls) in (2, 3):
-            return {"response_mode": "finish",
-                    "message_to_user": "Ho aggiunto l'evento nel calendario."}
-        # Second leased attempt is clean: re-read the source and conclude no-op.
-        if len(calls) == 4:
+        if len(calls) in (1, 3):
             return {"response_mode": "tool", "reasoning_status": "needs_tool",
                     "tool_call": {"name": "read_connected_source",
                                   "arguments": {"source_ref": source_ref}}}
         return {"response_mode": "finish",
                 "message_to_user": "La fonte non richiede alcuna azione."}
 
+    # Decouple this assertion from the language guard itself: the worker must
+    # retry whenever its stability predicate says the no-effect result is not
+    # trustworthy, regardless of which future guard produced that verdict.
+    original_stability = core_work._no_effect_result_is_stable
+    monkeypatch.setattr(core_work, "_no_effect_result_is_stable", lambda result: False)
     first = await SourceCoreWorker(db).process_one(OWNER, signal.id, decision_fn=decide)
     assert first["state"] == "retry"
     row = await db.connected_signals.find_one({"id": signal.id})
@@ -55,6 +63,7 @@ async def test_unstable_no_effect_is_retried_then_can_settle_cleanly(world, monk
     assert await db.ambient_activity.count_documents({"owner_id": OWNER}) == 0
 
     clock[0] += timedelta(minutes=1)
+    monkeypatch.setattr(core_work, "_no_effect_result_is_stable", original_stability)
     second = await SourceCoreWorker(db).process_one(OWNER, signal.id, decision_fn=decide)
     assert second["state"] == "reviewed_no_effect"
     row = await db.connected_signals.find_one({"id": signal.id})
