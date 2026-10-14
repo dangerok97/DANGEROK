@@ -994,6 +994,7 @@ async def _already_have_one(
 async def _create_ora_calendar_event(
     arguments: Dict[str, Any], runtime: Dict[str, Any], *,
     uid: str, db, title: str, start: str, end: str, tz: str, tz_authority: str,
+    end_time_known: bool,
 ) -> Observation:
     """First-party calendar write; never contacts Google, Apple or a carrier.
 
@@ -1082,6 +1083,7 @@ async def _create_ora_calendar_event(
             location=str(arguments.get("location") or "")[:_MAX_LOCATION],
             description=str(arguments.get("description") or "")[:_MAX_DESCRIPTION],
             all_day=bool(arguments.get("all_day")),
+            end_time_known=end_time_known,
         )
         node = await get_manual_event(db, uid, saved["id"])
         confirmed = bool(
@@ -1107,6 +1109,7 @@ async def _create_ora_calendar_event(
             "operation": "created", "created_now": bool(confirmed),
             "verified": confirmed, "provider": "ora",
             "calendar_ref": _ref(saved["id"]),
+            "end_time_known": end_time_known,
             "timezone": {"tz_name": tz, "authority": tz_authority},
             "reason": (
                 "Appuntamento creato e verificato nel calendario ORA, indipendente da Google e Apple."
@@ -1143,6 +1146,11 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         return _needs("create_calendar_event", "start_datetime", "quando")
     end = arguments.get("end_datetime")
     duration_minutes = arguments.get("duration_minutes")
+    # A fallback end is calendar geometry, not evidence. Keep the distinction
+    # all the way into storage so later UI/delivery cannot present +60 minutes
+    # as a fact that the source never stated.
+    duration_was_supplied = duration_minutes not in (None, "")
+    end_time_known = bool(end) or duration_was_supplied
     if not end:
         # An event with no end is an event of no length. Google accepts one
         # and shows a sliver nobody can read — which is what «segnami un
@@ -1309,6 +1317,7 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         return await _create_ora_calendar_event(
             arguments, runtime, uid=uid, db=db, title=title,
             start=str(start), end=str(end), tz=str(tz), tz_authority=tz_authority,
+            end_time_known=end_time_known,
         )
 
     sync = await _sync_service(db)
@@ -1411,6 +1420,7 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         "end_datetime": end,
         "timezone": tz,
         "all_day": bool(arguments.get("all_day", False)),
+        "end_time_known": end_time_known,
     }
     location = arguments.get("location")
     if location:
