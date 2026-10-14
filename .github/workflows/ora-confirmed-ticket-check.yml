@@ -1,0 +1,32 @@
+name: Confirmed ticket calendar checks
+on:
+  push:
+    branches: [ora/v165-confirmed-ticket-calendar-20261014]
+    paths: [.github/workflows/ora-confirmed-ticket-check.yml]
+permissions:
+  contents: read
+jobs:
+  source-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Export tracked source for isolated code review (no environment or credentials)
+        run: |
+          python - <<'PY'
+          import pathlib, subprocess, zipfile
+          paths = subprocess.check_output(['git','ls-files','backend','.github/workflows/ci.yml'], text=True).splitlines()
+          with zipfile.ZipFile('source-review.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for name in paths:
+                  p = pathlib.Path(name)
+                  if p.is_file() and (p.suffix in {'.py','.yml','.toml'} or p.name in {'requirements.txt','requirements-dev.txt'}):
+                      z.write(p,name)
+              z.writestr('source-revision.txt',subprocess.check_output(['git','rev-parse','HEAD'],text=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: confirmed-ticket-source-review
+          path: source-review.zip
+          retention-days: 1
