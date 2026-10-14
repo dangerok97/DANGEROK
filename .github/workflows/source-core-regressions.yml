@@ -8,7 +8,9 @@ on:
       - backend/conversation_engine/ai_core/**
       - backend/tests/test_general_source_core_v166.py
       - backend/tests/test_source_entry_contract_v166.py
+      - backend/tests/test_instruction_contract_v167.py
       - backend/scripts/source_core_live_v166.py
+      - backend/scripts/source_core_contract_eval_v167.py
 permissions:
   contents: read
 jobs:
@@ -30,6 +32,7 @@ jobs:
       DOCUMENT_STORAGE_DIR: /tmp/ora-source-ci-docs
       CALENDAR_PROVIDER_MODE: fake
       PUSH_PROVIDER: noop
+      ORA_CORE_COMPACT_CONTRACT: '1'
       GEMINI_API_KEY: ''
       GEMINI2_API_KEY: ''
       OPENAI_API_KEY: ''
@@ -45,12 +48,12 @@ jobs:
         run: |
           python -m pip install -q -r backend/requirements-cloud.txt mongomock-motor==0.0.36
           mkdir -p /tmp/ora-source-ci-docs
-      - name: Test original Core, source tools and permission boundaries
+      - name: Test common Core and original permission boundaries
         working-directory: backend
         run: |
-          python -m compileall -q connected/source_read.py conversation_engine/ai_core connectors/gmail scripts/source_core_live_v166.py
-          python -m scripts.source_core_live_v166
-          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-core-tests.xml tests/test_source_entry_contract_v166.py tests/test_general_source_core_v166.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_shipment_competency_v109.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_whatsapp_capability_parity_v1.py tests/test_recurring_memo_v113.py
+          python -m compileall -q connected/source_read.py conversation_engine/ai_core connectors/gmail scripts/source_core_contract_eval_v167.py
+          python -m scripts.source_core_contract_eval_v167
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-core-tests.xml tests/test_instruction_contract_v167.py tests/test_source_entry_contract_v166.py tests/test_general_source_core_v166.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_shipment_competency_v109.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_whatsapp_capability_parity_v1.py tests/test_recurring_memo_v113.py
       - name: Preserve test evidence
         if: always()
         uses: actions/upload-artifact@v4
