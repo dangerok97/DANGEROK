@@ -93,6 +93,15 @@ console.log('REGION_HAND_SIDES '+JSON.stringify({
 assert.ok(leftHand.available,'Left-hand reference mesh is missing');
 assert.ok(sharedHands<Math.min(rightHand.ids.length,leftHand.ids.length)*.45,
  'Both hand options cannot display the same anatomical reference');
+const partById=new Map(model.parts.map(part=>[part.id,part]));
+for(const [label,subset,wrongSide] of [
+ ['right hand',rightHand,'left'],['left hand',leftHand,'right']
+]){
+ const contrary=subset.ids.filter(id=>
+  new RegExp('(?:^|\\s)'+wrongSide+'(?:\\s|$)','i')
+   .test(partById.get(id)?.name||''));
+ assert.equal(contrary.length,0,'Anatomical '+label+' must not show opposite-side source mesh names: '+contrary.join(','));
+}
 assert.ok(regions.anatomicalRegion(model,'full_body','unknown').ids.length===2234);
 console.log('ANATOMICAL_REGION_COUNTS '+JSON.stringify(result));
 
@@ -105,6 +114,12 @@ const terminologyModule={exports:{}};
 vm.runInNewContext(terminologyJs,{module:terminologyModule,exports:terminologyModule.exports});
 const it=terminologyModule.exports;
 for(const [en,expected] of [
+ ['Hand','Mano'],
+ ['Right hand','Mano destra'],
+ ['Left hand','Mano sinistra'],
+ ['Set of lumbricals of right hand','Muscoli lombricali della mano destra'],
+ ['Set of dorsal interossei of right hand','Muscoli interossei dorsali della mano destra'],
+ ['Set of palmar interossei of left hand','Muscoli interossei palmari della mano sinistra'],
  ['Right anterior temporal artery','Arteria temporale anteriore destra'],
  ['Left inferior frontal gyrus','Giro frontale inferiore sinistro'],
  ['Gingiva of upper jaw','Gengiva della mascella superiore'],
@@ -142,7 +157,10 @@ assert.ok(translated.length/candidates.length>.80,
 // Ensure exploded meshes do not collapse into hundreds of unreadable fragments,
 // and tapping an individual piece isolates it while remembering the prior page.
 const oraOverlay=sourceFile('app/ora-overlay.tsx');
-assert.match(oraOverlay,/const EXPLODED_PAGE_SIZE=14/);
+assert.match(oraOverlay,/const pageSizeFor=\(width:number\)=>width<650\?8:width<1000\?10:12/);
+assert.match(oraOverlay,/const \[pageSize,setPageSize\]=useState/);
+assert.match(oraOverlay,/eligiblePieces\.slice\(displayedPage\*pageSize,\(displayedPage\+1\)\*pageSize\)/);
+assert.match(oraOverlay,/window\.addEventListener\('resize',onResize\)/);
 assert.match(oraOverlay,/const EXPLODED_PAGE_THRESHOLD=\.50/);
 assert.match(oraOverlay,/data-testid="ora-inline-explosion-pager"/);
 assert.match(oraOverlay,/data-testid="ora-inline-return-explosion"/);

@@ -257,7 +257,6 @@ export default function LiveExplorer(){
   },[apply]);
 
   const openCamera=useCallback(async()=>{
-    void warmAnatomyReference();
     stop();setLibraryOpen(false);setError(null);changeMode('opening');setStage('Consenti l’accesso alla fotocamera…');
     const ticket=epoch.current;
     try{
@@ -280,6 +279,9 @@ export default function LiveExplorer(){
     }
   },[stop]);
   const activateAtlas=(region:BodyRegion='full_body',posePoints:Record<string,[number,number]>|null=null,box:Box|null=null,bodySide:'left'|'right'|'unknown'='unknown',capture:AnatomyCaptureAnchor|null=null)=>{
+    // Avoid downloading the entire anatomical atlas for ordinary object scans.
+    // Start prefetch only after the recognition result identifies a body part.
+    void warmAnatomyReference();
     setAnatomyRegion(region);setAnatomySide(bodySide);setAnatomyPosePoints(posePoints);
     anatomyCapture.current=capture;
     // This placeholder is replaced after React has resized the stage to the
@@ -310,7 +312,6 @@ export default function LiveExplorer(){
     newObject();
   };
   const pickPhoto=async(event:React.ChangeEvent<HTMLInputElement>)=>{
-    void warmAnatomyReference();
     const file=event.target.files?.[0];event.target.value='';if(!file)return;
     stop();setLibraryOpen(false);setError(null);
     if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>12*1024*1024){setError('Scegli JPEG, PNG o WebP inferiore a 12 MB.');return;}
@@ -391,13 +392,6 @@ export default function LiveExplorer(){
         scene.current.draw(ctx,w,h,{progress:settings.progress,yaw:settings.yaw,pitch:settings.pitch,selected:activeTour?'':selectedRef.current,focus:activeTour?0:settings.focus,zoom:settings.zoom,origin,tour:activeTour?{step:activeTour.definition.steps[activeTour.clock.index],phase:settings.reduceMotion?1:activeTour.clock.phase}:undefined});
         node.dataset.partCount=String(scene.current.manifest.parts.length);node.dataset.selectedPart=selectedRef.current;
       }else{node.dataset.partCount='0';node.dataset.selectedPart='';}
-      if(live&&!scene.current){
-        const x=w*.26,y=h*.22,bw=w*.48,bh=h*.55;
-        ctx.strokeStyle='rgba(144,221,237,.65)';ctx.lineWidth=1.3;
-        for(const [xx,yy,sx,sy] of [[x,y,1,1],[x+bw,y,-1,1],[x,y+bh,1,-1],[x+bw,y+bh,-1,-1]]){
-          ctx.beginPath();ctx.moveTo(xx+sx*17,yy);ctx.lineTo(xx,yy);ctx.lineTo(xx,yy+sy*17);ctx.stroke();
-        }
-      }
     };raf=requestAnimationFrame(paint);return()=>cancelAnimationFrame(raf);
   },[captureScan]);
 

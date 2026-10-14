@@ -137,15 +137,25 @@ export function anatomicalRegion(atlas:Atlas,requested:StudyRegion,side:ModelSid
   }
   source='fallback';
  }
+ // A spatial bounding box cannot identify laterality. If a mesh is
+ // explicitly labelled for the opposite side, NEVER include it, even if
+ // its bounds overlap the selected hand or limb.
+ const contralateral=(p:Part):boolean=>{
+  if(!isSided(region))return false;
+  const sourceName=clean(p.originalName||p.name);
+  return preferredSide==='right'?/(?:^| )left(?: |$)/.test(sourceName):
+   /(?:^| )right(?: |$)/.test(sourceName);
+ };
  // Center-in-volume test avoids keeping huge unrelated body structures.
  const candidates=(area:Bounds)=>{
   const spatial=all.filter(p=>{
+   if(contralateral(p))return false;
    const b=p.bounds,spanY=b[1][1]-b[0][1],spanX=b[1][0]-b[0][0];
    // Avoid huge whole-body surfaces and structures spanning multiple limbs.
    if(spanY>(area[3]-area[2])*1.70||spanX>(area[1]-area[0])*2.5)return false;
    return within(p,area);
   });
-  return Array.from(new Set([...seed.filter(p=>within(p,area)).map(p=>p.id),
+  return Array.from(new Set([...seed.filter(p=>within(p,area)&&!contralateral(p)).map(p=>p.id),
    ...spatial.map(p=>p.id)]));
  };
  let ids=candidates(roi);

@@ -30,3 +30,19 @@ test('no obsolete visual scanner animation is shipped with the lightweight compo
  const style=here('visualStyle.ts');
  assert.doesNotMatch(style,/vx-scanning|vx-scan-locked|@keyframes vx-scan/);
 });
+
+test('BodyParts3D download is lazy and only follows actual anatomy recognition',()=>{
+ const live=here('LiveExplorer.web.tsx');
+ const open=live.indexOf('const openCamera='),pick=live.indexOf('const pickPhoto=');
+ const activate=live.indexOf('const activateAtlas=');
+ assert.ok(open>=0&&pick>=0&&activate>=0);
+ assert.doesNotMatch(live.slice(open,activate),/warmAnatomyReference\(/);
+ assert.match(live.slice(activate,activate+500),/warmAnatomyReference\(/);
+ assert.doesNotMatch(live,/const x=w\*\.26,y=h\*\.22/);
+});
+test('the verified anatomical model uses a mobile-responsive number of mesh parts',()=>{
+ const body=readFileSync(join(dir,'../../scripts/ora-bodyparts3d-inline.tsx'),'utf8');
+ assert.match(body,/width<650\?8:width<1000\?10:12/);
+ assert.match(body,/eligiblePieces\.slice\(displayedPage\*pageSize,\(displayedPage\+1\)\*pageSize\)/);
+ assert.match(body,/data-testid=\{'ora-inline-piece-'\+part\.id\}/);
+});
