@@ -132,12 +132,7 @@ async def manual_events_between(db, user_id, start, end, *, limit=500):
     return [item for _, item in sorted(result, key=lambda pair: pair[0])][:limit]
 
 
-async def update_manual_event(db, user_id, event_id, fields, *, expected_updated_at=None):
-    node = await get_manual_event(db, user_id, event_id)
-    if not node:
-        raise ValueError("event_not_found")
-    if node.get("status") != "active":
-        raise ValueError("event_cancelled")
+def _manual_update_target(node, fields):
     attrs = dict(node["attributes"])
     zone = ZoneInfo(str(fields.get("timezone") or attrs.get("timezone") or "Europe/Rome"))
     old_start = datetime.fromisoformat(attrs["starts_at"])
@@ -159,9 +154,31 @@ async def update_manual_event(db, user_id, event_id, fields, *, expected_updated
     if len(location) > 300 or len(description) > 800:
         raise ValueError("invalid_input")
     attrs.update(starts_at=start.isoformat(), ends_at=end.isoformat(), timezone=str(zone), location=location)
+    return title, description, attrs
+
+
+def manual_update_is_noop(node, fields):
+    """Compare the requested canonical state with a fresh owned record."""
+    if not node or node.get("status") != "active":
+        return False
+    title, description, attrs = _manual_update_target(node, fields)
+    return (title == node["label"] and description == (node.get("description") or "")
+            and attrs == node["attributes"])
+
+
+async def update_manual_event(db, user_id, event_id, fields, *, expected_updated_at=None):
+    node = await get_manual_event(db, user_id, event_id)
+    if not node:
+        raise ValueError("event_not_found")
+    if node.get("status") != "active":
+        raise ValueError("event_cancelled")
+    title, description, attrs = _manual_update_target(node, fields)
+    # A retry is not a new change. Do not rewrite the revision or wake the
+    # autonomous worker when all material fields are already as requested.
+    # This also preserves recovery after a lost success response.
+    if title == node["label"] and description == (node.get("description") or "") and attrs == node["attributes"]:
+        return {**manual_event_public(node), "changed_now": False}
     if expected_updated_at and expected_updated_at != node.get("updated_at"):
-        if title == node["label"] and description == (node.get("description") or "") and attrs == node["attributes"]:
-            return manual_event_public(node)  # Retry after a lost success response.
         raise ValueError("event_changed")
     result = await db.life_nodes.update_one(
         {"id": event_id, "user_id": user_id, "status": "active", "updated_at": node.get("updated_at")},
@@ -173,7 +190,7 @@ async def update_manual_event(db, user_id, event_id, fields, *, expected_updated
     if not observed or observed.get("status") != "active" or observed["attributes"] != attrs or observed["label"] != title or (observed.get("description") or "") != description:
         raise ValueError("event_changed")
     await _wake(db, user_id, event_id, "event.updated", observed["updated_at"])
-    return manual_event_public(observed)
+    return {**manual_event_public(observed), "changed_now": True}
 
 
 async def archive_manual_event(db, user_id, event_id):
