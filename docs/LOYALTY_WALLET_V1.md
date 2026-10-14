@@ -48,3 +48,18 @@ Release gates: the real-codec suite, application CI, authenticated browser flow,
 Payments, NFC, dynamic/rotating codes, issuer account login, automatic points balance, coupon activation, geofenced suggestions, Apple Wallet/Google Wallet export, direct chat/WhatsApp card handoff, and persistent offline reopening. A card already loaded in memory can be displayed while that page stays open, but the app must not advertise complete offline availability. A secure device cache and offline app shell are a separate follow-up.
 
 The first release is a bounded loyalty-card wallet, not a universal replacement for official merchant apps.
+
+
+## V1.1 — faster at checkout, without exposing card data (14 October 2026)
+
+This release addresses the costliest usability gap: opening a tile used to lead to an intermediate detail panel and require another tap before the barcode appeared. The large tile now opens the cashier screen in **one tap**. Editing/deleting stays behind the separate **Gestisci** control. After closing a tile's cashier screen the user returns to the list. The existing detail panel still supports editing, deleting and cashier preview.
+
+- Favorites remain at the top and can be toggled with one touch directly from a tile, without opening the editor; other cards sort by most recently opened on *that device*, then by name.
+- The last four cards can be opened directly from **Usate di recente** when at least two have been used; **Cancella recenti** clears the local order. Recent ordering stores at most eight opaque card IDs, SHA-256 owner-scoped, in device storage; it **never stores a barcode, image, card name or card number**. This is not an offline wallet or cross-device usage tracking.
+- Cashier view supports **Ruota codice di 90°** for linear barcodes, useful on narrow phones, plus next/previous card switching without going back to the list. QR codes are not rotated.
+- Explicit **Copia numero** uses the operating system clipboard on user request; be mindful that an operating-system clipboard can remain available to other apps.
+- Saving now rejects accidental duplicates with the same normalized merchant name, format and code. An identical code used by a *different* merchant is allowed: the same phone number can legally be a loyalty number for different chains. All checks happen inside the owner-scoped encrypted aggregate, with existing compare-and-swap retries.
+
+The cashier screen still requires that the card has already been fetched at least once in the current app session. **Reopening the app while offline is NOT supported**: encrypted durable offline storage and offline authentication require a separate audited implementation. This patch intentionally avoids persisting plaintext codes/images in AsyncStorage or browser localStorage, which would create an avoidable security regression. This is a transparent technical limitation, not a promised offline feature.
+
+Verification gates: backend duplicate/concurrency tests, TypeScript, production web export, complete existing checkout E2E on Chromium and WebKit, and additional synthetic checks for one-tap cashier, QR rotation exclusion, device-local recent ordering, card switching while temporarily offline, preserved desktop rail, and clipboard action presence. No real user cards are used in automated tests; in-store scanner acceptance remains unverified until a real checkout.

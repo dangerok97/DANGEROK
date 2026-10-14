@@ -15,7 +15,7 @@ SECRET = "wallet-test-only-not-a-production-key-0123456789"
 
 
 def card(number=1, **changes):
-    return CardInput(id=f"{number:032x}", name="Tessera prova", format="CODE_128", code="00012345", static_confirmed=True, **changes)
+    return CardInput(id=f"{number:032x}", name="Tessera prova" if number == 1 else f"Tessera prova {number}", format="CODE_128", code="00012345", static_confirmed=True, **changes)
 
 
 class Duplicate(Exception):
@@ -112,6 +112,35 @@ def test_owner_isolation_idempotency_edit_stale_revision_and_delete():
         await svc.delete("alice", saved["id"], 2)
         assert await svc.list_cards("alice") == []
         assert db.loyalty_wallets.docs["alice"]["cards"] == []
+    asyncio.run(run())
+
+
+def test_same_shop_duplicate_is_rejected_without_mixing_accounts():
+    async def run():
+        svc, db = service()
+        await svc.save("alice", card())
+        duplicate = CardInput(**{**card(2).model_dump(), "name": "  TESSERA PROVA "})
+        with pytest.raises(WalletError) as exc:
+            await svc.save("alice", duplicate)
+        assert exc.value.status == 409
+        assert len(await svc.list_cards("alice")) == 1
+        # The same number can be used as a loyalty key in another merchant.
+        different_shop = await svc.save("alice", card(2))
+        assert different_shop["revision"] == 1
+        # The same shop/card is allowed in another owner's personal wallet.
+        assert (await svc.save("bob", duplicate))["revision"] == 1
+        assert len(await svc.list_cards("bob")) == 1
+        assert "TESSERA PROVA" not in json.dumps(db.loyalty_wallets.docs)
+    asyncio.run(run())
+
+
+def test_racing_identical_creates_keep_one_and_fail_other():
+    async def run():
+        svc, _ = service()
+        a, b = card(3), CardInput(**{**card(4).model_dump(), "name": "Tessera prova 3"})
+        result = await asyncio.gather(svc.save("alice", a), svc.save("alice", b), return_exceptions=True)
+        assert sum(isinstance(item, WalletError) and item.status == 409 for item in result) == 1
+        assert len(await svc.list_cards("alice")) == 1
     asyncio.run(run())
 
 
