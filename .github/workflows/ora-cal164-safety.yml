@@ -7,6 +7,7 @@ on:
       - backend/agent/calendar_assent.py
       - backend/conversation_engine/ai_core/**
       - backend/tests/test_calendar_repeat_and_dates_v164.py
+      - backend/tests/test_calendar_prefetch_coverage_v164.py
       - backend/scripts/calendar_conflict_read_v164.py
 permissions:
   contents: read
@@ -43,12 +44,12 @@ jobs:
         run: |
           mkdir -p /tmp/ora-cal164-documents
           python -m pip install -q -r backend/requirements-cloud.txt mongomock-motor==0.0.36
-      - name: Native writes, dates, authority and cross-skill regressions
+      - name: Native writes, dates, current reads, authority and cross-skill regressions
         working-directory: backend
         run: |
-          python -m compileall -q home/manual_event.py conversation_engine/ai_core/grounding/calendar_weekday.py conversation_engine/ai_core/loop.py conversation_engine/ai_core/tools/calendar_caps.py scripts/calendar_conflict_read_v164.py
+          python -m compileall -q home/manual_event.py conversation_engine/ai_core/grounding/calendar_weekday.py conversation_engine/ai_core/calendar_ahead.py conversation_engine/ai_core/loop.py conversation_engine/ai_core/tools/calendar_caps.py scripts/calendar_conflict_read_v164.py
           python -m scripts.calendar_conflict_read_v164
-          python -m pytest -q -n 0 --disable-warnings --tb=short tests/test_calendar_repeat_and_dates_v164.py tests/test_calendar_bound_confirmation_v163.py tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py tests/test_shipment_competency_v109.py tests/test_recurring_memo_v113.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_financial_card_continuity_v158.py tests/test_situation_useful_outcome_v160.py --junitxml=/tmp/cal164-regression.xml
+          python -m pytest -q -n 0 --disable-warnings --tb=short tests/test_calendar_prefetch_coverage_v164.py tests/test_calendar_repeat_and_dates_v164.py tests/test_calendar_bound_confirmation_v163.py tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py tests/test_shipment_competency_v109.py tests/test_recurring_memo_v113.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_financial_card_continuity_v158.py tests/test_situation_useful_outcome_v160.py --junitxml=/tmp/cal164-regression.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
