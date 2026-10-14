@@ -1,0 +1,76 @@
+name: Core contract v167 integration
+on:
+  push:
+    branches: [ora/v167-coherent-core-contract-20261014]
+    paths:
+      - .github/workflows/core-contract-v167-integrate.yml
+      - scripts/apply_core_contract_v167.py
+      - backend/tests/test_instruction_contract_v167.py
+      - backend/conversation_engine/ai_core/instruction_contract.py
+permissions:
+  contents: write
+concurrency:
+  group: core-contract-v167-integration
+  cancel-in-progress: true
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      mongo:
+        image: mongo:6
+        ports: ['27017:27017']
+    env:
+      PYTHON_DOTENV_DISABLED: '1'
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_core167_synthetic
+      JWT_SECRET: ci-core167-synthetic-only
+      AMBIENT_RUNTIME: '0'
+      DOCUMENT_AI_ENABLED: '0'
+      DOCUMENT_STORAGE_BACKEND: local
+      DOCUMENT_STORAGE_DIR: /tmp/ora-core167-docs
+      CALENDAR_PROVIDER_MODE: fake
+      PUSH_PROVIDER: noop
+      ORA_CORE_COMPACT_CONTRACT: '1'
+      GEMINI_API_KEY: ''
+      GEMINI2_API_KEY: ''
+      OPENAI_API_KEY: ''
+      MISTRAL_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Existing dependencies
+        run: |
+          python -m pip install -q -r backend/requirements-cloud.txt mongomock-motor==0.0.36
+          mkdir -p /tmp/ora-core167-docs
+      - name: Apply only the reviewed Core hook
+        run: python scripts/apply_core_contract_v167.py
+      - name: Test actual Core plus original boundary cases
+        working-directory: backend
+        run: |
+          python -m compileall -q conversation_engine/ai_core
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/core167-tests.xml tests/test_instruction_contract_v167.py tests/test_source_entry_contract_v166.py tests/test_general_source_core_v166.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_shipment_competency_v109.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_whatsapp_capability_parity_v1.py tests/test_recurring_memo_v113.py
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core167-test-evidence
+          path: /tmp/core167-tests.xml
+          retention-days: 7
+      - name: Commit only tested loop to isolated branch
+        run: |
+          set -euo pipefail
+          git fetch origin 'ora/v167-coherent-core-contract-20261014'
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          git config user.name 'ORA test automation'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/conversation_engine/ai_core/loop.py
+          git commit -m 'feat(core): opt-in coherent instruction surface in the existing cognitive loop'
+          git push origin HEAD:refs/heads/ora/v167-coherent-core-contract-20261014
