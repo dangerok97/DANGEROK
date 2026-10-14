@@ -118,6 +118,7 @@ test('one tap displays the cashier code; rotation and next-card navigation work 
   await context.setOffline(true);
   await page.getByTestId('wallet-show-' + second.id).click();
   await expect(page.getByTestId('wallet-close-checkout')).toBeVisible();
+  await expect(page.getByTestId('wallet-close-top')).toBeVisible();
   await expect(page.getByText('Bar prova', { exact: true }).last()).toBeVisible();
   await page.getByTestId('wallet-rotate').click();
   await expect(page.getByTestId('wallet-rotate')).toContainText('Mostra orizzontale');
