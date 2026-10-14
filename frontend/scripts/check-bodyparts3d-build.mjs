@@ -100,7 +100,7 @@ for(const [label,subset,wrongSide] of [
  const contrary=subset.ids.filter(id=>
   new RegExp('(?:^|\\s)'+wrongSide+'(?:\\s|$)','i')
    .test(partById.get(id)?.name||''));
- assert.deepEqual(contrary,[],'Anatomical '+label+' must not show opposite-side source mesh names');
+ assert.equal(contrary.length,0,'Anatomical '+label+' must not show opposite-side source mesh names: '+contrary.join(','));
 }
 assert.ok(regions.anatomicalRegion(model,'full_body','unknown').ids.length===2234);
 console.log('ANATOMICAL_REGION_COUNTS '+JSON.stringify(result));
