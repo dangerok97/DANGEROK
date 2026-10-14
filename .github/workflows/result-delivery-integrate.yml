@@ -79,7 +79,7 @@ jobs:
                   client.close()
           asyncio.run(initialize())
           PY
-          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/result-delivery-tests.xml tests/test_source_result_delivery_v170.py tests/test_durable_source_work_v169.py tests/test_source_work_races_v169.py tests/test_source_work_database_v169.py tests/test_delivery_v38.py tests/test_proactive_delivery_recheck_v66.py tests/test_recurring_memo_delivery_v131.py tests/test_expo_receipt_audit_v132.py tests/test_whatsapp_alert_safety_v1.py
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/result-delivery-tests.xml tests/test_source_result_delivery_v170.py tests/test_durable_source_work_v169.py tests/test_source_work_races_v169.py tests/test_source_work_database_v169.py tests/test_delivery_v38.py tests/test_proactive_delivery_recheck_v66.py tests/test_recurring_memo_delivery_v131.py tests/test_expo_receipt_audit_v132.py tests/test_whatsapp_alert_consent_v1.py
       - name: Preserve tests and reviewed hooks
         if: always()
         run: |
