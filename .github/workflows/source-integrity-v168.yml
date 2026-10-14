@@ -6,11 +6,13 @@ on:
       - .github/workflows/source-integrity-v168.yml
       - backend/connected/signals.py
       - backend/tests/test_source_integrity_v168.py
+      - backend/tests/test_source_real_recovery_v168.py
   pull_request:
     paths:
       - .github/workflows/source-integrity-v168.yml
       - backend/connected/signals.py
       - backend/tests/test_source_integrity_v168.py
+      - backend/tests/test_source_real_recovery_v168.py
 permissions:
   contents: read
 concurrency:
@@ -41,6 +43,7 @@ jobs:
       MISTRAL_API_KEY: ''
       GROQ_API_KEY: ''
       ORA_SOURCE_MODEL_CONTRACT: ''
+      ORA_SOURCE_REAL_DB_TEST: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -52,9 +55,9 @@ jobs:
         run: |
           python -m pip install -q -r backend/requirements-cloud.txt mongomock-motor==0.0.36
           mkdir -p /tmp/ora-source-integrity-docs
-      - name: Test source identities, persistence failures and replay
+      - name: Test identity, write failures, eight real clients and process restart
         working-directory: backend
-        run: python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-integrity-tests.xml tests/test_source_integrity_v168.py
+        run: python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-integrity-tests.xml tests/test_source_integrity_v168.py tests/test_source_real_recovery_v168.py
       - name: Existing connected-source and shared-Core regressions
         if: success() || failure()
         working-directory: backend
