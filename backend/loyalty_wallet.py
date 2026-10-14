@@ -245,6 +245,17 @@ class WalletService:
                 raise WalletError("La tessera è cambiata su un altro dispositivo. Aggiorna prima di salvarla.", 409)
             if not old and len(snap["cards"]) >= MAX_CARDS:
                 raise WalletError("Hai raggiunto il limite di 100 tessere.", 409)
+            # One loyalty number can legitimately belong to different shops
+            # (e.g. a phone number). Reject only an exact same-shop duplicate;
+            # don't claim that the code alone identifies an issuer.
+            for sibling in snap["cards"]:
+                if sibling["id"] == data.id:
+                    continue
+                existing = self.cipher.decrypt(owner, sibling)
+                if (existing["format"] == data.format
+                    and existing["code"] == data.code
+                    and existing["name"].strip().casefold() == data.name.casefold()):
+                    raise WalletError("Questa tessera è già salvata per questo negozio. Apri quella esistente.", 409)
             if old and old["code"] == data.code and old["format"] == data.format:
                 image = old["image"]
             elif image is None:
