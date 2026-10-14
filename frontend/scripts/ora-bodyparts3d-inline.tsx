@@ -16,7 +16,7 @@ const PRESETS:{key:string;label:string;systems:SystemId[]}[]=[
  {key:'vessels',label:'Vasi',systems:['arterial','venous']},
 ];
 const INITIAL_SYSTEMS:SystemId[]=['skeletal','cardiac','respiratory','digestive'];
-const EXPLODED_PAGE_SIZE=14;
+const pageSizeFor=(width:number)=>width<650?8:width<1000?10:12;
 // Enter structured pagination before large anatomical systems overlap.
 const EXPLODED_PAGE_THRESHOLD=.50;
 const initial=():SceneState=>({
@@ -44,6 +44,13 @@ export default function OraOverlay(){
  const [aboutOpen,setAboutOpen]=useState(false);
  const [chosen,setChosen]=useState<Concept|null>(null);
  const [piecePage,setPiecePage]=useState(0);
+ // Use fewer source meshes per exploded page on mobile, improving legibility.
+ const [pageSize,setPageSize]=useState(()=>pageSizeFor(window.innerWidth));
+ useEffect(()=>{
+  const onResize=()=>setPageSize(pageSizeFor(window.innerWidth));
+  window.addEventListener('resize',onResize);
+  return()=>window.removeEventListener('resize',onResize);
+ },[]);
  const [beforeInspect,setBeforeInspect]=useState<{explode:number;page:number;view:SceneState['view']}|null>(null);
  const [detailZoom,setDetailZoom]=useState(1);
  const [explodedZoom,setExplodedZoom]=useState(1);
@@ -85,11 +92,11 @@ export default function OraOverlay(){
     return span(b)-span(a)||a.name.localeCompare(b.name,'it');
    });
  },[atlas,permittedIds,state.visible]);
- const pageCount=Math.max(1,Math.ceil(eligiblePieces.length/EXPLODED_PAGE_SIZE));
+ const pageCount=Math.max(1,Math.ceil(eligiblePieces.length/pageSize));
  const displayedPage=Math.min(piecePage,pageCount-1);
  const currentPieces=useMemo(()=>
-  eligiblePieces.slice(displayedPage*EXPLODED_PAGE_SIZE,(displayedPage+1)*EXPLODED_PAGE_SIZE),
-  [eligiblePieces,displayedPage]);
+  eligiblePieces.slice(displayedPage*pageSize,(displayedPage+1)*pageSize),
+  [eligiblePieces,displayedPage,pageSize]);
  const renderedIds=useMemo(()=>state.isolate?state.selected:
   exploded?currentPieces.map(p=>p.id):subset?.ids||[],
   [state.isolate,state.selected,exploded,currentPieces,subset?.ids]);
@@ -295,8 +302,8 @@ export default function OraOverlay(){
     data-testid="ora-inline-explosion-pager" aria-label="Esplora i componenti anatomici">
     <div className="ora-overlay-pager-top">
      <strong>Componenti ingranditi</strong>
-     <span data-testid="ora-inline-parts-count">Pezzi {displayedPage*EXPLODED_PAGE_SIZE+1}–
-       {Math.min(eligiblePieces.length,(displayedPage+1)*EXPLODED_PAGE_SIZE)} di {eligiblePieces.length}</span>
+     <span data-testid="ora-inline-parts-count">Pezzi {displayedPage*pageSize+1}–
+       {Math.min(eligiblePieces.length,(displayedPage+1)*pageSize)} di {eligiblePieces.length}</span>
      <button type="button" data-testid="ora-inline-prev-page" disabled={displayedPage===0}
       aria-label="Pagina precedente" onClick={()=>{setPiecePage(p=>Math.max(0,p-1));setExplodedZoom(1);}}>‹</button>
      <span data-testid="ora-inline-page-number">{displayedPage+1}/{pageCount}</span>

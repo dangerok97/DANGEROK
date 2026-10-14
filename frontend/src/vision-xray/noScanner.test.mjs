@@ -25,3 +25,20 @@ test('3D anatomy opens enlarged without a scanner reticle or alternate procedura
  assert.doesNotMatch(anatomy,/hasPixelContour|vision-anatomy-preview|vx-target-corner|AnatomyVolume/);
  assert.match(anatomy,/bodyparts3d\/ora-integrated\.json/);
 });
+
+test('the camera no longer preloads anatomical files for ordinary-object recognition',()=>{
+ const live=here('LiveExplorer.web.tsx');
+ const open=live.indexOf('const openCamera=');
+ const pick=live.indexOf('const pickPhoto=');
+ const activate=live.indexOf('const activateAtlas=');
+ assert.ok(open>=0&&pick>=0&&activate>=0);
+ assert.doesNotMatch(live.slice(open,activate),/warmAnatomyReference\(/);
+ assert.match(live.slice(activate,activate+450),/warmAnatomyReference\(/);
+ assert.doesNotMatch(live,/const x=w\*\.26,y=h\*\.22/);
+});
+test('mobile atlas explosion pages fewer parts without inventing anatomy',()=>{
+ const inline=readFileSync(join(dir,'../../scripts/ora-bodyparts3d-inline.tsx'),'utf8');
+ assert.match(inline,/width<650\?8:width<1000\?10:12/);
+ assert.match(inline,/eligiblePieces\.slice\(displayedPage\*pageSize,\(displayedPage\+1\)\*pageSize\)/);
+ assert.match(inline,/data-testid=\{'ora-inline-piece-'\+part\.id\}/);
+});

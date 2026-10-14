@@ -247,7 +247,6 @@ export default function LiveExplorer(){
   },[apply]);
 
   const openCamera=useCallback(async()=>{
-    void warmAnatomyReference();
     stop();setLibraryOpen(false);setError(null);changeMode('opening');setStage('Consenti l’accesso alla fotocamera…');
     const ticket=epoch.current;
     try{
@@ -270,6 +269,9 @@ export default function LiveExplorer(){
     }
   },[stop]);
   const activateAtlas=(region:BodyRegion='full_body',posePoints:Record<string,[number,number]>|null=null,box:Box|null=null,bodySide:'left'|'right'|'unknown'='unknown',capture:AnatomyCaptureAnchor|null=null)=>{
+    // Public anatomical assets download ONLY after a body region is recognized.
+    // Ordinary-object camera sessions do not pay the BodyParts3D preload cost.
+    void warmAnatomyReference();
     setAnatomyRegion(region);setAnatomySide(bodySide);setAnatomyPosePoints(posePoints);
     anatomyCapture.current=capture;
     // This placeholder is replaced after React has resized the stage to the
@@ -300,7 +302,6 @@ export default function LiveExplorer(){
     newObject();
   };
   const pickPhoto=async(event:React.ChangeEvent<HTMLInputElement>)=>{
-    void warmAnatomyReference();
     const file=event.target.files?.[0];event.target.value='';if(!file)return;
     stop();setLibraryOpen(false);setError(null);
     if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>12*1024*1024){setError('Scegli JPEG, PNG o WebP inferiore a 12 MB.');return;}
@@ -381,13 +382,6 @@ export default function LiveExplorer(){
         scene.current.draw(ctx,w,h,{progress:settings.progress,yaw:settings.yaw,pitch:settings.pitch,selected:activeTour?'':selectedRef.current,focus:activeTour?0:settings.focus,zoom:settings.zoom,origin,tour:activeTour?{step:activeTour.definition.steps[activeTour.clock.index],phase:settings.reduceMotion?1:activeTour.clock.phase}:undefined});
         node.dataset.partCount=String(scene.current.manifest.parts.length);node.dataset.selectedPart=selectedRef.current;
       }else{node.dataset.partCount='0';node.dataset.selectedPart='';}
-      if(live&&!scene.current){
-        const x=w*.26,y=h*.22,bw=w*.48,bh=h*.55;
-        ctx.strokeStyle='rgba(144,221,237,.65)';ctx.lineWidth=1.3;
-        for(const [xx,yy,sx,sy] of [[x,y,1,1],[x+bw,y,-1,1],[x,y+bh,1,-1],[x+bw,y+bh,-1,-1]]){
-          ctx.beginPath();ctx.moveTo(xx+sx*17,yy);ctx.lineTo(xx,yy);ctx.lineTo(xx,yy+sy*17);ctx.stroke();
-        }
-      }
     };raf=requestAnimationFrame(paint);return()=>cancelAnimationFrame(raf);
   },[captureScan]);
 
@@ -431,6 +425,23 @@ export default function LiveExplorer(){
   const syncTour=()=>{const c=tour.current?.clock;if(c)setTourUI({index:c.index,playing:c.playing,done:c.done});};
   const step=tourUI&&definition?definition.steps[tourUI.index]:null;
   const currentPart=result?.manifest?.parts.find(p=>p.key===selected),live=mode==='live';
+  const studyParts=result?.manifest?.parts||[];
+  const studyPartIndex=studyParts.findIndex(p=>p.key===selected);
+  const navigateComponent=(direction:-1|1)=>{
+    if(studyParts.length<2)return;
+    const next=(studyPartIndex+direction+studyParts.length)%studyParts.length;
+    choose(studyParts[next].key);
+  };
+  const componentNavigation=!tourUI&&focused&&currentPart&&studyParts.length>1?(
+    <div className="vx-part-navigator" role="group" aria-label="Scorri i componenti ingranditi"
+     data-testid="vision-part-navigator">
+      <span data-testid="vision-part-position">PEZZO {studyPartIndex+1} / {studyParts.length}</span>
+      <button type="button" aria-label="Ingrandisci il componente precedente"
+       data-testid="vision-previous-part" onClick={()=>navigateComponent(-1)}>‹ <span>Precedente</span></button>
+      <button type="button" aria-label="Ingrandisci il componente successivo"
+       data-testid="vision-next-part" onClick={()=>navigateComponent(1)}><span>Successivo</span> ›</button>
+    </div>
+  ):null;
   const visibleEntries=filterCatalog(entries,catalogQuery,catalogCategory);
   const categories=['Tutti',...Array.from(new Set(entries.map(e=>e.category||'Altri oggetti'))).sort()];
 
@@ -472,7 +483,7 @@ export default function LiveExplorer(){
         <small className="vx-tour-note">{definition.note||'Collegamenti illustrativi, non un circuito misurato.'}</small>
       </div>}
       <div ref={tabs} className={'vx-part-tabs'+(tourUI?' vx-tour-tabs':'')} aria-label="Seleziona un componente">{result.manifest.parts.map((p,i)=><button key={p.key} data-testid={'vision-part-'+p.key} aria-pressed={p.key===selected&&focused} onClick={()=>choose(p.key)}>{String(i+1).padStart(2,'0')} {p.name}</button>)}</div>
-      {!tourUI&&focused&&currentPart&&(detailOpen?<div className="vx-part-info" data-testid="vision-part-detail"><button className="vx-collapse" data-testid="vision-collapse-detail" aria-label="Riduci la spiegazione" onClick={()=>setDetailOpen(false)}>⌄</button><small>COMPONENTE TIPICO</small><h2>{currentPart.name}</h2><p><b>A cosa serve.</b> {currentPart.function}</p>{moreDetail?<p><b>Come funziona.</b> {currentPart.how_it_works}</p>:<button className="vx-detail-more" data-testid="vision-more-detail" onClick={()=>setMoreDetail(true)}>Come funziona →</button>}</div>:<div className="vx-mini-detail" data-testid="vision-detail-collapsed">{currentPart.name}<button data-testid="vision-expand-detail" onClick={()=>setDetailOpen(true)}>Spiegazione ↑</button></div>)}
+      {!tourUI&&focused&&currentPart&&(detailOpen?<div className="vx-part-info" data-testid="vision-part-detail"><button className="vx-collapse" data-testid="vision-collapse-detail" aria-label="Riduci la spiegazione" onClick={()=>setDetailOpen(false)}>⌄</button>{componentNavigation}<small>COMPONENTE TIPICO</small><h2>{currentPart.name}</h2><p><b>A cosa serve.</b> {currentPart.function}</p>{moreDetail?<p><b>Come funziona.</b> {currentPart.how_it_works}</p>:<button className="vx-detail-more" data-testid="vision-more-detail" onClick={()=>setMoreDetail(true)}>Come funziona →</button>}</div>:<div className="vx-mini-detail" data-testid="vision-detail-collapsed">{currentPart.name}<button data-testid="vision-expand-detail" onClick={()=>setDetailOpen(true)}>Spiegazione ↑</button></div>)}
     </section>}
     <footer className="vx-footer">
       {canHint&&!result&&<form className="vx-recognition-help" data-testid="vision-recognition-help" onSubmit={e=>{e.preventDefault();void captureScan(objectHintRef.current);}}>

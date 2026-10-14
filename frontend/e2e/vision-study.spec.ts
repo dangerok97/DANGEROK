@@ -63,8 +63,13 @@ test('object catalog model remains interactive without extra image-segmentation 
    identification:{canonical_key:entry.canonical_key,object_name:model.manifest.title,
      confidence:'high',bbox:[.25,.15,.5,.7],uncertainty:''}})
  }));
+ const publicAtlasRequests:string[]=[];
+ page.on('request',request=>{
+  if(request.url().includes('/bodyparts3d/'))publicAtlasRequests.push(request.url());
+ });
  await page.goto('/vision-xray');await still(page);
  await expect(page.getByTestId('vision-close-model')).toBeVisible();
+ expect(publicAtlasRequests).toEqual([]); // ordinary objects need no anatomical downloads
  await expect(page.getByTestId('vision-scan-overlay')).toHaveCount(0);
  await page.getByTestId('vision-part-'+model.manifest.parts[0].key).click();
  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-selected-part',model.manifest.parts[0].key);

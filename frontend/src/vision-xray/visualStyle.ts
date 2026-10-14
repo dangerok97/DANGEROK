@@ -48,4 +48,30 @@ export const visualStyle = `
 .has-anatomy .vx-canvas{pointer-events:none;}
 
 
+
+/* Accessible focus-to-focus navigation: enlarged parts stay on the stage while
+   the user can step through the family without tapping tiny mesh fragments. */
+.vx-part-navigator{float:right;display:flex;align-items:center;justify-content:flex-end;
+ gap:5px;margin:-3px 29px 5px 9px;padding:3px 4px;
+ background:rgba(10,40,57,.94);border:1px solid rgba(113,175,194,.6);
+ border-radius:9px;max-width:calc(100% - 32px);}
+.vx-part-navigator>span{flex:0 0 auto;white-space:nowrap;font:600 10px
+ ui-monospace,monospace;letter-spacing:.6px;color:#abd9e4;padding:0 5px;}
+.vx-part-navigator button{flex:0 0 auto;min-width:42px;min-height:33px;
+ display:inline-flex;align-items:center;justify-content:center;gap:4px;
+ border:1px solid #4d839b;border-radius:7px;background:#174257;
+ color:#e0faff;font-size:12px;padding:6px 8px;}
+.vx-part-navigator button:focus-visible{outline:2px solid #ffba82;outline-offset:2px;}
+.vx-part-navigator button:hover{border-color:#9cdbf0;background:#21576e;}
+@media(max-width:650px){
+ .vx-part-navigator{float:none;justify-content:flex-start;gap:4px;
+ margin:0 35px 6px 0;max-width:calc(100% - 35px);}
+ .vx-part-navigator>span{font-size:9px;letter-spacing:0;padding:0 3px;}
+ .vx-part-navigator button{min-height:36px;min-width:40px;padding:4px 7px;}
+ .vx-part-navigator button span{display:none;}
+}
+@media(max-height:540px) and (orientation:landscape){
+ .vx-part-navigator{float:none;justify-content:flex-start;margin:0 30px 4px 0;}
+ .vx-part-navigator button{min-height:32px;}
+}
 `;

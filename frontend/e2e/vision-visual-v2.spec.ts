@@ -84,3 +84,28 @@ test('short and landscape viewports retain close, zoom and explanation controls'
   const root=await page.getByTestId('vision-live-explorer').boundingBox();expect(root!.height).toBeLessThanOrEqual(391);
   const canvas=await page.getByTestId('vision-scene').boundingBox();expect(canvas!.width).toBeGreaterThan(300);
 });
+
+test('enlarged exploded object parts can be explored sequentially without tiny targets',async({page})=>{
+ await open(page,'remote_control');
+ await page.getByTestId('vision-part-pcb').click();
+ const scene=page.getByTestId('vision-scene');
+ const nav=page.getByTestId('vision-part-navigator');
+ await expect(nav).toBeVisible();
+ await expect(page.getByTestId('vision-part-position')).toContainText(/PEZZO \d+ \/ \d+/);
+ const original=await scene.getAttribute('data-selected-part');
+ expect(original).toBe('pcb');
+ const viewport=page.viewportSize()!;
+ const bounds=await nav.boundingBox();
+ expect(bounds).not.toBeNull();
+ expect(bounds!.x).toBeGreaterThanOrEqual(0);
+ expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(viewport.width+1);
+ await page.getByTestId('vision-next-part').click();
+ await expect(scene).not.toHaveAttribute('data-selected-part','pcb');
+ await expect(page.getByTestId('vision-part-detail')).toBeVisible();
+ await expect(page.getByTestId('vision-part-navigator')).toBeVisible();
+ await page.getByTestId('vision-previous-part').click();
+ await expect(scene).toHaveAttribute('data-selected-part','pcb');
+ await expect(page.getByTestId('vision-part-detail')).toContainText('Scheda elettronica');
+ await page.getByTestId('vision-overview').click();
+ await expect(nav).toHaveCount(0);
+});
