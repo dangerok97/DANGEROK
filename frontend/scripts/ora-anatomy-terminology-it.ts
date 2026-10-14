@@ -292,7 +292,7 @@ Object.assign(word,supplementary);
 /** Additional medical names from the source terminology coverage audit. */
 const medicalExtensions:Record<string,Gloss>={
  penis:{it:"pene"},
- lumbrical:{it:"lombricale"},
+ lumbrical:{it:"lombricale"},lumbricals:{it:"lombricali"},
  scapular:{it:"scapolare"},
  pharyngeal:{it:"faringeo"},
  thoracodorsal:{it:"toracodorsale"},
@@ -452,6 +452,13 @@ const medicalExtensions:Record<string,Gloss>={
 Object.assign(word,medicalExtensions);
 for(const key of ['matter','sclera','iris','musculature'])if(word[key])word[key].g='f';
 const direct:Record<string,string>={
+ // Common FMA hand groups: explicit, reviewed Italian nomenclature.
+ 'set of lumbricals of right hand':'Muscoli lombricali della mano destra',
+ 'set of lumbricals of left hand':'Muscoli lombricali della mano sinistra',
+ 'set of dorsal interossei of right hand':'Muscoli interossei dorsali della mano destra',
+ 'set of dorsal interossei of left hand':'Muscoli interossei dorsali della mano sinistra',
+ 'set of palmar interossei of right hand':'Muscoli interossei palmari della mano destra',
+ 'set of palmar interossei of left hand':'Muscoli interossei palmari della mano sinistra',
  'heart':'Cuore','brain':'Encefalo','cerebellum':'Cervelletto','liver':'Fegato',
  'external ear':'Orecchio esterno','internal ear':'Orecchio interno','middle ear':'Orecchio medio',
  'white matter':'Sostanza bianca','gray matter':'Sostanza grigia',
@@ -486,7 +493,7 @@ function agree(s:string,gender:Gender):string{
  return s;
 }
 const normal=(name:string)=>name.toLowerCase().replace(/[\u2010-\u2015-]/g,' ').replace(/\bsupra orbital\b/g,'supraorbital').replace(/\s+/g,' ').trim();
-const headNames=['ear','matter','hemisphere','sac','lake','lens','sclera','iris','musculature','wrist','thigh','hip','leg','pelvis','intestine','penis','trachea','forebrain','midbrain','phalanx','cartilage','ligament','artery','vein','nerve','muscle','tendon','tooth','bone','gyrus','sulcus','ganglion','plexus','bronchus','vertebra','rib','trunk','branch','head','wall','cavity','duct','lobe','fossa','chamber','gland','ventricle','atrium','part','body','root','process','foramen','arch','canal','disk','ring','segment','division','subdivision','valve','tree','set'];
+const headNames=['hand','foot','finger','fingers','toe','toes','ear','matter','hemisphere','sac','lake','lens','sclera','iris','musculature','wrist','thigh','hip','leg','pelvis','intestine','penis','trachea','forebrain','midbrain','phalanx','cartilage','ligament','artery','vein','nerve','muscle','tendon','tooth','bone','gyrus','sulcus','ganglion','plexus','bronchus','vertebra','rib','trunk','branch','head','wall','cavity','duct','lobe','fossa','chamber','gland','ventricle','atrium','part','body','root','process','foramen','arch','canal','disk','ring','segment','division','subdivision','valve','tree','set'];
 const sortedHeads=[...headNames].sort((a,b)=>b.length-a.length);
 /** Generic anatomical explanations are more honest than inventing physiology. */
 export function systemExplanation(system:string,label:string):string{
@@ -525,7 +532,7 @@ export function systemExplanation(system:string,label:string):string{
 const connector=(text:string):string=>{
  if(/^arteria\b|^aorta\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^osso\b|^organo\b|^occhio\b|^arco\b|^emisfero\b|^orecchio\b/.test(text.toLowerCase()))return 'dell’'+text.charAt(0).toLowerCase()+text.slice(1);
- if(/^(?:vena|rete|ghiandola|cartilagine|parete|cavità|falange|trachea|mandibola)\b/.test(text.toLowerCase()))return 'della '+text.charAt(0).toLowerCase()+text.slice(1);
+ if(/^(?:vena|rete|ghiandola|cartilagine|parete|cavità|falange|trachea|mandibola|mano)\b/.test(text.toLowerCase()))return 'della '+text.charAt(0).toLowerCase()+text.slice(1);
  if(/^(?:cuore|bulbo|nervo|bronco|giro|cranio|polmone|ventricolo|capo|pene|ginocchio|polso|sacco|miocardio|fegato|rene)\b/.test(text.toLowerCase()))return 'del '+text.charAt(0).toLowerCase()+text.slice(1);
  return 'di '+text.charAt(0).toLowerCase()+text.slice(1);
 };
@@ -577,7 +584,7 @@ function translateCore(s:string,depth:number):{name:string;translated:boolean}{
   if(originals.has(token)){translated=false;return token;}
   const v=word[token];
   if(!v){translated=false;return token;}
-  return agree(v.it,gender);
+  return token===head?v.it:agree(v.it,gender);
  });
  const name=capitalize(translatedWords.join(' ')+(side?' '+(side==='left'?(gender==='f'?'sinistra':'sinistro'):(gender==='f'?'destra':'destro')):''));
  return {name,translated};

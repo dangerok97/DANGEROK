@@ -13,7 +13,7 @@ Decisione del prodotto (13 ottobre 2026): nessun bordo SCAN, griglia pixel, fasc
 
 - Corpo, volto, mano, braccio, avambraccio, ginocchio, piede e altre zone sono riconosciute e aprono **solo il riferimento BodyParts3D 4.0 verificato** (2.234 mesh originali).
 - L'apertura privilegia una **vista studio ingrandita**, che inquadra i mesh nel campo tra i comandi superiori e il cursore inferiore. **Non simula un allineamento esatto** alla mano ripresa dalla fotocamera.
-- I controlli accessibili **Vista studio/Sulla foto · indicativo** e **−/＋** permettono di scegliere tra ingrandimento educativo e posizione 2D approssimativa. I pezzi anatomici reali possono essere selezionati, isolati, ingranditi e spiegati senza ricomporre l'intero distretto; l'esploso volumetrico mantiene il paginatore di 14 pezzi.
+- I controlli accessibili **Vista studio/Sulla foto · indicativo** e **−/＋** permettono di scegliere tra ingrandimento educativo e posizione 2D approssimativa. I pezzi anatomici reali possono essere selezionati, isolati, ingranditi e spiegati senza ricomporre l'intero distretto; l'esploso volumetrico usa pagine responsive di 8, 10 o 12 mesh alla volta.
 - Il selettore delle parti e il cursore Scomponi restano raggiungibili. L'avviso di caricamento si sposta sopra, lontano dal cursore.
 - Non sono rappresentati organi, ossa o strutture personali dedotte dalla sola fotocamera. Il riferimento è anatomia educativa, non radiografia e non diagnosi.
 
@@ -38,3 +38,13 @@ Decisione del prodotto (13 ottobre 2026): nessun bordo SCAN, griglia pixel, fasc
 - Per mano, polso, avambraccio, gomito, ginocchio e piede la vista anatomica apre **prima le ossa verificate BodyParts3D**; Muscoli e altri sistemi rimangono disponibili dai comandi esistenti.
 - Le strutture anatomiche isolate si aprono con un ingrandimento iniziale del 112% e la vista studio può essere ampliata manualmente fino a 2,5×. I pezzi grandi possono quindi essere analizzati uno alla volta senza ridurre l'intero corpo a un modello minuscolo.
 - Il layout riserva più spazio verticale ai mesh e conserva cursori, zoom, X, pannelli e stato chiaro anche su telefono. Rimossi anche i vecchi CSS SCAN rimasti inattivi.
+
+## Affinamenti tecnici, 14 ottobre 2026
+
+La fotocamera di un oggetto comune non scarica più i file anatomici. BodyParts3D viene precaricato solo dopo il riconoscimento positivo di una zona del corpo; sono stati tolti anche i quattro angoli grafici residui in fase di acquisizione.
+
+L'esploso anatomico mostra meno mesh per pagina in base alla larghezza: 8 sotto 650px, 10 sotto 1000px e 12 sui desktop. Selezione di una struttura e pagina precedente vengono mantenute come stato di navigazione.
+
+Per gli arti laterali un filtro sulle denominazioni originali BodyParts3D esclude mesh esplicitamente appartenenti al lato opposto, anche quando ricadono nello stesso volume 3D. I nomi anatomici FMA frequenti della mano ricevono una traduzione italiana revisionata. La validazione della build verifica separatamente destra/sinistra e un campione di termini italiani.
+
+Questi miglioramenti non introducono nuovi modelli AI, non ricostruiscono l'anatomia personale e non riattivano scanner, HUD o segmentazione.
