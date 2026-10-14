@@ -78,7 +78,7 @@ jobs:
                   client.close()
           asyncio.run(initialize())
           PY
-      - name: Reproduce legacy test defects before any runtime change
+      - name: Reproduce archived legacy test failures before runtime changes
         working-directory: backend
         run: |
           python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/result-delivery-baseline.xml tests/test_delivery_v38.py tests/test_whatsapp_alert_consent_v1.py || true
@@ -87,7 +87,7 @@ jobs:
           root=E.parse('/tmp/result-delivery-baseline.xml').getroot()
           failures={t.attrib['name'] for t in root.iter('testcase') if t.find('failure') is not None}
           assert not list(root.iter('error'))
-          assert failures == {'test_the_delivery_decision_is_one_judgement_not_another_pipeline', 'test_a_push_carries_its_own_reason_and_lands_where_it_is_about', 'test_channel_permission_is_not_tied_to_expo_push'}, failures
+          assert failures == {'test_a_push_carries_its_own_reason_and_lands_where_it_is_about', 'test_channel_permission_is_not_tied_to_expo_push'}, failures
           print('LEGACY_BASELINE_EXPECTED_FAILURES', sorted(failures))
           PY
       - name: Apply exact reviewed integration hooks
