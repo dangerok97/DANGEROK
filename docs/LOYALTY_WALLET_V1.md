@@ -54,7 +54,7 @@ The first release is a bounded loyalty-card wallet, not a universal replacement 
 
 This release addresses the costliest usability gap: opening a tile used to lead to an intermediate detail panel and require another tap before the barcode appeared. The large tile now opens the cashier screen in **one tap**. Editing/deleting stays behind the separate **Gestisci** control. After closing a tile's cashier screen the user returns to the list. The existing detail panel still supports editing, deleting and cashier preview.
 
-- Favorites remain at the top; other cards sort by most recently opened on *that device*, then by name.
+- Favorites remain at the top and can be toggled with one touch directly from a tile, without opening the editor; other cards sort by most recently opened on *that device*, then by name.
 - The last four cards can be opened directly from **Usate di recente** when at least two have been used; **Cancella recenti** clears the local order. Recent ordering stores at most eight opaque card IDs, SHA-256 owner-scoped, in device storage; it **never stores a barcode, image, card name or card number**. This is not an offline wallet or cross-device usage tracking.
 - Cashier view supports **Ruota codice di 90°** for linear barcodes, useful on narrow phones, plus next/previous card switching without going back to the list. QR codes are not rotated.
 - Explicit **Copia numero** uses the operating system clipboard on user request; be mindful that an operating-system clipboard can remain available to other apps.
