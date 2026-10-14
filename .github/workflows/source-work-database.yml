@@ -1,0 +1,59 @@
+name: Source work database checks
+on:
+  push:
+    branches: [ora/v169-durable-source-work-20261014]
+    paths:
+      - .github/workflows/source-work-database.yml
+      - backend/connected/core_work.py
+      - backend/tests/test_source_work_database_v169.py
+  pull_request:
+    paths:
+      - .github/workflows/source-work-database.yml
+      - backend/connected/core_work.py
+      - backend/tests/test_source_work_database_v169.py
+permissions:
+  contents: read
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      mongo:
+        image: mongo:6
+        ports: ['27017:27017']
+    env:
+      PYTHON_DOTENV_DISABLED: '1'
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_source_work_ci
+      JWT_SECRET: ci-source-work-only
+      AMBIENT_RUNTIME: '0'
+      DOCUMENT_AI_ENABLED: '0'
+      DOCUMENT_STORAGE_BACKEND: local
+      DOCUMENT_STORAGE_DIR: /tmp/ora-source-work-docs
+      CALENDAR_PROVIDER_MODE: fake
+      PUSH_PROVIDER: noop
+      GEMINI_API_KEY: ''
+      GEMINI2_API_KEY: ''
+      OPENAI_API_KEY: ''
+      MISTRAL_API_KEY: ''
+      GROQ_API_KEY: ''
+      ORA_SOURCE_MODEL_CONTRACT: ''
+      ORA_SOURCE_REAL_DB_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - run: |
+          python -m pip install -q -r backend/requirements-cloud.txt mongomock-motor==0.0.36
+          mkdir -p /tmp/ora-source-work-docs
+      - working-directory: backend
+        run: python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-work-db.xml tests/test_source_work_database_v169.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-work-database-evidence
+          path: /tmp/source-work-db.xml
+          retention-days: 7
