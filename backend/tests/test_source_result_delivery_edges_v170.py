@@ -7,6 +7,7 @@ import pytest
 from delivery import source_results as sources, source_result_review as review
 from delivery.service import DeliveryService
 from test_source_result_delivery_v170 import completed, subject, answer, OWNER, OTHER
+from test_general_source_core_v166 import world
 
 
 @pytest.mark.asyncio
