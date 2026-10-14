@@ -171,7 +171,7 @@ function WalletScreen({ owner }: { owner: string }) {
       <View style={s.row}>
         <View style={s.grow}><Text accessibilityRole="header" style={[s.title, text]}>Portafoglio</Text>
           <Text style={[s.body, secondary]}>Le tue tessere fedeltà, pronte da mostrare.</Text></View>
-        {button('Vita', () => router.push('/(tabs)/contesti' as any))}
+        {button('Vita', () => router.push('/vita' as any))}
       </View>
       {!draft ? <Text style={[s.small, secondary]}>Tessere a codice fisso. Pagamenti, NFC e codici che cambiano non sono supportati.</Text> : null}
       {error ? <View accessibilityRole="alert" style={[s.panel, panel]} testID="wallet-error"><Text style={text}>{error}</Text></View> : null}
