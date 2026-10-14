@@ -98,8 +98,6 @@ def _restore_legacy_permission_reader():
 
 class FakeModel:
 '''),
- ('__import__("pathlib").Path("/app/backend").glob("*.py")',
-  '__import__("pathlib").Path(__file__).resolve().parents[1].glob("*.py")'),
  ('''            # The origin is preserved: a thread opened by an interruption is
             # not the same as one somebody chose to open.
             assert "entry=notification" in plan.deep_link''',
