@@ -48,4 +48,34 @@ export const visualStyle = `
 .has-anatomy .vx-canvas{pointer-events:none;}
 
 
+
+/* Exploded-object focus groups. Original geometry remains untouched; only a
+   small set of already-known parts is drawn at larger scale per page. */
+.vx-object-pager{position:absolute;bottom:62px;left:13px;z-index:4;
+ display:flex;align-items:center;gap:4px;max-width:calc(100% - 26px);
+ min-height:43px;padding:4px 6px 4px 11px;border-radius:11px;
+ border:1px solid rgba(98,180,206,.7);background:rgba(6,28,41,.94);
+ color:#d0ecf6;box-shadow:0 5px 22px rgba(0,9,18,.5);
+ pointer-events:auto;white-space:nowrap;}
+.vx-object-pager>span:first-child{font:600 11px ui-monospace,monospace;
+ min-width:0;text-overflow:ellipsis;overflow:hidden;color:#b9deed;}
+.vx-object-pager .vx-object-page-number{font:600 11px ui-monospace,monospace;
+ color:#e1f9ff;min-width:26px;text-align:center;}
+.vx-object-pager button{flex:none;min-height:35px;min-width:35px;
+ padding:4px 7px;border:1px solid #436e82;border-radius:8px;
+ background:rgba(16,65,86,.92);color:#e3f9ff;font-size:19px!important;}
+.vx-object-pager button:disabled{opacity:.37;cursor:not-allowed;}
+.vx-object-pager button[data-testid="vision-object-all-toggle"]{font-size:11px!important;
+ min-width:50px;border-color:#6298b4;}
+@media(max-width:600px){.vx-object-pager{left:5px;right:5px;bottom:63px;
+ padding:4px 5px;gap:3px;justify-content:space-between;}
+ .vx-object-pager>span:first-child{font-size:10px;}
+ .vx-object-pager button{min-width:33px;min-height:36px;padding:2px 5px;}
+ .vx-object-pager button[data-testid="vision-object-all-toggle"]{min-width:49px;}
+}
+@media(orientation:landscape) and (max-height:540px){
+ .vx-root.has-model .vx-object-pager{right:calc(275px + 6px);
+  left:6px;bottom:8px;min-height:37px;max-width:calc(100vw - 290px);}
+ .vx-root.has-model .vx-object-pager button{min-height:33px;}
+}
 `;

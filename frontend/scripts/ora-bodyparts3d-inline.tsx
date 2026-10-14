@@ -16,7 +16,7 @@ const PRESETS:{key:string;label:string;systems:SystemId[]}[]=[
  {key:'vessels',label:'Vasi',systems:['arterial','venous']},
 ];
 const INITIAL_SYSTEMS:SystemId[]=['skeletal','cardiac','respiratory','digestive'];
-const EXPLODED_PAGE_SIZE=14;
+const EXPLODED_PAGE_SIZE=10;
 // Enter structured pagination before large anatomical systems overlap.
 const EXPLODED_PAGE_THRESHOLD=.50;
 const initial=():SceneState=>({
@@ -70,7 +70,7 @@ export default function OraOverlay(){
  const permittedIds=useMemo(()=>new Set(subset?.ids||[]),[subset]);
  const availabilityWarning=!!subset&&!subset.available;
  // An exploded skull may contain hundreds of tiny mesh fragments. Show at most
- // fourteen selectable source parts per page so each can be inspected.
+ // ten selectable source parts per page so each can be inspected.
  const exploded=state.explode>=EXPLODED_PAGE_THRESHOLD&&!state.isolate;
  const eligiblePieces=useMemo(()=>{
   if(!atlas)return[];

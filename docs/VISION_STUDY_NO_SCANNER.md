@@ -13,7 +13,7 @@ Decisione del prodotto (13 ottobre 2026): nessun bordo SCAN, griglia pixel, fasc
 
 - Corpo, volto, mano, braccio, avambraccio, ginocchio, piede e altre zone sono riconosciute e aprono **solo il riferimento BodyParts3D 4.0 verificato** (2.234 mesh originali).
 - L'apertura privilegia una **vista studio ingrandita**, che inquadra i mesh nel campo tra i comandi superiori e il cursore inferiore. **Non simula un allineamento esatto** alla mano ripresa dalla fotocamera.
-- I controlli accessibili **Vista studio/Sulla foto · indicativo** e **−/＋** permettono di scegliere tra ingrandimento educativo e posizione 2D approssimativa. I pezzi anatomici reali possono essere selezionati, isolati, ingranditi e spiegati senza ricomporre l'intero distretto; l'esploso volumetrico mantiene il paginatore di 14 pezzi.
+- I controlli accessibili **Vista studio/Sulla foto · indicativo** e **−/＋** permettono di scegliere tra ingrandimento educativo e posizione 2D approssimativa. I pezzi anatomici reali possono essere selezionati, isolati, ingranditi e spiegati senza ricomporre l'intero distretto; l'esploso volumetrico mantiene il paginatore di 10 pezzi.
 - Il selettore delle parti e il cursore Scomponi restano raggiungibili. L'avviso di caricamento si sposta sopra, lontano dal cursore.
 - Non sono rappresentati organi, ossa o strutture personali dedotte dalla sola fotocamera. Il riferimento è anatomia educativa, non radiografia e non diagnosi.
 
