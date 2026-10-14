@@ -1,34 +1,10 @@
+"""Bounded calendar context from the original owner-scoped read handler.
+
+The next 48 hours may save a model/tool round trip, but do not cover the whole
+calendar. A successful empty window and a failed read are distinct facts.
+Neither makes a previous conversational answer into a current observation.
+This module does not infer user intent, plan an action or write any event.
 """
-Le prossime quarantotto ore, già in mano prima che qualcuno le chieda.
-
-    LA DOMANDA PIÙ FREQUENTE NON DOVREBBE COSTARE UN GIRO IN PIÙ.
-
-Misurato su una telefonata vera: «e che impegni ho domani?» costava **due**
-passi di ragionamento invece di uno. Il primo passo non rispondeva niente —
-diceva soltanto «chiamate `get_calendar_events`» — e il secondo, con gli
-eventi finalmente sotto gli occhi, rispondeva. Duemilacinquecento
-millisecondi per andare a prendere una cosa che si sapeva già di dover
-prendere.
-
-Qui quelle stesse quarantotto ore arrivano insieme al resto del contesto, e
-il primo passo può rispondere subito.
-
-    NESSUN SECONDO CALENDARIO.
-
-Non si rilegge Mongo per conto proprio e non si reimplementa niente: si chiama
-lo stesso identico handler dello strumento `get_calendar_events` — stessa
-finestra, stesso filtro di consenso su Google, stessa forma degli eventi. Se
-un giorno quel controllo cambiasse, cambierebbe anche qui, perché è lo stesso
-codice.
-
-    E NON È UN SECONDO PERCORSO COGNITIVO.
-
-Non decide niente, non parla con nessun modello, non scrive da nessuna parte.
-Mette dei fatti sul tavolo. Fuori da questa finestra ORA deve ancora chiedere,
-e il blocco lo dice di sé stesso — se no la prima settimana in cui qualcuno
-chiede «e la settimana prossima?» si sente rispondere di no.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -36,50 +12,25 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("ora.ai_core.calendar_ahead")
-
-# Quanto avanti si guarda. Due giorni coprono «oggi», «stasera», «domani» e
-# «domattina», che sono quasi tutte le domande che si fanno a voce. Più avanti
-# si va, più il payload pesa per informazioni che quasi nessuno chiederà.
 HOURS_AHEAD = 48
-
-# Oltre questo non ci stanno in un contesto: chi ha ottanta impegni in due
-# giorni ha bisogno dello strumento, non di un riassunto.
 MAX_EVENTS = 20
 
 
 def _one_each(events: Any) -> list:
-    """
-    Lo stesso impegno elencato cinque volte resta un impegno.
-
-        UN DUPLICATO NEL CALENDARIO NON È UN SECONDO APPUNTAMENTO.
-
-    Misurato sul calendario vero di una persona: nove eventi nelle prossime
-    quarantotto ore, **due** distinti — il resto erano copie lasciate da
-    sincronizzazioni diverse. Passarle tutte al modello vuol dire sentirsi
-    dire che domani si hanno cinque impegni, e sarebbe vero solo del
-    database.
-
-    Due eventi sono lo stesso quando hanno lo stesso titolo e cominciano
-    nello stesso momento. Si tiene il primo, con il suo riferimento.
-    """
+    """Keep the original bounded projection and one copy of matching events."""
     visti = set()
     uno_per_uno = []
     for e in events:
         if not isinstance(e, dict):
             continue
-        chi = (
-            str(e.get("title") or "").strip().lower(),
-            str(e.get("start_datetime") or ""),
-        )
+        chi = (str(e.get("title") or "").strip().lower(), str(e.get("start_datetime") or ""))
         if chi in visti:
             continue
         visti.add(chi)
         uno_per_uno.append({
             k: e.get(k)
-            for k in (
-                "calendar_ref", "title", "start_datetime", "end_datetime",
-                "all_day", "location", "source", "description", "timezone", "day_label",
-            )
+            for k in ("calendar_ref", "title", "start_datetime", "end_datetime", "all_day",
+                      "location", "source", "description", "timezone", "day_label")
             if e.get(k) not in (None, "")
         })
         if len(uno_per_uno) >= MAX_EVENTS:
@@ -87,54 +38,63 @@ def _one_each(events: Any) -> list:
     return uno_per_uno
 
 
-async def the_next_two_days(db, user_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Gli impegni delle prossime quarantotto ore, o `None`.
+def _coverage(now: datetime, until: datetime) -> Dict[str, Any]:
+    return {
+        "window": {"from": now.isoformat(), "to": until.isoformat()},
+        "events": [],
+        "status": "unavailable",
+        "observed_at": None,
+        "source_capability": "get_calendar_events",
+        "historical_conversation_is_current_evidence": False,
+        "this_is_only_the_next_48_hours": (
+            "Only the events actually listed in this block were observed in the current turn. "
+            "This window is NOT the whole calendar. For a specific date outside it, or a "
+            "named appointment absent here, call get_calendar_events for the relevant date "
+            "before stating its current time or that it no longer exists. A previously "
+            "successful creation or update, an earlier tool observation and recent_turns "
+            "are HISTORICAL: they cannot substitute for reading the requested current "
+            "calendar state, because the person may have edited the event elsewhere. "
+            "Do not change any calendar event merely to make a read succeed."
+        ),
+    }
 
-    `None` quando non c'è niente da dire — nessun evento, o la lettura non è
-    riuscita. Un blocco vuoto nel payload sarebbe peggio che assente: somiglia
-    a «non hai impegni», che è una cosa che qui nessuno sa.
+
+async def the_next_two_days(db, user_id: str) -> Optional[Dict[str, Any]]:
+    """Preserve observation coverage even when no nearby event was found.
+
+    None is reserved for missing identity/database. A failed reader yields an
+    unavailable snapshot, never a claim of an empty calendar. The same real
+    handler, consent filters, period and event cap remain authoritative.
     """
     if db is None or not user_id:
         return None
-
     now = datetime.now(timezone.utc)
     until = now + timedelta(hours=HOURS_AHEAD)
-
+    snapshot = _coverage(now, until)
     try:
-        from conversation_engine.ai_core.tools.calendar_caps import (
-            get_calendar_events,
-        )
-
+        from conversation_engine.ai_core.tools.calendar_caps import get_calendar_events
         seen = await get_calendar_events(
             {"time_min": now.isoformat(), "time_max": until.isoformat()},
             {"db": db, "user_id": user_id},
         )
-    except Exception as e:
-        # Guardare avanti è un vantaggio, non un requisito: se non riesce, la
-        # domanda costerà il giro in più che costava prima.
-        logger.info("agenda non precaricata: %s", type(e).__name__)
-        return None
-
-    if getattr(seen, "kind", "") == "error":
-        return None
-
+    except Exception as exc:
+        logger.info("agenda non precaricata: %s", type(exc).__name__)
+        snapshot["reason"] = "Current calendar read unavailable; do not answer from an earlier time as if verified now."
+        return snapshot
     payload = getattr(seen, "payload", None) or {}
-    events = payload.get("items") or payload.get("events") or []
-    if not isinstance(events, list) or not events:
-        return None
-
-    return {
-        "window": {"from": now.isoformat(), "to": until.isoformat()},
-        "events": _one_each(events),
-        # Il blocco dice di sé stesso dove finisce. Senza questa riga, la
-        # prima domanda su un periodo diverso riceverebbe un «no» ricavato
-        # dall'assenza — che è esattamente l'errore che questo prodotto
-        # passa il tempo a non fare.
-        "this_is_only_the_next_48_hours": (
-            "Already retrieved, no tool call needed for this window. "
-            "For any other period — later this week, next week, a specific "
-            "date outside it — call get_calendar_events. An event missing "
-            "from here means only that it is not in the next 48 hours."
-        ),
-    }
+    if (getattr(seen, "kind", "") == "error" or getattr(seen, "status", "") != "ok"
+            or not isinstance(payload, dict) or payload.get("status") not in (None, "ok", "success")):
+        snapshot["reason"] = "Calendar reader did not confirm a successful current observation."
+        return snapshot
+    events = payload.get("items") if isinstance(payload.get("items"), list) else payload.get("events")
+    if not isinstance(events, list):
+        snapshot["reason"] = "Calendar reader did not provide a valid event list."
+        return snapshot
+    projected = _one_each(events)
+    snapshot.update(
+        events=projected,
+        status="observed_events" if projected else "observed_empty_window",
+        observed_at=datetime.now(timezone.utc).isoformat(),
+        may_be_truncated=len(events) >= MAX_EVENTS,
+    )
+    return snapshot

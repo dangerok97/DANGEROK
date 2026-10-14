@@ -1594,6 +1594,18 @@ async def run_cognitive_loop(
             out.trace = public_trace(trace)
             return out
 
+        # A capability has already asked for this specific authority. More
+        # same-turn tool attempts cannot supply a new user reply. Narrow to
+        # its factual question and use the ordinary durable pending-act exit.
+        calendar_wait = pending_request(observations[turn_start:])
+        if calendar_wait:
+            raw = {
+                "response_mode": "ask", "reasoning_status": "needs_user_input",
+                "question": calendar_wait["question"],
+                "situation_update": {"operation": "none"},
+            }
+            add_step(trace, event="CALENDAR_AUTHORITY_HANDOFF")
+
         gov = validate_decision(
             raw,
             tools=tools,
@@ -3652,6 +3664,13 @@ async def run_cognitive_loop(
             ora, weather_findings = guard_weather_intensity(ora, observations[turn_start:])
             if weather_findings:
                 add_step(trace, event="GROUNDING_WEATHER_REWRITTEN", findings=weather_findings)
+            if mode in ("answer", "finish"):
+                from conversation_engine.ai_core.grounding.calendar_weekday import guard_calendar_weekdays
+                ora, calendar_date_fixes = guard_calendar_weekdays(
+                    ora, observations[turn_start:], calendar_ahead,
+                )
+                if calendar_date_fixes:
+                    add_step(trace, event="CALENDAR_WEEKDAY_CORRECTED", count=calendar_date_fixes)
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
@@ -4331,7 +4350,7 @@ async def run_cognitive_loop(
                 trace["write_calls"] = write_calls
             if _calendar_write_observation_succeeded(cap, obs):
                 calendar_write_confirmed_this_turn = True
-            if effective_calendar_cap:
+            if effective_calendar_cap and (obs.payload or {}).get("changed_now") is not False:
                 # Emitted for "partial" too: local ORA state really changed
                 # even when the Google-side sync stayed unconfirmed.
                 await _emit_life_change(
