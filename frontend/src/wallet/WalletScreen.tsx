@@ -300,6 +300,14 @@ function WalletScreen({ owner }: { owner: string }) {
     </ScrollView>
     <Modal visible={checkout && !!selected} animationType="fade" onRequestClose={closeCode}>
       <SafeAreaView style={s.checkout}>
+        <View style={s.checkoutTop}>
+          <Text style={{ color: '#444', fontSize: 14, fontWeight: '600' }}>Modalità cassa</Text>
+          <Pressable onPress={closeCode} accessibilityRole="button" accessibilityLabel="Chiudi e torna alle tessere"
+            testID="wallet-close-top" style={s.checkoutTopClose}>
+            <Ionicons name="close" size={19} color="#111" />
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#111' }}>Chiudi</Text>
+          </Pressable>
+        </View>
         <ScrollView contentContainerStyle={s.checkoutContent} keyboardShouldPersistTaps="always">
           <Text style={s.checkoutTitle} numberOfLines={2}>{selected?.name}</Text>
           <Text style={s.checkoutHint}>Mostra al lettore. Se possibile, aumenta la luminosità del telefono.</Text>
@@ -358,6 +366,11 @@ const s = StyleSheet.create({
   codeBox: { backgroundColor: '#fff', borderRadius: 12, padding: 16, gap: 12 }, barcode: { width: '100%', height: 200 },
   codeText: { color: '#000', textAlign: 'center', fontSize: 18 }, checkout: { flex: 1, backgroundColor: '#fff' },
   checkoutContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20, gap: 24 },
+  checkoutTop: { paddingHorizontal: 20, paddingVertical: 8, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'space-between', minHeight: 52 },
+  checkoutTopClose: { minWidth: 88, minHeight: 44, paddingHorizontal: 12, flexDirection: 'row',
+    gap: 7, alignItems: 'center', justifyContent: 'center', borderRadius: 12,
+    borderColor: '#ccc', borderWidth: 1, backgroundColor: '#f8f8f8' },
   checkoutTitle: { fontSize: 28, fontWeight: '700', color: '#000', textAlign: 'center' },
   imageFrame: { alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
   checkoutSecondary: { paddingVertical: 12, paddingHorizontal: 15, minHeight: 48, borderWidth: 1,
