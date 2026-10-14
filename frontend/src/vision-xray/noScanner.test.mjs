@@ -25,3 +25,8 @@ test('3D anatomy opens enlarged without a scanner reticle or alternate procedura
  assert.doesNotMatch(anatomy,/hasPixelContour|vision-anatomy-preview|vx-target-corner|AnatomyVolume/);
  assert.match(anatomy,/bodyparts3d\/ora-integrated\.json/);
 });
+
+test('no obsolete visual scanner animation is shipped with the lightweight component viewer',()=>{
+ const style=here('visualStyle.ts');
+ assert.doesNotMatch(style,/vx-scanning|vx-scan-locked|@keyframes vx-scan/);
+});

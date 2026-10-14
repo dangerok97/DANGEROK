@@ -125,6 +125,16 @@ export default function LiveExplorer(){
     const button=tabs.current?.querySelector<HTMLButtonElement>('[data-testid="vision-part-'+key+'"]');
     button?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'auto'});
   },[endTour,finishArrival]);
+  // Component navigation uses the exact catalog order: no extra rendering,
+  // model generation or camera request. Each step enlarges the source part.
+  const navigatePart=useCallback((direction:-1|1)=>{
+    const parts=heldResult.current?.manifest?.parts;
+    if(!parts?.length)return;
+    const selectedIndex=parts.findIndex(p=>p.key===selectedRef.current);
+    const at=selectedIndex<0?0:selectedIndex;
+    const next=Math.max(0,Math.min(parts.length-1,at+direction));
+    if(next!==selectedIndex)choose(parts[next].key);
+  },[choose]);
   const overview=useCallback(()=>{
     endTour();finishArrival();view.current.focusTarget=0;view.current.zoom=1;setFocused(false);setMoreDetail(false);
   },[endTour,finishArrival]);
@@ -431,6 +441,7 @@ export default function LiveExplorer(){
   const syncTour=()=>{const c=tour.current?.clock;if(c)setTourUI({index:c.index,playing:c.playing,done:c.done});};
   const step=tourUI&&definition?definition.steps[tourUI.index]:null;
   const currentPart=result?.manifest?.parts.find(p=>p.key===selected),live=mode==='live';
+  const currentPartIndex=result?.manifest?.parts.findIndex(p=>p.key===selected)??-1;
   const visibleEntries=filterCatalog(entries,catalogQuery,catalogCategory);
   const categories=['Tutti',...Array.from(new Set(entries.map(e=>e.category||'Altri oggetti'))).sort()];
 
@@ -471,8 +482,41 @@ export default function LiveExplorer(){
         {tourSources&&<div className="vx-tour-sources"><span data-testid="vision-tour-source-context">Fonti di questo passaggio · principi generali, non verifica del tuo esemplare.</span>{sourcesForStep(definition,tourUI.index).map(s=><a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer">{s.title} ↗</a>)}</div>}
         <small className="vx-tour-note">{definition.note||'Collegamenti illustrativi, non un circuito misurato.'}</small>
       </div>}
-      <div ref={tabs} className={'vx-part-tabs'+(tourUI?' vx-tour-tabs':'')} aria-label="Seleziona un componente">{result.manifest.parts.map((p,i)=><button key={p.key} data-testid={'vision-part-'+p.key} aria-pressed={p.key===selected&&focused} onClick={()=>choose(p.key)}>{String(i+1).padStart(2,'0')} {p.name}</button>)}</div>
-      {!tourUI&&focused&&currentPart&&(detailOpen?<div className="vx-part-info" data-testid="vision-part-detail"><button className="vx-collapse" data-testid="vision-collapse-detail" aria-label="Riduci la spiegazione" onClick={()=>setDetailOpen(false)}>⌄</button><small>COMPONENTE TIPICO</small><h2>{currentPart.name}</h2><p><b>A cosa serve.</b> {currentPart.function}</p>{moreDetail?<p><b>Come funziona.</b> {currentPart.how_it_works}</p>:<button className="vx-detail-more" data-testid="vision-more-detail" onClick={()=>setMoreDetail(true)}>Come funziona →</button>}</div>:<div className="vx-mini-detail" data-testid="vision-detail-collapsed">{currentPart.name}<button data-testid="vision-expand-detail" onClick={()=>setDetailOpen(true)}>Spiegazione ↑</button></div>)}
+      <div ref={tabs} className={'vx-part-tabs'+(tourUI?' vx-tour-tabs':'')} aria-label="Seleziona un componente">
+        {!tourUI&&!focused&&expanded&&result.manifest.parts.length>1&&
+          <button className="vx-explore-one" type="button" data-testid="vision-explore-one"
+            aria-label="Studia un componente alla volta, ingrandito"
+            onClick={()=>choose(result.manifest!.parts[0].key)}>◎ Studia i pezzi</button>}
+        {result.manifest.parts.map((p,i)=><button key={p.key} data-testid={'vision-part-'+p.key} aria-pressed={p.key===selected&&focused} onClick={()=>choose(p.key)}>{String(i+1).padStart(2,'0')} {p.name}</button>)}
+       </div>
+      {!tourUI&&focused&&currentPart&&(detailOpen?
+         <div className="vx-part-info" data-testid="vision-part-detail">
+          <button className="vx-collapse" data-testid="vision-collapse-detail"
+           aria-label="Riduci la spiegazione" onClick={()=>setDetailOpen(false)}>⌄</button>
+          <div className="vx-part-heading">
+           <div className="vx-part-heading-copy">
+            <small>COMPONENTE TIPICO · {currentPartIndex+1} / {result.manifest.parts.length}</small>
+            <h2>{currentPart.name}</h2>
+           </div>
+           {result.manifest.parts.length>1&&<div className="vx-part-navigation"
+             role="group" aria-label="Studia i componenti uno alla volta">
+             <button type="button" data-testid="vision-part-previous"
+              aria-label="Componente precedente" disabled={currentPartIndex<=0}
+              onClick={()=>navigatePart(-1)}>‹</button>
+             <button type="button" data-testid="vision-part-next"
+              aria-label="Componente successivo" disabled={currentPartIndex>=result.manifest!.parts.length-1}
+              onClick={()=>navigatePart(1)}>›</button>
+            </div>}
+          </div>
+          <p><b>A cosa serve.</b> {currentPart.function}</p>
+          {moreDetail?<p><b>Come funziona.</b> {currentPart.how_it_works}</p>:
+           <button className="vx-detail-more" data-testid="vision-more-detail"
+             onClick={()=>setMoreDetail(true)}>Come funziona →</button>}
+         </div>:
+         <div className="vx-mini-detail" data-testid="vision-detail-collapsed">
+          {currentPart.name}
+          <button data-testid="vision-expand-detail" onClick={()=>setDetailOpen(true)}>Spiegazione ↑</button>
+         </div>)}
     </section>}
     <footer className="vx-footer">
       {canHint&&!result&&<form className="vx-recognition-help" data-testid="vision-recognition-help" onSubmit={e=>{e.preventDefault();void captureScan(objectHintRef.current);}}>

@@ -73,6 +73,17 @@ test('object catalog model remains interactive without extra image-segmentation 
  await expect(page.getByTestId('vision-zoom-out')).toBeVisible();
  await page.getByTestId('vision-overview').click();
  await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-selected-part',model.manifest.parts[0].key);
+ await expect(page.getByTestId('vision-explore-one')).toBeVisible();
+ await page.getByTestId('vision-explore-one').click();
+ await expect(page.getByTestId('vision-part-previous')).toBeDisabled();
+ await expect(page.getByTestId('vision-part-detail')).toContainText(model.manifest.parts[0].name);
+ await page.getByTestId('vision-part-next').click();
+ await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-focused-part',model.manifest.parts[1].key);
+ await expect(page.getByTestId('vision-part-detail')).toContainText(model.manifest.parts[1].name);
+ await page.getByTestId('vision-part-previous').click();
+ await expect(page.getByTestId('vision-scene')).toHaveAttribute('data-focused-part',model.manifest.parts[0].key);
+ await page.getByTestId('vision-overview').click();
+ await expect(page.getByTestId('vision-explore-one')).toBeVisible();
 });
 test('no detector rectangle still displays honest enlarged anatomical reference',async({page})=>{
  await session(page);await fakeAtlas(page);
