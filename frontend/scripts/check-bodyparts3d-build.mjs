@@ -93,6 +93,15 @@ console.log('REGION_HAND_SIDES '+JSON.stringify({
 assert.ok(leftHand.available,'Left-hand reference mesh is missing');
 assert.ok(sharedHands<Math.min(rightHand.ids.length,leftHand.ids.length)*.45,
  'Both hand options cannot display the same anatomical reference');
+const partById=new Map(model.parts.map(part=>[part.id,part]));
+for(const [label,subset,wrongSide] of [
+ ['right hand',rightHand,'left'],['left hand',leftHand,'right']
+]){
+ const contrary=subset.ids.filter(id=>
+  new RegExp('(?:^|\\s)'+wrongSide+'(?:\\s|$)','i')
+   .test(partById.get(id)?.name||''));
+ assert.deepEqual(contrary,[],'Anatomical '+label+' must not show opposite-side source mesh names');
+}
 assert.ok(regions.anatomicalRegion(model,'full_body','unknown').ids.length===2234);
 console.log('ANATOMICAL_REGION_COUNTS '+JSON.stringify(result));
 
@@ -105,6 +114,12 @@ const terminologyModule={exports:{}};
 vm.runInNewContext(terminologyJs,{module:terminologyModule,exports:terminologyModule.exports});
 const it=terminologyModule.exports;
 for(const [en,expected] of [
+ ['Hand','Mano'],
+ ['Right hand','Mano destra'],
+ ['Left hand','Mano sinistra'],
+ ['Set of lumbricals of right hand','Muscoli lombricali della mano destra'],
+ ['Set of dorsal interossei of right hand','Muscoli interossei dorsali della mano destra'],
+ ['Set of palmar interossei of left hand','Muscoli interossei palmari della mano sinistra'],
  ['Right anterior temporal artery','Arteria temporale anteriore destra'],
  ['Left inferior frontal gyrus','Giro frontale inferiore sinistro'],
  ['Gingiva of upper jaw','Gengiva della mascella superiore'],
