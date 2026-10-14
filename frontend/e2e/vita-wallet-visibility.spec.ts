@@ -42,6 +42,8 @@ async function fixture(page: Page, scenario: 'known-life' | 'empty-life' | 'erro
         identity_confirmed: true,
         knowledge_tutorial_version: 1,
       };
+    } else if (path.endsWith('/life-profile/knowledge-map')) {
+      json = { stars: [], branches: [], count: 0, known_count: 0, temporary_count: 0, percent: 21, revision: 'synthetic-v1' };
     } else if (path.endsWith('/life-profile/setup')) {
       json = { ok: true, finished: true, percent: 21, areas: [], current_area_id: null, objective: null };
     } else if (path.endsWith('/life-map')) {
