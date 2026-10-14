@@ -25,6 +25,7 @@ function WalletScreen({ owner }: { owner: string }) {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const alive = useRef(true);
+  const checkoutOrder = useRef<string[]>([]);
   const [cards, setCards] = useState<LoyaltyCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -72,7 +73,10 @@ function WalletScreen({ owner }: { owner: string }) {
     return () => { cancelled = true; void lock?.release(); };
   }, [checkout]);
 
-  const showCode = (card: LoyaltyCard, fromList: boolean) => {
+  const showCode = (card: LoyaltyCard, fromList: boolean, preserveSequence = false) => {
+    // Lock the order as checkout begins. Recency updates must not make
+    // Previous/Next bounce between the first two cards.
+    if (!preserveSequence) checkoutOrder.current = orderCards(cards, recentIds).map(item => item.id);
     setSelected(card);
     setOpenedFromList(fromList);
     setRotated(false);
@@ -85,6 +89,7 @@ function WalletScreen({ owner }: { owner: string }) {
     void recordRecent(owner, card.id).catch(() => undefined);
   };
   const closeCode = () => {
+    checkoutOrder.current = [];
     setCheckout(false);
     setRotated(false);
     setCopied(false);
@@ -180,10 +185,12 @@ function WalletScreen({ owner }: { owner: string }) {
   const recentCards = recentIds.map(id => cards.find(card => card.id === id))
     .filter((card): card is LoyaltyCard => !!card).slice(0, 4);
   const stepCard = (delta: number) => {
-    if (!selected || sorted.length < 2) return;
-    const index = sorted.findIndex(card => card.id === selected.id);
+    const ids = checkoutOrder.current;
+    if (!selected || ids.length < 2) return;
+    const index = ids.indexOf(selected.id);
     if (index < 0) return;
-    showCode(sorted[(index + delta + sorted.length) % sorted.length], openedFromList);
+    const next = cards.find(card => card.id === ids[(index + delta + ids.length) % ids.length]);
+    if (next) showCode(next, openedFromList, true);
   };
   const resetRecent = () => {
     void clearRecent(owner).then(() => { if (alive.current) setRecentIds([]); })
