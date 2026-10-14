@@ -82,11 +82,23 @@ async def evaluate(output: str, suite: str):
     with patch.object(driver, 'CASES', selected), patch.object(ProviderManager, 'chat', observe_chat), patch.object(source_activation, 'run_source_turn', observe_turn):
         report = await driver.run(output)
     redundant = [case['case'] for case in report['cases'] if unnecessary_question(case)]
+    # A no-action case is not semantically clean if the Core first makes an
+    # unsupported effect claim and a truth guard merely rewrites it afterward.
+    # This is evaluation-only: it never routes runtime behavior by case label.
+    unsupported_effect_claims = [
+        case['case'] for case, trace in zip(report['cases'], traces)
+        if not case.get('events') and any(
+            name.endswith('_CLAIM_BLOCKED_TERMINAL') and count
+            for name, count in (trace.get('guards') or {}).items()
+        )
+    ]
     unexpected_models = [row for row in observations if configured_contract is not None
                          and (row['provider'], row['model']) not in configured_contract]
     report.update(compact_contract=True, suite=suite,
-        stronger_contract_passed=report['passed'] and not redundant and not unexpected_models,
+        stronger_contract_passed=report['passed'] and not redundant
+            and not unsupported_effect_claims and not unexpected_models,
         unnecessary_questions=redundant,
+        unsupported_effect_claims=unsupported_effect_claims,
         configured_model_contract=dict(configured_contract) if configured_contract is not None else None,
         unexpected_models=len(unexpected_models),
         duration_ms=round((time.monotonic()-started)*1000),
