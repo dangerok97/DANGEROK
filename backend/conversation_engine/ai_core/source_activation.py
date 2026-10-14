@@ -136,14 +136,26 @@ class SourceActivation:
                                    and self.source_ref in row['provenance']
                                    for row in self.tool_outcomes):
                             raise ValueError('source_read_required')
-                    if name == 'create_calendar_event' and arguments.get('calendar_target') != 'ora':
-                        raise ValueError('only_native_calendar_effect_supported')
+                    call_arguments = dict(arguments or {})
+                    if name == 'create_calendar_event':
+                        target = str(call_arguments.get('calendar_target') or '').strip().lower()
+                        # In the source-autonomy lane the only writable calendar is
+                        # ORA's own first-party calendar. The underlying capability
+                        # already uses ORA when no external calendar is selected;
+                        # make that default explicit here instead of rejecting an
+                        # otherwise valid call just because the model omitted the
+                        # optional selector. An explicit non-ORA target remains
+                        # outside this lane and is still blocked.
+                        if not target:
+                            call_arguments['calendar_target'] = 'ora'
+                        elif target != 'ora':
+                            raise ValueError('only_native_calendar_effect_supported')
                     if name == 'update_calendar_event':
                         from home.manual_event import get_manual_event
                         eid = str(arguments.get('calendar_ref') or '').removeprefix('calendar:')
                         if not await get_manual_event(runtime['db'], self.owner_id, eid):
                             raise ValueError('only_native_calendar_effect_supported')
-                    result = await original(arguments, runtime)
+                    result = await original(call_arguments, runtime)
                     self.tool_outcomes.append({'capability': name, 'status': result.status,
                         'operation': (result.payload or {}).get('operation'),
                         'verified': (result.payload or {}).get('verified'),
