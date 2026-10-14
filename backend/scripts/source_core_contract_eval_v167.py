@@ -41,14 +41,22 @@ NEW_CASES = (
 )
 
 
+def unnecessary_question(case):
+    # These fixed test tasks need no human input; a question inside an answer
+    # is still a question. This is only an evaluation assertion, not routing.
+    return case.get('mode') == 'ask' or '?' in str(case.get('reply') or '')
+
+
 async def evaluate(output: str, suite: str):
     from llm.manager import ProviderManager
+    from llm.model_contract import active_contract, parse_contract
     from conversation_engine.ai_core import source_activation
     from scripts import source_core_live_v166 as driver
     from scripts.source_core_diagnostics_v166 import structural_decision
     from conversation_engine.ai_core.instruction_contract import compact_source_enabled
     if not compact_source_enabled(True):
         raise ValueError('compact_pilot_not_enabled')
+    configured_contract = parse_contract(os.environ.get('ORA_SOURCE_MODEL_CONTRACT'))
     selected = driver.CASES if suite == 'original' else NEW_CASES if suite == 'new' else (*driver.CASES, *NEW_CASES)
     original_chat, original_turn = ProviderManager.chat, source_activation.run_source_turn
     observations, traces = [], []
@@ -58,6 +66,7 @@ async def evaluate(output: str, suite: str):
         frame = json.loads(kwargs.get('user') or '{}').get('source_activation') or {}
         observations.append({'source_ref': frame.get('source_ref'),
             'provider': result.provider, 'model': getattr(result, 'model', None),
+            'model_contract': active_contract(),
             'elapsed_ms': round((time.monotonic()-started)*1000),
             'system_chars': len(kwargs.get('system') or ''),
             'payload_chars': len(kwargs.get('user') or ''),
@@ -72,10 +81,14 @@ async def evaluate(output: str, suite: str):
     started = time.monotonic()
     with patch.object(driver, 'CASES', selected), patch.object(ProviderManager, 'chat', observe_chat), patch.object(source_activation, 'run_source_turn', observe_turn):
         report = await driver.run(output)
-    redundant = [case['case'] for case in report['cases'] if case.get('mode') == 'ask']
+    redundant = [case['case'] for case in report['cases'] if unnecessary_question(case)]
+    unexpected_models = [row for row in observations if configured_contract is not None
+                         and (row['provider'], row['model']) not in configured_contract]
     report.update(compact_contract=True, suite=suite,
-        stronger_contract_passed=report['passed'] and not redundant,
+        stronger_contract_passed=report['passed'] and not redundant and not unexpected_models,
         unnecessary_questions=redundant,
+        configured_model_contract=dict(configured_contract) if configured_contract is not None else None,
+        unexpected_models=len(unexpected_models),
         duration_ms=round((time.monotonic()-started)*1000),
         diagnostics={'model_decisions': observations, 'turns': traces},
         changed_application_between_cases=False,
@@ -98,4 +111,6 @@ if __name__ == '__main__':
     from scripts.source_core_live_v166 import selftest
     selftest()
     assert len(NEW_CASES) == 4 and len({case['id'] for case in NEW_CASES}) == 4
-    print('ORA_CORE167_SELFTEST '+json.dumps({'passed': True, 'new_source_fixtures': 4}), flush=True)
+    assert unnecessary_question({'mode':'answer', 'reply':'Vuoi che lo aggiunga?'})
+    assert not unnecessary_question({'mode':'finish', 'reply':'Ho completato l’operazione.'})
+    print('ORA_CORE167_SELFTEST '+json.dumps({'passed': True, 'new_source_fixtures': 4, 'inline_question_checked': True}), flush=True)
