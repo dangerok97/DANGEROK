@@ -41,6 +41,7 @@ function WalletScreen({ owner }: { owner: string }) {
   const [openedFromList, setOpenedFromList] = useState(false);
   const [rotated, setRotated] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState('');
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +82,7 @@ function WalletScreen({ owner }: { owner: string }) {
     setOpenedFromList(fromList);
     setRotated(false);
     setCopied(false);
+    setCopyError('');
     setNotice('');
     setError('');
     setCheckout(true);
@@ -93,6 +95,7 @@ function WalletScreen({ owner }: { owner: string }) {
     setCheckout(false);
     setRotated(false);
     setCopied(false);
+    setCopyError('');
     if (openedFromList) setSelected(null); // back to the ready-to-scan list
     setOpenedFromList(false);
   };
@@ -100,9 +103,9 @@ function WalletScreen({ owner }: { owner: string }) {
     if (!selected) return;
     try {
       await Clipboard.setStringAsync(selected.code); // explicit user gesture only
-      if (alive.current) setCopied(true);
+      if (alive.current) { setCopied(true); setCopyError(''); }
     } catch {
-      if (alive.current) setNotice('Non riesco a copiare il numero: puoi leggerlo sotto il codice.');
+      if (alive.current) { setCopied(false); setCopyError('Copia non disponibile. Leggi il numero sotto il codice.'); }
     }
   };
 
@@ -327,6 +330,7 @@ function WalletScreen({ owner }: { owner: string }) {
               </Pressable>
             </> : null}
           </View>
+          {copyError ? <Text style={s.checkoutHint} accessibilityRole="alert">{copyError}</Text> : null}
           <Text style={s.checkoutHint}>Se il lettore non riconosce il codice, mostra il numero o usa la tessera originale.</Text>
           <Pressable onPress={closeCode} accessibilityRole="button" style={s.closeCheckout} testID="wallet-close-checkout">
             <Text style={{ color: '#fff', fontSize: 17, textAlign: 'center' }}>Chiudi codice</Text>
