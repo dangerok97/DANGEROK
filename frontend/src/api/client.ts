@@ -399,6 +399,8 @@ export type CalendarEventDetail = {
   title: string;
   starts_at?: string | null;
   ends_at?: string | null;
+  /** False means ends_at is only a technical calendar slot, not a known fact. */
+  end_time_known?: boolean;
   all_day?: boolean;
   location?: string | null;
   description?: string | null;
@@ -418,6 +420,7 @@ export type HomeEventInput = {
 };
 export type HomeCalendarEvent = {
   id: string; title: string; starts_at: string; ends_at: string; timezone: string;
+  end_time_known?: boolean;
   location: string; description: string; source: string; updated_at: string;
 };
 
@@ -2815,6 +2818,8 @@ export type AgendaEvent = {
   title: string;
   starts_at?: string | null;
   ends_at?: string | null;
+  /** False means ends_at is only a technical calendar slot, not a known fact. */
+  end_time_known?: boolean;
   all_day?: boolean;
   location?: string;
   time_label?: string;

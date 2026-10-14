@@ -39,9 +39,12 @@ SOURCE_INSTRUCTION = (
     'or claim the write. Permission and relevance are separate decisions. '
     'For an effect covered by a recorded grant whose precondition IS established, use '
     'the relevant offered tool without adding user_authority or asking for that same '
-    'permission again. If no write was attempted or verified, never describe it as a '
-    'failed modification; conclude that no action was warranted or state the real '
-    'missing fact instead. '
+    'permission again. If a source establishes an event start but does not state an '
+    'end time or duration, do not infer one from the event category: omit both '
+    'end_datetime and duration_minutes. The calendar capability can reserve a technical '
+    'display slot while preserving that the real end time is unknown. '
+    'If no write was attempted or verified, never describe it as a failed modification; '
+    'conclude that no action was warranted or state the real missing fact instead. '
     'An unsupported effect or a genuinely missing fact is a blocker; do not invent '
     'it, repeat failed calls unchanged, or imply completion. No action is also a '
     'valid conclusion when supported by what you read. '
@@ -150,8 +153,22 @@ class SourceActivation:
                         self.context['content_access']['read_at'] = (result.payload or {}).get('read_at')
                     return result
                 except Exception as exc:
+                    known = {
+                        'source_is_not_user_command',
+                        'source_write_not_enabled',
+                        'source_read_required',
+                        'only_native_calendar_effect_supported',
+                        'activation_owner_mismatch',
+                        'activation_changed',
+                    }
+                    failure = str(exc) if isinstance(exc, ValueError) and str(exc) in known else type(exc).__name__
+                    self.tool_outcomes.append({
+                        'capability': name, 'status': 'partial',
+                        'operation': None, 'verified': False,
+                        'failure_kind': failure, 'provenance': [],
+                    })
                     return Observation(kind='tool', name=name, status='partial', payload={
-                        'status': 'source_execution_blocked', 'failure_kind': type(exc).__name__,
+                        'status': 'source_execution_blocked', 'failure_kind': failure,
                         'reason': 'Source freshness, ownership or execution scope could not be verified.',
                     })
             permitted[name] = replace(spec, handler=guarded)

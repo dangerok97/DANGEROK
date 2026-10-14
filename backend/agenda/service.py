@@ -243,6 +243,7 @@ class AgendaService:
                 "title": d.get("label") or "Appuntamento",
                 "starts_at": attrs.get("starts_at"),
                 "ends_at": attrs.get("ends_at"),
+                "end_time_known": attrs.get("end_time_known", True) is not False,
                 "all_day": bool(attrs.get("all_day")),
                 "location": attrs.get("location") or "",
                 "time_label": _che_ora(attrs),
@@ -301,6 +302,10 @@ def _che_ora(attrs: Dict[str, Any]) -> str:
     if attrs.get("all_day"):
         return "Tutto il giorno"
     inizio = _ora_di(attrs.get("starts_at"))
+    # A technical fallback end exists so calendar geometry remains valid, but
+    # it must never be rendered as if a source actually stated it.
+    if attrs.get("end_time_known", True) is False:
+        return inizio or ""
     fine = _ora_di(attrs.get("ends_at"))
     if inizio and fine and fine != inizio:
         return f"{inizio} — {fine}"

@@ -55,6 +55,8 @@ def manual_event_public(node):
             "ends_at": attrs.get("ends_at"), "timezone": attrs.get("timezone"),
             "location": attrs.get("location") or "", "description": node.get("description") or "",
             "source": "ora", "all_day": bool(attrs.get("all_day")),
+            # Old rows predate this marker and had an explicit/accepted end.
+            "end_time_known": attrs.get("end_time_known", True) is not False,
             "status": node.get("status"), "updated_at": node.get("updated_at")}
 
 
@@ -76,7 +78,8 @@ async def _wake(db, user_id, event_id, kind, revision):
 
 
 async def create_manual_event(db, user_id, *, title, start, end, tz_name,
-                              request_id=None, location="", description="", all_day=False):
+                              request_id=None, location="", description="", all_day=False,
+                              end_time_known=True):
     title = title.strip()
     if not title:
         raise ValueError("title_required")
@@ -89,6 +92,11 @@ async def create_manual_event(db, user_id, *, title, start, end, tz_name,
     # Only explicitly all-day events need the new attribute.
     if all_day:
         attrs["all_day"] = True
+    # A technical display end keeps calendar geometry valid without turning an
+    # absent source fact into truth. Omit the marker for ordinary historical
+    # events so existing fingerprints and stored rows remain compatible.
+    if end_time_known is False:
+        attrs["end_time_known"] = False
     fingerprint = hashlib.sha256(json.dumps([title, attrs, description.strip()], sort_keys=True).encode()).hexdigest()
     now = _now()
     try:
@@ -159,6 +167,9 @@ async def update_manual_event(db, user_id, event_id, fields, *, expected_updated
     if len(location) > 300 or len(description) > 800:
         raise ValueError("invalid_input")
     attrs.update(starts_at=start.isoformat(), ends_at=end.isoformat(), timezone=str(zone), location=location)
+    if fields.get("end_datetime"):
+        # A later explicit end resolves a previously unknown technical end.
+        attrs.pop("end_time_known", None)
     if expected_updated_at and expected_updated_at != node.get("updated_at"):
         if title == node["label"] and description == (node.get("description") or "") and attrs == node["attributes"]:
             return manual_event_public(node)  # Retry after a lost success response.

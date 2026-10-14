@@ -48,6 +48,25 @@ def _event_version(node):
                     ('id', 'user_id', 'type', 'status', 'label', 'description', 'attributes', 'updated_at')})
 
 
+_NO_EFFECT_UNSTABLE_GUARDS = frozenset({
+    # A source-driven no-op is only terminal when the model reached it cleanly.
+    # These guards prove the same turn first tried to narrate an unsupported
+    # write/action. Retrying later is safer than silently treating that unstable
+    # reasoning as a reviewed source. This is effect-agnostic infrastructure:
+    # no subject, merchant or life category is inspected here.
+    'CALENDAR_PERSIST_NUDGE',
+    'CALENDAR_CLAIM_BLOCKED_TERMINAL',
+    'READY_ACT_NO_EFFECT_NUDGE',
+    'READY_ACT_NO_EFFECT_BLOCKED',
+})
+
+
+def _no_effect_result_is_stable(result) -> bool:
+    trace = getattr(result, 'trace', None) or {}
+    events = {str(step.get('event') or '') for step in trace.get('steps', [])}
+    return not bool(events & _NO_EFFECT_UNSTABLE_GUARDS)
+
+
 def _home_summary(node, operation):
     """One factual formatter shared by Home and subsequent receipt delivery."""
     attrs = node['attributes']
@@ -128,7 +147,17 @@ class SourceWork:
         # Persist only a compact receipt and a hash of actual state, not tool
         # arguments, raw source content or an unverified model assertion.
         if result.status != 'ok' or result.payload.get('verified') is not True:
-            await self.change({'_core_work.effect.state': 'unverified'})
+            payload = result.payload or {}
+            # Keep only bounded operational evidence needed for reconciliation.
+            # Never persist source text, tool arguments or model prose here.
+            await self.change({
+                '_core_work.effect.state': 'unverified',
+                '_core_work.effect.last_status': str(result.status or '')[:40],
+                '_core_work.effect.failure_kind': str(
+                    payload.get('failure_kind') or payload.get('status') or ''
+                )[:80],
+                '_core_work.effect.operation': str(payload.get('operation') or '')[:40],
+            })
             return
         ref = result.payload.get('calendar_ref')
         if not isinstance(ref, str) or not ref.startswith('calendar:') or ref not in result.provenance:
@@ -285,6 +314,13 @@ class SourceCoreWorker:
                 return await work.finish_from_receipt()
             if not result.ok or activation.context['content_access']['state'] != 'read':
                 raise RuntimeError('source_turn_not_verified')
+            if not _no_effect_result_is_stable(result):
+                # The source was read and no durable effect occurred, but the
+                # reasoning path was internally inconsistent about performing
+                # one. Do not settle the source or surface that draft. Existing
+                # durable retry/backoff will give the SAME Core another bounded
+                # attempt; verified effects above never come through this path.
+                raise RuntimeError('source_no_effect_not_stable')
             phase = 'needs_input' if result.mode == 'clarify' else 'reviewed_no_effect'
             await work.change({'status': 'interpreted', 'outcome': 'source_core_' + phase,
                 'interpreted_at': _now().isoformat(), '_core_work.phase': phase,
