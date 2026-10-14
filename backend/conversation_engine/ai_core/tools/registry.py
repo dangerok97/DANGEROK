@@ -23,6 +23,8 @@ class ToolRegistry:
         self._register_defaults()
 
     def _register_defaults(self) -> None:
+        from connected.source_read import register_source_reader
+        register_source_reader(self)
         from situations.followup import register_followup_tools
         register_followup_tools(self)
         from shipping.caps import get_shipment_status

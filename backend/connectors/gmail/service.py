@@ -772,7 +772,7 @@ class GmailReadService:
             await self.vault.rotate(secret_ref, payload=payload)
         return payload["access_token"]
 
-    async def body_for(self, *, user_id: str, instance_id: str, message_id: str) -> str:
+    async def body_for(self, *, user_id: str, instance_id: str, message_id: str, max_chars: int = 1200) -> str:
         """
         The text of one message, for a judgement that said it needed it.
 
@@ -788,7 +788,10 @@ class GmailReadService:
             capability_id=CAPABILITY_READ_ID,
         )
         token = await self._access_token(user_id=user_id, instance=instance)
-        text = await self.provider.body_of(access_token=token, message_id=message_id)
+        from connectors.gmail.body_text import bounded_limit
+        limit = bounded_limit(max_chars)
+        kwargs = {"max_chars": limit} if limit != 1200 else {}
+        text = await self.provider.body_of(access_token=token, message_id=message_id, **kwargs)
         await self.permissions.audit.log(
             user_id=user_id, event_type="mail.body_read", connector_id=CONNECTOR_ID,
             connector_instance_id=instance_id, capability_id="mail.read",

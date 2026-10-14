@@ -19,6 +19,8 @@ file never touches OAuth, never persists anything, and never sees the vault.
 
 from __future__ import annotations
 
+from connectors.gmail.body_text import message_text, bounded_limit
+
 import base64
 import os
 from email.message import EmailMessage
@@ -81,7 +83,7 @@ class GmailProviderProtocol(Protocol):
     ) -> Dict[str, Any]: ...
 
     async def body_of(
-        self, *, access_token: str, message_id: str,
+        self, *, access_token: str, message_id: str, max_chars: int = MAX_BODY_CHARS,
     ) -> str: ...
 
     async def attachment_manifest(
@@ -193,7 +195,7 @@ class GmailProvider:
             f"/messages/{message_id}", access_token=access_token, params=params,
         )
 
-    async def body_of(self, *, access_token: str, message_id: str) -> str:
+    async def body_of(self, *, access_token: str, message_id: str, max_chars: int = MAX_BODY_CHARS) -> str:
         """
         The text of one message, bounded, for one judgement that asked.
 
@@ -205,10 +207,11 @@ class GmailProvider:
             f"/messages/{message_id}", access_token=access_token,
             params=[("format", "full")],
         )
-        text = _plain_text(data.get("payload") or {})
+        limit = bounded_limit(max_chars)
+        text = message_text(data.get("payload") or {}, max_chars=limit)
         if not text:
             text = str(data.get("snippet") or "")
-        return text[:MAX_BODY_CHARS]
+        return text[:limit]
 
     async def send_message(
         self, *, access_token: str, to: str, subject: str, body: str,
@@ -438,9 +441,9 @@ class FakeGmailProvider:
         found.pop("snippet", None)
         return found
 
-    async def body_of(self, *, access_token: str, message_id: str) -> str:
+    async def body_of(self, *, access_token: str, message_id: str, max_chars: int = MAX_BODY_CHARS) -> str:
         self.body_reads.append(message_id)
-        return str(self.bodies.get(message_id) or "")[:MAX_BODY_CHARS]
+        return str(self.bodies.get(message_id) or "")[:bounded_limit(max_chars)]
 
     async def send_message(
         self, *, access_token: str, to: str, subject: str, body: str,
