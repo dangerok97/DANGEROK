@@ -147,7 +147,17 @@ class SourceWork:
         # Persist only a compact receipt and a hash of actual state, not tool
         # arguments, raw source content or an unverified model assertion.
         if result.status != 'ok' or result.payload.get('verified') is not True:
-            await self.change({'_core_work.effect.state': 'unverified'})
+            payload = result.payload or {}
+            # Keep only bounded operational evidence needed for reconciliation.
+            # Never persist source text, tool arguments or model prose here.
+            await self.change({
+                '_core_work.effect.state': 'unverified',
+                '_core_work.effect.last_status': str(result.status or '')[:40],
+                '_core_work.effect.failure_kind': str(
+                    payload.get('failure_kind') or payload.get('status') or ''
+                )[:80],
+                '_core_work.effect.operation': str(payload.get('operation') or '')[:40],
+            })
             return
         ref = result.payload.get('calendar_ref')
         if not isinstance(ref, str) or not ref.startswith('calendar:') or ref not in result.provenance:
