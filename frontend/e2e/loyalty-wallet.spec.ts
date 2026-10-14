@@ -22,7 +22,7 @@ async function fixture(page: Page, initialCards: Record<string, any>[] = []) {
       const input = request.postDataJSON();
       expect(input.code).toBe('00012345');
       expect(input.static_confirmed).toBe(true);
-      expect(input.name).toBe(input.revision === 0 ? 'Supermercato prova' : 'Tessera aggiornata');
+      if (!initialCards.length) expect(input.name).toBe(input.revision === 0 ? 'Supermercato prova' : 'Tessera aggiornata');
       const card = { ...input, revision: input.revision + 1, image, acceptance: 'not_verified_at_checkout',
         created_at: '2026-10-13T12:00:00Z', updated_at: '2026-10-13T12:00:00Z' };
       cards = [...cards.filter(c => c.id !== card.id), card];
@@ -158,4 +158,10 @@ test('favorite remains first even when recent changes; QR never offers rotation'
   await page.getByTestId('wallet-show-' + favorite.id).click();
   await expect(page.getByTestId('wallet-rotate')).toHaveCount(0);
   await expect(page.getByTestId('wallet-copy')).toBeVisible();
+  await page.getByTestId('wallet-close-checkout').click();
+  await expect(page.getByTestId('wallet-close-checkout')).not.toBeVisible();
+  // Favorite is a direct action, not a trip through the editor.
+  await page.getByTestId('wallet-favorite-' + ordinary.id).click();
+  await expect(page.getByTestId('wallet-favorite-' + ordinary.id))
+    .toHaveAttribute('aria-label', 'Rimuovi Negozio secondario dalle preferite');
 });
