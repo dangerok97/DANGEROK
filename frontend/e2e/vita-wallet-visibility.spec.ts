@@ -55,6 +55,13 @@ async function fixture(page: Page, scenario: 'known-life' | 'empty-life' | 'erro
       json = { ok: true, percent: 21, areas: [], suggested_area_id: null };
     } else if (path.endsWith('/wallet/cards')) {
       json = { cards: [] };
+    } else if (path.endsWith('/places')) {
+      // PlacesSection expects a real response contract, not an empty object.
+      // Without permission, the component throws before the wallet can render.
+      json = {
+        places: [], candidates: [], routines: [],
+        permission: { preference: 'while_using', state: 'granted', freshness: 'current' },
+      };
     } else if (path.includes('life-setup')) {
       json = { ok: true, enabled: false, completed: true, profile: null };
     } else if (path.endsWith('/study-plans') || path.endsWith('/travel-projects')) {
