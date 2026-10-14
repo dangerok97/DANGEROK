@@ -63,3 +63,12 @@ This release addresses the costliest usability gap: opening a tile used to lead 
 The cashier screen still requires that the card has already been fetched at least once in the current app session. **Reopening the app while offline is NOT supported**: encrypted durable offline storage and offline authentication require a separate audited implementation. This patch intentionally avoids persisting plaintext codes/images in AsyncStorage or browser localStorage, which would create an avoidable security regression. This is a transparent technical limitation, not a promised offline feature.
 
 Verification gates: backend duplicate/concurrency tests, TypeScript, production web export, complete existing checkout E2E on Chromium and WebKit, and additional synthetic checks for one-tap cashier, QR rotation exclusion, device-local recent ordering, card switching while temporarily offline, preserved desktop rail, and clipboard action presence. No real user cards are used in automated tests; in-store scanner acceptance remains unverified until a real checkout.
+
+
+## V1.2 — Discoverability fix: visible wallet inside VITA
+
+The first release did not give the wallet an explicit place in VITA's normal section flow; it injected a card immediately after `VitaHeader` by silently re-exporting a wrapped header in `src/components/vita/index.ts`. A user browsing later sections (profile progress → Places → bank → life areas) would not find it. The wallet's own `/portafoglio` page and backend worked, but this was a **real discoverability defect**, not a missing tutorial.
+
+The header override has been removed and the original `VitaHeader` contract restored. VITA now renders a clearly titled **TESSERE FEDELTÀ** section with a **Portafoglio tessere** entry immediately after **LUOGHI**, before **LA TUA VITA**. The section is visible on desktop and phone, and is rendered even when no cards exist or the Life Map is empty/unavailable. It opens the existing wallet route, requiring regular user authentication. No changes to loyalty-card storage, API, payments or offline capabilities.
+
+Validation: E2E `vita-wallet-visibility.spec.ts` visits the actual exported VITA route on Chromium and WebKit, with synthetic account and life data, checks explicit section order, one entry only, working navigation to the wallet page, an empty life model, and a Life Map failure. Current snapshot screenshots show the entry on an iPhone-sized viewport. No real account data is accessed or modified.
