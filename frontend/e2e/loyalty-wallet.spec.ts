@@ -134,10 +134,11 @@ test('one tap displays the cashier code; rotation and next-card navigation work 
   )).toBe(true);
   await page.reload();
   await expect(page.getByTestId('wallet-show-' + second.id)).toBeVisible();
+  // Recent IDs are loaded asynchronously from device storage after auth.
+  await expect(page.getByTestId('wallet-recent-' + second.id)).toBeVisible();
   const ids = await page.locator('[data-testid^="wallet-show-"]').evaluateAll(elements =>
     elements.map(element => element.getAttribute('data-testid')));
   expect(ids[0]).toBe('wallet-show-' + second.id);
-  await expect(page.getByTestId('wallet-recent-' + second.id)).toBeVisible();
   await page.getByTestId('wallet-clear-recents').click();
   await expect(page.getByTestId('wallet-recent-' + second.id)).toHaveCount(0);
 });
