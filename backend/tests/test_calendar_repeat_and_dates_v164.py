@@ -33,8 +33,12 @@ async def world(monkeypatch):
         end=DAY+'T10:45:00+01:00', tz_name='Europe/Rome', request_id='cal164-other',
     )
     wake.reset_mock()
-    writes = AsyncMock(wraps=db.life_nodes.update_one)
-    monkeypatch.setattr(db.life_nodes, 'update_one', writes)
+    # The mock database creates a collection wrapper on each attribute lookup.
+    # Bind the exact wrapper first, otherwise the spy watches a discarded one.
+    collection = db.life_nodes
+    monkeypatch.setattr(db, 'life_nodes', collection)
+    writes = AsyncMock(wraps=collection.update_one)
+    monkeypatch.setattr(collection, 'update_one', writes)
     return db, original, canary, writes, wake
 
 
