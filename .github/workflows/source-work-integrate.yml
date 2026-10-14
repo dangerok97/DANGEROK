@@ -75,7 +75,6 @@ jobs:
               p = Path(path); raw = p.read_bytes(); text = raw.decode()
               actual = hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
               if actual != sha:
-                  # The exact tested hook may already have been committed.
                   assert text.count(after) == 1, path
                   continue
               assert text.count(before) == 1, path
@@ -87,13 +86,12 @@ jobs:
         working-directory: backend
         run: |
           python -m compileall -q connected
-          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-work-tests.xml tests/test_durable_source_work_v169.py tests/test_source_integrity_v168.py tests/test_general_source_core_v166.py tests/test_source_entry_contract_v166.py tests/test_model_contract_v167.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_phase2_durable_home_outbox_v142.py tests/test_connected_polling_v310.py
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-work-tests.xml tests/test_durable_source_work_v169.py tests/test_source_integrity_v168.py tests/test_general_source_core_v166.py tests/test_source_entry_contract_v166.py tests/test_model_contract_v167.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_phase2_durable_home_outbox_v142.py tests/test_connected_life_v310.py
       - name: Package reviewed Python sources for inspection
         if: always()
         run: |
           python - <<'PY'
           import zipfile, subprocess
-          from pathlib import Path
           with zipfile.ZipFile('/tmp/source-work-code.zip','w',zipfile.ZIP_DEFLATED) as z:
               for name in subprocess.check_output(['git','ls-files','backend']).decode().splitlines():
                   if name.endswith('.py') or name.endswith('requirements-cloud.txt'):
