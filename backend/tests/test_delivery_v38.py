@@ -68,6 +68,18 @@ async def _clean(db, uid):
         await db[coll].delete_many({"owner_id": uid})
 
 
+@pytest.fixture(autouse=True)
+def _restore_legacy_permission_reader():
+    # _allow_push predates monkeypatch usage and assigns a module attribute.
+    # Its synthetic permission must not leak into later account/channel tests.
+    from delivery import context
+    original = context._permission
+    try:
+        yield
+    finally:
+        context._permission = original
+
+
 class FakeModel:
     def __init__(self, answers):
         self.answers = list(answers)
@@ -411,9 +423,11 @@ def test_a_push_carries_its_own_reason_and_lands_where_it_is_about(monkeypatch):
             assert plan.reason_to_open, "una push senza motivo per aprirla"
             assert plan.deep_link
             assert f"/aggiornamento/{opportunity.id}" == plan.deep_link
-            # The origin is preserved: a thread opened by an interruption is
-            # not the same as one somebody chose to open.
-            assert "entry=notification" in plan.deep_link
+            # Attribution is carried by the owned plan. The canonical
+            # opportunity route no longer uses the old conversation query.
+            assert plan.source_type == "opportunity" and plan.source_id == opportunity.id
+            opened = await DeliveryService(db).record_outcome(uid, plan.id, "opened")
+            assert opened["ok"] and opened["route"] == plan.deep_link
 
             sent = channel.sent[0]
             assert sent["title"] and sent["body"]

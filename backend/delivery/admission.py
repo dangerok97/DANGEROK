@@ -139,6 +139,13 @@ async def drain_with_receipts(db) -> int:
     delivery pass and cannot gain direct access to notification transport.
     """
     handled = await drain(db)
+    # Already-verified source work enters the existing delivery review pass.
+    # No new scheduler or direct provider call; default pilot enrolment is empty.
+    try:
+        from delivery.source_result_review import drain as drain_source_results
+        handled += await drain_source_results(db)
+    except Exception as exc:
+        logger.info("verified source result review deferred: %s", type(exc).__name__)
     # Replay already-admitted Home news that a crash or transient Mongo error
     # prevented from becoming a visible AmbientActivity. No new judgement,
     # notifications or extra scheduler are created.

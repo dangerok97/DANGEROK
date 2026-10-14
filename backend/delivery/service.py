@@ -147,6 +147,23 @@ class DeliveryService:
 
         kind = source_of(subject)
         subject_id = getattr(subject, "id", "")
+        if kind == "source_result":
+            from delivery.source_results import current_subject, existing_plan, settled_or_inflight
+            try:
+                subject = await current_subject(self.db, user_id, subject_id)
+            except MemorySourcesUnavailable:
+                return await self._source_check_unavailable(user_id, kind, subject_id)
+            if subject is None:
+                await self.cancel_for_source(user_id, subject_id, source_type=kind,
+                                             reason="il risultato verificato non è più attuale")
+                return DeliveryResult(blocked_by="source_result_changed")
+            previous = await existing_plan(self.db, user_id, subject_id)
+            if settled_or_inflight(previous):
+                return DeliveryResult(mode="in_app", blocked_by="source_result_already_handled",
+                                      plan=DeliveryPlan.model_validate(previous))
+            import os
+            if not os.environ.get("ORA_SOURCE_MODEL_CONTRACT"):
+                return DeliveryResult(unavailable=True, blocked_by="source_model_contract_required")
         if kind == "agent_need":
             try:
                 current = await self._current_agent_need(user_id, subject_id)
@@ -232,7 +249,15 @@ class DeliveryService:
         moment = await delivery_context.build(
             self.db, user_id, subject=subject, app_state=app_state
         )
-        answer = await decide_delivery(moment, language=language)
+        # Source-origin work and its communication use the same configured
+        # provider/model boundary; ordinary notification decisions are unchanged.
+        from contextlib import nullcontext
+        contract_scope = nullcontext()
+        if kind == "source_result":
+            from llm.model_contract import scoped_model_contract
+            contract_scope = scoped_model_contract(os.environ.get("ORA_SOURCE_MODEL_CONTRACT"))
+        with contract_scope:
+            answer = await decide_delivery(moment, language=language)
 
         if answer is None:
             # No judgement was available. Nothing is sent, nothing is
@@ -240,6 +265,15 @@ class DeliveryService:
             logger.info("delivery judgement unavailable for %s", user_id[:8])
             return DeliveryResult(unavailable=True, reason="il giudizio non era disponibile")
 
+        if kind == "source_result":
+            try:
+                subject = await current_subject(self.db, user_id, subject_id)
+            except MemorySourcesUnavailable:
+                return await self._source_check_unavailable(user_id, kind, subject_id)
+            if subject is None:
+                await self.cancel_for_source(user_id, subject_id, source_type=kind,
+                                             reason="il risultato è cambiato durante la decisione")
+                return DeliveryResult(blocked_by="source_result_changed")
         decision = self._read(answer)
 
         if decision.mode != "push":
@@ -337,6 +371,9 @@ class DeliveryService:
         found and rewritten with what we now think.
         """
         kind = source_of(subject)
+        if kind == "source_result":
+            from delivery.source_results import save_decision
+            return await save_decision(self, subject, decision)
         existing = await self.repo.open_plan_for(
             user_id, subject.id, source_type=kind
         )
@@ -364,6 +401,12 @@ class DeliveryService:
         self, user_id: str, subject_id: str, decision: DeliveryDecision, why: str,
         *, source_type: str = "opportunity",
     ) -> DeliveryPlan:
+        if source_type == "source_result":
+            from delivery.source_results import current_subject, save_decision
+            subject = await current_subject(self.db, user_id, subject_id)
+            if subject is None:
+                raise MemorySourcesUnavailable("source_result_changed_before_hold")
+            return await save_decision(self, subject, decision, held_reason=why)
         existing = await self.repo.open_plan_for(
             user_id, subject_id, source_type=source_type
         )
@@ -468,6 +511,9 @@ class DeliveryService:
         """
         if plan.owner_id != user_id:
             return None
+        if plan.source_type == "source_result":
+            from delivery.source_results import current_subject
+            return await current_subject(self.db, user_id, plan.source_id)
         if plan.source_type == "opportunity":
             from opportunities.repository import OpportunityRepository
 
@@ -572,6 +618,13 @@ class DeliveryService:
         return {"sent": sent, "cancelled": cancelled, "held": held}
 
     async def _send(self, user_id: str, plan: DeliveryPlan) -> None:
+        if plan.source_type == "source_result":
+            from delivery.source_results import send_guarded
+            await send_guarded(self, user_id, plan)
+            return
+        await self._send_current(user_id, plan)
+
+    async def _send_current(self, user_id: str, plan: DeliveryPlan):
         from delivery.provider import get_provider
 
         # A source can close after the re-judgement but before the provider
@@ -658,7 +711,7 @@ class DeliveryService:
                     logger.info(
                         "push retry wake deferred: %s", type(exc).__name__
                     )
-            return
+            return outcome
 
         plan.transport_retry_due = None
         plan.transport_retry_alarm_queued = False
@@ -667,6 +720,7 @@ class DeliveryService:
         plan.outcome = "delivered"
         plan.last_rechecked_at = plan.last_rechecked_at or plan.delivered_at
         await self.repo.save_plan(plan)
+        return outcome
 
     async def _defer_source_check(self, plan: DeliveryPlan) -> None:
         """Keep an unsent intention durable while source validity is unknown."""
@@ -1187,6 +1241,13 @@ def _notification_open_route(plan: DeliveryPlan) -> Optional[str]:
             return None
         expected = _deep_link(opaque, target="opportunity")
         return expected if plan.deep_link == expected else None
+
+    if plan.source_type == "source_result":
+        from delivery.source_results import plan_id
+        if (_OPAQUE_ID.fullmatch(plan.source_id) and plan.deep_link == "/"
+                and plan.id == plan_id(plan.owner_id, plan.source_id)):
+            return "/"
+        return None
 
     if plan.source_type == "agent_need":
         match = re.fullmatch(
