@@ -136,6 +136,20 @@ function WalletScreen({ owner }: { owner: string }) {
     } catch (e) { if (alive.current) setError(message(e)); }
     finally { if (alive.current) setBusy(false); }
   };
+  const toggleFavorite = async (card: LoyaltyCard) => {
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      const token = await walletClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      const { id, name, format, code, static_confirmed, source, revision, favorite } = card;
+      const response = await walletClient.save(token, {
+        id, name, format, code, static_confirmed, source, revision, favorite: !favorite,
+      });
+      if (alive.current) setCards(all => all.map(item => item.id === id ? response.card : item));
+    } catch (e) { if (alive.current) setError(message(e)); }
+    finally { if (alive.current) setBusy(false); }
+  };
   const remove = async () => {
     if (!selected || busy) return;
     setBusy(true); setError('');
@@ -257,12 +271,20 @@ function WalletScreen({ owner }: { owner: string }) {
             <Text style={[s.heading, text]} numberOfLines={2}>{card.name}</Text>
             <Text style={[s.small, secondary]}>{label(card.format)} · Tocca per mostrare subito</Text>
           </Pressable>
-          <Pressable disabled={loading || busy} onPress={() => { setSelected(card); setNotice(''); setError(''); }}
-            accessibilityRole="button" accessibilityLabel={`Gestisci ${card.name}`} testID={`wallet-manage-${card.id}`}
-            style={[s.manageBtn, { borderTopColor: colors.border }]}>
-            <Ionicons name="settings-outline" size={16} color={colors.textSecondary}/>
-            <Text style={[s.small, secondary]}>Gestisci</Text>
-          </Pressable>
+          <View style={[s.cardActions, { borderTopColor: colors.border }]}>
+            <Pressable disabled={loading || busy} onPress={() => { void toggleFavorite(card); }}
+              accessibilityRole="button" accessibilityLabel={card.favorite ? `Rimuovi ${card.name} dalle preferite` : `Aggiungi ${card.name} alle preferite`}
+              testID={`wallet-favorite-${card.id}`} style={s.manageBtn}>
+              <Ionicons name={card.favorite ? 'star' : 'star-outline'} size={18} color={colors.accent} />
+              <Text style={[s.small, secondary]}>{card.favorite ? 'Preferita' : 'Preferiti'}</Text>
+            </Pressable>
+            <Pressable disabled={loading || busy} onPress={() => { setSelected(card); setNotice(''); setError(''); }}
+              accessibilityRole="button" accessibilityLabel={`Gestisci ${card.name}`} testID={`wallet-manage-${card.id}`}
+              style={s.manageBtn}>
+              <Ionicons name="settings-outline" size={16} color={colors.textSecondary}/>
+              <Text style={[s.small, secondary]}>Gestisci</Text>
+            </Pressable>
+          </View>
         </View>)}</View>
       </>}
     </ScrollView>
@@ -319,7 +341,8 @@ const s = StyleSheet.create({
   chip: { borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 44 }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   card: { flexGrow: 1, flexBasis: 250, minHeight: 150, borderRadius: tokens.radius.lg, borderWidth: 1, padding: 16, gap: 8 },
   cardMain: { flex: 1, minHeight: 115, justifyContent: 'center', gap: 9 },
-  manageBtn: { minHeight: 44, borderTopWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 7 },
+  cardActions: { borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 },
+  manageBtn: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   quick: { gap: 10, marginVertical: 8 },
   codeBox: { backgroundColor: '#fff', borderRadius: 12, padding: 16, gap: 12 }, barcode: { width: '100%', height: 200 },
   codeText: { color: '#000', textAlign: 'center', fontSize: 18 }, checkout: { flex: 1, backgroundColor: '#fff' },
