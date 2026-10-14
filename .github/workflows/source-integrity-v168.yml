@@ -59,6 +59,25 @@ jobs:
         if: success() || failure()
         working-directory: backend
         run: |
+          # These tests bypass server startup. Match its normal queue-index setup
+          # instead of depending on a different test file having run first.
+          python - <<'PY'
+          import asyncio, os
+          from motor.motor_asyncio import AsyncIOMotorClient
+          from ambient.repository import AmbientRepository
+          async def setup():
+              assert os.environ['MONGO_URL'] == 'mongodb://127.0.0.1:27017'
+              assert os.environ['DB_NAME'] == 'ora_source_integrity_ci'
+              client = AsyncIOMotorClient(os.environ['MONGO_URL'], serverSelectionTimeoutMS=5000)
+              try:
+                  db = client[os.environ['DB_NAME']]
+                  await AmbientRepository(db).ensure_indexes()
+                  indexes = await db.ambient_wakes.index_information()
+                  assert any(v.get('unique') and v['key'] == [('identity', 1)] for v in indexes.values())
+              finally:
+                  client.close()
+          asyncio.run(setup())
+          PY
           python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-existing-tests.xml tests/test_connected_life_v310.py tests/test_email_agent_bridge_v310.py tests/test_cross_source_life_linking_v310.py tests/test_autonomy_continuity_v4.py tests/test_agent_memory_source_fence_v162.py tests/test_general_source_core_v166.py tests/test_source_entry_contract_v166.py tests/test_model_contract_v167.py
       - name: Preserve test results
         if: always()
