@@ -128,7 +128,8 @@ class SignalService:
 
     async def pending(self, owner_id: str, *, limit: int = MAX_PENDING) -> List[ConnectedSignal]:
         docs = await self.db[SIGNALS].find(
-            {'owner_id': owner_id, 'status': 'pending', '_supersession_pending': {'$ne': True}},
+            {'owner_id': owner_id, 'status': 'pending', '_supersession_pending': {'$ne': True},
+             '_core_work.phase': {'$exists': False}},
             {'_id': 0}).sort('observed_at', 1).to_list(limit)
         return [ConnectedSignal.model_validate(d) for d in docs]
 
