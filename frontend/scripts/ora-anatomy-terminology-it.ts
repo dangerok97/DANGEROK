@@ -493,7 +493,7 @@ function agree(s:string,gender:Gender):string{
  return s;
 }
 const normal=(name:string)=>name.toLowerCase().replace(/[\u2010-\u2015-]/g,' ').replace(/\bsupra orbital\b/g,'supraorbital').replace(/\s+/g,' ').trim();
-const headNames=['ear','matter','hemisphere','sac','lake','lens','sclera','iris','musculature','wrist','thigh','hip','leg','pelvis','intestine','penis','trachea','forebrain','midbrain','phalanx','cartilage','ligament','artery','vein','nerve','muscle','tendon','tooth','bone','gyrus','sulcus','ganglion','plexus','bronchus','vertebra','rib','trunk','branch','head','wall','cavity','duct','lobe','fossa','chamber','gland','ventricle','atrium','part','body','root','process','foramen','arch','canal','disk','ring','segment','division','subdivision','valve','tree','set'];
+const headNames=['hand','foot','finger','fingers','toe','toes','ear','matter','hemisphere','sac','lake','lens','sclera','iris','musculature','wrist','thigh','hip','leg','pelvis','intestine','penis','trachea','forebrain','midbrain','phalanx','cartilage','ligament','artery','vein','nerve','muscle','tendon','tooth','bone','gyrus','sulcus','ganglion','plexus','bronchus','vertebra','rib','trunk','branch','head','wall','cavity','duct','lobe','fossa','chamber','gland','ventricle','atrium','part','body','root','process','foramen','arch','canal','disk','ring','segment','division','subdivision','valve','tree','set'];
 const sortedHeads=[...headNames].sort((a,b)=>b.length-a.length);
 /** Generic anatomical explanations are more honest than inventing physiology. */
 export function systemExplanation(system:string,label:string):string{
