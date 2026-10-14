@@ -48,6 +48,25 @@ def _event_version(node):
                     ('id', 'user_id', 'type', 'status', 'label', 'description', 'attributes', 'updated_at')})
 
 
+_NO_EFFECT_UNSTABLE_GUARDS = frozenset({
+    # A source-driven no-op is only terminal when the model reached it cleanly.
+    # These guards prove the same turn first tried to narrate an unsupported
+    # write/action. Retrying later is safer than silently treating that unstable
+    # reasoning as a reviewed source. This is effect-agnostic infrastructure:
+    # no subject, merchant or life category is inspected here.
+    'CALENDAR_PERSIST_NUDGE',
+    'CALENDAR_CLAIM_BLOCKED_TERMINAL',
+    'READY_ACT_NO_EFFECT_NUDGE',
+    'READY_ACT_NO_EFFECT_BLOCKED',
+})
+
+
+def _no_effect_result_is_stable(result) -> bool:
+    trace = getattr(result, 'trace', None) or {}
+    events = {str(step.get('event') or '') for step in trace.get('steps', [])}
+    return not bool(events & _NO_EFFECT_UNSTABLE_GUARDS)
+
+
 def _home_summary(node, operation):
     """One factual formatter shared by Home and subsequent receipt delivery."""
     attrs = node['attributes']
@@ -285,6 +304,13 @@ class SourceCoreWorker:
                 return await work.finish_from_receipt()
             if not result.ok or activation.context['content_access']['state'] != 'read':
                 raise RuntimeError('source_turn_not_verified')
+            if not _no_effect_result_is_stable(result):
+                # The source was read and no durable effect occurred, but the
+                # reasoning path was internally inconsistent about performing
+                # one. Do not settle the source or surface that draft. Existing
+                # durable retry/backoff will give the SAME Core another bounded
+                # attempt; verified effects above never come through this path.
+                raise RuntimeError('source_no_effect_not_stable')
             phase = 'needs_input' if result.mode == 'clarify' else 'reviewed_no_effect'
             await work.change({'status': 'interpreted', 'outcome': 'source_core_' + phase,
                 'interpreted_at': _now().isoformat(), '_core_work.phase': phase,
