@@ -109,6 +109,11 @@ async def test_unknown_source_end_uses_technical_slot_without_claiming_known_end
     public = manual_event_public(node)
     assert public["end_time_known"] is False
     assert node["attributes"]["end_time_known"] is False
+    from home.calendar_event import event_detail
+    from agenda.service import _che_ora
+    detail = await event_detail(db, OWNER, event_id)
+    assert detail["end_time_known"] is False
+    assert _che_ora(node["attributes"]) == "21:00"
     start = datetime.fromisoformat(public["starts_at"])
     end = datetime.fromisoformat(public["ends_at"])
     assert end - start == timedelta(minutes=60)
@@ -140,3 +145,5 @@ async def test_explicit_source_end_remains_known(world):
         db, OWNER, result.payload["calendar_ref"].removeprefix("calendar:"))
     assert "end_time_known" not in node["attributes"]
     assert manual_event_public(node)["end_time_known"] is True
+    from agenda.service import _che_ora
+    assert _che_ora(node["attributes"]) == "10:00 — 10:45"
