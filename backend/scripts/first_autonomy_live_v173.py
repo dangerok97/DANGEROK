@@ -251,9 +251,14 @@ async def run(output):
                 review = ((source or {}).get("_core_work") or {}).get("delivery_review") or {}
                 if result["state"] == "completed" and review.get("phase") != "pending":
                     errors.append("DELIVERY_REVIEW_NOT_QUEUED")
+            effect = ((source or {}).get("_core_work") or {}).get("effect") or {}
             entry.update(
                 passed=not errors, errors=errors, worker_state=result["state"],
                 attempts=attempts, source_reads=len(reads),
+                effect_state=effect.get("state"),
+                effect_capability=effect.get("capability"),
+                effect_failure_kind=effect.get("failure_kind"),
+                effect_last_status=effect.get("last_status"),
                 events=[{
                     "title": event.get("label"),
                     "start": (event.get("attributes") or {}).get("starts_at"),
