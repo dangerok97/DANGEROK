@@ -1,6 +1,7 @@
 """Failover may change provider, not silently leave an explicit model contract."""
 import asyncio
 import json
+from types import SimpleNamespace
 import pytest
 from llm.model_contract import scoped_model_contract, active_contract, parse_contract
 from test_provider_failover_v34 import _manager, _Stub
@@ -113,3 +114,66 @@ async def test_source_turn_takes_operator_contract_not_email_or_model_fields(wor
     assert seen and all(c == {'operator_provider':'operator_model'} for c in seen)
     assert active_contract() is None
     assert await db.life_nodes.count_documents({}) == 0
+
+
+class _FakeOpenAICompletions:
+    def __init__(self, sink):
+        self.sink = sink
+
+    async def create(self, **kwargs):
+        self.sink.update(kwargs)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"response_mode":"finish"}'))],
+            usage=None,
+        )
+
+
+class _FakeOpenAIClient:
+    def __init__(self, sink):
+        self.chat = SimpleNamespace(completions=_FakeOpenAICompletions(sink))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('effort,expected', [
+    (None, 'medium'),
+    ('high', 'high'),
+    ('nonsense', 'medium'),
+])
+async def test_openai_reasoning_models_omit_temperature_and_set_effort(monkeypatch, effort, expected):
+    import openai
+    from llm.providers.openai_provider import OpenAIProvider
+
+    captured = {}
+    monkeypatch.setenv('OPENAI_API_KEY', 'synthetic-test-key')
+    monkeypatch.setenv('OPENAI_MODEL', 'gpt-5.6-sol')
+    if effort is None:
+        monkeypatch.delenv('OPENAI_REASONING_EFFORT', raising=False)
+    else:
+        monkeypatch.setenv('OPENAI_REASONING_EFFORT', effort)
+    monkeypatch.setattr(openai, 'AsyncOpenAI', lambda **kwargs: _FakeOpenAIClient(captured))
+
+    result = await OpenAIProvider().chat(system='system', user='{}', json_mode=True)
+
+    assert result.model == 'gpt-5.6-sol'
+    assert captured['reasoning_effort'] == expected
+    assert 'temperature' not in captured
+    assert captured['response_format'] == {'type': 'json_object'}
+
+
+@pytest.mark.asyncio
+async def test_openai_legacy_model_preserves_sampling_payload(monkeypatch):
+    import openai
+    from llm.providers.openai_provider import OpenAIProvider
+
+    captured = {}
+    monkeypatch.setenv('OPENAI_API_KEY', 'synthetic-test-key')
+    monkeypatch.setenv('OPENAI_MODEL', 'gpt-4o-mini')
+    monkeypatch.setenv('OPENAI_REASONING_EFFORT', 'high')
+    monkeypatch.setattr(openai, 'AsyncOpenAI', lambda **kwargs: _FakeOpenAIClient(captured))
+
+    result = await OpenAIProvider().chat(system='system', user='{}', json_mode=True)
+
+    assert result.model == 'gpt-4o-mini'
+    assert captured['temperature'] == 0.2
+    assert 'reasoning_effort' not in captured
+    assert captured['response_format'] == {'type': 'json_object'}
