@@ -167,8 +167,13 @@ async def run_source_turn(db, owner_id: str, signal_id: str, *, decision_fn=None
     from conversation_engine.ai_core.loop import run_cognitive_loop
     activation = await SourceActivation.load(db, owner_id, signal_id)
     sess = ConversationSession(user_id=owner_id, meta={'entry_point': 'source_change'})
-    result = await run_cognitive_loop(sess=sess, user_message='', db=db,
-        decision_fn=decision_fn, max_steps=min(max(1, max_steps), 8), source_activation=activation)
+    import os
+    from llm.model_contract import scoped_model_contract
+    # Infrastructure configuration, never sourced from a message or AI output.
+    # No eligible model means no silent downgrade; the caller owns recovery.
+    with scoped_model_contract(os.environ.get('ORA_SOURCE_MODEL_CONTRACT')):
+        result = await run_cognitive_loop(sess=sess, user_message='', db=db,
+            decision_fn=decision_fn, max_steps=min(max(1, max_steps), 8), source_activation=activation)
     return {'result': result, 'effects': activation.tool_outcomes,
             'source_ref': activation.source_ref,
             'notifications_sent': False, 'source_settled': False,

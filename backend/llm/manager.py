@@ -239,7 +239,8 @@ class ProviderManager:
         if pref and pref in order:
             order.remove(pref)
             order.insert(0, pref)
-        return order
+        from llm.model_contract import eligible_names
+        return eligible_names(order, self._providers)
 
     async def _available(self, name: str) -> bool:
         p = self._providers[name]
