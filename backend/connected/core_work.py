@@ -48,6 +48,22 @@ def _event_version(node):
                     ('id', 'user_id', 'type', 'status', 'label', 'description', 'attributes', 'updated_at')})
 
 
+def _due_query(owner_id):
+    stamp = _now().isoformat()
+    return {'owner_id': owner_id, 'status': 'pending',
+            'origin': {'$ne': 'self_originated'}, '_supersession_pending': {'$ne': True},
+            '$and': [
+                {'$or': [{'_core_work.phase': {'$exists': False}},
+                         {'_core_work.phase': {'$in': ['running', 'retry', 'result_ready']}}]},
+                {'$or': [{'_core_work.lease_until': {'$exists': False}},
+                         {'_core_work.lease_until': {'$lte': stamp}}]},
+                {'$or': [{'_core_work.next_run_at': {'$exists': False}},
+                         {'_core_work.next_run_at': {'$lte': stamp}}]},
+                {'$or': [{'_core_work.attempts': {'$exists': False}},
+                         {'_core_work.attempts': {'$lt': MAX_ATTEMPTS}}]},
+            ]}
+
+
 class LeaseLost(RuntimeError):
     pass
 
@@ -136,13 +152,18 @@ class SourceWork:
         from delivery.service import DeliveryService
 
         async def still_current():
-            await self.current()
+            # Content validity and ownership are distinct. A late worker losing
+            # its lease must NOT hide a valid Home row already delivered by the
+            # new owner of that lease.
             signal, _ = await resolve_source(self.db, self.owner, self.ref)
-            if signal.fingerprint != self.row['fingerprint'] or signal.observed_at != self.row['observed_at']:
-                raise LeaseLost('source_revision_changed')
+            if (signal.fingerprint != self.row['fingerprint']
+                    or signal.observed_at != self.row['observed_at']
+                    or signal.origin == 'self_originated'):
+                raise ValueError('source_revision_changed')
             node = await get_manual_event(self.db, self.owner, ref.removeprefix('calendar:'))
             if not node or node.get('status') != 'active' or _event_version(node) != effect['event_version']:
                 raise ValueError('effect_has_changed')
+            await self.current()
             return node
 
         try:
@@ -174,9 +195,10 @@ class SourceWork:
                 '_core_work.lease_until': _now().isoformat()})
             return {'state': 'completed', 'home_visible': True, 'activity_id': activity_id,
                     'notifications_sent': False}
-        except (ValueError, LeaseLost):
-            # Never leave a newly materialised stale result visible when its
-            # original source/event changed during the handoff.
+        except LeaseLost:
+            return {'state': 'lease_lost', 'home_visible': False, 'notifications_sent': False}
+        except ValueError:
+            # Do not leave an actually stale source/event result visible.
             await self.db.ambient_activity.update_one(
                 {'id': activity_id, 'owner_id': self.owner}, {'$set': {'visibility': 'internal'}})
             try:
@@ -200,9 +222,7 @@ class _LeasedActivation(SourceActivation):
             handler = spec.handler
             async def once(arguments, runtime, *, handler=handler, name=name):
                 await self.validate(runtime['db'], runtime['user_id'])
-                # A source read is a real dependency, not merely an instruction
-                # the model may disregard. Original effect authority remains in
-                # the wrapped handler and is not replaced by this budget.
+                # Original effect authority remains in the wrapped handler.
                 if self.context['content_access']['state'] != 'read':
                     return Observation(kind='tool', name=name, status='partial',
                         payload={'status': 'source_read_required'})
@@ -221,24 +241,15 @@ class SourceCoreWorker:
         self.db = db
 
     async def claim(self, owner_id, signal_id):
-        stamp = _now().isoformat()
         token = uuid.uuid4().hex
-        row = await self.db[COLLECTION].find_one_and_update({
-            'owner_id': owner_id, 'id': signal_id, 'status': 'pending',
-            'origin': {'$ne': 'self_originated'}, '_supersession_pending': {'$ne': True},
-            '$and': [
-                {'$or': [{'_core_work.phase': {'$exists': False}},
-                         {'_core_work.phase': {'$in': ['running', 'retry', 'result_ready']}}]},
-                {'$or': [{'_core_work.lease_until': {'$exists': False}},
-                         {'_core_work.lease_until': {'$lte': stamp}}]},
-                {'$or': [{'_core_work.next_run_at': {'$exists': False}},
-                         {'_core_work.next_run_at': {'$lte': stamp}}]},
-                {'$or': [{'_core_work.attempts': {'$exists': False}},
-                         {'_core_work.attempts': {'$lt': MAX_ATTEMPTS}}]},
-            ],
-        }, {'$set': {'_core_work.phase': 'running', '_core_work.token': token,
-                    '_core_work.lease_until': (_now() + timedelta(seconds=LEASE_SECONDS)).isoformat()},
-            '$inc': {'_core_work.attempts': 1}}, return_document=True, projection={'_id': 0})
+        # Keep Mongo's _id in this internal snapshot. It never leaves the work
+        # object, and find-and-modify implementations need it to locate the
+        # updated row independently of the now-changed eligibility predicate.
+        row = await self.db[COLLECTION].find_one_and_update(
+            {**_due_query(owner_id), 'id': signal_id},
+            {'$set': {'_core_work.phase': 'running', '_core_work.token': token,
+                      '_core_work.lease_until': (_now() + timedelta(seconds=LEASE_SECONDS)).isoformat()},
+             '$inc': {'_core_work.attempts': 1}}, return_document=True)
         return SourceWork(self.db, row, token) if row else None
 
     async def process_one(self, owner_id, signal_id, *, decision_fn=None):
@@ -267,8 +278,6 @@ class SourceCoreWorker:
                 return await work.finish_from_receipt()
             if not result.ok or activation.context['content_access']['state'] != 'read':
                 raise RuntimeError('source_turn_not_verified')
-            # This is not proof that the model's no-effect decision was useful.
-            # No success notification or event is invented for a text answer.
             phase = 'needs_input' if result.mode == 'clarify' else 'reviewed_no_effect'
             await work.change({'status': 'interpreted', 'outcome': 'source_core_' + phase,
                 'interpreted_at': _now().isoformat(), '_core_work.phase': phase,
@@ -277,32 +286,34 @@ class SourceCoreWorker:
         except LeaseLost:
             return {'state': 'lease_lost', 'home_visible': False, 'notifications_sent': False}
         except Exception as exc:
-            # Preserve unknown writes and successful receipts. Never turn an
-            # outage after an effect into permission to execute it once more.
-            row = await work.current()
-            effect = (row.get('_core_work') or {}).get('effect') or {}
-            phase = ('result_ready' if effect.get('state') == 'verified' else
-                     'reconciliation_required' if effect else
-                     'failed' if row['_core_work']['attempts'] >= MAX_ATTEMPTS else 'retry')
-            await work.change({'_core_work.phase': phase,
-                '_core_work.last_error_kind': type(exc).__name__,
-                '_core_work.lease_until': _now().isoformat(),
-                '_core_work.next_run_at': (_now() + timedelta(seconds=30)).isoformat()})
-            return {'state': phase, 'home_visible': False, 'notifications_sent': False}
+            try:
+                row = await work.current()
+                effect = (row.get('_core_work') or {}).get('effect') or {}
+                exhausted = row['_core_work']['attempts'] >= MAX_ATTEMPTS
+                phase = ('handoff_failed' if exhausted and effect.get('state') == 'verified' else
+                         'result_ready' if effect.get('state') == 'verified' else
+                         'reconciliation_required' if effect else 'failed' if exhausted else 'retry')
+                await work.change({'_core_work.phase': phase,
+                    '_core_work.last_error_kind': type(exc).__name__,
+                    '_core_work.lease_until': _now().isoformat(),
+                    '_core_work.next_run_at': (_now() + timedelta(seconds=30)).isoformat()})
+                return {'state': phase, 'home_visible': False, 'notifications_sent': False}
+            except LeaseLost:
+                return {'state': 'lease_lost', 'home_visible': False, 'notifications_sent': False}
 
     async def process_pending(self, owner_id, *, limit=2):
-        rows = await self.db[COLLECTION].find({
-            'owner_id': owner_id, 'status': 'pending', '_supersession_pending': {'$ne': True},
-            '$or': [{'_core_work.phase': {'$exists': False}},
-                    {'_core_work.phase': {'$in': ['running', 'retry', 'result_ready']}}],
-        }, {'_id': 0, 'id': 1, 'origin': 1}).sort('observed_at', 1).to_list(min(max(limit, 1), 6))
-        results = []
-        for row in rows:
-            if row.get('origin') == 'self_originated':
-                from connected.signals import SignalService
-                await SignalService(self.db).settle(owner_id, row['id'], outcome='own_work_confirmed')
-                continue
-            results.append(await self.process_one(owner_id, row['id']))
+        bound = min(max(limit, 1), 6)
+        # Deterministic acknowledgement of the app's own echoes, not a model
+        # decision about an external source's relevance.
+        own = await self.db[COLLECTION].find({
+            'owner_id': owner_id, 'status': 'pending', 'origin': 'self_originated',
+            '_supersession_pending': {'$ne': True}}, {'_id': 0, 'id': 1}).to_list(bound)
+        from connected.signals import SignalService
+        for row in own:
+            await SignalService(self.db).settle(owner_id, row['id'], outcome='own_work_confirmed')
+        rows = await self.db[COLLECTION].find(_due_query(owner_id), {'_id': 0, 'id': 1}).sort(
+            'observed_at', 1).to_list(bound)
+        results = [await self.process_one(owner_id, row['id']) for row in rows]
         return {'ok': True, 'looked_at': len(results), 'noise': 0,
                 'passed_on': sum(r['state'] == 'completed' for r in results),
                 'source_core_results': results}
