@@ -380,7 +380,7 @@ void main(){gl_FragColor=uColor;}`);
       const x=(clip.x*.5+.5)*width,y=(1-(clip.y*.5+.5))*height;
       const age=t-(births.get(p.id)??-100);
       const born=p.hub||options.reduced||options.paused?1:ease(age/1.05);
-      const appear=(i===0?1:ease((reveal-p.distance/furthest*.50-.02)/.24))*born;
+      const appear=(options.intro&&p.hub&&i!==0?0:(i===0?1:ease((reveal-p.distance/furthest*.50-.02)/.24)))*born;
       projected[i]={x,y,z:clip.z,depth:1-Math.min(1,Math.max(0,(clip.z+1)*.5)),appear};
     }
     if(labelEls.length){
@@ -416,7 +416,7 @@ void main(){gl_FragColor=uColor;}`);
     const mix=instant?1:1-Math.exp(-dt*3.0);
     camera.x+=(target.x*.72-camera.x)*mix;camera.y+=(target.y*.72-camera.y)*mix;camera.z+=(target.z*.46-camera.z)*mix;
     const requested=Number.isFinite(options.zoomOverride)?Math.max(.72,Math.min(1.55,options.zoomOverride)):1;
-    const desired=(selectedPoint?1.52:focused?1.40:activeHub>=0?1.47:1)*requested;
+    const desired=(selectedPoint?1.58:focused?1.46:activeHub>=0?1.62:1)*requested;
     camera.zoom+=(desired-camera.zoom)*mix;
   }
 
@@ -476,7 +476,7 @@ void main(){gl_FragColor=uColor;}`);
     const revealKey=next.revealKey&&next.revealKey!==options.revealKey;
     const reset=next.resetKey!==undefined&&next.resetKey!==options.resetKey;
     options={...options,...next};mode=modes[options.mode]?options.mode:'idle';rebuild(options.stars);
-    selected=Number.isInteger(options.selectedIndex)&&points[options.selectedIndex]?options.selectedIndex:selected;
+    if(Object.prototype.hasOwnProperty.call(next,'selectedIndex'))selected=Number.isInteger(options.selectedIndex)&&points[options.selectedIndex]?options.selectedIndex:-1;
     if(revealKey){opening=0;camera.x=0;camera.y=0;camera.z=0;camera.zoom=1;hovered=-1;pointer=null;}
     if(options.reduced||options.paused)opening=openingSeconds;
     if(reset){dragYaw=-.34;dragPitch=.10;inertia=0;hovered=-1;selected=-1;pointer=null;camera.x=0;camera.y=0;camera.z=0;camera.zoom=1;}
@@ -522,7 +522,7 @@ void main(){gl_FragColor=uColor;}`);
         camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,
         points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,
         opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,
-        projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)})),
+        projected:projected.map((p,i)=>({x:p.x,y:p.y,appear:p.appear,...nodeInfo(i)})),
       };
     },
   };
