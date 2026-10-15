@@ -52,7 +52,7 @@ test('registration starts with one nucleus and reveals only completed steps', ()
   h.scene.destroy();
 });
 
-test('the progressive introduction respects reduced motion; normal ORA still has its navigation hubs', () => {
+test('the progressive introduction respects reduced motion; normal ORA renders a brain with navigation regions', () => {
   const h = harness({ intro: true, reduced: true, stars: [] });
   assert.equal(h.scene.snapshot().visiblePoints, 1);
   assert.equal(h.pending.size, 0);
@@ -60,7 +60,10 @@ test('the progressive introduction respects reduced motion; normal ORA still has
   assert.equal(h.scene.snapshot().visiblePoints, 2);
   h.scene.destroy();
   const ora = harness({ intro: false, stars: [] });
-  assert.equal(ora.scene.snapshot().visiblePoints, 8, 'the conversational map retains all navigation hubs');
+  const snapshot = ora.scene.snapshot();
+  assert.equal(snapshot.surface, 'brain');
+  assert.ok(snapshot.brain.w > 0 && snapshot.brain.h > 0, 'brain envelope is present');
+  assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
   ora.scene.destroy();
 });
 
@@ -82,7 +85,7 @@ test('saving a new life fact moves the camera to its star and restores the resti
   h.scene.destroy();
 });
 
-test('opening grows from one central point to the full 3D network, once', () => {
+test('opening grows from one central point to the full holographic brain network, once', () => {
   const h = harness({ reveal: true });
   assert.equal(h.scene.snapshot().visiblePoints, 1);
   assert.equal(h.scene.snapshot().projected[0].x, 180);
@@ -97,7 +100,7 @@ test('opening grows from one central point to the full 3D network, once', () => 
   h.scene.destroy();
 });
 
-test('a late first-message trigger restarts at the centre after the mounted map has moved', () => {
+test('a late first-message trigger restarts at the centre after the mounted brain has moved', () => {
   const h = harness({ mode: 'think', area: 'calendar' });
   h.frames(180);
   assert.notEqual(h.scene.snapshot().camera.x, 0);
@@ -159,7 +162,7 @@ test('camera approaches the real selected area smoothly and returns to standby',
   h.frames(120);
   assert.equal(h.scene.snapshot().activeHub, 5);
   assert.ok(h.scene.snapshot().camera.zoom > 1.6);
-  assert.ok(h.scene.snapshot().camera.x > .6);
+  assert.ok(h.scene.snapshot().camera.x > .30, 'brain region focus moves camera toward the selected lobe');
   h.scene.update({ mode: 'idle', area: null }); h.frames(150);
   assert.equal(h.scene.snapshot().activeHub, -1);
   assert.ok(Math.abs(h.scene.snapshot().camera.zoom - 1) < .001);
@@ -254,7 +257,7 @@ test('inspection holds the selected node still until details close, without losi
   h.scene.destroy();
 });
 
-test('dialogue framing moves the drawn map and keeps node hit targets aligned', () => {
+test('dialogue framing moves the drawn brain and keeps node hit targets aligned', () => {
   const h = harness(); h.scene.update({ paused: true });
   const before = h.scene.snapshot().projected[2];
   h.scene.update({ centerY: .4 });

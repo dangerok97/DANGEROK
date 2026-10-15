@@ -11,7 +11,7 @@ async function fixture(page: Page, controls: { followup?: any; removeFails?: boo
   const user = { user_id: 'qa_mobile_v93', name: 'Esempio di test', first_name: 'Esempio', last_name: 'Test', email: 'mobile-qa@example.invalid', provider: 'password', identity_confirmed: true, knowledge_tutorial_version: 1 };
   const history: any[] = [
     { role: 'user', text: 'Ho steso i panni', message_id: 'qa-user-1' },
-    { role: 'ora', text: `${warning}\n\nQuesta conversazione è un esempio per collaudare la nuova interfaccia mobile, non una previsione meteo.\n\nLa risposta deve potersi leggere e scorrere senza essere coperta dalla mappa. Anche una risposta lunga deve lasciare accessibile il campo di scrittura.\n\nLe fonti e i pulsanti in fondo devono essere raggiungibili scorrendo la conversazione. Nessun orario di asciugatura viene inventato in questo test.`, message_id: 'qa-ora-1', meta: { sources: Array.from({ length: 6 }, (_, i) => ({ title: `Documento di prova ${i + 1} — dati simulati`, url: `https://example.com/qa-${i + 1}` })) } },
+    { role: 'ora', text: `${warning}\n\nQuesta conversazione è un esempio per collaudare la nuova interfaccia mobile, non una previsione meteo.\n\nLa risposta deve potersi leggere e scorrere senza essere coperta dal cervello. Anche una risposta lunga deve lasciare accessibile il campo di scrittura.\n\nLe fonti e i pulsanti in fondo devono essere raggiungibili scorrendo la conversazione. Nessun orario di asciugatura viene inventato in questo test.`, message_id: 'qa-ora-1', meta: { sources: Array.from({ length: 6 }, (_, i) => ({ title: `Documento di prova ${i + 1} — dati simulati`, url: `https://example.com/qa-${i + 1}` })) } },
   ];
   await page.route('**/api/**', async route => {
     const request = route.request();
@@ -203,7 +203,7 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   for (const size of [{ width: 320, height: 568 }, { width: 390, height: 740 }, { width: 740, height: 390 }]) {
     await resizeAndScrollSituation(page, detail, scroll, size);
     await expect(card.getByTestId('ora-remove-temporary')).toBeInViewport();
-    await expect(modal.getByRole('button', { name: 'Chiudi dettagli della mappa' })).toBeInViewport();
+    await expect(modal.getByRole('button', { name: 'Chiudi dettagli del cervello' })).toBeInViewport();
     await expect(modal.getByTestId('ora-mobile-close-map')).toBeInViewport();
     const box = await detail.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
@@ -218,7 +218,7 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
   await card.getByTestId('ora-remove-temporary').click();
   await expect(card).toHaveCount(0);
-  await expect(modal.getByTestId('knowledge-map-progress')).toContainText('1 stelle');
+  await expect(modal.getByTestId('knowledge-map-progress')).toContainText('1 nodi');
   expect(controls.dismissed).toEqual(Array(2).fill('/api/life-profile/knowledge-map/situations/sit_qa_1/dismiss'));
   expect(posts).toEqual([]);
 });
@@ -245,7 +245,7 @@ test('mobile follow-up starts unconfirmed and refreshes without a chat message',
   controls.followup = { status: 'scheduled', next_check_at: '2026-10-08T14:30:00+02:00', completion_when: 'Quando il risultato utile è raggiunto', notify_when: 'Se prima cambia qualcosa di importante' };
   await expect(card).toContainText('Controllo programmato', { timeout: 25000 });
   await expect(card).toContainText('Prossimo controllo');
-  await modal.getByRole('button', { name: 'Chiudi dettagli della mappa' }).click();
+  await modal.getByRole('button', { name: 'Chiudi dettagli del cervello' }).click();
   await expect(card).toHaveCount(0);
   await modal.getByTestId('ora-mobile-close-map').click();
   expect(posts).toEqual([]);

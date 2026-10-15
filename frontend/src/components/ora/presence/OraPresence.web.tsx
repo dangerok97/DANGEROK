@@ -125,22 +125,22 @@ function MobilePresenceConversation({
           <Text accessibilityRole="header" style={styles.wordmark}>ORA</Text>
           <Text style={styles.caption} numberOfLines={1} testID="ora-presence-state">{caption}{area ? ` · ${AREA_LABELS[area]}` : ''}</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Espandi la mappa" accessibilityState={{ expanded: mapOpen }}
+        <Pressable accessibilityRole="button" accessibilityLabel="Espandi il cervello ORA" accessibilityState={{ expanded: mapOpen }}
           onPress={() => openMap()} style={styles.mapButton} testID="ora-mobile-open-map">
-          <Ionicons name="git-network-outline" size={17} color={palette.label} />
-          <Text style={styles.mapButtonText}>Mappa</Text>
+          <Ionicons name="pulse-outline" size={17} color={palette.label} />
+          <Text style={styles.mapButtonText}>Cervello</Text>
           <Ionicons name="expand-outline" size={14} color={palette.muted} />
         </Pressable>
       </View>
 
       {!viewport.editing ? <View style={styles.knowledgeStrip} testID="knowledge-map-progress">
-        <Text style={styles.note}>{map ? `${map.count} stelle · ${map.temporary_count || 0} temporanee · VITA ${map.percent}%` : learned.error ? 'Mappa non disponibile' : 'Carico la mappa…'}</Text>
-        {learned.error ? <Pressable accessibilityRole="button" accessibilityLabel="Riprova caricamento della mappa" onPress={learned.reload} style={styles.retry}><Text style={styles.note}>Riprova</Text></Pressable> : null}
+        <Text style={styles.note}>{map ? `${map.count} nodi · ${map.temporary_count || 0} temporanee · VITA ${map.percent}%` : learned.error ? 'Cervello non disponibile' : 'Carico il cervello…'}</Text>
+        {learned.error ? <Pressable accessibilityRole="button" accessibilityLabel="Riprova caricamento del cervello" onPress={learned.reload} style={styles.retry}><Text style={styles.note}>Riprova</Text></Pressable> : null}
       </View> : null}
 
       <View testID="ora-mobile-map-preview" style={[styles.preview, { height: preview.previewHeight, display: preview.showPreview ? 'flex' : 'none' }]}>
         {!canvasFailed ? <PresenceCanvas options={options} onUnavailable={() => setCanvasFailed(true)} onSelect={node => openMap(node)} />
-          : <Text style={styles.note}>La mappa non è disponibile. La conversazione resta attiva.</Text>}
+          : <Text style={styles.note}>Il cervello non è disponibile. La conversazione resta attiva.</Text>}
       </View>
       {preview.showPreview && highlighted ? <Pressable
         accessibilityRole="button"
@@ -148,10 +148,10 @@ function MobilePresenceConversation({
         style={[styles.highlight, !highlighted.temporary && styles.highlightPermanent]}
         testID="ora-mobile-star-detail"
       >
-        <Text style={[styles.redStar, !highlighted.temporary && styles.permanentStar]}>✦</Text>
+        <Text style={[styles.redStar, !highlighted.temporary && styles.permanentStar]}>●</Text>
         <View style={styles.highlightText}>
           <Text style={[styles.highlightLabel, !highlighted.temporary && styles.highlightLabelPermanent]}>
-            {highlighted.temporary ? 'MEMORIA TEMPORANEA IN EVIDENZA' : 'STELLA IN EVIDENZA'}
+            {highlighted.temporary ? 'MEMORIA TEMPORANEA IN EVIDENZA' : 'NODO IN EVIDENZA'}
           </Text>
           <Text style={styles.highlightStatement} numberOfLines={2}>{highlighted.statement}</Text>
         </View>
@@ -161,7 +161,7 @@ function MobilePresenceConversation({
       <View style={styles.conversation} testID="ora-mobile-conversation-panel">
         <View style={styles.conversationHead}><View style={styles.dot} /><Text style={styles.sectionLabel}>CONVERSAZIONE</Text></View>
         <View style={styles.conversationBody} testID="ora-presence-conversation">
-          {conversation || <View style={styles.empty}><Text style={styles.emptyTitle}>Ci sono.</Text><Text style={styles.emptyText}>Scrivimi qui sotto. La mappa resta a portata di mano.</Text></View>}
+          {conversation || <View style={styles.empty}><Text style={styles.emptyTitle}>Ci sono.</Text><Text style={styles.emptyText}>Scrivimi qui sotto. Il cervello ORA resta a portata di mano.</Text></View>}
         </View>
       </View>
       <View style={styles.footer} testID="ora-presence-footer">{footer}</View>
@@ -169,7 +169,7 @@ function MobilePresenceConversation({
       <Modal visible={mapOpen} animationType={reduced ? 'none' : 'fade'} onRequestClose={() => setMapOpen(false)} presentationStyle="fullScreen">
         <View accessibilityViewIsModal style={[styles.modal, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID="ora-mobile-expanded-map">
           <View style={styles.modalHead}>
-            <Text style={styles.modalTitle}>La tua mappa</Text>
+            <Text style={styles.modalTitle}>Il cervello di ORA</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Torna alla chat" onPress={() => setMapOpen(false)} style={styles.mapButton} testID="ora-mobile-close-map">
               <Ionicons name="chatbubble-outline" size={17} color={palette.label} /><Text style={styles.mapButtonText}>Torna alla chat</Text>
             </Pressable>

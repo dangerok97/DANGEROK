@@ -26,7 +26,7 @@ function lifecycleCopy(star: KnowledgeStar): string {
     : status === 'waiting_for_user' ? 'Il controllo attende informazioni o autorizzazione.'
     : status === 'recovery_pending' ? 'La programmazione del controllo deve essere recuperata.'
     : 'La programmazione del controllo non è confermata.';
-  const lifecycle = 'Verrà rimossa dalla mappa quando la situazione sarà risolta o annullata.';
+  const lifecycle = 'Verrà rimossa dal cervello ORA quando la situazione sarà risolta o annullata.';
   return `${state} ${tracking ? tracking + ' ' : ''}${lifecycle}`;
 }
 
@@ -63,7 +63,7 @@ export function TemporarySituationToast({
         </View>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
         <Text style={styles.body}>
-          {title} è stata aggiunta alla tua mappa. {lifecycleCopy(star)}
+          {title} è stata aggiunta al cervello ORA. {lifecycleCopy(star)}
         </Text>
       </View>
 

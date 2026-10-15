@@ -164,27 +164,27 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
         </View>
       </View>
       <View style={styles.actions}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Esplora le aree della mappa" accessibilityState={{ expanded: areas }} onPress={() => { setAreas(value => !value); setSelected(null); setInfo(false); }} style={styles.button}><Ionicons name="git-network-outline" size={18} color={palette.muted} />{width >= 650 ? <Text style={styles.control}>Aree</Text> : null}</Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Centra la mappa" onPress={() => { setSelected(null); setResetKey(value => value + 1); }} style={styles.button}><Ionicons name="scan-outline" size={18} color={palette.muted} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Esplora le aree del cervello ORA" accessibilityState={{ expanded: areas }} onPress={() => { setAreas(value => !value); setSelected(null); setInfo(false); }} style={styles.button}><Ionicons name="pulse-outline" size={18} color={palette.muted} />{width >= 650 ? <Text style={styles.control}>Aree</Text> : null}</Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Centra il cervello" onPress={() => { setSelected(null); setResetKey(value => value + 1); }} style={styles.button}><Ionicons name="scan-outline" size={18} color={palette.muted} /></Pressable>
         {!reduced && !unavailable ? <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Riprendi animazione' : 'Metti in pausa animazione'} accessibilityState={{ selected: paused }} onPress={() => setPaused(value => !value)} style={styles.button}><Ionicons name={paused ? 'play-outline' : 'pause-outline'} size={18} color={palette.muted} /></Pressable> : null}
-        <Pressable accessibilityRole="button" accessibilityLabel="Come funziona la rete di ORA" accessibilityState={{ expanded: info }} onPress={() => { setInfo(value => !value); setSelected(null); setAreas(false); }} style={styles.button}><Ionicons name="information-circle-outline" size={19} color={palette.muted} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Come funziona il cervello di ORA" accessibilityState={{ expanded: info }} onPress={() => { setInfo(value => !value); setSelected(null); setAreas(false); }} style={styles.button}><Ionicons name="information-circle-outline" size={19} color={palette.muted} /></Pressable>
       </View>
     </View>
 
         <View style={styles.knowledgeStrip} testID="knowledge-map-progress">
-      <Text style={styles.note} accessibilityLiveRegion="polite">{map ? `${map.count} stelle${map.temporary_count ? ` · ${map.temporary_count} temporanee` : ''} · VITA ${map.percent}%` : learned.error ? 'Mappa da aggiornare' : 'Carico le tue stelle…'}</Text>
-      {knowledge === undefined && learned.error ? <Pressable accessibilityRole="button" accessibilityLabel="Riprova caricamento della mappa" onPress={learned.reload}><Text style={styles.control}>Riprova</Text></Pressable> : map && map.count === 0 ? <Text style={styles.note}>La prima stella nasce da ciò che mi racconti.</Text> : null}
+      <Text style={styles.note} accessibilityLiveRegion="polite">{map ? `${map.count} nodi${map.temporary_count ? ` · ${map.temporary_count} temporanei` : ''} · VITA ${map.percent}%` : learned.error ? 'Cervello da aggiornare' : 'Carico i tuoi nodi…'}</Text>
+      {knowledge === undefined && learned.error ? <Pressable accessibilityRole="button" accessibilityLabel="Riprova caricamento del cervello" onPress={learned.reload}><Text style={styles.control}>Riprova</Text></Pressable> : map && map.count === 0 ? <Text style={styles.note}>Il primo nodo nasce da ciò che mi racconti.</Text> : null}
     </View></> : null}
     <View style={expanded ? [styles.stage, tight && { minHeight: 0 }] : { height }} testID="ora-presence-map" onLayout={event => setStageHeight(event.nativeEvent.layout.height)}>
       {unavailable ? <View style={styles.fallback}><Text style={styles.fallbackText}>ORA</Text></View> : canvasReady ? <PresenceCanvas options={options} onUnavailable={fail} onSelect={select} /> : null}
       {areas || selected || info ? <View style={[styles.overlay, width < 650 && styles.overlayMobile]} testID="ora-map-detail">
           <View style={[styles.detailHead, { paddingHorizontal: 16 }]}>
-            <Text accessibilityRole="header" style={styles.detailTitle}>{fact?.temporary ? 'Memoria temporanea' : fact?.group_kind === 'birthdays' ? 'Compleanni' : fact ? 'Un punto della tua vita' : branch ? branch.title : selected ? AREA_LABELS[selected.area] : areas ? 'Esplora la mappa' : 'La tua mappa cresce con te'}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Chiudi dettagli della mappa" onPress={() => { setSelected(null); setAreas(false); setInfo(false); }} style={styles.button}><Text style={styles.control}>Chiudi</Text></Pressable>
+            <Text accessibilityRole="header" style={styles.detailTitle}>{fact?.temporary ? 'Memoria temporanea' : fact?.group_kind === 'birthdays' ? 'Compleanni' : fact ? 'Un punto della tua vita' : branch ? branch.title : selected ? AREA_LABELS[selected.area] : areas ? 'Esplora il cervello' : 'Il cervello di ORA cresce con te'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Chiudi dettagli del cervello" onPress={() => { setSelected(null); setAreas(false); setInfo(false); }} style={styles.button}><Text style={styles.control}>Chiudi</Text></Pressable>
           </View>
         <ScrollView keyboardShouldPersistTaps="handled" style={{ minHeight: 0, flexShrink: 1 }} contentContainerStyle={styles.detailContent} testID="ora-map-detail-scroll">
           {areas ? <>
-            <Text style={styles.note}>Ogni stella è un’informazione salvata. Scegli un’area per leggerle anche senza usare la mappa.</Text>
+            <Text style={styles.note}>Ogni nodo è un’informazione che ORA può usare. Scegli un’area per leggerla anche senza esplorare il cervello.</Text>
             <View style={styles.areaList}>{AREA_IDS.map((id, index) => <Pressable key={id} accessibilityRole="button" onPress={() => select({ index, area: id, kind: 'area' })} style={styles.areaButton}><Text style={styles.control}>{AREA_LABELS[id]} · {map?.stars.filter(s => s.area === id).length ?? 0}</Text></Pressable>)}</View>
           </> : fact?.temporary ? <OraCockpitContext
             key={fact.id} star={fact} standalone readError={knowledge === undefined ? learned.error : knowledgeError}
@@ -221,16 +221,16 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
             {fact.branch_id && !fact.temporary ? <Pressable accessibilityRole="button" style={styles.promptButton} onPress={() => router.push({ pathname: '/life-setup', params: { area: fact.branch_id } } as any)}><Text style={styles.promptText}>Apri in VITA ↗</Text></Pressable> : null}
           </> : branch ? <>
             <Text style={styles.detailText}>{branch.purpose}</Text>
-            <Text style={styles.activity}>{branch.star_count} stelle · {branch.percent}% · {branch.complete ? 'Ramo completato' : branch.state_label}</Text>
+            <Text style={styles.activity}>{branch.star_count} nodi · {branch.percent}% · {branch.complete ? 'Ramo completato' : branch.state_label}</Text>
             <Pressable accessibilityRole="button" style={styles.promptButton} onPress={() => router.push({ pathname: '/life-setup', params: { area: branch.area_id } } as any)}><Text style={styles.promptText}>Continua in VITA ↗</Text></Pressable>
           </> : selected && detail ? <>
             <Text style={styles.detailText}>{detail.description}</Text>
             {activity?.touched.includes(selected.area) ? <Text style={styles.activity}>Area coinvolta nell’ultimo turno.</Text> : null}
-            {map?.branches.filter(b => b.area === selected.area && b.star_count > 0).map(b => <Pressable key={b.area_id} accessibilityRole="button" style={styles.areaButton} onPress={() => select({ index: 8 + stars.findIndex(s => s.id === `branch_${b.area_id}`), id: `branch_${b.area_id}`, area: b.area, kind: 'branch' })}><Text style={styles.control}>{b.complete ? '✦ ' : ''}{b.title} · {b.percent}%</Text></Pressable>)}
-            {map?.stars.filter(s => s.area === selected.area).map(s => <Pressable key={s.id} accessibilityRole="button" style={styles.starRow} onPress={() => select({ index: 8 + stars.findIndex(n => n.id === s.id), id: s.id, area: s.area, kind: 'node' })}><Text numberOfLines={2} style={styles.detailText}>✦ {s.statement}</Text><Text style={styles.note}>{s.status === 'likely' ? 'Da verificare' : s.provenance}</Text></Pressable>)}
+            {map?.branches.filter(b => b.area === selected.area && b.star_count > 0).map(b => <Pressable key={b.area_id} accessibilityRole="button" style={styles.areaButton} onPress={() => select({ index: 8 + stars.findIndex(s => s.id === `branch_${b.area_id}`), id: `branch_${b.area_id}`, area: b.area, kind: 'branch' })}><Text style={styles.control}>{b.complete ? '◉ ' : ''}{b.title} · {b.percent}%</Text></Pressable>)}
+            {map?.stars.filter(s => s.area === selected.area).map(s => <Pressable key={s.id} accessibilityRole="button" style={styles.starRow} onPress={() => select({ index: 8 + stars.findIndex(n => n.id === s.id), id: s.id, area: s.area, kind: 'node' })}><Text numberOfLines={2} style={styles.detailText}>● {s.statement}</Text><Text style={styles.note}>{s.status === 'likely' ? 'Da verificare' : s.provenance}</Text></Pressable>)}
             {!map?.stars.some(s => s.area === selected.area) ? <Text style={styles.note}>Non ci sono ancora informazioni salvate in quest’area.</Text> : null}
             {onAreaPrompt ? <Pressable accessibilityRole="button" onPress={() => { onAreaPrompt(detail.prompt); setSelected(null); }} style={styles.promptButton}><Text style={styles.promptText}>Parliamone ↗</Text></Pressable> : null}
-          </> : <Text style={styles.detailText}>Ogni stella rappresenta qualcosa che ORA sta tenendo presente. Le stelle normali sono informazioni salvate nel profilo o in memoria; le stelle rosse sono memorie temporanee legate a situazioni ancora attive e spariscono quando la situazione viene risolta o annullata. Le informazioni da verificare hanno una luce ambrata. Un alone segnala i rami completati in VITA. Il conteggio delle stelle e la percentuale di VITA misurano cose diverse: informazioni presenti nella mappa e completezza delle aree. I collegamenti mostrano come le informazioni si raggruppano; il movimento segue il tema della conversazione, non il ragionamento interno del modello. Trascina per ruotare, anche in pausa.</Text>}
+          </> : <Text style={styles.detailText}>Ogni nodo rappresenta qualcosa che ORA sta tenendo presente. I nodi chiari sono informazioni salvate nel profilo o in memoria; i nodi rossi sono memorie temporanee legate a situazioni ancora attive e spariscono quando la situazione viene risolta o annullata. Le informazioni da verificare hanno una luce ambrata. Le fibre luminose mostrano come le informazioni si raggruppano nelle diverse aree del cervello ORA; il movimento segue il tema della conversazione, non espone il ragionamento interno del modello. Trascina per ruotare, tocca un nodo per aprirlo.</Text>}
 
         </ScrollView>
       </View> : null}
@@ -243,7 +243,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
           </View>
         </View>
         <View style={styles.cockpitMapControls}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Centra la mappa" onPress={() => { setSelected(null); onSelectNode?.(null); setResetKey(value => value + 1); }} style={styles.cockpitControlButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Centra il cervello" onPress={() => { setSelected(null); onSelectNode?.(null); setResetKey(value => value + 1); }} style={styles.cockpitControlButton}>
             <Ionicons name="locate-outline" size={18} color={palette.label} />
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Riduci zoom" onPress={() => setZoomOverride(value => Math.max(.72, Math.round((value - .12) * 100) / 100))} style={styles.cockpitControlButton}>
