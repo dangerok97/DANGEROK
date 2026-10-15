@@ -228,11 +228,32 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.save();
     brainOutline(cx,cy,w,h);ctx.clip();
     ctx.globalCompositeOperation='lighter';
+
+    // Bright central thalamic-style energy core and long axonal bundles make
+    // the organ read as an active holographic brain rather than a node chart.
+    const core={x:cx+w*.015,y:cy+h*.045};
+    glow(core.x,core.y,w*.17,.34+state.light*.18+beat*.14,false);
+    glow(core.x,core.y,w*.055,.58+state.light*.20+beat*.18,false);
+    for(let i=3;i<projected.length;i+=6){
+      const p=projected[i];
+      const n=brainScaffold.neurons[i];
+      if(Math.hypot(n.x,n.y)<.24)continue;
+      const bend=(i%2?1:-1)*(12+((i*13)%17));
+      const mx=(core.x+p.x)*.5+(p.y-core.y)*.035*bend;
+      const my=(core.y+p.y)*.5-(p.x-core.x)*.018*bend;
+      const pulse=.55+.45*Math.sin(t*.72+n.phase);
+      ctx.strokeStyle='rgba('+palette.trail+','+(.065+state.light*.055+pulse*.028+beat*.035)+')';
+      ctx.lineWidth=.42+p.depth*.32;
+      ctx.beginPath();ctx.moveTo(core.x,core.y);ctx.quadraticCurveTo(mx,my,p.x,p.y);ctx.stroke();
+    }
+    ctx.fillStyle='rgba('+palette.point+','+(.72+Math.min(.20,beat*.15))+')';
+    ctx.beginPath();ctx.arc(core.x,core.y,1.6+state.light*.8,0,Math.PI*2);ctx.fill();
+
     for(const e of brainScaffold.edges){
       const a=projected[e.a],b=projected[e.b];
       const depth=(a.depth+b.depth)*.5;
       const travelling=.5+.5*Math.sin(t*.65+e.phase);
-      const alpha=.035+depth*.055+state.light*.055+travelling*.018+beat*.028;
+      const alpha=.055+depth*.075+state.light*.070+travelling*.024+beat*.035;
       ctx.strokeStyle='rgba('+palette.trail+','+alpha+')';
       ctx.lineWidth=.30+depth*.32;
       const mx=(a.x+b.x)*.5+(b.y-a.y)*.035,my=(a.y+b.y)*.5-(b.x-a.x)*.035;
@@ -241,8 +262,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     for(let i=0;i<brainScaffold.neurons.length;i++){
       const p=brainScaffold.neurons[i],q=projected[i];
       const pulse=.72+.28*Math.sin(t*.9+p.phase);
-      const alpha=.16+q.depth*.34+state.light*.18+pulse*.08;
-      if(i%9===0)glow(q.x,q.y,5+p.size*4,.11+beat*.06+pulse*.035,p.warm);
+      const alpha=.23+q.depth*.40+state.light*.18+pulse*.10;
+      if(i%6===0)glow(q.x,q.y,6+p.size*4,.14+beat*.07+pulse*.045,p.warm);
       ctx.fillStyle=p.warm
         ? 'rgba('+palette.warmPoint+','+Math.min(.82,alpha+.12)+')'
         : 'rgba('+palette.point+','+Math.min(.72,alpha)+')';
@@ -504,17 +525,21 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const occupied=[],labelIndices=options.intro?[]:activeHub>=0?[activeHub]:height<180?[0,1,5]:width<430?[0,1,2,5]:[0,1,2,3,4,5,6,7];
     if(inspected>=0&&!labelIndices.includes(points[inspected].areaGroup))labelIndices.push(points[inspected].areaGroup);
     labels=[];
-    ctx.font='500 11px ui-monospace, SFMono-Regular, Consolas, monospace';ctx.textBaseline='middle';
+    ctx.font='600 10.5px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';ctx.textBaseline='middle';
     labelIndices.forEach(i=>{
       const h=hubs[i],p=projected[i],tw=ctx.measureText(h.name).width;
       if(p.appear<.99||opening/openingSeconds<.72)return;
       if(p.x<0||p.x>width||p.y<0||p.y>height)return;
       let x=p.x+h.dx,y=p.y+h.dy;let left=h.align==='right'?x-tw:x;
-      left=Math.max(15,Math.min(width-tw-15,left));y=Math.max(18,Math.min(height-20,y));
-      for(let tries=0;tries<6;tries++){if(!occupied.some(b=>left<b.x+b.w+7&&left+tw+7>b.x&&Math.abs(y-b.y)<19))break;y+=19;}
-      y=Math.min(height-23,y);occupied.push({x:left,y,w:tw});labels.push({x:left,y,w:tw,index:i});
-      ctx.strokeStyle='rgba('+palette.leader+',.28)';ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
-      ctx.fillStyle=palette.labelBackground;ctx.fillRect(left-3,y-8,tw+6,16);ctx.fillStyle=i===0?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);
+      left=Math.max(18,Math.min(width-tw-18,left));y=Math.max(20,Math.min(height-22,y));
+      for(let tries=0;tries<6;tries++){if(!occupied.some(b=>left<b.x+b.w+11&&left+tw+11>b.x&&Math.abs(y-b.y)<22))break;y+=21;}
+      y=Math.min(height-24,y);occupied.push({x:left-5,y,w:tw+10});labels.push({x:left-5,y,w:tw+10,index:i});
+      const warm=i===0;
+      ctx.strokeStyle='rgba('+(warm?palette.warmEdge:palette.leader)+',.24)';ctx.lineWidth=.55;
+      ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+7:left-7,y);ctx.stroke();
+      ctx.fillStyle='rgba('+(warm?palette.warmEdge:palette.edge)+',.075)';ctx.fillRect(left-6,y-10,tw+12,20);
+      ctx.strokeStyle='rgba('+(warm?palette.warmEdge:palette.edge)+',.18)';ctx.lineWidth=.45;ctx.strokeRect(left-6,y-10,tw+12,20);
+      ctx.fillStyle=warm?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);
     });
     if(options.intro){
       for(let i=8;i<points.length;i++){
