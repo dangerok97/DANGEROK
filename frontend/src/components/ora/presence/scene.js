@@ -153,6 +153,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const grad=ctx.createRadialGradient(x,y,0,x,y,r);grad.addColorStop(0,'rgba('+c+','+(power*.8)+')');grad.addColorStop(.18,'rgba('+c+','+(power*.22)+')');grad.addColorStop(1,'rgba('+c+',0)');ctx.fillStyle=grad;ctx.fillRect(x-r,y-r,r*2,r*2);
   }
   let brainFrame={cx:0,cy:0,w:0,h:0};
+  let brainCloudFrame={minX:0,minY:0,maxX:0,maxY:0,w:0,h:0};
   function brainOutline(cx,cy,w,h){
     // Lateral human-brain silhouette with deliberate lobe changes: at small
     // preview sizes this must still read as a brain, not as a generic oval.
@@ -349,9 +350,12 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.restore();
   }
   function projectCortexPoint(p,yaw,pitch,scale,breathing){
-    let x=p.x*breathing*growth-camera.x;
-    let y=p.y*breathing*growth-camera.y;
-    let z=p.z*breathing*growth-camera.z;
+    // Decorative neural volume must stay full-sized even for a brand-new
+    // account. `growth` belongs to personal knowledge nodes, not anatomy.
+    const cortexGrowth=.96+.04*ease(opening/openingSeconds);
+    let x=p.x*breathing*cortexGrowth-camera.x;
+    let y=p.y*breathing*cortexGrowth-camera.y;
+    let z=p.z*breathing*cortexGrowth-camera.z;
     const rx=x*Math.cos(yaw)+z*Math.sin(yaw),rz=z*Math.cos(yaw)-x*Math.sin(yaw);
     const ry=y*Math.cos(pitch)-rz*Math.sin(pitch),zz=y*Math.sin(pitch)+rz*Math.cos(pitch);
     const perspective=3.8/(3.8-zz);
@@ -362,6 +366,11 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const reveal=ease(opening/openingSeconds);
     if(reveal<.04)return;
     const projectedCloud=cortexCloud.map(p=>projectCortexPoint(p,yaw,pitch,scale,breathe));
+    if(projectedCloud.length){
+      const xs=projectedCloud.map(p=>p.x),ys=projectedCloud.map(p=>p.y);
+      const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+      brainCloudFrame={minX,minY,maxX,maxY,w:maxX-minX,h:maxY-minY};
+    }
     ctx.save();
     ctx.globalCompositeOperation='lighter';
     ctx.globalAlpha=reveal;
@@ -625,5 +634,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {surface:'brain',brain:{...brainFrame},brainCloudPoints:cortexCloud.length,brainCloudLinks:cortexLinks.length,camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {surface:'brain',brain:{...brainFrame},brainCloud:{...brainCloudFrame},brainCloudPoints:cortexCloud.length,brainCloudLinks:cortexLinks.length,camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }
