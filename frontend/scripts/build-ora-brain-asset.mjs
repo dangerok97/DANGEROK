@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {MeshoptSimplifier} from 'meshoptimizer';
 
 const source=path.resolve(process.argv[2]||'');
 const output=path.resolve(process.argv[3]||'');
@@ -46,9 +47,9 @@ const center=bounds[0].map((v,i)=>(v+bounds[1][i])/2);
 const maxHalf=Math.max(...center.map((v,i)=>Math.max(Math.abs(bounds[0][i]-v),Math.abs(bounds[1][i]-v))));
 const scale=.70/maxHalf;
 
-const positions=[];
-const normals=[];
-const indices=[];
+const sourcePositions=[];
+const sourceNormals=[];
+const sourceIndices=[];
 let vertexBase=0;
 for(const p of parts){
   const raw=chunkBuffer(p.chunk);
@@ -56,40 +57,61 @@ for(const p of parts){
   const nor=new Int16Array(raw.buffer,raw.byteOffset+p.normals,p.vertexCount*3);
   const idx=new Uint32Array(raw.buffer,raw.byteOffset+p.indices,p.indexCount);
   for(let i=0;i<p.vertexCount;i++){
-    const x=(pos[i*3]-center[0])*scale;
-    const y=(pos[i*3+1]-center[1])*scale;
-    const z=(pos[i*3+2]-center[2])*scale;
-    positions.push(
-      Math.max(-32767,Math.min(32767,Math.round(x*32767))),
-      Math.max(-32767,Math.min(32767,Math.round(y*32767))),
-      Math.max(-32767,Math.min(32767,Math.round(z*32767)))
+    sourcePositions.push(
+      (pos[i*3]-center[0])*scale,
+      (pos[i*3+1]-center[1])*scale,
+      (pos[i*3+2]-center[2])*scale
     );
     const nx=nor[i*3]/32767,ny=nor[i*3+1]/32767,nz=nor[i*3+2]/32767;
     const length=Math.hypot(nx,ny,nz)||1;
-    normals.push(
-      Math.max(-127,Math.min(127,Math.round(nx/length*127))),
-      Math.max(-127,Math.min(127,Math.round(ny/length*127))),
-      Math.max(-127,Math.min(127,Math.round(nz/length*127)))
-    );
+    sourceNormals.push(nx/length,ny/length,nz/length);
   }
-  for(const n of idx) indices.push(vertexBase+n);
+  for(const n of idx) sourceIndices.push(vertexBase+n);
   vertexBase+=p.vertexCount;
 }
-if(vertexBase>=65535) throw new Error('brain asset exceeded uint16 vertex budget: '+vertexBase);
-if(indices.some(n=>n>=65535)) throw new Error('brain index overflow');
+await MeshoptSimplifier.ready;
+const sourceIndexArray=Uint32Array.from(sourceIndices);
+const sourcePositionArray=Float32Array.from(sourcePositions);
+const target=Math.min(sourceIndexArray.length,60000);
+const targetIndices=Math.floor(target/3)*3;
+const [simplified,error]=MeshoptSimplifier.simplify(
+  sourceIndexArray,sourcePositionArray,3,targetIndices,.0015
+);
+const [remap,compactCount]=MeshoptSimplifier.compactMesh(simplified);
+if(compactCount>=65535) throw new Error('brain asset exceeded uint16 vertex budget: '+compactCount);
+const compactPositions=new Float32Array(compactCount*3);
+const compactNormals=new Float32Array(compactCount*3);
+for(let oldIndex=0;oldIndex<remap.length;oldIndex++){
+  const next=remap[oldIndex];
+  if(next===0xffffffff) continue;
+  compactPositions.set(sourcePositionArray.subarray(oldIndex*3,oldIndex*3+3),next*3);
+  compactNormals.set(sourceNormals.slice(oldIndex*3,oldIndex*3+3),next*3);
+}
+const positions=new Int16Array(compactCount*3);
+const normals=new Int8Array(compactCount*3);
+for(let i=0;i<compactCount;i++){
+  for(let a=0;a<3;a++) positions[i*3+a]=Math.max(-32767,Math.min(32767,Math.round(compactPositions[i*3+a]*32767)));
+  const nx=compactNormals[i*3],ny=compactNormals[i*3+1],nz=compactNormals[i*3+2],length=Math.hypot(nx,ny,nz)||1;
+  normals[i*3]=Math.round(nx/length*127);normals[i*3+1]=Math.round(ny/length*127);normals[i*3+2]=Math.round(nz/length*127);
+}
+const compactIndices=Uint16Array.from(simplified);
+if([...compactIndices].some(n=>n>=compactCount)) throw new Error('brain compact index overflow');
 
-const posBuf=Buffer.from(new Int16Array(positions).buffer);
-const normalBuf=Buffer.from(new Int8Array(normals).buffer);
-const indexBuf=Buffer.from(new Uint16Array(indices).buffer);
+const posBuf=Buffer.from(positions.buffer);
+const normalBuf=Buffer.from(normals.buffer);
+const indexBuf=Buffer.from(compactIndices.buffer);
 const asset={
   source:'BodyParts3D 4.0',
   sourceCommit:'1c38bf35c254a891200d3cedecfd57abebe83d8d',
   license:'CC BY 4.0',
   concept:'brain surface for ORA presence',
   partCount:parts.length,
-  vertexCount:vertexBase,
-  indexCount:indices.length,
-  triangleCount:indices.length/3,
+  vertexCount:compactCount,
+  indexCount:compactIndices.length,
+  triangleCount:compactIndices.length/3,
+  sourceVertexCount:vertexBase,
+  sourceTriangleCount:sourceIndices.length/3,
+  simplificationError:error,
   positionEncoding:'int16-normalized',
   normalEncoding:'int8-normalized',
   indexEncoding:'uint16',
