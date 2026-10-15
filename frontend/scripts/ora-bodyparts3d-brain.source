@@ -106,7 +106,7 @@ function lineSegments(values:number[],color:number,alpha:number){
 export default function OraBrain(){
  const element=useRef<HTMLDivElement>(null),[status,setStatus]=useState<'ready'|'error'>('ready'),[error,setError]=useState('');
  useEffect(()=>{
-  const host=element.current;if(!host)return;let disposed=false,frame=0,frameNumber=0;
+  const host=element.current!;if(!host)return;let disposed=false,frame=0,frameNumber=0;
   const current:{value:State}={value:{mode:'idle',stars:[],paused:false,reduced:false,zoomOverride:1,resetKey:0}};
   const notify=(message:unknown)=>{if(window.parent!==window)window.parent.postMessage(message,window.location.origin);};
   let renderer:T.WebGLRenderer;
