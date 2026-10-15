@@ -252,6 +252,73 @@ def test_code_never_makes_the_answer_more_permissive(monkeypatch):
     _run(body())
 
 
+def test_standing_grant_respects_explicit_observe_mode(monkeypatch):
+    """
+    A capability-specific grant removes the ordinary prepare/confirm question,
+    but it must never override the person's broader explicit choice to observe
+    only. Switching back to prepare proves the same grant still works there.
+    """
+    async def body():
+        client, db = await _db()
+        uid = f"u39_{uuid.uuid4().hex[:8]}"
+        try:
+            from agent.authority import AuthorityService
+            from agent.models import ActionEffect, ActionIntent, AuthorityAssessment
+
+            service = AuthorityService(db)
+            await _allow_capability(db, uid, "calendar.write")
+            await service.grant(uid, "calendar.write", by="user")
+
+            effect = ActionEffect(
+                effect_type="create",
+                target="calendar:personal",
+                effect_summary="Aggiungere un evento al calendario personale.",
+                reversibility="easily",
+            )
+            intent = ActionIntent(
+                owner_id=uid,
+                goal_id="goal_observe_ceiling",
+                step_id="step_calendar_create",
+                capability="calendar.write",
+                effect_summary=effect.effect_summary,
+                target_ref=effect.target,
+                authority_required="calendar.write",
+                effect=effect,
+            )
+
+            await service.set_mode(uid, "observe")
+            observed = await service.effective_authority(
+                uid,
+                intent,
+                AuthorityAssessment(
+                    capability="calendar.write",
+                    model_outcome="prepare_then_confirm",
+                ),
+            )
+            assert observed.matched_grant_id
+            assert observed.code_ceiling == "ask_before_execution"
+            assert observed.effective_decision == "ask_before_execution"
+            assert observed.may_execute is False
+
+            await service.set_mode(uid, "prepare")
+            prepared = await service.effective_authority(
+                uid,
+                intent,
+                AuthorityAssessment(
+                    capability="calendar.write",
+                    model_outcome="prepare_then_confirm",
+                ),
+            )
+            assert prepared.matched_grant_id
+            assert prepared.effective_decision == "proceed_autonomously"
+            assert prepared.may_execute is True
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
 def test_the_model_cannot_create_authority_for_itself(monkeypatch):
     """
     §42/§59: AI DOES NOT INVENT GRANTS.

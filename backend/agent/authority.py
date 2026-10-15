@@ -620,10 +620,14 @@ class AuthorityService:
         if grant is not None:
             answer.matched_grant_id = grant.id
             answer.reason_code = "grant_matched"
-            # A grant removes the reason to ask. It cannot lift a ceiling code
-            # put there for another reason, so this is a floor-raise bounded
-            # by what `apply_ceiling` already allowed.
-            if narrowed.effective_outcome != "cannot_proceed":
+            # A standing grant may remove the ordinary prepare/confirm boundary,
+            # because that grant is the person's specific decision about this
+            # capability. It must NOT override a stricter ceiling such as
+            # ask_before_execution (for example an explicit observe policy or a
+            # capability that is never autonomous) or cannot_proceed.
+            if narrowed.effective_outcome in (
+                "proceed_autonomously", "prepare_then_confirm"
+            ):
                 answer.effective_decision = "proceed_autonomously"
             return answer
 
