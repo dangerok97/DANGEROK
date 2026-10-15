@@ -172,11 +172,17 @@ export default function OraBrain(){
   leaders.setAttribute('class','ora-brain-leaders');leaders.setAttribute('aria-hidden','true');labels.appendChild(leaders);
   const texture=spriteTexture(),pickGeometry=new T.SphereGeometry(1,12,8);owned.push(texture,pickGeometry);
   const available=cloud.outer.filter(p=>p.z>.035&&p.y>-.70),markers:Marker[]=[];
+  const hubPoint=new T.Vector3(-.02,-.12,.49),hubMat=new T.SpriteMaterial({
+   map:texture,color:0xb8edff,transparent:true,opacity:.93,depthWrite:false,depthTest:false,blending:T.AdditiveBlending});
+  const hub=new T.Sprite(hubMat);hub.position.copy(hubPoint);hub.scale.set(.18,.18,1);brain.add(hub);owned.push(hubMat);
+  let synapseLines:T.LineSegments|null=null;
   function nearest(v:T.Vector3){let best=available[0],score=Infinity;
    for(const p of available){const d=p.distanceToSquared(v);if(d<score){score=d;best=p;}}
    return best.clone().add(new T.Vector3(0,0,.025));}
   const select=(data:Datum)=>notify({type:'ora:brain-select',version:1,node:data});
   function clearMarkers(){
+   if(synapseLines){brain.remove(synapseLines);synapseLines.geometry.dispose();
+    (synapseLines.material as T.Material).dispose();synapseLines=null;}
    for(const m of markers){(m.hit.material as T.Material).dispose();(m.core.material as T.Material).dispose();
     (m.halo.material as T.Material).dispose();m.label?.remove();m.leader?.remove();brain.remove(m.hit,m.core,m.halo);}
    markers.length=0;
@@ -206,6 +212,23 @@ export default function OraBrain(){
     }
     markers.push(marker);
    }
+   // Electric filaments converge on the central synapse and travel through
+   // the actual 3D brain volume. Every endpoint is a real ORA area/memory ID.
+   const rays:number[]=[];
+   for(const marker of markers){
+    const start=hubPoint,end=marker.point;
+    const control=start.clone().lerp(end,.53).add(new T.Vector3(0,.16,.12));
+    let previous=start;
+    for(let j=1;j<=36;j++){
+     const t=j/36,q=1-t;
+     const next=new T.Vector3(
+      q*q*start.x+2*q*t*control.x+t*t*end.x,
+      q*q*start.y+2*q*t*control.y+t*t*end.y,
+      q*q*start.z+2*q*t*control.z+t*t*end.z);
+     rays.push(previous.x,previous.y,previous.z,next.x,next.y,next.z);previous=next;
+    }
+   }
+   synapseLines=lineSegments(rays,0x73caff,.30);brain.add(synapseLines);
   }
   function cameraHome(){
    const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight),aspect=w/h,tan=Math.tan(T.MathUtils.degToRad(camera.fov/2));
