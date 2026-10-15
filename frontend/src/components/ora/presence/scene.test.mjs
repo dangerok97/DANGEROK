@@ -90,7 +90,9 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   const snapshot = ora.scene.snapshot();
   assert.equal(snapshot.surface, 'brain3d');
   assert.equal(snapshot.renderer, 'webgl');
-  assert.ok(snapshot.brainVertices > 3000, 'brain is a volumetric 3D point surface');
+  assert.ok(snapshot.brainVertices > 3000, 'brain keeps a dense 3D cortical surface');
+  assert.ok(snapshot.brainVolumeVertices >= 1000, 'brain contains translucent internal tissue rather than only a shell');
+  assert.ok(snapshot.brainSparks >= 100, 'brain exposes sparse bright synaptic hotspots');
   assert.ok(snapshot.brainLines > 1000, 'brain contains depth-tested neural/cortical line geometry');
   assert.ok(ora.draws() > 0, 'WebGL draw calls were issued');
   assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
