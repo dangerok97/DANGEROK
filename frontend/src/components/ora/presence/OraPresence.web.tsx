@@ -127,7 +127,7 @@ function MobilePresenceConversation({
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Espandi il cervello ORA" accessibilityState={{ expanded: mapOpen }}
           onPress={() => openMap()} style={styles.mapButton} testID="ora-mobile-open-map">
-          <Ionicons name="git-network-outline" size={17} color={palette.label} />
+          <Ionicons name="pulse-outline" size={17} color={palette.label} />
           <Text style={styles.mapButtonText}>Cervello</Text>
           <Ionicons name="expand-outline" size={14} color={palette.muted} />
         </Pressable>
