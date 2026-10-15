@@ -172,12 +172,6 @@ jobs:
           path: .ora-brain-qa/
           if-no-files-found: warn
           retention-days: 7
-      - name: Capture actual WebGL hologram at iPhone viewport
-        working-directory: frontend
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-          node scripts/ora-brain-browser-qa.mjs "$RUNNER_TEMP/bodyparts3d/dist" "../.vision-bp3d-evidence"
       - name: Archive small provenance report, never full meshes
         if: always()
         run: |
