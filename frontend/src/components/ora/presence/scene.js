@@ -53,9 +53,11 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   const colors={
     cyan:parseColor(palette.glow,[.55,.92,1]),
+    electric:[.16,.68,1.0],
+    ice:[.72,.95,1.0],
     line:parseColor(palette.edge,[.45,.82,.95]),
     white:parseColor(palette.point,[.92,1,1]),
-    warm:parseColor(palette.warmNode,[1,.86,.60]),
+    warm:[1.0,.78,.44],
     red:parseColor(palette.temporaryNode,[1,.30,.34]),
     dim:parseColor(palette.dust,[.35,.55,.62]),
   };
@@ -162,8 +164,10 @@ void main(){gl_FragColor=uColor;}`);
     // T * Rx * Ry * S keeps the brain large while the camera remains at the
     // requested physical distance — the previous S*R*T order cancelled zoom.
     const entranceScale=.035+.965*reveal;
-    const portraitScale=height>330?1.90:height>230?1.78:1.68;
-    const presentationScale=aspect>1.35?Math.min(2.50,1.88+(aspect-1.35)*.66):portraitScale;
+    // Full-screen portrait must show the whole brain. The earlier 1.90 scale
+    // cropped the cortex/brain-stem and made the result read as a wallpaper.
+    const portraitScale=height>330?1.36:height>230?1.55:1.48;
+    const presentationScale=aspect>1.35?Math.min(2.08,1.70+(aspect-1.35)*.48):portraitScale;
     const s=entranceScale*presentationScale;
     let model=scale(s,s,s);
     model=multiply(rotY(dragYaw),model);
@@ -202,8 +206,10 @@ void main(){gl_FragColor=uColor;}`);
         const phi=-Math.PI/2+(i/(lat-1))*Math.PI;
         for(let j=0;j<lon;j++){
           const theta=(j/lon)*Math.PI*2;
-          const p=cerebrumPoint(hemi,theta,phi);
-          surface.push(p.x,p.y,p.z);surfaceSize.push(3.0+(i+j)%4*.42);surfacePhase.push(((i*37+j*19)%97)/97);
+          const jt=.014*Math.sin(i*2.17+j*.73+hemi);
+          const jp=.010*Math.sin(j*1.41-i*.59);
+          const p=cerebrumPoint(hemi,theta+jt,phi+jp);
+          surface.push(p.x,p.y,p.z);surfaceSize.push(4.2+(i+j)%5*.52);surfacePhase.push(((i*37+j*19)%97)/97);
         }
       }
       for(let band=3;band<lat-3;band+=3){
@@ -227,7 +233,7 @@ void main(){gl_FragColor=uColor;}`);
       // Volumetric tissue and sparse hot synapses. These are deterministic
       // presentation points, never user data.
       seed=hemi<0?741293:913741;
-      for(let i=0;i<520;i++){
+      for(let i=0;i<760;i++){
         const theta=random()*Math.PI*2;
         const phi=Math.asin(random()*2-1);
         const shell=cerebrumPoint(hemi,theta,phi);
@@ -238,15 +244,15 @@ void main(){gl_FragColor=uColor;}`);
           z:shell.z*radial,
         };
         volume.push(p.x,p.y,p.z);
-        volumeSize.push(2.3+random()*2.0);
+        volumeSize.push(3.0+random()*2.8);
         volumePhase.push(random());
       }
-      for(let i=0;i<48;i++){
+      for(let i=0;i<64;i++){
         const theta=random()*Math.PI*2;
         const phi=-1.12+random()*2.24;
         const p=cerebrumPoint(hemi,theta,phi);
         spark.push(p.x,p.y,p.z);
-        sparkSize.push(7.0+random()*6.5);
+        sparkSize.push(11.0+random()*9.0);
         sparkPhase.push(random());
       }
     }
@@ -292,11 +298,16 @@ void main(){gl_FragColor=uColor;}`);
     // A bright central neural core makes the hologram read as alive rather
     // than as an anatomical scan.
     seed=441293;
-    for(let i=0;i<34;i++){
+    for(let i=0;i<44;i++){
       const a=random()*Math.PI*2,r=.04+random()*.20;
       spark.push(Math.cos(a)*r,(random()-.5)*.20,.05+Math.sin(a)*r*.8);
-      sparkSize.push(9.0+random()*9.0);
+      sparkSize.push(15.0+random()*14.0);
       sparkPhase.push(random());
+    }
+    // Three large central synapses create the bright neural heart seen in the
+    // reference without exposing any hidden reasoning.
+    for(const [x,y,z,size,phase] of [[0,-.02,.12,46,.12],[-.14,.03,.02,31,.46],[.15,.04,.00,34,.78]]){
+      spark.push(x,y,z);sparkSize.push(size);sparkPhase.push(phase);
     }
     return {
       surface,wire,fibres,surfaceSize,surfacePhase,volume,volumeSize,volumePhase,spark,sparkSize,sparkPhase,
@@ -493,29 +504,30 @@ void main(){gl_FragColor=uColor;}`);
     gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
     gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
 
-    // Multipass holographic anatomy: broad bloom, translucent tissue, then
-    // crisp cortical sparks. This avoids the wireframe/scanner look.
+    // Multipass holographic anatomy: blue aura first, translucent tissue
+    // second, bright synapses last. Straight graph geometry is intentionally
+    // subordinate so the first read is "brain", never "star map".
     gl.depthMask(false);
     gl.disable(gl.DEPTH_TEST);
-    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.cyan,.055+.025*state.light,beat,reveal,4.6);
-    drawPoints(brain.volumeBuffer,brain.volumeSizeBuffer,brain.volumePhaseBuffer,brain.volumeCount,mvp,colors.cyan,.045+.030*state.light,beat,reveal,3.2);
-    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.white,.12+.06*state.light,beat,reveal,3.0);
+    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.electric,.085+.030*state.light,beat,reveal,6.4);
+    drawPoints(brain.volumeBuffer,brain.volumeSizeBuffer,brain.volumePhaseBuffer,brain.volumeCount,mvp,colors.electric,.080+.035*state.light,beat,reveal,4.9);
+    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.ice,.18+.08*state.light,beat,reveal,3.8);
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);
-    drawPoints(brain.volumeBuffer,brain.volumeSizeBuffer,brain.volumePhaseBuffer,brain.volumeCount,mvp,colors.cyan,.16+.06*state.light,beat,reveal,1.7);
-    drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.line,.13+.085*state.light,1);
-    drawLines(brain.wireBuffer,brain.wireCount,mvp,colors.white,.075+.045*state.light,1);
+    drawPoints(brain.volumeBuffer,brain.volumeSizeBuffer,brain.volumePhaseBuffer,brain.volumeCount,mvp,colors.electric,.26+.08*state.light,beat,reveal,2.05);
+    drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.electric,.065+.035*state.light,1);
+    drawLines(brain.wireBuffer,brain.wireCount,mvp,colors.ice,.025+.018*state.light,1);
 
     gl.depthMask(true);
-    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.cyan,.42+.16*state.light,beat,reveal,1.45);
-    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.white,.22+.10*state.light,beat,reveal,.62);
+    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.cyan,.55+.18*state.light,beat,reveal,1.72);
+    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.white,.36+.10*state.light,beat,reveal,.72);
     gl.depthMask(false);
-    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.warm,.82,beat,reveal,1.15);
+    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.warm,.92,beat,reveal,1.35);
     gl.depthMask(true);
 
     if(edgeBuffer){
-      drawLines(edgeBuffer,edges.length*2,mvp,colors.line,.22+.16*state.light,1);
+      drawLines(edgeBuffer,edges.length*2,mvp,colors.line,.026+.024*state.light,1);
       drawKnowledgeBuffer(knowledgeBuffers.normal,colors.white,.92,mvp,beat,reveal);
       drawKnowledgeBuffer(knowledgeBuffers.tentative,colors.warm,.96,mvp,beat,reveal);
       drawKnowledgeBuffer(knowledgeBuffers.temporary,colors.red,1,mvp,beat,reveal);
