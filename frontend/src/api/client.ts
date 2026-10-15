@@ -1378,16 +1378,44 @@ export const api = {
   /** What ORA may already do on its own, in the words that were agreed to. */
   getAgentAutonomy: () =>
     request<{
-      mode: string;
+      mode: 'observe' | 'prepare' | 'act_within_grants';
       chosen_by_user: boolean;
       grants: Array<{
         id: string;
         capability: string;
         scope?: string | null;
+        effect_scope?: string[];
         active: boolean;
         granted_by: string;
       }>;
     }>('/agent/autonomy'),
+
+  /**
+   * Choose how far ORA may go without asking.
+   *
+   * This changes no individual capability permission. It only decides whether
+   * already-granted permissions may be used by proactive/background work.
+   */
+  setAgentAutonomyMode: (mode: 'observe' | 'prepare' | 'act_within_grants') =>
+    request<{ ok: boolean; policy?: { mode: string } }>('/agent/autonomy/mode', {
+      method: 'POST',
+      body: JSON.stringify({ mode }),
+    }),
+
+  /**
+   * Give one explicit, revocable standing permission.
+   *
+   * The server defaults an unspecified effect scope to create-only and keeps
+   * external-party, financial, public and destructive effects disabled.
+   */
+  grantAgentAutonomy: (capability: string, scopeNote: string) =>
+    request<{ ok: boolean; grant?: { id: string; capability: string; scope?: string | null } }>(
+      '/agent/autonomy/grant',
+      {
+        method: 'POST',
+        body: JSON.stringify({ capability, scope_note: scopeNote }),
+      },
+    ),
 
   /**
    * Take a standing permission back.
@@ -1395,10 +1423,10 @@ export const api = {
    * Forwards, never backwards: what already happened stands, and what ORA
    * was about to do is rechecked at the moment it would act.
    */
-  revokeAgentAutonomy: (capability: string) =>
+  revokeAgentAutonomy: (capability: string, grantId = '') =>
     request<{ ok: boolean; revoked: number }>('/agent/autonomy/revoke', {
       method: 'POST',
-      body: JSON.stringify({ capability }),
+      body: JSON.stringify({ capability, grant_id: grantId }),
     }),
 
   /**

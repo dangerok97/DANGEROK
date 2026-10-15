@@ -6,12 +6,11 @@
  * and signing in with Google says nothing about whether ORA can read a Google
  * calendar. They are separate sections here for that reason.
  *
- * The page shows a control only where pressing it changes a permission.
- * Location is a real stored preference, so it is a choice. Calendar reading is
- * granted by connecting the calendar, so it reports its state and sends you to
- * the place that changes it. Calendar writing asks every time and cannot be
- * pre-authorised, so it is a sentence, not a switch — the absence of a toggle
- * there is the honest part.
+ * The page shows a control only where pressing it changes a real permission.
+ * Location and autonomy are stored user choices. Connected sources report their
+ * own state. Standing permissions stay separate from the autonomy mode: choosing
+ * to let ORA act in the background never invents a capability permission, and
+ * granting one capability never widens the others.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
@@ -103,7 +102,31 @@ type StandingGrant = {
   id: string;
   capability: string;
   scope?: string | null;
+  effect_scope?: string[];
 };
+
+type AutonomyMode = 'observe' | 'prepare' | 'act_within_grants';
+
+const AUTONOMY_CHOICES: Array<{ id: AutonomyMode; label: string; detail: string }> = [
+  {
+    id: 'observe',
+    label: 'Osserva e riferisci',
+    detail: 'ORA capisce cosa succede, ma non prepara né esegue modifiche da sola.',
+  },
+  {
+    id: 'prepare',
+    label: 'Prepara e chiedi',
+    detail: 'ORA può preparare ciò che serve. Se non hai già dato un permesso specifico, chiede prima di cambiare qualcosa.',
+  },
+  {
+    id: 'act_within_grants',
+    label: 'Agisci entro i permessi che ti do',
+    detail: 'ORA può partire anche da sola, ma soltanto per le azioni che hai autorizzato in modo permanente. Tutto il resto continua a chiedere.',
+  },
+];
+
+const LOCAL_CALENDAR_CREATE_CAPABILITY = 'calendar.local.write';
+const LOCAL_CALENDAR_CREATE_SCOPE = 'Aggiungere nuovi impegni personali al calendario ORA.';
 
 
 /**
@@ -193,11 +216,15 @@ export default function PermessiScreen() {
   }, []);
 
   const [grants, setGrants] = useState<StandingGrant[]>([]);
+  const [autonomyMode, setAutonomyMode] = useState<AutonomyMode | null>(null);
+  const [autonomyChosen, setAutonomyChosen] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
 
-  const loadGrants = useCallback(async () => {
+  const loadAutonomy = useCallback(async () => {
     try {
       const out = await api.getAgentAutonomy();
+      setAutonomyMode(out.mode);
+      setAutonomyChosen(Boolean(out.chosen_by_user));
       setGrants((out.grants || []).filter((g) => g.active !== false));
     } catch {
       /* Silenzioso: la pagina resta utile anche senza questa sezione. */
@@ -205,27 +232,27 @@ export default function PermessiScreen() {
   }, []);
 
   useEffect(() => {
-    void loadGrants();
-  }, [loadGrants]);
+    void loadAutonomy();
+  }, [loadAutonomy]);
 
   const revokeGrant = useCallback(
-    async (capability: string) => {
+    async (capability: string, grantId = '') => {
       if (revoking) return;
       haptic('tap');
-      setRevoking(capability);
+      setRevoking(grantId || capability);
       setWriteError(null);
       try {
-        await api.revokeAgentAutonomy(capability);
+        await api.revokeAgentAutonomy(capability, grantId);
         // Ricaricato invece che tolto a mano: quello che si vede dopo è quello
         // che il backend dice, non quello che il client spera.
-        await loadGrants();
+        await loadAutonomy();
       } catch (e) {
         setWriteError(humanizeError(e));
       } finally {
         setRevoking(null);
       }
     },
-    [revoking, loadGrants],
+    [revoking, loadAutonomy],
   );
 
   // Continuous presence is a second, larger permission. It is read here rather
@@ -285,6 +312,63 @@ export default function PermessiScreen() {
   const mode: LocationMode = location ?? snapshot?.location ?? 'off';
 
   const guard = useInflight();
+
+  const chooseAutonomyMode = useCallback(
+    (next: AutonomyMode) =>
+      guard(async () => {
+        haptic('tap');
+        setBusy(`autonomy_${next}`);
+        setWriteError(null);
+        try {
+          await api.setAgentAutonomyMode(next);
+          await loadAutonomy();
+          haptic('success');
+        } catch (e) {
+          haptic('error');
+          setWriteError(humanizeError(e));
+        } finally {
+          setBusy(null);
+        }
+      }),
+    [guard, loadAutonomy],
+  );
+
+  const calendarCreateGrant = grants.find(
+    (grant) =>
+      grant.capability === LOCAL_CALENDAR_CREATE_CAPABILITY
+      && (grant.effect_scope || []).includes('create'),
+  );
+  const calendarCreateGranted = Boolean(calendarCreateGrant);
+
+  const toggleCalendarCreateGrant = useCallback(
+    () =>
+      guard(async () => {
+        haptic('tap');
+        setBusy('autonomy_calendar_create');
+        setWriteError(null);
+        try {
+          if (calendarCreateGrant) {
+            await api.revokeAgentAutonomy(
+              LOCAL_CALENDAR_CREATE_CAPABILITY,
+              calendarCreateGrant.id,
+            );
+          } else {
+            await api.grantAgentAutonomy(
+              LOCAL_CALENDAR_CREATE_CAPABILITY,
+              LOCAL_CALENDAR_CREATE_SCOPE,
+            );
+          }
+          await loadAutonomy();
+          haptic('success');
+        } catch (e) {
+          haptic('error');
+          setWriteError(humanizeError(e));
+        } finally {
+          setBusy(null);
+        }
+      }),
+    [guard, calendarCreateGrant, loadAutonomy],
+  );
 
   const setMode = useCallback((next: LocationMode) => guard(async () => {
     haptic('tap');
@@ -419,6 +503,43 @@ export default function PermessiScreen() {
       ) : null}
       {error ? <InlineError>{error}</InlineError> : null}
 
+      <SettingCard
+        title="Autonomia"
+        detail={
+          autonomyChosen
+            ? 'Decidi fin dove ORA può arrivare da sola. I permessi specifici restano separati e revocabili.'
+            : 'Non hai ancora scelto: ORA resta prudente. Per il lavoro proattivo devi decidere esplicitamente fin dove può arrivare.'
+        }
+        testID="perm-autonomy-mode"
+      >
+        {AUTONOMY_CHOICES.map((choice) => (
+          <ChoiceRow
+            key={choice.id}
+            label={choice.label}
+            detail={choice.detail}
+            selected={(autonomyMode ?? 'prepare') === choice.id}
+            onPress={() => void chooseAutonomyMode(choice.id)}
+            busy={busy === `autonomy_${choice.id}`}
+            testID={`autonomy-mode-${choice.id}`}
+          />
+        ))}
+        {autonomyMode === 'act_within_grants' ? (
+          <>
+            <BoundaryNote>
+              Scegliere questa modalità non dà a ORA nuovi poteri: può usare solo i permessi permanenti che trovi qui sotto.
+            </BoundaryNote>
+            <ChoiceRow
+              label="Aggiungere nuovi impegni al calendario ORA"
+              detail="Solo nuovi impegni personali nel calendario interno di ORA. Non autorizza Google Calendar, invitati, pagamenti, cancellazioni o modifiche."
+              selected={calendarCreateGranted}
+              onPress={() => void toggleCalendarCreateGrant()}
+              busy={busy === 'autonomy_calendar_create'}
+              testID="autonomy-grant-calendar-create"
+            />
+          </>
+        ) : null}
+      </SettingCard>
+
       <SettingCard title="Posizione" testID="perm-location">
         {LOCATION_CHOICES.map((c) => (
           <ChoiceRow
@@ -546,11 +667,11 @@ export default function PermessiScreen() {
       {/*
         Cosa ORA può fare da sola.
 
-        Compare solo se c'è qualcosa da mostrare. Una sezione vuota che
-        annuncia «nessun permesso» insegna che esiste un posto dove darne, e
-        questo posto non è quello: un permesso permanente si concede nel
-        momento in cui ORA sta chiedendo, dove la frase ha un contesto. Qui si
-        legge e si toglie.
+        Compare solo se c'è qualcosa da mostrare. I permessi contestuali
+        continuano a nascere nel momento in cui ORA chiede. Il primo pilot
+        sorgente ha anche un opt-in esplicito sopra, perché senza una scelta
+        dell'utente un worker in background non deve poter concedersi da solo
+        il permesso che gli manca.
 
         Ogni riga è la frase che la persona ha accettato, non lo scope con cui
         è stata salvata. Chi ha letto la lista ha letto i permessi.
@@ -568,8 +689,8 @@ export default function PermessiScreen() {
                 label={g.scope || 'Un permesso che hai dato a ORA'}
                 detail="Tocca per revocare"
                 selected={false}
-                busy={revoking === g.capability}
-                onPress={() => void revokeGrant(g.capability)}
+                busy={revoking === g.id}
+                onPress={() => void revokeGrant(g.capability, g.id)}
                 testID={`perm-autonomy-${i}`}
               />
             ))}

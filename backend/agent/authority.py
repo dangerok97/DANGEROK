@@ -289,18 +289,48 @@ class AuthorityService:
             constraints=dict(constraints or {}),
             human_summary=(human_summary or scope_note)[:200],
         )
+
+        # One capability can legitimately carry more than one independently
+        # granted shape of authority. "Create a local event" and "modify a
+        # local event" are not the same decision, and storing by
+        # owner+capability used to make the later one silently overwrite the
+        # earlier one. Reuse only an *identical security profile*; otherwise
+        # keep a separate grant and let match_grant() choose the one that
+        # covers the concrete effect.
+        same_profile = {
+            "owner_id": owner_id,
+            "capability": capability,
+            "active": True,
+            "effect_scope": list(grant.effect_scope),
+            "allows_external_party": grant.allows_external_party,
+            "allows_financial": grant.allows_financial,
+            "allows_public": grant.allows_public,
+            "allows_destructive": grant.allows_destructive,
+            "constraints": dict(grant.constraints),
+        }
+        existing = await self.db[GRANTS].find_one(same_profile, {"_id": 0, "id": 1})
+        if existing and existing.get("id"):
+            grant.id = str(existing["id"])
+
         doc = grant.model_dump()
         doc["expires_at"] = _now() + timedelta(days=GRANT_DAYS)
         await self.db[GRANTS].update_one(
-            {"owner_id": owner_id, "capability": capability},
+            {"owner_id": owner_id, "id": grant.id},
             {"$set": doc},
             upsert=True,
         )
         return {"ok": True, "grant": grant.public()}
 
-    async def revoke(self, owner_id: str, capability: str) -> Dict[str, Any]:
+    async def revoke(
+        self, owner_id: str, capability: str, *, grant_id: str = ""
+    ) -> Dict[str, Any]:
+        query: Dict[str, Any] = {
+            "owner_id": owner_id, "capability": capability, "active": True
+        }
+        if grant_id:
+            query["id"] = grant_id
         result = await self.db[GRANTS].update_many(
-            {"owner_id": owner_id, "capability": capability, "active": True},
+            query,
             {"$set": {"active": False, "revoked_at": _now().isoformat()}},
         )
         return {"ok": True, "revoked": result.modified_count}
