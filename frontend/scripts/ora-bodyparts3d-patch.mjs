@@ -14,7 +14,9 @@ for(const [from,to] of [
  ['ora-bodyparts3d-inline.css','app/ora-overlay.css'],
  ['ora-bodyparts3d-locale-it.ts','app/ora-locale-it.ts'],
  ['ora-bodyparts3d-regions.ts','app/ora-regions.ts'],
- ['ora-anatomy-terminology-it.ts','app/ora-anatomy-terminology-it.ts']
+ ['ora-anatomy-terminology-it.ts','app/ora-anatomy-terminology-it.ts'],
+ ['ora-bodyparts3d-brain.source','app/ora-brain.tsx'],
+ ['ora-bodyparts3d-brain.css','app/ora-brain.css']
 ])copyFileSync(join(source,from),join(root,to));
 
 let anatomy=read('app/anatomy.ts');
@@ -74,7 +76,7 @@ scene=applyOraBlueprint(scene);
 save('app/scene.tsx',scene);
 
 let page=read('app/page.tsx');
-page="import OraOverlay from './ora-overlay';\nimport {italianAtlas} from './ora-locale-it';\n"+page;
+page="import OraBrain from './ora-brain';\nimport OraOverlay from './ora-overlay';\nimport {italianAtlas} from './ora-locale-it';\n"+page;
 page=once(page,'export default function Home(){','function FullAtlas(){');
 page=once(page,'.then(data=>setAtlas(data as Atlas))','.then(data=>setAtlas(italianAtlas(data as Atlas)))');
 page=once(page,"['heart','brain','liver','stomach','spleen','pancreas','urinary bladder','trachea']",
@@ -122,7 +124,7 @@ const words=[
  ["'piece':'pieces'","'parte':'parti'"]
 ];
 for(const [from,to] of words)page=page.replaceAll(from,to);
-page+="\nexport default function Home(){const overlay=new URLSearchParams(window.location.search).get('ora')==='inline';return overlay?<OraOverlay/>:<FullAtlas/>;}\n";
+page+="\nexport default function Home(){const mode=new URLSearchParams(window.location.search).get('ora');return mode==='brain'?<OraBrain/>:mode==='inline'?<OraOverlay/>:<FullAtlas/>;}\n";
 save('app/page.tsx',page);
 let html=read('web/index.html');
 html=html.replace('lang="en"','lang="it"')
