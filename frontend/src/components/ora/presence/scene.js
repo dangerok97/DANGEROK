@@ -74,7 +74,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     hovered=-1;pointer=null;
   }
   rebuild(options.stars,true);
-  const dust=Array.from({length:34},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
+  const dust=Array.from({length:58},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
 
   // Decorative cortical volume only: these points never represent personal
   // data and can never be selected. They exist to give the brain real depth
@@ -82,18 +82,38 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   const cortexCloud=(()=>{
     let s=0x5f3759df;
     const rnd=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
+    // Overlapping 3D lobes. This creates a brain volume rather than a generic
+    // ellipsoid, while remaining deterministic and containing no personal data.
+    const lobes=[
+      [-.56,-.10,.02,.50,.43,.46],[-.23,-.30,.07,.50,.39,.48],
+      [.16,-.31,.05,.48,.38,.47],[.50,-.14,-.02,.43,.36,.42],
+      [-.49,.18,-.05,.43,.34,.40],[-.10,.16,.08,.55,.42,.50],
+      [.33,.15,.02,.49,.39,.45],[-.16,.34,-.13,.36,.26,.34],
+    ];
     const out=[];
     let attempts=0;
-    while(out.length<138&&attempts++<5000){
-      const x=(rnd()*2-1)*1.02;
-      const y=(rnd()*2-1)*.62-.035;
-      const z=(rnd()*2-1)*.56;
-      const nx=x/1.04,ny=(y+.035)/.68,nz=z/.59;
-      const shell=nx*nx+ny*ny+nz*nz;
-      // Slight temporal-lobe taper keeps the cloud from becoming a generic ellipsoid.
-      const taper=x<-.62&&y>.30?.16:0;
-      if(shell<.96-taper&&shell>.16){
-        out.push({x,y,z,phase:rnd()*Math.PI*2,size:.55+rnd()*1.15,hot:rnd()<.16});
+    while(out.length<264&&attempts++<9000){
+      const l=lobes[Math.floor(rnd()*lobes.length)];
+      const a=rnd()*Math.PI*2;
+      const u=rnd()*2-1;
+      const v=Math.sqrt(1-u*u);
+      // Bias toward the cortical shell, but keep enough inner points to read
+      // as translucent volume rather than a hollow wire frame.
+      const rr=.28+.72*Math.pow(rnd(),.42);
+      const x=l[0]+Math.cos(a)*v*l[3]*rr;
+      const y=l[1]+u*l[4]*rr;
+      const z=l[2]+Math.sin(a)*v*l[5]*rr;
+      const nx=x/1.10,ny=(y+.015)/.69,nz=z/.62;
+      const envelope=nx*nx+ny*ny+nz*nz;
+      const temporalCut=x<-.72&&y>.32?.18:0;
+      if(envelope<1.03-temporalCut&&y<.58&&y>-.66){
+        out.push({
+          x,y,z,
+          phase:rnd()*Math.PI*2,
+          size:.68+rnd()*1.40,
+          hot:rnd()<.19,
+          warm:rnd()<.085,
+        });
       }
     }
     return out;
@@ -104,11 +124,15 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const a=cortexCloud[i];
       const candidates=[];
       for(let j=i+1;j<cortexCloud.length;j++){
-        const b=cortexCloud[j],d=Math.hypot(a.x-b.x,(a.y-b.y)*1.2,a.z-b.z);
-        if(d<.43)candidates.push([d,j]);
+        const b=cortexCloud[j];
+        const d=Math.hypot(a.x-b.x,(a.y-b.y)*1.15,(a.z-b.z)*1.04);
+        if(d<.35)candidates.push([d,j]);
       }
       candidates.sort((u,v)=>u[0]-v[0]);
-      for(let k=0;k<Math.min(i%5===0?3:2,candidates.length);k++)links.push([i,candidates[k][1],(i*17+k*13)%29/29]);
+      const wanted=i%7===0?4:i%3===0?3:2;
+      for(let k=0;k<Math.min(wanted,candidates.length);k++){
+        links.push([i,candidates[k][1],(i*31+k*17)%47/47]);
+      }
     }
     return links;
   })();
@@ -152,9 +176,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     // Multiple overlapping lobe glows create the glassy/volumetric hologram
     // seen in the reference instead of one flat translucent fill.
     const lobes=[
-      [-.30,-.14,.34,.34,.22],[-.02,-.23,.36,.34,.26],[.28,-.18,.34,.32,.24],
-      [-.39,.11,.28,.27,.18],[-.08,.09,.38,.31,.24],[.28,.08,.34,.29,.22],
-      [.43,.20,.23,.22,.17],[-.22,.28,.24,.20,.14],
+      [-.30,-.14,.34,.34,.30],[-.02,-.23,.36,.34,.35],[.28,-.18,.34,.32,.33],
+      [-.39,.11,.28,.27,.25],[-.08,.09,.38,.31,.34],[.28,.08,.34,.29,.31],
+      [.43,.20,.23,.22,.24],[-.22,.28,.24,.20,.21],
     ];
     for(let i=0;i<lobes.length;i++){
       const [lx,ly,rx,ry,power]=lobes[i];
@@ -162,7 +186,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const g=ctx.createRadialGradient(x,y,0,x,y,r);
       const pulse=(i%3===0?beat*.04:0);
       g.addColorStop(0,'rgba('+palette.glow+','+(power+state.light*.045+pulse)+')');
-      g.addColorStop(.45,'rgba('+palette.edge+','+(power*.34)+')');
+      g.addColorStop(.45,'rgba('+palette.edge+','+(power*.46)+')');
       g.addColorStop(1,'rgba('+palette.edge+',0)');
       ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);
     }
@@ -173,7 +197,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.save();
     brainOutline(cx,cy,w,h);ctx.clip();
     ctx.globalCompositeOperation='lighter';
-    for(let i=0;i<44;i++){
+    for(let i=0;i<74;i++){
       const a=i*2.3999632297;
       const ring=.12+(i%11)/15;
       const sx=cx+Math.cos(a)*w*ring*.62;
@@ -182,16 +206,16 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const ey=cy+Math.sin(a*.83+1.1)*h*(.17+(i%5)*.055);
       const mx=cx+Math.sin(a*.61)*w*.16;
       const my=cy+Math.cos(a*.77)*h*.12;
-      const alpha=.045+state.light*.035+(i%9===0?beat*.055:0);
+      const alpha=.060+state.light*.050+(i%9===0?beat*.070:0);
       ctx.strokeStyle='rgba('+palette.trail+','+alpha+')';
-      ctx.lineWidth=i%8===0?.85:.38;
+      ctx.lineWidth=i%9===0?1.05:.46;
       ctx.beginPath();ctx.moveTo(sx,sy);ctx.quadraticCurveTo(mx,my,ex,ey);ctx.stroke();
     }
-    for(let i=0;i<22;i++){
+    for(let i=0;i<38;i++){
       const a=i*.91;
       const x=cx+Math.cos(a)*w*(.08+(i%6)*.075);
       const y=cy+Math.sin(a*1.27)*h*(.06+(i%5)*.07);
-      glow(x,y,5+(i%4)*2,.12+state.light*.035+(i%6===0?beat*.12:0),false);
+      glow(x,y,6+(i%5)*2,.15+state.light*.045+(i%6===0?beat*.15:0),i%11===0);
     }
     ctx.restore();
   }
@@ -232,9 +256,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const reveal=ease(opening/openingSeconds);
     if(reveal<.01)return;
     const brainGrowth=.84+.16*growth;
-    const compact=height<210;
-    const w=scale*(compact?2.82:2.58)*brainGrowth;
-    const h=scale*(compact?1.88:1.76)*brainGrowth;
+    const compact=height<240;
+    const w=scale*(compact?2.98:2.28)*brainGrowth;
+    const h=scale*(compact?1.98:1.68)*brainGrowth;
     const cx=width*.5-camera.x*scale*.90+Math.sin(yaw)*w*.025;
     const cy=height*(options.centerY??.515)-camera.y*scale*.90+Math.sin(pitch)*h*.025;
     brainFrame={cx,cy,w,h};
@@ -254,9 +278,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     drawBrainVolume(cx,cy,w,h,state,beat);
     drawNeuralFibreField(cx,cy,w,h,state,beat);
     ctx.shadowColor='rgba('+palette.glow+',.44)';
-    ctx.shadowBlur=compact?5:8;
-    ctx.strokeStyle='rgba('+palette.glow+','+(.045+strength*.075)+')';
-    ctx.lineWidth=compact?1.7:2.1;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowBlur=compact?4:6;
+    ctx.strokeStyle='rgba('+palette.glow+','+(.028+strength*.052)+')';
+    ctx.lineWidth=compact?1.25:1.55;brainOutline(cx,cy,w,h);ctx.stroke();
     ctx.shadowBlur=compact?2:4;
     ctx.strokeStyle='rgba('+palette.point+','+(.16+strength*.24)+')';
     ctx.lineWidth=(compact?.72:.66)+state.light*.22;brainOutline(cx,cy,w,h);ctx.stroke();
@@ -341,27 +365,46 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.save();
     ctx.globalCompositeOperation='lighter';
     ctx.globalAlpha=reveal;
+
     for(const [ai,bi,phase] of cortexLinks){
       const a=projectedCloud[ai],b=projectedCloud[bi];
       const depth=(a.depth+b.depth)*.5;
-      const wave=(Math.sin(t*.55+phase*6.28)+1)*.5;
-      const alpha=(.025+depth*.075+wave*.018+beat*.025)*state.light;
+      const wave=(Math.sin(t*.62+phase*6.28)+1)*.5;
+      const alpha=(.044+depth*.115+wave*.030+beat*.032)*state.light;
       ctx.strokeStyle='rgba('+palette.edge+','+alpha+')';
-      ctx.lineWidth=.28+depth*.42;
-      const bend=(phase-.5)*15;
+      ctx.lineWidth=.34+depth*.58;
+      const bend=(phase-.5)*12;
       ctx.beginPath();ctx.moveTo(a.x,a.y);
-      ctx.quadraticCurveTo((a.x+b.x)*.5+bend,(a.y+b.y)*.5-bend*.35,b.x,b.y);
+      ctx.quadraticCurveTo((a.x+b.x)*.5+bend,(a.y+b.y)*.5-bend*.30,b.x,b.y);
       ctx.stroke();
+
+      // Subtle impulses travel through a subset of fibres while ORA works.
+      if(mode!=='idle'&&((ai+bi)%17===0)){
+        const u=(t*(.12+state.speed*.12)+phase)%1;
+        const px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;
+        const power=Math.sin(Math.PI*u)*(.12+beat*.12);
+        glow(px,py,5+depth*6,power,false);
+      }
     }
+
     const order=projectedCloud.map((_,i)=>i).sort((a,b)=>projectedCloud[a].z-projectedCloud[b].z);
     for(const i of order){
       const p=cortexCloud[i],q=projectedCloud[i];
-      const flicker=.72+.28*Math.sin(t*(p.hot?2.0:.55)+p.phase);
-      const alpha=(.10+q.depth*.36)*(p.hot?1.45:1)*flicker*state.light;
-      const r=p.size*(.65+q.depth*.9)*q.scale;
-      if(p.hot&&i%3===0)glow(q.x,q.y,7+q.depth*7,.10+beat*.09,false);
-      ctx.fillStyle='rgba('+palette.point+','+Math.min(.72,alpha)+')';
+      const flicker=.78+.22*Math.sin(t*(p.hot?1.7:.48)+p.phase);
+      const alpha=(.18+q.depth*.50)*(p.hot?1.55:1)*flicker*state.light;
+      const r=p.size*(.78+q.depth*1.18)*q.scale;
+      if(p.hot&&i%2===0){
+        glow(q.x,q.y,9+q.depth*10,.15+beat*.11,p.warm);
+      }
+      ctx.fillStyle=p.warm
+        ? 'rgba('+palette.warmPoint+','+Math.min(.90,alpha)+')'
+        : 'rgba('+palette.point+','+Math.min(.86,alpha)+')';
       ctx.beginPath();ctx.arc(q.x,q.y,r,0,Math.PI*2);ctx.fill();
+      if(p.hot&&q.depth>.56){
+        ctx.strokeStyle='rgba('+(p.warm?palette.warmPacket:palette.packet)+','+Math.min(.44,alpha*.46)+')';
+        ctx.lineWidth=.55;
+        ctx.beginPath();ctx.arc(q.x,q.y,r+2.2,0,Math.PI*2);ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -392,7 +435,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const beatPhase=(t%1.65)/1.65;
     const beat=active&&!options.reduced&&!options.paused?(Math.exp(-Math.pow((beatPhase-.16)/.085,2))+.38*Math.exp(-Math.pow((beatPhase-.37)/.105,2))):0;
     const breathe=1+Math.sin(t*1.48)*state.breath+beat*.014;
-    const scale=Math.min(width*(options.intro?.43:.39),height*(options.intro?.76:.43))*camera.zoom;
+    const compactStage=!options.intro&&height<240;const scale=Math.min(width*(options.intro?.43:(compactStage?.46:.40)),height*(options.intro?.76:(compactStage?.58:.47)))*camera.zoom;
     const spotlight=points.findIndex(p=>p.id===options.spotlightId);
     const yaw=rotation+dragYaw,pitch=.06+Math.sin(t*.10)*.09+dragPitch;
     for(let i=0;i<points.length;i++){
@@ -458,7 +501,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       }
       const temporary=!p.hub&&!!p.temporary;
       const warm=!temporary&&(p.complete||p.tentative||(activeHub>=0?p.group===activeHub:i===0||i===4));
-      if(p.hub){glow(q.x,q.y,16+q.energy*19,.25+q.energy*.53,warm);glow(q.x,q.y,5+q.energy*4,.60,warm);}
+      if(p.hub){glow(q.x,q.y,14+q.energy*17,.17+q.energy*.40,warm);glow(q.x,q.y,5+q.energy*4,.48,warm);}
       else {glow(q.x,q.y,temporary?15:(p.complete?17:8),Math.max(.22+q.energy*.3,bloom*.9),warm||arriving,temporary);}
       if(arriving&&q.appear>.12){
         ctx.strokeStyle='rgba('+(temporary?palette.temporaryNode:palette.warmNode)+','+(bloom*.65*q.appear)+')';ctx.lineWidth=1.2;
