@@ -119,8 +119,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
         near.push([d,j]);
       }
       near.sort((a,b)=>a[0]-b[0]);
-      add(i,near[0][1]);add(i,near[1][1]);
-      if(i%6===0)add(i,near[2][1]);
+      add(i,near[0][1]);add(i,near[1][1]);add(i,near[2][1]);
+      if(i%4===0)add(i,near[3][1]);
     }
     return {neurons,edges};
   }
