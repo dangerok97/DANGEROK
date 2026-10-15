@@ -75,6 +75,43 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   rebuild(options.stars,true);
   const dust=Array.from({length:34},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
+
+  // Decorative cortical volume only: these points never represent personal
+  // data and can never be selected. They exist to give the brain real depth
+  // while the saved knowledge nodes remain the only interactive information.
+  const cortexCloud=(()=>{
+    let s=0x5f3759df;
+    const rnd=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
+    const out=[];
+    let attempts=0;
+    while(out.length<138&&attempts++<5000){
+      const x=(rnd()*2-1)*1.02;
+      const y=(rnd()*2-1)*.62-.035;
+      const z=(rnd()*2-1)*.56;
+      const nx=x/1.04,ny=(y+.035)/.68,nz=z/.59;
+      const shell=nx*nx+ny*ny+nz*nz;
+      // Slight temporal-lobe taper keeps the cloud from becoming a generic ellipsoid.
+      const taper=x<-.62&&y>.30?.16:0;
+      if(shell<.96-taper&&shell>.16){
+        out.push({x,y,z,phase:rnd()*Math.PI*2,size:.55+rnd()*1.15,hot:rnd()<.16});
+      }
+    }
+    return out;
+  })();
+  const cortexLinks=(()=>{
+    const links=[];
+    for(let i=0;i<cortexCloud.length;i++){
+      const a=cortexCloud[i];
+      const candidates=[];
+      for(let j=i+1;j<cortexCloud.length;j++){
+        const b=cortexCloud[j],d=Math.hypot(a.x-b.x,(a.y-b.y)*1.2,a.z-b.z);
+        if(d<.43)candidates.push([d,j]);
+      }
+      candidates.sort((u,v)=>u[0]-v[0]);
+      for(let k=0;k<Math.min(i%5===0?3:2,candidates.length);k++)links.push([i,candidates[k][1],(i*17+k*13)%29/29]);
+    }
+    return links;
+  })();
   function nodeInfo(index){const p=points[index];return p?{index,area:hubs[p.areaGroup].id,kind:p.hub?'area':p.kind,...(p.hub?{}:{id:p.id})}:null;}
   function hitTest(x,y,touch=false){
     for(let i=labels.length-1;i>=0;i--){const b=labels[i];if(x>=b.x-4&&x<=b.x+b.w+4&&Math.abs(y-b.y)<=12)return b.index;}
@@ -217,12 +254,12 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     drawBrainVolume(cx,cy,w,h,state,beat);
     drawNeuralFibreField(cx,cy,w,h,state,beat);
     ctx.shadowColor='rgba('+palette.glow+',.44)';
-    ctx.shadowBlur=compact?7:11;
-    ctx.strokeStyle='rgba('+palette.glow+','+(.08+strength*.11)+')';
-    ctx.lineWidth=compact?2.7:3.3;brainOutline(cx,cy,w,h);ctx.stroke();
-    ctx.shadowBlur=compact?3:5;
-    ctx.strokeStyle='rgba('+palette.point+','+(.24+strength*.34)+')';
-    ctx.lineWidth=(compact?1.0:.9)+state.light*.30;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowBlur=compact?5:8;
+    ctx.strokeStyle='rgba('+palette.glow+','+(.045+strength*.075)+')';
+    ctx.lineWidth=compact?1.7:2.1;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowBlur=compact?2:4;
+    ctx.strokeStyle='rgba('+palette.point+','+(.16+strength*.24)+')';
+    ctx.lineWidth=(compact?.72:.66)+state.light*.22;brainOutline(cx,cy,w,h);ctx.stroke();
     ctx.shadowBlur=0;
     drawCorticalSulci(cx,cy,w,h,state,beat);
 
@@ -287,6 +324,47 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     }
     ctx.restore();
   }
+  function projectCortexPoint(p,yaw,pitch,scale,breathing){
+    let x=p.x*breathing*growth-camera.x;
+    let y=p.y*breathing*growth-camera.y;
+    let z=p.z*breathing*growth-camera.z;
+    const rx=x*Math.cos(yaw)+z*Math.sin(yaw),rz=z*Math.cos(yaw)-x*Math.sin(yaw);
+    const ry=y*Math.cos(pitch)-rz*Math.sin(pitch),zz=y*Math.sin(pitch)+rz*Math.cos(pitch);
+    const perspective=3.8/(3.8-zz);
+    return {x:width*.5+rx*scale*perspective,y:height*(options.centerY??.515)+ry*scale*perspective,z:zz,depth:Math.max(.08,Math.min(1,(zz+1.0)/2.0)),scale:perspective};
+  }
+  function drawCortexCloud(yaw,pitch,scale,breathe,state,beat){
+    if(options.intro)return;
+    const reveal=ease(opening/openingSeconds);
+    if(reveal<.04)return;
+    const projectedCloud=cortexCloud.map(p=>projectCortexPoint(p,yaw,pitch,scale,breathe));
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    ctx.globalAlpha=reveal;
+    for(const [ai,bi,phase] of cortexLinks){
+      const a=projectedCloud[ai],b=projectedCloud[bi];
+      const depth=(a.depth+b.depth)*.5;
+      const wave=(Math.sin(t*.55+phase*6.28)+1)*.5;
+      const alpha=(.025+depth*.075+wave*.018+beat*.025)*state.light;
+      ctx.strokeStyle='rgba('+palette.edge+','+alpha+')';
+      ctx.lineWidth=.28+depth*.42;
+      const bend=(phase-.5)*15;
+      ctx.beginPath();ctx.moveTo(a.x,a.y);
+      ctx.quadraticCurveTo((a.x+b.x)*.5+bend,(a.y+b.y)*.5-bend*.35,b.x,b.y);
+      ctx.stroke();
+    }
+    const order=projectedCloud.map((_,i)=>i).sort((a,b)=>projectedCloud[a].z-projectedCloud[b].z);
+    for(const i of order){
+      const p=cortexCloud[i],q=projectedCloud[i];
+      const flicker=.72+.28*Math.sin(t*(p.hot?2.0:.55)+p.phase);
+      const alpha=(.10+q.depth*.36)*(p.hot?1.45:1)*flicker*state.light;
+      const r=p.size*(.65+q.depth*.9)*q.scale;
+      if(p.hot&&i%3===0)glow(q.x,q.y,7+q.depth*7,.10+beat*.09,false);
+      ctx.fillStyle='rgba('+palette.point+','+Math.min(.72,alpha)+')';
+      ctx.beginPath();ctx.arc(q.x,q.y,r,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+  }
   function projectPoint(p,yaw,pitch,scale,breathing){
     const drift=p.hub?.002:.009;
     const born=p.hub||options.reduced||options.paused?1:ease((t-(births.get(p.id)??t))/1.35);
@@ -327,6 +405,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       q.energy=wave*.65+(p.hub?.10:0)+beat*Math.exp(-distance*2.3)*.42+(i===spotlight?.82:0);Object.assign(projected[i],q);
     }
     drawBrainEnvelope(state,yaw,pitch,scale,beat);
+    drawCortexCloud(yaw,pitch,scale,breathe,state,beat);
     if(pointer&&!dragging)hovered=hitTest(pointer.x,pointer.y,pointer.touch);
     const inspected=hovered>=0?hovered:selected>=0?selected:spotlight;
     if(canvas.style)canvas.style.cursor=dragging?'grabbing':hovered>=0?'pointer':'grab';
@@ -503,5 +582,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {surface:'brain',brain:{...brainFrame},camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {surface:'brain',brain:{...brainFrame},brainCloudPoints:cortexCloud.length,brainCloudLinks:cortexLinks.length,camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }
