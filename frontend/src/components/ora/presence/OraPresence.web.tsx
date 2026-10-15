@@ -102,9 +102,12 @@ function MobilePresenceConversation({
   const highlighted = map?.stars.find(star => star.id === spotlight);
   const inspected = map?.stars.find(star => star.id === inspection);
   const caption = mode === 'think' ? 'Sto lavorando' : mode === 'listen' ? 'Ti ascolto' : mode === 'speak' ? 'Ti rispondo' : 'Sono qui';
-  const openMap = (node?: PresenceNode | null) => {
+  const openMap = (node?: PresenceNode | null, focusId?: string | null) => {
     Keyboard.dismiss();
-    setInspection(node?.id || highlighted?.id || map?.stars.find(star => star.temporary)?.id || null);
+    // Opening the brain from its header is an overview, not an automatic
+    // interruption by whichever memory happens to be newest. A detail opens
+    // only when the person taps a node or the highlighted-memory card.
+    setInspection(node?.id || focusId || null);
     setMapOpen(true);
   };
   const options = useMemo(() => ({
@@ -144,7 +147,7 @@ function MobilePresenceConversation({
       </View>
       {preview.showPreview && highlighted ? <Pressable
         accessibilityRole="button"
-        onPress={() => openMap()}
+        onPress={() => openMap(null, highlighted?.id || null)}
         style={[styles.highlight, !highlighted.temporary && styles.highlightPermanent]}
         testID="ora-mobile-star-detail"
       >
