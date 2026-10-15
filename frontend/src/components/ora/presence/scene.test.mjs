@@ -8,10 +8,10 @@ function fakeWebGl() {
   const gl = {
     VERTEX_SHADER: 0x8B31, FRAGMENT_SHADER: 0x8B30,
     COMPILE_STATUS: 0x8B81, LINK_STATUS: 0x8B82,
-    ARRAY_BUFFER: 0x8892, STATIC_DRAW: 0x88E4, DYNAMIC_DRAW: 0x88E8,
-    FLOAT: 0x1406, POINTS: 0x0000, LINES: 0x0001,
+    ARRAY_BUFFER: 0x8892, ELEMENT_ARRAY_BUFFER: 0x8893, STATIC_DRAW: 0x88E4, DYNAMIC_DRAW: 0x88E8,
+    FLOAT: 0x1406, UNSIGNED_SHORT: 0x1403, POINTS: 0x0000, LINES: 0x0001, TRIANGLES: 0x0004,
     COLOR_BUFFER_BIT: 0x4000, DEPTH_BUFFER_BIT: 0x0100,
-    DEPTH_TEST: 0x0B71, BLEND: 0x0BE2, SRC_ALPHA: 0x0302, ONE: 1,
+    DEPTH_TEST: 0x0B71, BLEND: 0x0BE2, SRC_ALPHA: 0x0302, ONE_MINUS_SRC_ALPHA: 0x0303, ONE: 1,
     createShader: () => ({}), shaderSource() {}, compileShader() {},
     getShaderParameter: () => true, getShaderInfoLog: () => '',
     createProgram: () => ({}), attachShader() {}, linkProgram() {},
@@ -22,7 +22,7 @@ function fakeWebGl() {
     depthMask() {}, blendFunc() {}, useProgram() {}, uniformMatrix4fv() {},
     uniform1f() {}, uniform4f() {}, vertexAttribPointer() {},
     enableVertexAttribArray() {}, lineWidth() {},
-    drawArrays() { draws++; },
+    drawArrays() { draws++; }, drawElements() { draws++; },
     _draws: () => draws,
   };
   return gl;
@@ -90,9 +90,11 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   const snapshot = ora.scene.snapshot();
   assert.equal(snapshot.surface, 'brain3d');
   assert.equal(snapshot.renderer, 'webgl');
-  assert.ok(snapshot.brainVertices > 3000, 'brain keeps a dense 3D cortical surface');
-  assert.ok(snapshot.brainVolumeVertices >= 1000, 'brain contains translucent internal tissue rather than only a shell');
-  assert.ok(snapshot.brainSparks >= 100, 'brain exposes sparse bright synaptic hotspots');
+  assert.ok(snapshot.brainVertices > 3000, 'brain retains dense cortical reference geometry');
+  assert.ok(snapshot.brainMeshVertices > 3500, 'brain is rendered from a real triangle surface mesh');
+  assert.ok(snapshot.brainMeshTriangles > 6500, 'surface mesh has enough triangles to read as an organ, not a polygon blob');
+  assert.ok(snapshot.brainVolumeVertices >= 700, 'brain keeps restrained translucent internal tissue');
+  assert.ok(snapshot.brainSparks >= 50 && snapshot.brainSparks < 100, 'synaptic hotspots stay sparse instead of becoming the brain material');
   assert.ok(snapshot.brainLines > 1000, 'brain contains depth-tested neural/cortical line geometry');
   assert.ok(ora.draws() > 0, 'WebGL draw calls were issued');
   assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
