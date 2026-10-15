@@ -138,7 +138,17 @@ async def test_exact_core_path_can_act_under_existing_grant_without_fabricated_h
     db, signal, body = world
     authority = AuthorityService(db)
     await authority.set_mode(OWNER, 'act_within_grants')
-    await authority.grant(OWNER, 'calendar.local.write', effect_scope=['create'], by='user')
+    # This is the exact shape used by the first-party Permissions UI: the
+    # public grant endpoint does not send an effect_scope, so the authority
+    # service must fail closed to create-only and that grant must be sufficient
+    # for this real source path.
+    granted = await authority.grant(
+        OWNER,
+        'calendar.local.write',
+        scope_note='Aggiungere nuovi impegni personali al calendario ORA.',
+        by='user',
+    )
+    assert granted['grant']['effect_scope'] == ['create']
     messages = []
     async def decide(system, payload):
         data = json.loads(payload); messages.append(data)
