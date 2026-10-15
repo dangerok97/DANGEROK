@@ -148,9 +148,9 @@ export default function OraBrain(){
       temporary:!!star.temporary,tentative:!!star.tentative,complete:!!star.complete})),
    ];
    data.forEach((item,i)=>{
-    const radius=brainRadius*(item.kind==='area'?.025:.016);
+    const radius=brainRadius*(item.kind==='area' ? .025 : .016);
     const coreMat=new T.MeshBasicMaterial({color:markerColor(item),transparent:true,opacity:.97,depthWrite:false});
-    const haloMat=new T.MeshBasicMaterial({color:markerColor(item),transparent:true,opacity:item.kind==='area'?.16:.11,depthWrite:false,blending:T.AdditiveBlending});
+    const haloMat=new T.MeshBasicMaterial({color:markerColor(item),transparent:true,opacity:item.kind==='area' ? .16 : .11,depthWrite:false,blending:T.AdditiveBlending});
     const core=new T.Mesh(markerGeometry,coreMat),halo=new T.Mesh(markerGeometry,haloMat);
     const position=chooseCenter((item.id||item.area),i);
     core.position.copy(position);halo.position.copy(position);
@@ -176,9 +176,9 @@ export default function OraBrain(){
    for(const entry of markers){
     const active=entry.data.index===selected||(entry.data.id&&entry.data.id===spotlight);
     const areaActive=!active&&latest.current.area&&entry.data.kind==='area'&&entry.data.area===latest.current.area;
-    entry.core.scale.setScalar(brainRadius*(entry.data.kind==='area'?.025:.016)*(active?1.75:areaActive?1.38:1));
-    entry.halo.scale.setScalar(brainRadius*(entry.data.kind==='area'?.025:.016)*(active?5.0:areaActive?4.0:3.2));
-    (entry.halo.material as T.MeshBasicMaterial).opacity=active?.34:areaActive?.24:(entry.data.kind==='area'?.16:.11);
+    entry.core.scale.setScalar(brainRadius*(entry.data.kind==='area' ? .025 : .016)*(active?1.75:areaActive?1.38:1));
+    entry.halo.scale.setScalar(brainRadius*(entry.data.kind==='area' ? .025 : .016)*(active?5.0:areaActive?4.0:3.2));
+    (entry.halo.material as T.MeshBasicMaterial).opacity=active ? .34 : areaActive ? .24 : (entry.data.kind==='area' ? .16 : .11);
    }
    lastSelected=selected;lastSpotlight=spotlight;
   };
@@ -255,7 +255,7 @@ export default function OraBrain(){
     JSON.stringify((next.stars||[]).map(s=>[s.id,s.area,s.kind,!!s.temporary,!!s.tentative,!!s.complete]));
    latest.current={...latest.current,...next,stars:Array.isArray(next.stars)?next.stars:latest.current.stars};
    controls.autoRotate=!(latest.current.paused||latest.current.reduced);
-   controls.autoRotateSpeed=latest.current.mode==='think'?.7:latest.current.mode==='listen'?.46:.34;
+   controls.autoRotateSpeed=latest.current.mode==='think' ? .7 : latest.current.mode==='listen' ? .46 : .34;
    if(starsChanged&&partCenters.length)rebuildMarkers();
    if(lastSelected!==(latest.current.selectedIndex??null)||lastSpotlight!==(latest.current.spotlightId??null))applySelection();
    const zoom=clamp(Number(latest.current.zoomOverride)||1,.72,1.55);
@@ -293,12 +293,12 @@ export default function OraBrain(){
    controls.autoRotate=!(state.paused||state.reduced);
    controls.update();
    const pulse=.5+.5*Math.sin(elapsed*(state.mode==='think'?3.1:1.55));
-   surfaceMaterial.emissiveIntensity=.66+pulse*(state.mode==='think'?.32:.12);
+   surfaceMaterial.emissiveIntensity=.66+pulse*(state.mode==='think' ? .32 : .12);
    wireMaterial.opacity=.055+pulse*.035;
    markers.forEach(entry=>{
     const selected=entry.data.index===(state.selectedIndex??null)||(entry.data.id&&entry.data.id===state.spotlightId);
-    const base=entry.data.kind==='area'?.97:.88;
-    (entry.core.material as T.MeshBasicMaterial).opacity=clamp(base+pulse*(selected?.03:.015),0,1);
+    const base=entry.data.kind==='area' ? .97 : .88;
+    (entry.core.material as T.MeshBasicMaterial).opacity=clamp(base+pulse*(selected ? .03 : .015),0,1);
     if(entry.label){
      entry.core.getWorldPosition(world);projected.copy(world).project(camera);
      const visible=projected.z>-1&&projected.z<1;
