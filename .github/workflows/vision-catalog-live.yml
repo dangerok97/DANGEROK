@@ -171,7 +171,8 @@ jobs:
         with:
           name: ora-brain-v184-visual
           path: .ora-brain-qa/
-          if-no-files-found: warn
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 7
       - name: Archive small provenance report, never full meshes
         if: always()
