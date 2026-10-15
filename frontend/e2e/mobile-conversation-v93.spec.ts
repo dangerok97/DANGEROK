@@ -138,6 +138,7 @@ test('mobile conversation is readable, scrollable, and preserves draft through m
   await input.fill('Bozza da conservare');
   await page.getByTestId('ora-mobile-open-map').click();
   await expect(page.getByTestId('ora-mobile-expanded-map')).toBeVisible();
+  await page.screenshot({ path: `mobile-qa/${info.project.name}-brain-expanded.png` });
   await page.getByTestId('ora-mobile-close-map').click();
   await expect(input).toHaveValue('Bozza da conservare');
   await input.fill('');
