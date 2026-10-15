@@ -79,7 +79,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   // only and never changes the positions/IDs of the person's real knowledge.
   let brainParticleSeed=0x0A11CE;
   function brainRandom(){brainParticleSeed=(Math.imul(brainParticleSeed,1103515245)+12345)>>>0;return brainParticleSeed/4294967296;}
-  const brainParticles=Array.from({length:280},(_,i)=>({
+  const brainParticles=Array.from({length:420},(_,i)=>({
     u:-.66+brainRandom()*1.34,
     v:-.56+brainRandom()*1.05,
     z:brainRandom(),
@@ -143,12 +143,22 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       g.addColorStop(1,'rgba('+palette.edge+',0)');
       ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);
     }
+    // White-cyan energy core gives the hologram depth and a focal source,
+    // closer to a volumetric projection than to a wireframe illustration.
+    const coreX=cx+w*.05,coreY=cy+h*.01,coreR=w*.27;
+    const core=ctx.createRadialGradient(coreX,coreY,0,coreX,coreY,coreR);
+    core.addColorStop(0,'rgba(238,255,255,'+(.24+state.light*.12+beat*.12)+')');
+    core.addColorStop(.16,'rgba('+palette.glow+','+(.18+state.light*.08)+')');
+    core.addColorStop(.52,'rgba('+palette.edge+',.055)');
+    core.addColorStop(1,'rgba('+palette.edge+',0)');
+    ctx.fillStyle=core;ctx.fillRect(coreX-coreR,coreY-coreR,coreR*2,coreR*2);
   }
   function drawBrainParticles(cx,cy,w,h,state,beat,compact){
     ctx.save();
     brainOutline(cx,cy,w,h);ctx.clip();
     ctx.globalCompositeOperation='lighter';
-    const step=compact?1:1;
+    const previewLike=height<340;
+    const step=previewLike?2:1;
     for(let i=0;i<brainParticles.length;i+=step){
       const p=brainParticles[i];
       // Minute parallax/drift gives volumetric life without moving knowledge nodes.
@@ -158,13 +168,13 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const y=cy+p.v*h+driftY;
       const twinkle=.38+.62*(.5+.5*Math.sin(t*(.8+p.speed)+p.phase));
       const depth=.36+p.z*.64;
-      const alpha=(.045+depth*.075+twinkle*.055)*(.70+state.light*.40);
+      const alpha=(.065+depth*.095+twinkle*.070)*(.74+state.light*.44);
       const rgb=p.warm?palette.warmPoint:palette.point;
-      const radius=p.size*(.55+depth*.72)*(compact?.82:1);
+      const radius=p.size*(.62+depth*.80)*(previewLike?.88:1.04);
       ctx.fillStyle='rgba('+rgb+','+alpha+')';
       ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
       if((i%17===0||i%29===0)&&twinkle>.58){
-        glow(x,y,(compact?5:8)+radius*2,.08+twinkle*.10+beat*.05,p.warm);
+        glow(x,y,(previewLike?6:10)+radius*2,.11+twinkle*.14+beat*.06,p.warm);
       }
     }
     ctx.restore();
@@ -175,7 +185,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.save();
     brainOutline(cx,cy,w,h);ctx.clip();
     ctx.globalCompositeOperation='lighter';
-    for(let i=0;i<72;i++){
+    for(let i=0;i<104;i++){
       const a=i*2.3999632297;
       const ring=.12+(i%11)/15;
       const sx=cx+Math.cos(a)*w*ring*.62;
@@ -184,12 +194,17 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const ey=cy+Math.sin(a*.83+1.1)*h*(.17+(i%5)*.055);
       const mx=cx+Math.sin(a*.61)*w*.16;
       const my=cy+Math.cos(a*.77)*h*.12;
-      const alpha=.060+state.light*.055+(i%9===0?beat*.065:0);
-      ctx.strokeStyle='rgba('+palette.trail+','+alpha+')';
-      ctx.lineWidth=i%9===0?.78:.34;
+      const highlight=i%17===0;
+      const warm=i%29===0;
+      const alpha=.055+state.light*.050+(highlight?beat*.075:0);
+      ctx.save();
+      if(highlight){ctx.shadowColor=warm?'rgba('+palette.warmGlow+',.55)':'rgba('+palette.glow+',.48)';ctx.shadowBlur=6;}
+      ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+(alpha+.055)+')':'rgba('+palette.trail+','+alpha+')';
+      ctx.lineWidth=highlight?.88:.30;
       ctx.beginPath();ctx.moveTo(sx,sy);ctx.quadraticCurveTo(mx,my,ex,ey);ctx.stroke();
+      ctx.restore();
     }
-    for(let i=0;i<34;i++){
+    for(let i=0;i<48;i++){
       const a=i*.91;
       const x=cx+Math.cos(a)*w*(.08+(i%6)*.075);
       const y=cy+Math.sin(a*1.27)*h*(.06+(i%5)*.07);
@@ -256,13 +271,13 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     drawBrainVolume(cx,cy,w,h,state,beat);
     drawBrainParticles(cx,cy,w,h,state,beat,compact);
     drawNeuralFibreField(cx,cy,w,h,state,beat);
-    ctx.shadowColor='rgba('+palette.glow+',.32)';
-    ctx.shadowBlur=compact?5:8;
-    ctx.strokeStyle='rgba('+palette.glow+','+(.035+strength*.060)+')';
-    ctx.lineWidth=compact?1.55:1.85;brainOutline(cx,cy,w,h);ctx.stroke();
-    ctx.shadowBlur=compact?2:3;
-    ctx.strokeStyle='rgba('+palette.point+','+(.10+strength*.16)+')';
-    ctx.lineWidth=(compact?.65:.58)+state.light*.16;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowColor='rgba('+palette.glow+',.22)';
+    ctx.shadowBlur=compact?4:6;
+    ctx.strokeStyle='rgba('+palette.glow+','+(.018+strength*.032)+')';
+    ctx.lineWidth=compact?1.05:1.25;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowBlur=2;
+    ctx.strokeStyle='rgba('+palette.point+','+(.045+strength*.075)+')';
+    ctx.lineWidth=.45+state.light*.08;brainOutline(cx,cy,w,h);ctx.stroke();
     ctx.shadowBlur=0;
     drawCorticalSulci(cx,cy,w,h,state,beat);
 
