@@ -63,6 +63,11 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   const snapshot = ora.scene.snapshot();
   assert.equal(snapshot.surface, 'brain');
   assert.ok(snapshot.brain.w > 0 && snapshot.brain.h > 0, 'brain envelope is present');
+  assert.ok(snapshot.brain.scaffoldNodes >= 150, 'brain remains visually populated even before personal knowledge');
+  assert.ok(snapshot.brain.scaffoldEdges >= 250, 'decorative neural fibre density is retained');
+  assert.ok(snapshot.brain.w * 1.42 <= 360 * 1.03, 'brain silhouette stays inside a phone viewport');
+  assert.ok(snapshot.brain.h * 1.34 <= 240 * 1.03, 'brain stem and cortex stay inside the canvas');
+  assert.equal(snapshot.knowledgeStars, 0, 'decorative neurons are presentation only, never fake knowledge');
   assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
   ora.scene.destroy();
 });
