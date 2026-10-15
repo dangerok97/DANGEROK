@@ -156,17 +156,16 @@ void main(){gl_FragColor=uColor;}`);
     const proj=perspective(Math.PI/3.25,aspect,.1,20);
     const centerShift=(.5-(options.centerY??.515))*1.25;
     const distance=3.65/Math.max(.70,camera.zoom);
-    let model=identity();
-    model=multiply(translate(-camera.x,-camera.y+centerShift,-distance-camera.z),model);
-    model=multiply(rotX(dragPitch),model);
+    // Model transforms must never scale or rotate the camera translation.
+    // T * Rx * Ry * S keeps the brain large while the camera remains at the
+    // requested physical distance — the previous S*R*T order cancelled zoom.
+    const entranceScale=.035+.965*reveal;
+    const presentationScale=aspect>1.35?Math.min(2.35,1.72+(aspect-1.35)*.62):1.62;
+    const s=entranceScale*presentationScale;
+    let model=scale(s,s,s);
     model=multiply(rotY(dragYaw),model);
-    const introScale=options.intro?(.25+.75*reveal):(.72+.28*reveal);
-    // Wide conversation previews used to make the perspective brain look tiny.
-    // Scale the 3D model with horizontal aspect while keeping expanded portrait
-    // views bounded, so the brain remains the dominant object on every device.
-    const presentationScale=aspect>1.35?Math.min(2.25,1+(aspect-1.35)*.72):1.10;
-    const s=introScale*presentationScale;
-    model=multiply(scale(s,s,s),model);
+    model=multiply(rotX(dragPitch),model);
+    model=multiply(translate(-camera.x,-camera.y+centerShift,-distance-camera.z),model);
     return multiply(proj,model);
   }
 
