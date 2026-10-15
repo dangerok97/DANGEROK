@@ -3,6 +3,31 @@ import assert from 'node:assert/strict';
 import { createPresenceScene } from './scene.js';
 
 const fixtureStars = Array.from({length:394}, (_,i) => ({id:`star_test_${i}`, area:['memory','calendar','people','places','home','documents','finances','calls'][i%8], kind:'node'}));
+function fakeWebGl() {
+  let draws = 0, attrib = 0;
+  const gl = {
+    VERTEX_SHADER: 0x8B31, FRAGMENT_SHADER: 0x8B30,
+    COMPILE_STATUS: 0x8B81, LINK_STATUS: 0x8B82,
+    ARRAY_BUFFER: 0x8892, ELEMENT_ARRAY_BUFFER: 0x8893, STATIC_DRAW: 0x88E4, DYNAMIC_DRAW: 0x88E8,
+    FLOAT: 0x1406, UNSIGNED_SHORT: 0x1403, POINTS: 0x0000, LINES: 0x0001, TRIANGLES: 0x0004,
+    COLOR_BUFFER_BIT: 0x4000, DEPTH_BUFFER_BIT: 0x0100,
+    DEPTH_TEST: 0x0B71, BLEND: 0x0BE2, SRC_ALPHA: 0x0302, ONE_MINUS_SRC_ALPHA: 0x0303, ONE: 1,
+    createShader: () => ({}), shaderSource() {}, compileShader() {},
+    getShaderParameter: () => true, getShaderInfoLog: () => '',
+    createProgram: () => ({}), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, getProgramInfoLog: () => '',
+    getAttribLocation: () => attrib++, getUniformLocation: () => ({}),
+    createBuffer: () => ({}), deleteBuffer() {}, bindBuffer() {}, bufferData() {},
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, disable() {},
+    depthMask() {}, blendFunc() {}, useProgram() {}, uniformMatrix4fv() {},
+    uniform1f() {}, uniform4f() {}, vertexAttribPointer() {},
+    enableVertexAttribArray() {}, lineWidth() {},
+    drawArrays() { draws++; }, drawElements() { draws++; },
+    _draws: () => draws,
+  };
+  return gl;
+}
+
 function harness(options = {}) {
   let next = 0, time = 0;
   const pending = new Map(), listeners = new Map();
@@ -12,19 +37,21 @@ function harness(options = {}) {
   globalThis.document = { hidden: false, addEventListener: on, removeEventListener: off };
   globalThis.requestAnimationFrame = fn => { pending.set(++next, fn); return next; };
   globalThis.cancelAnimationFrame = id => pending.delete(id);
-  const gradient = { addColorStop() {} };
-  let draws = 0;
-  const ctx = new Proxy({ measureText: text => ({ width: text.length * 6 }), createRadialGradient: () => gradient, createLinearGradient: () => gradient,
-    arc(...values) { assert.ok(values.every(Number.isFinite), 'projection contains a non-finite coordinate'); }, fillRect() { draws++; } }, { get: (target, key) => target[key] || (() => {}) });
+  const gl = fakeWebGl();
   const selections = [];
-  const canvas = { style: {}, getContext: () => ctx, getBoundingClientRect: () => ({ width: 360, height: 240, left: 30, top: 60 }), addEventListener: on, removeEventListener: off };
+  const canvas = {
+    style: {},
+    getContext: kind => kind === 'webgl' || kind === 'experimental-webgl' ? gl : null,
+    getBoundingClientRect: () => ({ width: 360, height: 240, left: 30, top: 60 }),
+    addEventListener: on, removeEventListener: off,
+  };
   const palette = new Proxy({}, { get: () => '170,200,220' });
   const scene = createPresenceScene(canvas, { mode: 'idle', active: true, stars: fixtureStars, ...options }, palette, { onSelect: node => selections.push(node) });
   function frames(n) { for (let i = 0; i < n; i++) { const batch = [...pending]; pending.clear(); time += 16.67; for (const [, fn] of batch) fn(time); } }
   function pointer(event, x, y, type = 'mouse', id = 1) {
     listeners.get(event)({ clientX: x + 30, clientY: y + 60, pointerId: id, pointerType: type, button: 0 });
   }
-  return { scene, frames, pending, listeners, pointer, selections, draws: () => draws };
+  return { scene, frames, pending, listeners, pointer, selections, draws: gl._draws };
 }
 
 test('registration starts with one nucleus and reveals only completed steps', () => {
@@ -61,14 +88,15 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   h.scene.destroy();
   const ora = harness({ intro: false, stars: [] });
   const snapshot = ora.scene.snapshot();
-  assert.equal(snapshot.surface, 'brain');
-  assert.equal(snapshot.visualProfile, 'volumetric-hologram-v181');
-  assert.ok(snapshot.brain.w > 0 && snapshot.brain.h > 0, 'brain envelope is present');
-  assert.ok(snapshot.brainCloudPoints >= 240 && snapshot.brainCloudPoints <= 280, 'volumetric hologram keeps enough cortical particles for depth');
-  assert.ok(snapshot.brainCloudLinks > snapshot.brainCloudPoints * .7, 'cortex keeps a sparse connected neural volume');
-  assert.ok(snapshot.brainCloudLinks < snapshot.brainCloudPoints * 2.2, 'neural fibres stay sparse enough for the holographic organ to dominate');
-  assert.ok(snapshot.brainCloudFrame.w > snapshot.brain.w * .85, 'cortical light volume fills most of the brain horizontally');
-  assert.ok(snapshot.brainCloudFrame.h > snapshot.brain.h * .65, 'cortical light volume fills most of the brain vertically');
+  assert.equal(snapshot.surface, 'brain3d');
+  assert.equal(snapshot.renderer, 'webgl');
+  assert.ok(snapshot.brainVertices > 3000, 'brain retains dense cortical reference geometry');
+  assert.ok(snapshot.brainMeshVertices > 3500, 'brain is rendered from a real triangle surface mesh');
+  assert.ok(snapshot.brainMeshTriangles > 6500, 'surface mesh has enough triangles to read as an organ, not a polygon blob');
+  assert.ok(snapshot.brainVolumeVertices >= 700, 'brain keeps restrained translucent internal tissue');
+  assert.ok(snapshot.brainSparks >= 50 && snapshot.brainSparks < 100, 'synaptic hotspots stay sparse instead of becoming the brain material');
+  assert.ok(snapshot.brainLines > 1000, 'brain contains depth-tested neural/cortical line geometry');
+  assert.ok(ora.draws() > 0, 'WebGL draw calls were issued');
   assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
   ora.scene.destroy();
 });
@@ -94,7 +122,7 @@ test('saving a new life fact moves the camera to its star and restores the resti
 test('opening grows from one central point to the full holographic brain network, once', () => {
   const h = harness({ reveal: true });
   assert.equal(h.scene.snapshot().visiblePoints, 1);
-  assert.equal(h.scene.snapshot().projected[0].x, 180);
+  assert.ok(Math.abs(h.scene.snapshot().projected[0].x - 180) < 16, 'opening nucleus stays visually centered in perspective');
   h.frames(65);
   const midway = h.scene.snapshot();
   assert.ok(midway.visiblePoints > 1 && midway.visiblePoints < 402);
@@ -112,7 +140,7 @@ test('a late first-message trigger restarts at the centre after the mounted brai
   assert.notEqual(h.scene.snapshot().camera.x, 0);
   h.scene.update({ revealKey: 'first-message' });
   assert.equal(h.scene.snapshot().visiblePoints, 1);
-  assert.equal(h.scene.snapshot().projected[0].x, 180);
+  assert.ok(Math.abs(h.scene.snapshot().projected[0].x - 180) < 16, 'restarted nucleus stays visually centered in perspective');
   assert.equal(h.scene.snapshot().camera.zoom, 1);
   h.frames(65);
   assert.ok(h.scene.snapshot().visiblePoints > 1 && h.scene.snapshot().visiblePoints < 402);
@@ -220,7 +248,7 @@ test('mouse drag rotates on both axes while pause keeps animation unscheduled', 
   assert.notDeepEqual(after.projected[0], before.projected[0]);
   assert.equal(h.pending.size, 0); assert.equal(h.selections.length, 0, 'a drag must not open a node');
   h.scene.update({ resetKey: 1 });
-  assert.deepEqual(h.scene.snapshot().rotation, { yaw: 0, pitch: 0 });
+  assert.deepEqual(h.scene.snapshot().rotation, { yaw: -.34, pitch: .10 });
   h.scene.destroy();
 });
 test('hover and touch light a projected node; click reports its domain at CSS coordinates', () => {
@@ -243,10 +271,10 @@ test('touch can rotate in reduced motion and cancelled/multiple pointers never s
   h.pointer('pointerdown', 140, 100, 'touch');
   h.pointer('pointerdown', 180, 90, 'touch', 2);
   h.pointer('pointermove', 200, 100, 'touch', 2);
-  assert.deepEqual(h.scene.snapshot().rotation, { yaw: 0, pitch: 0 });
+  assert.deepEqual(h.scene.snapshot().rotation, { yaw: -.34, pitch: .10 });
   h.pointer('pointerup', 200, 100, 'touch', 2);
   h.pointer('pointermove', 170, 130, 'touch');
-  assert.ok(h.scene.snapshot().rotation.yaw > 0);
+  assert.ok(h.scene.snapshot().rotation.yaw > -.34);
   h.pointer('pointercancel', 170, 130, 'touch');
   h.pointer('pointerup', 170, 130, 'touch');
   assert.equal(h.pending.size, 0); assert.equal(h.selections.length, 0);
@@ -268,7 +296,7 @@ test('dialogue framing moves the drawn brain and keeps node hit targets aligned'
   const before = h.scene.snapshot().projected[2];
   h.scene.update({ centerY: .4 });
   const after = h.scene.snapshot().projected[2];
-  assert.equal(after.x, before.x); assert.ok(after.y < before.y);
+  assert.ok(Math.abs(after.x - before.x) < 1, 'vertical reframing must not materially drift horizontal hit targets'); assert.ok(after.y < before.y);
   h.pointer('pointerdown', after.x, after.y, 'touch'); h.pointer('pointerup', after.x, after.y, 'touch');
   assert.equal(h.selections[0]?.area, 'people');
   h.scene.destroy();

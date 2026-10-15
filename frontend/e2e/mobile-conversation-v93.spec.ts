@@ -138,6 +138,7 @@ test('mobile conversation is readable, scrollable, and preserves draft through m
   await input.fill('Bozza da conservare');
   await page.getByTestId('ora-mobile-open-map').click();
   await expect(page.getByTestId('ora-mobile-expanded-map')).toBeVisible();
+  await page.screenshot({ path: `mobile-qa/${info.project.name}-brain-expanded.png` });
   await page.getByTestId('ora-mobile-close-map').click();
   await expect(input).toHaveValue('Bozza da conservare');
   await input.fill('');
@@ -178,7 +179,7 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   await page.setViewportSize({ width: 390, height: 740 });
   const controls = { followup: { status: 'scheduled', next_check_at: '2026-10-07T15:00:00Z', next_check_label: '7 ott 2026, 17:00', timezone: 'Europe/Rome', last_checked_at: '2026-10-08T13:00:00+02:00', completion_when: 'Il risultato utile è raggiunto — condizione simulata', notify_when: 'Una variazione utile rilevata — condizione simulata' }, removeFails: true, dismissed: [] as string[] };
   const posts = await fixture(page, controls);
-  await page.getByTestId('ora-mobile-open-map').click();
+  await page.getByTestId('ora-mobile-star-detail').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
   const card = modal.getByTestId('ora-cockpit-temporary');
   const detail = modal.getByTestId('ora-map-detail');
@@ -227,7 +228,7 @@ test('mobile follow-up starts unconfirmed and refreshes without a chat message',
   await page.setViewportSize({ width: 390, height: 740 });
   const controls = { followup: { status: 'not_scheduled' } as any };
   const posts = await fixture(page, controls);
-  await page.getByTestId('ora-mobile-open-map').click();
+  await page.getByTestId('ora-mobile-star-detail').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
   const card = modal.getByTestId('ora-cockpit-temporary');
   await card.getByRole('button', { name: 'Dettagli del controllo', exact: true }).click();
@@ -274,7 +275,7 @@ test('mobile Situation keeps useful estimates and actions first through risk and
     },
   } as any };
   const posts = await fixture(page, controls);
-  await page.getByTestId('ora-mobile-open-map').click();
+  await page.getByTestId('ora-mobile-star-detail').click();
   const modal = page.getByTestId('ora-mobile-expanded-map');
   const card = modal.getByTestId('ora-cockpit-temporary');
   const result = card.getByTestId('ora-cockpit-outcome');
