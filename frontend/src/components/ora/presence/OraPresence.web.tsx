@@ -148,7 +148,7 @@ function MobilePresenceConversation({
         style={[styles.highlight, !highlighted.temporary && styles.highlightPermanent]}
         testID="ora-mobile-star-detail"
       >
-        <Text style={[styles.redStar, !highlighted.temporary && styles.permanentStar]}>✦</Text>
+        <Text style={[styles.redStar, !highlighted.temporary && styles.permanentStar]}>●</Text>
         <View style={styles.highlightText}>
           <Text style={[styles.highlightLabel, !highlighted.temporary && styles.highlightLabelPermanent]}>
             {highlighted.temporary ? 'MEMORIA TEMPORANEA IN EVIDENZA' : 'NODO IN EVIDENZA'}
