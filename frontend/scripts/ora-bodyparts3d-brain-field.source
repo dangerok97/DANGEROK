@@ -139,16 +139,20 @@ export function createOraParticleBrain(scene:T.Scene,brain:T.Group){
  const connections=makeLines(edge,0x40b8ff,.25);brain.add(connections);
  // Cortical gyri: short wavy lines that follow the FRONT curved 3D shell.
  const wrinkles:number[]=[];
- for(let band=0;band<180;band++){
-  // Different lobe orientations generate a recognisable cortical fold field,
-  // rather than the horizontal spaghetti created by a single sweep axis.
-  const sx=-1.01+rng()*1.80,y0=-.30+rng()*.88,length=.16+rng()*.49;
-  const phase=rng()*6.28,heading=rng()*6.28;
+ for(let band=0;band<150;band++){
+  // Gyri flow tangentially around their nearest cortical lobe. This gives
+  // recognizable folded pathways without arbitrary crossing scribbles.
+  const sx=-1.01+rng()*1.80,y0=-.30+rng()*.87,length=.14+rng()*.34;
+  const lobe=lobes.filter(l=>!l.rear).reduce((best,l)=>
+   Math.hypot((sx-l.x)/l.rx,(y0-l.y)/l.ry)<
+   Math.hypot((sx-best.x)/best.rx,(y0-best.y)/best.ry)?l:best);
+  const theta=Math.atan2((y0-lobe.y)/lobe.ry,(sx-lobe.x)/lobe.rx)+Math.PI/2+(rng()-.5)*.55;
+  const phase=rng()*6.28;
   let previous:T.Vector3|null=null;
   for(let i=0;i<=25;i++){
-   const t=i/25,bend=Math.sin(t*6.28+phase)*(.012+rng()*.010)+Math.sin(t*12.56+phase)*.009;
-   const x=sx+Math.cos(heading)*t*length-Math.sin(heading)*bend;
-   const y=y0+Math.sin(heading)*t*length*.86+Math.cos(heading)*bend;
+   const t=i/25-.5,wave=Math.sin((t+.5)*6.28+phase)*.015+Math.sin((t+.5)*12.56-phase)*.008;
+   const x=sx+Math.cos(theta)*t*length-Math.sin(theta)*wave;
+   const y=y0+Math.sin(theta)*t*length*.88+Math.cos(theta)*wave;
    const z=surfaceZ(x,y);
    if(z===null||z<.035){previous=null;continue;}
    const v=new T.Vector3(x,y,z+.011);
@@ -156,12 +160,12 @@ export function createOraParticleBrain(scene:T.Scene,brain:T.Group){
    previous=v;
   }
  }
- const gyri=makeLines(wrinkles,0x8ceaff,.39);brain.add(gyri);
+ const gyri=makeLines(wrinkles,0x8ceaff,.36);brain.add(gyri);
  // Sweeping 3D cortical pathways make the electrical network legible from the
  // same side profile as the user reference. Their geometry is independent of
  // the personally owned knowledge nodes.
  const streams:number[]=[],source=new T.Vector3(-.03,-.11,.45);
- for(let strand=0;strand<54;strand++){
+ for(let strand=0;strand<30;strand++){
   const x=-.94+rng()*1.90,y=-.38+rng()*1.11,z=surfaceZ(x,y);
   if(z===null||z<.025)continue;
   const endpoint=new T.Vector3(x,y,z+.014);
@@ -175,7 +179,7 @@ export function createOraParticleBrain(scene:T.Scene,brain:T.Group){
    previous=next;
   }
  }
- const neuralStreams=makeLines(streams,0x67c8ff,.31);brain.add(neuralStreams);
+ const neuralStreams=makeLines(streams,0x67c8ff,.27);brain.add(neuralStreams);
  // Thin equatorial orbit, never a thick 3D object.
  const orbitCoords:T.Vector3[]=[];
  for(let i=0;i<200;i++){
