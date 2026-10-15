@@ -3,6 +3,31 @@ import assert from 'node:assert/strict';
 import { createPresenceScene } from './scene.js';
 
 const fixtureStars = Array.from({length:394}, (_,i) => ({id:`star_test_${i}`, area:['memory','calendar','people','places','home','documents','finances','calls'][i%8], kind:'node'}));
+function fakeWebGl() {
+  let draws = 0, attrib = 0;
+  const gl = {
+    VERTEX_SHADER: 0x8B31, FRAGMENT_SHADER: 0x8B30,
+    COMPILE_STATUS: 0x8B81, LINK_STATUS: 0x8B82,
+    ARRAY_BUFFER: 0x8892, STATIC_DRAW: 0x88E4, DYNAMIC_DRAW: 0x88E8,
+    FLOAT: 0x1406, POINTS: 0x0000, LINES: 0x0001,
+    COLOR_BUFFER_BIT: 0x4000, DEPTH_BUFFER_BIT: 0x0100,
+    DEPTH_TEST: 0x0B71, BLEND: 0x0BE2, SRC_ALPHA: 0x0302, ONE: 1,
+    createShader: () => ({}), shaderSource() {}, compileShader() {},
+    getShaderParameter: () => true, getShaderInfoLog: () => '',
+    createProgram: () => ({}), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, getProgramInfoLog: () => '',
+    getAttribLocation: () => attrib++, getUniformLocation: () => ({}),
+    createBuffer: () => ({}), deleteBuffer() {}, bindBuffer() {}, bufferData() {},
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, disable() {},
+    depthMask() {}, blendFunc() {}, useProgram() {}, uniformMatrix4fv() {},
+    uniform1f() {}, uniform4f() {}, vertexAttribPointer() {},
+    enableVertexAttribArray() {}, lineWidth() {},
+    drawArrays() { draws++; },
+    _draws: () => draws,
+  };
+  return gl;
+}
+
 function harness(options = {}) {
   let next = 0, time = 0;
   const pending = new Map(), listeners = new Map();
@@ -12,19 +37,21 @@ function harness(options = {}) {
   globalThis.document = { hidden: false, addEventListener: on, removeEventListener: off };
   globalThis.requestAnimationFrame = fn => { pending.set(++next, fn); return next; };
   globalThis.cancelAnimationFrame = id => pending.delete(id);
-  const gradient = { addColorStop() {} };
-  let draws = 0;
-  const ctx = new Proxy({ measureText: text => ({ width: text.length * 6 }), createRadialGradient: () => gradient, createLinearGradient: () => gradient,
-    arc(...values) { assert.ok(values.every(Number.isFinite), 'projection contains a non-finite coordinate'); }, fillRect() { draws++; } }, { get: (target, key) => target[key] || (() => {}) });
+  const gl = fakeWebGl();
   const selections = [];
-  const canvas = { style: {}, getContext: () => ctx, getBoundingClientRect: () => ({ width: 360, height: 240, left: 30, top: 60 }), addEventListener: on, removeEventListener: off };
+  const canvas = {
+    style: {},
+    getContext: kind => kind === 'webgl' || kind === 'experimental-webgl' ? gl : null,
+    getBoundingClientRect: () => ({ width: 360, height: 240, left: 30, top: 60 }),
+    addEventListener: on, removeEventListener: off,
+  };
   const palette = new Proxy({}, { get: () => '170,200,220' });
   const scene = createPresenceScene(canvas, { mode: 'idle', active: true, stars: fixtureStars, ...options }, palette, { onSelect: node => selections.push(node) });
   function frames(n) { for (let i = 0; i < n; i++) { const batch = [...pending]; pending.clear(); time += 16.67; for (const [, fn] of batch) fn(time); } }
   function pointer(event, x, y, type = 'mouse', id = 1) {
     listeners.get(event)({ clientX: x + 30, clientY: y + 60, pointerId: id, pointerType: type, button: 0 });
   }
-  return { scene, frames, pending, listeners, pointer, selections, draws: () => draws };
+  return { scene, frames, pending, listeners, pointer, selections, draws: gl._draws };
 }
 
 test('registration starts with one nucleus and reveals only completed steps', () => {
@@ -61,8 +88,11 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   h.scene.destroy();
   const ora = harness({ intro: false, stars: [] });
   const snapshot = ora.scene.snapshot();
-  assert.equal(snapshot.surface, 'brain');
-  assert.ok(snapshot.brain.w > 0 && snapshot.brain.h > 0, 'brain envelope is present');
+  assert.equal(snapshot.surface, 'brain3d');
+  assert.equal(snapshot.renderer, 'webgl');
+  assert.ok(snapshot.brainVertices > 3000, 'brain is a volumetric 3D point surface');
+  assert.ok(snapshot.brainLines > 1000, 'brain contains depth-tested neural/cortical line geometry');
+  assert.ok(ora.draws() > 0, 'WebGL draw calls were issued');
   assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
   ora.scene.destroy();
 });
@@ -214,7 +244,7 @@ test('mouse drag rotates on both axes while pause keeps animation unscheduled', 
   assert.notDeepEqual(after.projected[0], before.projected[0]);
   assert.equal(h.pending.size, 0); assert.equal(h.selections.length, 0, 'a drag must not open a node');
   h.scene.update({ resetKey: 1 });
-  assert.deepEqual(h.scene.snapshot().rotation, { yaw: 0, pitch: 0 });
+  assert.deepEqual(h.scene.snapshot().rotation, { yaw: -.34, pitch: .10 });
   h.scene.destroy();
 });
 test('hover and touch light a projected node; click reports its domain at CSS coordinates', () => {
