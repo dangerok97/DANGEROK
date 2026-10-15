@@ -75,6 +75,10 @@ class ModeIn(BaseModel):
 class GrantIn(BaseModel):
     capability: str = Field(max_length=60)
     scope_note: str = Field(default="", max_length=200)
+    # Optional because older clients revoke the whole capability. New clients
+    # send the concrete grant id so two independently granted scopes do not
+    # revoke one another.
+    grant_id: str = Field(default="", max_length=80)
 
 
 def _dev_only() -> None:
@@ -392,7 +396,9 @@ async def revoke(body: GrantIn, user=Depends(get_current_user)):
     from agent.authority import AuthorityService
     from deps import db
 
-    return await AuthorityService(db).revoke(user["user_id"], body.capability)
+    return await AuthorityService(db).revoke(
+        user["user_id"], body.capability, grant_id=body.grant_id
+    )
 
 
 @router.get("/{goal_id}/journal")
