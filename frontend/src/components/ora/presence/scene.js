@@ -93,14 +93,15 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ];
     const out=[];
     let attempts=0;
-    while(out.length<360&&attempts++<14000){
+    while(out.length<224&&attempts++<10000){
       const l=lobes[Math.floor(rnd()*lobes.length)];
       const a=rnd()*Math.PI*2;
       const u=rnd()*2-1;
       const v=Math.sqrt(1-u*u);
-      // Bias toward the cortical shell, but keep enough inner points to read
-      // as translucent volume rather than a hollow wire frame.
-      const rr=.16+.84*Math.pow(rnd(),.34);
+      // Anatomy-first: most decorative points live near the cortical shell.
+      // A smaller translucent interior remains, but it must never become a
+      // bright central cloud that hides the gyri.
+      const rr=.42+.58*Math.pow(rnd(),.22);
       const x=l[0]+Math.cos(a)*v*l[3]*rr;
       const y=l[1]+u*l[4]*rr;
       const z=l[2]+Math.sin(a)*v*l[5]*rr;
@@ -111,11 +112,11 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
         out.push({
           x,y,z,
           phase:rnd()*Math.PI*2,
-          size:.55+rnd()*1.05,
-          hot:rnd()<.24,
-          warm:rnd()<.060,
-          shell:rr>.68,
-          energy:.55+rnd()*.45,
+          size:.42+rnd()*.78,
+          hot:rnd()<.15,
+          warm:rnd()<.035,
+          shell:rr>.72,
+          energy:.48+rnd()*.42,
         });
       }
     }
@@ -129,10 +130,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       for(let j=i+1;j<cortexCloud.length;j++){
         const b=cortexCloud[j];
         const d=Math.hypot(a.x-b.x,(a.y-b.y)*1.15,(a.z-b.z)*1.04);
-        if(d<.39)candidates.push([d,j]);
+        if(d<.31)candidates.push([d,j]);
       }
       candidates.sort((u,v)=>u[0]-v[0]);
-      const wanted=i%11===0?5:i%4===0?4:3;
+      const wanted=i%13===0?3:i%5===0?2:1;
       for(let k=0;k<Math.min(wanted,candidates.length);k++){
         links.push([i,candidates[k][1],(i*31+k*17)%47/47]);
       }
@@ -196,12 +197,15 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     }
   }
   function drawNeuralFibreField(cx,cy,w,h,state,beat){
-    // Dense deterministic cortical fibres. The brain outline is the clip, so
-    // every strand belongs to the organ rather than reading as a star map.
+    // The anatomy is always visible; the neural network wakes up only when
+    // ORA is actually listening/thinking/speaking or focusing a real node.
+    // At rest this stays faint so the brain does not collapse into spaghetti.
+    const awake=activeHub>=0||mode==='listen'||mode==='think'||mode==='speak'||selected>=0||hovered>=0;
+    const gain=awake?1:.18;
     ctx.save();
     brainOutline(cx,cy,w,h);ctx.clip();
     ctx.globalCompositeOperation='lighter';
-    for(let i=0;i<74;i++){
+    for(let i=0;i<28;i++){
       const a=i*2.3999632297;
       const ring=.12+(i%11)/15;
       const sx=cx+Math.cos(a)*w*ring*.62;
@@ -210,23 +214,23 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const ey=cy+Math.sin(a*.83+1.1)*h*(.17+(i%5)*.055);
       const mx=cx+Math.sin(a*.61)*w*.16;
       const my=cy+Math.cos(a*.77)*h*.12;
-      const alpha=.060+state.light*.050+(i%9===0?beat*.070:0);
+      const alpha=(.020+state.light*.026+(i%7===0?beat*.060:0))*gain;
       ctx.strokeStyle='rgba('+palette.trail+','+alpha+')';
-      ctx.lineWidth=i%9===0?1.05:.46;
+      ctx.lineWidth=i%7===0?.78:.34;
       ctx.beginPath();ctx.moveTo(sx,sy);ctx.quadraticCurveTo(mx,my,ex,ey);ctx.stroke();
     }
-    for(let i=0;i<38;i++){
+    for(let i=0;i<14;i++){
       const a=i*.91;
       const x=cx+Math.cos(a)*w*(.08+(i%6)*.075);
       const y=cy+Math.sin(a*1.27)*h*(.06+(i%5)*.07);
-      glow(x,y,6+(i%5)*2,.15+state.light*.045+(i%6===0?beat*.15:0),i%11===0);
+      glow(x,y,5+(i%4)*1.5,(.060+state.light*.020+(i%5===0?beat*.10:0))*gain,i%11===0);
     }
     ctx.restore();
   }
   function drawCorticalSulci(cx,cy,w,h,state,beat){
-    const alpha=.13+state.light*.12+beat*.05;
+    const alpha=.20+state.light*.11+beat*.055;
     ctx.strokeStyle='rgba('+palette.point+','+alpha+')';
-    ctx.lineWidth=.70;
+    ctx.lineWidth=.78;
     const traces=[
       [-.47,-.18,-.37,-.33,-.21,-.31,-.13,-.20],
       [-.50,.02,-.38,-.09,-.22,-.04,-.13,.08],
@@ -245,14 +249,15 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       ctx.bezierCurveTo(cx+p[2]*w,cy+p[3]*h,cx+p[4]*w,cy+p[5]*h,cx+p[6]*w,cy+p[7]*h);
       ctx.stroke();
     }
-    // Shorter secondary folds add cortical density without turning into a star field.
-    ctx.strokeStyle='rgba('+palette.edge+','+(alpha*.62)+')';
-    for(let i=0;i<9;i++){
-      const x=-.43+i*.105;
-      const y=-.28+((i*37)%7)*.085;
+    // Secondary folds are the visual texture of the cortex — denser than the
+    // neural network, but quieter and anatomically directional.
+    ctx.strokeStyle='rgba('+palette.edge+','+(alpha*.56)+')';
+    for(let i=0;i<15;i++){
+      const x=-.47+i*.067;
+      const y=-.31+((i*37)%8)*.077;
       ctx.beginPath();
       ctx.moveTo(cx+x*w,cy+y*h);
-      ctx.quadraticCurveTo(cx+(x+.055)*w,cy+(y-.045+(i%2)*.08)*h,cx+(x+.11)*w,cy+(y+.01)*h);
+      ctx.quadraticCurveTo(cx+(x+.042)*w,cy+(y-.050+(i%2)*.090)*h,cx+(x+.085)*w,cy+(y+.012)*h);
       ctx.stroke();
     }
   }
@@ -299,26 +304,27 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.bezierCurveTo(cx-w*.09,cy-h*.26,cx+w*.04,cy-h*.08,cx-w*.02,cy+h*.28);
     ctx.stroke();
 
-    // Broad inter-lobe fibres below the sharper cortical sulci.
-    for(let i=0;i<9;i++){
-      const u=(i+1)/10;
+    // Only a few broad anatomical paths remain permanently visible.
+    const anatomyGain=(activeHub>=0||mode==='think'||mode==='speak')?1:.34;
+    for(let i=0;i<5;i++){
+      const u=(i+1)/6;
       const yy=cy-h*.43+u*h*.72;
       const span=Math.sin(Math.PI*u);
       const left=cx-w*(.48-.10*u)*span;
       const right=cx+w*(.49-.05*u)*span;
       const bend=Math.sin(i*1.73+yaw*.7)*h*.045;
-      ctx.strokeStyle='rgba('+palette.edge+','+(.055+state.light*.060+beat*.035)+')';
+      ctx.strokeStyle='rgba('+palette.edge+','+((.035+state.light*.035+beat*.030)*anatomyGain)+')';
       ctx.lineWidth=.45+(i%3)*.12;
       ctx.beginPath();
       ctx.moveTo(left,yy);
       ctx.bezierCurveTo(cx-w*.18,yy-h*.06+bend,cx+w*.12,yy+h*.07-bend,right,yy+bend*.20);
       ctx.stroke();
     }
-    for(let i=0;i<11;i++){
+    for(let i=0;i<5;i++){
       const a=-2.65+i*.49;
       const ex=cx+Math.cos(a)*w*(.33+.07*Math.sin(i*2.1));
       const ey=cy+Math.sin(a)*h*.30;
-      ctx.strokeStyle='rgba('+palette.trail+','+(.045+state.light*.055)+')';
+      ctx.strokeStyle='rgba('+palette.trail+','+((.022+state.light*.030)*anatomyGain)+')';
       ctx.lineWidth=.5;
       ctx.beginPath();
       ctx.moveTo(cx-w*.02,cy+h*.03);
@@ -369,6 +375,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     if(options.intro)return;
     const reveal=ease(opening/openingSeconds);
     if(reveal<.04)return;
+    const awake=activeHub>=0||mode==='listen'||mode==='think'||mode==='speak'||selected>=0||hovered>=0;
+    const linkGain=awake?.72:.08;
+    const pointGain=awake?.70:.30;
     const projectedCloud=cortexCloud.map(p=>projectCortexPoint(p,yaw,pitch,scale,breathe));
     if(projectedCloud.length){
       const xs=projectedCloud.map(p=>p.x),ys=projectedCloud.map(p=>p.y);
@@ -383,16 +392,16 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const a=projectedCloud[ai],b=projectedCloud[bi];
       const depth=(a.depth+b.depth)*.5;
       const wave=(Math.sin(t*.62+phase*6.28)+1)*.5;
-      const alpha=(.026+depth*.075+wave*.024+beat*.022)*state.light;
+      const alpha=(.014+depth*.040+wave*.016+beat*.020)*state.light*linkGain;
       ctx.strokeStyle='rgba('+palette.edge+','+alpha+')';
-      ctx.lineWidth=.24+depth*.44;
+      ctx.lineWidth=.20+depth*.30;
       const bend=(phase-.5)*12;
       ctx.beginPath();ctx.moveTo(a.x,a.y);
       ctx.quadraticCurveTo((a.x+b.x)*.5+bend,(a.y+b.y)*.5-bend*.30,b.x,b.y);
       ctx.stroke();
 
       // Subtle impulses travel through a subset of fibres while ORA works.
-      if(mode!=='idle'&&((ai+bi)%17===0)){
+      if(awake&&mode!=='idle'&&((ai+bi)%19===0)){
         const u=(t*(.12+state.speed*.12)+phase)%1;
         const px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;
         const power=Math.sin(Math.PI*u)*(.12+beat*.12);
@@ -402,14 +411,14 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
 
     // Longer translucent paths make the cortex feel like an energetic volume,
     // not a small graph sitting in the middle of an outline.
-    for(let i=0;i<32;i++){
+    for(let i=0;i<12;i++){
       const a=projectedCloud[(i*11)%projectedCloud.length];
       const b=projectedCloud[(i*23+37)%projectedCloud.length];
       const c0=projectedCloud[(i*17+83)%projectedCloud.length];
       if(!a||!b||!c0)continue;
       const depth=(a.depth+b.depth+c0.depth)/3;
       const pulse=.5+.5*Math.sin(t*.24+i*.71);
-      ctx.strokeStyle='rgba('+palette.trail+','+((.012+depth*.026+pulse*.010)*state.light)+')';
+      ctx.strokeStyle='rgba('+palette.trail+','+((.008+depth*.018+pulse*.008)*state.light*linkGain)+')';
       ctx.lineWidth=.35+depth*.52;
       ctx.beginPath();ctx.moveTo(a.x,a.y);
       ctx.bezierCurveTo(c0.x,c0.y,(b.x+c0.x)*.5,(b.y+c0.y)*.5,b.x,b.y);ctx.stroke();
@@ -420,10 +429,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const p=cortexCloud[i],q=projectedCloud[i];
       const flicker=.82+.18*Math.sin(t*(p.hot?1.45:.42)+p.phase);
       const shellBoost=p.shell?1.12:.78;
-      const alpha=(.075+q.depth*.28)*(p.hot?1.26:1)*shellBoost*flicker*state.light*p.energy;
+      const alpha=(.050+q.depth*.18)*(p.hot?1.18:1)*shellBoost*flicker*state.light*p.energy*pointGain;
       const r=p.size*(.56+q.depth*.86)*q.scale;
-      if(p.hot&&i%3===0){
-        glow(q.x,q.y,7+q.depth*9,.075+beat*.070,p.warm);
+      if(awake&&p.hot&&i%4===0){
+        glow(q.x,q.y,6+q.depth*7,.045+beat*.055,p.warm);
       }
       ctx.fillStyle=p.warm
         ? 'rgba('+palette.warmPoint+','+Math.min(.64,alpha)+')'
@@ -486,12 +495,19 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const a=projected[e.a],b=projected[e.b];const depth=(a.depth+b.depth)*.5,energy=(a.energy+b.energy)*.5;
       const appear=Math.min(a.appear,b.appear);
       if(appear<.005)return;
-      ctx.globalAlpha=appear;
       const related=inspected>=0&&(e.a===inspected||e.b===inspected);
+      const hubToHub=!!points[e.a]?.hub&&!!points[e.b]?.hub;
+      const activeRelated=related
+        ||(activeHub>=0&&(points[e.a]?.areaGroup===activeHub||points[e.b]?.areaGroup===activeHub))
+        ||(spotlight>=0&&(e.a===spotlight||e.b===spotlight));
+      const graphAwake=activeHub>=0||inspected>=0||spotlight>=0||mode==='listen'||mode==='think'||mode==='speak';
+      if(!graphAwake&&hubToHub)return;
+      const graphGain=activeRelated?1:graphAwake?.18:.055;
+      ctx.globalAlpha=appear*graphGain;
       const birthId=points[e.b].id,birthAge=t-(births.get(birthId)??-100);
       const arrival=!options.reduced&&!options.paused&&e.b===spotlight&&birthAge>=0&&birthAge<2.8;
       const trail=arrival?Math.sin(Math.PI*birthAge/2.8)*.55:0;
-      const alpha=Math.min(.9,(.028+depth*.12+energy*.22)*(e.trunk?1.5:1)*state.light+(related?.45:0)+trail);
+      const alpha=Math.min(.78,((.018+depth*.070+energy*.13)*(e.trunk?1.22:1)*state.light+(related?.36:0)+trail)*graphGain);
       const warm=arrival||activeHub>=0?(arrival||e.a===activeHub||e.b===activeHub):e.trunk&&e.a===0&&(e.b===4||e.b===1);
       const first=points[e.a].distance<=points[e.b].distance?a:b,second=first===a?b:a;
       ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+alpha+')':'rgba('+palette.edge+','+alpha+')';ctx.lineWidth=related?1.35:e.trunk?.72:.38+depth*.22;
@@ -563,11 +579,21 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const h=hubs[i],p=projected[i],tw=ctx.measureText(h.name).width;
       if(p.appear<.99||opening/openingSeconds<.72)return;
       if(p.x<0||p.x>width||p.y<0||p.y>height)return;
-      let x=p.x+h.dx,y=p.y+h.dy;let left=h.align==='right'?x-tw:x;
-      left=Math.max(15,Math.min(width-tw-15,left));y=Math.max(18,Math.min(height-20,y));
+      const outside=brainFrame.w>0&&!options.intro;
+      let y=outside?p.y+h.dy*.24:p.y+h.dy;
+      let left;
+      if(outside){
+        const side=h.align==='right'?-1:1;
+        const edgeX=brainFrame.cx+side*brainFrame.w*.57;
+        left=side<0?edgeX-tw-8:edgeX+8;
+      }else{
+        const x=p.x+h.dx;
+        left=h.align==='right'?x-tw:x;
+      }
+      left=Math.max(8,Math.min(width-tw-8,left));y=Math.max(18,Math.min(height-20,y));
       for(let tries=0;tries<6;tries++){if(!occupied.some(b=>left<b.x+b.w+7&&left+tw+7>b.x&&Math.abs(y-b.y)<19))break;y+=19;}
       y=Math.min(height-23,y);occupied.push({x:left,y,w:tw});labels.push({x:left,y,w:tw,index:i});
-      ctx.strokeStyle='rgba('+palette.leader+',.28)';ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
+      ctx.strokeStyle='rgba('+palette.leader+',.20)';ctx.lineWidth=.55;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
       ctx.fillStyle=palette.labelBackground;ctx.fillRect(left-3,y-8,tw+6,16);ctx.fillStyle=i===0?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);
     });
     if(options.intro){
@@ -654,5 +680,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {surface:'brain',brain:{...brainFrame},brainCloudFrame:{...cortexFrame},brainCloudPoints:cortexCloud.length,brainCloudLinks:cortexLinks.length,camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {surface:'brain',visualProfile:'anatomy-first-v180',brain:{...brainFrame},brainCloudFrame:{...cortexFrame},brainCloudPoints:cortexCloud.length,brainCloudLinks:cortexLinks.length,camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }
