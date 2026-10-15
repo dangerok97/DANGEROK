@@ -62,9 +62,11 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   const ora = harness({ intro: false, stars: [] });
   const snapshot = ora.scene.snapshot();
   assert.equal(snapshot.surface, 'brain');
+  assert.equal(snapshot.visualProfile, 'anatomy-first-v180');
   assert.ok(snapshot.brain.w > 0 && snapshot.brain.h > 0, 'brain envelope is present');
-  assert.ok(snapshot.brainCloudPoints >= 340, 'hologram contains a dense volumetric cortical point cloud');
-  assert.ok(snapshot.brainCloudLinks > snapshot.brainCloudPoints * 1.6, 'cortical volume is densely connected by neural fibres');
+  assert.ok(snapshot.brainCloudPoints >= 200 && snapshot.brainCloudPoints <= 240, 'cortex keeps enough shell points for depth without becoming a luminous cloud');
+  assert.ok(snapshot.brainCloudLinks > snapshot.brainCloudPoints * .7, 'cortex keeps a sparse connected neural volume');
+  assert.ok(snapshot.brainCloudLinks < snapshot.brainCloudPoints * 2.2, 'decorative fibres stay sparse enough for anatomy to dominate');
   assert.ok(snapshot.brainCloudFrame.w > snapshot.brain.w * .85, 'cortical light volume fills most of the brain horizontally');
   assert.ok(snapshot.brainCloudFrame.h > snapshot.brain.h * .65, 'cortical light volume fills most of the brain vertically');
   assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
