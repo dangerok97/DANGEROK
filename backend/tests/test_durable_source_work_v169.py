@@ -315,12 +315,13 @@ def test_pilot_is_explicit_owner_configuration_not_implicit_permission(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_existing_connected_entry_uses_one_lane_only_when_enrolled(world, monkeypatch):
+async def test_existing_connected_entry_uses_one_lane_only_when_enrolled_and_opted_in(world, monkeypatch):
     from connected.service import ConnectedLifeService
     from connected import reasoning
     raw, signal, _ = world
     db = StableMockDatabase(raw)
     monkeypatch.setenv('ORA_SOURCE_CORE_PILOT_OWNERS', OWNER)
+    await grant(db)
     processor = AsyncMock(return_value={'ok': True, 'passed_on': 1})
     monkeypatch.setattr(SourceCoreWorker, 'process_pending', processor)
     legacy = AsyncMock(side_effect=AssertionError('Do not run two interpreters'))
