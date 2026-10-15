@@ -264,8 +264,9 @@ void main(){gl_FragColor=uColor;}`);
   }
   const brain=buildBrain();
 
-  let points=[],edges=[],projected=[],geometryKey='',pointBuffer=null,pointSizeBuffer=null,pointPhaseBuffer=null,edgeBuffer=null;
+  let points=[],edges=[],projected=[],geometryKey='',edgeBuffer=null;
   let knowledgeGroups={normal:[],tentative:[],temporary:[],hubs:[]};
+  let knowledgeBuffers={normal:null,tentative:null,temporary:null,hubs:null};
   const births=new Map();
   let furthest=1;
 
@@ -301,20 +302,32 @@ void main(){gl_FragColor=uColor;}`);
       groups.forEach((group,g)=>group.forEach((index,j)=>{add(index,g);for(let k=1;k<=2&&k<=j;k++)add(index,group[j-k]);}));
     }
 
-    const pos=[],sizes=[],phases=[],edgePos=[];
+    const edgePos=[];
     knowledgeGroups={normal:[],tentative:[],temporary:[],hubs:[]};
     points.forEach((p,i)=>{
-      pos.push(p.x,p.y,p.z);sizes.push(p.radius);phases.push(p.phase/6.28);
       if(p.hub)knowledgeGroups.hubs.push(i);
       else if(p.temporary)knowledgeGroups.temporary.push(i);
       else if(p.tentative)knowledgeGroups.tentative.push(i);
       else knowledgeGroups.normal.push(i);
     });
     edges.forEach(e=>{const a=points[e.a],b=points[e.b];edgePos.push(a.x,a.y,a.z,b.x,b.y,b.z);});
-    pointBuffer=replaceBuffer(pointBuffer,pos);
-    pointSizeBuffer=replaceBuffer(pointSizeBuffer,sizes);
-    pointPhaseBuffer=replaceBuffer(pointPhaseBuffer,phases);
     edgeBuffer=replaceBuffer(edgeBuffer,edgePos);
+    const disposeGroup=value=>{
+      if(!value)return;
+      for(const key of ['pos','size','phase'])if(value[key]){gl.deleteBuffer(value[key]);buffers.delete(value[key]);}
+    };
+    Object.values(knowledgeBuffers).forEach(disposeGroup);
+    const buildGroup=indices=>{
+      const pos=[],sz=[],ph=[];
+      for(const i of indices){const p=points[i];pos.push(p.x,p.y,p.z);sz.push(p.radius);ph.push(p.phase/6.28);}
+      return {pos:buffer(pos),size:buffer(sz),phase:buffer(ph),count:indices.length};
+    };
+    knowledgeBuffers={
+      normal:buildGroup(knowledgeGroups.normal),
+      tentative:buildGroup(knowledgeGroups.tentative),
+      temporary:buildGroup(knowledgeGroups.temporary),
+      hubs:buildGroup(knowledgeGroups.hubs),
+    };
     projected=points.map(()=>({x:0,y:0,z:0,depth:0,appear:1}));
     selected=-1;hovered=-1;pointer=null;
   }
@@ -339,21 +352,17 @@ void main(){gl_FragColor=uColor;}`);
     gl.uniformMatrix4fv(lineLoc.mvp,false,new Float32Array(mvp));gl.uniform4f(lineLoc.color,color[0],color[1],color[2],alpha);
     gl.lineWidth(widthPx);gl.drawArrays(gl.LINES,0,count);
   }
-  function subsetBuffer(indices,componentBufferData){
-    const out=[];for(const i of indices)out.push(...componentBufferData.slice(i*3,i*3+3));return out;
+  function drawKnowledgeBuffer(group,color,alpha,mvp,pulse,reveal){
+    if(!group?.count)return;
+    drawPoints(group.pos,group.size,group.phase,group.count,mvp,color,alpha,pulse,reveal);
   }
-  function pointGroupData(indices){
-    const pos=[],sz=[],ph=[];
-    for(const i of indices){const p=points[i];pos.push(p.x,p.y,p.z);sz.push(p.radius);ph.push(p.phase/6.28);}
-    return {pos:buffer(pos,gl.DYNAMIC_DRAW),size:buffer(sz,gl.DYNAMIC_DRAW),phase:buffer(ph,gl.DYNAMIC_DRAW),count:indices.length};
-  }
-  function drawKnowledgeGroup(indices,color,alpha,mvp,pulse,reveal,extraSize=0){
-    if(!indices.length)return;
-    const pos=[],sz=[],ph=[];
-    for(const i of indices){const p=points[i];pos.push(p.x,p.y,p.z);sz.push(p.radius+extraSize);ph.push(p.phase/6.28);}
-    const pb=buffer(pos,gl.DYNAMIC_DRAW),sb=buffer(sz,gl.DYNAMIC_DRAW),hb=buffer(ph,gl.DYNAMIC_DRAW);
-    drawPoints(pb,sb,hb,indices.length,mvp,color,alpha,pulse,reveal);
-    gl.deleteBuffer(pb);gl.deleteBuffer(sb);gl.deleteBuffer(hb);buffers.delete(pb);buffers.delete(sb);buffers.delete(hb);
+  function drawFocusedPoint(index,color,mvp,reveal){
+    const p=points[index];if(!p)return;
+    const pb=buffer([p.x,p.y,p.z],gl.DYNAMIC_DRAW);
+    const sb=buffer([p.radius+7],gl.DYNAMIC_DRAW);
+    const hb=buffer([p.phase/6.28],gl.DYNAMIC_DRAW);
+    drawPoints(pb,sb,hb,1,mvp,color,1,.9,reveal);
+    for(const b of [pb,sb,hb]){gl.deleteBuffer(b);buffers.delete(b);}
   }
 
   let overlay=null,labelEls=[];
@@ -441,17 +450,17 @@ void main(){gl_FragColor=uColor;}`);
     drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.line,.055+.055*state.light,1);
     gl.depthMask(true);
 
-    if(pointBuffer&&edgeBuffer){
+    if(edgeBuffer){
       drawLines(edgeBuffer,edges.length*2,mvp,colors.line,.16+.12*state.light,1);
-      drawKnowledgeGroup(knowledgeGroups.normal,colors.white,.92,mvp,beat,reveal);
-      drawKnowledgeGroup(knowledgeGroups.tentative,colors.warm,.96,mvp,beat,reveal,.5);
-      drawKnowledgeGroup(knowledgeGroups.temporary,colors.red,1,mvp,beat,reveal,1.5);
-      drawKnowledgeGroup(knowledgeGroups.hubs,activeHub>=0?colors.cyan:colors.white,.95,mvp,beat,reveal,2);
+      drawKnowledgeBuffer(knowledgeBuffers.normal,colors.white,.92,mvp,beat,reveal);
+      drawKnowledgeBuffer(knowledgeBuffers.tentative,colors.warm,.96,mvp,beat,reveal);
+      drawKnowledgeBuffer(knowledgeBuffers.temporary,colors.red,1,mvp,beat,reveal);
+      drawKnowledgeBuffer(knowledgeBuffers.hubs,activeHub>=0?colors.cyan:colors.white,.95,mvp,beat,reveal);
       const spotlight=points.findIndex(p=>p.id===options.spotlightId);
       const inspected=hovered>=0?hovered:selected>=0?selected:spotlight;
       if(inspected>=0){
         const p=points[inspected],color=p.temporary?colors.red:colors.white;
-        drawKnowledgeGroup([inspected],color,1,mvp,.9,reveal,7);
+        drawFocusedPoint(inspected,color,mvp,reveal);
       }
     }
     gl.depthMask(true);
