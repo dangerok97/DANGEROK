@@ -1384,6 +1384,7 @@ export const api = {
         id: string;
         capability: string;
         scope?: string | null;
+        effect_scope?: string[];
         active: boolean;
         granted_by: string;
       }>;
@@ -1422,10 +1423,10 @@ export const api = {
    * Forwards, never backwards: what already happened stands, and what ORA
    * was about to do is rechecked at the moment it would act.
    */
-  revokeAgentAutonomy: (capability: string) =>
+  revokeAgentAutonomy: (capability: string, grantId = '') =>
     request<{ ok: boolean; revoked: number }>('/agent/autonomy/revoke', {
       method: 'POST',
-      body: JSON.stringify({ capability }),
+      body: JSON.stringify({ capability, grant_id: grantId }),
     }),
 
   /**
