@@ -218,7 +218,7 @@ test('mobile selected Situation exposes real follow-up fields, scrolls and remov
   await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
   await card.getByTestId('ora-remove-temporary').click();
   await expect(card).toHaveCount(0);
-  await expect(modal.getByTestId('knowledge-map-progress')).toContainText('1 stelle');
+  await expect(modal.getByTestId('knowledge-map-progress')).toContainText('1 nodi');
   expect(controls.dismissed).toEqual(Array(2).fill('/api/life-profile/knowledge-map/situations/sit_qa_1/dismiss'));
   expect(posts).toEqual([]);
 });
