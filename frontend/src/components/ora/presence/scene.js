@@ -75,6 +75,20 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   rebuild(options.stars,true);
   const dust=Array.from({length:34},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
+  // Independent deterministic holographic cortex. It is presentation geometry
+  // only and never changes the positions/IDs of the person's real knowledge.
+  let brainParticleSeed=0x0A11CE;
+  function brainRandom(){brainParticleSeed=(Math.imul(brainParticleSeed,1103515245)+12345)>>>0;return brainParticleSeed/4294967296;}
+  const brainParticles=Array.from({length:280},(_,i)=>({
+    u:-.66+brainRandom()*1.34,
+    v:-.56+brainRandom()*1.05,
+    z:brainRandom(),
+    phase:brainRandom()*Math.PI*2,
+    speed:.28+brainRandom()*.54,
+    size:.35+brainRandom()*1.15,
+    warm:i%23===0||i%31===0,
+  }));
+
   function nodeInfo(index){const p=points[index];return p?{index,area:hubs[p.areaGroup].id,kind:p.hub?'area':p.kind,...(p.hub?{}:{id:p.id})}:null;}
   function hitTest(x,y,touch=false){
     for(let i=labels.length-1;i>=0;i--){const b=labels[i];if(x>=b.x-4&&x<=b.x+b.w+4&&Math.abs(y-b.y)<=12)return b.index;}
@@ -115,9 +129,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     // Multiple overlapping lobe glows create the glassy/volumetric hologram
     // seen in the reference instead of one flat translucent fill.
     const lobes=[
-      [-.30,-.14,.34,.34,.22],[-.02,-.23,.36,.34,.26],[.28,-.18,.34,.32,.24],
-      [-.39,.11,.28,.27,.18],[-.08,.09,.38,.31,.24],[.28,.08,.34,.29,.22],
-      [.43,.20,.23,.22,.17],[-.22,.28,.24,.20,.14],
+      [-.30,-.14,.34,.34,.31],[-.02,-.23,.36,.34,.35],[.28,-.18,.34,.32,.33],
+      [-.39,.11,.28,.27,.25],[-.08,.09,.38,.31,.34],[.28,.08,.34,.29,.30],
+      [.43,.20,.23,.22,.24],[-.22,.28,.24,.20,.20],
     ];
     for(let i=0;i<lobes.length;i++){
       const [lx,ly,rx,ry,power]=lobes[i];
@@ -130,13 +144,38 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);
     }
   }
+  function drawBrainParticles(cx,cy,w,h,state,beat,compact){
+    ctx.save();
+    brainOutline(cx,cy,w,h);ctx.clip();
+    ctx.globalCompositeOperation='lighter';
+    const step=compact?1:1;
+    for(let i=0;i<brainParticles.length;i+=step){
+      const p=brainParticles[i];
+      // Minute parallax/drift gives volumetric life without moving knowledge nodes.
+      const driftX=Math.sin(t*p.speed+p.phase)*w*.0035*(.35+p.z);
+      const driftY=Math.cos(t*(p.speed*.83)+p.phase)*h*.0030*(.35+p.z);
+      const x=cx+p.u*w+driftX;
+      const y=cy+p.v*h+driftY;
+      const twinkle=.38+.62*(.5+.5*Math.sin(t*(.8+p.speed)+p.phase));
+      const depth=.36+p.z*.64;
+      const alpha=(.045+depth*.075+twinkle*.055)*(.70+state.light*.40);
+      const rgb=p.warm?palette.warmPoint:palette.point;
+      const radius=p.size*(.55+depth*.72)*(compact?.82:1);
+      ctx.fillStyle='rgba('+rgb+','+alpha+')';
+      ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
+      if((i%17===0||i%29===0)&&twinkle>.58){
+        glow(x,y,(compact?5:8)+radius*2,.08+twinkle*.10+beat*.05,p.warm);
+      }
+    }
+    ctx.restore();
+  }
   function drawNeuralFibreField(cx,cy,w,h,state,beat){
     // Dense deterministic cortical fibres. The brain outline is the clip, so
     // every strand belongs to the organ rather than reading as a star map.
     ctx.save();
     brainOutline(cx,cy,w,h);ctx.clip();
     ctx.globalCompositeOperation='lighter';
-    for(let i=0;i<44;i++){
+    for(let i=0;i<72;i++){
       const a=i*2.3999632297;
       const ring=.12+(i%11)/15;
       const sx=cx+Math.cos(a)*w*ring*.62;
@@ -145,12 +184,12 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const ey=cy+Math.sin(a*.83+1.1)*h*(.17+(i%5)*.055);
       const mx=cx+Math.sin(a*.61)*w*.16;
       const my=cy+Math.cos(a*.77)*h*.12;
-      const alpha=.045+state.light*.035+(i%9===0?beat*.055:0);
+      const alpha=.060+state.light*.055+(i%9===0?beat*.065:0);
       ctx.strokeStyle='rgba('+palette.trail+','+alpha+')';
-      ctx.lineWidth=i%8===0?.85:.38;
+      ctx.lineWidth=i%9===0?.78:.34;
       ctx.beginPath();ctx.moveTo(sx,sy);ctx.quadraticCurveTo(mx,my,ex,ey);ctx.stroke();
     }
-    for(let i=0;i<22;i++){
+    for(let i=0;i<34;i++){
       const a=i*.91;
       const x=cx+Math.cos(a)*w*(.08+(i%6)*.075);
       const y=cy+Math.sin(a*1.27)*h*(.06+(i%5)*.07);
@@ -215,14 +254,15 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     fill.addColorStop(1,'rgba('+palette.edge+',0)');
     ctx.fillStyle=fill;ctx.fill();
     drawBrainVolume(cx,cy,w,h,state,beat);
+    drawBrainParticles(cx,cy,w,h,state,beat,compact);
     drawNeuralFibreField(cx,cy,w,h,state,beat);
-    ctx.shadowColor='rgba('+palette.glow+',.44)';
-    ctx.shadowBlur=compact?7:11;
-    ctx.strokeStyle='rgba('+palette.glow+','+(.08+strength*.11)+')';
-    ctx.lineWidth=compact?2.7:3.3;brainOutline(cx,cy,w,h);ctx.stroke();
-    ctx.shadowBlur=compact?3:5;
-    ctx.strokeStyle='rgba('+palette.point+','+(.24+strength*.34)+')';
-    ctx.lineWidth=(compact?1.0:.9)+state.light*.30;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowColor='rgba('+palette.glow+',.32)';
+    ctx.shadowBlur=compact?5:8;
+    ctx.strokeStyle='rgba('+palette.glow+','+(.035+strength*.060)+')';
+    ctx.lineWidth=compact?1.55:1.85;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowBlur=compact?2:3;
+    ctx.strokeStyle='rgba('+palette.point+','+(.10+strength*.16)+')';
+    ctx.lineWidth=(compact?.65:.58)+state.light*.16;brainOutline(cx,cy,w,h);ctx.stroke();
     ctx.shadowBlur=0;
     drawCorticalSulci(cx,cy,w,h,state,beat);
 
