@@ -62,6 +62,8 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   const ora = harness({ intro: false, stars: [] });
   const snapshot = ora.scene.snapshot();
   assert.equal(snapshot.surface, 'brain');
+  assert.ok(snapshot.decorativeNeurons >= 240, 'brain must stay visually dense even with no saved facts');
+  assert.ok(snapshot.decorativeFibres >= 300, 'brain must contain a dense decorative neural mesh');
   assert.ok(snapshot.brain.w > 0 && snapshot.brain.h > 0, 'brain envelope is present');
   assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
   ora.scene.destroy();
