@@ -15,6 +15,7 @@ on:
       - 'frontend/nginx.staging.conf'
       - 'frontend/scripts/build-bodyparts3d.sh'
       - 'frontend/scripts/ora-bodyparts3d-*'
+      - 'frontend/scripts/ora-brain-visual-qa.mjs'
       - 'frontend/scripts/ora-anatomy-terminology-it.ts'
       - 'frontend/scripts/check-bodyparts3d-build.mjs'
       - 'frontend/app/vision-xray.tsx'
@@ -150,6 +151,29 @@ jobs:
       - name: Validate geometry, credits and relative asset paths
         working-directory: frontend
         run: node scripts/check-bodyparts3d-build.mjs "$RUNNER_TEMP/bodyparts3d/dist"
+      - name: Verify particle hologram visually in Chromium and WebKit
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
+          node scripts/ora-brain-visual-qa.mjs "$RUNNER_TEMP/bodyparts3d/dist" "../.ora-brain-qa"
+          python3 -m pip install -q pillow
+          python3 - <<'PY'
+          from PIL import Image
+          for engine in ('chromium','webkit'):
+              im=Image.open(f'../.ora-brain-qa/ora-brain-{engine}-390x680.png').convert('RGB')
+              blue=sum(1 for r,g,b in im.getdata() if b>92 and b>r*1.3 and g>r*1.2)
+              print({'browser':engine,'blue_hologram_pixels':blue,'image_size':im.size})
+              assert blue>=1000, f'{engine}: particle hologram rendered black or too faint'
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ora-brain-v184-visual
+          path: .ora-brain-qa/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
       - name: Archive small provenance report, never full meshes
         if: always()
         run: |
