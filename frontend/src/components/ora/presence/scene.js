@@ -166,7 +166,7 @@ void main(){gl_FragColor=uColor;}`);
     const entranceScale=.035+.965*reveal;
     // Full-screen portrait must show the whole brain. The earlier 1.90 scale
     // cropped the cortex/brain-stem and made the result read as a wallpaper.
-    const portraitScale=height>330?1.36:height>230?1.55:1.48;
+    const portraitScale=height>330?1.22:height>230?1.50:1.44;
     const presentationScale=aspect>1.35?Math.min(2.08,1.70+(aspect-1.35)*.48):portraitScale;
     const s=entranceScale*presentationScale;
     let model=scale(s,s,s);
@@ -457,8 +457,11 @@ void main(){gl_FragColor=uColor;}`);
       const show=height>=150&&opening/openingSeconds>.62;
       hubs.forEach((_,i)=>{
         const q=projected[i],el=labelEls[i];if(!el)return;
-        if(!show||q.appear<.85||q.x<15||q.x>width-15||q.y<12||q.y>height-12){el.style.opacity='0';return;}
-        el.style.left=q.x+'px';el.style.top=q.y+'px';el.style.opacity=activeHub===i?'1':'.82';
+        const mobileKeep=i<4||activeHub===i;
+        if(!show||(width<520&&!mobileKeep)||q.appear<.85||q.x<15||q.x>width-15||q.y<12||q.y>height-12){el.style.opacity='0';return;}
+        const ox=width<520?Math.sign(q.x-width*.5||1)*14:0;
+        const oy=width<520?Math.sign(q.y-height*.52||1)*6:0;
+        el.style.left=(q.x+ox)+'px';el.style.top=(q.y+oy)+'px';el.style.opacity=activeHub===i?'1':'.74';
         el.style.color=activeHub===i?(palette.warmLabel||'#e3c492'):(palette.label||'#9fced9');
       });
     }
@@ -516,18 +519,22 @@ void main(){gl_FragColor=uColor;}`);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);
     drawPoints(brain.volumeBuffer,brain.volumeSizeBuffer,brain.volumePhaseBuffer,brain.volumeCount,mvp,colors.electric,.26+.08*state.light,beat,reveal,2.05);
-    drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.electric,.065+.035*state.light,1);
-    drawLines(brain.wireBuffer,brain.wireCount,mvp,colors.ice,.025+.018*state.light,1);
+    drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.electric,.042+.025*state.light,1);
+    drawLines(brain.wireBuffer,brain.wireCount,mvp,colors.ice,.012+.008*state.light,1);
 
     gl.depthMask(true);
     drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.cyan,.55+.18*state.light,beat,reveal,1.72);
     drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.white,.36+.10*state.light,beat,reveal,.72);
     gl.depthMask(false);
-    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.warm,.92,beat,reveal,1.35);
+    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.warm,.78,beat,reveal,1.12);
     gl.depthMask(true);
 
     if(edgeBuffer){
-      drawLines(edgeBuffer,edges.length*2,mvp,colors.line,.026+.024*state.light,1);
+      // Knowledge relationships remain in the interaction model, but the old
+      // straight star-graph lines are not drawn over the anatomy. Neural
+      // fibres already communicate connectedness without turning the brain
+      // back into a constellation.
+      if(activeHub>=0)drawLines(edgeBuffer,edges.length*2,mvp,colors.line,.012,1);
       drawKnowledgeBuffer(knowledgeBuffers.normal,colors.white,.92,mvp,beat,reveal);
       drawKnowledgeBuffer(knowledgeBuffers.tentative,colors.warm,.96,mvp,beat,reveal);
       drawKnowledgeBuffer(knowledgeBuffers.temporary,colors.red,1,mvp,beat,reveal);
