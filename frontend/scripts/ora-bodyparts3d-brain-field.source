@@ -1,0 +1,214 @@
+import * as T from 'three';
+
+/** ORA particle anatomy v184.
+ * Nothing here renders polygon surfaces. The geometry is a deterministic
+ * three-dimensional brain-shaped field of cyan particles, based on contiguous
+ * cortical lobes, a rear cerebellum and a tapering brainstem.
+ */
+type Lobe={x:number;y:number;z:number;rx:number;ry:number;rz:number;n:number;rear?:boolean};
+const lobes:Lobe[]=[
+ {x:-.69,y:.08,z:0,rx:.44,ry:.42,rz:.34,n:1300},
+ {x:-.44,y:.33,z:0,rx:.52,ry:.38,rz:.39,n:1750},
+ {x:.01,y:.41,z:0,rx:.60,ry:.39,rz:.42,n:1900},
+ {x:.47,y:.28,z:0,rx:.57,ry:.41,rz:.40,n:1600},
+ {x:.73,y:-.07,z:0,rx:.37,ry:.36,rz:.33,n:1250},
+ {x:-.23,y:-.23,z:0,rx:.61,ry:.36,rz:.34,n:1550},
+ {x:.30,y:-.29,z:0,rx:.57,ry:.34,rz:.35,n:1350},
+ {x:.59,y:-.57,z:-.065,rx:.37,ry:.27,rz:.29,n:1200,rear:true}
+];
+const createRng=(seed=0x31415926)=>()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+const metric=(p:T.Vector3,l:Lobe)=>{
+ const x=(p.x-l.x)/l.rx,y=(p.y-l.y)/l.ry,z=(p.z-l.z)/l.rz;
+ return x*x+y*y+z*z;
+};
+const unit=(l:Lobe,p:T.Vector3)=>new T.Vector3((p.x-l.x)/(l.rx*l.rx),(p.y-l.y)/(l.ry*l.ry),(p.z-l.z)/(l.rz*l.rz)).normalize();
+const sph=(l:Lobe,a:number,u:number,r=1)=>{
+ const q=Math.sqrt(Math.max(0,1-u*u));
+ return new T.Vector3(l.x+Math.cos(a)*q*l.rx*r,l.y+u*l.ry*r,l.z+Math.sin(a)*q*l.rz*r);
+};
+const surfaceZ=(x:number,y:number)=>{
+ let z=-Infinity;
+ for(const l of lobes){
+  if(l.rear)continue;
+  const xx=(x-l.x)/l.rx,yy=(y-l.y)/l.ry,remain=1-xx*xx-yy*yy;
+  if(remain>0)z=Math.max(z,l.z+l.rz*Math.sqrt(remain));
+ }
+ return Number.isFinite(z)?z:null;
+};
+function makeGeometry(points:T.Vector3[],rng:()=>number,interior=false){
+ const g=new T.BufferGeometry(),pos=new Float32Array(points.length*3),
+  size=new Float32Array(points.length),energy=new Float32Array(points.length),phase=new Float32Array(points.length);
+ for(let i=0;i<points.length;i++){
+  points[i].toArray(pos,i*3);
+  size[i]=interior?.62+rng()*.45:.72+rng()*.75;
+  energy[i]=interior?.22+rng()*.30:.55+rng()*.45;
+  phase[i]=rng()*6.2831853;
+ }
+ g.setAttribute('position',new T.BufferAttribute(pos,3));
+ g.setAttribute('aSize',new T.BufferAttribute(size,1));
+ g.setAttribute('aEnergy',new T.BufferAttribute(energy,1));
+ g.setAttribute('aPhase',new T.BufferAttribute(phase,1));
+ return g;
+}
+function fieldMaterial(interior=false){
+ return new T.ShaderMaterial({
+  transparent:true,depthWrite:false,depthTest:false,blending:T.AdditiveBlending,
+  uniforms:{uTime:{value:0},uPulse:{value:1},uDpr:{value:1.5}},
+  vertexShader:[
+   'attribute float aSize; attribute float aEnergy; attribute float aPhase;',
+   'uniform float uTime; uniform float uPulse; uniform float uDpr;',
+   'varying float vPower;',
+   'void main(){',
+   '  vec4 q=modelViewMatrix*vec4(position,1.0);',
+   '  gl_Position=projectionMatrix*q;',
+   '  vPower=aEnergy*uPulse*(0.88+0.12*sin(uTime*1.1+aPhase));',
+   '  gl_PointSize=clamp(aSize*uDpr*14.5/max(1.5,-q.z),1.0,8.8);',
+   '}'
+  ].join('\n'),
+  fragmentShader:[
+   'varying float vPower;',
+   'void main(){',
+   ' float r=length(gl_PointCoord-vec2(.5))*2.0;',
+   ' float mist=pow(max(0.0,1.0-r),1.9);',
+   ' float core=pow(max(0.0,1.0-r),7.0);',
+   ' vec3 blue=mix(vec3(0.025,0.31,1.0),vec3(.31,.85,1.0),core);',
+   ' gl_FragColor=vec4(blue, vPower*'+(interior?'.24':'.97')+'*(mist*.58+core*.92));',
+   '}'
+  ].join('\n')
+ });
+}
+const makeLines=(positions:number[],color:number,opacity:number)=>{
+ const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+ const mat=new T.LineBasicMaterial({color,transparent:true,opacity,depthWrite:false,blending:T.AdditiveBlending});
+ const obj=new T.LineSegments(g,mat);obj.frustumCulled=false;return obj;
+};
+const pickSurface=(points:T.Vector3[],target:T.Vector3)=>{
+ let nearest=points[0],score=Infinity;
+ for(const p of points){
+  const d=p.distanceToSquared(target);
+  if(d<score){nearest=p;score=d;}
+ }
+ return nearest.clone().add(new T.Vector3(0,0,.018));
+};
+
+export function createOraParticleBrain(scene:T.Scene,brain:T.Group){
+ const rng=createRng(),surface:T.Vector3[]=[],internal:T.Vector3[]=[];
+ for(let index=0;index<lobes.length;index++){
+  const l=lobes[index];let created=0,attempts=0;
+  while(created<l.n&&attempts++<l.n*22){
+   const p=sph(l,rng()*Math.PI*2,rng()*2-1);
+   let hidden=false;
+   for(let j=0;j<lobes.length;j++){
+    if(j===index)continue;
+    if(l.rear&&!lobes[j].rear&&p.y<-.48)continue;
+    if(metric(p,lobes[j])<.93){hidden=true;break;}
+   }
+   if(hidden)continue;
+   const wrinkles=Math.sin(p.x*23+p.y*9)*Math.sin(p.y*24-p.z*8);
+   p.addScaledVector(unit(l,p),wrinkles*.0075);
+   surface.push(p);created++;
+  }
+ }
+ // The brainstem is a narrow point-only stalk, not a hollow solid tube.
+ for(let i=0;i<700;i++){
+  const t=rng(),angle=rng()*Math.PI*2,rad=(.133-.035*t)*(1+.055*Math.sin(t*10));
+  surface.push(new T.Vector3(.40-.08*t+Math.cos(angle)*rad,-.77-t*.53,-.048+Math.sin(angle)*rad*.82));
+ }
+ for(let i=0;i<1550;i++){
+  const l=lobes[Math.floor(rng()*lobes.length)];
+  const p=sph(l,rng()*Math.PI*2,rng()*2-1,Math.cbrt(rng())*.88);
+  internal.push(p);
+ }
+ const shellGeom=makeGeometry(surface,rng),innerGeom=makeGeometry(internal,rng,true);
+ const shellMaterial=fieldMaterial(false),insideMaterial=fieldMaterial(true);
+ const shell=new T.Points(shellGeom,shellMaterial),inside=new T.Points(innerGeom,insideMaterial);
+ shell.frustumCulled=false;inside.frustumCulled=false;
+ brain.add(inside,shell);
+ // Needle-fine local edges make true connected fibres instead of a mesh fill.
+ const grid=new Map<string,number[]>(),edge:number[]=[];
+ const key=(p:T.Vector3)=>[Math.round(p.x*11),Math.round(p.y*11),Math.round(p.z*11)].join(':');
+ surface.forEach((p,i)=>{const k=key(p),a=grid.get(k)||[];a.push(i);grid.set(k,a);});
+ for(let i=0;i<surface.length;i+=4){
+  const a=surface[i],bucket=grid.get(key(a))||[];
+  if(bucket.length<2)continue;
+  const j=bucket[Math.floor(rng()*bucket.length)];
+  if(j===i||a.distanceToSquared(surface[j])>.018)continue;
+  const b=surface[j];edge.push(a.x,a.y,a.z,b.x,b.y,b.z);
+ }
+ const connections=makeLines(edge,0x3598f9,.165);brain.add(connections);
+ // Cortical gyri: short wavy lines that follow the FRONT curved 3D shell.
+ const wrinkles:number[]=[];
+ for(let band=0;band<110;band++){
+  const sx=-1.01+rng()*1.80,y0=-.29+rng()*.87,width=.17+rng()*.49,phase=rng()*6.28;
+  let previous:T.Vector3|null=null;
+  for(let i=0;i<=25;i++){
+   const t=i/25,x=sx+t*width,y=y0+
+    Math.sin(t*6.28+phase)*(.016+rng()*.009)+Math.sin(t*12.56+phase)*.008;
+   const z=surfaceZ(x,y);
+   if(z===null||z<.035){previous=null;continue;}
+   const v=new T.Vector3(x,y,z+.011);
+   if(previous)wrinkles.push(previous.x,previous.y,previous.z,v.x,v.y,v.z);
+   previous=v;
+  }
+ }
+ const gyri=makeLines(wrinkles,0x83cfff,.25);brain.add(gyri);
+ // Thin equatorial orbit, never a thick 3D object.
+ const orbitCoords:T.Vector3[]=[];
+ for(let i=0;i<200;i++){
+  const a=i/200*Math.PI*2;
+  orbitCoords.push(new T.Vector3(Math.cos(a)*1.23,.03+Math.sin(a*2)*.06,Math.sin(a)*.66));
+ }
+ const orbitG=new T.BufferGeometry().setFromPoints(orbitCoords);
+ const orbitM=new T.LineBasicMaterial({color:0x2e89fa,opacity:.15,transparent:true,depthWrite:false,blending:T.AdditiveBlending});
+ const orbit=new T.LineLoop(orbitG,orbitM);orbit.rotation.z=.09;brain.add(orbit);
+ // Subtle holographic emitter beneath the brain.
+ const rings:T.LineLoop[]=[];
+ const ringAssets:Array<{dispose:()=>void}>=[];
+ for(let k=0;k<3;k++){
+  const vertices:T.Vector3[]=[];
+  for(let i=0;i<=160;i++){
+   const a=i/160*Math.PI*2;
+   vertices.push(new T.Vector3(Math.cos(a)*(.77+k*.10),-1.44,Math.sin(a)*(.77+k*.10)*.34));
+  }
+  const g=new T.BufferGeometry().setFromPoints(vertices);
+  const m=new T.LineBasicMaterial({color:0x3cafff,transparent:true,opacity:k===0?.52:.21,depthWrite:false,blending:T.AdditiveBlending});
+  const ring=new T.LineLoop(g,m);ring.frustumCulled=false;scene.add(ring);rings.push(ring);ringAssets.push(g,m);
+ }
+ const rain:T.Vector3[]=[];
+ for(let i=0;i<420;i++){
+  const a=rng()*6.283,r=Math.sqrt(rng())*.92;
+  rain.push(new T.Vector3(Math.cos(a)*r,-1.41+rng()*.72,Math.sin(a)*r*.32));
+ }
+ const rainG=new T.BufferGeometry().setFromPoints(rain);
+ const rainM=new T.PointsMaterial({color:0x388add,opacity:.35,transparent:true,size:.013,depthWrite:false,blending:T.AdditiveBlending});
+ const rainPoints=new T.Points(rainG,rainM);scene.add(rainPoints);
+
+ return {
+  visualProfile:'particle-hologram-v184' as const,
+  particleCount:surface.length+internal.length,
+  corticalPoints:surface.filter(p=>p.z>.065&&p.y>-.73),
+  preferredPosition:(target:T.Vector3)=>pickSurface(surface.filter(p=>p.z>.065&&p.y>-.73),target),
+  animate:(time:number,busy:boolean,paused:boolean)=>{
+   shellMaterial.uniforms.uTime.value=time;
+   shellMaterial.uniforms.uPulse.value=busy?1.22:1;
+   insideMaterial.uniforms.uTime.value=time;
+   insideMaterial.uniforms.uPulse.value=busy?1.04:.73;
+   gyri.visible=true;
+   if(!paused){
+    brain.rotation.y=Math.sin(time*.18)*.11;
+    brain.rotation.z=Math.sin(time*.10)*.012;
+   }
+  },
+  setPixelRatio:(dpr:number)=>{
+   shellMaterial.uniforms.uDpr.value=Math.min(dpr,1.85);
+   insideMaterial.uniforms.uDpr.value=Math.min(dpr,1.85);
+  },
+  dispose:()=>{
+   brain.remove(shell,inside,connections,gyri,orbit);
+   scene.remove(rainPoints);
+   rings.forEach(r=>scene.remove(r));
+   [shellGeom,innerGeom,shellMaterial,insideMaterial,connections.geometry,connections.material as T.Material,
+     gyri.geometry,gyri.material as T.Material,orbitG,orbitM,rainG,rainM,...ringAssets].forEach(o=>o.dispose());
+  }
+ };
+}
