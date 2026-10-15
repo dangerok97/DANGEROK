@@ -355,9 +355,14 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     // v179 visual gate: the cortical mass must define the brain, not sit as a
     // bright knot in its centre. Compact previews need even more spread.
     const sx=compact?2.12:1.92,sy=compact?1.84:1.60,sz=compact?1.34:1.24;
-    let x=p.x*sx*breathing*growth-camera.x;
-    let y=p.y*sy*breathing*growth-camera.y;
-    let z=p.z*sz*breathing*growth-camera.z;
+    // The anatomical brain volume exists independently from how much ORA
+    // currently knows. Knowledge growth changes real nodes, not the size of
+    // the organ itself; otherwise a new/quiet account collapses into a bright
+    // central knot instead of reading as a full holographic brain.
+    const anatomicalGrowth=.84+.16*growth;
+    let x=p.x*sx*breathing*anatomicalGrowth-camera.x;
+    let y=p.y*sy*breathing*anatomicalGrowth-camera.y;
+    let z=p.z*sz*breathing*anatomicalGrowth-camera.z;
     const rx=x*Math.cos(yaw)+z*Math.sin(yaw),rz=z*Math.cos(yaw)-x*Math.sin(yaw);
     const ry=y*Math.cos(pitch)-rz*Math.sin(pitch),zz=y*Math.sin(pitch)+rz*Math.cos(pitch);
     const perspective=3.8/(3.8-zz);
