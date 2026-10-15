@@ -354,7 +354,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   function projectCortexPoint(p,yaw,pitch,scale,breathing){
     const compact=height<240;
-    const sx=compact?1.72:1.38,sy=compact?1.46:1.23,sz=compact?1.26:1.15;
+    // v179 visual gate: the cortical mass must define the brain, not sit as a
+    // bright knot in its centre. Compact previews need even more spread.
+    const sx=compact?1.88:1.62,sy=compact?1.58:1.34,sz=compact?1.30:1.20;
     let x=p.x*sx*breathing*growth-camera.x;
     let y=p.y*sy*breathing*growth-camera.y;
     let z=p.z*sz*breathing*growth-camera.z;
