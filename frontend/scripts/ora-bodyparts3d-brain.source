@@ -1,262 +1,291 @@
 import React,{useEffect,useRef,useState} from 'react';
 import * as T from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
-import {createOraParticleBrain} from './ora-brain-field';
 import './ora-brain.css';
 
+/* ORA particle hologram v184. Only luminous three-dimensional points and
+   filaments shape the organ. No solid mesh or decorative 2D brain outline. */
 type Star={id:string;area:string;kind:'node'|'branch';tentative?:boolean;temporary?:boolean;complete?:boolean};
 type State={mode?:'idle'|'listen'|'think'|'speak';paused?:boolean;reduced?:boolean;active?:boolean;
  selectedIndex?:number|null;resetKey?:number;zoomOverride?:number;spotlightId?:string|null;
  area?:string|null;stars?:Star[]};
-type Datum={index:number;area:string;kind:'area'|'node'|'branch';id?:string;
- temporary?:boolean;tentative?:boolean;complete?:boolean};
-type Marker={datum:Datum;core:T.Mesh;halo:T.Sprite;label?:HTMLButtonElement;leader?:SVGLineElement};
+type Datum={index:number;area:string;kind:'area'|'node'|'branch';id?:string;temporary?:boolean;tentative?:boolean;complete?:boolean};
+type Marker={data:Datum;hit:T.Mesh;core:T.Sprite;halo:T.Sprite;point:T.Vector3;label?:HTMLButtonElement;leader?:SVGLineElement};
+type Lobe={x:number;y:number;z:number;rx:number;ry:number;rz:number;count:number;cerebellum?:boolean};
+const LOBES:Lobe[]=[
+ {x:-.77,y:.02,z:0,rx:.47,ry:.43,rz:.32,count:1600},
+ {x:-.43,y:.30,z:0,rx:.54,ry:.41,rz:.40,count:1750},
+ {x:.02,y:.39,z:0,rx:.60,ry:.43,rz:.45,count:1900},
+ {x:.48,y:.27,z:0,rx:.56,ry:.42,rz:.39,count:1750},
+ {x:.71,y:-.04,z:0,rx:.39,ry:.36,rz:.32,count:1200},
+ {x:-.26,y:-.27,z:0,rx:.64,ry:.36,rz:.36,count:1300},
+ {x:.28,y:-.28,z:0,rx:.55,ry:.36,rz:.34,count:1200},
+ {x:.51,y:-.62,z:-.055,rx:.39,ry:.28,rz:.28,count:1450,cerebellum:true}
+];
 const AREAS=[
- {id:'memory',label:'MEMORIA',x:.22,y:.34,z:.40},
- {id:'calendar',label:'IMPEGNI',x:-.51,y:.31,z:.33},
- {id:'people',label:'PERSONE',x:.62,y:-.26,z:.35},
- {id:'places',label:'LUOGHI',x:-.52,y:-.26,z:.32},
- {id:'home',label:'CASA',x:-.05,y:-.12,z:.40},
- {id:'documents',label:'DOCUMENTI',x:.50,y:.18,z:.36},
- {id:'finances',label:'FINANZE',x:-.78,y:.05,z:.22},
- {id:'calls',label:'CHIAMATE',x:.30,y:-.13,z:.40},
+ {id:'memory',label:'MEMORIA',x:.21,y:.29,z:.38},
+ {id:'calendar',label:'IMPEGNI',x:-.47,y:.36,z:.35},
+ {id:'people',label:'PERSONE',x:.67,y:-.30,z:.32},
+ {id:'places',label:'LUOGHI',x:-.53,y:-.26,z:.28},
+ {id:'home',label:'CASA',x:-.05,y:-.16,z:.40},
+ {id:'documents',label:'DOCUMENTI',x:.48,y:.10,z:.37},
+ {id:'finances',label:'FINANZE',x:-.82,y:.05,z:.22},
+ {id:'calls',label:'CHIAMATE',x:.37,y:-.16,z:.42}
 ] as const;
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
-const hash=(value:string)=>{let n=2166136261;
- for(let i=0;i<value.length;i++)n=Math.imul(n^value.charCodeAt(i),16777619)>>>0;
- return n>>>0;};
-function synapseTexture(){
- const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
- const ctx=canvas.getContext('2d');if(!ctx)throw Error('synapse_canvas_unavailable');
- const g=ctx.createRadialGradient(64,64,0,64,64,64);
- g.addColorStop(0,'rgba(255,255,255,1)');
- g.addColorStop(.10,'rgba(255,254,239,.98)');
- g.addColorStop(.28,'rgba(255,235,185,.40)');
- g.addColorStop(.60,'rgba(255,190,93,.10)');
- g.addColorStop(1,'rgba(255,190,93,0)');
- ctx.fillStyle=g;ctx.fillRect(0,0,128,128);
- return new T.CanvasTexture(canvas);
-}
-
-export default function OraBrain(){
- const host=useRef<HTMLDivElement>(null);
- const [status,setStatus]=useState<'loading'|'ready'|'error'>('loading');
- const [error,setError]=useState('');
- useEffect(()=>{
-  const el=host.current;if(!el)return;
-  let disposed=false,frame=0;
-  const current:{value:State}={value:{mode:'idle',stars:[],paused:false,reduced:false,zoomOverride:1,resetKey:0}};
-  const send=(payload:unknown)=>{
-   if(window.parent!==window)window.parent.postMessage(payload,window.location.origin);
-  };
-  let renderer:T.WebGLRenderer;
-  try{
-   renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
-  }catch{
-   setStatus('error');setError('WebGL non disponibile su questo dispositivo');
-   send({type:'ora:brain-error',version:1});
-   return;
+const hash=(s:string)=>{let h=2166136261;for(let i=0;i<s.length;i++)h=Math.imul(h^s.charCodeAt(i),16777619)>>>0;return h>>>0;};
+function random(seed=0xdecafbad){let s=seed>>>0;return()=>((s=(Math.imul(s,1664525)+1013904223)>>>0)/4294967296);}
+function volume(p:T.Vector3,l:Lobe){return Math.pow((p.x-l.x)/l.rx,2)+Math.pow((p.y-l.y)/l.ry,2)+Math.pow((p.z-l.z)/l.rz,2);}
+function shellPoint(l:Lobe,a:number,u:number,r=1){const v=Math.sqrt(Math.max(0,1-u*u));
+ return new T.Vector3(l.x+l.rx*Math.cos(a)*v*r,l.y+l.ry*u*r,l.z+l.rz*Math.sin(a)*v*r);}
+function shellNormal(p:T.Vector3,l:Lobe){return new T.Vector3((p.x-l.x)/(l.rx*l.rx),(p.y-l.y)/(l.ry*l.ry),(p.z-l.z)/(l.rz*l.rz)).normalize();}
+function surfaceZ(x:number,y:number){let z=-Infinity;
+ for(const l of LOBES){if(l.cerebellum)continue;const q=1-Math.pow((x-l.x)/l.rx,2)-Math.pow((y-l.y)/l.ry,2);
+  if(q>0)z=Math.max(z,l.z+l.rz*Math.sqrt(q));}
+ return Number.isFinite(z)?z:null;}
+function makeCloud(){
+ const rnd=random(),outer:T.Vector3[]=[],inner:T.Vector3[]=[],sizes:number[]=[],energies:number[]=[];
+ for(let li=0;li<LOBES.length;li++){const l=LOBES[li];let kept=0,attempts=0;
+  while(kept<l.count&&attempts++<l.count*35){
+   const p=shellPoint(l,rnd()*Math.PI*2,rnd()*2-1);
+   if(LOBES.some((other,i)=>i!==li&&(!l.cerebellum||other.cerebellum||p.y>-.45)&&volume(p,other)<.92))continue;
+   const fold=(Math.sin(p.x*29+p.y*8)*Math.cos(p.y*24-p.z*9)+Math.sin(p.x*13-p.y*18))*.5;
+   p.addScaledVector(shellNormal(p,l),fold*.010);
+   outer.push(p);sizes.push(.56+rnd()*.75);energies.push(.46+rnd()*.54);kept++;
   }
-  renderer.setClearColor(0x000000,0);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.65));
+ }
+ for(let i=0;i<850;i++){const t=rnd(),a=rnd()*Math.PI*2,rad=.14*(1-.32*t),y=-.80-.55*t;
+  outer.push(new T.Vector3(.39-.065*t+rad*Math.cos(a),y,-.045+.70*rad*Math.sin(a)));
+  sizes.push(.58+rnd()*.68);energies.push(.44+rnd()*.50);}
+ for(let i=0;i<1800;i++){const l=LOBES[Math.floor(rnd()*LOBES.length)];
+  inner.push(shellPoint(l,rnd()*Math.PI*2,rnd()*2-1,.15+.80*Math.cbrt(rnd())));}
+ return {outer,inner,sizes,energies};
+}
+function dotShader(interior=false){
+ const vertex=[
+ 'attribute float aSize;attribute float aEnergy;attribute float aPhase;',
+ 'uniform float uTime;uniform float uIntensity;uniform float uDpr;uniform float uInterior;',
+ 'varying float vLight;',
+ 'void main(){',
+ 'vec4 eye=modelViewMatrix*vec4(position,1.0);',
+ 'gl_Position=projectionMatrix*eye;',
+ 'vLight=aEnergy*(.87+.13*sin(uTime*.8+aPhase))*uIntensity;',
+ 'float size=uInterior>.5?8.0:16.0;',
+ 'gl_PointSize=clamp(aSize*uDpr*size/max(1.0,-eye.z),1.0,uInterior>.5?4.0:7.5);',
+ '}'
+ ].join('\n');
+ const fragment=[
+ 'uniform float uInterior;varying float vLight;',
+ 'void main(){',
+ 'float d=length(gl_PointCoord-vec2(.5))*2.0;',
+ 'float glow=pow(max(0.0,1.0-d),2.0);',
+ 'float center=pow(max(0.0,1.0-d),7.0);',
+ 'vec3 blue=mix(vec3(.02,.28,1.0),vec3(.48,.91,1.0),center*.90);',
+ 'float alpha=(uInterior>.5?.22:.91)*vLight*(.68*glow+.58*center);',
+ 'gl_FragColor=vec4(blue,alpha);',
+ '}'
+ ].join('\n');
+ return new T.ShaderMaterial({uniforms:{uTime:{value:0},uIntensity:{value:1},
+ uDpr:{value:1.5},uInterior:{value:interior?1:0}},vertexShader:vertex,fragmentShader:fragment,
+ transparent:true,depthWrite:false,depthTest:false,blending:T.AdditiveBlending});
+}
+function spriteTexture(){
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
+ const ctx=canvas.getContext('2d');if(!ctx)throw new Error('canvas_unavailable');
+ const grad=ctx.createRadialGradient(64,64,0,64,64,64);
+ grad.addColorStop(0,'rgba(255,255,255,1)');grad.addColorStop(.08,'rgba(255,249,215,.99)');
+ grad.addColorStop(.22,'rgba(255,211,140,.57)');grad.addColorStop(.5,'rgba(255,183,110,.12)');
+ grad.addColorStop(1,'rgba(255,170,65,0)');
+ ctx.fillStyle=grad;ctx.fillRect(0,0,128,128);return new T.CanvasTexture(canvas);
+}
+function lineSegments(values:number[],color:number,alpha:number){
+ const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(values,3));
+ const material=new T.LineBasicMaterial({color,transparent:true,opacity:alpha,depthWrite:false,blending:T.AdditiveBlending});
+ const result=new T.LineSegments(geometry,material);result.frustumCulled=false;return result;
+}
+export default function OraBrain(){
+ const element=useRef<HTMLDivElement>(null),[status,setStatus]=useState<'ready'|'error'>('ready'),[error,setError]=useState('');
+ useEffect(()=>{
+  const host=element.current;if(!host)return;let disposed=false,frame=0,frameNumber=0;
+  const current:{value:State}={value:{mode:'idle',stars:[],paused:false,reduced:false,zoomOverride:1,resetKey:0}};
+  const notify=(message:unknown)=>{if(window.parent!==window)window.parent.postMessage(message,window.location.origin);};
+  let renderer:T.WebGLRenderer;
+  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});}
+  catch{setStatus('error');setError('WebGL non disponibile');notify({type:'ora:brain-error',version:1});return;}
+  renderer.setClearColor(0x000000,0);renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.6));
   renderer.outputColorSpace=T.SRGBColorSpace;
-  renderer.domElement.setAttribute('aria-label','Cervello olografico di ORA: trascina per ruotare, tocca una sinapsi per aprirla.');
-  el.appendChild(renderer.domElement);
-  const scene=new T.Scene(),camera=new T.PerspectiveCamera(35,1,.01,100);
+  renderer.domElement.setAttribute('aria-label','Cervello olografico tridimensionale di ORA. Trascina per ruotare, pizzica per ingrandire e tocca i nodi.');
+  host.appendChild(renderer.domElement);
+  const scene=new T.Scene(),camera=new T.PerspectiveCamera(36,1,.01,100);
   const controls=new OrbitControls(camera,renderer.domElement);
-  controls.enableDamping=true;controls.dampingFactor=.075;
-  controls.enablePan=false;controls.autoRotate=false;
+  controls.enableDamping=true;controls.dampingFactor=.08;controls.enablePan=false;
+  controls.minDistance=3;controls.maxDistance=15;controls.autoRotate=false;
   const brain=new T.Group();scene.add(brain);
-  const hologram=createOraParticleBrain(scene,brain);
-  hologram.setPixelRatio(Math.min(window.devicePixelRatio||1,1.65));
-  const texture=synapseTexture();
-  const coreGeometry=new T.SphereGeometry(1,14,10);
-  const markers:Marker[]=[];
-  const labelLayer=document.createElement('div');
-  labelLayer.className='ora-brain-label-layer';el.appendChild(labelLayer);
-  const lines=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  lines.setAttribute('class','ora-brain-leaders');
-  lines.setAttribute('aria-hidden','true');
-  labelLayer.appendChild(lines);
-  const nodeColor=(m:Datum)=>{
-   if(m.temporary)return 0xff6177;
-   if(m.tentative)return 0xffc071;
-   return m.kind==='area'?0x82dcff:0xffedbb;
-  };
-  const trigger=(m:Datum)=>send({type:'ora:brain-select',version:1,node:m});
-  const removeMarkers=()=>{
-   for(const m of markers){
-    m.core.removeFromParent();m.halo.removeFromParent();
-    (m.core.material as T.Material).dispose();(m.halo.material as T.Material).dispose();
-    m.label?.remove();m.leader?.remove();
-   }
+  const cloud=makeCloud(),owned:{dispose():void}[]=[];
+  function particles(points:T.Vector3[],inside=false){
+   const count=points.length,coords=new Float32Array(count*3),size=new Float32Array(count);
+   const energy=new Float32Array(count),phase=new Float32Array(count),rnd=random(inside?1919:1313);
+   points.forEach((p,i)=>{p.toArray(coords,i*3);size[i]=inside?.48+rnd()*.55:cloud.sizes[i];
+    energy[i]=inside?.22+rnd()*.28:cloud.energies[i];phase[i]=rnd()*6.283;});
+   const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(coords,3));
+   g.setAttribute('aSize',new T.BufferAttribute(size,1));g.setAttribute('aEnergy',new T.BufferAttribute(energy,1));
+   g.setAttribute('aPhase',new T.BufferAttribute(phase,1));
+   const m=dotShader(inside),obj=new T.Points(g,m);obj.frustumCulled=false;brain.add(obj);owned.push(g,m);return m;
+  }
+  const cortex=particles(cloud.outer),interior=particles(cloud.inner,true);
+  const cell=new Map<string,number[]>(),cellKey=(v:T.Vector3)=>[Math.round(v.x*13),Math.round(v.y*13),Math.round(v.z*13)].join(':');
+  cloud.outer.forEach((p,i)=>{const k=cellKey(p),arr=cell.get(k)||[];arr.push(i);cell.set(k,arr);});
+  const rnd=random(510),wiring:number[]=[],folds:number[]=[];
+  for(let i=0;i<cloud.outer.length;i+=2){const p=cloud.outer[i],local=cell.get(cellKey(p))||[];
+   if(local.length<2)continue;const j=local[Math.floor(rnd()*local.length)];if(j===i)continue;
+   const q=cloud.outer[j];if(p.distanceToSquared(q)>.015)continue;
+   wiring.push(p.x,p.y,p.z,q.x,q.y,q.z);}
+  for(let f=0;f<145;f++){const begin=-1.05+rnd()*1.75,y0=-.29+rnd()*.96,len=.18+rnd()*.55,shift=rnd()*6.28;
+   let previous:T.Vector3|null=null;
+   for(let i=0;i<=28;i++){const t=i/28,x=begin+len*t,y=y0+.027*Math.sin(t*6.283+shift)+.013*Math.sin(t*12.566-shift);
+    const z=surfaceZ(x,y);if(z===null||z<.025){previous=null;continue;}
+    const v=new T.Vector3(x,y,z+.012);if(previous)folds.push(previous.x,previous.y,previous.z,v.x,v.y,v.z);previous=v;}
+  }
+  const links=lineSegments(wiring,0x359bff,.24),sulci=lineSegments(folds,0x8eeaff,.40);
+  brain.add(links,sulci);owned.push(links.geometry,links.material as T.Material,sulci.geometry,sulci.material as T.Material);
+  const base=new T.Group();scene.add(base);
+  for(let i=0;i<3;i++){
+   const curve=new T.EllipseCurve(0,0,.86+i*.12,.25+i*.07,0,2*Math.PI,false,0);
+   const geom=new T.BufferGeometry().setFromPoints(curve.getPoints(160).map(p=>new T.Vector3(p.x,0,p.y)));
+   const mat=new T.LineBasicMaterial({color:0x4bb4ff,transparent:true,opacity:i===0?.64:.23,depthWrite:false,blending:T.AdditiveBlending});
+   const circle=new T.LineLoop(geom,mat);circle.position.y=-1.63-i*.02;base.add(circle);owned.push(geom,mat);
+  }
+  const projection:T.Vector3[]=[];
+  for(let i=0;i<490;i++){const a=rnd()*2*Math.PI,r=.72*Math.sqrt(rnd());
+   projection.push(new T.Vector3(Math.cos(a)*r,-1.58+rnd()*1.08,Math.sin(a)*r*.36));}
+  const projectionG=new T.BufferGeometry().setFromPoints(projection);
+  const projectionM=new T.PointsMaterial({color:0x2689ff,size:.014,transparent:true,opacity:.40,depthWrite:false,blending:T.AdditiveBlending});
+  scene.add(new T.Points(projectionG,projectionM));owned.push(projectionG,projectionM);
+  const orbPoints:T.Vector3[]=[];
+  for(let i=0;i<220;i++){const a=i/220*2*Math.PI;
+   orbPoints.push(new T.Vector3(Math.cos(a)*1.29,.02+Math.sin(a*2)*.035,Math.sin(a)*.67));}
+  const orbitG=new T.BufferGeometry().setFromPoints(orbPoints);
+  const orbitM=new T.LineBasicMaterial({color:0x5ba6ff,opacity:.18,transparent:true,depthWrite:false,blending:T.AdditiveBlending});
+  const orbit=new T.LineLoop(orbitG,orbitM);orbit.rotation.z=.11;brain.add(orbit);owned.push(orbitG,orbitM);
+  const labels=document.createElement('div');labels.className='ora-brain-label-layer';host.appendChild(labels);
+  const leaders=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  leaders.setAttribute('class','ora-brain-leaders');leaders.setAttribute('aria-hidden','true');labels.appendChild(leaders);
+  const texture=spriteTexture(),pickGeometry=new T.SphereGeometry(1,12,8);owned.push(texture,pickGeometry);
+  const available=cloud.outer.filter(p=>p.z>.035&&p.y>-.70),markers:Marker[]=[];
+  function nearest(v:T.Vector3){let best=available[0],score=Infinity;
+   for(const p of available){const d=p.distanceToSquared(v);if(d<score){score=d;best=p;}}
+   return best.clone().add(new T.Vector3(0,0,.025));}
+  const select=(data:Datum)=>notify({type:'ora:brain-select',version:1,node:data});
+  function clearMarkers(){
+   for(const m of markers){(m.hit.material as T.Material).dispose();(m.core.material as T.Material).dispose();
+    (m.halo.material as T.Material).dispose();m.label?.remove();m.leader?.remove();brain.remove(m.hit,m.core,m.halo);}
    markers.length=0;
-  };
-  const centerFor=(m:Datum)=>{
-   const area=AREAS.find(a=>a.id===m.area)||AREAS[0];
-   const h=hash(m.id||m.area),jitter=m.kind==='area'?0:.31;
-   return hologram.preferredPosition(new T.Vector3(
-    area.x+jitter*((h&255)/255-.5),
-    area.y+jitter*(((h>>>8)&255)/255-.5),
-    area.z
-   ));
-  };
-  const rebuild=()=>{
-   removeMarkers();
-   const stars=current.value.stars||[];
-   const defs:Datum[]=[
-    ...AREAS.map((a,i)=>({index:i,area:a.id,kind:'area' as const})),
-    ...stars.map((s,i)=>({index:i+8,area:s.area,kind:s.kind,id:s.id,
-      temporary:!!s.temporary,tentative:!!s.tentative,complete:!!s.complete}))
-   ];
-   defs.forEach(m=>{
-    const golden=m.kind!=='area';
-    const mat=new T.MeshBasicMaterial({color:nodeColor(m),transparent:true,opacity:golden?1:.74,depthWrite:false});
-    const core=new T.Mesh(coreGeometry,mat);
-    core.position.copy(centerFor(m));core.scale.setScalar(golden?.037:.022);
-    core.userData.oraNode=m;
-    const haloMat=new T.SpriteMaterial({
-     map:texture,color:m.temporary?0xff8491:m.tentative?0xffca8e:golden?0xffe1b5:0x68d7ff,
-     transparent:true,opacity:golden?.98:.32,depthWrite:false,depthTest:false,
-     blending:T.AdditiveBlending
-    });
-    const halo=new T.Sprite(haloMat);
-    halo.position.copy(core.position);
-    halo.scale.set(golden?.30:.09,golden?.30:.09,1);
-    brain.add(core,halo);
-    const entry:Marker={datum:m,core,halo};
-    // Editorial labels are positioned OUTSIDE the hologram; all other areas
-    // remain accessible through ORA's existing area list and selectable dots.
-    if(m.kind==='area'&&['calendar','memory','places','people'].includes(m.area)){
-     const a=AREAS.find(a=>a.id===m.area)||AREAS[0];
-     const btn=document.createElement('button');
-     btn.type='button';btn.className='ora-brain-label ora-brain-label-'+m.area;
-     btn.textContent=a.label;btn.setAttribute('aria-label','Apri '+a.label.toLowerCase());
-     btn.addEventListener('click',e=>{e.stopPropagation();trigger(m);});
-     labelLayer.appendChild(btn);entry.label=btn;
-     const leader=document.createElementNS('http://www.w3.org/2000/svg','line');
-     leader.setAttribute('stroke','#91d9ff');leader.setAttribute('stroke-width','1');
-     leader.setAttribute('opacity','.64');lines.appendChild(leader);entry.leader=leader;
+  }
+  function rebuild(){
+   clearMarkers();const stars=current.value.stars||[];
+   const all:Datum[]=[...AREAS.map((a,i)=>({index:i,area:a.id,kind:'area' as const})),
+    ...stars.map((s,i)=>({index:i+8,area:s.area,kind:s.kind,id:s.id,temporary:!!s.temporary,tentative:!!s.tentative,complete:!!s.complete}))];
+   for(const item of all){
+    const area=AREAS.find(a=>a.id===item.area)||AREAS[0],h=hash(item.id||item.area),variation=item.kind==='area'?0:.29;
+    const target=new T.Vector3(area.x+variation*((h&255)/255-.5),area.y+variation*(((h>>>8)&255)/255-.5),area.z);
+    const p=nearest(target),warm=item.kind!=='area',color=item.temporary?0xff5570:item.tentative?0xfeb966:warm?0xfff0c9:0x7dcfff;
+    const hitMaterial=new T.MeshBasicMaterial({color,transparent:true,opacity:warm?1:.9,depthWrite:false});
+    const hit=new T.Mesh(pickGeometry,hitMaterial);hit.position.copy(p);hit.scale.setScalar(warm?.036:.028);hit.userData.item=item;
+    const coreMaterial=new T.SpriteMaterial({map:texture,color:warm?0xfff0db:0x75d3ff,transparent:true,opacity:warm?.95:.53,depthWrite:false,depthTest:false,blending:T.AdditiveBlending});
+    const core=new T.Sprite(coreMaterial);core.position.copy(p);core.scale.set(warm?.14:.09,warm?.14:.09,1);
+    const haloMaterial=new T.SpriteMaterial({map:texture,color:warm?0xffc57c:0x4c94ff,transparent:true,opacity:warm?.91:.32,depthWrite:false,depthTest:false,blending:T.AdditiveBlending});
+    const halo=new T.Sprite(haloMaterial);halo.position.copy(p);halo.scale.set(warm?.33:.18,warm?.33:.18,1);
+    brain.add(halo,core,hit);const marker:Marker={data:item,hit,core,halo,point:p};
+    if(item.kind==='area'&&['calendar','memory','places','people'].includes(item.area)){
+     const label=document.createElement('button');label.className='ora-brain-label ora-brain-label-'+item.area;
+     label.type='button';label.textContent=area.label;label.setAttribute('aria-label','Apri '+area.label.toLowerCase());
+     label.addEventListener('click',e=>{e.stopPropagation();select(item);});labels.appendChild(label);marker.label=label;
+     const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+     line.setAttribute('stroke','#6ebdff');line.setAttribute('stroke-width','1.1');line.setAttribute('opacity','.68');
+     leaders.appendChild(line);marker.leader=line;
     }
-    markers.push(entry);
-   });
-  };
-  let lastReset=0,lastZoom=1,lastSig='';
-  const fit=()=>{
-   const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);
-   const needed=2.45/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2))*Math.max(.30,w/h)*.89);
-   const distance=Math.max(4.6,needed);
-   controls.target.set(0,-.17,0);
-   camera.position.set(.13,.09,distance);
-   controls.minDistance=distance*.50;controls.maxDistance=distance*2.3;
-   camera.near=.01;camera.far=Math.max(50,distance*12);
+    markers.push(marker);
+   }
+  }
+  function cameraHome(){
+   const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight),aspect=w/h,tan=Math.tan(T.MathUtils.degToRad(camera.fov/2));
+   const distance=Math.max(2.73/(2*tan*aspect*.91),2.39/(2*tan*.74),4.5);
+   controls.target.set(0,-.20,0);camera.position.set(.08,.04,distance);
+   camera.zoom=clamp(Number(current.value.zoomOverride)||1,.72,1.55);
    camera.updateProjectionMatrix();controls.update();
-  };
-  const applyZoom=()=>{
-   const z=clamp(Number(current.value.zoomOverride)||1,.72,1.55);
-   if(z!==lastZoom){lastZoom=z;camera.zoom=z;camera.updateProjectionMatrix();}
-  };
-  const updateLabels=()=>{
-   const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);
-   lines.setAttribute('viewBox','0 0 '+w+' '+h);
-   const position=new T.Vector3(),projected=new T.Vector3();
-   for(const m of markers){
-    if(!m.label||!m.leader)continue;
-    const left=m.datum.area==='calendar'||m.datum.area==='places';
-    const upper=m.datum.area==='calendar'||m.datum.area==='memory';
-    const bx=w*(left?.17:.83),by=h*(upper?.24:.74);
-    m.label.style.left=bx+'px';m.label.style.top=by+'px';
-    m.core.getWorldPosition(position);projected.copy(position).project(camera);
-    const x=(projected.x*.5+.5)*w,y=(-projected.y*.5+.5)*h;
-    m.leader.setAttribute('x1',String(bx+(left?45:-45)));
-    m.leader.setAttribute('y1',String(by+5));
-    m.leader.setAttribute('x2',String(x));
-    m.leader.setAttribute('y2',String(y));
-    m.leader.setAttribute('opacity',projected.z>-1&&projected.z<1?'.62':'0');
-    m.label.classList.toggle('active',current.value.area===m.datum.area||
-      current.value.selectedIndex===m.datum.index);
-   }
-  };
-  const observer=new ResizeObserver(()=>{
-   if(disposed)return;
-   const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);
-   const dpr=Math.min(window.devicePixelRatio||1,w<700?1.50:1.80);
-   renderer.setPixelRatio(dpr);hologram.setPixelRatio(dpr);
+  }
+  const resize=()=>{if(disposed)return;const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight);
+   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,w<700?1.5:1.85));
    renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
-   fit();applyZoom();updateLabels();
-  });
-  observer.observe(el);
-  const onMessage=(event:MessageEvent)=>{
-   if(event.source!==window.parent||event.origin!==window.location.origin)return;
-   const p=event.data;if(!p||p.type!=='ora:brain-state'||typeof p.options!=='object')return;
-   const next=p.options as State,stars=Array.isArray(next.stars)?next.stars:current.value.stars||[];
-   const sig=JSON.stringify(stars.map(s=>[s.id,s.area,s.kind,!!s.temporary,!!s.tentative,!!s.complete]));
-   const changed=sig!==lastSig;current.value={...current.value,...next,stars};
-   if(changed){lastSig=sig;rebuild();}
-   if((next.resetKey??0)!==lastReset){lastReset=next.resetKey??0;fit();}
-   applyZoom();
+   leaders.setAttribute('viewBox','0 0 '+w+' '+h);cameraHome();};
+  const observer=new ResizeObserver(resize);observer.observe(host);resize();rebuild();
+  let previousStars='',previousReset=0,previousZoom=1;
+  const message=(e:MessageEvent)=>{
+   if(e.origin!==window.location.origin||e.source!==window.parent)return;
+   const body=e.data;if(!body||body.type!=='ora:brain-state'||typeof body.options!=='object')return;
+   const next=body.options as State,stars=Array.isArray(next.stars)?next.stars:current.value.stars||[];
+   const signature=JSON.stringify(stars.map(s=>[s.id,s.area,s.kind,!!s.tentative,!!s.temporary,!!s.complete]));
+   current.value={...current.value,...next,stars};
+   if(signature!==previousStars){previousStars=signature;rebuild();}
+   const reset=next.resetKey??0;if(reset!==previousReset){previousReset=reset;cameraHome();}
+   const zoom=clamp(Number(next.zoomOverride)||1,.72,1.55);
+   if(zoom!==previousZoom){previousZoom=zoom;camera.zoom=zoom;camera.updateProjectionMatrix();}
   };
-  window.addEventListener('message',onMessage);
-  const down:{current:{x:number;y:number;id:number}|null}={current:null};
-  const pointerDown=(e:PointerEvent)=>{down.current={x:e.clientX,y:e.clientY,id:e.pointerId};};
+  window.addEventListener('message',message);
+  let down:{x:number;y:number;id:number}|null=null;
+  const pointerDown=(e:PointerEvent)=>{down={x:e.clientX,y:e.clientY,id:e.pointerId};};
   const pointerUp=(e:PointerEvent)=>{
-   if(!down.current||down.current.id!==e.pointerId)return;
-   const moved=Math.hypot(e.clientX-down.current.x,e.clientY-down.current.y)>12;
-   down.current=null;if(moved)return;
+   if(!down||down.id!==e.pointerId)return;
+   const tapped=Math.hypot(e.clientX-down.x,e.clientY-down.y)<11;down=null;if(!tapped)return;
    const rect=renderer.domElement.getBoundingClientRect();
-   const x=(e.clientX-rect.left)/rect.width*2-1;
-   const y=-(e.clientY-rect.top)/rect.height*2+1;
-   const ray=new T.Raycaster();ray.setFromCamera(new T.Vector2(x,y),camera);
-   const intersect=ray.intersectObjects(markers.map(m=>m.core),false)[0];
-   if(intersect){
-    const node=intersect.object.userData.oraNode as Datum|undefined;
-    if(node)trigger(node);
-   }
+   const mouse=new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
+   const ray=new T.Raycaster();ray.setFromCamera(mouse,camera);
+   const hit=ray.intersectObjects(markers.map(m=>m.hit),false)[0];
+   const item=hit?.object.userData.item as Datum|undefined;if(item)select(item);
   };
   renderer.domElement.addEventListener('pointerdown',pointerDown);
   renderer.domElement.addEventListener('pointerup',pointerUp);
-  const clock=new T.Clock();
-  const animate=()=>{
-   if(disposed)return;frame=requestAnimationFrame(animate);
-   const seconds=clock.getElapsedTime(),state=current.value;
-   const busy=state.mode==='think'||state.mode==='listen'||state.mode==='speak';
-   hologram.animate(seconds,busy,!!state.paused||!!state.reduced);
-   controls.update();
+  const clock=new T.Clock(),world=new T.Vector3(),projected=new T.Vector3();
+  function updateLabels(){
+   const w=host.clientWidth,h=host.clientHeight;
    for(const m of markers){
-    const active=state.selectedIndex===m.datum.index||
-     (!!m.datum.id&&m.datum.id===state.spotlightId);
-    const golden=m.datum.kind!=='area';
-    const r=golden?(active?.43:.30):(active?.20:.09);
-    m.halo.scale.set(r,r,1);
-    (m.halo.material as T.SpriteMaterial).opacity=active?1:golden?.80+.16*Math.sin(seconds*2+m.datum.index):.32;
-    m.core.scale.setScalar((golden?.037:.022)*(active?1.5:1));
+    if(!m.label||!m.leader)continue;
+    const left=['calendar','places'].includes(m.data.area),top=['calendar','memory'].includes(m.data.area);
+    const x=left?w*.16:w*.84,y=top?h*.24:h*.69;
+    m.label.style.left=x+'px';m.label.style.top=y+'px';
+    brain.localToWorld(world.copy(m.point));projected.copy(world).project(camera);
+    const sx=(projected.x*.5+.5)*w,sy=(-projected.y*.5+.5)*h;
+    m.leader.setAttribute('x1',String(x+(left?38:-38)));m.leader.setAttribute('y1',String(y+8));
+    m.leader.setAttribute('x2',String(sx));m.leader.setAttribute('y2',String(sy));
+    const shown=projected.z>-1&&projected.z<1;m.leader.setAttribute('opacity',shown?'.61':'0');
+    m.label.style.opacity=shown?'1':'0';m.label.classList.toggle('active',current.value.selectedIndex===m.data.index||current.value.area===m.data.area);
    }
-   updateLabels();renderer.render(scene,camera);
-  };
-  rebuild();fit();
-  setStatus('ready');
-  send({type:'ora:brain-ready',version:1,
-   visualProfile:hologram.visualProfile,particleCount:hologram.particleCount});
+  }
+  function animate(){
+   if(disposed)return;frame=requestAnimationFrame(animate);frameNumber++;
+   const elapsed=clock.getElapsedTime(),s=current.value;
+   if(!s.paused&&!s.reduced){brain.rotation.y=Math.sin(elapsed*.15)*.105;brain.rotation.z=Math.sin(elapsed*.18)*.01;}
+   controls.update();const active=s.mode==='think'||s.mode==='listen'||s.mode==='speak';
+   cortex.uniforms.uTime.value=elapsed;cortex.uniforms.uIntensity.value=active?1.23:1.0;
+   interior.uniforms.uTime.value=elapsed;interior.uniforms.uIntensity.value=active?1:.77;
+   for(const m of markers){
+    const selected=s.selectedIndex===m.data.index||(!!m.data.id&&m.data.id===s.spotlightId),warm=m.data.kind!=='area';
+    const size=warm?(selected?.44:.31):(selected?.23:.18);m.halo.scale.set(size,size,1);
+    (m.halo.material as T.SpriteMaterial).opacity=warm?(selected?1:.75+.20*Math.sin(elapsed*1.7+m.data.index)):(selected?.68:.29);
+   }
+   if(frameNumber%3===0)updateLabels();renderer.render(scene,camera);
+  }
+  notify({type:'ora:brain-ready',version:1,visualProfile:'particle-hologram-v184',particleCount:cloud.outer.length});
   animate();
-  const onContextLost=(e:Event)=>{
-   e.preventDefault();setStatus('error');
-   setError('Sessione WebGL interrotta');send({type:'ora:brain-error',version:1});
-  };
-  renderer.domElement.addEventListener('webglcontextlost',onContextLost);
-  return()=>{
-   disposed=true;cancelAnimationFrame(frame);observer.disconnect();
-   window.removeEventListener('message',onMessage);
-   renderer.domElement.removeEventListener('pointerdown',pointerDown);
-   renderer.domElement.removeEventListener('pointerup',pointerUp);
-   renderer.domElement.removeEventListener('webglcontextlost',onContextLost);
-   controls.dispose();removeMarkers();coreGeometry.dispose();texture.dispose();
-   hologram.dispose();labelLayer.remove();renderer.dispose();renderer.domElement.remove();
-  };
+  const contextLost=(e:Event)=>{e.preventDefault();setStatus('error');setError('Visualizzazione 3D interrotta');notify({type:'ora:brain-error',version:1});};
+  renderer.domElement.addEventListener('webglcontextlost',contextLost);
+  return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('message',message);
+   renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointerup',pointerUp);
+   renderer.domElement.removeEventListener('webglcontextlost',contextLost);
+   controls.dispose();clearMarkers();owned.forEach(x=>x.dispose());labels.remove();renderer.dispose();renderer.domElement.remove();};
  },[]);
- return <main className="ora-brain-presence" data-testid="ora-brain-webgl"
-  data-visual-profile="particle-hologram-v184" data-status={status}>
-  <div className="ora-brain-aura" aria-hidden="true"/>
-  <div className="ora-brain-host" ref={host}/>
+ return <main className="ora-brain-presence" data-testid="ora-brain-webgl" data-visual-profile="particle-hologram-v184" data-status={status}>
+  <div className="ora-brain-aura" aria-hidden="true"/><div className="ora-brain-host" ref={element}/>
   {status==='error'?<div className="ora-brain-status error" role="alert">{error}</div>:null}
  </main>;
 }
