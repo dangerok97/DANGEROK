@@ -83,11 +83,10 @@ test('temporary memory becomes red-star geometry without changing durable semant
   });
   assert.equal(geometry[0]?.temporary, true);
   assert.equal(geometry[0]?.tentative, false);
-  assert.ok(sceneSource.includes('temporary?palette.temporaryNode'));
-  assert.ok(sceneSource.includes('temporary?palette.temporaryGlow'));
+  assert.ok(sceneSource.includes('drawKnowledgeBuffer(knowledgeBuffers.temporary,colors.red'), 'temporary memory must use the red WebGL node group');
   assert.ok(sceneSource.includes("const inspected=hovered>=0?hovered:selected>=0?selected:spotlight"));
-  assert.ok(sceneSource.includes("i===spotlight?.82"));
-  assert.ok(sceneSource.includes("const label='NUOVA'"));
+  assert.ok(sceneSource.includes('drawFocusedPoint(inspected'), 'spotlight/inspection must get a larger 3D focus point');
+  assert.ok(sceneSource.includes('gl.enable(gl.DEPTH_TEST)'), 'temporary nodes live in the same depth-tested 3D scene');
   assert.ok(sceneSource.includes('options.zoomOverride'), 'cockpit zoom controls must affect the real camera');
 });
 
@@ -146,6 +145,6 @@ test('new and materially updated permanent stars both become spotlight candidate
 
 test('spotlight drives both glow and camera target', () => {
   assert.ok(sceneSource.includes("const focused=points.find(p=>p.id===options.spotlightId)"));
-  assert.ok(sceneSource.includes("const target=focused||"));
-  assert.ok(sceneSource.includes("i===spotlight?.82"));
+  assert.ok(sceneSource.includes("const target=selectedPoint||focused||"));
+  assert.ok(sceneSource.includes('drawFocusedPoint(inspected'));
 });
