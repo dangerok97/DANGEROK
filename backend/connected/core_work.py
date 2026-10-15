@@ -43,6 +43,32 @@ def enabled_for(owner_id):
     return bool(owner_id and owner_id in owners and '*' not in owners)
 
 
+async def ready_for_owner(db, owner_id):
+    """Whether this enrolled owner explicitly opted into the first source pilot.
+
+    Infrastructure enrollment is deliberately insufficient. Until the person
+    has chosen act-within-grants AND granted create-only local-calendar
+    authority, Connected Life must keep using its legacy interpretation path.
+    That preserves pending source observations instead of letting a background
+    worker consume them into an invisible needs_input state before opt-in.
+    """
+    if not enabled_for(owner_id):
+        return False
+    from agent.authority import AuthorityService
+
+    authority = AuthorityService(db)
+    policy = await authority.policy(owner_id)
+    if policy.mode != 'act_within_grants' or not policy.chosen_by_user:
+        return False
+    grants = await authority.grants(owner_id)
+    return any(
+        row.get('capability') == 'calendar.local.write'
+        and row.get('active', True) is not False
+        and 'create' in (row.get('effect_scope') or [])
+        for row in grants
+    )
+
+
 def _event_version(node):
     return _digest({key: node.get(key) for key in
                     ('id', 'user_id', 'type', 'status', 'label', 'description', 'attributes', 'updated_at')})
