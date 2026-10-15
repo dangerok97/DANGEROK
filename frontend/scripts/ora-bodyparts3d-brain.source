@@ -1,20 +1,17 @@
 import React,{useEffect,useRef,useState} from 'react';
 import * as T from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
-import {decodeModelResponse} from './model-download';
-import type {Atlas,Part} from './anatomy';
 import './ora-brain.css';
 
-const BRAIN_CONCEPT_ID='FMA50801';
 const AREAS=[
- {id:'memory',label:'MEMORIA'},
- {id:'calendar',label:'IMPEGNI'},
- {id:'people',label:'PERSONE'},
- {id:'places',label:'LUOGHI'},
- {id:'home',label:'CASA'},
- {id:'documents',label:'DOCUMENTI'},
- {id:'finances',label:'FINANZE'},
- {id:'calls',label:'CHIAMATE'},
+ {id:'memory',label:'MEMORIA',anchor:[-.44,.16,.30],side:'left',dy:-8},
+ {id:'calendar',label:'IMPEGNI',anchor:[.44,.20,.24],side:'right',dy:-15},
+ {id:'people',label:'PERSONE',anchor:[-.54,-.08,.12],side:'left',dy:11},
+ {id:'places',label:'LUOGHI',anchor:[.42,-.02,.39],side:'right',dy:8},
+ {id:'home',label:'CASA',anchor:[-.28,-.34,.23],side:'left',dy:18},
+ {id:'documents',label:'DOCUMENTI',anchor:[.56,-.17,-.02],side:'right',dy:24},
+ {id:'finances',label:'FINANZE',anchor:[-.43,-.29,-.10],side:'left',dy:31},
+ {id:'calls',label:'CHIAMATE',anchor:[.08,.42,-.10],side:'right',dy:-27},
 ] as const;
 
 type PresenceStar={
@@ -29,234 +26,277 @@ type MarkerData={
  index:number;area:string;kind:'area'|'node'|'branch';id?:string;
  temporary?:boolean;tentative?:boolean;complete?:boolean;
 };
-type MarkerEntry={data:MarkerData;core:T.Mesh;halo:T.Mesh;label?:HTMLButtonElement};
+type MarkerEntry={
+ data:MarkerData;core:T.Mesh;halo:T.Sprite;label?:HTMLButtonElement;leader?:SVGLineElement
+};
 
+type PointRecord={position:T.Vector3;lobe:number;shell:number};
+
+const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
 const hash=(value:string)=>{
  let h=2166136261;
  for(let i=0;i<value.length;i++)h=Math.imul(h^value.charCodeAt(i),16777619)>>>0;
  return h>>>0;
 };
-const boundsCenter=(part:Part)=>new T.Vector3(
- (part.bounds[0][0]+part.bounds[1][0])/2,
- (part.bounds[0][1]+part.bounds[1][1])/2,
- (part.bounds[0][2]+part.bounds[1][2])/2,
-);
-const surfaceLike=(name:string)=>/(gyrus|lobe|lobule|insula|cerebellum|medulla oblongata|pons|midbrain|cerebral hemisphere)/i.test(name);
-const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
+const makeRng=(seedValue:number)=>{
+ let seed=seedValue>>>0;
+ return()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+};
+const gaussian=(rng:()=>number)=>{
+ let u=0,v=0;
+ while(u===0)u=rng();while(v===0)v=rng();
+ return Math.sqrt(-2*Math.log(u))*Math.cos(Math.PI*2*v);
+};
+const pointTexture=()=>{
+ const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;
+ const ctx=canvas.getContext('2d')!;
+ const gradient=ctx.createRadialGradient(32,32,0,32,32,31);
+ gradient.addColorStop(0,'rgba(255,255,255,1)');
+ gradient.addColorStop(.13,'rgba(220,250,255,.98)');
+ gradient.addColorStop(.34,'rgba(120,220,255,.72)');
+ gradient.addColorStop(.68,'rgba(55,165,225,.18)');
+ gradient.addColorStop(1,'rgba(0,80,160,0)');
+ ctx.fillStyle=gradient;ctx.fillRect(0,0,64,64);
+ const texture=new T.CanvasTexture(canvas);texture.needsUpdate=true;return texture;
+};
+
+const LOBES=[
+ {c:[-.38,.17,.13],r:[.48,.47,.44],w:1.22},
+ {c:[ .38,.17,.13],r:[.48,.47,.44],w:1.22},
+ {c:[-.26,.34,-.13],r:[.42,.34,.38],w:.86},
+ {c:[ .26,.34,-.13],r:[.42,.34,.38],w:.86},
+ {c:[-.47,-.15,.09],r:[.40,.31,.38],w:.94},
+ {c:[ .47,-.15,.09],r:[.40,.31,.38],w:.94},
+ {c:[-.30,.02,-.34],r:[.37,.35,.31],w:.74},
+ {c:[ .30,.02,-.34],r:[.37,.35,.31],w:.74},
+ {c:[-.19,-.34,-.25],r:[.30,.22,.27],w:.42},
+ {c:[ .19,-.34,-.25],r:[.30,.22,.27],w:.42},
+] as const;
+const TOTAL_WEIGHT=LOBES.reduce((sum,lobe)=>sum+lobe.w,0);
+
+function brainPoint(rng:()=>number):PointRecord{
+ let lobeIndex=0,pick=rng()*TOTAL_WEIGHT;
+ for(let i=0;i<LOBES.length;i++){pick-=LOBES[i].w;if(pick<=0){lobeIndex=i;break;}}
+ const lobe=LOBES[lobeIndex];
+ const theta=rng()*Math.PI*2;
+ const u=rng()*2-1;
+ const radial=Math.sqrt(1-u*u);
+ // Most particles live close to the cortical shell, leaving an airy interior.
+ const shell=.64+.36*Math.pow(rng(),.28);
+ const ripple=1+
+   Math.sin(theta*5.8+u*7.3+lobeIndex*.91)*.038+
+   Math.sin(theta*10.6-u*4.7+lobeIndex*.37)*.018;
+ let x=lobe.c[0]+Math.cos(theta)*radial*lobe.r[0]*shell*ripple;
+ let y=lobe.c[1]+u*lobe.r[1]*shell*(1+Math.sin(theta*3.1)*.025);
+ let z=lobe.c[2]+Math.sin(theta)*radial*lobe.r[2]*shell*ripple;
+
+ // Medial fissure: a narrow, visible split between the two hemispheres.
+ if(Math.abs(x)<.078&&y>-.22&&z>-.33){
+   const sign=x===0?(rng()>.5?1:-1):Math.sign(x);
+   x=sign*(.078+Math.abs(x)*.30+rng()*.018);
+ }
+ // Human-brain silhouette: slightly flatter underside and fuller frontal dome.
+ if(y<-.42)y=-.42+(y+.42)*.42;
+ if(z>.40)z=.40+(z-.40)*.35;
+ // Tiny irregularity stops the cloud reading as perfect ellipsoids.
+ x+=gaussian(rng)*.0065;y+=gaussian(rng)*.0055;z+=gaussian(rng)*.0065;
+ return {position:new T.Vector3(x,y,z),lobe:lobeIndex,shell};
+}
 
 export default function OraBrain(){
  const host=useRef<HTMLDivElement>(null);
  const [status,setStatus]=useState<'loading'|'ready'|'error'>('loading');
  const [error,setError]=useState('');
  useEffect(()=>{
-  const el=host.current;
-  if(!el)return;
+  const el=host.current;if(!el)return;
   let disposed=false,frame=0;
-  const abort=new AbortController();
   const latest:{current:PresenceOptions}={current:{mode:'idle',paused:false,reduced:false,stars:[],zoomOverride:1,resetKey:0}};
   let renderer:T.WebGLRenderer;
-  try{
-   renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
-  }catch{
+  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});}
+  catch{
    setStatus('error');setError('WebGL non disponibile su questo dispositivo.');
-   window.parent?.postMessage({type:'ora:brain-error',version:1},window.location.origin);
-   return;
+   window.parent?.postMessage({type:'ora:brain-error',version:2},window.location.origin);return;
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,el.clientWidth<700?1.5:2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,el.clientWidth<700?1.45:2));
   renderer.setClearColor(0x000000,0);
   renderer.outputColorSpace=T.SRGBColorSpace;
-  renderer.toneMapping=T.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.18;
-  renderer.domElement.setAttribute('aria-label','Cervello tridimensionale di ORA. Trascina per ruotare e usa due dita per ingrandire.');
+  renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
+  renderer.domElement.setAttribute('aria-label','Cervello tridimensionale di ORA formato da punti luminosi. Trascina per ruotare e usa due dita per ingrandire.');
   el.appendChild(renderer.domElement);
 
-  const scene=new T.Scene();
-  scene.fog=new T.FogExp2(0x02070d,.16);
-  const camera=new T.PerspectiveCamera(34,1,.002,50);
+  const scene=new T.Scene();scene.fog=new T.FogExp2(0x01070c,.21);
+  const camera=new T.PerspectiveCamera(31,1,.01,30);
   const controls=new OrbitControls(camera,renderer.domElement);
-  controls.enableDamping=true;controls.dampingFactor=.075;
-  controls.enablePan=false;controls.minDistance=.16;controls.maxDistance=3.5;
-  controls.autoRotate=true;controls.autoRotateSpeed=.34;
-  controls.target.set(0,0,0);
+  controls.enableDamping=true;controls.dampingFactor=.072;controls.enablePan=false;
+  controls.minDistance=2.15;controls.maxDistance=5.1;controls.autoRotate=true;controls.autoRotateSpeed=.24;
+  controls.target.set(0,.01,0);
 
-  scene.add(new T.HemisphereLight(0xbcefff,0x07121a,1.35));
-  const key=new T.DirectionalLight(0x9feaff,2.6);key.position.set(-1.5,2.2,2.5);scene.add(key);
-  const rim=new T.DirectionalLight(0x1fa3d5,2.1);rim.position.set(2.5,.5,-2.4);scene.add(rim);
-  const lower=new T.PointLight(0x2bc8ef,1.8,4);lower.position.set(0,-1.4,.6);scene.add(lower);
+  const root=new T.Group();root.rotation.x=-.025;root.rotation.y=-.08;scene.add(root);
+  const pointRecords:PointRecord[]=[];
+  const rng=makeRng(0x0a7a2026);
+  for(let i=0;i<4300;i++)pointRecords.push(brainPoint(rng));
 
-  const brain=new T.Group();scene.add(brain);
-  brain.rotation.x=-.04;
-  const markerGroup=new T.Group();brain.add(markerGroup);
+  const positions=new Float32Array(pointRecords.length*3);
+  pointRecords.forEach((record,i)=>record.position.toArray(positions,i*3));
+  const cloudGeometry=new T.BufferGeometry();
+  cloudGeometry.setAttribute('position',new T.BufferAttribute(positions,3));
+  const glowTexture=pointTexture();
+  const cloudMaterial=new T.PointsMaterial({
+   color:0x66d9ff,map:glowTexture,size:.022,sizeAttenuation:true,
+   transparent:true,opacity:.68,depthWrite:false,blending:T.AdditiveBlending,
+  });
+  const cloud=new T.Points(cloudGeometry,cloudMaterial);cloud.renderOrder=4;root.add(cloud);
 
-  const surfaceMaterial=new T.MeshStandardMaterial({
-   color:0x79d8ee,emissive:0x0a6f8d,emissiveIntensity:.78,
-   metalness:.12,roughness:.42,transparent:true,opacity:.48,
-   side:T.DoubleSide,depthWrite:true,
+  // A second, sparse shell creates the electric-blue pinprick look of the reference.
+  const sparkRecords=pointRecords.filter((record,i)=>record.shell>.83&&i%4===0);
+  const sparkPositions=new Float32Array(sparkRecords.length*3);
+  sparkRecords.forEach((record,i)=>record.position.toArray(sparkPositions,i*3));
+  const sparkGeometry=new T.BufferGeometry();sparkGeometry.setAttribute('position',new T.BufferAttribute(sparkPositions,3));
+  const sparkMaterial=new T.PointsMaterial({
+   color:0xb9f2ff,map:glowTexture,size:.031,sizeAttenuation:true,
+   transparent:true,opacity:.55,depthWrite:false,blending:T.AdditiveBlending,
   });
-  const innerMaterial=new T.MeshStandardMaterial({
-   color:0x4fb8d5,emissive:0x063f53,emissiveIntensity:.52,
-   metalness:.05,roughness:.56,transparent:true,opacity:.13,
-   side:T.DoubleSide,depthWrite:false,
+  const sparks=new T.Points(sparkGeometry,sparkMaterial);sparks.renderOrder=5;root.add(sparks);
+
+  // Thin neural fibres: curved links inside the point cloud, never a solid surface.
+  const fibrePositions:number[]=[];
+  const fibreRng=makeRng(0x51a9e1);
+  for(let curveIndex=0;curveIndex<185;curveIndex++){
+   const sameLobe=curveIndex%4!==0;
+   const start=pointRecords[Math.floor(fibreRng()*pointRecords.length)];
+   let end=pointRecords[Math.floor(fibreRng()*pointRecords.length)];
+   for(let tries=0;tries<18;tries++){
+    const candidate=pointRecords[Math.floor(fibreRng()*pointRecords.length)];
+    const distance=start.position.distanceTo(candidate.position);
+    if(distance>.16&&distance<.58&&(!sameLobe||candidate.lobe===start.lobe)){end=candidate;break;}
+   }
+   const middle=start.position.clone().lerp(end.position,.5);
+   middle.x+=gaussian(fibreRng)*.055;middle.y+=gaussian(fibreRng)*.045;middle.z+=gaussian(fibreRng)*.055;
+   const curve=new T.QuadraticBezierCurve3(start.position,middle,end.position);
+   const pts=curve.getPoints(7);
+   for(let i=0;i<pts.length-1;i++)fibrePositions.push(...pts[i].toArray(),...pts[i+1].toArray());
+  }
+  const fibreGeometry=new T.BufferGeometry();
+  fibreGeometry.setAttribute('position',new T.Float32BufferAttribute(fibrePositions,3));
+  const fibreMaterial=new T.LineBasicMaterial({
+   color:0x58c9ef,transparent:true,opacity:.115,depthWrite:false,blending:T.AdditiveBlending,
   });
-  const wireMaterial=new T.MeshBasicMaterial({
-   color:0xa7ecfb,wireframe:true,transparent:true,opacity:.075,
-   depthWrite:false,blending:T.AdditiveBlending,
-  });
-  const geometries:T.BufferGeometry[]=[];
-  const brainParts:Part[]=[];
-  const partCenters:T.Vector3[]=[];
-  const corticalCenters:T.Vector3[]=[];
+  const fibres=new T.LineSegments(fibreGeometry,fibreMaterial);fibres.renderOrder=3;root.add(fibres);
+
+  // Central fissure guide, intentionally subtle.
+  const fissureCurve=new T.CatmullRomCurve3([
+   new T.Vector3(0,.61,.03),new T.Vector3(.005,.34,.02),new T.Vector3(-.006,.10,.01),
+   new T.Vector3(.008,-.12,-.03),new T.Vector3(0,-.31,-.10),
+  ]);
+  const fissureGeometry=new T.BufferGeometry().setFromPoints(fissureCurve.getPoints(32));
+  const fissureMaterial=new T.LineBasicMaterial({color:0x89e8ff,transparent:true,opacity:.18,depthWrite:false});
+  const fissure=new T.Line(fissureGeometry,fissureMaterial);root.add(fissure);
+
+  const markerGroup=new T.Group();root.add(markerGroup);
   const markers:MarkerEntry[]=[];
-  const markerGeometry=new T.SphereGeometry(1,14,10);
+  const markerGeometry=new T.SphereGeometry(1,16,12);
+  const haloTexture=pointTexture();
   const labelLayer=document.createElement('div');labelLayer.className='ora-brain-label-layer';el.appendChild(labelLayer);
-  let brainCenter=new T.Vector3(),brainRadius=.1,lastReset=-1,lastZoom=1,lastSelected:number|null=null,lastSpotlight:string|null=null;
+  const leaderLayer=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  leaderLayer.setAttribute('class','ora-brain-leader-layer');leaderLayer.setAttribute('aria-hidden','true');el.appendChild(leaderLayer);
+  let lastReset=-1,lastZoom=1,lastSelected:number|null=null,lastSpotlight:string|null=null;
 
-  const send=(payload:unknown)=>{
-   if(window.parent&&window.parent!==window)window.parent.postMessage(payload,window.location.origin);
-  };
+  const send=(payload:unknown)=>{if(window.parent&&window.parent!==window)window.parent.postMessage(payload,window.location.origin);};
   const markerColor=(data:MarkerData)=>{
-   if(data.temporary)return 0xff565f;
-   if(data.tentative)return 0xf0c978;
-   if(data.kind==='branch')return 0x7ee0c6;
-   return data.kind==='area'?0xc7f5ff:0x9de8f8;
+   if(data.temporary)return 0xff4f5d;
+   if(data.tentative)return 0xffd27a;
+   if(data.kind==='node')return 0xfff0b8;
+   if(data.kind==='branch')return 0xd9fbff;
+   return 0xa8ebff;
+  };
+  const nearestPoint=(target:T.Vector3)=>{
+   let chosen=pointRecords[0].position,best=Infinity;
+   // Deterministic stride keeps this cheap while still landing on the cloud.
+   for(let i=0;i<pointRecords.length;i+=2){
+    const distance=pointRecords[i].position.distanceToSquared(target);
+    if(distance<best){best=distance;chosen=pointRecords[i].position;}
+   }
+   return chosen.clone();
+  };
+  const areaAnchor=(id:string)=>{
+   const area=AREAS.find(item=>item.id===id)??AREAS[0];
+   return nearestPoint(new T.Vector3(area.anchor[0],area.anchor[1],area.anchor[2]));
+  };
+  const starAnchor=(star:PresenceStar,index:number)=>{
+   const base=areaAnchor(star.area);
+   const seeded=makeRng(hash(star.id+'|'+index));
+   const offset=new T.Vector3((seeded()-.5)*.28,(seeded()-.5)*.24,(seeded()-.5)*.30);
+   return nearestPoint(base.add(offset));
   };
   const disposeMarkers=()=>{
-   for(const entry of markers){
-    (entry.core.material as T.Material).dispose();
-    (entry.halo.material as T.Material).dispose();
-    entry.label?.remove();
+   markers.forEach(entry=>{
+    (entry.core.material as T.Material).dispose();entry.halo.material.dispose();entry.label?.remove();entry.leader?.remove();
+   });
+   markers.splice(0,markers.length);markerGroup.clear();
+  };
+  const postSelect=(data:MarkerData)=>send({type:'ora:brain-select',version:2,node:data});
+  const makeMarker=(data:MarkerData,position:T.Vector3)=>{
+   const color=markerColor(data);
+   const coreMat=new T.MeshBasicMaterial({color,transparent:true,opacity:.98,depthWrite:false,blending:T.AdditiveBlending});
+   const core=new T.Mesh(markerGeometry,coreMat);core.position.copy(position);
+   const radius=data.kind==='area'?.021:.015;core.scale.setScalar(radius);core.renderOrder=21;core.userData.marker=data;
+   const haloMat=new T.SpriteMaterial({map:haloTexture,color,transparent:true,opacity:data.kind==='area'?.28:.22,depthWrite:false,blending:T.AdditiveBlending});
+   const halo=new T.Sprite(haloMat);halo.position.copy(position);halo.scale.setScalar(radius*(data.kind==='area'?8:6));halo.renderOrder=20;
+   markerGroup.add(halo,core);
+   const entry:MarkerEntry={data,core,halo};
+   if(data.kind==='area'){
+    const button=document.createElement('button');button.type='button';button.className='ora-brain-label';
+    button.textContent=AREAS[data.index]?.label||data.area.toUpperCase();
+    button.setAttribute('aria-label','Apri area '+button.textContent.toLowerCase());
+    button.addEventListener('click',event=>{event.stopPropagation();postSelect(data);});
+    labelLayer.appendChild(button);entry.label=button;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.setAttribute('class','ora-brain-leader');
+    leaderLayer.appendChild(line);entry.leader=line;
    }
-   markers.splice(0,markers.length);
-   markerGroup.clear();
+   markers.push(entry);
   };
-  const chooseCenter=(key:string,index:number)=>{
-   const pool=corticalCenters.length?corticalCenters:partCenters;
-   if(!pool.length)return new T.Vector3();
-   const base=pool[hash(key+'|'+index)%pool.length].clone();
-   const outward=base.clone().sub(brainCenter);
-   if(outward.lengthSq()>.000001)base.add(outward.normalize().multiplyScalar(brainRadius*.045));
-   return base;
-  };
-  const postSelect=(data:MarkerData)=>send({type:'ora:brain-select',version:1,node:data});
   const rebuildMarkers=()=>{
    disposeMarkers();
-   if(!partCenters.length)return;
-   const stars=Array.isArray(latest.current.stars)?latest.current.stars:[];
-   const data:MarkerData[]=[
-    ...AREAS.map((area,index)=>({index,area:area.id,kind:'area' as const})),
-    ...stars.map((star,index)=>({index:index+8,area:star.area,kind:star.kind,id:star.id,
-      temporary:!!star.temporary,tentative:!!star.tentative,complete:!!star.complete})),
-   ];
-   data.forEach((item,i)=>{
-    const radius=brainRadius*(item.kind==='area' ? .025 : .016);
-    const coreMat=new T.MeshBasicMaterial({color:markerColor(item),transparent:true,opacity:.97,depthWrite:false});
-    const haloMat=new T.MeshBasicMaterial({color:markerColor(item),transparent:true,opacity:item.kind==='area' ? .16 : .11,depthWrite:false,blending:T.AdditiveBlending});
-    const core=new T.Mesh(markerGeometry,coreMat),halo=new T.Mesh(markerGeometry,haloMat);
-    const position=chooseCenter((item.id||item.area),i);
-    core.position.copy(position);halo.position.copy(position);
-    core.scale.setScalar(radius);halo.scale.setScalar(radius*3.2);
-    core.renderOrder=20;halo.renderOrder=19;core.userData.marker=item;
-    markerGroup.add(halo,core);
-    const entry:MarkerEntry={data:item,core,halo};
-    if(item.kind==='area'){
-     const button=document.createElement('button');
-     button.type='button';button.className='ora-brain-label';
-     button.textContent=AREAS[item.index]?.label||item.area.toUpperCase();
-     button.setAttribute('aria-label','Apri area '+button.textContent.toLowerCase());
-     button.addEventListener('click',e=>{e.stopPropagation();postSelect(item);});
-     labelLayer.appendChild(button);entry.label=button;
-    }
-    markers.push(entry);
-   });
+   AREAS.forEach((area,index)=>makeMarker({index,area:area.id,kind:'area'},areaAnchor(area.id)));
+   (latest.current.stars||[]).forEach((star,index)=>makeMarker({
+    index:index+8,area:star.area,kind:star.kind,id:star.id,temporary:!!star.temporary,
+    tentative:!!star.tentative,complete:!!star.complete,
+   },starAnchor(star,index)));
    applySelection();
   };
   const applySelection=()=>{
-   const selected=latest.current.selectedIndex??null;
-   const spotlight=latest.current.spotlightId??null;
-   for(const entry of markers){
+   const selected=latest.current.selectedIndex??null,spotlight=latest.current.spotlightId??null;
+   markers.forEach(entry=>{
     const active=entry.data.index===selected||(entry.data.id&&entry.data.id===spotlight);
     const areaActive=!active&&latest.current.area&&entry.data.kind==='area'&&entry.data.area===latest.current.area;
-    entry.core.scale.setScalar(brainRadius*(entry.data.kind==='area' ? .025 : .016)*(active?1.75:areaActive?1.38:1));
-    entry.halo.scale.setScalar(brainRadius*(entry.data.kind==='area' ? .025 : .016)*(active?5.0:areaActive?4.0:3.2));
-    (entry.halo.material as T.MeshBasicMaterial).opacity=active ? .34 : areaActive ? .24 : (entry.data.kind==='area' ? .16 : .11);
-   }
+    const base=entry.data.kind==='area'?.021:.015;
+    entry.core.scale.setScalar(base*(active?1.9:areaActive?1.48:1));
+    entry.halo.scale.setScalar(base*(active?13:areaActive?10:(entry.data.kind==='area'?8:6)));
+    entry.halo.material.opacity=active?.58:areaActive?.40:(entry.data.kind==='area'?.28:.22);
+   });
    lastSelected=selected;lastSpotlight=spotlight;
   };
+
   const fit=()=>{
-   const box=new T.Box3().setFromObject(brain);
-   if(box.isEmpty())return;
-   const size=box.getSize(new T.Vector3());
-   const maxDim=Math.max(size.x,size.y,size.z);
-   const distance=maxDim/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.34;
-   controls.target.set(0,0,0);
-   camera.position.set(distance*.42,distance*.12,distance);
-   camera.near=Math.max(.001,distance/200);camera.far=Math.max(20,distance*20);camera.updateProjectionMatrix();
-   controls.update();
+   camera.position.set(.68,.14,3.25);controls.target.set(0,.02,0);controls.update();
   };
   const applyZoom=()=>{
    const value=clamp(Number(latest.current.zoomOverride)||1,.72,1.55);
    camera.zoom=value;camera.updateProjectionMatrix();lastZoom=value;
   };
-
-  const load=async()=>{
-   try{
-    const response=await fetch('/bodyparts3d/models/atlas.json',{signal:abort.signal,cache:'force-cache'});
-    if(!response.ok)throw new Error('Atlante anatomico non disponibile');
-    const atlas=await response.json() as Atlas;
-    if(atlas.version!=='BodyParts3D 4.0'||atlas.parts.length!==2234)throw new Error('Versione anatomica inattesa');
-    const concept=atlas.concepts.find(c=>c.id===BRAIN_CONCEPT_ID&&c.name.toLowerCase()==='brain');
-    if(!concept||concept.elements.length<50)throw new Error('Mesh encefalo non trovate');
-    const ids=new Set(concept.elements);
-    const parts=atlas.parts.filter(p=>ids.has(p.id));
-    brainParts.push(...parts);
-    const wantedChunks=Array.from(new Set(parts.map(p=>p.chunk))).sort((a,b)=>a-b);
-    const partsByChunk=new Map<number,Part[]>();
-    parts.forEach(part=>{const list=partsByChunk.get(part.chunk)||[];list.push(part);partsByChunk.set(part.chunk,list);});
-    let loaded=0;
-    for(const ci of wantedChunks){
-     const chunk=atlas.chunks[ci];
-     const compressed=!!chunk.gzip&&typeof DecompressionStream!=='undefined';
-     const chunkResponse=await fetch(compressed?chunk.gzip!:chunk.url,{signal:abort.signal,cache:'force-cache'});
-     const buffer=await decodeModelResponse(chunkResponse,chunk.bytes,compressed);
-     if(disposed)return;
-     for(const part of partsByChunk.get(ci)||[]){
-      const geometry=new T.BufferGeometry();
-      geometry.setAttribute('position',new T.BufferAttribute(new Float32Array(buffer,part.positions,part.vertexCount*3),3));
-      geometry.setAttribute('normal',new T.BufferAttribute(new Int16Array(buffer,part.normals,part.vertexCount*3),3,true));
-      geometry.setIndex(new T.BufferAttribute(new Uint32Array(buffer,part.indices,part.indexCount),1));
-      geometry.computeBoundingSphere();geometries.push(geometry);
-      const outer=surfaceLike(part.name);
-      const mesh=new T.Mesh(geometry,outer?surfaceMaterial:innerMaterial);mesh.frustumCulled=false;brain.add(mesh);
-      if(outer){const wire=new T.Mesh(geometry,wireMaterial);wire.frustumCulled=false;wire.renderOrder=4;brain.add(wire);}
-      const center=boundsCenter(part);partCenters.push(center);
-      if(outer)corticalCenters.push(center);
-     }
-     loaded++;send({type:'ora:brain-progress',version:1,progress:Math.round(loaded/wantedChunks.length*100)});
-    }
-    const box=new T.Box3().setFromObject(brain);
-    brainCenter=box.getCenter(new T.Vector3());
-    const size=box.getSize(new T.Vector3());brainRadius=Math.max(size.x,size.y,size.z)/2;
-    brain.position.sub(brainCenter);
-    fit();applyZoom();rebuildMarkers();
-    setStatus('ready');send({type:'ora:brain-ready',version:1,meshCount:parts.length,concept:BRAIN_CONCEPT_ID});
-   }catch(e){
-    if(abort.signal.aborted||disposed)return;
-    setStatus('error');setError(e instanceof Error?e.message:'Cervello 3D non disponibile');
-    send({type:'ora:brain-error',version:1});
-   }
-  };
+  fit();applyZoom();rebuildMarkers();setStatus('ready');
+  send({type:'ora:brain-ready',version:2,visualProfile:'reference-pointcloud-v1',points:pointRecords.length});
 
   const message=(event:MessageEvent)=>{
    if(event.source!==window.parent||event.origin!==window.location.origin)return;
-   const payload=event.data;
-   if(!payload||payload.type!=='ora:brain-state'||typeof payload.options!=='object')return;
+   const payload=event.data;if(!payload||payload.type!=='ora:brain-state'||typeof payload.options!=='object')return;
    const next=payload.options as PresenceOptions;
-   const starsChanged=JSON.stringify((latest.current.stars||[]).map(s=>[s.id,s.area,s.kind,!!s.temporary,!!s.tentative,!!s.complete]))!==
-    JSON.stringify((next.stars||[]).map(s=>[s.id,s.area,s.kind,!!s.temporary,!!s.tentative,!!s.complete]));
+   const before=JSON.stringify((latest.current.stars||[]).map(star=>[star.id,star.area,star.kind,!!star.temporary,!!star.tentative,!!star.complete]));
+   const after=JSON.stringify((next.stars||[]).map(star=>[star.id,star.area,star.kind,!!star.temporary,!!star.tentative,!!star.complete]));
    latest.current={...latest.current,...next,stars:Array.isArray(next.stars)?next.stars:latest.current.stars};
    controls.autoRotate=!(latest.current.paused||latest.current.reduced);
-   controls.autoRotateSpeed=latest.current.mode==='think' ? .7 : latest.current.mode==='listen' ? .46 : .34;
-   if(starsChanged&&partCenters.length)rebuildMarkers();
+   controls.autoRotateSpeed=latest.current.mode==='think'?.54:latest.current.mode==='listen'?.36:.24;
+   if(before!==after)rebuildMarkers();
    if(lastSelected!==(latest.current.selectedIndex??null)||lastSpotlight!==(latest.current.spotlightId??null))applySelection();
    const zoom=clamp(Number(latest.current.zoomOverride)||1,.72,1.55);
    if(Math.abs(zoom-lastZoom)>.001)applyZoom();
@@ -265,73 +305,79 @@ export default function OraBrain(){
   window.addEventListener('message',message);
 
   let down:{x:number;y:number;id:number}|null=null;
-  const pointerDown=(e:PointerEvent)=>{down={x:e.clientX,y:e.clientY,id:e.pointerId};};
-  const pointerUp=(e:PointerEvent)=>{
-   if(!down||down.id!==e.pointerId)return;
-   const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y)>8;down=null;if(moved)return;
+  const pointerDown=(event:PointerEvent)=>{down={x:event.clientX,y:event.clientY,id:event.pointerId};};
+  const pointerUp=(event:PointerEvent)=>{
+   if(!down||down.id!==event.pointerId)return;
+   const moved=Math.hypot(event.clientX-down.x,event.clientY-down.y)>8;down=null;if(moved)return;
    const rect=renderer.domElement.getBoundingClientRect();
-   const pointer=new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
-   const ray=new T.Raycaster();ray.setFromCamera(pointer,camera);
-   const hit=ray.intersectObjects(markers.map(m=>m.core),false)[0];
-   const marker=hit?.object.userData.marker as MarkerData|undefined;
-   if(marker)postSelect(marker);
+   const pointer=new T.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
+   const raycaster=new T.Raycaster();raycaster.setFromCamera(pointer,camera);
+   const hit=raycaster.intersectObjects(markers.map(marker=>marker.core),false)[0];
+   const marker=hit?.object.userData.marker as MarkerData|undefined;if(marker)postSelect(marker);
   };
-  renderer.domElement.addEventListener('pointerdown',pointerDown);
-  renderer.domElement.addEventListener('pointerup',pointerUp);
+  renderer.domElement.addEventListener('pointerdown',pointerDown);renderer.domElement.addEventListener('pointerup',pointerUp);
 
   const resize=()=>{
-   if(disposed)return;
-   const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);
-   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,w<700||h<600?1.5:2));
-   renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+   const width=Math.max(1,el.clientWidth),height=Math.max(1,el.clientHeight);
+   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,width<700||height<600?1.45:2));
+   renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();
+   leaderLayer.setAttribute('viewBox',`0 0 ${width} ${height}`);leaderLayer.setAttribute('width',String(width));leaderLayer.setAttribute('height',String(height));
   };
   const observer=new ResizeObserver(resize);observer.observe(el);resize();
+
   const projected=new T.Vector3(),world=new T.Vector3(),clock=new T.Clock();
   const animate=()=>{
    if(disposed)return;frame=requestAnimationFrame(animate);
    const elapsed=clock.getElapsedTime(),state=latest.current;
-   controls.autoRotate=!(state.paused||state.reduced);
-   controls.update();
-   const pulse=.5+.5*Math.sin(elapsed*(state.mode==='think'?3.1:1.55));
-   surfaceMaterial.emissiveIntensity=.66+pulse*(state.mode==='think' ? .32 : .12);
-   wireMaterial.opacity=.055+pulse*.035;
+   controls.autoRotate=!(state.paused||state.reduced);controls.update();
+   const speed=state.mode==='think'?3.0:state.mode==='listen'?2.15:1.35;
+   const pulse=.5+.5*Math.sin(elapsed*speed);
+   cloudMaterial.opacity=.57+pulse*(state.mode==='think'?.20:.10);
+   sparkMaterial.opacity=.43+pulse*.17;fibreMaterial.opacity=.075+pulse*(state.mode==='think'?.13:.06);
+   fissureMaterial.opacity=.12+pulse*.08;
+
    markers.forEach(entry=>{
-    const selected=entry.data.index===(state.selectedIndex??null)||(entry.data.id&&entry.data.id===state.spotlightId);
-    const base=entry.data.kind==='area' ? .97 : .88;
-    (entry.core.material as T.MeshBasicMaterial).opacity=clamp(base+pulse*(selected ? .03 : .015),0,1);
-    if(entry.label){
-     entry.core.getWorldPosition(world);projected.copy(world).project(camera);
-     const visible=projected.z>-1&&projected.z<1;
-     const x=(projected.x*.5+.5)*el.clientWidth,y=(-projected.y*.5+.5)*el.clientHeight;
-     entry.label.style.transform=`translate(-50%,-50%) translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
-     entry.label.style.opacity=visible?String(clamp(.42+(1-projected.z)*.38,.35,.95)):'0';
-     entry.label.style.pointerEvents=visible?'auto':'none';
-     entry.label.classList.toggle('active',selected||entry.data.area===state.area);
-    }
+    const active=entry.data.index===(state.selectedIndex??null)||(entry.data.id&&entry.data.id===state.spotlightId);
+    (entry.core.material as T.MeshBasicMaterial).opacity=active?1:.90+pulse*.08;
+    entry.halo.material.opacity*=.985; // smooth decay from selection pulses
+    const targetHalo=active?.58:(entry.data.kind==='area'?.28:.22);
+    entry.halo.material.opacity+=(targetHalo-entry.halo.material.opacity)*.12;
+    if(!entry.label||!entry.leader)return;
+    entry.core.getWorldPosition(world);projected.copy(world).project(camera);
+    const visible=projected.z>-1&&projected.z<1;
+    const x=(projected.x*.5+.5)*el.clientWidth,y=(-projected.y*.5+.5)*el.clientHeight;
+    const area=AREAS[entry.data.index];
+    const right=area?.side==='right';
+    const labelX=clamp(x+(right?86:-86),right?el.clientWidth*.54:58,right?el.clientWidth-58:el.clientWidth*.46);
+    const labelY=clamp(y+(area?.dy||0),26,el.clientHeight-26);
+    entry.label.style.transform=`translate(-50%,-50%) translate(${labelX.toFixed(1)}px,${labelY.toFixed(1)}px)`;
+    entry.label.style.opacity=visible?'1':'0';entry.label.style.pointerEvents=visible?'auto':'none';
+    entry.label.classList.toggle('active',active||entry.data.area===state.area);
+    entry.leader.setAttribute('x1',x.toFixed(1));entry.leader.setAttribute('y1',y.toFixed(1));
+    entry.leader.setAttribute('x2',(labelX+(right?-27:27)).toFixed(1));entry.leader.setAttribute('y2',labelY.toFixed(1));
+    entry.leader.style.opacity=visible?'1':'0';
    });
    renderer.render(scene,camera);
   };
-  load();animate();
+  animate();
 
-  const contextLost=(event:Event)=>{event.preventDefault();setStatus('error');setError('La sessione WebGL è stata interrotta.');send({type:'ora:brain-error',version:1});};
+  const contextLost=(event:Event)=>{event.preventDefault();setStatus('error');setError('La sessione WebGL è stata interrotta.');send({type:'ora:brain-error',version:2});};
   renderer.domElement.addEventListener('webglcontextlost',contextLost);
-
   return()=>{
-   disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();
-   window.removeEventListener('message',message);
-   renderer.domElement.removeEventListener('pointerdown',pointerDown);
-   renderer.domElement.removeEventListener('pointerup',pointerUp);
+   disposed=true;cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('message',message);
+   renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointerup',pointerUp);
    renderer.domElement.removeEventListener('webglcontextlost',contextLost);
-   controls.dispose();disposeMarkers();markerGeometry.dispose();
-   geometries.forEach(g=>g.dispose());surfaceMaterial.dispose();innerMaterial.dispose();wireMaterial.dispose();
-   renderer.dispose();labelLayer.remove();renderer.domElement.remove();
+   controls.dispose();disposeMarkers();markerGeometry.dispose();haloTexture.dispose();glowTexture.dispose();
+   cloudGeometry.dispose();sparkGeometry.dispose();fibreGeometry.dispose();fissureGeometry.dispose();
+   cloudMaterial.dispose();sparkMaterial.dispose();fibreMaterial.dispose();fissureMaterial.dispose();
+   renderer.dispose();labelLayer.remove();leaderLayer.remove();renderer.domElement.remove();
   };
  },[]);
 
  return <main className="ora-brain-presence" data-testid="ora-brain-webgl" data-status={status}>
   <div className="ora-brain-aura" aria-hidden="true"/>
   <div className="ora-brain-host" ref={host}/>
-  {status==='loading'?<div className="ora-brain-status" role="status"><span/>Preparo il cervello 3D…</div>:null}
+  {status==='loading'?<div className="ora-brain-status" role="status"><span/>Preparo il cervello di ORA…</div>:null}
   {status==='error'?<div className="ora-brain-status error" role="alert">{error}</div>:null}
  </main>;
 }
