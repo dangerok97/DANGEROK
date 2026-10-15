@@ -348,6 +348,83 @@ def test_the_model_cannot_create_authority_for_itself(monkeypatch):
     _run(body())
 
 
+def test_same_capability_keeps_independent_effect_grants(monkeypatch):
+    """
+    Two explicit decisions about the same capability are two permissions.
+
+    Creating a local event must not overwrite an earlier permission to modify
+    one, and revoking one concrete grant must leave the sibling grant intact.
+    """
+    async def body():
+        client, db = await _db()
+        uid = f"u39_{uuid.uuid4().hex[:8]}"
+        try:
+            from agent.authority import AuthorityService
+            from agent.models import ActionEffect, ActionIntent
+
+            service = AuthorityService(db)
+            created = await service.grant(
+                uid,
+                "calendar.local.write",
+                by="user",
+                effect_scope=["create"],
+                scope_note="Aggiungere nuovi impegni personali al calendario ORA.",
+            )
+            modified = await service.grant(
+                uid,
+                "calendar.local.write",
+                by="user",
+                effect_scope=["modify"],
+                scope_note="Modificare impegni personali nel calendario ORA.",
+            )
+
+            rows = await db.autonomy_grants.find(
+                {"owner_id": uid, "capability": "calendar.local.write", "active": True},
+                {"_id": 0},
+            ).to_list(10)
+            assert len(rows) == 2
+            assert {tuple(row["effect_scope"]) for row in rows} == {("create",), ("modify",)}
+
+            def intent(kind: str) -> ActionIntent:
+                effect = ActionEffect(
+                    effect_type=kind,
+                    target="calendar:personal",
+                    effect_summary=f"{kind} un evento personale.",
+                    reversibility="easily",
+                )
+                return ActionIntent(
+                    owner_id=uid,
+                    goal_id=f"goal_{kind}",
+                    step_id=f"step_{kind}",
+                    capability="calendar.local.write",
+                    effect_summary=effect.effect_summary,
+                    target_ref=effect.target,
+                    authority_required="calendar.local.write",
+                    effect=effect,
+                )
+
+            create_grant, _ = await service.match_grant(uid, intent("create"))
+            modify_grant, _ = await service.match_grant(uid, intent("modify"))
+            assert create_grant is not None and create_grant.effect_scope == ["create"]
+            assert modify_grant is not None and modify_grant.effect_scope == ["modify"]
+
+            await service.revoke(
+                uid,
+                "calendar.local.write",
+                grant_id=created["grant"]["id"],
+            )
+            create_after, _ = await service.match_grant(uid, intent("create"))
+            modify_after, _ = await service.match_grant(uid, intent("modify"))
+            assert create_after is None
+            assert modify_after is not None
+            assert modified["grant"]["id"] == modify_after.id
+        finally:
+            await _clean(db, uid)
+            client.close()
+
+    _run(body())
+
+
 def test_a_grant_belongs_to_one_person(monkeypatch):
     async def body():
         client, db = await _db()
