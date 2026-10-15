@@ -267,6 +267,7 @@ void main(){gl_FragColor=uColor;}`);
   let points=[],edges=[],projected=[],geometryKey='',edgeBuffer=null;
   let knowledgeGroups={normal:[],tentative:[],temporary:[],hubs:[]};
   let knowledgeBuffers={normal:null,tentative:null,temporary:null,hubs:null};
+  let focusBuffers=null;
   const births=new Map();
   let furthest=1;
 
@@ -358,11 +359,13 @@ void main(){gl_FragColor=uColor;}`);
   }
   function drawFocusedPoint(index,color,mvp,reveal){
     const p=points[index];if(!p)return;
-    const pb=buffer([p.x,p.y,p.z],gl.DYNAMIC_DRAW);
-    const sb=buffer([p.radius+7],gl.DYNAMIC_DRAW);
-    const hb=buffer([p.phase/6.28],gl.DYNAMIC_DRAW);
-    drawPoints(pb,sb,hb,1,mvp,color,1,.9,reveal);
-    for(const b of [pb,sb,hb]){gl.deleteBuffer(b);buffers.delete(b);}
+    if(!focusBuffers){
+      focusBuffers={pos:buffer([0,0,0],gl.DYNAMIC_DRAW),size:buffer([1],gl.DYNAMIC_DRAW),phase:buffer([0],gl.DYNAMIC_DRAW)};
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER,focusBuffers.pos);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([p.x,p.y,p.z]),gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER,focusBuffers.size);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([p.radius+7]),gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER,focusBuffers.phase);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([p.phase/6.28]),gl.DYNAMIC_DRAW);
+    drawPoints(focusBuffers.pos,focusBuffers.size,focusBuffers.phase,1,mvp,color,1,.9,reveal);
   }
 
   let overlay=null,labelEls=[];
