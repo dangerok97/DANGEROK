@@ -65,6 +65,8 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   assert.ok(snapshot.brain.w > 0 && snapshot.brain.h > 0, 'brain envelope is present');
   assert.ok(snapshot.brainCloudPoints >= 240, 'hologram contains a dense volumetric cortical point cloud');
   assert.ok(snapshot.brainCloudLinks > snapshot.brainCloudPoints * 1.45, 'cortical volume is densely connected by neural fibres');
+  assert.ok(snapshot.brainCloud.w > snapshot.brain.w * .62, 'cortical volume fills most of the brain width');
+  assert.ok(snapshot.brainCloud.h > snapshot.brain.h * .52, 'cortical volume fills most of the brain height');
   assert.equal(snapshot.visiblePoints, 8, 'the brain retains all navigation regions');
   ora.scene.destroy();
 });
