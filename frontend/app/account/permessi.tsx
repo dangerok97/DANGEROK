@@ -102,6 +102,7 @@ type StandingGrant = {
   id: string;
   capability: string;
   scope?: string | null;
+  effect_scope?: string[];
 };
 
 type AutonomyMode = 'observe' | 'prepare' | 'act_within_grants';
@@ -235,13 +236,13 @@ export default function PermessiScreen() {
   }, [loadAutonomy]);
 
   const revokeGrant = useCallback(
-    async (capability: string) => {
+    async (capability: string, grantId = '') => {
       if (revoking) return;
       haptic('tap');
-      setRevoking(capability);
+      setRevoking(grantId || capability);
       setWriteError(null);
       try {
-        await api.revokeAgentAutonomy(capability);
+        await api.revokeAgentAutonomy(capability, grantId);
         // Ricaricato invece che tolto a mano: quello che si vede dopo è quello
         // che il backend dice, non quello che il client spera.
         await loadAutonomy();
@@ -332,9 +333,12 @@ export default function PermessiScreen() {
     [guard, loadAutonomy],
   );
 
-  const calendarCreateGranted = grants.some(
-    (grant) => grant.capability === LOCAL_CALENDAR_CREATE_CAPABILITY,
+  const calendarCreateGrant = grants.find(
+    (grant) =>
+      grant.capability === LOCAL_CALENDAR_CREATE_CAPABILITY
+      && (grant.effect_scope || []).includes('create'),
   );
+  const calendarCreateGranted = Boolean(calendarCreateGrant);
 
   const toggleCalendarCreateGrant = useCallback(
     () =>
@@ -343,8 +347,11 @@ export default function PermessiScreen() {
         setBusy('autonomy_calendar_create');
         setWriteError(null);
         try {
-          if (calendarCreateGranted) {
-            await api.revokeAgentAutonomy(LOCAL_CALENDAR_CREATE_CAPABILITY);
+          if (calendarCreateGrant) {
+            await api.revokeAgentAutonomy(
+              LOCAL_CALENDAR_CREATE_CAPABILITY,
+              calendarCreateGrant.id,
+            );
           } else {
             await api.grantAgentAutonomy(
               LOCAL_CALENDAR_CREATE_CAPABILITY,
@@ -360,7 +367,7 @@ export default function PermessiScreen() {
           setBusy(null);
         }
       }),
-    [guard, calendarCreateGranted, loadAutonomy],
+    [guard, calendarCreateGrant, loadAutonomy],
   );
 
   const setMode = useCallback((next: LocationMode) => guard(async () => {
@@ -682,8 +689,8 @@ export default function PermessiScreen() {
                 label={g.scope || 'Un permesso che hai dato a ORA'}
                 detail="Tocca per revocare"
                 selected={false}
-                busy={revoking === g.capability}
-                onPress={() => void revokeGrant(g.capability)}
+                busy={revoking === g.id}
+                onPress={() => void revokeGrant(g.capability, g.id)}
                 testID={`perm-autonomy-${i}`}
               />
             ))}
