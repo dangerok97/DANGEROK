@@ -15,6 +15,7 @@ on:
       - 'frontend/nginx.staging.conf'
       - 'frontend/scripts/build-bodyparts3d.sh'
       - 'frontend/scripts/ora-bodyparts3d-*'
+      - 'frontend/scripts/ora-brain-browser-qa.mjs'
       - 'frontend/scripts/ora-anatomy-terminology-it.ts'
       - 'frontend/scripts/check-bodyparts3d-build.mjs'
       - 'frontend/app/vision-xray.tsx'
@@ -171,6 +172,12 @@ jobs:
           path: .ora-brain-qa/
           if-no-files-found: warn
           retention-days: 7
+      - name: Capture actual WebGL hologram at iPhone viewport
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          node scripts/ora-brain-browser-qa.mjs "$RUNNER_TEMP/bodyparts3d/dist" "../.vision-bp3d-evidence"
       - name: Archive small provenance report, never full meshes
         if: always()
         run: |
