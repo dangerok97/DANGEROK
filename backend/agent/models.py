@@ -1243,6 +1243,10 @@ class AutonomyGrant(BaseModel):
             "id": self.id,
             "capability": self.capability,
             "scope": self.human_summary or self.scope_note or None,
+            # First-party clients use this only to distinguish two grants for
+            # the same capability (for example create vs modify). The human
+            # surface still shows the sentence above, never this internal code.
+            "effect_scope": list(self.effect_scope),
             "active": self.active,
             "granted_by": self.granted_by,
         }
