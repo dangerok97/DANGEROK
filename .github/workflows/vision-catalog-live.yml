@@ -172,6 +172,36 @@ jobs:
           path: .ora-brain-qa/
           if-no-files-found: warn
           retention-days: 7
+      - name: Install ORA brain visual QA browser engines
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium webkit
+      - name: Verify actual mobile WebGL hologram and knowledge-node interaction
+        working-directory: frontend
+        run: node scripts/ora-brain-visual-qa.mjs "$RUNNER_TEMP/bodyparts3d/dist" "$RUNNER_TEMP/ora-brain-visual"
+      - name: Check nonblank blue point-field screenshots
+        run: |
+          python -m pip install --quiet 'Pillow==12.3.0'
+          python - <<'PY'
+          import os
+          from PIL import Image
+          for browser in ('chromium','webkit'):
+              path = os.path.join(os.environ['RUNNER_TEMP'], 'ora-brain-visual', f'ora-brain-{browser}-390x680.png')
+              image = Image.open(path).convert('RGB')
+              w, h = image.size
+              center = image.crop((int(w*.22),int(h*.25),int(w*.78),int(h*.78)))
+              luminous = sum(1 for r,g,b in center.getdata() if b > 98 and b > r*1.5 and g > 65)
+              print(f'{browser}: {image.size}, {luminous} glowing cyan pixels in center')
+              if luminous < 450:
+                  raise AssertionError(f'{browser}: central cyan brain not visible')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ora-brain-visual-webgl
+          path: ${{ runner.temp }}/ora-brain-visual/
+          retention-days: 7
       - name: Archive small provenance report, never full meshes
         if: always()
         run: |
