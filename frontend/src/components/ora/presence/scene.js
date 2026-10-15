@@ -354,7 +354,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const compact=height<240;
     // v179 visual gate: the cortical mass must define the brain, not sit as a
     // bright knot in its centre. Compact previews need even more spread.
-    const sx=compact?1.88:1.62,sy=compact?1.82:1.56,sz=compact?1.30:1.20;
+    const sx=compact?2.12:1.92,sy=compact?1.84:1.60,sz=compact?1.34:1.24;
     let x=p.x*sx*breathing*growth-camera.x;
     let y=p.y*sy*breathing*growth-camera.y;
     let z=p.z*sz*breathing*growth-camera.z;
@@ -377,6 +377,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       cortexFrame={x:minX,y:minY,w:maxX-minX,h:maxY-minY};
     }
     ctx.save();
+    // Projected particles define a volumetric cortex but may not leak outside
+    // the holographic organ when yaw/perspective spreads them.
+    if(brainFrame.w>0&&brainFrame.h>0){brainOutline(brainFrame.cx,brainFrame.cy,brainFrame.w,brainFrame.h);ctx.clip();}
     ctx.globalCompositeOperation='lighter';
     ctx.globalAlpha=reveal;
 
