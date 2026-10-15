@@ -601,7 +601,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const occupied=[],labelIndices=options.intro?[]:activeHub>=0?[activeHub]:height<180?[0,1,5]:width<430?[0,1,2,5]:[0,1,2,3,4,5,6,7];
     if(inspected>=0&&!labelIndices.includes(points[inspected].areaGroup))labelIndices.push(points[inspected].areaGroup);
     labels=[];
-    ctx.font='500 11px ui-monospace, SFMono-Regular, Consolas, monospace';ctx.textBaseline='middle';
+    ctx.font='600 10px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif';ctx.textBaseline='middle';
     labelIndices.forEach(i=>{
       const h=hubs[i],p=projected[i],tw=ctx.measureText(h.name).width;
       if(p.appear<.99||opening/openingSeconds<.72)return;
@@ -610,8 +610,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       left=Math.max(15,Math.min(width-tw-15,left));y=Math.max(18,Math.min(height-20,y));
       for(let tries=0;tries<6;tries++){if(!occupied.some(b=>left<b.x+b.w+7&&left+tw+7>b.x&&Math.abs(y-b.y)<19))break;y+=19;}
       y=Math.min(height-23,y);occupied.push({x:left,y,w:tw});labels.push({x:left,y,w:tw,index:i});
-      ctx.strokeStyle='rgba('+palette.leader+',.28)';ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
-      ctx.fillStyle=palette.labelBackground;ctx.fillRect(left-3,y-8,tw+6,16);ctx.fillStyle=i===0?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);
+      ctx.strokeStyle='rgba('+hologram.cyan+',.16)';ctx.lineWidth=.50;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
+      ctx.fillStyle='rgba(4,18,31,.34)';ctx.fillRect(left-4,y-9,tw+8,18);
+      ctx.strokeStyle='rgba('+hologram.cyan+',.11)';ctx.lineWidth=.45;ctx.strokeRect(left-4,y-9,tw+8,18);
+      ctx.fillStyle=i===0?'rgba('+hologram.warm+',.88)':'rgba('+hologram.cyan+',.88)';ctx.textAlign='left';ctx.fillText(h.name,left,y);
     });
     if(options.intro){
       for(let i=8;i<points.length;i++){
@@ -619,8 +621,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
         const name=id==='intro_step_one'?'INIZIO':id==='draft_first_name'?'NOME':id==='draft_last_name'?'COGNOME':id.startsWith('intro_example_')?'ESEMPIO':null;
         const p=projected[i];if(!name||p.appear<.85)continue;
         const tw=ctx.measureText(name).width,x=Math.min(width-tw-12,Math.max(12,p.x+9)),y=Math.min(height-14,Math.max(14,p.y-11));
-        ctx.globalAlpha=p.appear;ctx.fillStyle=palette.labelBackground;ctx.fillRect(x-3,y-8,tw+6,16);
-        ctx.fillStyle=palette.label;ctx.textAlign='left';ctx.fillText(name,x,y);
+        ctx.globalAlpha=p.appear;ctx.fillStyle='rgba(4,18,31,.34)';ctx.fillRect(x-4,y-9,tw+8,18);
+        ctx.strokeStyle='rgba('+hologram.cyan+',.11)';ctx.lineWidth=.45;ctx.strokeRect(x-4,y-9,tw+8,18);
+        ctx.fillStyle='rgba('+hologram.cyan+',.88)';ctx.textAlign='left';ctx.fillText(name,x,y);
       }
       ctx.globalAlpha=1;
     }
