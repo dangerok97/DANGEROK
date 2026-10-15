@@ -1,0 +1,32 @@
+name: ORA anatomical brain asset
+on:
+  push:
+    branches: [ora/v182-true-webgl-brain-20261015]
+    paths:
+      - .github/workflows/ora-brain-asset.yml
+      - frontend/scripts/build-ora-brain-asset.mjs
+permissions:
+  contents: read
+jobs:
+  build-brain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch pinned BodyParts3D distributor
+        run: |
+          git init -q /tmp/human-atlas
+          git -C /tmp/human-atlas remote add origin https://github.com/ashemag/human-atlas.git
+          git -C /tmp/human-atlas fetch -q --depth 1 origin 1c38bf35c254a891200d3cedecfd57abebe83d8d
+          git -C /tmp/human-atlas checkout -q --detach FETCH_HEAD
+          test "$(git -C /tmp/human-atlas rev-parse HEAD)" = "1c38bf35c254a891200d3cedecfd57abebe83d8d"
+      - name: Extract ORA brain mesh
+        run: node frontend/scripts/build-ora-brain-asset.mjs /tmp/human-atlas /tmp/brainAsset.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ora-anatomical-brain-asset
+          path: /tmp/brainAsset.js
+          retention-days: 3
