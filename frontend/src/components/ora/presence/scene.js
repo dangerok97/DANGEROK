@@ -155,13 +155,18 @@ void main(){gl_FragColor=uColor;}`);
     const aspect=Math.max(.1,width/Math.max(1,height));
     const proj=perspective(Math.PI/3.25,aspect,.1,20);
     const centerShift=(.5-(options.centerY??.515))*1.25;
-    const distance=4.25/Math.max(.70,camera.zoom);
+    const distance=3.65/Math.max(.70,camera.zoom);
     let model=identity();
     model=multiply(translate(-camera.x,-camera.y+centerShift,-distance-camera.z),model);
     model=multiply(rotX(dragPitch),model);
     model=multiply(rotY(dragYaw),model);
     const introScale=options.intro?(.25+.75*reveal):(.72+.28*reveal);
-    model=multiply(scale(introScale,introScale,introScale),model);
+    // Wide conversation previews used to make the perspective brain look tiny.
+    // Scale the 3D model with horizontal aspect while keeping expanded portrait
+    // views bounded, so the brain remains the dominant object on every device.
+    const presentationScale=aspect>1.35?Math.min(2.25,1+(aspect-1.35)*.72):1.10;
+    const s=introScale*presentationScale;
+    model=multiply(scale(s,s,s),model);
     return multiply(proj,model);
   }
 
@@ -194,7 +199,7 @@ void main(){gl_FragColor=uColor;}`);
         for(let j=0;j<lon;j++){
           const theta=(j/lon)*Math.PI*2;
           const p=cerebrumPoint(hemi,theta,phi);
-          surface.push(p.x,p.y,p.z);surfaceSize.push(2.2+(i+j)%4*.30);surfacePhase.push(((i*37+j*19)%97)/97);
+          surface.push(p.x,p.y,p.z);surfaceSize.push(3.0+(i+j)%4*.42);surfacePhase.push(((i*37+j*19)%97)/97);
         }
       }
       for(let band=3;band<lat-3;band+=3){
@@ -223,7 +228,7 @@ void main(){gl_FragColor=uColor;}`);
       for(let j=0;j<cLon;j++){
         const theta=(j/cLon)*Math.PI*2;
         const p=ellipsoidPoint(-.28,-.66,-.18,.45,.27,.38,theta,phi,.035);
-        surface.push(p.x,p.y,p.z);surfaceSize.push(2.0+(j%3)*.28);surfacePhase.push(((i*29+j*11)%89)/89);
+        surface.push(p.x,p.y,p.z);surfaceSize.push(2.7+(j%3)*.36);surfacePhase.push(((i*29+j*11)%89)/89);
       }
     }
     for(let band=3;band<cLat-2;band+=2){
@@ -237,7 +242,7 @@ void main(){gl_FragColor=uColor;}`);
     for(let iy=0;iy<14;iy++)for(let j=0;j<18;j++){
       const u=iy/13,a=j/18*Math.PI*2,r=.13*(1-u*.46);
       const p={x:-.02+r*Math.cos(a),y:-.72-u*.46,z:-.02+r*.82*Math.sin(a)};
-      surface.push(p.x,p.y,p.z);surfaceSize.push(1.9);surfacePhase.push(((iy*17+j*7)%61)/61);
+      surface.push(p.x,p.y,p.z);surfaceSize.push(2.5);surfacePhase.push(((iy*17+j*7)%61)/61);
       if(j<17){const b={x:-.02+r*Math.cos(a+Math.PI*2/18),y:p.y,z:-.02+r*.82*Math.sin(a+Math.PI*2/18)};wire.push(p.x,p.y,p.z,b.x,b.y,b.z);}
     }
     // Internal neural fibres make the volume read as holographic tissue.
@@ -447,14 +452,14 @@ void main(){gl_FragColor=uColor;}`);
     gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
 
     // True 3D holographic anatomy, depth-tested in model space.
-    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.cyan,.31+.10*state.light,beat,reveal);
+    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.cyan,.46+.12*state.light,beat,reveal);
     gl.depthMask(false);
-    drawLines(brain.wireBuffer,brain.wireCount,mvp,colors.white,.16+.09*state.light,1);
-    drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.line,.055+.055*state.light,1);
+    drawLines(brain.wireBuffer,brain.wireCount,mvp,colors.white,.25+.12*state.light,1);
+    drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.line,.10+.075*state.light,1);
     gl.depthMask(true);
 
     if(edgeBuffer){
-      drawLines(edgeBuffer,edges.length*2,mvp,colors.line,.16+.12*state.light,1);
+      drawLines(edgeBuffer,edges.length*2,mvp,colors.line,.22+.16*state.light,1);
       drawKnowledgeBuffer(knowledgeBuffers.normal,colors.white,.92,mvp,beat,reveal);
       drawKnowledgeBuffer(knowledgeBuffers.tentative,colors.warm,.96,mvp,beat,reveal);
       drawKnowledgeBuffer(knowledgeBuffers.temporary,colors.red,1,mvp,beat,reveal);
