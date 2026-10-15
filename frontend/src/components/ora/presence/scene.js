@@ -22,20 +22,17 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   let seed=932761;
   function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
   const modes={idle:{name:'Presenza',message:'Sono qui.',speed:.26,strength:.30,breath:.020,light:.68},listen:{name:'Ascolto',message:'Ti ascolto.',speed:.40,strength:.56,breath:.039,light:.86},think:{name:'Elaborazione',message:'Sto collegando le informazioni.',speed:.62,strength:.82,breath:.012,light:1},speak:{name:'Voce',message:'Ecco cosa ho trovato.',speed:.48,strength:.72,breath:.018,light:.93}};
-  // Functional regions arranged inside a lateral human-brain volume.
-  // The IDs and index order are unchanged: selection, accessibility and saved
-  // knowledge continue to address exactly the same eight ORA areas.
+  // Functional regions arranged across a bilateral brain volume.
+  // IDs/indexes stay identical: only presentation changes.
   const hubs=[
-    // Spread across cortical lobes: the live knowledge graph fills the brain
-    // instead of floating as a small cluster inside a decorative outline.
-    {x:-.18,y:.02,z:.34,id:'memory',name:'MEMORIA',dx:-18,dy:22,align:'right'},
-    {x:.60,y:-.48,z:.08,id:'calendar',name:'IMPEGNI',dx:17,dy:-18,align:'left'},
-    {x:-.76,y:.01,z:.12,id:'people',name:'PERSONE',dx:-20,dy:-5,align:'right'},
-    {x:.46,y:-.08,z:.54,id:'places',name:'LUOGHI',dx:18,dy:5,align:'left'},
-    {x:-.38,y:-.34,z:.46,id:'home',name:'CASA',dx:-18,dy:-22,align:'right'},
-    {x:.82,y:-.17,z:-.15,id:'documents',name:'DOCUMENTI',dx:16,dy:18,align:'left'},
-    {x:-.60,y:-.47,z:-.16,id:'finances',name:'FINANZE',dx:-16,dy:-17,align:'right'},
-    {x:.14,y:.61,z:-.06,id:'calls',name:'CHIAMATE',dx:16,dy:23,align:'left'}
+    {x:-.14,y:.10,z:.34,id:'memory',name:'MEMORIA',dx:-18,dy:22,align:'right'},
+    {x:.38,y:-.40,z:.20,id:'calendar',name:'IMPEGNI',dx:17,dy:-18,align:'left'},
+    {x:-.55,y:-.02,z:.10,id:'people',name:'PERSONE',dx:-20,dy:-5,align:'right'},
+    {x:.34,y:-.04,z:.46,id:'places',name:'LUOGHI',dx:18,dy:5,align:'left'},
+    {x:-.34,y:-.30,z:.38,id:'home',name:'CASA',dx:-18,dy:-22,align:'right'},
+    {x:.54,y:-.18,z:-.08,id:'documents',name:'DOCUMENTI',dx:16,dy:18,align:'left'},
+    {x:-.46,y:-.38,z:-.12,id:'finances',name:'FINANZE',dx:-16,dy:-17,align:'right'},
+    {x:.08,y:.46,z:-.08,id:'calls',name:'CHIAMATE',dx:16,dy:23,align:'left'}
   ];
   let points=[],edges=[],projected=[],sorted=[],furthest=1,geometryKey='';
   let growth=1;
@@ -85,15 +82,16 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     // Overlapping 3D lobes. This creates a brain volume rather than a generic
     // ellipsoid, while remaining deterministic and containing no personal data.
     const lobes=[
-      [-.70,-.08,.02,.47,.40,.46],[-.43,-.30,.08,.48,.37,.47],
-      [-.10,-.35,.08,.49,.36,.49],[.23,-.32,.06,.49,.37,.48],
-      [.58,-.17,-.02,.42,.35,.42],[-.62,.18,-.05,.42,.33,.40],
-      [-.29,.18,.09,.50,.39,.49],[.11,.19,.10,.51,.40,.51],
-      [.44,.16,.02,.45,.37,.44],[-.12,.40,-.13,.34,.27,.34],
+      [-.42,-.25,.10,.36,.34,.46],[-.18,-.28,.16,.32,.34,.48],
+      [.18,-.28,.16,.32,.34,.48],[.42,-.25,.10,.36,.34,.46],
+      [-.47,.05,.02,.34,.32,.43],[-.17,.08,.12,.35,.34,.48],
+      [.17,.08,.12,.35,.34,.48],[.47,.05,.02,.34,.32,.43],
+      [-.30,.30,-.10,.30,.24,.34],[.30,.30,-.10,.30,.24,.34],
+      [-.05,.35,-.14,.22,.20,.28],[.05,.35,-.14,.22,.20,.28],
     ];
     const out=[];
     let attempts=0;
-    while(out.length<224&&attempts++<10000){
+    while(out.length<260&&attempts++<12000){
       const l=lobes[Math.floor(rnd()*lobes.length)];
       const a=rnd()*Math.PI*2;
       const u=rnd()*2-1;
@@ -105,18 +103,18 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const x=l[0]+Math.cos(a)*v*l[3]*rr;
       const y=l[1]+u*l[4]*rr;
       const z=l[2]+Math.sin(a)*v*l[5]*rr;
-      const nx=x/1.28,ny=(y+.015)/.76,nz=z/.70;
+      const nx=x/1.02,ny=(y+.01)/.72,nz=z/.72;
       const envelope=nx*nx+ny*ny+nz*nz;
-      const temporalCut=x<-.84&&y>.34?.14:0;
-      if(envelope<1.04-temporalCut&&y<.66&&y>-.72){
+      const lowerNotch=Math.abs(x)<.13&&y>.40?.10:0;
+      if(envelope<1.06-lowerNotch&&y<.58&&y>-.70){
         out.push({
           x,y,z,
           phase:rnd()*Math.PI*2,
-          size:.42+rnd()*.78,
-          hot:rnd()<.15,
+          size:.46+rnd()*.86,
+          hot:rnd()<.18,
           warm:rnd()<.035,
           shell:rr>.72,
-          energy:.48+rnd()*.42,
+          energy:.52+rnd()*.44,
         });
       }
     }
@@ -159,39 +157,40 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   let brainFrame={cx:0,cy:0,w:0,h:0};
   let cortexFrame={x:0,y:0,w:0,h:0};
   function brainOutline(cx,cy,w,h){
-    // Lateral human-brain silhouette with deliberate lobe changes: at small
-    // preview sizes this must still read as a brain, not as a generic oval.
+    // Soft frontal/three-quarter brain silhouette used primarily for clipping.
+    // The visible form should come from volume, cortical particles and sulci.
     ctx.beginPath();
-    ctx.moveTo(cx-w*.08,cy+h*.39);
-    ctx.bezierCurveTo(cx-w*.22,cy+h*.43,cx-w*.44,cy+h*.34,cx-w*.51,cy+h*.20);
-    ctx.bezierCurveTo(cx-w*.64,cy+h*.13,cx-w*.66,cy-h*.05,cx-w*.57,cy-h*.17);
-    ctx.bezierCurveTo(cx-w*.63,cy-h*.31,cx-w*.49,cy-h*.43,cx-w*.34,cy-h*.42);
-    ctx.bezierCurveTo(cx-w*.30,cy-h*.54,cx-w*.12,cy-h*.57,cx-w*.02,cy-h*.48);
-    ctx.bezierCurveTo(cx+w*.10,cy-h*.58,cx+w*.28,cy-h*.53,cx+w*.32,cy-h*.42);
-    ctx.bezierCurveTo(cx+w*.48,cy-h*.47,cx+w*.59,cy-h*.34,cx+w*.55,cy-h*.22);
-    ctx.bezierCurveTo(cx+w*.69,cy-h*.14,cx+w*.71,cy+h*.03,cx+w*.60,cy+h*.13);
-    ctx.bezierCurveTo(cx+w*.61,cy+h*.27,cx+w*.43,cy+h*.38,cx+w*.27,cy+h*.35);
-    ctx.bezierCurveTo(cx+w*.17,cy+h*.43,cx+w*.02,cy+h*.43,cx-w*.08,cy+h*.39);
+    ctx.moveTo(cx,cy+h*.42);
+    ctx.bezierCurveTo(cx-w*.12,cy+h*.46,cx-w*.34,cy+h*.41,cx-w*.42,cy+h*.28);
+    ctx.bezierCurveTo(cx-w*.58,cy+h*.22,cx-w*.64,cy+h*.05,cx-w*.57,cy-h*.10);
+    ctx.bezierCurveTo(cx-w*.62,cy-h*.26,cx-w*.49,cy-h*.42,cx-w*.34,cy-h*.41);
+    ctx.bezierCurveTo(cx-w*.28,cy-h*.55,cx-w*.10,cy-h*.58,cx,cy-h*.49);
+    ctx.bezierCurveTo(cx+w*.10,cy-h*.58,cx+w*.28,cy-h*.55,cx+w*.34,cy-h*.41);
+    ctx.bezierCurveTo(cx+w*.49,cy-h*.42,cx+w*.62,cy-h*.26,cx+w*.57,cy-h*.10);
+    ctx.bezierCurveTo(cx+w*.64,cy+h*.05,cx+w*.58,cy+h*.22,cx+w*.42,cy+h*.28);
+    ctx.bezierCurveTo(cx+w*.34,cy+h*.41,cx+w*.12,cy+h*.46,cx,cy+h*.42);
     ctx.closePath();
   }
   function brainPoint(cx,cy,w,h,u,v){
     return {x:cx+u*w,y:cy+v*h};
   }
   function drawBrainVolume(cx,cy,w,h,state,beat){
-    // Multiple overlapping lobe glows create the glassy/volumetric hologram
-    // seen in the reference instead of one flat translucent fill.
+    // Two translucent hemispheres with overlapping lobe glow create a suspended
+    // holographic volume. No opaque brain-shaped plate.
     const lobes=[
-      [-.30,-.14,.34,.34,.30],[-.02,-.23,.36,.34,.35],[.28,-.18,.34,.32,.33],
-      [-.39,.11,.28,.27,.25],[-.08,.09,.38,.31,.34],[.28,.08,.34,.29,.31],
-      [.43,.20,.23,.22,.24],[-.22,.28,.24,.20,.21],
+      [-.31,-.18,.29,.29,.18],[-.10,-.25,.27,.30,.19],
+      [.10,-.25,.27,.30,.19],[.31,-.18,.29,.29,.18],
+      [-.36,.08,.27,.25,.14],[-.12,.08,.30,.28,.16],
+      [.12,.08,.30,.28,.16],[.36,.08,.27,.25,.14],
+      [-.24,.27,.22,.18,.11],[.24,.27,.22,.18,.11],
     ];
     for(let i=0;i<lobes.length;i++){
       const [lx,ly,rx,ry,power]=lobes[i];
       const x=cx+lx*w,y=cy+ly*h,r=Math.max(rx*w,ry*h);
       const g=ctx.createRadialGradient(x,y,0,x,y,r);
       const pulse=(i%3===0?beat*.04:0);
-      g.addColorStop(0,'rgba('+palette.glow+','+(power+state.light*.045+pulse)+')');
-      g.addColorStop(.45,'rgba('+palette.edge+','+(power*.46)+')');
+      g.addColorStop(0,'rgba('+palette.glow+','+(power+state.light*.030+pulse)+')');
+      g.addColorStop(.45,'rgba('+palette.edge+','+(power*.34)+')');
       g.addColorStop(1,'rgba('+palette.edge+',0)');
       ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);
     }
@@ -228,9 +227,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.restore();
   }
   function drawCorticalSulci(cx,cy,w,h,state,beat){
-    const alpha=.20+state.light*.11+beat*.055;
+    const alpha=.15+state.light*.10+beat*.060;
     ctx.strokeStyle='rgba('+palette.point+','+alpha+')';
-    ctx.lineWidth=.78;
+    ctx.lineWidth=.66;
     const traces=[
       [-.47,-.18,-.37,-.33,-.21,-.31,-.13,-.20],
       [-.50,.02,-.38,-.09,-.22,-.04,-.13,.08],
@@ -277,7 +276,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.globalAlpha=reveal;
 
     // Volumetric hologram first, then fibres, then only a restrained rim.
-    glow(cx,cy,w*.58,.10+state.light*.075+beat*.055,false);
+    glow(cx,cy,w*.55,.055+state.light*.045+beat*.040,false);
     brainOutline(cx,cy,w,h);
     const fill=ctx.createRadialGradient(cx+w*.04,cy-h*.08,0,cx,cy,w*.64);
     fill.addColorStop(0,'rgba('+palette.glow+','+(.070+strength*.060)+')');
@@ -288,20 +287,20 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     drawNeuralFibreField(cx,cy,w,h,state,beat);
     ctx.shadowColor='rgba('+palette.glow+',.22)';
     ctx.shadowBlur=compact?2:3;
-    ctx.strokeStyle='rgba('+palette.glow+','+(.010+strength*.020)+')';
-    ctx.lineWidth=compact?.72:.86;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.strokeStyle='rgba('+palette.glow+','+(.004+strength*.010)+')';
+    ctx.lineWidth=compact?.36:.44;brainOutline(cx,cy,w,h);ctx.stroke();
     ctx.shadowBlur=0;
-    ctx.strokeStyle='rgba('+palette.point+','+(.050+strength*.075)+')';
-    ctx.lineWidth=compact?.44:.48;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.strokeStyle='rgba('+palette.point+','+(.018+strength*.028)+')';
+    ctx.lineWidth=compact?.28:.32;brainOutline(cx,cy,w,h);ctx.stroke();
     ctx.shadowBlur=0;
     drawCorticalSulci(cx,cy,w,h,state,beat);
 
     // Central fissure gives the silhouette a recognisable human-brain anatomy.
-    ctx.strokeStyle='rgba('+palette.point+','+(.060+strength*.080)+')';
-    ctx.lineWidth=.48;
+    ctx.strokeStyle='rgba('+palette.point+','+(.115+strength*.115)+')';
+    ctx.lineWidth=.62;
     ctx.beginPath();
-    ctx.moveTo(cx-w*.02,cy-h*.47);
-    ctx.bezierCurveTo(cx-w*.09,cy-h*.26,cx+w*.04,cy-h*.08,cx-w*.02,cy+h*.28);
+    ctx.moveTo(cx,cy-h*.49);
+    ctx.bezierCurveTo(cx-w*.035,cy-h*.28,cx+w*.028,cy-h*.05,cx,cy+h*.35);
     ctx.stroke();
 
     // Only a few broad anatomical paths remain permanently visible.
@@ -348,14 +347,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.bezierCurveTo(cx+w*.025,cy+h*.49,cx-w*.005,cy+h*.61,cx+w*.035,cy+h*.72);
     ctx.stroke();
 
-    // Orbital data rings preserve the old sense of motion without a star field.
-    ctx.strokeStyle='rgba('+palette.leader+','+(.010+state.light*.014)+')';
-    for(let i=0;i<1;i++){
-      ctx.lineWidth=.35+i*.10;
-      ctx.beginPath();
-      ctx.ellipse(cx,cy+h*.02,w*(.54+i*.03),h*(.145+i*.028),yaw*.16+i*.55,0,Math.PI*2);
-      ctx.stroke();
-    }
+    // No permanent orbital ring: the organ itself is the interface.
     ctx.restore();
   }
   function projectCortexPoint(p,yaw,pitch,scale,breathing){
@@ -376,8 +368,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const reveal=ease(opening/openingSeconds);
     if(reveal<.04)return;
     const awake=activeHub>=0||mode==='listen'||mode==='think'||mode==='speak'||selected>=0||hovered>=0;
-    const linkGain=awake?.72:.08;
-    const pointGain=awake?.70:.30;
+    const linkGain=awake?.64:.035;
+    const pointGain=awake?.78:.46;
     const projectedCloud=cortexCloud.map(p=>projectCortexPoint(p,yaw,pitch,scale,breathe));
     if(projectedCloud.length){
       const xs=projectedCloud.map(p=>p.x),ys=projectedCloud.map(p=>p.y);
@@ -574,7 +566,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const occupied=[],labelIndices=options.intro?[]:activeHub>=0?[activeHub]:height<180?[0,1,5]:width<430?[0,1,2,5]:[0,1,2,3,4,5,6,7];
     if(inspected>=0&&!labelIndices.includes(points[inspected].areaGroup))labelIndices.push(points[inspected].areaGroup);
     labels=[];
-    ctx.font='500 11px ui-monospace, SFMono-Regular, Consolas, monospace';ctx.textBaseline='middle';
+    ctx.font='600 9px ui-monospace, SFMono-Regular, Consolas, monospace';ctx.textBaseline='middle';
     labelIndices.forEach(i=>{
       const h=hubs[i],p=projected[i],tw=ctx.measureText(h.name).width;
       if(p.appear<.99||opening/openingSeconds<.72)return;
@@ -584,8 +576,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       let left;
       if(outside){
         const side=h.align==='right'?-1:1;
-        const edgeX=brainFrame.cx+side*brainFrame.w*.57;
-        left=side<0?edgeX-tw-8:edgeX+8;
+        const edgeX=brainFrame.cx+side*brainFrame.w*.50;
+        left=side<0?edgeX-tw-12:edgeX+12;
       }else{
         const x=p.x+h.dx;
         left=h.align==='right'?x-tw:x;
@@ -593,8 +585,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       left=Math.max(8,Math.min(width-tw-8,left));y=Math.max(18,Math.min(height-20,y));
       for(let tries=0;tries<6;tries++){if(!occupied.some(b=>left<b.x+b.w+7&&left+tw+7>b.x&&Math.abs(y-b.y)<19))break;y+=19;}
       y=Math.min(height-23,y);occupied.push({x:left,y,w:tw});labels.push({x:left,y,w:tw,index:i});
-      ctx.strokeStyle='rgba('+palette.leader+',.20)';ctx.lineWidth=.55;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
-      ctx.fillStyle=palette.labelBackground;ctx.fillRect(left-3,y-8,tw+6,16);ctx.fillStyle=i===0?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);
+      ctx.strokeStyle='rgba('+palette.leader+',.13)';ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
+      ctx.save();ctx.shadowColor='rgba('+palette.glow+',.35)';ctx.shadowBlur=5;
+      ctx.fillStyle=i===0?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);ctx.restore();
     });
     if(options.intro){
       for(let i=8;i<points.length;i++){
@@ -680,5 +673,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {surface:'brain',visualProfile:'anatomy-first-v180',brain:{...brainFrame},brainCloudFrame:{...cortexFrame},brainCloudPoints:cortexCloud.length,brainCloudLinks:cortexLinks.length,camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {surface:'brain',visualProfile:'volumetric-hologram-v181',brain:{...brainFrame},brainCloudFrame:{...cortexFrame},brainCloudPoints:cortexCloud.length,brainCloudLinks:cortexLinks.length,camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }
