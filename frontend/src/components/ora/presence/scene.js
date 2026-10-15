@@ -91,21 +91,61 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   let brainFrame={cx:0,cy:0,w:0,h:0};
   function brainOutline(cx,cy,w,h){
+    // Lateral human-brain silhouette with deliberate lobe changes: at small
+    // preview sizes this must still read as a brain, not as a generic oval.
     ctx.beginPath();
-    ctx.moveTo(cx-w*.06,cy+h*.43);
-    ctx.bezierCurveTo(cx-w*.30,cy+h*.43,cx-w*.58,cy+h*.26,cx-w*.61,cy-h*.02);
-    ctx.bezierCurveTo(cx-w*.64,cy-h*.28,cx-w*.43,cy-h*.49,cx-w*.14,cy-h*.51);
-    ctx.bezierCurveTo(cx+w*.10,cy-h*.57,cx+w*.42,cy-h*.48,cx+w*.55,cy-h*.24);
-    ctx.bezierCurveTo(cx+w*.69,cy+.01*h,cx+w*.57,cy+h*.27,cx+w*.30,cy+h*.35);
-    ctx.bezierCurveTo(cx+w*.15,cy+h*.40,cx+w*.03,cy+h*.39,cx-w*.06,cy+h*.43);
+    ctx.moveTo(cx-w*.08,cy+h*.39);
+    ctx.bezierCurveTo(cx-w*.22,cy+h*.43,cx-w*.44,cy+h*.34,cx-w*.51,cy+h*.20);
+    ctx.bezierCurveTo(cx-w*.64,cy+h*.13,cx-w*.66,cy-h*.05,cx-w*.57,cy-h*.17);
+    ctx.bezierCurveTo(cx-w*.63,cy-h*.31,cx-w*.49,cy-h*.43,cx-w*.34,cy-h*.42);
+    ctx.bezierCurveTo(cx-w*.30,cy-h*.54,cx-w*.12,cy-h*.57,cx-w*.02,cy-h*.48);
+    ctx.bezierCurveTo(cx+w*.10,cy-h*.58,cx+w*.28,cy-h*.53,cx+w*.32,cy-h*.42);
+    ctx.bezierCurveTo(cx+w*.48,cy-h*.47,cx+w*.59,cy-h*.34,cx+w*.55,cy-h*.22);
+    ctx.bezierCurveTo(cx+w*.69,cy-h*.14,cx+w*.71,cy+h*.03,cx+w*.60,cy+h*.13);
+    ctx.bezierCurveTo(cx+w*.61,cy+h*.27,cx+w*.43,cy+h*.38,cx+w*.27,cy+h*.35);
+    ctx.bezierCurveTo(cx+w*.17,cy+h*.43,cx+w*.02,cy+h*.43,cx-w*.08,cy+h*.39);
     ctx.closePath();
+  }
+  function drawCorticalSulci(cx,cy,w,h,state,beat){
+    const alpha=.13+state.light*.12+beat*.05;
+    ctx.strokeStyle='rgba('+palette.point+','+alpha+')';
+    ctx.lineWidth=.70;
+    const traces=[
+      [-.47,-.18,-.37,-.33,-.21,-.31,-.13,-.20],
+      [-.50,.02,-.38,-.09,-.22,-.04,-.13,.08],
+      [-.45,.19,-.31,.08,-.18,.14,-.08,.25],
+      [-.26,-.42,-.16,-.31,-.03,-.34,.06,-.23],
+      [-.18,-.13,-.06,-.22,.08,-.16,.16,-.05],
+      [-.18,.20,-.04,.09,.12,.14,.22,.24],
+      [.05,-.42,.16,-.31,.28,-.34,.36,-.22],
+      [.17,-.13,.29,-.23,.42,-.15,.48,-.03],
+      [.20,.10,.34,.01,.48,.08,.53,.20],
+      [.00,.34,.10,.24,.24,.28,.34,.34],
+    ];
+    for(const p of traces){
+      ctx.beginPath();
+      ctx.moveTo(cx+p[0]*w,cy+p[1]*h);
+      ctx.bezierCurveTo(cx+p[2]*w,cy+p[3]*h,cx+p[4]*w,cy+p[5]*h,cx+p[6]*w,cy+p[7]*h);
+      ctx.stroke();
+    }
+    // Shorter secondary folds add cortical density without turning into a star field.
+    ctx.strokeStyle='rgba('+palette.edge+','+(alpha*.62)+')';
+    for(let i=0;i<9;i++){
+      const x=-.43+i*.105;
+      const y=-.28+((i*37)%7)*.085;
+      ctx.beginPath();
+      ctx.moveTo(cx+x*w,cy+y*h);
+      ctx.quadraticCurveTo(cx+(x+.055)*w,cy+(y-.045+(i%2)*.08)*h,cx+(x+.11)*w,cy+(y+.01)*h);
+      ctx.stroke();
+    }
   }
   function drawBrainEnvelope(state,yaw,pitch,scale,beat){
     const reveal=ease(opening/openingSeconds);
     if(reveal<.01)return;
     const brainGrowth=.84+.16*growth;
-    const w=scale*2.48*brainGrowth;
-    const h=scale*1.66*brainGrowth;
+    const compact=height<210;
+    const w=scale*(compact?2.82:2.58)*brainGrowth;
+    const h=scale*(compact?1.88:1.76)*brainGrowth;
     const cx=width*.5-camera.x*scale*.90+Math.sin(yaw)*w*.025;
     const cy=height*(options.centerY??.515)-camera.y*scale*.90+Math.sin(pitch)*h*.025;
     brainFrame={cx,cy,w,h};
@@ -122,8 +162,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     fill.addColorStop(.55,'rgba('+palette.edge+','+(.035+strength*.045)+')');
     fill.addColorStop(1,'rgba('+palette.edge+',0)');
     ctx.fillStyle=fill;ctx.fill();
-    ctx.strokeStyle='rgba('+palette.point+','+(.20+strength*.40)+')';
-    ctx.lineWidth=1.0+state.light*.45;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.strokeStyle='rgba('+palette.point+','+(.34+strength*.52)+')';
+    ctx.lineWidth=(compact?1.45:1.20)+state.light*.55;brainOutline(cx,cy,w,h);ctx.stroke();
+    drawCorticalSulci(cx,cy,w,h,state,beat);
 
     // Central fissure gives the silhouette a recognisable human-brain anatomy.
     ctx.strokeStyle='rgba('+palette.point+','+(.14+strength*.24)+')';
@@ -133,9 +174,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.bezierCurveTo(cx-w*.09,cy-h*.26,cx+w*.04,cy-h*.08,cx-w*.02,cy+h*.28);
     ctx.stroke();
 
-    // Gyri: deterministic luminous folds, never personal data.
-    for(let i=0;i<13;i++){
-      const u=(i+1)/14;
+    // Broad inter-lobe fibres below the sharper cortical sulci.
+    for(let i=0;i<9;i++){
+      const u=(i+1)/10;
       const yy=cy-h*.43+u*h*.72;
       const span=Math.sin(Math.PI*u);
       const left=cx-w*(.48-.10*u)*span;
@@ -163,24 +204,25 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     // Cerebellum and brain stem complete the human silhouette.
     ctx.strokeStyle='rgba('+palette.point+','+(.18+strength*.28)+')';
     ctx.fillStyle='rgba('+palette.glow+','+(.025+strength*.04)+')';
-    ctx.beginPath();ctx.ellipse(cx-w*.31,cy+h*.34,w*.18,h*.13,-.15,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.lineWidth=compact?1.2:1.0;
+    ctx.beginPath();ctx.ellipse(cx-w*.34,cy+h*.35,w*.205,h*.145,-.18,0,Math.PI*2);ctx.fill();ctx.stroke();
     for(let i=0;i<5;i++){
       const yy=cy+h*(.285+i*.026);
       ctx.beginPath();ctx.moveTo(cx-w*.45,yy);ctx.bezierCurveTo(cx-w*.36,yy-h*.018,cx-w*.24,yy+h*.014,cx-w*.17,yy);ctx.stroke();
     }
     ctx.beginPath();
-    ctx.moveTo(cx-w*.05,cy+h*.37);
-    ctx.bezierCurveTo(cx-w*.03,cy+h*.49,cx-w*.06,cy+h*.58,cx-w*.02,cy+h*.67);
-    ctx.moveTo(cx+w*.02,cy+h*.37);
-    ctx.bezierCurveTo(cx+.01*w,cy+h*.49,cx,cy+h*.58,cx+w*.03,cy+h*.67);
+    ctx.moveTo(cx-w*.075,cy+h*.35);
+    ctx.bezierCurveTo(cx-w*.04,cy+h*.48,cx-w*.07,cy+h*.61,cx-w*.025,cy+h*.72);
+    ctx.moveTo(cx+w*.015,cy+h*.35);
+    ctx.bezierCurveTo(cx+w*.025,cy+h*.49,cx-w*.005,cy+h*.61,cx+w*.035,cy+h*.72);
     ctx.stroke();
 
     // Orbital data rings preserve the old sense of motion without a star field.
-    ctx.strokeStyle='rgba('+palette.leader+','+(.07+state.light*.08)+')';
-    for(let i=0;i<3;i++){
-      ctx.lineWidth=.45+i*.16;
+    ctx.strokeStyle='rgba('+palette.leader+','+(.025+state.light*.035)+')';
+    for(let i=0;i<2;i++){
+      ctx.lineWidth=.35+i*.10;
       ctx.beginPath();
-      ctx.ellipse(cx,cy+h*.02,w*(.55+i*.035),h*(.16+i*.035),yaw*.20+i*.42,0,Math.PI*2);
+      ctx.ellipse(cx,cy+h*.02,w*(.54+i*.03),h*(.145+i*.028),yaw*.16+i*.55,0,Math.PI*2);
       ctx.stroke();
     }
     ctx.restore();
