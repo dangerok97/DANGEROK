@@ -137,7 +137,14 @@ test('mobile conversation is readable, scrollable, and preserves draft through m
   const input = page.getByTestId('ora-production-composer-input');
   await input.fill('Bozza da conservare');
   await page.getByTestId('ora-mobile-open-map').click();
-  await expect(page.getByTestId('ora-mobile-expanded-map')).toBeVisible();
+  const expandedBrain = page.getByTestId('ora-mobile-expanded-map');
+  await expect(expandedBrain).toBeVisible();
+  // The current highlighted temporary memory opens its detail automatically.
+  // Close only that detail so the artifact captures the unobstructed brain,
+  // then keep the full-screen surface open for the screenshot.
+  const closeBrainDetail = expandedBrain.getByRole('button', { name: 'Chiudi dettagli del cervello' });
+  if (await closeBrainDetail.count()) await closeBrainDetail.click();
+  await page.screenshot({ path: `mobile-qa/${info.project.name}-brain-expanded.png` });
   await page.getByTestId('ora-mobile-close-map').click();
   await expect(input).toHaveValue('Bozza da conservare');
   await input.fill('');
