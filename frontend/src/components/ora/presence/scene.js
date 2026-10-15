@@ -114,6 +114,39 @@ void main(){gl_Position=uMvp*vec4(aPosition,1.0);}`,
 uniform vec4 uColor;
 void main(){gl_FragColor=uColor;}`);
 
+  const meshProgram=program(
+`attribute vec3 aPosition;
+attribute vec3 aNormal;
+uniform mat4 uMvp;
+uniform float uReveal;
+varying vec3 vNormal;
+varying vec3 vPosition;
+varying float vReveal;
+void main(){
+  gl_Position=uMvp*vec4(aPosition,1.0);
+  vNormal=normalize(aNormal);
+  vPosition=aPosition;
+  vReveal=uReveal;
+}`,
+`precision mediump float;
+uniform vec4 uColor;
+uniform float uTime;
+uniform float uPulse;
+varying vec3 vNormal;
+varying vec3 vPosition;
+varying float vReveal;
+void main(){
+  vec3 n=normalize(vNormal);
+  vec3 light=normalize(vec3(-.42,.72,.55));
+  float diffuse=.22+.78*max(dot(n,light),0.0);
+  float rim=pow(1.0-abs(n.z),2.1);
+  float folds=.93+.07*sin(vPosition.x*31.0+sin(vPosition.y*23.0)*1.7+vPosition.z*27.0);
+  float breathe=.97+.03*sin(uTime*.85+vPosition.y*3.0);
+  vec3 lit=uColor.rgb*(.34+.58*diffuse+.34*rim)*folds*breathe;
+  float alpha=uColor.a*(.72+.28*rim)*(1.0+.08*uPulse)*vReveal;
+  gl_FragColor=vec4(lit,alpha);
+}`);
+
   function locations(p){
     return {
       pos:gl.getAttribLocation(p,'aPosition'),
@@ -128,9 +161,21 @@ void main(){gl_FragColor=uColor;}`);
     };
   }
   const pointLoc=locations(pointProgram), lineLoc=locations(lineProgram);
+  const meshLoc={
+    pos:gl.getAttribLocation(meshProgram,'aPosition'),
+    normal:gl.getAttribLocation(meshProgram,'aNormal'),
+    mvp:gl.getUniformLocation(meshProgram,'uMvp'),
+    reveal:gl.getUniformLocation(meshProgram,'uReveal'),
+    color:gl.getUniformLocation(meshProgram,'uColor'),
+    time:gl.getUniformLocation(meshProgram,'uTime'),
+    pulse:gl.getUniformLocation(meshProgram,'uPulse'),
+  };
   const buffers=new Set();
   function buffer(data,usage=gl.STATIC_DRAW){
     const b=gl.createBuffer();buffers.add(b);gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),usage);return b;
+  }
+  function indexBuffer(data){
+    const b=gl.createBuffer();buffers.add(b);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,b);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(data),gl.STATIC_DRAW);return b;
   }
   function replaceBuffer(old,data,usage=gl.DYNAMIC_DRAW){
     if(old){gl.deleteBuffer(old);buffers.delete(old);}
@@ -178,9 +223,9 @@ void main(){gl_FragColor=uColor;}`);
 
   function foldNoise(theta,phi,hemi){
     return 1
-      +.048*Math.sin(theta*9+phi*3.2+hemi*.7)
-      +.030*Math.sin(phi*13-theta*2.2)
-      +.018*Math.sin(theta*17+phi*5);
+      +.064*Math.sin(theta*9+phi*3.2+hemi*.7)
+      +.038*Math.sin(phi*13-theta*2.2)
+      +.022*Math.sin(theta*17+phi*5);
   }
   function cerebrumPoint(hemi,theta,phi){
     const cphi=Math.cos(phi),sphi=Math.sin(phi);
@@ -233,7 +278,7 @@ void main(){gl_FragColor=uColor;}`);
       // Volumetric tissue and sparse hot synapses. These are deterministic
       // presentation points, never user data.
       seed=hemi<0?741293:913741;
-      for(let i=0;i<760;i++){
+      for(let i=0;i<360;i++){
         const theta=random()*Math.PI*2;
         const phi=Math.asin(random()*2-1);
         const shell=cerebrumPoint(hemi,theta,phi);
@@ -244,15 +289,15 @@ void main(){gl_FragColor=uColor;}`);
           z:shell.z*radial,
         };
         volume.push(p.x,p.y,p.z);
-        volumeSize.push(3.0+random()*2.8);
+        volumeSize.push(1.4+random()*1.8);
         volumePhase.push(random());
       }
-      for(let i=0;i<64;i++){
+      for(let i=0;i<24;i++){
         const theta=random()*Math.PI*2;
         const phi=-1.12+random()*2.24;
         const p=cerebrumPoint(hemi,theta,phi);
         spark.push(p.x,p.y,p.z);
-        sparkSize.push(11.0+random()*9.0);
+        sparkSize.push(4.5+random()*4.0);
         sparkPhase.push(random());
       }
     }
@@ -295,19 +340,13 @@ void main(){gl_FragColor=uColor;}`);
         fibres.push(prev.x,prev.y,prev.z,p.x,p.y,p.z);prev=p;
       }
     }
-    // A bright central neural core makes the hologram read as alive rather
-    // than as an anatomical scan.
+    // The centre stays alive but never blows out into a white blob.
     seed=441293;
-    for(let i=0;i<44;i++){
-      const a=random()*Math.PI*2,r=.04+random()*.20;
-      spark.push(Math.cos(a)*r,(random()-.5)*.20,.05+Math.sin(a)*r*.8);
-      sparkSize.push(15.0+random()*14.0);
+    for(let i=0;i<12;i++){
+      const a=random()*Math.PI*2,r=.035+random()*.16;
+      spark.push(Math.cos(a)*r,(random()-.5)*.16,.04+Math.sin(a)*r*.72);
+      sparkSize.push(4.0+random()*3.0);
       sparkPhase.push(random());
-    }
-    // Three large central synapses create the bright neural heart seen in the
-    // reference without exposing any hidden reasoning.
-    for(const [x,y,z,size,phase] of [[0,-.02,.12,46,.12],[-.14,.03,.02,31,.46],[.15,.04,.00,34,.78]]){
-      spark.push(x,y,z);sparkSize.push(size);sparkPhase.push(phase);
     }
     return {
       surface,wire,fibres,surfaceSize,surfacePhase,volume,volumeSize,volumePhase,spark,sparkSize,sparkPhase,
@@ -319,7 +358,52 @@ void main(){gl_FragColor=uColor;}`);
       volumeCount:volume.length/3,sparkCount:spark.length/3,
     };
   }
+
+  function buildSurfaceMesh(){
+    const positions=[],normals=[],indices=[];
+    function addGrid(lat,lon,pointAt,normalAt){
+      const base=positions.length/3;
+      for(let i=0;i<lat;i++){
+        const v=i/(lat-1);
+        for(let j=0;j<lon;j++){
+          const u=j/lon,p=pointAt(u,v),n=normalAt(p,u,v);
+          positions.push(p.x,p.y,p.z);normals.push(n[0],n[1],n[2]);
+        }
+      }
+      for(let i=0;i<lat-1;i++)for(let j=0;j<lon;j++){
+        const n=(j+1)%lon,a=base+i*lon+j,b=base+i*lon+n,c=base+(i+1)*lon+j,d=base+(i+1)*lon+n;
+        indices.push(a,c,b,b,c,d);
+      }
+    }
+    for(const hemi of [-1,1]){
+      addGrid(34,52,
+        (u,v)=>cerebrumPoint(hemi,u*Math.PI*2,-Math.PI/2+v*Math.PI),
+        p=>{
+          let x=(p.x-hemi*.20)/.94,y=(p.y-.07)/.68,z=p.z/.60;
+          const m=Math.hypot(x,y,z)||1;return [x/m,y/m,z/m];
+        });
+    }
+    addGrid(22,38,
+      (u,v)=>ellipsoidPoint(-.28,-.66,-.18,.45,.27,.38,u*Math.PI*2,-Math.PI/2+v*Math.PI,.035),
+      p=>{
+        let x=(p.x+.28)/.45,y=(p.y+.66)/.27,z=(p.z+.18)/.38;
+        const m=Math.hypot(x,y,z)||1;return [x/m,y/m,z/m];
+      });
+    addGrid(14,22,
+      (u,v)=>{const a=u*Math.PI*2,r=.13*(1-v*.46);return {x:-.02+r*Math.cos(a),y:-.72-v*.46,z:-.02+r*.82*Math.sin(a)};},
+      (p,u)=>{const a=u*Math.PI*2,x=Math.cos(a),y=.10,z=Math.sin(a)*.82,m=Math.hypot(x,y,z)||1;return [x/m,y/m,z/m];});
+    return {
+      positionBuffer:buffer(positions),
+      normalBuffer:buffer(normals),
+      indexBuffer:indexBuffer(indices),
+      indexCount:indices.length,
+      vertexCount:positions.length/3,
+      triangleCount:indices.length/3,
+    };
+  }
+
   const brain=buildBrain();
+  const brainMesh=buildSurfaceMesh();
 
   let points=[],edges=[],projected=[],geometryKey='',edgeBuffer=null;
   let knowledgeGroups={normal:[],tentative:[],temporary:[],hubs:[]};
@@ -410,6 +494,16 @@ void main(){gl_FragColor=uColor;}`);
     gl.useProgram(lineProgram);gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.enableVertexAttribArray(lineLoc.pos);gl.vertexAttribPointer(lineLoc.pos,3,gl.FLOAT,false,0,0);
     gl.uniformMatrix4fv(lineLoc.mvp,false,new Float32Array(mvp));gl.uniform4f(lineLoc.color,color[0],color[1],color[2],alpha);
     gl.lineWidth(widthPx);gl.drawArrays(gl.LINES,0,count);
+  }
+  function drawMesh(mesh,mvp,color,alpha,reveal,pulse){
+    gl.useProgram(meshProgram);
+    gl.bindBuffer(gl.ARRAY_BUFFER,mesh.positionBuffer);gl.enableVertexAttribArray(meshLoc.pos);gl.vertexAttribPointer(meshLoc.pos,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,mesh.normalBuffer);gl.enableVertexAttribArray(meshLoc.normal);gl.vertexAttribPointer(meshLoc.normal,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.indexBuffer);
+    gl.uniformMatrix4fv(meshLoc.mvp,false,new Float32Array(mvp));
+    gl.uniform1f(meshLoc.reveal,reveal);gl.uniform1f(meshLoc.time,t);gl.uniform1f(meshLoc.pulse,pulse);
+    gl.uniform4f(meshLoc.color,color[0],color[1],color[2],alpha);
+    gl.drawElements(gl.TRIANGLES,mesh.indexCount,gl.UNSIGNED_SHORT,0);
   }
   function drawKnowledgeBuffer(group,color,alpha,mvp,pulse,reveal){
     if(!group?.count)return;
@@ -507,26 +601,21 @@ void main(){gl_FragColor=uColor;}`);
     gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
     gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
 
-    // Multipass holographic anatomy: blue aura first, translucent tissue
-    // second, bright synapses last. Straight graph geometry is intentionally
-    // subordinate so the first read is "brain", never "star map".
-    gl.depthMask(false);
-    gl.disable(gl.DEPTH_TEST);
-    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.electric,.085+.030*state.light,beat,reveal,6.4);
-    drawPoints(brain.volumeBuffer,brain.volumeSizeBuffer,brain.volumePhaseBuffer,brain.volumeCount,mvp,colors.electric,.080+.035*state.light,beat,reveal,4.9);
-    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.ice,.18+.08*state.light,beat,reveal,3.8);
-
+    // The organ is a real triangle mesh. Points are now restrained accents,
+    // not the material the brain is made from.
     gl.enable(gl.DEPTH_TEST);
-    gl.depthMask(false);
-    drawPoints(brain.volumeBuffer,brain.volumeSizeBuffer,brain.volumePhaseBuffer,brain.volumeCount,mvp,colors.electric,.26+.08*state.light,beat,reveal,2.05);
-    drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.electric,.042+.025*state.light,1);
-    drawLines(brain.wireBuffer,brain.wireCount,mvp,colors.ice,.012+.008*state.light,1);
-
+    gl.enable(gl.BLEND);
     gl.depthMask(true);
-    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.cyan,.55+.18*state.light,beat,reveal,1.72);
-    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.white,.36+.10*state.light,beat,reveal,.72);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    drawMesh(brainMesh,mvp,colors.cyan,.30+.07*state.light,reveal,beat);
+
     gl.depthMask(false);
-    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.warm,.78,beat,reveal,1.12);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+    drawLines(brain.wireBuffer,brain.wireCount,mvp,colors.ice,.040+.018*state.light,1);
+    drawLines(brain.fibreBuffer,brain.fibreCount,mvp,colors.electric,.020+.016*state.light,1);
+    drawPoints(brain.volumeBuffer,brain.volumeSizeBuffer,brain.volumePhaseBuffer,brain.volumeCount,mvp,colors.electric,.075+.025*state.light,beat,reveal,.72);
+    drawPoints(brain.surfaceBuffer,brain.sizeBuffer,brain.phaseBuffer,brain.surfaceCount,mvp,colors.ice,.11+.035*state.light,beat,reveal,.34);
+    drawPoints(brain.sparkBuffer,brain.sparkSizeBuffer,brain.sparkPhaseBuffer,brain.sparkCount,mvp,colors.warm,.42+.08*state.light,beat,reveal,.72);
     gl.depthMask(true);
 
     if(edgeBuffer){
@@ -557,7 +646,12 @@ void main(){gl_FragColor=uColor;}`);
   function tick(now){
     frame=0;const dt=last?Math.min(.05,(now-last)/1000):.016;last=now;
     opening=Math.min(openingSeconds,opening+dt);
-    if(!dragging&&hovered<0&&selected<0){t+=dt;dragYaw+=inertia;inertia*=.93;if(opening===openingSeconds)moveCamera(dt);}
+    if(!dragging&&hovered<0&&selected<0){
+      t+=dt;
+      const autoSpin=!options.reduced&&!options.paused&&opening===openingSeconds?(mode==='think'?0.080:0.052):0;
+      dragYaw+=inertia+dt*autoSpin;inertia*=.93;
+      if(opening===openingSeconds)moveCamera(dt);
+    }
     draw();schedule();
   }
   function size(){
@@ -610,7 +704,7 @@ void main(){gl_FragColor=uColor;}`);
     destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());for(const b of buffers)try{gl.deleteBuffer(b);}catch{};buffers.clear();},
     snapshot(){
       return {
-        surface:'brain3d',renderer:'webgl',brainVertices:brain.surfaceCount,brainVolumeVertices:brain.volumeCount,brainSparks:brain.sparkCount,brainLines:(brain.wireCount+brain.fibreCount)/2,
+        surface:'brain3d',renderer:'webgl',brainVertices:brain.surfaceCount,brainMeshVertices:brainMesh.vertexCount,brainMeshTriangles:brainMesh.triangleCount,brainVolumeVertices:brain.volumeCount,brainSparks:brain.sparkCount,brainLines:(brain.wireCount+brain.fibreCount)/2,
         camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,
         points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,
         opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,
