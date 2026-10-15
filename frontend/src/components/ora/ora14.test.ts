@@ -310,7 +310,7 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   assert.ok(/flex: 1/.test(cockpitChatStyle), 'left conversation panel must grow to fill available height');
   assert.ok(!/flexGrow: 0/.test(cockpitChatStyle), 'left conversation panel must not collapse to a zero-height strip');
   assert.ok(/width: '100%'/.test(cockpitChatStyle), 'left conversation panel must occupy the cockpit column width');
-  assert.ok(/testID="ora-cockpit-map"/.test(screen), 'stellar map must remain the central column');
+  assert.ok(/testID="ora-cockpit-map"/.test(screen), 'ORA brain must remain the central column');
   assert.ok(/testID="ora-cockpit-rail"/.test(screen), 'live context must occupy the right rail');
   assert.ok(/<OraCockpitContext/.test(screen), 'right rail must be fed by live ORA context');
   assert.ok(/variant=\{variant\}/.test(screen), 'desktop conversation must use the cockpit turn styling');
@@ -336,7 +336,7 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   );
   assert.ok(/<TemporarySituationToast/.test(screen), 'new temporary Situations need the lower-left creation toast');
   assert.ok(/cockpitChrome/.test(screen), 'central map must use cockpit-specific chrome instead of its legacy top toolbar');
-  assert.ok(/onSelectNode/.test(screen) && /selectedMapStarId/.test(screen), 'selecting a map star must drive the right rail');
+  assert.ok(/onSelectNode/.test(screen) && /selectedMapStarId/.test(screen), 'selecting a brain node must drive the right rail');
 
   const rail = readCode('src/components/ora/OraCockpitContext.tsx');
   assert.ok(/api\.getHome/.test(rail) && /useTemporaryMemory/.test(rail), 'context rail must read real Home + temporary-memory data');
@@ -364,8 +364,8 @@ const SESSION_ROUTE = 'app/ora/[sessionId].tsx';
   const toast = readCode('src/components/ora/TemporarySituationToast.tsx');
   assert.ok(/Nuova memoria temporanea/.test(toast), 'new temporary memory needs an explanatory creation card');
   assert.ok(/tracking_summary/.test(toast), 'creation card must render AI-authored tracking meaning');
-  assert.ok(/è stata aggiunta alla tua mappa/.test(toast), 'creation card must explain that the star entered the map');
-  assert.ok(/Verrà rimossa dalla mappa/.test(toast), 'creation card must explain the temporary lifecycle');
+  assert.ok(/è stata aggiunta al cervello ORA/.test(toast), 'creation card must explain that the temporary memory entered the brain');
+  assert.ok(/Verrà rimossa dal cervello ORA/.test(toast), 'creation card must explain the temporary lifecycle');
 
   const rich = readCode('src/components/ora-ai/RichOraText.tsx');
   assert.ok(/isDangerParagraph/.test(rich) && /dangerColor/.test(rich), 'urgent opening paragraphs must have a dedicated danger treatment');
@@ -428,5 +428,5 @@ console.log('ora14: all assertions passed');
   assert.ok(presence.includes('learned.changedStars'));
   assert.ok(presence.includes('(star.source_refs || []).includes(spotlightRef)'));
   assert.ok(mobile.includes('learned.changedStars'));
-  assert.ok(mobile.includes("highlighted.temporary ? 'MEMORIA TEMPORANEA IN EVIDENZA' : 'STELLA IN EVIDENZA'"));
+  assert.ok(mobile.includes("highlighted.temporary ? 'MEMORIA TEMPORANEA IN EVIDENZA' : 'NODO IN EVIDENZA'"));
 }
