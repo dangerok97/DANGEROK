@@ -15,7 +15,7 @@ for(const [from,to] of [
  ['ora-bodyparts3d-locale-it.ts','app/ora-locale-it.ts'],
  ['ora-bodyparts3d-regions.ts','app/ora-regions.ts'],
  ['ora-anatomy-terminology-it.ts','app/ora-anatomy-terminology-it.ts'],
- ['ora-bodyparts3d-brain.tsx','app/ora-brain.tsx'],
+ ['ora-bodyparts3d-brain.source','app/ora-brain.tsx'],
  ['ora-bodyparts3d-brain.css','app/ora-brain.css']
 ])copyFileSync(join(source,from),join(root,to));
 
