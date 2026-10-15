@@ -26,14 +26,16 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   // The IDs and index order are unchanged: selection, accessibility and saved
   // knowledge continue to address exactly the same eight ORA areas.
   const hubs=[
-    {x:-.05,y:.03,z:.28,id:'memory',name:'MEMORIA',dx:-18,dy:22,align:'right'},
-    {x:.42,y:-.43,z:.02,id:'calendar',name:'IMPEGNI',dx:17,dy:-18,align:'left'},
-    {x:-.53,y:.02,z:.08,id:'people',name:'PERSONE',dx:-20,dy:-5,align:'right'},
-    {x:.30,y:-.08,z:.48,id:'places',name:'LUOGHI',dx:18,dy:5,align:'left'},
-    {x:-.18,y:-.28,z:.38,id:'home',name:'CASA',dx:-18,dy:-22,align:'right'},
-    {x:.62,y:-.18,z:-.18,id:'documents',name:'DOCUMENTI',dx:16,dy:18,align:'left'},
-    {x:-.34,y:-.39,z:-.20,id:'finances',name:'FINANZE',dx:-16,dy:-17,align:'right'},
-    {x:.03,y:.51,z:-.10,id:'calls',name:'CHIAMATE',dx:16,dy:23,align:'left'}
+    // Spread across cortical lobes: the live knowledge graph fills the brain
+    // instead of floating as a small cluster inside a decorative outline.
+    {x:-.18,y:.02,z:.34,id:'memory',name:'MEMORIA',dx:-18,dy:22,align:'right'},
+    {x:.60,y:-.48,z:.08,id:'calendar',name:'IMPEGNI',dx:17,dy:-18,align:'left'},
+    {x:-.76,y:.01,z:.12,id:'people',name:'PERSONE',dx:-20,dy:-5,align:'right'},
+    {x:.46,y:-.08,z:.54,id:'places',name:'LUOGHI',dx:18,dy:5,align:'left'},
+    {x:-.38,y:-.34,z:.46,id:'home',name:'CASA',dx:-18,dy:-22,align:'right'},
+    {x:.82,y:-.17,z:-.15,id:'documents',name:'DOCUMENTI',dx:16,dy:18,align:'left'},
+    {x:-.60,y:-.47,z:-.16,id:'finances',name:'FINANZE',dx:-16,dy:-17,align:'right'},
+    {x:.14,y:.61,z:-.06,id:'calls',name:'CHIAMATE',dx:16,dy:23,align:'left'}
   ];
   let points=[],edges=[],projected=[],sorted=[],furthest=1,geometryKey='';
   let growth=1;
@@ -47,7 +49,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const g=hubs.findIndex(h=>h.id===node.area);if(g<0||!node.id)continue;
       let hash=2166136261;for(const c of node.id)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;
       seed=hash;
-      const h=hubs[g],a=random()*Math.PI*2,u=random()*2-1,r=.10+Math.cbrt(random())*.32,v=Math.sqrt(1-u*u);
+      const h=hubs[g],a=random()*Math.PI*2,u=random()*2-1,r=.14+Math.cbrt(random())*.43,v=Math.sqrt(1-u*u);
       const branch=node.kind==='branch';
       const introPosition=node.id==='intro_step_one'?[-.52,-.30,.08]:node.id==='draft_first_name'?[.28,-.65,.18]:node.id==='draft_last_name'?[.68,.30,-.12]:node.id.startsWith('intro_example_')?[-.48,.60,-.08]:null;
       const p={x:introPosition?.[0]??h.x+Math.cos(a)*r*v,y:introPosition?.[1]??h.y+u*r*.85,z:introPosition?.[2]??h.z+Math.sin(a)*r*v,
@@ -73,6 +75,20 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   rebuild(options.stars,true);
   const dust=Array.from({length:34},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
+  // Independent deterministic holographic cortex. It is presentation geometry
+  // only and never changes the positions/IDs of the person's real knowledge.
+  let brainParticleSeed=0x0A11CE;
+  function brainRandom(){brainParticleSeed=(Math.imul(brainParticleSeed,1103515245)+12345)>>>0;return brainParticleSeed/4294967296;}
+  const brainParticles=Array.from({length:420},(_,i)=>({
+    u:-.66+brainRandom()*1.34,
+    v:-.56+brainRandom()*1.05,
+    z:brainRandom(),
+    phase:brainRandom()*Math.PI*2,
+    speed:.28+brainRandom()*.54,
+    size:.35+brainRandom()*1.15,
+    warm:i%23===0||i%31===0,
+  }));
+
   function nodeInfo(index){const p=points[index];return p?{index,area:hubs[p.areaGroup].id,kind:p.hub?'area':p.kind,...(p.hub?{}:{id:p.id})}:null;}
   function hitTest(x,y,touch=false){
     for(let i=labels.length-1;i>=0;i--){const b=labels[i];if(x>=b.x-4&&x<=b.x+b.w+4&&Math.abs(y-b.y)<=12)return b.index;}
@@ -105,6 +121,96 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.bezierCurveTo(cx+w*.61,cy+h*.27,cx+w*.43,cy+h*.38,cx+w*.27,cy+h*.35);
     ctx.bezierCurveTo(cx+w*.17,cy+h*.43,cx+w*.02,cy+h*.43,cx-w*.08,cy+h*.39);
     ctx.closePath();
+  }
+  function brainPoint(cx,cy,w,h,u,v){
+    return {x:cx+u*w,y:cy+v*h};
+  }
+  function drawBrainVolume(cx,cy,w,h,state,beat){
+    // Multiple overlapping lobe glows create the glassy/volumetric hologram
+    // seen in the reference instead of one flat translucent fill.
+    const lobes=[
+      [-.30,-.14,.34,.34,.31],[-.02,-.23,.36,.34,.35],[.28,-.18,.34,.32,.33],
+      [-.39,.11,.28,.27,.25],[-.08,.09,.38,.31,.34],[.28,.08,.34,.29,.30],
+      [.43,.20,.23,.22,.24],[-.22,.28,.24,.20,.20],
+    ];
+    for(let i=0;i<lobes.length;i++){
+      const [lx,ly,rx,ry,power]=lobes[i];
+      const x=cx+lx*w,y=cy+ly*h,r=Math.max(rx*w,ry*h);
+      const g=ctx.createRadialGradient(x,y,0,x,y,r);
+      const pulse=(i%3===0?beat*.04:0);
+      g.addColorStop(0,'rgba('+palette.glow+','+(power+state.light*.045+pulse)+')');
+      g.addColorStop(.45,'rgba('+palette.edge+','+(power*.34)+')');
+      g.addColorStop(1,'rgba('+palette.edge+',0)');
+      ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);
+    }
+    // White-cyan energy core gives the hologram depth and a focal source,
+    // closer to a volumetric projection than to a wireframe illustration.
+    const coreX=cx+w*.05,coreY=cy+h*.01,coreR=w*.27;
+    const core=ctx.createRadialGradient(coreX,coreY,0,coreX,coreY,coreR);
+    core.addColorStop(0,'rgba(238,255,255,'+(.24+state.light*.12+beat*.12)+')');
+    core.addColorStop(.16,'rgba('+palette.glow+','+(.18+state.light*.08)+')');
+    core.addColorStop(.52,'rgba('+palette.edge+',.055)');
+    core.addColorStop(1,'rgba('+palette.edge+',0)');
+    ctx.fillStyle=core;ctx.fillRect(coreX-coreR,coreY-coreR,coreR*2,coreR*2);
+  }
+  function drawBrainParticles(cx,cy,w,h,state,beat,compact){
+    ctx.save();
+    brainOutline(cx,cy,w,h);ctx.clip();
+    ctx.globalCompositeOperation='lighter';
+    const previewLike=height<340;
+    const step=previewLike?2:1;
+    for(let i=0;i<brainParticles.length;i+=step){
+      const p=brainParticles[i];
+      // Minute parallax/drift gives volumetric life without moving knowledge nodes.
+      const driftX=Math.sin(t*p.speed+p.phase)*w*.0035*(.35+p.z);
+      const driftY=Math.cos(t*(p.speed*.83)+p.phase)*h*.0030*(.35+p.z);
+      const x=cx+p.u*w+driftX;
+      const y=cy+p.v*h+driftY;
+      const twinkle=.38+.62*(.5+.5*Math.sin(t*(.8+p.speed)+p.phase));
+      const depth=.36+p.z*.64;
+      const alpha=(.065+depth*.095+twinkle*.070)*(.74+state.light*.44);
+      const rgb=p.warm?palette.warmPoint:palette.point;
+      const radius=p.size*(.62+depth*.80)*(previewLike?.88:1.04);
+      ctx.fillStyle='rgba('+rgb+','+alpha+')';
+      ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
+      if((i%17===0||i%29===0)&&twinkle>.58){
+        glow(x,y,(previewLike?6:10)+radius*2,.11+twinkle*.14+beat*.06,p.warm);
+      }
+    }
+    ctx.restore();
+  }
+  function drawNeuralFibreField(cx,cy,w,h,state,beat){
+    // Dense deterministic cortical fibres. The brain outline is the clip, so
+    // every strand belongs to the organ rather than reading as a star map.
+    ctx.save();
+    brainOutline(cx,cy,w,h);ctx.clip();
+    ctx.globalCompositeOperation='lighter';
+    for(let i=0;i<104;i++){
+      const a=i*2.3999632297;
+      const ring=.12+(i%11)/15;
+      const sx=cx+Math.cos(a)*w*ring*.62;
+      const sy=cy+Math.sin(a*1.13)*h*ring*.46;
+      const ex=cx+Math.cos(a+1.35)*w*(.22+(i%7)*.055);
+      const ey=cy+Math.sin(a*.83+1.1)*h*(.17+(i%5)*.055);
+      const mx=cx+Math.sin(a*.61)*w*.16;
+      const my=cy+Math.cos(a*.77)*h*.12;
+      const highlight=i%17===0;
+      const warm=i%29===0;
+      const alpha=.055+state.light*.050+(highlight?beat*.075:0);
+      ctx.save();
+      if(highlight){ctx.shadowColor=warm?'rgba('+palette.warmGlow+',.55)':'rgba('+palette.glow+',.48)';ctx.shadowBlur=6;}
+      ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+(alpha+.055)+')':'rgba('+palette.trail+','+alpha+')';
+      ctx.lineWidth=highlight?.88:.30;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.quadraticCurveTo(mx,my,ex,ey);ctx.stroke();
+      ctx.restore();
+    }
+    for(let i=0;i<48;i++){
+      const a=i*.91;
+      const x=cx+Math.cos(a)*w*(.08+(i%6)*.075);
+      const y=cy+Math.sin(a*1.27)*h*(.06+(i%5)*.07);
+      glow(x,y,5+(i%4)*2,.12+state.light*.035+(i%6===0?beat*.12:0),false);
+    }
+    ctx.restore();
   }
   function drawCorticalSulci(cx,cy,w,h,state,beat){
     const alpha=.13+state.light*.12+beat*.05;
@@ -154,22 +260,24 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.globalCompositeOperation='lighter';
     ctx.globalAlpha=reveal;
 
-    // Holographic volume: a glassy brain body, brighter when ORA is working.
-    glow(cx,cy,w*.64,.27+state.light*.18+beat*.12,false);
+    // Volumetric hologram first, then fibres, then only a restrained rim.
+    glow(cx,cy,w*.61,.22+state.light*.13+beat*.10,false);
     brainOutline(cx,cy,w,h);
-    const fill=ctx.createRadialGradient(cx+w*.08,cy-h*.06,0,cx,cy,w*.66);
-    fill.addColorStop(0,'rgba('+palette.glow+','+(.14+strength*.12)+')');
-    fill.addColorStop(.55,'rgba('+palette.edge+','+(.060+strength*.065)+')');
+    const fill=ctx.createRadialGradient(cx+w*.04,cy-h*.08,0,cx,cy,w*.64);
+    fill.addColorStop(0,'rgba('+palette.glow+','+(.115+strength*.10)+')');
+    fill.addColorStop(.48,'rgba('+palette.edge+','+(.055+strength*.055)+')');
     fill.addColorStop(1,'rgba('+palette.edge+',0)');
     ctx.fillStyle=fill;ctx.fill();
-    // Two-pass cyan rim: soft holographic bloom under a crisp anatomical edge.
-    ctx.shadowColor='rgba('+palette.glow+',.68)';
-    ctx.shadowBlur=compact?10:16;
-    ctx.strokeStyle='rgba('+palette.glow+','+(.12+strength*.16)+')';
-    ctx.lineWidth=(compact?5.2:6.2);brainOutline(cx,cy,w,h);ctx.stroke();
-    ctx.shadowBlur=compact?5:8;
-    ctx.strokeStyle='rgba('+palette.point+','+(.40+strength*.55)+')';
-    ctx.lineWidth=(compact?1.55:1.30)+state.light*.58;brainOutline(cx,cy,w,h);ctx.stroke();
+    drawBrainVolume(cx,cy,w,h,state,beat);
+    drawBrainParticles(cx,cy,w,h,state,beat,compact);
+    drawNeuralFibreField(cx,cy,w,h,state,beat);
+    ctx.shadowColor='rgba('+palette.glow+',.22)';
+    ctx.shadowBlur=compact?4:6;
+    ctx.strokeStyle='rgba('+palette.glow+','+(.018+strength*.032)+')';
+    ctx.lineWidth=compact?1.05:1.25;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowBlur=2;
+    ctx.strokeStyle='rgba('+palette.point+','+(.045+strength*.075)+')';
+    ctx.lineWidth=.45+state.light*.08;brainOutline(cx,cy,w,h);ctx.stroke();
     ctx.shadowBlur=0;
     drawCorticalSulci(cx,cy,w,h,state,beat);
 
@@ -290,7 +398,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const alpha=Math.min(.9,(.028+depth*.12+energy*.22)*(e.trunk?1.5:1)*state.light+(related?.45:0)+trail);
       const warm=arrival||activeHub>=0?(arrival||e.a===activeHub||e.b===activeHub):e.trunk&&e.a===0&&(e.b===4||e.b===1);
       const first=points[e.a].distance<=points[e.b].distance?a:b,second=first===a?b:a;
-      ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+alpha+')':'rgba('+palette.edge+','+alpha+')';ctx.lineWidth=related?1.45:e.trunk?.8:.45+depth*.25;ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(first.x+(second.x-first.x)*appear,first.y+(second.y-first.y)*appear);ctx.stroke();
+      ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+alpha+')':'rgba('+palette.edge+','+alpha+')';ctx.lineWidth=related?1.35:e.trunk?.72:.38+depth*.22;
+      const tx=first.x+(second.x-first.x)*appear,ty=first.y+(second.y-first.y)*appear;
+      const bend=(e.phase-.5)*18;
+      ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.quadraticCurveTo((first.x+tx)*.5-bend*.22,(first.y+ty)*.5+bend,tx,ty);ctx.stroke();
       if(arrival&&appear>.2){
         const u=ease(birthAge/1.35),px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;
         glow(px,py,16,.55*appear,true);
@@ -331,7 +442,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
         glow(q.x,q.y,24+age*9,bloom*.42,!temporary,temporary);
       }
       if(p.kind==='branch'){ctx.strokeStyle='rgba('+palette.warmNode+','+(p.complete?.85:.2)+')';ctx.lineWidth=p.complete?1.5:.6;ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.stroke();}
-      if(!p.hub&&p.kind==='node'&&!p.tentative){ctx.strokeStyle='rgba('+(temporary?palette.temporaryPoint:palette.point)+','+(.3+q.energy*.3)+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(q.x-3.6,q.y);ctx.lineTo(q.x+3.6,q.y);ctx.moveTo(q.x,q.y-3.6);ctx.lineTo(q.x,q.y+3.6);ctx.stroke();}
+      if(!p.hub&&p.kind==='node'&&!p.tentative){
+        ctx.strokeStyle='rgba('+(temporary?palette.temporaryPoint:palette.point)+','+(.20+q.energy*.28)+')';
+        ctx.lineWidth=.55;ctx.beginPath();ctx.arc(q.x,q.y,3.4+q.energy*1.8,0,Math.PI*2);ctx.stroke();
+      }
       ctx.fillStyle='rgba('+(temporary?palette.temporaryNode:(warm?palette.warmNode:palette.node))+','+Math.min(.98,bright)+')';ctx.beginPath();ctx.arc(q.x,q.y,r+(spotlighted&&temporary?1.8:0),0,Math.PI*2);ctx.fill();
       if(spotlighted&&temporary&&q.appear>.72){
         const pulse=.55+.45*Math.sin(t*4.6);
@@ -344,14 +458,19 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
         ctx.fillStyle='rgba(25,5,10,.78)';ctx.fillRect(lx-4,ly-8,tw+8,16);
         ctx.fillStyle='rgba('+palette.temporaryPoint+',.98)';ctx.textAlign='left';ctx.fillText(label,lx,ly);
       }
-      if(p.hub&&q.energy>.35){ctx.strokeStyle='rgba('+palette.cross+','+(q.energy*.33)+')';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(q.x-7-q.energy*4,q.y);ctx.lineTo(q.x+7+q.energy*4,q.y);ctx.moveTo(q.x,q.y-6-q.energy*3);ctx.lineTo(q.x,q.y+6+q.energy*3);ctx.stroke();}
+      if(p.hub&&q.energy>.22){
+        ctx.strokeStyle='rgba('+palette.cross+','+(.12+q.energy*.26)+')';
+        ctx.lineWidth=.55;
+        ctx.beginPath();ctx.arc(q.x,q.y,6+q.energy*3.5,0,Math.PI*2);ctx.stroke();
+        ctx.beginPath();ctx.arc(q.x,q.y,10+q.energy*5.5,0,Math.PI*2);ctx.stroke();
+      }
     }
     ctx.globalCompositeOperation='source-over';
     ctx.globalAlpha=ease((opening/openingSeconds-.68)/.32);
     const occupied=[],labelIndices=options.intro?[]:activeHub>=0?[activeHub]:height<180?[0,1,5]:width<430?[0,1,2,5]:[0,1,2,3,4,5,6,7];
     if(inspected>=0&&!labelIndices.includes(points[inspected].areaGroup))labelIndices.push(points[inspected].areaGroup);
     labels=[];
-    ctx.font='500 11px ui-monospace, SFMono-Regular, Consolas, monospace';ctx.textBaseline='middle';
+    ctx.font='600 10px ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';ctx.textBaseline='middle';
     labelIndices.forEach(i=>{
       const h=hubs[i],p=projected[i],tw=ctx.measureText(h.name).width;
       if(p.appear<.99||opening/openingSeconds<.72)return;
@@ -360,8 +479,9 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       left=Math.max(15,Math.min(width-tw-15,left));y=Math.max(18,Math.min(height-20,y));
       for(let tries=0;tries<6;tries++){if(!occupied.some(b=>left<b.x+b.w+7&&left+tw+7>b.x&&Math.abs(y-b.y)<19))break;y+=19;}
       y=Math.min(height-23,y);occupied.push({x:left,y,w:tw});labels.push({x:left,y,w:tw,index:i});
-      ctx.strokeStyle='rgba('+palette.leader+',.28)';ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
-      ctx.fillStyle=palette.labelBackground;ctx.fillRect(left-3,y-8,tw+6,16);ctx.fillStyle=i===0?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);
+      ctx.strokeStyle='rgba('+palette.leader+',.22)';ctx.lineWidth=.55;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(h.align==='right'?left+tw+4:left-4,y);ctx.stroke();
+      ctx.save();ctx.shadowColor=i===0?palette.warmLabel:palette.label;ctx.shadowBlur=5;
+      ctx.fillStyle=i===0?palette.warmLabel:palette.label;ctx.textAlign='left';ctx.fillText(h.name,left,y);ctx.restore();
     });
     if(options.intro){
       for(let i=8;i<points.length;i++){
@@ -369,8 +489,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
         const name=id==='intro_step_one'?'INIZIO':id==='draft_first_name'?'NOME':id==='draft_last_name'?'COGNOME':id.startsWith('intro_example_')?'ESEMPIO':null;
         const p=projected[i];if(!name||p.appear<.85)continue;
         const tw=ctx.measureText(name).width,x=Math.min(width-tw-12,Math.max(12,p.x+9)),y=Math.min(height-14,Math.max(14,p.y-11));
-        ctx.globalAlpha=p.appear;ctx.fillStyle=palette.labelBackground;ctx.fillRect(x-3,y-8,tw+6,16);
-        ctx.fillStyle=palette.label;ctx.textAlign='left';ctx.fillText(name,x,y);
+        ctx.globalAlpha=p.appear;ctx.save();ctx.shadowColor=palette.label;ctx.shadowBlur=5;
+        ctx.fillStyle=palette.label;ctx.textAlign='left';ctx.fillText(name,x,y);ctx.restore();
       }
       ctx.globalAlpha=1;
     }

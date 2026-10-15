@@ -67,6 +67,19 @@ test('the progressive introduction respects reduced motion; normal ORA renders a
   ora.scene.destroy();
 });
 
+test('knowledge nodes fill the holographic brain instead of collapsing into a central cluster', () => {
+  const h = harness();
+  h.frames(180);
+  const snap = h.scene.snapshot();
+  const nodes = snap.projected.filter(p => p.kind === 'node');
+  const xs = nodes.map(p => p.x), ys = nodes.map(p => p.y);
+  const spanX = Math.max(...xs) - Math.min(...xs);
+  const spanY = Math.max(...ys) - Math.min(...ys);
+  assert.ok(spanX > snap.brain.w * .48, 'knowledge should span the cortical width');
+  assert.ok(spanY > snap.brain.h * .42, 'knowledge should span the cortical height');
+  h.scene.destroy();
+});
+
 test('saving a new life fact moves the camera to its star and restores the resting map', () => {
   const h = harness({ stars: [] });
   h.frames(180);
