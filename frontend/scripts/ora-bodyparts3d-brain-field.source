@@ -140,11 +140,15 @@ export function createOraParticleBrain(scene:T.Scene,brain:T.Group){
  // Cortical gyri: short wavy lines that follow the FRONT curved 3D shell.
  const wrinkles:number[]=[];
  for(let band=0;band<180;band++){
-  const sx=-1.01+rng()*1.80,y0=-.29+rng()*.87,width=.17+rng()*.49,phase=rng()*6.28;
+  // Different lobe orientations generate a recognisable cortical fold field,
+  // rather than the horizontal spaghetti created by a single sweep axis.
+  const sx=-1.01+rng()*1.80,y0=-.30+rng()*.88,length=.16+rng()*.49;
+  const phase=rng()*6.28,heading=rng()*6.28;
   let previous:T.Vector3|null=null;
   for(let i=0;i<=25;i++){
-   const t=i/25,x=sx+t*width,y=y0+
-    Math.sin(t*6.28+phase)*(.016+rng()*.009)+Math.sin(t*12.56+phase)*.008;
+   const t=i/25,bend=Math.sin(t*6.28+phase)*(.012+rng()*.010)+Math.sin(t*12.56+phase)*.009;
+   const x=sx+Math.cos(heading)*t*length-Math.sin(heading)*bend;
+   const y=y0+Math.sin(heading)*t*length*.86+Math.cos(heading)*bend;
    const z=surfaceZ(x,y);
    if(z===null||z<.035){previous=null;continue;}
    const v=new T.Vector3(x,y,z+.011);
@@ -158,11 +162,11 @@ export function createOraParticleBrain(scene:T.Scene,brain:T.Group){
  // the personally owned knowledge nodes.
  const streams:number[]=[],source=new T.Vector3(-.03,-.11,.45);
  for(let strand=0;strand<54;strand++){
-  const x=-.94+rng()*1.90,y=-.25+rng()*.80,z=surfaceZ(x,y);
+  const x=-.94+rng()*1.90,y=-.38+rng()*1.11,z=surfaceZ(x,y);
   if(z===null||z<.025)continue;
   const endpoint=new T.Vector3(x,y,z+.014);
-  const c1=source.clone().lerp(endpoint,.31).add(new T.Vector3(0,.09+rng()*.20,.05+rng()*.08));
-  const c2=source.clone().lerp(endpoint,.70).add(new T.Vector3(0,-.07+rng()*.16,.06+rng()*.10));
+  const c1=source.clone().lerp(endpoint,.31).add(new T.Vector3(0,.15+rng()*.25,.05+rng()*.08));
+  const c2=source.clone().lerp(endpoint,.70).add(new T.Vector3(0,-.11+rng()*.25,.06+rng()*.10));
   const curve=new T.CubicBezierCurve3(source,c1,c2,endpoint);
   let previous=curve.getPoint(0);
   for(let i=1;i<=30;i++){
