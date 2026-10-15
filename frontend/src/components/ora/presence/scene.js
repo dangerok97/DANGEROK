@@ -72,7 +72,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     hovered=-1;pointer=null;
   }
   rebuild(options.stars,true);
-  const dust=Array.from({length:90},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
+  const dust=Array.from({length:34},()=>({x:random(),y:random(),z:random(),phase:random()*6.28}));
   function nodeInfo(index){const p=points[index];return p?{index,area:hubs[p.areaGroup].id,kind:p.hub?'area':p.kind,...(p.hub?{}:{id:p.id})}:null;}
   function hitTest(x,y,touch=false){
     for(let i=labels.length-1;i>=0;i--){const b=labels[i];if(x>=b.x-4&&x<=b.x+b.w+4&&Math.abs(y-b.y)<=12)return b.index;}
@@ -155,15 +155,22 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     ctx.globalAlpha=reveal;
 
     // Holographic volume: a glassy brain body, brighter when ORA is working.
-    glow(cx,cy,w*.61,.18+state.light*.12+beat*.10,false);
+    glow(cx,cy,w*.64,.27+state.light*.18+beat*.12,false);
     brainOutline(cx,cy,w,h);
     const fill=ctx.createRadialGradient(cx+w*.08,cy-h*.06,0,cx,cy,w*.66);
-    fill.addColorStop(0,'rgba('+palette.glow+','+(.075+strength*.09)+')');
-    fill.addColorStop(.55,'rgba('+palette.edge+','+(.035+strength*.045)+')');
+    fill.addColorStop(0,'rgba('+palette.glow+','+(.14+strength*.12)+')');
+    fill.addColorStop(.55,'rgba('+palette.edge+','+(.060+strength*.065)+')');
     fill.addColorStop(1,'rgba('+palette.edge+',0)');
     ctx.fillStyle=fill;ctx.fill();
-    ctx.strokeStyle='rgba('+palette.point+','+(.34+strength*.52)+')';
-    ctx.lineWidth=(compact?1.45:1.20)+state.light*.55;brainOutline(cx,cy,w,h);ctx.stroke();
+    // Two-pass cyan rim: soft holographic bloom under a crisp anatomical edge.
+    ctx.shadowColor='rgba('+palette.glow+',.68)';
+    ctx.shadowBlur=compact?10:16;
+    ctx.strokeStyle='rgba('+palette.glow+','+(.12+strength*.16)+')';
+    ctx.lineWidth=(compact?5.2:6.2);brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowBlur=compact?5:8;
+    ctx.strokeStyle='rgba('+palette.point+','+(.40+strength*.55)+')';
+    ctx.lineWidth=(compact?1.55:1.30)+state.light*.58;brainOutline(cx,cy,w,h);ctx.stroke();
+    ctx.shadowBlur=0;
     drawCorticalSulci(cx,cy,w,h,state,beat);
 
     // Central fissure gives the silhouette a recognisable human-brain anatomy.
@@ -247,7 +254,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const state=modes[mode];
     ctx.setTransform(pixelRatio,0,0,pixelRatio,0,0);ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;ctx.fillStyle=palette.background;ctx.fillRect(0,0,width,height);
     const atmosphere=ctx.createRadialGradient(width*.49,height*.47,0,width*.5,height*.5,Math.max(width,height)*.55);atmosphere.addColorStop(0,palette.atmosphere);atmosphere.addColorStop(.60,palette.depth);atmosphere.addColorStop(1,palette.background);ctx.fillStyle=atmosphere;ctx.fillRect(0,0,width,height);
-    dust.forEach(s=>{const x=(s.x*width+Math.sin(t*.04+s.phase)*9+width)%width,y=s.y*height;ctx.fillStyle='rgba('+palette.dust+','+(.09+s.z*.22)+')';ctx.beginPath();ctx.arc(x,y,.35+s.z*.6,0,Math.PI*2);ctx.fill();});
+    dust.forEach(s=>{const x=(s.x*width+Math.sin(t*.04+s.phase)*7+width)%width,y=s.y*height;ctx.fillStyle='rgba('+palette.dust+','+(.025+s.z*.075)+')';ctx.beginPath();ctx.arc(x,y,.28+s.z*.42,0,Math.PI*2);ctx.fill();});
     const active=mode==='think'||mode==='speak';
     activeHub=hubs.findIndex(h=>h.id===options.area);
     // A small, broad double pulse: activity should feel alive without jolting the map.
