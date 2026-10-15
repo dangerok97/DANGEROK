@@ -153,6 +153,25 @@ export function createOraParticleBrain(scene:T.Scene,brain:T.Group){
   }
  }
  const gyri=makeLines(wrinkles,0x8ceaff,.39);brain.add(gyri);
+ // Sweeping 3D cortical pathways make the electrical network legible from the
+ // same side profile as the user reference. Their geometry is independent of
+ // the personally owned knowledge nodes.
+ const streams:number[]=[],source=new T.Vector3(-.03,-.11,.45);
+ for(let strand=0;strand<54;strand++){
+  const x=-.94+rng()*1.90,y=-.25+rng()*.80,z=surfaceZ(x,y);
+  if(z===null||z<.025)continue;
+  const endpoint=new T.Vector3(x,y,z+.014);
+  const c1=source.clone().lerp(endpoint,.31).add(new T.Vector3(0,.09+rng()*.20,.05+rng()*.08));
+  const c2=source.clone().lerp(endpoint,.70).add(new T.Vector3(0,-.07+rng()*.16,.06+rng()*.10));
+  const curve=new T.CubicBezierCurve3(source,c1,c2,endpoint);
+  let previous=curve.getPoint(0);
+  for(let i=1;i<=30;i++){
+   const next=curve.getPoint(i/30);
+   streams.push(previous.x,previous.y,previous.z,next.x,next.y,next.z);
+   previous=next;
+  }
+ }
+ const neuralStreams=makeLines(streams,0x67c8ff,.31);brain.add(neuralStreams);
  // Thin equatorial orbit, never a thick 3D object.
  const orbitCoords:T.Vector3[]=[];
  for(let i=0;i<200;i++){
@@ -208,11 +227,11 @@ export function createOraParticleBrain(scene:T.Scene,brain:T.Group){
    haloMaterial.uniforms.uDpr.value=Math.min(dpr,1.85);
   },
   dispose:()=>{
-   brain.remove(shell,inside,halo,connections,gyri,orbit);
+   brain.remove(shell,inside,halo,connections,gyri,neuralStreams,orbit);
    scene.remove(rainPoints);
    rings.forEach(r=>scene.remove(r));
    [shellGeom,innerGeom,shellMaterial,insideMaterial,haloMaterial,connections.geometry,connections.material as T.Material,
-     gyri.geometry,gyri.material as T.Material,orbitG,orbitM,rainG,rainM,...ringAssets].forEach(o=>o.dispose());
+     gyri.geometry,gyri.material as T.Material,neuralStreams.geometry,neuralStreams.material as T.Material,orbitG,orbitM,rainG,rainM,...ringAssets].forEach(o=>o.dispose());
   }
  };
 }
