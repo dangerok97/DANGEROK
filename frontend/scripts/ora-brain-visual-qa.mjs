@@ -16,7 +16,7 @@ await mkdir(output,{recursive:true});
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html',
   '.json':'application/json','.png':'image/png','.svg':'image/svg+xml',
   '.woff2':'font/woff2','.ico':'image/x-icon'};
-const fixture=String.raw\`<!doctype html><html lang="it"><head><meta name="viewport" content="width=device-width, initial-scale=1">
+const fixture=`<!doctype html><html lang="it"><head><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>*{box-sizing:border-box}html,body{margin:0;background:#02060c}iframe{display:block;border:0;width:390px;height:680px;max-width:100vw}</style></head>
 <body><iframe id="brain" title="Cervello ORA" src="/bodyparts3d/?ora=brain"></iframe>
 <script>
@@ -25,7 +25,7 @@ window.addEventListener('message',event=>{
  if(event.origin===location.origin && event.source===document.getElementById('brain').contentWindow)
   window.messages.push(event.data);
 });
-</script></body></html>\`;
+</script></body></html>`;
 const server=createServer(async(req,res)=>{
  try{
   let pathname=new URL(req.url||'/', 'http://localhost').pathname;
