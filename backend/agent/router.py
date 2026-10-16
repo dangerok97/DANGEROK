@@ -364,6 +364,37 @@ async def situation_alerts(goal_id: str, body: SituationAlertsIn, user=Depends(g
     return {"ok": True, "decision": body.decision, "monitor_stopped": True}
 
 
+@router.get("/autonomy/pilot-status")
+async def autonomy_pilot_status(user=Depends(get_current_user)):
+    """Authenticated, read-only truth about this owner's background pilot.
+
+    The permission UI reflects a real grant, but the experimental worker also
+    needs an independent owner-scoped infrastructure enrollment. Never expose
+    account identifiers, allowlist values, model keys or notification tokens.
+    This endpoint never enrolls anyone or creates an effect.
+    """
+    import os
+    from agent.authority import AuthorityService
+    from connected.core_work import enabled_for, ready_for_owner
+    from delivery.source_results import enabled_owners
+    from deps import db
+
+    owner_id = user["user_id"]
+    authority = AuthorityService(db)
+    policy = await authority.policy(owner_id)
+    core_enrolled = enabled_for(owner_id)
+    ready = await ready_for_owner(db, owner_id) if core_enrolled else False
+    model_configured = bool(os.environ.get("ORA_SOURCE_MODEL_CONTRACT", "").strip())
+    delivery_enrolled = owner_id in enabled_owners()
+    return {
+        "mode_chosen": bool(policy.chosen_by_user),
+        "source_pilot_enrolled": core_enrolled,
+        "source_pilot_ready": bool(ready and model_configured),
+        "delivery_pilot_enrolled": delivery_enrolled,
+        "model_configured": model_configured,
+    }
+
+
 @router.post("/autonomy/mode")
 async def set_mode(body: ModeIn, user=Depends(get_current_user)):
     from agent.authority import AuthorityService

@@ -471,4 +471,12 @@ const SNAP: AccountSnapshot = {
   assert.ok(settings.includes("Le notifiche seguono le tue preferenze attuali"));
 }
 
+{
+  const ui = readCode(PERMISSIONS);
+  assert.ok(ui.includes('api.getAgentAutonomyPilotStatus()'));
+  assert.ok(ui.includes('Permesso per gli impegni attivo'));
+  assert.ok(ui.includes('non è ancora abilitato su questo account'));
+  assert.ok(ui.includes('pilotStatus === null'));
+}
+
 console.log('PX1.8 account guards: all assertions passed');
