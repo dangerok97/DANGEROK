@@ -14,10 +14,32 @@ import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { SettingCard } from '@/src/components/account';
 import { humanizeError } from '@/src/utils/errors';
 
+type RecentWhatsAppAlert = Awaited<ReturnType<typeof api.whatsappNotificationHistory>>['alerts'][number];
+
+function deliveryLabel(item: RecentWhatsAppAlert): string {
+  const labels: Record<string, string> = {
+    ready: 'In coda per Meta',
+    held_template: 'In attesa del modello Meta',
+    held_source: 'Verifica della fonte non riuscita',
+    sending: 'Invio in corso',
+    accepted: 'Accettato da Meta, consegna non confermata',
+    sent: 'Inviato da Meta, consegna non confermata',
+    delivered: 'Consegnato secondo Meta',
+    read: 'Letto secondo Meta',
+    failed: 'Meta non ha consegnato il messaggio',
+    acceptance_unknown: 'Invio incerto: nessun reinvio automatico',
+    cancelled: 'Avviso annullato',
+  };
+  return labels[item.status] || 'Esito tecnico: ' + String(item.status).slice(0, 30);
+}
+
 export function WhatsAppConnection() {
   const { colors } = useTheme();
   const [status, setStatus] = useState<WhatsAppLinkStatus | null>(null);
   const [pairing, setPairing] = useState<WhatsAppPairing | null>(null);
+  const [alertHistory, setAlertHistory] = useState<RecentWhatsAppAlert[]>([]);
+  const [historyChecked, setHistoryChecked] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +47,22 @@ export function WhatsAppConnection() {
     try {
       const next = await api.whatsappStatus();
       setStatus(next);
-      if (next.linked) setPairing(null);
+      if (next.linked) {
+        setPairing(null);
+        try {
+          const history = await api.whatsappNotificationHistory();
+          setAlertHistory(history.alerts || []);
+          setHistoryChecked(true);
+          setHistoryError(null);
+        } catch {
+          setHistoryError('Impossibile leggere le ricevute WhatsApp.');
+          setHistoryChecked(false);
+        }
+      } else {
+        setAlertHistory([]);
+        setHistoryChecked(false);
+        setHistoryError(null);
+      }
     } catch (err) {
       setError(humanizeError(err));
     }
@@ -206,6 +243,50 @@ export function WhatsAppConnection() {
               testID="whatsapp-alerts-enable"
             />
           )}
+          <View testID="whatsapp-alert-delivery-history" style={[styles.historyPanel, { borderColor: colors.border }]}>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>
+              Ultimi esiti degli avvisi WhatsApp
+            </Text>
+            <Text style={[styles.description, { color: colors.textSecondary }]}>
+              «Accettato» non significa «consegnato». La consegna è confermata
+              soltanto quando Meta invia una ricevuta specifica.
+            </Text>
+            {historyError ? (
+              <Text style={[styles.description, { color: colors.error }]}>{historyError}</Text>
+            ) : null}
+            {historyChecked && alertHistory.length === 0 ? (
+              <Text style={[styles.description, { color: colors.textSecondary }]}>
+                Nessun avviso WhatsApp registrato. Un promemoria visibile nella Home
+                non significa che sia stato messo in coda per WhatsApp.
+              </Text>
+            ) : null}
+            {alertHistory.slice(0, 5).map((item, index) => (
+              <View key={index} style={[styles.historyEntry, { borderColor: colors.border }]}>
+                <Text style={[styles.historyStatus, { color: colors.textPrimary }]}>
+                  {item.source_kind === 'recurring_due' ? 'Promemoria ricorrente' : 'Avviso ORA'}:
+                  {' '}{deliveryLabel(item)}
+                </Text>
+                {item.created_at ? (
+                  <Text style={[styles.description, { color: colors.textSecondary }]}>
+                    Registrato: {new Date(item.created_at).toLocaleString('it-IT')}
+                  </Text>
+                ) : null}
+                {item.failure_code ? (
+                  <Text style={[styles.description, { color: colors.textSecondary }]}>
+                    Codice tecnico: {item.failure_code}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+            <ActionBtn
+              icon="refresh-outline"
+              label="Aggiorna esiti WhatsApp"
+              loading={busy}
+              disabled={busy}
+              onPress={() => void refresh()}
+              testID="whatsapp-alert-history-refresh"
+            />
+          </View>
           <ActionBtn
             primary
             icon="chatbubble-outline"
@@ -282,6 +363,9 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12, lineHeight: 17 },
   description: { fontSize: 13, lineHeight: 19, marginTop: 6 },
   buttons: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  historyPanel: { width: '100%', borderWidth: 1, borderRadius: tokens.radius.sm, padding: 12, marginTop: 10, gap: 6 },
+  historyEntry: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, marginTop: 4 },
+  historyStatus: { fontSize: 13, fontWeight: '600' },
   codeBox: { borderWidth: StyleSheet.hairlineWidth, borderRadius: tokens.radius.md, padding: 14, gap: 12, marginTop: 8 },
   code: { fontSize: 17, letterSpacing: 1, fontWeight: '700' },
 });
