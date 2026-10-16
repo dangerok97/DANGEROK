@@ -10,7 +10,7 @@ import asyncio
 from datetime import timedelta
 import uuid
 
-from delivery.source_results import current_subject, enabled_owners, now, plan_id
+from delivery.source_results import current_subject, enabled_owners_in, now, plan_id
 
 ATTEMPTS = 3
 LEASE_SECONDS = 120
@@ -18,7 +18,7 @@ REVIEW_SECONDS = 60
 
 
 async def drain(db, *, limit=2):
-    owners = sorted(enabled_owners())
+    owners = sorted(await enabled_owners_in(db))
     if not owners:
         return 0
     handled, seen = 0, set()
