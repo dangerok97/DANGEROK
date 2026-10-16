@@ -13,7 +13,7 @@
  * granting one capability never widens the others.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { api } from '@/src/api/client';
@@ -22,6 +22,7 @@ import { connectGoogleSource } from '@/src/connectors/connectorOAuthRuntime';
 import { humanizeError } from '@/src/utils/errors';
 import { haptic } from '@/src/utils/haptic';
 import { useInflight } from '@/src/shell';
+import { useTheme } from '@/src/theme/ThemeProvider';
 import {
   AuthMethods,
   BoundaryNote,
@@ -175,6 +176,7 @@ function humanAge(iso?: string | null): string {
 
 export default function PermessiScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { data, loading, error, reload } = useAccount();
   const [location, setLocation] = useState<LocationMode | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -219,6 +221,8 @@ export default function PermessiScreen() {
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode | null>(null);
   const [autonomyChosen, setAutonomyChosen] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [pendingRevocation, setPendingRevocation] = useState<StandingGrant | null>(null);
+  const revokeInFlight = useRef(false);
 
   const loadAutonomy = useCallback(async () => {
     // Failure cannot be treated as the default "prepare" choice: it may hide
@@ -236,23 +240,32 @@ export default function PermessiScreen() {
   }, [loadAutonomy]);
 
   const revokeGrant = useCallback(
-    async (capability: string, grantId = '') => {
-      if (revoking) return;
+    async (capability: string, grantId: string) => {
+      // Revocation can only be called by the explicit dialog confirmation,
+      // never directly by tapping an active permission in the overview.
+      if (revokeInFlight.current || !grantId || pendingRevocation?.id !== grantId) return;
+      revokeInFlight.current = true;
       haptic('tap');
-      setRevoking(grantId || capability);
+      setRevoking(grantId);
       setWriteError(null);
       try {
-        await api.revokeAgentAutonomy(capability, grantId);
-        // Ricaricato invece che tolto a mano: quello che si vede dopo è quello
-        // che il backend dice, non quello che il client spera.
+        const result = await api.revokeAgentAutonomy(capability, grantId);
+        if (!result.ok || result.revoked < 1) {
+          throw new Error('Il permesso non è stato revocato. Aggiorna la pagina per verificare lo stato.');
+        }
         await loadAutonomy();
+        setPendingRevocation(null);
+        haptic('success');
       } catch (e) {
+        haptic('error');
         setWriteError(humanizeError(e));
+        // Preserve the dialog on a failed confirmation: do not imply success.
       } finally {
+        revokeInFlight.current = false;
         setRevoking(null);
       }
     },
-    [revoking, loadAutonomy],
+    [pendingRevocation, loadAutonomy],
   );
 
   // Continuous presence is a second, larger permission. It is read here rather
@@ -347,22 +360,23 @@ export default function PermessiScreen() {
   const calendarCreateGranted = Boolean(calendarCreateGrant);
 
   const toggleCalendarCreateGrant = useCallback(
-    () =>
-      guard(async () => {
+    () => {
+      if (calendarCreateGrant) {
+        haptic('tap');
+        setPendingRevocation(calendarCreateGrant);
+        return;
+      }
+      return guard(async () => {
         haptic('tap');
         setBusy('autonomy_calendar_create');
         setWriteError(null);
         try {
-          if (calendarCreateGrant) {
-            await api.revokeAgentAutonomy(
-              LOCAL_CALENDAR_CREATE_CAPABILITY,
-              calendarCreateGrant.id,
-            );
-          } else {
-            await api.grantAgentAutonomy(
-              LOCAL_CALENDAR_CREATE_CAPABILITY,
-              LOCAL_CALENDAR_CREATE_SCOPE,
-            );
+          const result = await api.grantAgentAutonomy(
+            LOCAL_CALENDAR_CREATE_CAPABILITY,
+            LOCAL_CALENDAR_CREATE_SCOPE,
+          );
+          if (!result.ok || !result.grant?.id) {
+            throw new Error('ORA non ha confermato il nuovo permesso.');
           }
           await loadAutonomy();
           haptic('success');
@@ -372,7 +386,8 @@ export default function PermessiScreen() {
         } finally {
           setBusy(null);
         }
-      }),
+      });
+    },
     [guard, calendarCreateGrant, loadAutonomy],
   );
 
@@ -536,7 +551,9 @@ export default function PermessiScreen() {
             </BoundaryNote>
             <ChoiceRow
               label="Aggiungere nuovi impegni al calendario ORA"
-              detail="Solo nuovi impegni personali nel calendario interno di ORA. Non autorizza Google Calendar, invitati, pagamenti, cancellazioni o modifiche."
+              detail={calendarCreateGranted
+                ? 'Attivo · ORA può creare nuovi impegni personali. Tocca per gestire il permesso, non per revocarlo.'
+                : 'Disattivo · Tocca per autorizzare solo nuovi impegni personali. Non consente invitati, pagamenti o modifiche.'}
               selected={calendarCreateGranted}
               onPress={() => void toggleCalendarCreateGrant()}
               busy={busy === 'autonomy_calendar_create'}
@@ -682,27 +699,32 @@ export default function PermessiScreen() {
         Ogni riga è la frase che la persona ha accettato, non lo scope con cui
         è stata salvata. Chi ha letto la lista ha letto i permessi.
       */}
-      {grants.length ? (
-        <SettingCard
-          title="Cose che ORA può fare da sola"
-          detail="Gliel'hai permesso tu. Puoi toglierlo quando vuoi: da quel momento torna a chiedertelo."
-          testID="perm-autonomy"
-        >
+      <SettingCard
+        title="Cose che ORA può fare da sola"
+        detail="Qui vedi quali permessi sono attivi. Toccare una riga non revoca nulla: per disattivare serve una conferma."
+        testID="perm-autonomy"
+      >
+        {grants.length ? (
           <View>
             {grants.map((g, i) => (
               <ChoiceRow
                 key={g.id}
                 label={g.scope || 'Un permesso che hai dato a ORA'}
-                detail="Tocca per revocare"
-                selected={false}
+                detail="Attivo · Tocca per gestire il permesso"
+                selected={true}
                 busy={revoking === g.id}
-                onPress={() => void revokeGrant(g.capability, g.id)}
+                onPress={() => {
+                  haptic('tap');
+                  setPendingRevocation(g);
+                }}
                 testID={`perm-autonomy-${i}`}
               />
             ))}
           </View>
-        </SettingCard>
-      ) : null}
+        ) : (
+          <BoundaryNote>Nessun permesso permanente attivo. Puoi aggiungerne uno nella sezione Autonomia.</BoundaryNote>
+        )}
+      </SettingCard>
 
       {/*
         La posta, e soltanto come sorgente.
@@ -768,6 +790,56 @@ export default function PermessiScreen() {
       </SettingCard>
 
       {writeError ? <InlineError>{writeError}</InlineError> : null}
+      <Modal
+        visible={Boolean(pendingRevocation)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { if (!revokeInFlight.current) setPendingRevocation(null); }}
+      >
+        <View style={revokeStyles.backdrop}>
+          <View style={[revokeStyles.dialog, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[revokeStyles.title, { color: colors.textPrimary }]}>
+              Vuoi davvero revocare questo permesso?
+            </Text>
+            <Text style={[revokeStyles.description, { color: colors.textSecondary }]}>
+              {pendingRevocation?.scope || 'Permesso di ORA'}.
+              {' '}Se lo revochi, ORA non potrà più eseguire queste azioni automaticamente.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              testID="autonomy-revoke-cancel"
+              disabled={Boolean(revoking)}
+              onPress={() => setPendingRevocation(null)}
+              style={[revokeStyles.action, { borderColor: colors.border }]}
+            >
+              <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Annulla · Mantieni attivo</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              testID="autonomy-revoke-confirm"
+              disabled={Boolean(revoking)}
+              onPress={() => {
+                if (pendingRevocation) {
+                  void revokeGrant(pendingRevocation.capability, pendingRevocation.id);
+                }
+              }}
+              style={[revokeStyles.action, { backgroundColor: colors.errorBg, borderColor: colors.error }]}
+            >
+              <Text style={{ color: colors.error, fontWeight: '700' }}>
+                {revoking ? 'Revoca in corso…' : 'Conferma revoca del permesso'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SubpageShell>
   );
 }
+
+const revokeStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', justifyContent: 'center', padding: 24 },
+  dialog: { padding: 22, borderRadius: 18, borderWidth: 1, gap: 16, maxWidth: 470, width: '100%', alignSelf: 'center' },
+  title: { fontSize: 19, fontWeight: '700' },
+  description: { fontSize: 15, lineHeight: 23 },
+  action: { minHeight: 50, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+});
