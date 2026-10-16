@@ -12,6 +12,7 @@ import asyncio
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import hashlib
+import hmac
 import json
 import os
 import uuid
@@ -25,6 +26,7 @@ LEASE_SECONDS = 240
 TURN_SECONDS = 180
 MAX_ATTEMPTS = 5
 COLLECTION = 'connected_signals'
+PILOT_ENROLLMENTS = 'source_pilot_enrollments'
 
 
 def _now():
@@ -43,7 +45,53 @@ def enabled_for(owner_id):
     return bool(owner_id and owner_id in owners and '*' not in owners)
 
 
-async def ready_for_owner(db, owner_id):
+def pilot_email_allowed(email):
+    """Server-managed single-account canary gate; never a global wildcard."""
+    raw = os.environ.get('ORA_SOURCE_SINGLE_PILOT_EMAIL_SHA256', '').strip().lower()
+    if len(raw) != 64 or not all(ch in '0123456789abcdef' for ch in raw):
+        return False
+    digest = hashlib.sha256(str(email or '').strip().casefold().encode()).hexdigest()
+    return hmac.compare_digest(digest, raw)
+
+
+async def pilot_enrollment(db, owner_id):
+    """Read only this owner's opt-in; rotating the server digest disables it."""
+    if not owner_id:
+        return None
+    raw = os.environ.get('ORA_SOURCE_SINGLE_PILOT_EMAIL_SHA256', '').strip().lower()
+    if len(raw) != 64:
+        return None
+    row = await db[PILOT_ENROLLMENTS].find_one(
+        {'_id': 'pilot:' + owner_id, 'owner_id': owner_id,
+         'email_digest': raw, 'active': True}, {'_id': 0})
+    if not row or row.get('created_by') != 'authenticated_user':
+        return None
+    if not isinstance(row.get('since'), str) or not row['since']:
+        return None
+    return row
+
+
+async def enroll_owner(db, owner_id, email):
+    """Idempotent single-user enrollment, never used to create a grant."""
+    if not pilot_email_allowed(email):
+        return {'ok': False, 'reason': 'account_not_in_pilot'}
+    if not await ready_for_owner(db, owner_id, require_enrollment=False):
+        return {'ok': False, 'reason': 'mode_or_create_permission_required'}
+    previous = await pilot_enrollment(db, owner_id)
+    if previous:
+        return {'ok': True, 'already_active': True}
+    digest = hashlib.sha256(str(email).strip().casefold().encode()).hexdigest()
+    # A new enrollment establishes the boundary for fresh messages. Ignore
+    # historical signals instead of unexpectedly replaying months of mail.
+    await db[PILOT_ENROLLMENTS].update_one(
+        {'_id': 'pilot:' + owner_id, 'owner_id': owner_id},
+        {'$set': {'owner_id': owner_id, 'email_digest': digest, 'active': True,
+                  'created_by': 'authenticated_user', 'since': _now().isoformat()}},
+        upsert=True)
+    return {'ok': True, 'already_active': False}
+
+
+async def ready_for_owner(db, owner_id, *, require_enrollment=True):
     """Whether this enrolled owner explicitly opted into the first source pilot.
 
     Infrastructure enrollment is deliberately insufficient. Until the person
@@ -52,7 +100,7 @@ async def ready_for_owner(db, owner_id):
     That preserves pending source observations instead of letting a background
     worker consume them into an invisible needs_input state before opt-in.
     """
-    if not enabled_for(owner_id):
+    if require_enrollment and not enabled_for(owner_id) and not await pilot_enrollment(db, owner_id):
         return False
     from agent.authority import AuthorityService, GRANTS
     from agent.models import AutonomyGrant
@@ -402,7 +450,17 @@ class SourceCoreWorker:
         from connected.signals import SignalService
         for row in own:
             await SignalService(self.db).settle(owner_id, row['id'], outcome='own_work_confirmed')
-        rows = await self.db[COLLECTION].find(_due_query(owner_id), {'_id': 0, 'id': 1}).sort(
+        query = _due_query(owner_id)
+        # A self-enrolled canary must never replay earlier mail as a new
+        # autonomous task. Existing infrastructure-managed pilots retain
+        # their original scope and regression behavior.
+        if not enabled_for(owner_id):
+            enrollment = await pilot_enrollment(self.db, owner_id)
+            if not enrollment:
+                return {'ok': True, 'looked_at': 0, 'noise': 0, 'passed_on': 0,
+                        'source_core_results': []}
+            query['observed_at'] = {'$gte': enrollment['since']}
+        rows = await self.db[COLLECTION].find(query, {'_id': 0, 'id': 1}).sort(
             'observed_at', 1).to_list(bound)
         results = [await self.process_one(owner_id, row['id']) for row in rows]
         return {'ok': True, 'looked_at': len(results), 'noise': 0,
