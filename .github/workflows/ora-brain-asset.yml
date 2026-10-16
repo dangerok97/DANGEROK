@@ -23,6 +23,8 @@ jobs:
           git -C /tmp/human-atlas fetch -q --depth 1 origin 1c38bf35c254a891200d3cedecfd57abebe83d8d
           git -C /tmp/human-atlas checkout -q --detach FETCH_HEAD
           test "$(git -C /tmp/human-atlas rev-parse HEAD)" = "1c38bf35c254a891200d3cedecfd57abebe83d8d"
+      - name: Install mesh optimizer for anatomical extraction
+        run: npm install --no-save --no-package-lock --prefix frontend meshoptimizer
       - name: Extract ORA brain mesh
         run: node frontend/scripts/build-ora-brain-asset.mjs /tmp/human-atlas /tmp/brainAsset.js
       - uses: actions/upload-artifact@v4
