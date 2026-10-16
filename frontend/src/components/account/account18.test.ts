@@ -447,4 +447,13 @@ const SNAP: AccountSnapshot = {
   }
 }
 
+{
+  const settings = readCode(PERMISSIONS);
+  assert.ok(settings.includes('setPendingRevocation(calendarCreateGrant)'));
+  assert.ok(settings.includes('setPendingRevocation(g)'));
+  assert.ok(settings.includes('autonomy-revoke-confirm'));
+  assert.ok(settings.includes('autonomy-revoke-cancel'));
+  assert.equal(settings.split('api.revokeAgentAutonomy(').length, 2);
+}
+
 console.log('PX1.8 account guards: all assertions passed');
