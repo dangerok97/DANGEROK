@@ -220,6 +220,7 @@ export default function PermessiScreen() {
   const [grants, setGrants] = useState<StandingGrant[]>([]);
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode | null>(null);
   const [autonomyChosen, setAutonomyChosen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [pendingRevocation, setPendingRevocation] = useState<StandingGrant | null>(null);
   const revokeInFlight = useRef(false);
@@ -359,37 +360,54 @@ export default function PermessiScreen() {
   );
   const calendarCreateGranted = Boolean(calendarCreateGrant);
 
-  const toggleCalendarCreateGrant = useCallback(
-    () => {
-      if (calendarCreateGrant) {
-        haptic('tap');
-        setPendingRevocation(calendarCreateGrant);
-        return;
-      }
-      return guard(async () => {
-        haptic('tap');
-        setBusy('autonomy_calendar_create');
-        setWriteError(null);
-        try {
-          const result = await api.grantAgentAutonomy(
-            LOCAL_CALENDAR_CREATE_CAPABILITY,
-            LOCAL_CALENDAR_CREATE_SCOPE,
-          );
-          if (!result.ok || !result.grant?.id) {
-            throw new Error('ORA non ha confermato il nuovo permesso.');
-          }
-          await loadAutonomy();
-          haptic('success');
-        } catch (e) {
-          haptic('error');
-          setWriteError(humanizeError(e));
-        } finally {
-          setBusy(null);
+  // One deliberately scoped consent replaces two separate settings steps.
+  // No permission for external calendars, messages, payments or cancellations.
+  const enableEverydayAutonomy = useCallback(() => {
+    if (autonomyMode === null) {
+      setWriteError('Prima verifico lo stato dei permessi di ORA.');
+      void loadAutonomy().catch((e) => setWriteError(humanizeError(e)));
+      return;
+    }
+    if (autonomyMode === 'act_within_grants' && calendarCreateGranted) {
+      setAdvancedOpen(true); // already active: show details, do not toggle off
+      return;
+    }
+    // Switching into act mode also activates OTHER existing grants. Keep
+    // that decision in the detailed mode selector, never the simple button.
+    if (autonomyMode !== 'act_within_grants' &&
+        grants.some((g) => g.capability !== LOCAL_CALENDAR_CREATE_CAPABILITY || !(g.effect_scope || []).includes('create'))) {
+      setAdvancedOpen(true);
+      setWriteError('Hai altri permessi attivi: verifica la modalità nella sezione Personalizza prima di attivare nuove azioni.');
+      return;
+    }
+    return guard(async () => {
+      haptic('tap');
+      setBusy('enable_everyday_autonomy');
+      setWriteError(null);
+      try {
+        if (autonomyMode !== 'act_within_grants') {
+          const modeResult = await api.setAgentAutonomyMode('act_within_grants');
+          if (!modeResult.ok) throw new Error('La modalità autonoma non è stata salvata.');
         }
-      });
-    },
-    [guard, calendarCreateGrant, loadAutonomy],
-  );
+        if (!calendarCreateGranted) {
+          const permission = await api.grantAgentAutonomy(
+            LOCAL_CALENDAR_CREATE_CAPABILITY, LOCAL_CALENDAR_CREATE_SCOPE,
+          );
+          if (!permission.ok || !permission.grant?.id) {
+            throw new Error('Il permesso calendario non è stato confermato.');
+          }
+        }
+        await loadAutonomy(); // confirm real server state, no optimistic success
+        haptic('success');
+      } catch (e) {
+        haptic('error');
+        setWriteError(`Attivazione incompleta: ${humanizeError(e)}. Puoi riprovare senza ricreare permessi già presenti.`);
+        void loadAutonomy().catch(() => undefined);
+      } finally {
+        setBusy(null);
+      }
+    });
+  }, [autonomyMode, calendarCreateGranted, grants, guard, loadAutonomy]);
 
   const setMode = useCallback((next: LocationMode) => guard(async () => {
     haptic('tap');
@@ -523,45 +541,73 @@ export default function PermessiScreen() {
         <PartialNote>Alcune informazioni non sono disponibili al momento.</PartialNote>
       ) : null}
       {error ? <InlineError>{error}</InlineError> : null}
+      {writeError ? <InlineError>{writeError}</InlineError> : null}
 
       <SettingCard
-        title="Autonomia"
-        detail={
-          autonomyChosen
-            ? 'Decidi fin dove ORA può arrivare da sola. I permessi specifici restano separati e revocabili.'
-            : 'Non hai ancora scelto: ORA resta prudente. Per il lavoro proattivo devi decidere esplicitamente fin dove può arrivare.'
-        }
-        testID="perm-autonomy-mode"
+        title="ORA nella tua giornata"
+        detail="Non serve configurare tutto. Scegli solo cosa autorizzare e ORA usa le impostazioni già disponibili."
+        testID="perm-everyday-autonomy"
       >
-        {AUTONOMY_CHOICES.map((choice) => (
+        <BoundaryNote>
+          Puoi permettere a ORA di aggiungere da sola nel suo calendario gli impegni
+          personali già confermati dalle fonti che hai collegato. Non può invitare
+          persone, usare Google Calendar per scrivere, cancellare eventi o effettuare pagamenti.
+        </BoundaryNote>
+        {autonomyMode === null ? (
+          <BoundaryNote>Verifico le tue autorizzazioni…</BoundaryNote>
+        ) : (
           <ChoiceRow
-            key={choice.id}
-            label={choice.label}
-            detail={choice.detail}
-            selected={(autonomyMode ?? 'prepare') === choice.id}
-            onPress={() => void chooseAutonomyMode(choice.id)}
-            busy={busy === `autonomy_${choice.id}`}
-            testID={`autonomy-mode-${choice.id}`}
+            label={autonomyMode === 'act_within_grants' && calendarCreateGranted
+              ? 'Autonomia per gli impegni attiva'
+              : 'Attiva ORA per i miei impegni'}
+            detail={autonomyMode === 'act_within_grants' && calendarCreateGranted
+              ? 'Attiva · ORA può aggiungere nuovi impegni confermati nel calendario interno.'
+              : 'Una scelta: autorizzi solo la creazione di nuovi impegni confermati nel calendario ORA.'}
+            selected={autonomyMode === 'act_within_grants' && calendarCreateGranted}
+            onPress={() => void enableEverydayAutonomy()}
+            busy={busy === 'enable_everyday_autonomy'}
+            testID="autonomy-one-step-enable"
           />
-        ))}
-        {autonomyMode === 'act_within_grants' ? (
-          <>
-            <BoundaryNote>
-              Scegliere questa modalità non dà a ORA nuovi poteri: può usare solo i permessi permanenti che trovi qui sotto.
-            </BoundaryNote>
-            <ChoiceRow
-              label="Aggiungere nuovi impegni al calendario ORA"
-              detail={calendarCreateGranted
-                ? 'Attivo · ORA può creare nuovi impegni personali. Tocca per gestire il permesso, non per revocarlo.'
-                : 'Disattivo · Tocca per autorizzare solo nuovi impegni personali. Non consente invitati, pagamenti o modifiche.'}
-              selected={calendarCreateGranted}
-              onPress={() => void toggleCalendarCreateGrant()}
-              busy={busy === 'autonomy_calendar_create'}
-              testID="autonomy-grant-calendar-create"
-            />
-          </>
-        ) : null}
+        )}
+        <BoundaryNote>
+          Le notifiche seguono le tue preferenze attuali. Posizione e altre
+          integrazioni restano facoltative e richiedono autorizzazioni separate.
+        </BoundaryNote>
       </SettingCard>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: advancedOpen }}
+        testID="autonomy-advanced-toggle"
+        onPress={() => { haptic('tap'); setAdvancedOpen((open) => !open); }}
+        style={[revokeStyles.advancedToggle, { borderColor: colors.border }]}
+      >
+        <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>
+          {advancedOpen ? 'Nascondi impostazioni avanzate' : 'Personalizza impostazioni (facoltativo)'}
+        </Text>
+      </Pressable>
+
+      {advancedOpen ? (
+        <>
+          <SettingCard
+            title="Modalità di autonomia"
+            detail={autonomyChosen
+              ? 'Solo per chi vuole scegliere manualmente la modalità generale di ORA.'
+              : 'Di base ORA prepara e chiede. Puoi scegliere una modalità diversa qui.'}
+            testID="perm-autonomy-mode"
+          >
+            {AUTONOMY_CHOICES.map((choice) => (
+              <ChoiceRow
+                key={choice.id}
+                label={choice.label}
+                detail={choice.detail}
+                selected={(autonomyMode ?? 'prepare') === choice.id}
+                onPress={() => void chooseAutonomyMode(choice.id)}
+                busy={busy === `autonomy_${choice.id}`}
+                testID={`autonomy-mode-${choice.id}`}
+              />
+            ))}
+          </SettingCard>
 
       <SettingCard title="Posizione" testID="perm-location">
         {LOCATION_CHOICES.map((c) => (
@@ -789,7 +835,8 @@ export default function PermessiScreen() {
         <AuthMethods identities={data?.identities || null} onChanged={() => reload({ silent: true })} />
       </SettingCard>
 
-      {writeError ? <InlineError>{writeError}</InlineError> : null}
+        </>
+      ) : null}
       <Modal
         visible={Boolean(pendingRevocation)}
         transparent
@@ -837,6 +884,7 @@ export default function PermessiScreen() {
 }
 
 const revokeStyles = StyleSheet.create({
+  advancedToggle: { minHeight: 48, borderWidth: 1, borderRadius: 12, padding: 14, alignItems: 'center', justifyContent: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', justifyContent: 'center', padding: 24 },
   dialog: { padding: 22, borderRadius: 18, borderWidth: 1, gap: 16, maxWidth: 470, width: '100%', alignSelf: 'center' },
   title: { fontSize: 19, fontWeight: '700' },

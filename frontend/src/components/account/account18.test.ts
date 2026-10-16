@@ -456,4 +456,19 @@ const SNAP: AccountSnapshot = {
   assert.equal(settings.split('api.revokeAgentAutonomy(').length, 2);
 }
 
+// A single informed calendar-autonomy choice remains accessible without
+// navigating the advanced settings. All broader capabilities stay opt-in.
+{
+  const settings = readCode(PERMISSIONS);
+  assert.ok(settings.includes('testID="autonomy-one-step-enable"'));
+  assert.ok(settings.includes('testID="autonomy-advanced-toggle"'));
+  assert.ok(settings.indexOf('autonomy-one-step-enable') < settings.indexOf('autonomy-advanced-toggle'));
+  assert.ok(settings.includes('setAdvancedOpen((open) => !open)'));
+  assert.ok(settings.includes("api.setAgentAutonomyMode('act_within_grants')"));
+  assert.ok(settings.includes('api.grantAgentAutonomy('));
+  assert.ok(settings.includes("g.capability !== LOCAL_CALENDAR_CREATE_CAPABILITY"));
+  assert.ok(settings.includes('void enableEverydayAutonomy()'));
+  assert.ok(settings.includes("Le notifiche seguono le tue preferenze attuali"));
+}
+
 console.log('PX1.8 account guards: all assertions passed');
