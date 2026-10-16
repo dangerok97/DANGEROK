@@ -5,6 +5,7 @@ on:
       - .github/workflows/source-work-regressions.yml
       - backend/connected/**
       - backend/conversation_engine/ai_core/**
+      - backend/tests/test_single_owner_source_pilot_v1.py
       - backend/tests/test_durable_source_work_v169.py
       - backend/tests/test_source_work_database_v169.py
       - backend/tests/test_source_work_races_v169.py
@@ -53,7 +54,7 @@ jobs:
         working-directory: backend
         run: |
           python -m compileall -q connected
-          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-work-final.xml tests/test_durable_source_work_v169.py tests/test_source_work_database_v169.py tests/test_source_work_races_v169.py tests/test_source_integrity_v168.py tests/test_source_real_recovery_v168.py tests/test_general_source_core_v166.py tests/test_source_entry_contract_v166.py tests/test_model_contract_v167.py tests/test_instruction_contract_v167.py tests/test_provider_failover_v34.py tests/test_llm_cooldown_and_deadline_v3132.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_phase2_durable_home_outbox_v142.py tests/test_connected_life_v310.py tests/test_shipment_competency_v109.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_whatsapp_capability_parity_v1.py tests/test_recurring_memo_v113.py
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/source-work-final.xml tests/test_single_owner_source_pilot_v1.py tests/test_durable_source_work_v169.py tests/test_source_work_database_v169.py tests/test_source_work_races_v169.py tests/test_source_integrity_v168.py tests/test_source_real_recovery_v168.py tests/test_general_source_core_v166.py tests/test_source_entry_contract_v166.py tests/test_model_contract_v167.py tests/test_instruction_contract_v167.py tests/test_provider_failover_v34.py tests/test_llm_cooldown_and_deadline_v3132.py tests/test_ora_native_calendar_v155.py tests/test_calendar_target_integrity_v157.py tests/test_phase2_durable_home_outbox_v142.py tests/test_connected_life_v310.py tests/test_shipment_competency_v109.py tests/test_whatsapp_cloud_bridge_v1.py tests/test_whatsapp_capability_parity_v1.py tests/test_recurring_memo_v113.py
       - name: Record exact code and test scope
         if: always()
         run: |
