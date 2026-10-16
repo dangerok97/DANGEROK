@@ -142,30 +142,30 @@ async def manual_events_between(db, user_id, start, end, *, limit=500):
 
 def _manual_update_target(node, fields):
     """Validate a proposed update without changing storage or scheduling."""
-        attrs = dict(node["attributes"])
-        zone = ZoneInfo(str(fields.get("timezone") or attrs.get("timezone") or "Europe/Rome"))
-        old_start = datetime.fromisoformat(attrs["starts_at"])
-        old_end = datetime.fromisoformat(attrs["ends_at"])
-        start = _moment(fields.get("start_datetime") or attrs["starts_at"], zone)
-        if fields.get("end_datetime"):
-            end = _moment(fields["end_datetime"], zone)
-        elif fields.get("start_datetime"):
-            end = (start.astimezone(timezone.utc) + (old_end.astimezone(timezone.utc) - old_start.astimezone(timezone.utc))).astimezone(zone)
-        else:
-            end = _moment(attrs["ends_at"], zone)
-        if end.astimezone(timezone.utc) <= start.astimezone(timezone.utc):
-            raise ValueError("end_before_start")
-        title = str(fields.get("title", node["label"])).strip()
-        if not title or len(title) > 200:
-            raise ValueError("invalid_title")
-        location = str(fields.get("location", attrs.get("location") or "")).strip()
-        description = str(fields.get("description", node.get("description") or "")).strip()
-        if len(location) > 300 or len(description) > 800:
-            raise ValueError("invalid_input")
-        attrs.update(starts_at=start.isoformat(), ends_at=end.isoformat(), timezone=str(zone), location=location)
-        if fields.get("end_datetime"):
-            # A later explicit end resolves a previously unknown technical end.
-            attrs.pop("end_time_known", None)
+    attrs = dict(node["attributes"])
+    zone = ZoneInfo(str(fields.get("timezone") or attrs.get("timezone") or "Europe/Rome"))
+    old_start = datetime.fromisoformat(attrs["starts_at"])
+    old_end = datetime.fromisoformat(attrs["ends_at"])
+    start = _moment(fields.get("start_datetime") or attrs["starts_at"], zone)
+    if fields.get("end_datetime"):
+        end = _moment(fields["end_datetime"], zone)
+    elif fields.get("start_datetime"):
+        end = (start.astimezone(timezone.utc) + (old_end.astimezone(timezone.utc) - old_start.astimezone(timezone.utc))).astimezone(zone)
+    else:
+        end = _moment(attrs["ends_at"], zone)
+    if end.astimezone(timezone.utc) <= start.astimezone(timezone.utc):
+        raise ValueError("end_before_start")
+    title = str(fields.get("title", node["label"])).strip()
+    if not title or len(title) > 200:
+        raise ValueError("invalid_title")
+    location = str(fields.get("location", attrs.get("location") or "")).strip()
+    description = str(fields.get("description", node.get("description") or "")).strip()
+    if len(location) > 300 or len(description) > 800:
+        raise ValueError("invalid_input")
+    attrs.update(starts_at=start.isoformat(), ends_at=end.isoformat(), timezone=str(zone), location=location)
+    if fields.get("end_datetime"):
+        # A later explicit end resolves a previously unknown technical end.
+        attrs.pop("end_time_known", None)
     return title, description, attrs
 
 
