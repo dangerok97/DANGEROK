@@ -231,8 +231,8 @@ class ConnectedLifeService:
         is the model's word, and the difference between them is not computed
         anywhere in this file.
         """
-        from connected.core_work import SourceCoreWorker, enabled_for, ready_for_owner
-        if enabled_for(owner_id) and await ready_for_owner(self.db, owner_id):
+        from connected.core_work import SourceCoreWorker, ready_for_owner
+        if await ready_for_owner(self.db, owner_id):
             return await SourceCoreWorker(self.db).process_pending(owner_id, limit=limit)
         pending = await self.signals.pending(owner_id, limit=limit)
         if not pending:
