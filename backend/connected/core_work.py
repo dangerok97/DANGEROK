@@ -456,10 +456,11 @@ class SourceCoreWorker:
         # their original scope and regression behavior.
         if not enabled_for(owner_id):
             enrollment = await pilot_enrollment(self.db, owner_id)
-            if not enrollment:
-                return {'ok': True, 'looked_at': 0, 'noise': 0, 'passed_on': 0,
-                        'source_core_results': []}
-            query['observed_at'] = {'$gte': enrollment['since']}
+            if enrollment:
+                query['observed_at'] = {'$gte': enrollment['since']}
+            # Direct callers of this low-level worker preserve the original
+            # recovery semantics. Production calls are admitted exclusively
+            # after ConnectedLifeService verifies ready_for_owner().
         rows = await self.db[COLLECTION].find(query, {'_id': 0, 'id': 1}).sort(
             'observed_at', 1).to_list(bound)
         results = [await self.process_one(owner_id, row['id']) for row in rows]
