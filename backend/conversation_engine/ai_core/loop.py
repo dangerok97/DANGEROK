@@ -1651,8 +1651,36 @@ async def run_cognitive_loop(
             )
             validated_raw = raw2
             if not gov.ok or not gov.decision:
-                decision = fallback_decision_after_malformed()
-                add_step(trace, event="MALFORMED_FALLBACK", errors=gov.errors)
+                # Bounded recovery from experimental v162. Only restore the
+                # user's original CREATE when the second model declaration
+                # omitted empty reference lists. Never fabricate a checkpoint
+                # or execute the failed tool call.
+                from conversation_engine.ai_core.declaration_recovery import (
+                    recover_incomplete_create,
+                )
+                reduced = recover_incomplete_create(raw2, gov.errors)
+                if reduced is not None:
+                    candidate = validate_decision(
+                        reduced,
+                        tools=tools,
+                        recent_tool_signatures=recent_tool_sigs,
+                        external_query_count=external_queries,
+                        max_external_queries=MAX_EXTERNAL_QUERIES,
+                        clarification_attempts=clarification_attempts,
+                    )
+                    if (
+                        candidate.ok and candidate.decision
+                        and candidate.decision.situation_update is not None
+                        and candidate.decision.situation_update.operation == "create"
+                    ):
+                        gov, validated_raw = candidate, reduced
+                        add_step(trace, event="SITUATION_CREATE_SAFE_RECOVERY")
+                if not gov.ok or not gov.decision:
+                    decision = fallback_decision_after_malformed()
+                    add_step(trace, event="MALFORMED_FALLBACK", errors=gov.errors)
+                else:
+                    decision = gov.decision
+                    add_step(trace, event="AI_DECISION_RETRY", mode=decision.response_mode)
             else:
                 decision = gov.decision
                 add_step(trace, event="AI_DECISION_RETRY", mode=decision.response_mode)
