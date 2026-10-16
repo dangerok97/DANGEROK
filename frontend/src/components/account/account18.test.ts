@@ -477,6 +477,9 @@ const SNAP: AccountSnapshot = {
   assert.ok(ui.includes('Permesso per gli impegni attivo'));
   assert.ok(ui.includes('non è ancora abilitato su questo account'));
   assert.ok(ui.includes('pilotStatus === null'));
+  assert.ok(ui.includes('api.enrollAgentAutonomyPilot()'));
+  assert.ok(ui.includes('self_enrollment_available'));
+  assert.ok(ui.includes('Completa attivazione del pilot autonomo'));
 }
 
 console.log('PX1.8 account guards: all assertions passed');

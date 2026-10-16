@@ -375,24 +375,47 @@ async def autonomy_pilot_status(user=Depends(get_current_user)):
     """
     import os
     from agent.authority import AuthorityService
-    from connected.core_work import enabled_for, ready_for_owner
-    from delivery.source_results import enabled_owners
+    from connected.core_work import (
+        enabled_for, ready_for_owner, pilot_enrollment, pilot_email_allowed)
+    from delivery.source_results import enabled_owners_in
     from deps import db
 
     owner_id = user["user_id"]
     authority = AuthorityService(db)
     policy = await authority.policy(owner_id)
-    core_enrolled = enabled_for(owner_id)
+    core_enrolled = bool(enabled_for(owner_id) or await pilot_enrollment(db, owner_id))
     ready = await ready_for_owner(db, owner_id) if core_enrolled else False
     model_configured = bool(os.environ.get("ORA_SOURCE_MODEL_CONTRACT", "").strip())
-    delivery_enrolled = owner_id in enabled_owners()
+    delivery_enrolled = owner_id in await enabled_owners_in(db)
+    signup_available = pilot_email_allowed(user.get("email"))
     return {
         "mode_chosen": bool(policy.chosen_by_user),
         "source_pilot_enrolled": core_enrolled,
         "source_pilot_ready": bool(ready and model_configured),
         "delivery_pilot_enrolled": delivery_enrolled,
         "model_configured": model_configured,
+        "self_enrollment_available": signup_available,
     }
+
+
+@router.post("/autonomy/pilot-enroll")
+async def autonomy_pilot_enroll(user=Depends(get_current_user)):
+    """One authenticated person's explicit opt-in, scoped to a server canary.
+
+    The rollout SHA-256 digest on Railway limits which account can enroll,
+    avoiding any changes to other owners' existing allowlists. This never
+    issues permissions, cannot send messages and cannot alter other users.
+    """
+    import os
+    from connected.core_work import enroll_owner
+    from deps import db
+
+    if not os.environ.get("ORA_SOURCE_MODEL_CONTRACT", "").strip():
+        raise HTTPException(503, detail="pilot_model_not_configured")
+    result = await enroll_owner(db, user["user_id"], user.get("email"))
+    if not result.get("ok"):
+        raise HTTPException(403, detail=result.get("reason") or "pilot_unavailable")
+    return result
 
 
 @router.post("/autonomy/mode")
