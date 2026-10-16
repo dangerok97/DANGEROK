@@ -86,6 +86,29 @@ def _dev_only() -> None:
         raise HTTPException(status_code=404, detail="not_found")
 
 
+# Fixed routes must precede the dynamic /{goal_id} route. Otherwise
+# GET /agent/autonomy is interpreted as a goal lookup and always returns 404.
+@router.get("/autonomy")
+async def autonomy(user=Depends(get_current_user)):
+    """
+    How much ORA may do on its own, and what has been allowed.
+
+    `grants` is the answer to «cosa può fare da sola», and each one carries
+    the sentence the person actually agreed to rather than the scope it was
+    stored as. Somebody reading the list has read the permissions.
+    """
+    from agent.authority import AuthorityService
+    from deps import db
+
+    service = AuthorityService(db)
+    policy = await service.policy(user["user_id"])
+    return {
+        "mode": policy.mode,
+        "chosen_by_user": policy.chosen_by_user,
+        "grants": await service.grants(user["user_id"]),
+    }
+
+
 @router.get("")
 async def current(user=Depends(get_current_user)):
     """
@@ -339,27 +362,6 @@ async def situation_alerts(goal_id: str, body: SituationAlertsIn, user=Depends(g
     if not await attention_withdrawal_confirmed(db, owner, current.id):
         raise HTTPException(409, detail="monitor_not_stopped")
     return {"ok": True, "decision": body.decision, "monitor_stopped": True}
-
-
-@router.get("/autonomy")
-async def autonomy(user=Depends(get_current_user)):
-    """
-    How much ORA may do on its own, and what has been allowed.
-
-    `grants` is the answer to «cosa può fare da sola», and each one carries
-    the sentence the person actually agreed to rather than the scope it was
-    stored as. Somebody reading the list has read the permissions.
-    """
-    from agent.authority import AuthorityService
-    from deps import db
-
-    service = AuthorityService(db)
-    policy = await service.policy(user["user_id"])
-    return {
-        "mode": policy.mode,
-        "chosen_by_user": policy.chosen_by_user,
-        "grants": await service.grants(user["user_id"]),
-    }
 
 
 @router.post("/autonomy/mode")

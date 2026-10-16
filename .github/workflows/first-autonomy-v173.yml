@@ -13,6 +13,7 @@ on:
       - backend/conversation_engine/ai_core/tools/calendar_caps.py
       - backend/home/manual_event.py
       - backend/tests/test_first_autonomy_v173.py
+      - backend/tests/test_agent_autonomy_route_v1.py
       - backend/scripts/first_autonomy_live_v173.py
   pull_request:
     paths:
@@ -69,7 +70,7 @@ jobs:
       - name: First autonomy invariants and selected regressions
         working-directory: backend
         run: |
-          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/first-autonomy-tests.xml             tests/test_first_autonomy_v173.py             tests/test_source_entry_contract_v166.py             tests/test_durable_source_work_v169.py             tests/test_general_source_core_v166.py             tests/test_ora_native_calendar_v155.py             tests/test_calendar_target_integrity_v157.py             tests/test_source_result_delivery_v170.py             tests/test_source_result_delivery_edges_v170.py
+          python -m pytest -q -n 0 --tb=short --disable-warnings --junitxml=/tmp/first-autonomy-tests.xml             tests/test_agent_autonomy_route_v1.py             tests/test_first_autonomy_v173.py             tests/test_source_entry_contract_v166.py             tests/test_durable_source_work_v169.py             tests/test_general_source_core_v166.py             tests/test_ora_native_calendar_v155.py             tests/test_calendar_target_integrity_v157.py             tests/test_source_result_delivery_v170.py             tests/test_source_result_delivery_edges_v170.py
       - name: Preserve evidence
         if: always()
         uses: actions/upload-artifact@v4
