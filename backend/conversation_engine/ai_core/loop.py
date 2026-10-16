@@ -3522,6 +3522,17 @@ async def run_cognitive_loop(
             ora, weather_findings = guard_weather_intensity(ora, observations[turn_start:])
             if weather_findings:
                 add_step(trace, event="GROUNDING_WEATHER_REWRITTEN", findings=weather_findings)
+            # Recover the isolated CAL164 evidence-bound rendering guard.
+            # It changes an incorrect weekday only for the exact full date
+            # already proven by a successful calendar observation. It never
+            # alters an event time, an action, a quoted date or user consent.
+            if mode in ("answer", "finish"):
+                from conversation_engine.ai_core.grounding.calendar_weekday import guard_calendar_weekdays
+                ora, calendar_date_fixes = guard_calendar_weekdays(
+                    ora, observations[turn_start:], calendar_ahead,
+                )
+                if calendar_date_fixes:
+                    add_step(trace, event="CALENDAR_WEEKDAY_CORRECTED", count=calendar_date_fixes)
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(
