@@ -69,3 +69,46 @@ async def test_saving_mode_can_be_read_back_and_grant_is_visible(monkeypatch):
         assert after.status_code == 200
         assert after.json()["mode"] == "act_within_grants"
         assert after.json()["grants"] == []
+
+
+@pytest.mark.asyncio
+async def test_pilot_status_requires_authenticated_owned_grant_and_enrollment(monkeypatch):
+    database = AsyncMongoMockClient().pilot_status_route_regression
+    monkeypatch.setattr(deps, "db", database)
+    monkeypatch.delenv("ORA_SOURCE_CORE_PILOT_OWNERS", raising=False)
+    monkeypatch.delenv("ORA_SOURCE_RESULT_DELIVERY_OWNERS", raising=False)
+    monkeypatch.setenv("ORA_SOURCE_MODEL_CONTRACT", '{"synthetic":"safe-test"}')
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_current_user] = lambda: {"user_id": OWNER}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        initial = await client.get("/agent/autonomy/pilot-status")
+        assert initial.status_code == 200
+        assert initial.json()["source_pilot_ready"] is False
+        assert initial.json()["source_pilot_enrolled"] is False
+        assert initial.json()["delivery_pilot_enrolled"] is False
+        assert OWNER not in str(initial.json())
+
+        await client.post("/agent/autonomy/mode",
+                          json={"mode": "act_within_grants"})
+        await client.post("/agent/autonomy/grant", json={
+            "capability": "calendar.local.write",
+            "scope_note": "Creare solo nuovi eventi in ORA",
+        })
+        # A user choosing everyday autonomy is not infrastructure enrollment.
+        without_enrollment = await client.get("/agent/autonomy/pilot-status")
+        assert without_enrollment.json()["source_pilot_ready"] is False
+        assert without_enrollment.json()["source_pilot_enrolled"] is False
+
+        # Only this synthetic owner is admitted by the test infrastructure.
+        monkeypatch.setenv("ORA_SOURCE_CORE_PILOT_OWNERS", OWNER)
+        monkeypatch.setenv("ORA_SOURCE_RESULT_DELIVERY_OWNERS", OWNER)
+        ready = await client.get("/agent/autonomy/pilot-status")
+        assert ready.status_code == 200
+        assert ready.json()["source_pilot_ready"] is True
+        assert ready.json()["delivery_pilot_enrolled"] is True
+
+        await client.post("/agent/autonomy/mode", json={"mode": "observe"})
+        paused = await client.get("/agent/autonomy/pilot-status")
+        assert paused.json()["source_pilot_ready"] is False
+        assert paused.json()["source_pilot_enrolled"] is True
