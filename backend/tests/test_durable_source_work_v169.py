@@ -4,7 +4,7 @@ Assertions inspect persisted effects and receipts. No provider/model call and no
 push, WhatsApp, personal account or production owner is involved.
 """
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from unittest.mock import AsyncMock
 
@@ -53,6 +53,44 @@ async def test_source_pilot_readiness_requires_enrollment_mode_and_create_grant(
         grant_id=granted['grant']['id'],
     )
     assert await core_work.ready_for_owner(db, OWNER) is False
+
+
+@pytest.mark.asyncio
+async def test_source_pilot_expired_grant_keeps_legacy_lane(world, monkeypatch):
+    raw, signal, _ = world
+    db = StableMockDatabase(raw)
+    monkeypatch.setenv('ORA_SOURCE_CORE_PILOT_OWNERS', OWNER)
+    authority = AuthorityService(db)
+    await authority.set_mode(OWNER, 'act_within_grants')
+    given = await authority.grant(
+        OWNER, 'calendar.local.write', effect_scope=['create'], by='user'
+    )
+    assert await core_work.ready_for_owner(db, OWNER) is True
+    await db.autonomy_grants.update_one(
+        {'owner_id': OWNER, 'id': given['grant']['id']},
+        {'$set': {'expires_at': datetime.now(timezone.utc) - timedelta(seconds=1)}},
+    )
+    # The UI-safe public grant summary still reports active; readiness must
+    # check the real expiry independently before switching source interpreters.
+    assert (await authority.grants(OWNER))[0]['active'] is True
+    assert await core_work.ready_for_owner(db, OWNER) is False
+
+
+@pytest.mark.asyncio
+async def test_source_pilot_requires_user_grant_not_code_grant(world, monkeypatch):
+    raw, signal, _ = world
+    db = StableMockDatabase(raw)
+    monkeypatch.setenv('ORA_SOURCE_CORE_PILOT_OWNERS', OWNER)
+    authority = AuthorityService(db)
+    await authority.set_mode(OWNER, 'act_within_grants')
+    await authority.grant(
+        OWNER, 'calendar.local.write', effect_scope=['create'], by='code'
+    )
+    assert await core_work.ready_for_owner(db, OWNER) is False
+    await authority.grant(
+        OWNER, 'calendar.local.write', effect_scope=['create'], by='user'
+    )
+    assert await core_work.ready_for_owner(db, OWNER) is True
 
 
 @pytest.mark.asyncio
