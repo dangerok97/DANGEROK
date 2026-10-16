@@ -140,39 +140,56 @@ async def manual_events_between(db, user_id, start, end, *, limit=500):
     return [item for _, item in sorted(result, key=lambda pair: pair[0])][:limit]
 
 
+def _manual_update_target(node, fields):
+    """Validate a proposed update without changing storage or scheduling."""
+        attrs = dict(node["attributes"])
+        zone = ZoneInfo(str(fields.get("timezone") or attrs.get("timezone") or "Europe/Rome"))
+        old_start = datetime.fromisoformat(attrs["starts_at"])
+        old_end = datetime.fromisoformat(attrs["ends_at"])
+        start = _moment(fields.get("start_datetime") or attrs["starts_at"], zone)
+        if fields.get("end_datetime"):
+            end = _moment(fields["end_datetime"], zone)
+        elif fields.get("start_datetime"):
+            end = (start.astimezone(timezone.utc) + (old_end.astimezone(timezone.utc) - old_start.astimezone(timezone.utc))).astimezone(zone)
+        else:
+            end = _moment(attrs["ends_at"], zone)
+        if end.astimezone(timezone.utc) <= start.astimezone(timezone.utc):
+            raise ValueError("end_before_start")
+        title = str(fields.get("title", node["label"])).strip()
+        if not title or len(title) > 200:
+            raise ValueError("invalid_title")
+        location = str(fields.get("location", attrs.get("location") or "")).strip()
+        description = str(fields.get("description", node.get("description") or "")).strip()
+        if len(location) > 300 or len(description) > 800:
+            raise ValueError("invalid_input")
+        attrs.update(starts_at=start.isoformat(), ends_at=end.isoformat(), timezone=str(zone), location=location)
+        if fields.get("end_datetime"):
+            # A later explicit end resolves a previously unknown technical end.
+            attrs.pop("end_time_known", None)
+    return title, description, attrs
+
+
+def manual_update_is_noop(node, fields):
+    """True only if a fresh, owner-scoped, active event already matches."""
+    if not node or node.get("status") != "active":
+        return False
+    title, description, attrs = _manual_update_target(node, fields)
+    return (title == node["label"] and
+            description == (node.get("description") or "") and
+            attrs == node["attributes"])
+
+
 async def update_manual_event(db, user_id, event_id, fields, *, expected_updated_at=None):
     node = await get_manual_event(db, user_id, event_id)
     if not node:
         raise ValueError("event_not_found")
     if node.get("status") != "active":
         raise ValueError("event_cancelled")
-    attrs = dict(node["attributes"])
-    zone = ZoneInfo(str(fields.get("timezone") or attrs.get("timezone") or "Europe/Rome"))
-    old_start = datetime.fromisoformat(attrs["starts_at"])
-    old_end = datetime.fromisoformat(attrs["ends_at"])
-    start = _moment(fields.get("start_datetime") or attrs["starts_at"], zone)
-    if fields.get("end_datetime"):
-        end = _moment(fields["end_datetime"], zone)
-    elif fields.get("start_datetime"):
-        end = (start.astimezone(timezone.utc) + (old_end.astimezone(timezone.utc) - old_start.astimezone(timezone.utc))).astimezone(zone)
-    else:
-        end = _moment(attrs["ends_at"], zone)
-    if end.astimezone(timezone.utc) <= start.astimezone(timezone.utc):
-        raise ValueError("end_before_start")
-    title = str(fields.get("title", node["label"])).strip()
-    if not title or len(title) > 200:
-        raise ValueError("invalid_title")
-    location = str(fields.get("location", attrs.get("location") or "")).strip()
-    description = str(fields.get("description", node.get("description") or "")).strip()
-    if len(location) > 300 or len(description) > 800:
-        raise ValueError("invalid_input")
-    attrs.update(starts_at=start.isoformat(), ends_at=end.isoformat(), timezone=str(zone), location=location)
-    if fields.get("end_datetime"):
-        # A later explicit end resolves a previously unknown technical end.
-        attrs.pop("end_time_known", None)
+    title, description, attrs = _manual_update_target(node, fields)
+    if (title == node["label"] and description == (node.get("description") or "")
+            and attrs == node["attributes"]):
+        return {**manual_event_public(node), "changed_now": False}
     if expected_updated_at and expected_updated_at != node.get("updated_at"):
-        if title == node["label"] and description == (node.get("description") or "") and attrs == node["attributes"]:
-            return manual_event_public(node)  # Retry after a lost success response.
         raise ValueError("event_changed")
     result = await db.life_nodes.update_one(
         {"id": event_id, "user_id": user_id, "status": "active", "updated_at": node.get("updated_at")},
@@ -184,7 +201,7 @@ async def update_manual_event(db, user_id, event_id, fields, *, expected_updated
     if not observed or observed.get("status") != "active" or observed["attributes"] != attrs or observed["label"] != title or (observed.get("description") or "") != description:
         raise ValueError("event_changed")
     await _wake(db, user_id, event_id, "event.updated", observed["updated_at"])
-    return manual_event_public(observed)
+    return {**manual_event_public(observed), "changed_now": True}
 
 
 async def archive_manual_event(db, user_id, event_id):
