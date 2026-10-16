@@ -54,19 +54,41 @@ async def ready_for_owner(db, owner_id):
     """
     if not enabled_for(owner_id):
         return False
-    from agent.authority import AuthorityService
+    from agent.authority import AuthorityService, GRANTS
+    from agent.models import AutonomyGrant
 
     authority = AuthorityService(db)
     policy = await authority.policy(owner_id)
     if policy.mode != 'act_within_grants' or not policy.chosen_by_user:
         return False
-    grants = await authority.grants(owner_id)
-    return any(
-        row.get('capability') == 'calendar.local.write'
-        and row.get('active', True) is not False
-        and 'create' in (row.get('effect_scope') or [])
-        for row in grants
-    )
+    # The public grants() API deliberately omits expires_at/revoked_at. It is
+    # suitable for UI labels, NOT for deciding whether to consume a pending
+    # source into the durable pilot. Match the authority service's live grant
+    # semantics before switching away from the legacy interpreter.
+    rows = await db[GRANTS].find(
+        {'owner_id': owner_id, 'capability': 'calendar.local.write', 'active': True},
+        {'_id': 0},
+    ).to_list(20)
+    current = _now()
+    for row in rows:
+        try:
+            grant = AutonomyGrant.model_validate(row)
+        except Exception:
+            continue
+        if not grant.active or grant.granted_by != 'user' or grant.revoked_at:
+            continue
+        # MongoDB stores UTC dates and its default Python decoder returns
+        # naive UTC datetimes. Use precisely the authority matcher's convention:
+        # a missing expiry is not enough to enter this finite-permission pilot.
+        expires = grant.expires_at
+        if not expires:
+            continue
+        expiry_utc = expires if expires.tzinfo else expires.replace(tzinfo=timezone.utc)
+        if expiry_utc <= current:
+            continue
+        if 'create' in grant.effect_scope:
+            return True
+    return False
 
 
 def _event_version(node):
