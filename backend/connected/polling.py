@@ -569,7 +569,7 @@ async def _what_to_read(
 
 async def poll_once(
     db, *, now: Optional[datetime] = None, limit: int = MAX_PER_TICK,
-    owners: Optional[List[str]] = None,
+    owners: Optional[List[str]] = None, interpret: bool = True,
 ) -> Dict[str, int]:
     """
     One pass over everybody's instruments: read what is due, note when to look again.
@@ -654,48 +654,74 @@ async def poll_once(
             failed=failed, now=moment if now is not None else _now(),
         )
 
-    # E poi si guarda cosa e' arrivato.
-    #
-    #     LEGGERE NON E' CAPIRE.
-    #
-    # Il giro leggeva le sorgenti e finiva li'. I segnali restavano in attesa
-    # di un'interpretazione che partiva solo da una conversazione o da un
-    # trigger manuale — e su un account vero se ne sono accumulati 180, mai
-    # guardati, con la catena a valle (cambiamenti, opportunita', obiettivi,
-    # consegna) ferma per mancanza di materiale invece che per prudenza.
-    #
-    # Nessuna pipeline nuova: e' il passo che il pacchetto possiede gia',
-    # chiamato dal giro che c'era gia', e solo per chi ha portato a casa
-    # qualcosa in questo giro.
-    # E anche chi ha segnali fermi da prima.
-    #
-    #     UN ARRETRATO NON SI SMALTISCE DA SOLO SE NESSUNO LO GUARDA.
-    #
-    # Il primo tentativo capiva solo quello che era appena arrivato: su un
-    # account vero restavano 220 segnali letti mesi prima e mai interpretati,
-    # e siccome le sorgenti erano tutte fresche il giro non ne toccava
-    # nessuno. Capire l'arretrato e' lo stesso lavoro, ed e' quello che
-    # separa «ORA legge la tua vita» da «ORA ha letto la tua vita una volta».
-    if len(brought_something) < UNDERSTAND_PER_TICK:
-        for owner_id in await _owners_with_something_to_understand(
-            db, limit=UNDERSTAND_PER_TICK, only=owners,
-        ):
-            if owner_id not in brought_something:
-                brought_something.append(owner_id)
+    # When called by Ambient Runtime, source reading has a short time budget.
+    # A durable Core turn may take 180 s, so it runs in a distinct bounded lane.
+    # Keep inline understanding for explicit callers and regression compatibility.
+    if interpret:
+        # E poi si guarda cosa e' arrivato.
+        #
+        #     LEGGERE NON E' CAPIRE.
+        #
+        # Il giro leggeva le sorgenti e finiva li'. I segnali restavano in attesa
+        # di un'interpretazione che partiva solo da una conversazione o da un
+        # trigger manuale — e su un account vero se ne sono accumulati 180, mai
+        # guardati, con la catena a valle (cambiamenti, opportunita', obiettivi,
+        # consegna) ferma per mancanza di materiale invece che per prudenza.
+        #
+        # Nessuna pipeline nuova: e' il passo che il pacchetto possiede gia',
+        # chiamato dal giro che c'era gia', e solo per chi ha portato a casa
+        # qualcosa in questo giro.
+        # E anche chi ha segnali fermi da prima.
+        #
+        #     UN ARRETRATO NON SI SMALTISCE DA SOLO SE NESSUNO LO GUARDA.
+        #
+        # Il primo tentativo capiva solo quello che era appena arrivato: su un
+        # account vero restavano 220 segnali letti mesi prima e mai interpretati,
+        # e siccome le sorgenti erano tutte fresche il giro non ne toccava
+        # nessuno. Capire l'arretrato e' lo stesso lavoro, ed e' quello che
+        # separa «ORA legge la tua vita» da «ORA ha letto la tua vita una volta».
+        if len(brought_something) < UNDERSTAND_PER_TICK:
+            for owner_id in await _owners_with_something_to_understand(
+                db, limit=UNDERSTAND_PER_TICK, only=owners,
+            ):
+                if owner_id not in brought_something:
+                    brought_something.append(owner_id)
 
-    for owner_id in brought_something[:UNDERSTAND_PER_TICK]:
-        if out_of_time():
-            break
-        try:
-            understood = await ConnectedLifeService(db).interpret(
-                owner_id, limit=UNDERSTAND_PER_OWNER,
-            )
-            handled["understood"] += int(understood.get("passed_on") or 0)
-            handled["noise"] += int(understood.get("noise") or 0)
-        except Exception as e:
-            logger.info("interpret soft-fail: %s", type(e).__name__)
+        for owner_id in brought_something[:UNDERSTAND_PER_TICK]:
+            if out_of_time():
+                break
+            try:
+                understood = await ConnectedLifeService(db).interpret(
+                    owner_id, limit=UNDERSTAND_PER_OWNER,
+                )
+                handled["understood"] += int(understood.get("passed_on") or 0)
+                handled["noise"] += int(understood.get("noise") or 0)
+            except Exception as e:
+                logger.info("interpret soft-fail: %s", type(e).__name__)
 
     return handled
+
+
+# One cursor per runtime process, advanced for every candidate batch. A sorted
+# distinct() with [:limit] always starved the same owners in a growing backlog.
+_last_understand_owner: Optional[str] = None
+
+
+async def interpret_due(db, *, owners: Optional[List[str]] = None) -> Dict[str, int]:
+    """Run one bounded source-to-Core turn outside the short provider-poll lane.
+
+    Each durable work claim remains owner-scoped and idempotent; the ambient
+    runtime only selects WHEN to resume, never WHAT the AI should conclude.
+    """
+    from connected.service import ConnectedLifeService
+
+    candidates = await _owners_with_something_to_understand(db, limit=1, only=owners)
+    if not candidates:
+        return {"looked_at": 0, "understood": 0, "noise": 0}
+    result = await ConnectedLifeService(db).interpret(candidates[0], limit=1)
+    return {"looked_at": 1,
+            "understood": int(result.get("passed_on") or 0),
+            "noise": int(result.get("noise") or 0)}
 
 
 async def _owners_with_something_to_understand(
@@ -707,7 +733,14 @@ async def _owners_with_something_to_understand(
     Una distinct su una collezione indicizzata: chi non ha niente in attesa
     non compare, e la domanda costa lo stesso su un database vuoto o pieno.
     """
-    query: Dict[str, Any] = {"status": "pending"}
+    query: Dict[str, Any] = {
+        "status": "pending",
+        "_supersession_pending": {"$ne": True},
+        "$or": [
+            {"_core_work.phase": {"$exists": False}},
+            {"_core_work.phase": {"$in": ["running", "retry", "result_ready"]}},
+        ],
+    }
     if only:
         query["owner_id"] = {"$in": list(only)}
     try:
@@ -715,7 +748,19 @@ async def _owners_with_something_to_understand(
     except Exception as e:
         logger.info("pending scan soft-fail: %s", type(e).__name__)
         return []
-    return [str(o) for o in found if o][:limit]
+    candidates = sorted({str(o) for o in found if o})
+    if not candidates:
+        return []
+    if only:
+        return candidates[:limit]
+    # Advance by owner rather than time. A long model turn (up to 180 s)
+    # must not repeatedly select the same account at every re-entry.
+    global _last_understand_owner
+    after = next((i for i, owner in enumerate(candidates)
+                  if _last_understand_owner is None or owner > _last_understand_owner), 0)
+    selected = (candidates[after:] + candidates[:after])[:limit]
+    _last_understand_owner = selected[-1]
+    return selected
 
 
 async def _owners_with_sources(db) -> List[str]:
