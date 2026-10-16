@@ -221,18 +221,18 @@ export default function PermessiScreen() {
   const [revoking, setRevoking] = useState<string | null>(null);
 
   const loadAutonomy = useCallback(async () => {
-    try {
-      const out = await api.getAgentAutonomy();
-      setAutonomyMode(out.mode);
-      setAutonomyChosen(Boolean(out.chosen_by_user));
-      setGrants((out.grants || []).filter((g) => g.active !== false));
-    } catch {
-      /* Silenzioso: la pagina resta utile anche senza questa sezione. */
-    }
+    // Failure cannot be treated as the default "prepare" choice: it may hide
+    // a mode that the server has already saved. Callers must see the error.
+    const out = await api.getAgentAutonomy();
+    setAutonomyMode(out.mode);
+    setAutonomyChosen(Boolean(out.chosen_by_user));
+    setGrants((out.grants || []).filter((g) => g.active !== false));
   }, []);
 
   useEffect(() => {
-    void loadAutonomy();
+    void loadAutonomy().catch((e) => {
+      setWriteError(`Non riesco a leggere i permessi di ORA: ${humanizeError(e)}`);
+    });
   }, [loadAutonomy]);
 
   const revokeGrant = useCallback(
@@ -320,7 +320,13 @@ export default function PermessiScreen() {
         setBusy(`autonomy_${next}`);
         setWriteError(null);
         try {
-          await api.setAgentAutonomyMode(next);
+          const response = await api.setAgentAutonomyMode(next);
+          if (!response.ok) throw new Error('ORA non ha confermato la scelta.');
+          // The POST response is authoritative for the selected mode. Render
+          // it immediately; re-read the grants separately and report any
+          // failure instead of silently reverting to "prepare".
+          setAutonomyMode(next);
+          setAutonomyChosen(true);
           await loadAutonomy();
           haptic('success');
         } catch (e) {
