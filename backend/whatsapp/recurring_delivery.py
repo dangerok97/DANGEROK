@@ -141,3 +141,93 @@ async def reconcile_recent_recurring(db, *, limit: int = _RECOVERY_LIMIT) -> int
         if await enqueue_due_recurring(db, row):
             inserted += 1
     return inserted
+
+async def retry_failed_recurring_once(db, owner_id: str) -> dict:
+    """Owner-triggered, one-time repeat of a signed FAILED template receipt.
+
+    Never retry an unknown/accepted result. Retain the original failed row
+    unchanged for diagnosis; a separate deterministic row preserves both
+    attempts and blocks duplicate taps across workers.
+    """
+    from pymongo.errors import DuplicateKeyError
+    from whatsapp.alerts import alert_id, public_copy, template_settings
+    from whatsapp.template_approval import approval_status
+
+    if not CloudConfig.available() or not template_settings():
+        return {"queued": False, "reason": "template_not_ready"}
+    original = await db.whatsapp_alert_outbox.find_one(
+        {"owner_id": owner_id, "source_kind": "recurring_due",
+         "status": "failed", "kind": "approved_template",
+         "meta_status_at": {"$exists": True}},
+        {"_id": 1, "source_id": 1, "phone_hash": 1, "created_at": 1},
+        sort=[("created_at", -1)],
+    )
+    if not original:
+        return {"queued": False, "reason": "no_confirmed_failed_reminder"}
+
+    raw = await db.opportunities.find_one(
+        {"owner_id": owner_id, "id": original.get("source_id"),
+         "status": "active", "source_context": "recurring_memo"}, {"_id": 0},
+    )
+    if not raw:
+        return {"queued": False, "reason": "reminder_not_current"}
+    try:
+        event = Opportunity.model_validate(raw)
+    except (TypeError, ValueError):
+        return {"queued": False, "reason": "reminder_not_current"}
+    if not await memo_opportunity_current(db, event):
+        return {"queued": False, "reason": "reminder_not_current"}
+
+    link = await db.whatsapp_links.find_one({
+        "user_id": owner_id, "phone_hash": original.get("phone_hash"),
+        "notifications_enabled": True, "opted_in_at": {"$exists": True},
+        "notifications_detail_enabled": True,
+        "details_opted_in_at": {"$exists": True},
+    }, {"_id": 0, "phone_hash": 1})
+    if not link:
+        return {"queued": False, "reason": "consent_or_link_changed"}
+
+    cfg = CloudConfig.load()
+    if await approval_status(cfg, use_cache=False) != "approved_dynamic":
+        return {"queued": False, "reason": "template_not_approved"}
+    text = public_copy(direct_plan(event), detailed=True)
+    if not text:
+        return {"queued": False, "reason": "reminder_without_valid_copy"}
+
+    now = datetime.now(timezone.utc)
+    try:
+        expires = datetime.fromisoformat(
+            str(event.valid_until or "").replace("Z", "+00:00")
+        )
+    except ValueError:
+        return {"queued": False, "reason": "reminder_not_current"}
+    if expires.tzinfo is None or expires <= now:
+        return {"queued": False, "reason": "reminder_not_current"}
+
+    attempt_id = alert_id(owner_id, recurring_key(event.id) + ":manual_retry_once")
+    row = {
+        "_id": attempt_id,
+        "owner_id": owner_id,
+        "source_kind": "recurring_due",
+        "source_id": event.id,
+        "retry_kind": "owner_confirmed_failed_once",
+        # Preserve the original failure as its own row without copying WAMID.
+        "phone_hash": link["phone_hash"],
+        "copy_enc": cfg.encrypt(text),
+        "force_template": True,
+        "status": "ready",
+        "attempts": 0,
+        "next_attempt_at": now,
+        "created_at": now,
+        "valid_until": min(expires.astimezone(timezone.utc), now + _DIRECT_MAX_AGE),
+        "discard_after": now + timedelta(days=30),
+    }
+    try:
+        inserted = await db.whatsapp_alert_outbox.update_one(
+            {"_id": attempt_id}, {"$setOnInsert": row}, upsert=True,
+        )
+    except DuplicateKeyError:
+        return {"queued": False, "reason": "retry_already_requested"}
+    if not inserted.upserted_id:
+        return {"queued": False, "reason": "retry_already_requested"}
+    return {"queued": True, "status": "queued"}
