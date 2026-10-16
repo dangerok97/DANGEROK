@@ -707,10 +707,15 @@ export const api = {
     request<{ notifications_detail_enabled: boolean }>(
       '/whatsapp/notifications/details', { method: 'PUT', body: JSON.stringify({ enabled }) },
     ),
+  whatsappRetryFailedRecurring: () =>
+    request<{ queued: boolean; status: string }>(
+      '/whatsapp/notifications/retry-failed-recurring', { method: 'POST' },
+    ),
   whatsappNotificationHistory: () =>
     request<{ alerts: Array<{
       source_kind?: 'recurring_due' | string;
       kind?: string;
+      retry_kind?: string;
       status: string;
       created_at?: string;
       accepted_at?: string;

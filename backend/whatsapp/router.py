@@ -100,7 +100,7 @@ async def whatsapp_notification_history(user=Depends(get_current_user)):
     cursor = db.whatsapp_alert_outbox.find(
         {"owner_id": owner},
         {"_id": 0, "plan_id": 1, "status": 1,
-         "source_kind": 1, "kind": 1, "created_at": 1,
+         "source_kind": 1, "kind": 1, "retry_kind": 1, "created_at": 1,
          "accepted_at": 1, "meta_status_at": 1, "failure_code": 1},
     ).sort("created_at", -1).limit(20)
     # These are technical delivery facts only: no message, phone, WAMID,
@@ -110,6 +110,17 @@ async def whatsapp_notification_history(user=Depends(get_current_user)):
         "alerts": rows,
         "template_configured": bool(template_settings()),
     }
+
+
+@router.post("/notifications/retry-failed-recurring")
+async def retry_failed_recurring_notification(user=Depends(get_current_user)):
+    """Explicit one-time user action, never a background resending loop."""
+    _config()
+    from whatsapp.recurring_delivery import retry_failed_recurring_once
+    result = await retry_failed_recurring_once(db, user["user_id"])
+    if not result.get("queued"):
+        raise HTTPException(status_code=409, detail=result.get("reason", "retry_unavailable"))
+    return result
 
 
 @router.post("/link/start")

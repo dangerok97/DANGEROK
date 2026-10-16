@@ -40,6 +40,7 @@ export function WhatsAppConnection() {
   const [alertHistory, setAlertHistory] = useState<RecentWhatsAppAlert[]>([]);
   const [historyChecked, setHistoryChecked] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [retryNotice, setRetryNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,6 +111,36 @@ export function WhatsAppConnection() {
       setBusy(false);
     }
   };
+
+  const retryFailedRecurring = async () => {
+    setBusy(true);
+    setError(null);
+    setRetryNotice(null);
+    try {
+      await api.whatsappRetryFailedRecurring();
+      setRetryNotice('Un solo nuovo tentativo è stato messo in coda. Non è ancora una conferma di consegna.');
+      await refresh();
+    } catch (err) {
+      setError(humanizeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const retryAlreadyExists = alertHistory.some(item => item.retry_kind === 'owner_confirmed_failed_once');
+  const hasTodayFailedRecurring = alertHistory.some(item =>
+    item.source_kind === 'recurring_due'
+    && item.status === 'failed'
+    && item.kind === 'approved_template'
+    && !!item.created_at
+    && new Date(item.created_at).toDateString() === new Date().toDateString()
+  );
+  const canRetryFailedRecurring = !!(
+    status?.notifications_enabled
+    && status.notifications_detail_enabled
+    && hasTodayFailedRecurring
+    && !retryAlreadyExists
+  );
 
   const disconnect = async () => {
     setBusy(true);
@@ -278,6 +309,27 @@ export function WhatsAppConnection() {
                 ) : null}
               </View>
             ))}
+            {retryNotice ? (
+              <Text style={[styles.description, { color: colors.textPrimary }]}>{retryNotice}</Text>
+            ) : null}
+            {canRetryFailedRecurring ? (
+              <>
+                <Text style={[styles.description, { color: colors.textSecondary }]}>
+                  Meta ha segnalato la mancata consegna di un promemoria di oggi.
+                  Puoi autorizzare un solo nuovo invio con lo stesso modello approvato.
+                  ORA controllerà nuovamente che la ricorrenza e i consensi siano validi.
+                  Non ripeterà automaticamente l'invio in caso di errore.
+                </Text>
+                <ActionBtn
+                  icon="refresh-outline"
+                  label="Riprova una sola volta il promemoria"
+                  loading={busy}
+                  disabled={busy}
+                  onPress={() => void retryFailedRecurring()}
+                  testID="whatsapp-retry-failed-recurring"
+                />
+              </>
+            ) : null}
             <ActionBtn
               icon="refresh-outline"
               label="Aggiorna esiti WhatsApp"

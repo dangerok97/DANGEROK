@@ -412,7 +412,7 @@ class AlertWorker:
 
         template = template_settings()
         template_approval = None
-        if not in_service_window(link, moment):
+        if item.get("force_template") is True or not in_service_window(link, moment):
             if not template_scope_matches(plan, subject):
                 await cancel(self.db, item, "template_scope_unsupported")
                 return True
@@ -442,7 +442,9 @@ class AlertWorker:
         if not copy:
             await cancel(self.db, item, "no_informative_copy")
             return True
-        fresh_window = in_service_window(latest)
+        # A user-initiated diagnostic retry tests the approved Utility
+        # template even if a separate chat reopened the 24h text window.
+        fresh_window = in_service_window(latest) and item.get("force_template") is not True
         if not fresh_window and not template:
             await cancel(self.db, item, "customer_window_closed")
             return True
