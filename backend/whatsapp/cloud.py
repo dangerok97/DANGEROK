@@ -337,4 +337,15 @@ def iter_signed_delivery_statuses(payload: dict, expected_phone_number_id: str):
                     and isinstance(to, str)
                     and re.fullmatch(r"[1-9][0-9]{6,14}", to)
                 ):
-                    yield {"id": mid, "status": status, "recipient_id": to}
+                    # Preserve only Meta's numeric, provider-defined failure code.
+                    # Its freeform title, details and recipient data stay private.
+                    receipt = {"id": mid, "status": status, "recipient_id": to}
+                    if status == "failed":
+                        errors = item.get("errors")
+                        if isinstance(errors, list):
+                            for error in errors[:3]:
+                                code = error.get("code") if isinstance(error, dict) else None
+                                if type(code) is int and 0 <= code <= 9999999:
+                                    receipt["error_code"] = code
+                                    break
+                    yield receipt
