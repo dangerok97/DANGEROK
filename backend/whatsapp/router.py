@@ -98,12 +98,18 @@ async def whatsapp_notification_history(user=Depends(get_current_user)):
     """Bounded owner-only provider delivery statuses; never expose message bodies."""
     owner = user["user_id"]
     cursor = db.whatsapp_alert_outbox.find(
-        {"owner_id": owner}, {"_id": 0, "plan_id": 1, "status": 1,
-                             "created_at": 1, "accepted_at": 1,
-                             "meta_status_at": 1, "failure_code": 1},
+        {"owner_id": owner},
+        {"_id": 0, "plan_id": 1, "status": 1,
+         "source_kind": 1, "kind": 1, "created_at": 1,
+         "accepted_at": 1, "meta_status_at": 1, "failure_code": 1},
     ).sort("created_at", -1).limit(20)
-    return {"alerts": await cursor.to_list(20),
-            "template_configured": bool(template_settings())}
+    # These are technical delivery facts only: no message, phone, WAMID,
+    # memory id or opportunity id, and never another owner's alerts.
+    rows = await cursor.to_list(20)
+    return {
+        "alerts": rows,
+        "template_configured": bool(template_settings()),
+    }
 
 
 @router.post("/link/start")
