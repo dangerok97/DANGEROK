@@ -220,6 +220,11 @@ export default function PermessiScreen() {
   const [grants, setGrants] = useState<StandingGrant[]>([]);
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode | null>(null);
   const [autonomyChosen, setAutonomyChosen] = useState(false);
+  const [pilotStatus, setPilotStatus] = useState<{
+    source_pilot_enrolled: boolean;
+    source_pilot_ready: boolean;
+    delivery_pilot_enrolled: boolean;
+  } | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [pendingRevocation, setPendingRevocation] = useState<StandingGrant | null>(null);
@@ -232,6 +237,13 @@ export default function PermessiScreen() {
     setAutonomyMode(out.mode);
     setAutonomyChosen(Boolean(out.chosen_by_user));
     setGrants((out.grants || []).filter((g) => g.active !== false));
+    // Fail closed on diagnostic unavailability; do not announce an active
+    // background pilot merely because a calendar permission exists.
+    try {
+      setPilotStatus(await api.getAgentAutonomyPilotStatus());
+    } catch {
+      setPilotStatus(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -558,7 +570,7 @@ export default function PermessiScreen() {
         ) : (
           <ChoiceRow
             label={autonomyMode === 'act_within_grants' && calendarCreateGranted
-              ? 'Autonomia per gli impegni attiva'
+              ? 'Permesso per gli impegni attivo'
               : 'Attiva ORA per i miei impegni'}
             detail={autonomyMode === 'act_within_grants' && calendarCreateGranted
               ? 'Attiva · ORA può aggiungere nuovi impegni confermati nel calendario interno.'
@@ -569,6 +581,17 @@ export default function PermessiScreen() {
             testID="autonomy-one-step-enable"
           />
         )}
+        {autonomyMode === 'act_within_grants' && calendarCreateGranted ? (
+          <BoundaryNote>
+            {pilotStatus === null
+              ? 'Permesso salvato. Non riesco ancora a verificare se il motore autonomo è abilitato sul server.'
+              : !pilotStatus.source_pilot_ready
+                ? 'Permesso salvato. Il pilot che interpreta automaticamente le email non è ancora abilitato su questo account.'
+                : !pilotStatus.delivery_pilot_enrolled
+                  ? 'Elaborazione autonoma abilitata. Il canale di avvisi dei risultati non è ancora abilitato al pilot.'
+                  : 'Pilot autonomo abilitato. Le notifiche seguono le preferenze che hai già scelto.'}
+          </BoundaryNote>
+        ) : null}
         <BoundaryNote>
           Le notifiche seguono le tue preferenze attuali. Posizione e altre
           integrazioni restano facoltative e richiedono autorizzazioni separate.
