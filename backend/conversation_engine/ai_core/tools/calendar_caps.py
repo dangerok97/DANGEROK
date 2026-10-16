@@ -1783,6 +1783,33 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     if not act.may_execute:
         return _authority_required("update_calendar_event", act)
 
+    if local_node:
+        # This read happens after the authority awaits. Comparing an old
+        # snapshot could wrongly skip a concurrent legitimate modification.
+        from home.manual_event import manual_update_is_noop
+        fresh = await get_manual_event(db, uid, draft_id)
+        try:
+            unchanged = manual_update_is_noop(fresh, fields)
+        except (ValueError, KeyError) as exc:
+            return _fail("update_calendar_event", str(exc).upper())
+        if unchanged:
+            observed_state = manual_event_public(fresh)
+            return Observation(
+                kind="tool", name="update_calendar_event", status="ok",
+                payload={"status": "ok", "operation": "already_updated",
+                         "changed_now": False, "verified": True,
+                         "calendar_ref": _ref(draft_id), "source": "ora_local",
+                         "updated_on_google": False,
+                         "title": observed_state["title"],
+                         "start_datetime": observed_state["starts_at"],
+                         "end_datetime": observed_state["ends_at"],
+                         "timezone": observed_state["timezone"],
+                         "location": observed_state["location"],
+                         "description": observed_state["description"],
+                         "reason": "L'evento è già nello stato richiesto; non ho modificato nulla."},
+                provenance=[_ref(draft_id)],
+            )
+
     taken = await commanded.begin(db, act)
     if taken == "already_done":
         return Observation(
@@ -1816,7 +1843,8 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
                                accepted=True, observed=True)
         return Observation(
             kind="tool", name="update_calendar_event", status="ok",
-            payload={"status": "ok", "operation": "updated", "verified": True,
+            payload={"status": "ok", "operation": "updated" if updated.get("changed_now", True) else "already_updated",
+                     "changed_now": updated.get("changed_now", True), "verified": True,
                      "calendar_ref": _ref(draft_id), "source": "ora_local", "updated_on_google": False,
                      "title": updated["title"], "start_datetime": updated["starts_at"],
                      "end_datetime": updated["ends_at"], "location": updated["location"],
