@@ -80,9 +80,9 @@ async def current_subject(db, owner_id, activity_id):
     """
     if not isinstance(activity_id, str) or not _OPAQUE.fullmatch(activity_id):
         return None
-    if not await owner_enabled(db, owner_id):
-        return None
     try:
+        if not await owner_enabled(db, owner_id):
+            return None
         return await _load(db, owner_id, activity_id)
     except (ValueError, KeyError, TypeError):
         return None  # Malformed or provably stale receipt, no usable source.
