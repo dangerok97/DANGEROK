@@ -15,6 +15,7 @@ from whatsapp.alerts import AlertWorker, enqueue, alert_id, set_opt_in
 from whatsapp.cloud import CloudConfig
 from whatsapp.recurring_delivery import (
     recurring_key, enqueue_due_recurring, reconcile_recent_recurring,
+    retry_failed_recurring_once,
 )
 from whatsapp.template_provisioning import TEMPLATE_NAME, TEMPLATE_LANGUAGE
 
@@ -188,4 +189,131 @@ async def test_canonical_plan_cannot_duplicate_direct_due_event(cfg, monkeypatch
         return "approved_dynamic"
     monkeypatch.setattr(template_approval, "approval_status", approved)
     assert not await enqueue(db, OWNER, plan)
+    assert await db.whatsapp_alert_outbox.count_documents({}) == 1
+
+
+async def mark_failed_receipt(db, *, kind="approved_template"):
+    now = datetime.now(timezone.utc)
+    await db.whatsapp_alert_outbox.update_one(
+        {"owner_id": OWNER, "source_kind": "recurring_due"},
+        {"$set": {
+            "status": "failed", "kind": kind,
+            "wamid": "wamid.synthetic_failure_001",
+            "meta_status_at": now, "failure_code": "meta_delivery_failed",
+        }},
+    )
+
+
+@pytest.mark.asyncio
+async def test_confirmed_failed_reminder_retry_is_once_and_preserves_original(cfg, monkeypatch):
+    from whatsapp import template_approval
+    db = AsyncMongoMockClient().wa_manual_one_failure_retry
+    event = await make_due(db, cfg)
+    await mark_failed_receipt(db)
+
+    async def approved(*_args, **_kwargs):
+        return "approved_dynamic"
+
+    monkeypatch.setattr(template_approval, "approval_status", approved)
+    first = await retry_failed_recurring_once(db, OWNER)
+    assert first == {"queued": True, "status": "queued"}
+    second = await retry_failed_recurring_once(db, OWNER)
+    assert second == {"queued": False, "reason": "retry_already_requested"}
+
+    originals = await db.whatsapp_alert_outbox.find({"owner_id": OWNER}).to_list(5)
+    assert len(originals) == 2
+    old = next(x for x in originals if x["status"] == "failed")
+    retry = next(x for x in originals if x["status"] == "ready")
+    assert old["wamid"] == "wamid.synthetic_failure_001"
+    assert retry["source_id"] == event["id"]
+    assert retry["retry_kind"] == "owner_confirmed_failed_once"
+    assert retry["force_template"] is True
+    assert "wamid" not in retry
+    assert retry["phone_hash"] == old["phone_hash"]
+    assert cfg.decrypt(retry["copy_enc"]).startswith("*ORA — aggiornamento*")
+    assert await retry_failed_recurring_once(db, "not-this-owner") == {
+        "queued": False, "reason": "no_confirmed_failed_reminder",
+    }
+
+
+@pytest.mark.asyncio
+async def test_manual_retry_forces_template_even_when_24h_window_reopens(cfg, monkeypatch):
+    from whatsapp import template_approval
+    db = AsyncMongoMockClient().wa_force_template_on_retry
+    await make_due(db, cfg)
+    await mark_failed_receipt(db)
+
+    async def approved(*_args, **_kwargs):
+        return "approved_dynamic"
+
+    monkeypatch.setattr(template_approval, "approval_status", approved)
+    assert (await retry_failed_recurring_once(db, OWNER))["queued"] is True
+    await db.whatsapp_links.update_one(
+        {"user_id": OWNER},
+        {"$set": {"last_inbound_at": datetime.now(timezone.utc)}},
+    )
+    sent = []
+
+    async def send(self, recipient, *, message="", template=None):
+        sent.append((recipient, message, template))
+        return "wamid.synthetic_retry_sent"
+
+    monkeypatch.setattr(CloudConfig, "send_proactive", send)
+    assert await AlertWorker(db, cfg).process_one()
+    assert len(sent) == 1
+    assert sent[0][0] == PHONE
+    assert sent[0][1] == ""
+    assert sent[0][2][:2] == (TEMPLATE_NAME, TEMPLATE_LANGUAGE)
+    assert "Anniversario sintetico" in sent[0][2][2]
+    retry = await db.whatsapp_alert_outbox.find_one({
+        "owner_id": OWNER, "retry_kind": "owner_confirmed_failed_once",
+    })
+    assert retry["status"] == "accepted"
+    assert (await db.whatsapp_alert_outbox.find_one({
+        "owner_id": OWNER, "status": "failed",
+    }))["wamid"] == "wamid.synthetic_failure_001"
+
+
+@pytest.mark.asyncio
+async def test_retry_rejected_when_meta_has_not_confirmed_failure(cfg, monkeypatch):
+    db = AsyncMongoMockClient().wa_uncertain_no_retry
+    await make_due(db, cfg)
+    await db.whatsapp_alert_outbox.update_one(
+        {"owner_id": OWNER},
+        {"$set": {"status": "acceptance_unknown", "kind": "approved_template"}},
+    )
+    assert await retry_failed_recurring_once(db, OWNER) == {
+        "queued": False, "reason": "no_confirmed_failed_reminder",
+    }
+    assert await db.whatsapp_alert_outbox.count_documents({}) == 1
+
+
+@pytest.mark.asyncio
+async def test_retry_rechecks_memory_and_owner_consent(cfg, monkeypatch):
+    from whatsapp import template_approval
+    db = AsyncMongoMockClient().wa_retry_privacy_fence
+    await make_due(db, cfg)
+    await mark_failed_receipt(db)
+
+    async def approved(*_args, **_kwargs):
+        return "approved_dynamic"
+
+    monkeypatch.setattr(template_approval, "approval_status", approved)
+    await db.memories.update_one(
+        {"id": "mem_anniversary_synthetic", "user_id": OWNER},
+        {"$set": {"status": "forgotten"}},
+    )
+    result = await retry_failed_recurring_once(db, OWNER)
+    assert result == {"queued": False, "reason": "reminder_not_current"}
+    await db.memories.update_one(
+        {"id": "mem_anniversary_synthetic", "user_id": OWNER},
+        {"$set": {"status": "active"}},
+    )
+    await db.whatsapp_links.update_one(
+        {"user_id": OWNER},
+        {"$set": {"notifications_detail_enabled": False},
+         "$unset": {"details_opted_in_at": ""}},
+    )
+    result = await retry_failed_recurring_once(db, OWNER)
+    assert result == {"queued": False, "reason": "consent_or_link_changed"}
     assert await db.whatsapp_alert_outbox.count_documents({}) == 1
