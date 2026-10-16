@@ -479,7 +479,10 @@ def test_a_private_note_changing_is_a_fact_without_its_content(monkeypatch):
             # Nowhere in what is stored, nor in what a judgement is shown.
             stored = changed.model_dump_json()
             assert "esami del sangue" not in stored
-            assert "333" not in stored
+            # Opaque random IDs may contain these three digits by chance.
+            # Assert that private phone digits never enter semantic signal fields.
+            assert "333" not in changed.payload_summary
+            assert "333" not in str([field.model_dump() for field in changed.changed_fields])
             assert secret not in str(changed.for_ai())
             # But the fact travels.
             shown = {f["field"]: f for f in changed.for_ai()["what_is_different"]}
