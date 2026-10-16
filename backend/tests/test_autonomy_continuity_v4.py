@@ -268,6 +268,7 @@ async def test_slow_lane_does_not_block_due_work_and_shutdown_cancels(monkeypatc
                         slow_operation if slow_lane == 'delivery-admission' else AsyncMock())
     monkeypatch.setattr(runtime, 'tick', tick)
     monkeypatch.setattr(runtime, 'read_sources', AsyncMock())
+    monkeypatch.setattr(runtime, 'understand_sources', AsyncMock())
     monkeypatch.setattr(runtime, 'keep_relations_current', AsyncMock())
     monkeypatch.setattr(runtime, 'sweep', AsyncMock())
     monkeypatch.setattr(background, 'recover_due', AsyncMock())
@@ -278,10 +279,11 @@ async def test_slow_lane_does_not_block_due_work_and_shutdown_cancels(monkeypatc
         task = runtime._jobs[slow_lane]
         await runtime._cycle(object(), 0)
         assert runtime._jobs[slow_lane] is task, 'never overlap a pending lane'
-        # Seven bounded service lanes (including recurring Memo + durable
-        # delivery recovery) and two due-work slots. The Memo lane is one
-        # indexed scheduler task, never an unbounded task per user.
-        assert len(runtime._jobs) <= 9
+        # Eight bounded service lanes (including separate, single-flight
+        # source reasoning, recurring Memo, and durable delivery recovery)
+        # plus two due-work slots. Never an unbounded task per account.
+        assert len(runtime._jobs) <= 10
+        assert 'source-understanding' in runtime._jobs
     finally:
         await runtime._stop_jobs()
     assert cancelled.is_set() and not runtime._jobs

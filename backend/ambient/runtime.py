@@ -259,7 +259,7 @@ async def read_sources(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
     from connected.polling import poll_once
 
     try:
-        handled = await poll_once(db, now=now)
+        handled = await poll_once(db, now=now, interpret=False)
     except Exception as exc:
         logger.info("auto-sync soft-fail: %s", type(exc).__name__)
         return {"looked_at": 0}
@@ -268,6 +268,16 @@ async def read_sources(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
     if handled.get("looked_at"):
         logger.info("auto_sync %s", handled)
     return handled
+
+
+async def understand_sources(db) -> Dict[str, int]:
+    """One durable Core decision per turn; independent of 12 s poll budget."""
+    from connected.polling import interpret_due
+
+    result = await interpret_due(db)
+    if result.get("looked_at"):
+        logger.info("source_understanding %s", result)
+    return result
 
 
 async def keep_relations_current(db) -> Dict[str, Any]:
@@ -415,6 +425,10 @@ async def _cycle(db, ticks):
     from agent.background import recover_due
     from energy_offers.service import EnergyOfferService
     _launch("sources", lambda: read_sources(db), timeout=120)
+    # One reasoning turn may require 180 seconds. Never cancel it at the
+    # provider polling lane's 120-second timeout or block future email syncs.
+    # The durable worker's own limit remains 180 s; leave time for DB fencing.
+    _launch("source-understanding", lambda: understand_sources(db), timeout=220)
     _launch("admission", lambda: recover_due(db), timeout=110)
     _launch("delivery-admission", lambda: _serve_delivery_admission(db), timeout=125)
     # Durable recurring memos are cheap when nothing is due: one indexed query.
