@@ -1783,6 +1783,39 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     if not act.may_execute:
         return _authority_required("update_calendar_event", act)
 
+    # CAL164 recovery: an already-satisfied native request is not a new
+    # mutation, authority receipt or reason to wake the background worker.
+    # The target, user command and authority have already been checked above.
+    if local_node:
+        from home.manual_event import manual_update_is_noop
+        # Re-read ownership and revision immediately before claiming no-op:
+        # another device may have modified/cancelled the event since lookup.
+        fresh = await get_manual_event(db, uid, draft_id)
+        try:
+            unchanged = bool(
+                fresh and fresh.get("status") == "active"
+                and fresh.get("updated_at") == local_node.get("updated_at")
+                and manual_update_is_noop(fresh, fields)
+            )
+        except (ValueError, KeyError, TypeError):
+            unchanged = False  # Let the normal write handler reject bad input.
+        if unchanged:
+            local = manual_event_public(fresh)
+            return Observation(
+                kind="tool", name="update_calendar_event", status="ok",
+                payload={
+                    "status": "ok", "operation": "already_updated",
+                    "verified": True, "changed_now": False,
+                    "calendar_ref": _ref(draft_id), "source": "ora_local",
+                    "updated_on_google": False, "title": local["title"],
+                    "start_datetime": local["starts_at"],
+                    "end_datetime": local["ends_at"],
+                    "location": local["location"],
+                    "description": local["description"],
+                },
+                provenance=[_ref(draft_id)],
+            )
+
     taken = await commanded.begin(db, act)
     if taken == "already_done":
         return Observation(
@@ -1816,7 +1849,10 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
                                accepted=True, observed=True)
         return Observation(
             kind="tool", name="update_calendar_event", status="ok",
-            payload={"status": "ok", "operation": "updated", "verified": True,
+            payload={"status": "ok",
+                     "operation": "updated" if updated.get("changed_now", True) else "already_updated",
+                     "changed_now": updated.get("changed_now", True),
+                     "verified": True,
                      "calendar_ref": _ref(draft_id), "source": "ora_local", "updated_on_google": False,
                      "title": updated["title"], "start_datetime": updated["starts_at"],
                      "end_datetime": updated["ends_at"], "location": updated["location"],
