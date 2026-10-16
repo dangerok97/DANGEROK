@@ -224,6 +224,7 @@ export default function PermessiScreen() {
     source_pilot_enrolled: boolean;
     source_pilot_ready: boolean;
     delivery_pilot_enrolled: boolean;
+    self_enrollment_available: boolean;
   } | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -380,8 +381,11 @@ export default function PermessiScreen() {
       void loadAutonomy().catch((e) => setWriteError(humanizeError(e)));
       return;
     }
-    if (autonomyMode === 'act_within_grants' && calendarCreateGranted) {
-      setAdvancedOpen(true); // already active: show details, do not toggle off
+    if (autonomyMode === 'act_within_grants' && calendarCreateGranted &&
+        (pilotStatus?.source_pilot_ready || !pilotStatus?.self_enrollment_available)) {
+      // Already ready, or not in the allowed canary: never turn a checked
+      // permission off just because the user tapped it again.
+      setAdvancedOpen(true);
       return;
     }
     // Switching into act mode also activates OTHER existing grants. Keep
@@ -409,6 +413,10 @@ export default function PermessiScreen() {
             throw new Error('Il permesso calendario non è stato confermato.');
           }
         }
+        if (pilotStatus?.self_enrollment_available && !pilotStatus.source_pilot_ready) {
+          const enrollment = await api.enrollAgentAutonomyPilot();
+          if (!enrollment.ok) throw new Error('Pilot autonomo non abilitato.');
+        }
         await loadAutonomy(); // confirm real server state, no optimistic success
         haptic('success');
       } catch (e) {
@@ -419,7 +427,7 @@ export default function PermessiScreen() {
         setBusy(null);
       }
     });
-  }, [autonomyMode, calendarCreateGranted, grants, guard, loadAutonomy]);
+  }, [autonomyMode, calendarCreateGranted, grants, guard, loadAutonomy, pilotStatus]);
 
   const setMode = useCallback((next: LocationMode) => guard(async () => {
     haptic('tap');
@@ -570,7 +578,9 @@ export default function PermessiScreen() {
         ) : (
           <ChoiceRow
             label={autonomyMode === 'act_within_grants' && calendarCreateGranted
-              ? 'Permesso per gli impegni attivo'
+              ? (pilotStatus?.self_enrollment_available && !pilotStatus.source_pilot_ready
+                  ? 'Completa attivazione del pilot autonomo'
+                  : 'Permesso per gli impegni attivo')
               : 'Attiva ORA per i miei impegni'}
             detail={autonomyMode === 'act_within_grants' && calendarCreateGranted
               ? 'Attiva · ORA può aggiungere nuovi impegni confermati nel calendario interno.'
