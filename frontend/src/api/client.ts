@@ -1408,7 +1408,14 @@ export const api = {
       source_pilot_ready: boolean;
       delivery_pilot_enrolled: boolean;
       model_configured: boolean;
+      self_enrollment_available: boolean;
     }>('/agent/autonomy/pilot-status'),
+
+  /** Explicit, authenticated one-account canary; does not grant permissions. */
+  enrollAgentAutonomyPilot: () =>
+    request<{ ok: boolean; already_active: boolean }>('/agent/autonomy/pilot-enroll', {
+      method: 'POST',
+    }),
 
   /**
    * Choose how far ORA may go without asking.
