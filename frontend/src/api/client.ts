@@ -715,6 +715,7 @@ export const api = {
     request<{ alerts: Array<{
       source_kind?: 'recurring_due' | string;
       kind?: string;
+      retry_kind?: string;
       status: string;
       created_at?: string;
       accepted_at?: string;
