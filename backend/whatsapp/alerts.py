@@ -264,18 +264,18 @@ async def enqueue(db, user_id: str, plan) -> bool:
     )
     if not link:
         return False
-    if not in_service_window(link):
-        # Don't enqueue a shipping/finance/agent alert under a recurrence
-        # template merely because Meta approved its shape.
-        if getattr(plan, "source_type", "") != "opportunity":
-            return False
+    recurring = False
+    if getattr(plan, "source_type", "") == "opportunity":
         known = await db.opportunities.find_one(
             {"owner_id": user_id, "id": plan.source_id,
              "status": "active", "source_context": "recurring_memo"},
             {"_id": 1},
         )
-        if known is None:
-            return False
+        recurring = bool(known)
+    if not in_service_window(link) and not recurring:
+        # Only a user-requested annual reminder is covered by this approved
+        # Utility template. Other topics remain inside the service window.
+        return False
     # Only after source/scope admission check may we spend a Meta approval
     # read. Unsupported categories must not even query provider readiness.
     if not await may_notify(db, user_id):
@@ -286,7 +286,10 @@ async def enqueue(db, user_id: str, plan) -> bool:
         return False
     moment = utcnow()
     row = {
-        "_id": alert_id(user_id, plan.id),
+        "_id": alert_id(
+            user_id,
+            "recurring_due:" + str(plan.source_id) if recurring else plan.id,
+        ),
         "owner_id": user_id, "plan_id": plan.id,
         "phone_hash": link["phone_hash"],
         # Encrypt even the public-facing copy at rest; decrypt only at the
@@ -320,9 +323,22 @@ class AlertWorker:
     def __init__(self, db, config: CloudConfig | None = None):
         self.db = db
         self.config = config or CloudConfig.load()
+        self._last_recurring_scan = None
 
     async def _claim(self):
         moment = utcnow()
+        # Recover a reminder that the calendar had already raised, even if
+        # the old backend never enqueued WhatsApp or restarted mid-handoff.
+        # No AI decision, no new recurrence, and a stable outbox dedupe key.
+        if (self._last_recurring_scan is None
+                or moment - self._last_recurring_scan >= timedelta(seconds=60)):
+            self._last_recurring_scan = moment
+            from whatsapp.recurring_delivery import reconcile_recent_recurring
+            try:
+                await reconcile_recent_recurring(self.db)
+            except Exception as exc:
+                log.warning("WhatsApp recurring admission failed: category=%s",
+                            type(exc).__name__)
         return await self.db.whatsapp_alert_outbox.find_one_and_update(
             {"status": {"$in": ["ready", "held_template"]},
              "next_attempt_at": {"$lte": moment}},
@@ -354,13 +370,30 @@ class AlertWorker:
         from delivery.models import DeliveryPlan
         from delivery.service import DeliveryService
 
-        row = await self.db.delivery_plans.find_one(
-            {"owner_id": owner, "id": item["plan_id"]}, {"_id": 0}
-        )
-        if not row or row.get("status") in ("cancelled", "expired"):
-            await cancel(self.db, item, "plan_inactive")
-            return True
-        plan = DeliveryPlan.model_validate(row)
+        if item.get("source_kind") == "recurring_due":
+            # Annual Memo due is itself the user's explicit request, not an
+            # LLM-selected Expo notification. Reconstruct a bounded plan view
+            # only for source/consent validation; do not fabricate a push plan.
+            from opportunities.models import Opportunity
+            from whatsapp.recurring_delivery import direct_plan
+
+            row = await self.db.opportunities.find_one(
+                {"owner_id": owner, "id": item.get("source_id"),
+                 "status": "active", "source_context": "recurring_memo"},
+                {"_id": 0},
+            )
+            if not row:
+                await cancel(self.db, item, "recurring_source_inactive")
+                return True
+            plan = direct_plan(Opportunity.model_validate(row))
+        else:
+            row = await self.db.delivery_plans.find_one(
+                {"owner_id": owner, "id": item.get("plan_id")}, {"_id": 0}
+            )
+            if not row or row.get("status") in ("cancelled", "expired"):
+                await cancel(self.db, item, "plan_inactive")
+                return True
+            plan = DeliveryPlan.model_validate(row)
         delivery = DeliveryService(self.db)
         try:
             subject = await delivery._current_subject_for_plan(owner, plan)
