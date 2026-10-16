@@ -24,7 +24,8 @@ async def test_open_needs_never_show_stale_goal_or_expired_question():
         {"id": "finished", "owner_id": owner, "status": "completed", "valid_until": after},
         {"id": "old", "owner_id": owner, "status": "waiting", "valid_until": before},
         {"id": "good", "owner_id": owner, "status": "waiting", "valid_until": after},
-        {"id": "other", "owner_id": "different-user", "status": "waiting", "valid_until": after},
+        {"id": "other", "owner_id": owner, "status": "cancelled", "valid_until": after},
+        {"id": "foreign-goal", "owner_id": "different-user", "status": "waiting", "valid_until": after},
     ]
     await db.agent_goals.insert_many(goals)
     needs = [
