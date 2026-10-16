@@ -965,3 +965,80 @@ async def test_operator_does_not_resubmit_if_template_exists_or_meta_unknown(
     assert result["status"] == "approved_dynamic"
     response.clear()
     assert (await request_review(confirm=True))["status"] == "unverified"
+
+
+@pytest.mark.asyncio
+async def test_meta_failed_receipt_retains_only_safe_code_and_never_phone_or_text(cfg):
+    db = AsyncMongoMockClient().whatsapp_delivery_failure_diagnostics
+    await linked(db, cfg)
+    await set_opt_in(db, OWNER, True)
+    item = plan(id="dp_delivery_failure_diagnostics")
+    assert await enqueue(db, OWNER, item)
+    await db.whatsapp_alert_outbox.update_one(
+        {"owner_id": OWNER},
+        {"$set": {"status": "accepted", "wamid": "wamid.synthetic_failure_999"}},
+    )
+    payload = {
+        "object": "whatsapp_business_account",
+        "entry": [{"changes": [{"field": "messages", "value": {
+            "metadata": {"phone_number_id": cfg.phone_number_id},
+            "statuses": [{
+                "id": "wamid.synthetic_failure_999",
+                "recipient_id": PHONE,
+                "status": "failed",
+                "errors": [{
+                    "code": 131026,
+                    "title": "Private recipient name",
+                    "message": "Private message body",
+                    "error_data": {"details": "Sensitive private detail"},
+                }],
+            }],
+        }}]}],
+    }
+    from whatsapp.cloud import iter_signed_delivery_statuses
+    statuses = list(iter_signed_delivery_statuses(payload, cfg.phone_number_id))
+    assert len(statuses) == 1
+    assert statuses[0]["error_code"] == 131026
+    assert "Private" not in str(statuses)
+    assert await record_status(db, cfg, statuses[0])
+    row = await db.whatsapp_alert_outbox.find_one({})
+    assert row["status"] == "failed"
+    assert row["failure_code"] == "meta_131026"
+    assert "Private" not in str(row)
+    assert not await record_status(db, cfg, statuses[0])  # no extra receipt
+    assert not await record_status(db, cfg, {**statuses[0], "recipient_id": "393339999999"})
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_history_is_owner_only_and_excludes_message_payload(cfg, monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from deps import get_current_user
+    from whatsapp import router as wa_router
+    db = AsyncMongoMockClient().wa_history_owner_private
+    monkeypatch.setattr(wa_router, "db", db)
+    await db.whatsapp_alert_outbox.insert_many([
+        {"owner_id": "account_one", "source_kind": "recurring_due",
+         "status": "accepted", "created_at": datetime.now(timezone.utc),
+         "phone_enc": "hidden phone", "copy_enc": "hidden personal text",
+         "wamid": "wamid.secret", "failure_code": None},
+        {"owner_id": "account_two", "source_kind": "recurring_due",
+         "status": "failed", "created_at": datetime.now(timezone.utc),
+         "phone_enc": "other phone", "copy_enc": "other text",
+         "failure_code": "meta_131026"},
+    ])
+    app = FastAPI()
+    app.include_router(wa_router.router)
+    app.dependency_overrides[get_current_user] = lambda: {"user_id": "account_one"}
+    with TestClient(app) as client:
+        response = client.get("/whatsapp/notifications/history")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["alerts"]) == 1
+    assert data["alerts"][0]["source_kind"] == "recurring_due"
+    assert data["alerts"][0]["status"] == "accepted"
+    assert "account_two" not in str(data)
+    assert "hidden" not in str(data)
+    assert "wamid" not in str(data)
+    assert "phone" not in str(data)
+    assert "copy_enc" not in str(data)

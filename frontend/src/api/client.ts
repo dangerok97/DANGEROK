@@ -709,8 +709,13 @@ export const api = {
     ),
   whatsappNotificationHistory: () =>
     request<{ alerts: Array<{
-      plan_id: string; status: string; created_at?: string;
-      accepted_at?: string; failure_code?: string | null;
+      source_kind?: 'recurring_due' | string;
+      kind?: string;
+      status: string;
+      created_at?: string;
+      accepted_at?: string;
+      meta_status_at?: string;
+      failure_code?: string | null;
     }>; template_configured: boolean }>('/whatsapp/notifications/history'),
   // --- Rubrica dispositivo -------------------------------------------------
   contactsDeviceStatus: () =>

@@ -505,7 +505,9 @@ _ALLOWED_PREVIOUS = {
     "sent": ["accepted", "sent"],
     "delivered": ["accepted", "sent", "delivered"],
     "read": ["accepted", "sent", "delivered", "read"],
-    "failed": ["accepted", "sent", "failed"],
+    # Duplicate failed receipts cannot create a new change or overwrite the
+    # original failure timestamp; delivery status is monotonic.
+    "failed": ["accepted", "sent"],
 }
 
 
@@ -520,9 +522,17 @@ async def record_status(db, config: CloudConfig, item: dict) -> bool:
         return False
     if not isinstance(number, str) or not re.fullmatch(r"[1-9][0-9]{6,14}", number):
         return False
+    values = {"status": new, "meta_status_at": utcnow()}
+    if new == "failed":
+        code = item.get("error_code")
+        # Never persist Meta's freeform error description or phone number.
+        values["failure_code"] = (
+            f"meta_{code}" if type(code) is int and 0 <= code <= 9999999
+            else "meta_delivery_failed"
+        )
     result = await db.whatsapp_alert_outbox.update_one(
         {"wamid": wamid, "phone_hash": config.fingerprint("phone", number),
          "status": {"$in": _ALLOWED_PREVIOUS[new]}},
-        {"$set": {"status": new, "meta_status_at": utcnow()}},
+        {"$set": values},
     )
     return bool(result.modified_count)
