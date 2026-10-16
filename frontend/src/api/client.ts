@@ -1400,6 +1400,16 @@ export const api = {
       }>;
     }>('/agent/autonomy'),
 
+  /** Read-only, owner-scoped readiness of the experimental background pilot. */
+  getAgentAutonomyPilotStatus: () =>
+    request<{
+      mode_chosen: boolean;
+      source_pilot_enrolled: boolean;
+      source_pilot_ready: boolean;
+      delivery_pilot_enrolled: boolean;
+      model_configured: boolean;
+    }>('/agent/autonomy/pilot-status'),
+
   /**
    * Choose how far ORA may go without asking.
    *
