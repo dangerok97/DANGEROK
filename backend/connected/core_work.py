@@ -54,19 +54,37 @@ async def ready_for_owner(db, owner_id):
     """
     if not enabled_for(owner_id):
         return False
-    from agent.authority import AuthorityService
+    from agent.authority import AuthorityService, GRANTS
+    from agent.models import AutonomyGrant
 
     authority = AuthorityService(db)
     policy = await authority.policy(owner_id)
     if policy.mode != 'act_within_grants' or not policy.chosen_by_user:
         return False
-    grants = await authority.grants(owner_id)
-    return any(
-        row.get('capability') == 'calendar.local.write'
-        and row.get('active', True) is not False
-        and 'create' in (row.get('effect_scope') or [])
-        for row in grants
-    )
+    # The public grants() API deliberately omits expires_at/revoked_at. It is
+    # suitable for UI labels, NOT for deciding whether to consume a pending
+    # source into the durable pilot. Match the authority service's live grant
+    # semantics before switching away from the legacy interpreter.
+    rows = await db[GRANTS].find(
+        {'owner_id': owner_id, 'capability': 'calendar.local.write', 'active': True},
+        {'_id': 0},
+    ).to_list(20)
+    current = _now()
+    for row in rows:
+        try:
+            grant = AutonomyGrant.model_validate(row)
+        except Exception:
+            continue
+        if not grant.active or grant.granted_by != 'user' or grant.revoked_at:
+            continue
+        # The first pilot requires finite, user-owned permission. Missing,
+        # expired or timezone-ambiguous expiry cannot silently enable it.
+        expires = grant.expires_at
+        if not expires or expires.tzinfo is None or expires <= current:
+            continue
+        if 'create' in grant.effect_scope:
+            return True
+    return False
 
 
 def _event_version(node):
