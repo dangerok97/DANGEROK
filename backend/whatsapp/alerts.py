@@ -505,7 +505,9 @@ _ALLOWED_PREVIOUS = {
     "sent": ["accepted", "sent"],
     "delivered": ["accepted", "sent", "delivered"],
     "read": ["accepted", "sent", "delivered", "read"],
-    "failed": ["accepted", "sent", "failed"],
+    # Duplicate failed receipts cannot create a new change or overwrite the
+    # original failure timestamp; delivery status is monotonic.
+    "failed": ["accepted", "sent"],
 }
 
 
