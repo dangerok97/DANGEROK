@@ -1788,12 +1788,19 @@ async def update_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
     # The target, user command and authority have already been checked above.
     if local_node:
         from home.manual_event import manual_update_is_noop
+        # Re-read ownership and revision immediately before claiming no-op:
+        # another device may have modified/cancelled the event since lookup.
+        fresh = await get_manual_event(db, uid, draft_id)
         try:
-            unchanged = manual_update_is_noop(local_node, fields)
+            unchanged = bool(
+                fresh and fresh.get("status") == "active"
+                and fresh.get("updated_at") == local_node.get("updated_at")
+                and manual_update_is_noop(fresh, fields)
+            )
         except (ValueError, KeyError, TypeError):
             unchanged = False  # Let the normal write handler reject bad input.
         if unchanged:
-            local = manual_event_public(local_node)
+            local = manual_event_public(fresh)
             return Observation(
                 kind="tool", name="update_calendar_event", status="ok",
                 payload={
