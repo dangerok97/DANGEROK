@@ -24,7 +24,7 @@ const cortex=corticalIds.map(id=>byId.get(id)).filter(Boolean)
   .filter(p=>/(gyrus|lobe|lobule)$/i.test(p.name));
 const support=[...cerebellum.elements,...pons.elements,...medulla.elements]
   .map(id=>byId.get(id)).filter(Boolean);
-const parts=[...cortex,...support];
+const parts=[...new Map([...cortex,...support].map(part=>[part.id,part])).values()];
 if(cortex.length<24||parts.length<30) throw new Error('brain surface selection unexpectedly small: '+parts.length);
 
 const chunks=new Map();
@@ -94,8 +94,22 @@ for(let i=0;i<compactCount;i++){
   const nx=compactNormals[i*3],ny=compactNormals[i*3+1],nz=compactNormals[i*3+2],length=Math.hypot(nx,ny,nz)||1;
   normals[i*3]=Math.round(nx/length*127);normals[i*3+1]=Math.round(ny/length*127);normals[i*3+2]=Math.round(nz/length*127);
 }
-const compactIndices=Uint16Array.from(simplified);
-if([...compactIndices].some(n=>n>=compactCount)) throw new Error('brain compact index overflow');
+// compactMesh supplies old-index -> new-index mapping; triangles must be remapped too.
+// Using the unremapped indices corrupts the mesh and can flatten/distort its silhouette.
+const compactIndices=Uint16Array.from(simplified,oldIndex=>{
+  const next=remap[oldIndex];
+  if(next===undefined||next===0xffffffff||next>=compactCount)
+    throw new Error('brain asset contains invalid compact triangle index');
+  return next;
+});
+if(compactIndices.length%3!==0) throw new Error('brain triangles are not aligned');
+const extents=[0,1,2].map(axis=>{
+  let lo=Infinity,hi=-Infinity;
+  for(let i=axis;i<compactPositions.length;i+=3){lo=Math.min(lo,compactPositions[i]);hi=Math.max(hi,compactPositions[i]);}
+  return hi-lo;
+});
+if(extents.some(v=>!Number.isFinite(v)||v<=0)) throw new Error('brain geometry degenerate');
+console.log('Anatomical asset extents:',extents.join(', '));
 
 const posBuf=Buffer.from(positions.buffer);
 const normalBuf=Buffer.from(normals.buffer);
