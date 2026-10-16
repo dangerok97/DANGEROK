@@ -24,6 +24,75 @@ async def grant(db):
     await service.grant(OWNER, 'calendar.local.write', effect_scope=['create'], by='user')
 
 
+@pytest.mark.asyncio
+async def test_source_pilot_readiness_requires_enrollment_mode_and_create_grant(world, monkeypatch):
+    raw, signal, _ = world
+    db = StableMockDatabase(raw)
+    monkeypatch.setenv('ORA_SOURCE_CORE_PILOT_OWNERS', OWNER)
+
+    # Railway enrollment alone is never consent.
+    assert await core_work.ready_for_owner(db, OWNER) is False
+
+    authority = AuthorityService(db)
+    await authority.set_mode(OWNER, 'act_within_grants')
+    # The mode is a ceiling choice, not a capability grant.
+    assert await core_work.ready_for_owner(db, OWNER) is False
+
+    granted = await authority.grant(
+        OWNER,
+        'calendar.local.write',
+        effect_scope=['create'],
+        scope_note='Aggiungere nuovi impegni personali al calendario ORA.',
+        by='user',
+    )
+    assert await core_work.ready_for_owner(db, OWNER) is True
+
+    await authority.revoke(
+        OWNER,
+        'calendar.local.write',
+        grant_id=granted['grant']['id'],
+    )
+    assert await core_work.ready_for_owner(db, OWNER) is False
+
+
+@pytest.mark.asyncio
+async def test_source_pilot_readiness_respects_explicit_observe_even_with_grant(world, monkeypatch):
+    raw, signal, _ = world
+    db = StableMockDatabase(raw)
+    monkeypatch.setenv('ORA_SOURCE_CORE_PILOT_OWNERS', OWNER)
+
+    authority = AuthorityService(db)
+    await authority.grant(
+        OWNER,
+        'calendar.local.write',
+        effect_scope=['create'],
+        scope_note='Aggiungere nuovi impegni personali al calendario ORA.',
+        by='user',
+    )
+    await authority.set_mode(OWNER, 'observe')
+
+    assert await core_work.ready_for_owner(db, OWNER) is False
+
+
+@pytest.mark.asyncio
+async def test_source_pilot_readiness_rejects_modify_only_grant(world, monkeypatch):
+    raw, signal, _ = world
+    db = StableMockDatabase(raw)
+    monkeypatch.setenv('ORA_SOURCE_CORE_PILOT_OWNERS', OWNER)
+
+    authority = AuthorityService(db)
+    await authority.set_mode(OWNER, 'act_within_grants')
+    await authority.grant(
+        OWNER,
+        'calendar.local.write',
+        effect_scope=['modify'],
+        scope_note='Modificare impegni personali nel calendario ORA.',
+        by='user',
+    )
+
+    assert await core_work.ready_for_owner(db, OWNER) is False
+
+
 def decisions(signal, *, before_answer=None):
     seen = []
     async def decide(system, payload):
@@ -246,12 +315,13 @@ def test_pilot_is_explicit_owner_configuration_not_implicit_permission(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_existing_connected_entry_uses_one_lane_only_when_enrolled(world, monkeypatch):
+async def test_existing_connected_entry_uses_one_lane_only_when_enrolled_and_opted_in(world, monkeypatch):
     from connected.service import ConnectedLifeService
     from connected import reasoning
     raw, signal, _ = world
     db = StableMockDatabase(raw)
     monkeypatch.setenv('ORA_SOURCE_CORE_PILOT_OWNERS', OWNER)
+    await grant(db)
     processor = AsyncMock(return_value={'ok': True, 'passed_on': 1})
     monkeypatch.setattr(SourceCoreWorker, 'process_pending', processor)
     legacy = AsyncMock(side_effect=AssertionError('Do not run two interpreters'))
