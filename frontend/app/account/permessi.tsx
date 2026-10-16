@@ -375,7 +375,7 @@ export default function PermessiScreen() {
     // Switching into act mode also activates OTHER existing grants. Keep
     // that decision in the detailed mode selector, never the simple button.
     if (autonomyMode !== 'act_within_grants' &&
-        grants.some((g) => g.capability !== LOCAL_CALENDAR_CREATE_CAPABILITY)) {
+        grants.some((g) => g.capability !== LOCAL_CALENDAR_CREATE_CAPABILITY || !(g.effect_scope || []).includes('create'))) {
       setAdvancedOpen(true);
       setWriteError('Hai altri permessi attivi: verifica la modalità nella sezione Personalizza prima di attivare nuove azioni.');
       return;
