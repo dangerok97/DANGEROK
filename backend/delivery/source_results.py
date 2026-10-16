@@ -35,6 +35,31 @@ def enabled_owners():
     return {s for s in values if enabled_for(s)}
 
 
+async def owner_enabled(db, owner_id):
+    # Existing infrastructure-enrolled owners retain their exact old rules.
+    if owner_id in enabled_owners():
+        return True
+    from connected.core_work import pilot_enrollment, ready_for_owner
+    return bool(await pilot_enrollment(db, owner_id) and
+                await ready_for_owner(db, owner_id))
+
+
+async def enabled_owners_in(db):
+    owners = set(enabled_owners())
+    # The self-enrollment pilot is deliberately one server-managed email
+    # digest, not a "*" wildcard and not a permission the model can grant.
+    digest = os.environ.get('ORA_SOURCE_SINGLE_PILOT_EMAIL_SHA256', '').strip().lower()
+    if len(digest) == 64:
+        rows = await db.source_pilot_enrollments.find(
+            {'active': True, 'created_by': 'authenticated_user',
+             'email_digest': digest}, {'_id': 0, 'owner_id': 1}).to_list(5)
+        for row in rows:
+            owner = str(row.get('owner_id') or '')
+            if owner and await owner_enabled(db, owner):
+                owners.add(owner)
+    return owners
+
+
 def plan_id(owner_id, activity_id):
     raw = (owner_id + '\0' + activity_id).encode()
     return 'dlv_sres_' + hashlib.sha256(raw).hexdigest()[:32]
@@ -53,9 +78,11 @@ async def current_subject(db, owner_id, activity_id):
     A caller's summary, fake success, stale receipt or another account's id is
     never a delivery source. Database unavailability is not evidence of absence.
     """
-    if owner_id not in enabled_owners() or not isinstance(activity_id, str) or not _OPAQUE.fullmatch(activity_id):
+    if not isinstance(activity_id, str) or not _OPAQUE.fullmatch(activity_id):
         return None
     try:
+        if not await owner_enabled(db, owner_id):
+            return None
         return await _load(db, owner_id, activity_id)
     except (ValueError, KeyError, TypeError):
         return None  # Malformed or provably stale receipt, no usable source.
