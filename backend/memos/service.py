@@ -407,6 +407,20 @@ class RecurringMemoService:
                 surface_rationale="Promemoria ricorrente richiesto dall'utente.",
             )
             await repo.save(opportunity)
+            # This recurring alert is already requested by the person.
+            # WhatsApp delivery has its own explicit opt-in and source gate;
+            # it must not depend on a second AI decision to make an Expo push.
+            try:
+                from whatsapp.recurring_delivery import enqueue_due_recurring
+                await enqueue_due_recurring(self.db, opportunity)
+            except Exception as exc:
+                # An outage must not lose the annual memo or invent success.
+                # The WhatsApp worker will reconcile today's persisted source.
+                import logging
+                logging.getLogger("ora.memos").warning(
+                    "Recurring WhatsApp admission deferred: category=%s",
+                    type(exc).__name__,
+                )
             next_due = _next_annual(
                 month=int(memo["month"]), day=int(memo["day"]),
                 timezone_name=timezone_name,
