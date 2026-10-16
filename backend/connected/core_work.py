@@ -77,10 +77,14 @@ async def ready_for_owner(db, owner_id):
             continue
         if not grant.active or grant.granted_by != 'user' or grant.revoked_at:
             continue
-        # The first pilot requires finite, user-owned permission. Missing,
-        # expired or timezone-ambiguous expiry cannot silently enable it.
+        # MongoDB stores UTC dates and its default Python decoder returns
+        # naive UTC datetimes. Use precisely the authority matcher's convention:
+        # a missing expiry is not enough to enter this finite-permission pilot.
         expires = grant.expires_at
-        if not expires or expires.tzinfo is None or expires <= current:
+        if not expires:
+            continue
+        expiry_utc = expires if expires.tzinfo else expires.replace(tzinfo=timezone.utc)
+        if expiry_utc <= current:
             continue
         if 'create' in grant.effect_scope:
             return True
