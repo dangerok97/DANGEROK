@@ -135,6 +135,43 @@ class NeedService:
             logger.info("need create soft-fail: %s", type(exc).__name__)
         return need
 
+    # --- perishable requests ----------------------------------------------
+
+    @staticmethod
+    def _is_expired(value: Optional[str]) -> bool:
+        if not value:
+            return False
+        try:
+            date = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            # Missing timezone is not trustworthy evidence of expiry.
+            return bool(date.tzinfo and date <= _now())
+        except (ValueError, TypeError):
+            return False
+
+    async def _actionable_for_owner(self, owner_id: str, need: CommunicationNeed) -> bool:
+        """A historical request is not automatically still actionable.
+
+        A daily physical situation or a finished booking must not keep
+        asking for an answer long after its underlying goal ended. This is
+        a read-only projection: historical needs remain auditable, and no
+        model or delivery provider is invoked.
+        """
+        if not need.is_open or self._is_expired(need.valid_until):
+            return False
+        if not need.goal_id:
+            return True
+        goal = await self.db.agent_goals.find_one(
+            {"owner_id": owner_id, "id": need.goal_id},
+            {"_id": 0, "status": 1, "valid_until": 1},
+        )
+        if goal is None:
+            # Older standalone need records may lack a goal. Do not
+            # infer that a missing record means a user already replied.
+            return True
+        if goal.get("status") not in ("proposed", "active", "waiting"):
+            return False
+        return not self._is_expired(goal.get("valid_until"))
+
     # --- reading ----------------------------------------------------------
 
     async def get(self, owner_id: str, need_id: str) -> Optional[CommunicationNeed]:
@@ -160,10 +197,20 @@ class NeedService:
         return [CommunicationNeed.model_validate(d) for d in docs]
 
     async def open_needs(self, owner_id: str, *, limit: int = 10) -> List[CommunicationNeed]:
+        # Filter after looking up the *source goal*. A need may have a long
+        # generic TTL even when its underlying situation expired yesterday.
+        # Read past stale rows so they cannot monopolize the first page.
         docs = await self.db[NEEDS].find(
             {"owner_id": owner_id, "status": "open"}, {"_id": 0}
-        ).sort("created_at", 1).to_list(limit)
-        return [CommunicationNeed.model_validate(d) for d in docs]
+        ).sort("created_at", 1).to_list(max(50, min(limit * 20, 200)))
+        visible: List[CommunicationNeed] = []
+        for raw in docs:
+            need = CommunicationNeed.model_validate(raw)
+            if await self._actionable_for_owner(owner_id, need):
+                visible.append(need)
+                if len(visible) >= limit:
+                    break
+        return visible
 
     # --- settling ---------------------------------------------------------
 
