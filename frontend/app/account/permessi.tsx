@@ -541,6 +541,7 @@ export default function PermessiScreen() {
         <PartialNote>Alcune informazioni non sono disponibili al momento.</PartialNote>
       ) : null}
       {error ? <InlineError>{error}</InlineError> : null}
+      {writeError ? <InlineError>{writeError}</InlineError> : null}
 
       <SettingCard
         title="ORA nella tua giornata"
@@ -836,7 +837,6 @@ export default function PermessiScreen() {
 
         </>
       ) : null}
-      {writeError ? <InlineError>{writeError}</InlineError> : null}
       <Modal
         visible={Boolean(pendingRevocation)}
         transparent
