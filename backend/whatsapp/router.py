@@ -112,6 +112,17 @@ async def whatsapp_notification_history(user=Depends(get_current_user)):
     }
 
 
+@router.post("/notifications/retry-failed-recurring")
+async def retry_failed_recurring_notification(user=Depends(get_current_user)):
+    """Explicit one-time user action, never a background resending loop."""
+    _config()
+    from whatsapp.recurring_delivery import retry_failed_recurring_once
+    result = await retry_failed_recurring_once(db, user["user_id"])
+    if not result.get("queued"):
+        raise HTTPException(status_code=409, detail=result.get("reason", "retry_unavailable"))
+    return result
+
+
 @router.post("/link/start")
 async def whatsapp_start_pairing(user=Depends(get_current_user)):
     return await WhatsAppService(db, _config()).issue_pairing_code(user["user_id"])
