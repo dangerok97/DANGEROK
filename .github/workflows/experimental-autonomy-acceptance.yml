@@ -52,6 +52,7 @@ jobs:
           python -m pytest -q -n 0 --tb=short \
             tests/test_experimental_calendar_weekday.py \
             tests/test_autonomy_e2e_lane_v1.py \
+            tests/test_unified_calendar_noop_v1.py \
             tests/test_ora_native_calendar_v155.py \
             tests/test_calendar_target_integrity_v157.py
       - name: Situation: real wake, evidence, outcomes and recovery
