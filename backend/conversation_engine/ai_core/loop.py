@@ -3522,6 +3522,17 @@ async def run_cognitive_loop(
             ora, weather_findings = guard_weather_intensity(ora, observations[turn_start:])
             if weather_findings:
                 add_step(trace, event="GROUNDING_WEATHER_REWRITTEN", findings=weather_findings)
+            # Port the isolated #279 final-answer guard: only dates actually
+            # supported by a successful calendar observation may be corrected.
+            # Never change stored events, consent, or dates claimed without evidence.
+            if mode in ("answer", "finish"):
+                from conversation_engine.ai_core.grounding.calendar_weekday import guard_calendar_weekdays
+                ora, weekday_corrections = guard_calendar_weekdays(
+                    ora, observations[turn_start:], calendar_ahead,
+                )
+                if weekday_corrections:
+                    add_step(trace, event="CALENDAR_WEEKDAY_CORRECTED",
+                             count=weekday_corrections)
             state_mod.append_turn(st, role="ora", text=ora, kind=mode)
             st["observations"] = observations[-12:]
             navigation_options = _remember_pending_navigation(

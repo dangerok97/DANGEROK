@@ -79,13 +79,16 @@ jobs:
         run: python -m pytest -q tests/test_whatsapp_alert_consent_v1.py tests/test_whatsapp_recurring_due_v1.py -x
       - name: Situation v157 initial review admission and checkpoint truth
         working-directory: backend
-        run: python -m pytest -q -n 0 tests/test_situation_declared_place_link_v162.py tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
+        run: python -m pytest -q -n 0 tests/test_unified_situation_acceptance_v1.py tests/test_experimental_situation_declaration_to_wake_v1.py tests/test_situation_declared_place_link_v162.py tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
       - name: Situation useful outcome, weather time, final delivery and closure
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_useful_outcome_v160.py tests/test_situation_weather_clock_v160.py tests/test_situation_outcome_delivery_v160.py tests/test_situation_outcome_visibility_v160.py tests/test_situation_completion_response_v160.py tests/test_situation_outcome_projection_v160.py -x
+      - name: Experimental calendar weekday evidence guard from historical PR 279
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_experimental_calendar_coverage_v1.py tests/test_experimental_calendar_weekday.py -x
       - name: ORA native calendar without any external connector
         working-directory: backend
-        run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py -x
+        run: python -m pytest -q -n 0 tests/test_unified_calendar_noop_v1.py tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py -x
       - name: Financial card meaning, provenance and repeat interpretation
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_financial_card_continuity_v158.py -x
@@ -378,6 +381,11 @@ jobs:
       - name: ORA calendar month-grid regression
         working-directory: frontend
         run: node --experimental-strip-types src/components/calendar/nativeMonth.test.ts
+      - name: Calendar event wall-time is independent of browser timezone
+        working-directory: frontend
+        run: |
+          TZ=America/Chicago node --experimental-strip-types src/components/calendar/eventDisplayTime.test.ts
+          TZ=Europe/Rome node --experimental-strip-types src/components/calendar/eventDisplayTime.test.ts
       - name: Calendar connector state and selected account consistency
         working-directory: frontend
         run: node --experimental-strip-types src/components/account/calendarConnection157.test.ts

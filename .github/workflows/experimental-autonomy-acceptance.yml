@@ -1,0 +1,92 @@
+name: EXPERIMENTAL ORA autonomy acceptance (no deployment)
+
+on:
+  push:
+    branches:
+      - ora/experimental-autonomy-unified-20261016
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: experimental-ora-autonomy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-outcomes:
+    name: Source, calendar, Situation and delivery contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHON_DOTENV_DISABLED: '1'
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_experimental_autonomy_ci
+      JWT_SECRET: synthetic-experimental-autonomy-only
+      AMBIENT_RUNTIME: '0'
+      DOCUMENT_AI_ENABLED: '0'
+      DOCUMENT_STORAGE_BACKEND: local
+      DOCUMENT_STORAGE_DIR: /tmp/ora-autonomy-experiment
+      CALENDAR_PROVIDER_MODE: fake
+      GEMINI_API_KEY: ''
+    services:
+      mongo:
+        image: mongo:6
+        ports:
+          - 27017:27017
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-cloud.txt
+      - name: Install locked dependencies, no external model credentials
+        run: |
+          python -m pip install -r backend/requirements-cloud.txt
+          python -m pip install mongomock-motor==0.0.36
+          mkdir -p /tmp/ora-autonomy-experiment
+      - name: Grounded calendar weekday and source-to-delivery
+        working-directory: backend
+        run: |
+          python -m pytest -q -n 0 --tb=short \
+            tests/test_experimental_calendar_coverage_v1.py \
+            tests/test_experimental_calendar_weekday.py \
+            tests/test_autonomy_e2e_lane_v1.py \
+            tests/test_unified_calendar_noop_v1.py \
+            tests/test_ora_native_calendar_v155.py \
+            tests/test_calendar_target_integrity_v157.py
+      - name: Situation: real wake, evidence, outcomes and recovery
+        working-directory: backend
+        run: |
+          python -m pytest -q -n 0 --tb=short \
+            tests/test_unified_situation_acceptance_v1.py \
+            tests/test_experimental_situation_declaration_to_wake_v1.py \
+            tests/test_situation_initial_admission_v157.py \
+            tests/test_situation_useful_outcome_v160.py \
+            tests/test_situation_outcome_lifecycle_v102.py \
+            tests/test_situation_runtime_integrity_v157.py
+
+  browser-timezone:
+    name: Event display survives timezone changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: North America browser
+        working-directory: frontend
+        env:
+          TZ: America/Chicago
+        run: node --experimental-strip-types src/components/calendar/eventDisplayTime.test.ts
+      - name: Italian browser
+        working-directory: frontend
+        env:
+          TZ: Europe/Rome
+        run: node --experimental-strip-types src/components/calendar/eventDisplayTime.test.ts
+
+# This workflow NEVER deploys, never reads user secrets and never creates
+# real emails, appointments, Situations or device notifications.
+# A green result means synthetic software acceptance ONLY.
