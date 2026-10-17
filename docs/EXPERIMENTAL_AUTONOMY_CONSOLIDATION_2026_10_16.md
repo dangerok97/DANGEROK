@@ -103,3 +103,59 @@ empirical estimate, never represent a provider's success as device delivery,
 never grant broader authority on behalf of a test user. Each recovered
 improvement requires a reviewable diff, a failure-reproducing test, and a
 confirmed isolated execution. This document is the backlog of record.
+
+## Integration audit — 17 October 2026 (single active lane)
+
+The canonical working branch and only release-candidate PR are
+`ora/experimental-autonomy-unified-20261016` / **draft #350**.
+Production `staging/cloud` and Railway remain untouched by these commits.
+The competing experimental draft #349 was **closed without merge** after
+transferring its narrowly reviewed calendar changes; original branches remain
+archived as comparison sources, not concurrent development lanes.
+
+### Selective recovery with explicit limits
+
+- **CAL164 no-op local edits, historical #279 / experimental #349**:
+  copied into the canonical branch the owner-scoped, fresh-read comparison
+  `manual_update_is_noop` and the matching local calendar update path,
+  with `test_unified_calendar_noop_v1.py` in the experimental and generic CI.
+  Its assertions concern correct no-op semantics, no duplicate writes or wakes,
+  expiry/concurrency fences and known vs unknown end times. **This does NOT
+  prove that the 18:00 → 12:00 error originated only in display.** The
+  actual event read-back, source calendar identity and timezone authority
+  remain release blockers.
+- **Bounded Situation declaration recovery, historical #220 / experimental
+  #348**: **REJECTED after rechecking the current governance code.** The
+  helper required `situation_create_missing_source_refs` and
+  `situation_create_missing_linked_object_refs` errors, while
+  `validate_decision` currently emits `bad_situation_update` and
+  `SituationUpdate` already defaults both reference arrays to empty lists.
+  Consequently, its tested pure helper did not prove it was reachable from
+  a real Core turn. It was briefly evaluated on the experimental branch and
+  then reverted; not accepted, not published. No fake checkpoint, Situation
+  or notification was created.
+- **Continuity from historical #212**: no wholesale runtime copy. Current
+  production already contains durable goals, source fences, retry boundaries
+  and delivery checks, but the original #212's 5/9 live scenario record is
+  insufficient to authorize promoting more of it. Require an independently
+  reproducible failing test for each missing behavior.
+
+### Autonomy completion criteria (not a percentage)
+
+1. One external, authorized source change reaches a single verified effect.
+2. Calendar retains exact user time/date/source and rejects unwanted edits,
+   duplicates, wrong-day labels and stale provider state.
+3. An everyday Situation receives a *persisted executable first wake*,
+   valid evidence at recheck, a useful answer or honest blocker, and
+   stable completion/recovery after a process restart.
+4. Transient model failure, quota and partial sources do not invent success,
+   consume valid work or loop indefinitely.
+5. The existing Delivery pipeline rechecks current subject and authority;
+   provider acceptance and actual device delivery are separate evidence.
+6. App and WhatsApp share governed capabilities without uncontrolled effects.
+7. The same exact candidate tree passes CI, synthetic real-model evaluation,
+   an isolated Railway preview, device acceptance and explicit release review.
+
+**Release posture: HOLD.** Focused synthetic correctness is progress, not
+evidence of full user autonomy. No production merge, no production Railway
+source switch, no automatic account mutations.
