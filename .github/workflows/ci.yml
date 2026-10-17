@@ -79,7 +79,7 @@ jobs:
         run: python -m pytest -q tests/test_whatsapp_alert_consent_v1.py tests/test_whatsapp_recurring_due_v1.py -x
       - name: Situation v157 initial review admission and checkpoint truth
         working-directory: backend
-        run: python -m pytest -q -n 0 tests/test_situation_create_declaration_recovery_v1.py tests/test_situation_declared_place_link_v162.py tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
+        run: python -m pytest -q -n 0 tests/test_situation_declared_place_link_v162.py tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
       - name: Situation useful outcome, weather time, final delivery and closure
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_useful_outcome_v160.py tests/test_situation_weather_clock_v160.py tests/test_situation_outcome_delivery_v160.py tests/test_situation_outcome_visibility_v160.py tests/test_situation_completion_response_v160.py tests/test_situation_outcome_projection_v160.py -x
