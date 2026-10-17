@@ -59,6 +59,7 @@ jobs:
         working-directory: backend
         run: |
           python -m pytest -q -n 0 --tb=short \
+            tests/test_situation_create_declaration_recovery_v1.py \
             tests/test_situation_initial_admission_v157.py \
             tests/test_situation_useful_outcome_v160.py \
             tests/test_situation_outcome_lifecycle_v102.py \
