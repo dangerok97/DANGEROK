@@ -60,6 +60,7 @@ jobs:
         run: |
           python -m pytest -q -n 0 --tb=short \
             tests/test_unified_situation_acceptance_v1.py \
+            tests/test_experimental_situation_declaration_to_wake_v1.py \
             tests/test_situation_initial_admission_v157.py \
             tests/test_situation_useful_outcome_v160.py \
             tests/test_situation_outcome_lifecycle_v102.py \
