@@ -120,6 +120,12 @@ class ConnectedLifeService:
                 # sono di un'altra natura e vivono nel loro registro. Quello
                 # che ne esce lo decide il giudizio finanziario, altrove.
                 observed = []
+            elif source.source_type == "travel":
+                from connected import accommodation_sensor
+
+                observed = await accommodation_sensor.read_changes(
+                    self.db, owner_id,
+                )
             else:
                 from connected import documents_sensor
 

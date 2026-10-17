@@ -89,6 +89,7 @@ POLL_SECONDS: Dict[str, int] = {
     "calendar": 20,
     "email": 60,
     "documents": 1800,
+    "travel": 300,
     # Una banca non e' una casella: le righe arrivano quando la banca le
     # contabilizza, e guardarla piu' spesso non le fa arrivare prima. Sei
     # ore. Con alcuni aggregatori ogni chiamata si paga, e con tutti c'e' un
