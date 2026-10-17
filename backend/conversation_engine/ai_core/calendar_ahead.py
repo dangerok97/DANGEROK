@@ -87,54 +87,85 @@ def _one_each(events: Any) -> list:
     return uno_per_uno
 
 
-async def the_next_two_days(db, user_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Gli impegni delle prossime quarantotto ore, o `None`.
+def _coverage(now: datetime, until: datetime) -> Dict[str, Any]:
+    """Bounded CURRENT observation, never a claim about the whole calendar.
 
-    `None` quando non c'è niente da dire — nessun evento, o la lettura non è
-    riuscita. Un blocco vuoto nel payload sarebbe peggio che assente: somiglia
-    a «non hai impegni», che è una cosa che qui nessuno sa.
+    A failed read and a successfully observed empty 48-hour window have
+    different meanings. Neither turns chat history into current evidence.
+    """
+    return {
+        "window": {"from": now.isoformat(), "to": until.isoformat()},
+        "events": [],
+        "status": "unavailable",
+        "observed_at": None,
+        "source_capability": "get_calendar_events",
+        "historical_conversation_is_current_evidence": False,
+        "this_is_only_the_next_48_hours": (
+            "Only events actually listed here were observed in this turn. "
+            "This 48-hour window is NOT the whole calendar. For a named "
+            "appointment not listed or a date outside it, call "
+            "get_calendar_events for the appropriate interval. "
+            "An earlier chat message or previously successful mutation "
+            "is HISTORICAL, not proof of the current event time or absence. "
+            "Never change an event merely to make a calendar read succeed."
+        ),
+    }
+
+
+async def the_next_two_days(db, user_id: str) -> Optional[Dict[str, Any]]:
+    """Use the existing governed reader and preserve observation coverage.
+
+    None means missing user/database. With an authenticated owner, an
+    unavailable reader must not masquerade as an observed empty calendar.
+    This is read-only and adds no scheduling or model decision.
     """
     if db is None or not user_id:
         return None
 
     now = datetime.now(timezone.utc)
     until = now + timedelta(hours=HOURS_AHEAD)
-
+    snapshot = _coverage(now, until)
     try:
         from conversation_engine.ai_core.tools.calendar_caps import (
             get_calendar_events,
         )
-
         seen = await get_calendar_events(
             {"time_min": now.isoformat(), "time_max": until.isoformat()},
             {"db": db, "user_id": user_id},
         )
-    except Exception as e:
-        # Guardare avanti è un vantaggio, non un requisito: se non riesce, la
-        # domanda costerà il giro in più che costava prima.
-        logger.info("agenda non precaricata: %s", type(e).__name__)
-        return None
+    except Exception as exc:
+        logger.info("agenda non precaricata: %s", type(exc).__name__)
+        snapshot["reason"] = (
+            "Calendar read unavailable; do not answer from an earlier "
+            "conversation as though it were verified now."
+        )
+        return snapshot
 
-    if getattr(seen, "kind", "") == "error":
-        return None
+    payload = getattr(seen, "payload", None)
+    if (
+        getattr(seen, "status", None) != "ok"
+        or not isinstance(payload, dict)
+        or payload.get("status") not in (None, "ok", "success")
+    ):
+        snapshot["reason"] = (
+            "The calendar reader did not confirm a successful current observation."
+        )
+        return snapshot
 
-    payload = getattr(seen, "payload", None) or {}
-    events = payload.get("items") or payload.get("events") or []
-    if not isinstance(events, list) or not events:
-        return None
+    events = (
+        payload.get("items")
+        if isinstance(payload.get("items"), list)
+        else payload.get("events")
+    )
+    if not isinstance(events, list):
+        snapshot["reason"] = "The calendar response has no valid event list."
+        return snapshot
 
-    return {
-        "window": {"from": now.isoformat(), "to": until.isoformat()},
-        "events": _one_each(events),
-        # Il blocco dice di sé stesso dove finisce. Senza questa riga, la
-        # prima domanda su un periodo diverso riceverebbe un «no» ricavato
-        # dall'assenza — che è esattamente l'errore che questo prodotto
-        # passa il tempo a non fare.
-        "this_is_only_the_next_48_hours": (
-            "Already retrieved, no tool call needed for this window. "
-            "For any other period — later this week, next week, a specific "
-            "date outside it — call get_calendar_events. An event missing "
-            "from here means only that it is not in the next 48 hours."
-        ),
-    }
+    projected = _one_each(events)
+    snapshot.update(
+        events=projected,
+        status="observed_events" if projected else "observed_empty_window",
+        observed_at=datetime.now(timezone.utc).isoformat(),
+        may_be_truncated=bool(payload.get("truncated")) or len(events) >= MAX_EVENTS,
+    )
+    return snapshot
