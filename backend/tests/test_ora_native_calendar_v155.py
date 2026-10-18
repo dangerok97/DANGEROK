@@ -108,6 +108,49 @@ async def test_native_event_create_and_read_without_oauth(isolated_calendar):
 
 
 @pytest.mark.asyncio
+async def test_remote_viewer_still_receives_event_zone_for_agenda_and_detail(
+    isolated_calendar, monkeypatch,
+):
+    """User requested Rome 18:00; a New York browser sees a legacy 12:00.
+
+    API must carry original event timezone so the unified frontend formatter
+    can show 18:00 consistently in the month and detail, without rewriting
+    either timestamp or attaching an external calendar.
+    """
+    db, identity, app = isolated_calendar
+
+    async def remote_viewer_zone(db_, user_id):
+        return SimpleNamespace(tz_name="America/New_York")
+
+    monkeypatch.setattr(agenda_service, "resolve_user_timezone", remote_viewer_zone)
+    created = await manual_event.create_manual_event(
+        db, identity["user_id"], title="TEST ORA timezone comparison",
+        start="2026-10-20T18:00:00+02:00",
+        end="2026-10-20T18:10:00+02:00",
+        tz_name="Europe/Rome", request_id="tz-agenda-vs-detail",
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+        result = await http.get("/api/agenda/month?month=2026-10")
+        detail = await http.get("/api/calendar/events/" + created["id"])
+    assert result.status_code == 200
+    assert detail.status_code == 200
+    assert result.json()["timezone"] == "America/New_York"
+    day = next(x for x in result.json()["days"] if x["date"] == "2026-10-20")
+    assert len(day["events"]) == 1
+    event = day["events"][0]
+    assert event["time_label"] == "12:00 — 12:10", (
+        "This is the legacy viewer-local label; not authoritative for event time."
+    )
+    assert event["starts_at"] == "2026-10-20T12:00:00-04:00"
+    assert event["ends_at"] == "2026-10-20T12:10:00-04:00"
+    assert event["timezone"] == "Europe/Rome"
+    assert detail.json()["starts_at"] == "2026-10-20T18:00:00+02:00"
+    assert detail.json()["ends_at"] == "2026-10-20T18:10:00+02:00"
+    assert detail.json()["timezone"] == event["timezone"]
+    assert await db.life_nodes.count_documents({"user_id": identity["user_id"], "type": "event"}) == 1
+
+
+@pytest.mark.asyncio
 async def test_connected_calendar_overlay_is_optional_and_disconnected_mirrors_hidden(isolated_calendar):
     db, owner, app = isolated_calendar
     await db.life_nodes.insert_many([
