@@ -124,7 +124,15 @@ async def test_expired_claimed_review_is_reclaimed_by_one_new_worker(monkeypatch
     first = await repo.claim_due(
         worker_id="synthetic-worker-that-died", now=claim_at,
     )
-    assert first and first.status == "claimed"
+    after_attempt = await db.ambient_wakes.find_one({"id": original["id"]})
+    assert first and first.status == "claimed", {
+        "before_status": original.get("status"),
+        "after_status": (after_attempt or {}).get("status"),
+        "after_attempts": (after_attempt or {}).get("attempts"),
+        "after_worker": (after_attempt or {}).get("worker_id"),
+        "after_due": (after_attempt or {}).get("scheduled_for"),
+        "expected_claim_at": claim_stamp,
+    }
     lease_expired = datetime.fromisoformat(first.lease_until) + timedelta(seconds=2)
     recovered = await repo.claim_due(
         worker_id="synthetic-replacement-worker",
