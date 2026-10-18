@@ -164,7 +164,10 @@ async def test_lost_existing_wake_is_detected_and_rearmed_without_new_deadline(m
         {"owner_id": OWNER, "source_ref": f"goal:{gid}"},
         {"$set": {"status": "failed", "last_error": "worker_retries_exhausted"}},
     )
-    assert (await read_followup(db, OWNER, SID))["status"] == "recovery_pending"
+    lost = await read_followup(db, OWNER, SID)
+    assert lost["status"] == "recovery_pending"
+    assert lost["goal_source_kind"] == "situation_followup"
+    assert "aveva registrato un orario" in lost["diagnosis"]
     assert await EligibilityService(db)._has_unattended_situation(OWNER)
     repaired = await repair_missing_dedicated_wakes(db, OWNER)
     assert repaired["repaired"] == 1
@@ -202,3 +205,24 @@ async def test_disabled_runtime_is_explained_without_claiming_schedule(monkeypat
     assert error.status == "error"
     assert (await read_followup(db, OWNER, SID))["last_schedule_error"] == "runtime_disabled"
     assert await db.ambient_wakes.count_documents({}) == 0
+
+
+def test_initial_review_and_actual_checkpoint_have_different_failure_diagnosis():
+    """A consumed first AI wake does not imply an approved future check."""
+    from situations.followup import followup_diagnosis, INITIAL_KIND, KIND
+    initial = followup_diagnosis({
+        "status": "recovery_pending", "goal_source_kind": INITIAL_KIND,
+        "runtime_enabled": True,
+    })
+    dedicated = followup_diagnosis({
+        "status": "recovery_pending", "goal_source_kind": KIND,
+        "runtime_enabled": True,
+    })
+    assert "prima valutazione" in initial
+    assert "monitoraggio confermato" in initial
+    assert "aveva registrato un orario" not in initial
+    assert "aveva registrato un orario" in dedicated
+    assert followup_diagnosis({
+        "status": "not_scheduled", "goal_source_kind": INITIAL_KIND,
+        "runtime_enabled": True,
+    }).startswith("La memoria della situazione esiste")
