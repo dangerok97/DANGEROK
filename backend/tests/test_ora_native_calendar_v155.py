@@ -93,6 +93,14 @@ async def test_native_event_create_and_read_without_oauth(isolated_calendar):
     assert selected["events"][0]["id"] == own_id
     assert selected["events"][0]["source_type"] == "ora"
     assert selected["events"][0]["source_label"] == "Calendario ORA"
+    # This is the structured source for BOTH the month row and the detail
+    # screen. The client may be in Chicago; the appointment stays in Rome.
+    assert selected["events"][0]["timezone"] == "Europe/Rome"
+    assert selected["events"][0]["starts_at"] == "2026-10-11T09:30:00+02:00"
+    assert selected["events"][0]["ends_at"] == "2026-10-11T10:15:00+02:00"
+    assert detail.json()["timezone"] == selected["events"][0]["timezone"]
+    assert detail.json()["starts_at"] == selected["events"][0]["starts_at"]
+    assert detail.json()["ends_at"] == selected["events"][0]["ends_at"]
     assert detail.json()["provider"] == "ORA"
     assert detail.json()["is_local"] is True
     assert detail.json()["can_be_changed"] is True
