@@ -54,14 +54,20 @@ async def _resolve_user_named_locality(arguments: Dict[str, Any], runtime: Dict[
         try:
             from situations.repository import SituationRepository
             sit = await SituationRepository(db).get(uid, sid)
+            latest_location = next(
+                (e for e in reversed(sit.history or [])
+                 if "location_label" in (e.changes or {})),
+                None,
+            ) if sit else None
             matches = bool(
                 sit and sit.status in ("active", "changed")
                 and " ".join(str(sit.location_label or "").casefold().split()) == normalized
-                and any(
-                    e.source == "user_conversation"
-                    and " ".join(str(e.changes.get("location_label") or "").casefold().split()) == normalized
-                    for e in (sit.history or [])
-                )
+                # Earlier user confirmation cannot authorize a later change
+                # inferred by a model, even if the literal label is identical.
+                and latest_location and latest_location.source == "user_conversation"
+                and " ".join(str(
+                    latest_location.changes.get("location_label") or ""
+                ).casefold().split()) == normalized
             )
             if not matches:
                 return None, "PLACE_QUERY_SITUATION_NOT_CURRENT"
