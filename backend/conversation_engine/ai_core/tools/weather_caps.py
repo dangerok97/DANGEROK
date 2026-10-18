@@ -45,22 +45,30 @@ async def _resolve_user_named_locality(arguments: Dict[str, Any], runtime: Dict[
     normalized = label.casefold()
     spoken = " ".join(str(runtime.get("user_message") or "")[:8000].casefold().split())
     user_named = bool(re.search(r"(?<!\w)" + re.escape(normalized) + r"(?!\w)", spoken))
-    if not user_named:
-        sid = str(arguments.get("situation_id") or "").strip()
-        if sid:
-            try:
-                from situations.repository import SituationRepository
-                sit = await SituationRepository(db).get(uid, sid)
-                if sit and sit.status in ("active", "changed") and (
-                    " ".join(str(sit.location_label or "").casefold().split()) == normalized
-                ):
-                    user_named = any(
-                        e.source == "user_conversation"
-                        and " ".join(str(e.changes.get("location_label") or "").casefold().split()) == normalized
-                        for e in (sit.history or [])
-                    )
-            except Exception:
-                user_named = False
+    verified_situation_ref = ""
+    sid = str(arguments.get("situation_id") or "").strip()
+    if sid:
+        # An explicit Situation ID always requires an owned, *current* match.
+        # A separate mention of the same town must never legitimise a foreign
+        # or retired Situation or lend it somebody else's source evidence.
+        try:
+            from situations.repository import SituationRepository
+            sit = await SituationRepository(db).get(uid, sid)
+            matches = bool(
+                sit and sit.status in ("active", "changed")
+                and " ".join(str(sit.location_label or "").casefold().split()) == normalized
+                and any(
+                    e.source == "user_conversation"
+                    and " ".join(str(e.changes.get("location_label") or "").casefold().split()) == normalized
+                    for e in (sit.history or [])
+                )
+            )
+            if not matches:
+                return None, "PLACE_QUERY_SITUATION_NOT_CURRENT"
+            verified_situation_ref = f"situation:{sid}:revision:{sit.revision}"
+            user_named = True
+        except Exception:
+            return None, "PLACE_QUERY_SITUATION_NOT_CURRENT"
     if not user_named:
         return None, "PLACE_QUERY_NOT_USER_GROUNDED"
     try:
@@ -94,7 +102,7 @@ async def _resolve_user_named_locality(arguments: Dict[str, Any], runtime: Dict[
         coordinates = Coordinates(
             latitude=resolved["latitude"], longitude=resolved["longitude"],
         )
-        return (float(coordinates.latitude), float(coordinates.longitude), label, place_id), None
+        return (float(coordinates.latitude), float(coordinates.longitude), label, place_id, verified_situation_ref), None
     except Exception:
         return None, "PLACE_LOOKUP_UNAVAILABLE"
 
@@ -108,7 +116,7 @@ async def get_weather_forecast(
         return _fail("NOT_CONFIGURED")
 
     point = None
-    named_place_provenance = ""
+    named_place_provenance = []
     place_ref = str(arguments.get("place_ref") or "").strip()
     place_query = str(arguments.get("place_query") or "").strip()
     if place_query and place_ref:
@@ -129,7 +137,9 @@ async def get_weather_forecast(
                 },
             )
         point = resolved[:3]
-        named_place_provenance = "google_place:" + resolved[3]
+        named_place_provenance = ["google_place:" + resolved[3]]
+        if resolved[4]:
+            named_place_provenance.append(resolved[4])
     elif place_ref:
         if not place_ref.startswith("place:"):
             return _fail("INVALID_PLACE_REF")
@@ -237,5 +247,5 @@ async def get_weather_forecast(
                 "Usali per la decisione attuale; non trattarli come certi per il futuro."
             ),
         },
-        provenance=[place_ref] if place_ref else ([named_place_provenance] if named_place_provenance else []),
+        provenance=[place_ref] if place_ref else named_place_provenance,
     )
