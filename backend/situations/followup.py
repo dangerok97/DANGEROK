@@ -159,8 +159,12 @@ async def read_followup(db, owner, situation_id):
                 "owner_id": owner, "goal_id": gid,
                 "kind": "situation_schedule_failed",
             }
-            if _moment(started) is not None:
-                query["at"] = {"$gte": str(started)}
+            started_at = _moment(started)
+            if started_at is not None:
+                # Journal timestamps are stored in UTC. Comparing offsetful
+                # ISO strings lexically can hide a later attempt (e.g. Rome
+                # +02:00 versus a +00:00 journal entry on the same day).
+                query["at"] = {"$gte": started_at.isoformat()}
             event = await db.agent_journal.find_one(
                 query, {"_id": 0, "at": 1, "detail.error_code": 1},
                 sort=[("at", -1)],
