@@ -221,3 +221,53 @@ async def test_no_silent_switch_from_exact_saved_ref_to_city_or_device(
     resolve.assert_not_awaited()
     forecast.assert_not_awaited()
     gps.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_real_conversation_core_can_call_weather_for_user_spoken_city(
+    weather_context,
+):
+    """End-to-end synthetic cognitive turn through its registered tool."""
+    from conversation_engine.ai_core.loop import run_cognitive_loop
+    from conversation_engine.models import ConversationSession
+
+    db, suggest, resolve, forecast, gps = weather_context
+    session = ConversationSession(
+        user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}},
+    )
+    calls = 0
+
+    async def decide(system, payload):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "response_mode": "tool",
+                "tool_call": {
+                    "capability": "get_weather_forecast",
+                    "arguments": {"place_query": "Tarquinia"},
+                },
+            }
+        return {
+            "response_mode": "answer",
+            "message_to_user": (
+                "Ho letto il meteo aggiornato di Tarquinia. "
+                "Questo non dimostra che un processo fisico sia concluso."
+            ),
+        }
+
+    result = await run_cognitive_loop(
+        sess=session, db=db, user_message="Che meteo c'è a Tarquinia?",
+        decision_fn=decide,
+    )
+    assert result.ok, result
+    assert result.tool_calls == 1
+    assert calls >= 2
+    suggest.assert_awaited_once_with("Tarquinia")
+    resolve.assert_awaited_once_with("provider-place-t")
+    forecast.assert_awaited_once_with(
+        lat=42.25, lon=11.76, place="Tarquinia",
+    )
+    gps.assert_not_awaited()
+    assert await db.situations.count_documents({}) == 0
+    assert await db.agent_goals.count_documents({}) == 0
