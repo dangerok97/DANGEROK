@@ -827,7 +827,12 @@ class ToolRegistry:
                     "decision or a temporary Situation materially depends on environmental "
                     "conditions. If the Situation is anchored to a confirmed Life Place, "
                     "first resolve that place and pass its exact place:<id> as place_ref; "
-                    "otherwise the skill may use current authorized device position. "
+                    "if the person explicitly named a locality but has no saved Life Place, "
+                    "pass its literal name as place_query (and owned situation_id if "
+                    "the locality is from an active Situation). The server verifies the "
+                    "named locality using Places before reading weather; an ambiguous "
+                    "or unsupported result must be reported as unverified, not guessed. "
+                    "Otherwise the skill may use current authorized device position. "
                     "This skill supplies live inputs — YOU reason about what those inputs "
                     "mean for the person's goal. Do not use public web search as a substitute "
                     "for live weather. rain_chance_pct is probability, not intensity: a higher "
@@ -841,7 +846,15 @@ class ToolRegistry:
                         "place_ref": {
                             "type": "string",
                             "description": "Optional exact confirmed place:<id> for the situation.",
-                        }
+                        },
+                        "place_query": {
+                            "type": "string",
+                            "description": "Optional locality explicitly named by the person, not a guessed place. Mutually exclusive with place_ref.",
+                        },
+                        "situation_id": {
+                            "type": "string",
+                            "description": "Optional exact owner-scoped active Situation id when the locality was recorded in an earlier user turn.",
+                        },
                     },
                 },
                 classification="personal",
