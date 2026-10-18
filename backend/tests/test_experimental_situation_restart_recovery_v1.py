@@ -100,9 +100,16 @@ async def test_consumed_review_without_checkpoint_gets_exactly_one_recovery_wake
 async def test_expired_claimed_review_is_reclaimed_by_one_new_worker(monkeypatch):
     db, sid, gid = await setup(monkeypatch)
     repo = AmbientRepository(db)
+    original = await db.ambient_wakes.find_one({
+        "owner_id": OWNER, "source_ref": f"goal:{gid}", "status": "pending",
+    })
+    assert original is not None
+    # Use the actual persisted due moment, not an assumption about how
+    # many seconds Ambient's scheduling floor uses in this environment.
+    first_due = datetime.fromisoformat(original["scheduled_for"])
     first = await repo.claim_due(
         worker_id="synthetic-worker-that-died",
-        now=datetime.now(timezone.utc) + timedelta(minutes=2),
+        now=first_due + timedelta(seconds=5),
     )
     assert first and first.status == "claimed"
     lease_expired = datetime.fromisoformat(first.lease_until) + timedelta(seconds=2)
