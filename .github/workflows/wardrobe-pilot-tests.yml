@@ -50,7 +50,7 @@ jobs:
       - run: npx expo export --platform web --output-dir dist-mobile-qa
         env:
           EXPO_PUBLIC_BACKEND_URL: same-origin
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: npx playwright test --config=e2e/wardrobe-qa.config.ts
         env:
           EXPO_PUBLIC_BACKEND_URL: same-origin
