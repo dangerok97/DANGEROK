@@ -302,3 +302,71 @@ async def test_claiming_foreign_situation_fails_even_if_city_named_this_turn(
     resolve.assert_not_awaited()
     forecast.assert_not_awaited()
     gps.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", [
+    {"status": "cancelled"},
+    {"location_label": "Un altro luogo"},
+    {"revision": 2},
+])
+async def test_weather_in_flight_cannot_use_cancelled_moved_or_revised_situation(
+    weather_context, change,
+):
+    """Race after provider call: never attach a valid town's data to stale work."""
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OWNER, status="active",
+        location_label="Tarquinia", summary="Active synthetic outdoor case",
+        history=[
+            SituationEvent(
+                revision=1, operation="create", source="user_conversation",
+                changes={"location_label": "Tarquinia"},
+            ),
+        ],
+    ))
+    original_weather = forecast.return_value
+
+    async def change_during_provider(*, lat, lon, place):
+        assert place == "Tarquinia"
+        await db.situations.update_one(
+            {"user_id": OWNER, "id": SID},
+            {"$set": change},
+        )
+        return original_weather
+
+    forecast.side_effect = change_during_provider
+    obs = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER,
+         "user_message": "Puoi verificare le condizioni aggiornate?"},
+    )
+    forecast.assert_awaited_once()
+    assert obs.status == "partial"
+    assert obs.payload["status"] == "source_changed"
+    assert obs.payload["failure_code"] == "PLACE_QUERY_SITUATION_CHANGED"
+    assert "hours" not in obs.payload
+    assert not obs.provenance
+    gps.assert_not_awaited()
+    assert await db.agent_goals.count_documents({}) == 0
+    assert await db.delivery_plans.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_without_situation_id_town_weather_remains_independent(
+    weather_context,
+):
+    """A plain place question is not fenced to an unrelated Situation."""
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OWNER, status="cancelled",
+        location_label="Tarquinia", summary="Unrelated old Situation",
+    ))
+    obs = await get_weather_forecast(
+        {"place_query": "Tarquinia"},
+        {"db": db, "user_id": OWNER,
+         "user_message": "Che tempo fa ora a Tarquinia?"},
+    )
+    assert obs.status == "ok"
+    assert obs.provenance == ["google_place:provider-place-t"]
+    forecast.assert_awaited_once()
