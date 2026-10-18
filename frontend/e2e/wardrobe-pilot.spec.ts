@@ -85,7 +85,7 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       json = { deleted: true };
     } else if (path === '/api/wardrobe/outfits') {
       const occasion = req.postDataJSON().occasion;
-      const allow = occasion === 'chic_evening' ? ['smart', 'formal'] : ['casual', 'smart'];
+      const allow = ['chic_evening', 'wedding'].includes(occasion) ? ['smart', 'formal'] : ['casual', 'smart'];
       const eligible = items.filter(i => i.status === 'available' && allow.includes(i.formality));
       const roles = ['top', 'bottom', 'shoes'];
       const separates = roles.map(role => eligible.find(i => i.category === role));
