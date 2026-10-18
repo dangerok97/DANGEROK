@@ -69,7 +69,11 @@ async def test_consumed_review_without_checkpoint_gets_exactly_one_recovery_wake
     })
     broken = await read_followup(db, OWNER, sid)
     assert broken["status"] == "recovery_pending"
+    assert broken["goal_source_kind"] == INITIAL_KIND
     assert broken["next_check_at"] is None
+    assert "prima valutazione" in broken["diagnosis"]
+    assert "non risulta ancora un orario di monitoraggio" in broken["diagnosis"]
+    assert "aveva registrato un orario" not in broken["diagnosis"]
 
     later = datetime.now(timezone.utc) + timedelta(minutes=5)
     scheduled = await recover_due(db, now=later, limit=2, admit=False)
