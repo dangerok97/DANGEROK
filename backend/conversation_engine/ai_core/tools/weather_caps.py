@@ -44,7 +44,7 @@ async def _resolve_user_named_locality(arguments: Dict[str, Any], runtime: Dict[
         return None, "PLACE_QUERY_INVALID"
     normalized = label.casefold()
     spoken = " ".join(str(runtime.get("user_message") or "")[:8000].casefold().split())
-    user_named = bool(re.search(r"(?<!\\w)" + re.escape(normalized) + r"(?!\\w)", spoken))
+    user_named = bool(re.search(r"(?<!\w)" + re.escape(normalized) + r"(?!\w)", spoken))
     if not user_named:
         sid = str(arguments.get("situation_id") or "").strip()
         if sid:
