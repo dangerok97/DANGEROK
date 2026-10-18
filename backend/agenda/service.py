@@ -245,6 +245,9 @@ class AgendaService:
                 "ends_at": attrs.get("ends_at"),
                 "end_time_known": attrs.get("end_time_known", True) is not False,
                 "all_day": bool(attrs.get("all_day")),
+                # Preserve event-zone authority after projecting it into the
+                # viewer's month. The detail and agenda must show one clock.
+                "timezone": attrs.get("timezone") or None,
                 "location": attrs.get("location") or "",
                 "time_label": _che_ora(attrs),
                 #     DA DOVE ARRIVA QUESTO APPUNTAMENTO.
