@@ -78,6 +78,20 @@ async def test_real_mongo_background_planning_outage_remains_recoverable(monkeyp
         assert initial["status"] == "review_pending", initial
         assert initial["next_check_at"] is None
 
+        # Ambient intentionally applies a 30s floor to newly admitted wakes.
+        # Fast-forward the two matching durable timestamps in this *isolated
+        # fixture*, not by sleeping or changing the production scheduler.
+        t0 = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
+        await db.ambient_wakes.update_one(
+            {"owner_id": OWNER, "source_ref": f"goal:{gid}",
+             "status": "pending"},
+            {"$set": {"scheduled_for": t0}},
+        )
+        await db.agent_goals.update_one(
+            {"owner_id": OWNER, "id": gid},
+            {"$set": {"next_run_at": t0}},
+        )
+
         # A genuine Ambient worker claims the initial user-owned wake and
         # invokes the real AgentService.advance. No mocked worker dispatcher.
         first = await runtime.tick(db, limit=1)
