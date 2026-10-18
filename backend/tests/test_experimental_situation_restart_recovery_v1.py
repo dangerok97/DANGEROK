@@ -107,9 +107,22 @@ async def test_expired_claimed_review_is_reclaimed_by_one_new_worker(monkeypatch
     # Use the actual persisted due moment, not an assumption about how
     # many seconds Ambient's scheduling floor uses in this environment.
     first_due = datetime.fromisoformat(original["scheduled_for"])
+    claim_at = first_due + timedelta(seconds=5)
+    claim_stamp = claim_at.isoformat()
+    assert original["attempts"] < 5 and original["scheduled_for"] <= claim_stamp
+    # Diagnose the actual atomically-selected filter before touching the
+    # claim code: a miss here is different from a failed find_one_and_update.
+    expected = {
+        "scheduled_for": {"$lte": claim_stamp},
+        "attempts": {"$lt": 5},
+        "$or": [
+            {"status": "pending"},
+            {"status": "claimed", "lease_until": {"$lt": claim_stamp}},
+        ],
+    }
+    assert await db.ambient_wakes.count_documents(expected) == 1, original
     first = await repo.claim_due(
-        worker_id="synthetic-worker-that-died",
-        now=first_due + timedelta(seconds=5),
+        worker_id="synthetic-worker-that-died", now=claim_at,
     )
     assert first and first.status == "claimed"
     lease_expired = datetime.fromisoformat(first.lease_until) + timedelta(seconds=2)
