@@ -226,3 +226,86 @@ def test_initial_review_and_actual_checkpoint_have_different_failure_diagnosis()
         "status": "not_scheduled", "goal_source_kind": INITIAL_KIND,
         "runtime_enabled": True,
     }).startswith("La memoria della situazione esiste")
+
+
+@pytest.mark.asyncio
+async def test_new_attention_epoch_does_not_recycle_prior_schedule_failure(monkeypatch):
+    from agent.models import AutonomousGoal
+    from situations.followup import goal_id_for, INITIAL_KIND
+
+    db = await setup(monkeypatch)
+    now = datetime.now(timezone.utc)
+    cycle_start = (now - timedelta(minutes=4)).isoformat()
+    old_time = (now - timedelta(days=3)).isoformat()
+    new_time = (now - timedelta(minutes=1)).isoformat()
+    gid = goal_id_for(OWNER, SID)
+    goal = AutonomousGoal(
+        id=gid, owner_id=OWNER, status="active",
+        objective="Review current Situation without assuming past schedule",
+        desired_outcome="Give a grounded useful action recommendation",
+        source_kind=INITIAL_KIND,
+        source_refs=[f"situation:{SID}"],
+        source_situation={
+            "situation_id": SID, "situation_revision": "1",
+            "attention_started_at": cycle_start,
+        },
+    )
+    await db.agent_goals.insert_one(goal.model_dump())
+    await db.agent_journal.insert_one({
+        "owner_id": OWNER, "goal_id": gid, "kind": "situation_schedule_failed",
+        "at": old_time, "detail": {
+            "error_code": "timezone_aware_checkpoint_within_72h_required",
+        },
+    })
+    state = await read_followup(db, OWNER, SID)
+    assert state["status"] == "not_scheduled"
+    assert state["goal_source_kind"] == INITIAL_KIND
+    assert not state.get("last_schedule_error"), (
+        "A failed schedule in an old cycle cannot explain the current one"
+    )
+    assert "Ultimo tentativo" not in state["diagnosis"]
+
+    await db.agent_journal.insert_one({
+        "owner_id": OWNER, "goal_id": gid, "kind": "situation_schedule_failed",
+        "at": new_time, "detail": {
+            "error_code": "bounded_purpose_and_notification_condition_required",
+        },
+    })
+    current = await read_followup(db, OWNER, SID)
+    assert current["last_schedule_error"] == (
+        "bounded_purpose_and_notification_condition_required"
+    )
+    assert current["last_schedule_attempt_at"] == new_time
+    assert current["status"] == "not_scheduled"
+
+    # Another owner's failed time never contaminates this state.
+    await db.agent_journal.insert_one({
+        "owner_id": "other-person", "goal_id": gid, "kind": "situation_schedule_failed",
+        "at": (now + timedelta(minutes=1)).isoformat(),
+        "detail": {"error_code": "timezone_aware_checkpoint_within_72h_required"},
+    })
+    again = await read_followup(db, OWNER, SID)
+    assert again["last_schedule_error"] == current["last_schedule_error"]
+    assert (await read_followup(db, "other-person", SID))["status"] == "unavailable"
+
+    # Once stopped, a historical failure is never a request for reactivation.
+    await db.situations.update_one(
+        {"user_id": OWNER, "id": SID}, {"$set": {"status": "resolved"}},
+    )
+    closed = await read_followup(db, OWNER, SID)
+    assert closed["status"] == "stopped"
+    assert closed.get("last_schedule_error") is None
+    assert await db.agent_journal.count_documents({"owner_id": OWNER}) == 2
+
+
+def test_review_pending_explains_current_failed_proposal_without_fake_success():
+    from situations.followup import followup_diagnosis
+    diagnostic = followup_diagnosis({
+        "status": "review_pending", "runtime_enabled": True,
+        "assessment_label": "oggi alle 15:00",
+        "last_schedule_error": "timezone_aware_checkpoint_within_72h_required",
+    })
+    assert "non ha ancora fissato un controllo" in diagnostic
+    assert "Ultima proposta di controllo rifiutata" in diagnostic
+    assert "orario valido con fuso" in diagnostic
+    assert "Risulta programmato un controllo" not in diagnostic
