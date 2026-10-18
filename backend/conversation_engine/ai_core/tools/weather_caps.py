@@ -7,6 +7,7 @@ conditions and returns bounded facts. It contains no domain rules.
 from __future__ import annotations
 
 from typing import Any, Dict
+import re
 
 from conversation_engine.ai_core.models import Observation
 
@@ -30,6 +31,74 @@ def _fail(
     )
 
 
+async def _resolve_user_named_locality(arguments: Dict[str, Any], runtime: Dict[str, Any], uid: str, db):
+    """Read weather at a person-named locality, not at a guessed device location.
+
+    The model proposes a name, but code verifies that name was actually spoken
+    this turn, or is the active owner's explicitly recorded Situation place.
+    Google's answer must be unique and resolve to the same locality; this is
+    not a source of precise house/street coordinates or a persistent LifePlace.
+    """
+    label = " ".join(str(arguments.get("place_query") or "").split())
+    if not 3 <= len(label) <= 120:
+        return None, "PLACE_QUERY_INVALID"
+    normalized = label.casefold()
+    spoken = " ".join(str(runtime.get("user_message") or "")[:8000].casefold().split())
+    user_named = bool(re.search(r"(?<!\\w)" + re.escape(normalized) + r"(?!\\w)", spoken))
+    if not user_named:
+        sid = str(arguments.get("situation_id") or "").strip()
+        if sid:
+            try:
+                from situations.repository import SituationRepository
+                sit = await SituationRepository(db).get(uid, sid)
+                if sit and sit.status in ("active", "changed") and (
+                    " ".join(str(sit.location_label or "").casefold().split()) == normalized
+                ):
+                    user_named = any(
+                        e.source == "user_conversation"
+                        and " ".join(str(e.changes.get("location_label") or "").casefold().split()) == normalized
+                        for e in (sit.history or [])
+                    )
+            except Exception:
+                user_named = False
+    if not user_named:
+        return None, "PLACE_QUERY_NOT_USER_GROUNDED"
+    try:
+        from places import lookup
+        from places.models import Coordinates
+        suggestions = await lookup.suggest(label)
+        if not suggestions.get("available"):
+            return None, "PLACE_LOOKUP_UNAVAILABLE"
+        candidates = {
+            str(item["place_id"])
+            for item in (suggestions.get("suggestions") or [])
+            if isinstance(item, dict) and item.get("place_id")
+            and normalized in {
+                " ".join(str(item.get("primary") or "").casefold().split()),
+                " ".join(str(item.get("text") or "").casefold().split()),
+            }
+        }
+        if len(candidates) != 1:
+            return None, "PLACE_QUERY_AMBIGUOUS"
+        place_id = next(iter(candidates))
+        resolved = await lookup.resolve(place_id)
+        if (
+            not resolved.get("available")
+            or str(resolved.get("place_id") or "") != place_id
+            or normalized not in {
+                " ".join(str(resolved.get("locality") or "").casefold().split()),
+                " ".join(str(resolved.get("address") or "").casefold().split()),
+            }
+        ):
+            return None, "PLACE_QUERY_MISMATCH"
+        coordinates = Coordinates(
+            latitude=resolved["latitude"], longitude=resolved["longitude"],
+        )
+        return (float(coordinates.latitude), float(coordinates.longitude), label, place_id), None
+    except Exception:
+        return None, "PLACE_LOOKUP_UNAVAILABLE"
+
+
 async def get_weather_forecast(
     arguments: Dict[str, Any], runtime: Dict[str, Any]
 ) -> Observation:
@@ -39,8 +108,29 @@ async def get_weather_forecast(
         return _fail("NOT_CONFIGURED")
 
     point = None
+    named_place_provenance = ""
     place_ref = str(arguments.get("place_ref") or "").strip()
-    if place_ref:
+    place_query = str(arguments.get("place_query") or "").strip()
+    if place_query and place_ref:
+        return _fail("AMBIGUOUS_PLACE_INPUT", "Indica un solo luogo, non due luoghi concorrenti.")
+    if place_query:
+        resolved, error = await _resolve_user_named_locality(arguments, runtime, uid, db)
+        if error:
+            return Observation(
+                kind="tool", name="get_weather_forecast", status="partial",
+                payload={
+                    "capability": "get_weather_forecast",
+                    "status": "location_required",
+                    "reason": (
+                        "La località indicata non è stata verificata in modo "
+                        "univoco dalla richiesta della persona o dal servizio luoghi."
+                    ),
+                    "failure_code": error,
+                },
+            )
+        point = resolved[:3]
+        named_place_provenance = "google_place:" + resolved[3]
+    elif place_ref:
         if not place_ref.startswith("place:"):
             return _fail("INVALID_PLACE_REF")
         try:
@@ -66,7 +156,7 @@ async def get_weather_forecast(
                 "PLACE_UNAVAILABLE",
                 "Il luogo indicato non è più disponibile o non ha coordinate.",
             )
-    else:
+    elif point is None:
         try:
             from home.service import HomeService
 
@@ -147,5 +237,5 @@ async def get_weather_forecast(
                 "Usali per la decisione attuale; non trattarli come certi per il futuro."
             ),
         },
-        provenance=[place_ref] if place_ref else [],
+        provenance=[place_ref] if place_ref else ([named_place_provenance] if named_place_provenance else []),
     )
