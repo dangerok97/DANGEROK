@@ -195,6 +195,39 @@ async def get_weather_forecast(
         data = await weather.forecast_at(lat=lat, lon=lon, place=label)
     except Exception:
         return _fail("WEATHER_READ_FAILED")
+    # This external read may take seconds. A formerly authorized Situation
+    # might be cancelled, moved, or corrected while Google/forecast are
+    # responding. Re-read the precise owner/revision fence before publishing
+    # environmental evidence to the cognitive Core. The weather itself may
+    # still be valid for that town; it is not valid for the *old Situation*.
+    if named_place_provenance and len(named_place_provenance) > 1:
+        from situations.repository import SituationRepository
+
+        sid = str(arguments.get("situation_id") or "").strip()
+        expected = named_place_provenance[1]
+        try:
+            current = await SituationRepository(db).get(uid, sid)
+            valid = bool(
+                current and current.status in ("active", "changed")
+                and f"situation:{sid}:revision:{current.revision}" == expected
+                and " ".join(str(current.location_label or "").casefold().split())
+                    == " ".join(str(place_query).casefold().split())
+            )
+        except Exception:
+            valid = False
+        if not valid:
+            return Observation(
+                kind="tool", name="get_weather_forecast", status="partial",
+                payload={
+                    "capability": "get_weather_forecast",
+                    "status": "source_changed",
+                    "failure_code": "PLACE_QUERY_SITUATION_CHANGED",
+                    "reason": (
+                        "La situazione o il luogo è cambiato mentre leggevo "
+                        "il meteo. Occorre rileggere la situazione aggiornata."
+                    ),
+                },
+            )
     if not data.get("available"):
         return _fail(
             "WEATHER_UNAVAILABLE",
