@@ -146,7 +146,7 @@ async def test_only_active_owned_user_recorded_situation_can_reuse_locality(monk
                "user_message": "Ricontrolla la situazione"},
     )
     assert yes.status == "ok"
-    assert len(yes.provenance) == 1
+    assert yes.provenance == ["google_place:synthetic-town-one", f"situation:{sid}:revision:1"]
     suggest.assert_awaited_once()
     resolve.assert_awaited_once()
     forecast.assert_awaited_once()
