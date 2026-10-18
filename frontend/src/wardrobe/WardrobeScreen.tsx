@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +11,7 @@ import { useAmbientInset } from '@/src/shell';
 import { tokens } from '@/src/theme/tokens';
 import { wardrobeClient, CATEGORIES, FORMALITIES, OCCASIONS,
   type Garment, type GarmentInput, type Category, type Formality,
-  type GarmentStatus, type Occasion, type OutfitResponse } from './client';
+  type GarmentStatus, type Occasion, type OutfitResponse, type GarmentAnalysis } from './client';
 import { pickGarmentPhoto } from './pickPhoto';
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Operazione non riuscita.';
@@ -34,6 +34,11 @@ function WardrobeScreen() {
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState<GarmentInput | null>(null);
   const [newPhoto, setNewPhoto] = useState<Blob | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [recognition, setRecognition] = useState<GarmentAnalysis | null>(null);
+  const [analysisNote, setAnalysisNote] = useState('');
+  // Discard AI results after switching draft, photo, or manual field edits.
+  const photoEpoch = useRef(0);
   const [deleteTarget, setDeleteTarget] = useState<Garment | null>(null);
   const [occasion, setOccasion] = useState<Occasion>('casual_evening');
   const [result, setResult] = useState<OutfitResponse | null>(null);
@@ -57,18 +62,24 @@ function WardrobeScreen() {
   }, []);
 
   const create = () => {
+    photoEpoch.current += 1; setRecognition(null); setAnalysisNote('');
     setDraft({ id: Crypto.randomUUID().replace(/-/g, ''), revision: 0, name: '',
       category: 'top', color: '', formality: 'casual', seasons: [], status: 'available' });
     setNewPhoto(null); setError(''); setNotice('');
   };
   const edit = (item: Garment) => {
+    photoEpoch.current += 1; setRecognition(null); setAnalysisNote('');
     const { id, revision, name, category, color, formality, seasons, status } = item;
     setDraft({ id, revision, name, category, color, formality, seasons, status });
     setNewPhoto(null); setError(''); setNotice('');
   };
-  const patch = (values: Partial<GarmentInput>) => setDraft(previous => previous ? { ...previous, ...values } : null);
+  const patch = (values: Partial<GarmentInput>) => {
+    photoEpoch.current += 1;
+    setRecognition(null);
+    setDraft(previous => previous ? { ...previous, ...values } : null);
+  };
   const save = async () => {
-    if (!draft || busy) return;
+    if (!draft || busy || analyzing) return;
     if (!draft.name.trim() || !draft.color.trim()) {
       setError('Inserisci nome e colore del capo.'); return;
     }
@@ -83,16 +94,44 @@ function WardrobeScreen() {
         catch (e) { photoProblem = errorText(e); }
       }
       await load();
+      photoEpoch.current += 1;
       setResult(null); setDraft(null); setNewPhoto(null);
+      setRecognition(null); setAnalysisNote('');
       setNotice(photoProblem ? `Capo salvato, ma la foto non è stata caricata: ${photoProblem}` : 'Capo salvato nel tuo guardaroba.');
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
   const choosePhoto = async () => {
+    if (!draft || busy || analyzing) return;
     try {
       const photo = await pickGarmentPhoto();
-      if (photo) { setNewPhoto(photo); setError(''); }
+      if (photo) {
+        photoEpoch.current += 1;
+        setNewPhoto(photo); setRecognition(null); setAnalysisNote('');
+        setError('');
+      }
     } catch (e) { setError(errorText(e)); }
+  };
+  const analyze = async () => {
+    if (!draft || !newPhoto || busy || analyzing) return;
+    const currentEpoch = photoEpoch.current;
+    setAnalyzing(true); setError(''); setAnalysisNote('');
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      const suggestion = await wardrobeClient.analyze(token, newPhoto);
+      if (photoEpoch.current !== currentEpoch) return;
+      setRecognition(suggestion);
+      setAnalysisNote(suggestion.message);
+      if (suggestion.recognized && suggestion.suggestion) {
+        setDraft(previous => previous ? { ...previous, ...suggestion.suggestion } : null);
+      }
+    } catch (e) {
+      if (photoEpoch.current === currentEpoch) {
+        setRecognition(null);
+        setAnalysisNote(errorText(e) + ' Puoi comunque compilare i campi a mano.');
+      }
+    } finally { setAnalyzing(false); }
   };
   const remove = async () => {
     if (!deleteTarget || busy) return;
@@ -149,7 +188,7 @@ function WardrobeScreen() {
         <Text style={[s.subhead, muted]}>I vestiti che possiedi, organizzati per trovare cosa indossare.</Text>
         <View style={[s.card, card]}>
           <Text style={[s.heading, foreground]}>I tuoi capi · {items.length}/75</Text>
-          <Text style={[s.note, muted]}>Per questa prima versione indica categoria, colore e stile; le foto sono private e ottimizzate.</Text>
+          <Text style={[s.note, muted]}>Le foto salvate sono protette e ottimizzate. L'analisi AI è facoltativa: la attivi solo tu.</Text>
           {!draft ? action('Aggiungi un capo', create, true, busy) : null}
           {loading ? <ActivityIndicator color={colors.accent} /> : null}
           {!loading && !items.length ? <Text style={[s.note, muted]}>Ancora nessun capo. Comincia dai vestiti che usi più spesso.</Text> : null}
@@ -183,6 +222,13 @@ function WardrobeScreen() {
 
         {draft ? <View style={[s.card, card]} testID="wardrobe-editor">
           <Text style={[s.heading, foreground]}>{draft.revision ? 'Modifica il capo' : 'Nuovo capo'}</Text>
+          {action(newPhoto ? 'Foto selezionata · Cambia foto' : 'Scegli una foto del capo', () => { void choosePhoto(); }, false, busy || analyzing)}
+          <Text style={[s.note, muted]}>Se vuoi, premi «Riconosci con AI»: una copia ridotta della foto sarà inviata al provider AI configurato per proporti i campi. Non viene salvato nulla senza il tuo «Salva capo».</Text>
+          {newPhoto ? action(analyzing ? 'Riconoscimento in corso…' : 'Riconosci con AI', () => { void analyze(); }, true, busy || analyzing) : null}
+          {analyzing ? <ActivityIndicator testID="wardrobe-analyzing" color={colors.accent} /> : null}
+          {analysisNote ? <Text testID="wardrobe-analysis-note" style={[s.note, recognition?.recognized ? { color: colors.accent } : muted]}>
+            {analysisNote}{recognition?.recognized ? ' Controlla nome, colore, categoria e stile.' : ''}
+          </Text> : null}
           <Text style={[s.fieldTitle, muted]}>Nome del capo</Text>
           <TextInput value={draft.name} maxLength={80} onChangeText={name => patch({ name })}
             placeholder="Es. Camicia azzurra" placeholderTextColor={colors.textSecondary}
@@ -203,10 +249,9 @@ function WardrobeScreen() {
             {chip('Da lavare', draft.status === 'laundry', () => patch({ status: 'laundry' as GarmentStatus }), 'laundry')}
             {chip('Non disponibile', draft.status === 'unavailable', () => patch({ status: 'unavailable' as GarmentStatus }), 'unavailable')}
           </View>
-          {action(newPhoto ? 'Foto selezionata · Cambia' : 'Scegli foto (facoltativa)', () => { void choosePhoto(); }, false, busy)}
           <View style={s.inline}>
-            {action('Annulla', () => { setDraft(null); setNewPhoto(null); setError(''); }, false, busy)}
-            {action(busy ? 'Salvataggio…' : 'Salva capo', () => { void save(); }, true, busy)}
+            {action('Annulla', () => { photoEpoch.current += 1; setDraft(null); setNewPhoto(null); setRecognition(null); setAnalysisNote(''); setError(''); }, false, busy || analyzing)}
+            {action(busy ? 'Salvataggio…' : 'Salva capo', () => { void save(); }, true, busy || analyzing)}
           </View>
         </View> : null}
 
@@ -238,7 +283,7 @@ function WardrobeScreen() {
 
         {error ? <Text testID="wardrobe-error" style={{ color: colors.error }}>{error}</Text> : null}
         {notice ? <Text testID="wardrobe-notice" style={{ color: colors.textSecondary }}>{notice}</Text> : null}
-        <Text style={[s.note, muted]}>Pilot: il motore attuale usa regole di categoria, formalità e colore. Il riconoscimento fotografico AI e lo stylist personale arriveranno soltanto dopo verifica della qualità.</Text>
+        <Text style={[s.note, muted]}>Pilot: il riconoscimento fotografico AI propone soltanto campi da verificare. Gli outfit usano ancora regole preliminari di categoria, formalità e colore: non sono una valutazione di uno stylist professionista.</Text>
       </ScrollView>
     </SafeAreaView>
   );

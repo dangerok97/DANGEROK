@@ -10,6 +10,17 @@
   items and no automatic use of clothes marked as unavailable / laundry.
 - Static, auditable preliminary pairing rules. The `engine=rules-v1` label is intentional.
   Outfit advice is **not** yet advanced AI fashion judgment and does not imply dress-code fit.
+- Optional `POST /api/wardrobe/analyze` with existing ORA Vision (Gemini, fallback OpenAI
+  if configured). Authenticated, image max 5 MB; strips metadata and downscales before
+  sending JPEG to the configured AI provider(s). The user **explicitly** presses
+  "Riconosci con AI" after selecting a photo. No provider call on photo selection.
+- AI output is schema-validated (single garment, category, color, optional formality,
+  confidence high/medium only). A tentative suggestion fills **editable** fields:
+  it is never saved automatically. Uncertain, unsupported or malformed results never
+  prefill an item; provider errors preserve the manual path.
+- Cost control: an atomic **per-account quota** of 12 analyses per hour reuses the
+  existing TTL-indexed rate-limit collection. Images and model raw output are not
+  persisted to MongoDB by the analysis endpoint.
 
 ## Reuse and credits
 Concepts for body-role completeness, formality and temperature bucketing adapted from
@@ -18,14 +29,16 @@ See `backend/wardrobe/THIRD_PARTY_LICENSE.txt`. Do not import its Next.js fronte
 PostgreSQL schema into ORA's Expo/FastAPI/MongoDB application.
 
 ## Not yet included
-- AI photographic classification, automatic color/material tagging, background removal.
+- Automatic bulk classification, reliable material/tag extraction and background removal (only an explicit, user-reviewed single-photo AI *draft* is implemented).
 - Personal preference learning, fashion-trend curation, fit/size assessment.
 - Conversational wardrobe tools shared by ORA app and WhatsApp; calendar/real meteo.
-- Multi-garment photographic import, bulk duplicate identification.
+- One-piece garments (dresses), multi-garment photographic import, bulk duplicate identification.
 - Professional fashion-stylist quality assessment and real-account end-to-end pilot.
 
 ## Release gate
 This commit only creates a PR against `staging/cloud`: DO NOT merge or deploy by default.
 First require isolated backend HTTP and privacy tests, frontend typecheck, native/web
-photo-picking QA, and real-user evaluation on representative clothes.
+photo-picking + AI-draft QA, and real-user evaluation on representative clothes.
+Provider credentials are not required by unit/browser QA, which use synthetic responses;
+**no live model accuracy has been demonstrated by those tests**.
 The already open autonomy PR #350 remains untouched.

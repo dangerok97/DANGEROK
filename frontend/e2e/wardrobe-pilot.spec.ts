@@ -1,11 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7ZQb4AAAAASUVORK5CYII=';
+
 type Item = { id: string; revision: number; name: string; category: string;
   color: string; formality: string; status: string; seasons: string[]; photo: string | null;
   created_at: string; updated_at: string };
 
-async function mockAccount(page: Page) {
+async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outage' = 'recognized') {
   const items: Item[] = [];
+  const statistics = { analyzed: 0, saved: 0, photos: 0 };
   await page.addInitScript(() => {
     localStorage.setItem('ora_auth_token', JSON.stringify('synthetic-wardrobe-session'));
   });
@@ -40,13 +43,38 @@ async function mockAccount(page: Page) {
         permission: { preference: 'while_using', state: 'granted', freshness: 'current' } };
     } else if (path.includes('/life-setup')) {
       json = { ok: true, enabled: false, completed: true };
+    } else if (path === '/api/wardrobe/analyze') {
+      statistics.analyzed++;
+      expect(req.method()).toBe('POST');
+      expect(req.headers()['content-type']).toBe('image/png');
+      if (mode === 'outage') {
+        await route.fulfill({ status: 503, headers,
+          json: { detail: 'Riconoscimento AI non configurato. Puoi compilare i campi manualmente.' } });
+        return;
+      }
+      json = mode === 'uncertain'
+        ? { recognized: false, confidence: 'low', suggestion: null,
+            saved: false, engine: 'vision-ai-draft', message: 'Non riconosco il capo con certezza.' }
+        : { recognized: true, confidence: 'high', saved: false,
+            engine: 'vision-ai-draft', message: 'Proposta AI da verificare.',
+            suggestion: { name: 'Camicia blu', category: 'top', color: 'blu', formality: 'smart' } };
     } else if (path === '/api/wardrobe/items' && req.method() === 'PUT') {
+      statistics.saved++;
       const input = req.postDataJSON();
       const existing = items.findIndex(i => i.id === input.id);
       const item: Item = { ...input, revision: input.revision + 1, photo: null,
         created_at: '2026-10-18T13:00:00Z', updated_at: '2026-10-18T13:00:00Z' };
       if (existing >= 0) items[existing] = item;
       else items.push(item);
+      json = { item };
+    } else if (path.startsWith('/api/wardrobe/items/') && path.endsWith('/photo') && req.method() === 'POST') {
+      statistics.photos++;
+      const id = path.split('/').at(-2);
+      const item = items.find(i => i.id === id);
+      if (item) {
+        item.revision += 1;
+        item.photo = 'data:image/png;base64,' + png;
+      }
       json = { item };
     } else if (path === '/api/wardrobe/items') {
       json = { items };
@@ -72,6 +100,7 @@ async function mockAccount(page: Page) {
   await page.route(url => url.protocol.startsWith('http')
     && !['localhost', '127.0.0.1'].includes(url.hostname)
     && !url.pathname.startsWith('/api/'), route => route.abort());
+  return statistics;
 }
 
 async function add(page: Page, name: string, category: string, color: string) {
@@ -114,4 +143,64 @@ test('VITA opens private wardrobe; outfits only use owned available garments', a
   await page.getByRole('button', { name: 'Proponi gli abbinamenti' }).click();
   await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Scarpe');
   await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Non invento');
+});
+
+
+async function choosePhoto(page: Page) {
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Scegli una foto del capo' }).click();
+  await (await chooser).setFiles({ name: 'synthetic-clothing.png',
+    mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+}
+
+test('explicit AI photo preview prefills an editable draft but never auto-saves', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stats = await mockAccount(page);
+  await page.goto('/guardaroba');
+  await page.getByRole('button', { name: 'Aggiungi un capo' }).click();
+  await choosePhoto(page);
+  await expect(page.getByRole('button', { name: 'Riconosci con AI' })).toBeVisible();
+  expect(stats.saved).toBe(0);
+  expect(stats.analyzed).toBe(0); // Selecting alone does not invoke a provider.
+  await page.getByRole('button', { name: 'Riconosci con AI' }).click();
+  await expect(page.getByTestId('wardrobe-analysis-note')).toContainText('verificare');
+  await expect(page.getByPlaceholder('Es. Camicia azzurra')).toHaveValue('Camicia blu');
+  await expect(page.getByPlaceholder('Es. Blu, bianco, beige')).toHaveValue('blu');
+  expect(stats.analyzed).toBe(1);
+  expect(stats.saved).toBe(0); // An AI suggestion is not a stored clothing item.
+  await page.getByPlaceholder('Es. Camicia azzurra').fill('Camicia blu preferita');
+  await page.getByRole('button', { name: 'Salva capo' }).click();
+  await expect(page.getByTestId('wardrobe-notice')).toContainText('Capo salvato');
+  expect(stats.saved).toBe(1);
+  expect(stats.photos).toBe(1);
+  await expect(page.getByText('Camicia blu preferita')).toBeVisible();
+});
+
+test('uncertain AI returns no details; manual input stays functional', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stats = await mockAccount(page, 'uncertain');
+  await page.goto('/guardaroba');
+  await page.getByRole('button', { name: 'Aggiungi un capo' }).click();
+  await choosePhoto(page);
+  await page.getByRole('button', { name: 'Riconosci con AI' }).click();
+  await expect(page.getByTestId('wardrobe-analysis-note')).toContainText('Non riconosco');
+  await expect(page.getByPlaceholder('Es. Camicia azzurra')).toHaveValue('');
+  await page.getByPlaceholder('Es. Camicia azzurra').fill('Felpa grigia');
+  await page.getByPlaceholder('Es. Blu, bianco, beige').fill('grigio');
+  await page.getByRole('button', { name: 'Salva capo' }).click();
+  await expect(page.getByTestId('wardrobe-notice')).toContainText('Capo salvato');
+  expect(stats.saved).toBe(1);
+});
+
+test('provider outage explains manual fallback; no invented AI result', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stats = await mockAccount(page, 'outage');
+  await page.goto('/guardaroba');
+  await page.getByRole('button', { name: 'Aggiungi un capo' }).click();
+  await choosePhoto(page);
+  await page.getByRole('button', { name: 'Riconosci con AI' }).click();
+  await expect(page.getByTestId('wardrobe-analysis-note')).toContainText('manualmente');
+  await expect(page.getByPlaceholder('Es. Camicia azzurra')).toHaveValue('');
+  expect(stats.analyzed).toBe(1);
+  expect(stats.saved).toBe(0);
 });

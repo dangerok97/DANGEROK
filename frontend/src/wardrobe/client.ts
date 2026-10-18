@@ -30,6 +30,15 @@ export const OCCASIONS = [
   { value: 'wedding', label: 'Matrimonio' },
 ] as const;
 export type Occasion = typeof OCCASIONS[number]['value'];
+export type GarmentProposal = {
+  name: string; category: Category; color: string; formality?: Formality;
+};
+export type GarmentAnalysis = {
+  recognized: boolean; confidence: 'high' | 'medium' | 'low';
+  suggestion: GarmentProposal | null; saved: false;
+  engine: 'vision-ai-draft'; message: string;
+};
+
 export type OutfitResponse = {
   engine: 'rules-v1'; occasion: Occasion; missing: Category[]; message: string;
   outfits: { item_ids: string[]; title: string; why: string; score: number }[];
@@ -68,6 +77,9 @@ export const wardrobeClient = {
     `/items/${encodeURIComponent(item.id)}/photo?revision=${item.revision}`, {
       method: 'POST', headers: { 'Content-Type': photo.type }, body: photo,
     }),
+  analyze: (token: string, photo: Blob) => request<GarmentAnalysis>(token, '/analyze', {
+    method: 'POST', headers: { 'Content-Type': photo.type }, body: photo,
+  }),
   outfits: (token: string, occasion: Occasion) => request<OutfitResponse>(token, '/outfits', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ occasion }),
   }),

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from deps import db, get_current_user
+from .classify import analyze_photo, enforce_owner_quota
 from .service import (
     MAX_UPLOAD, GarmentInput, OutfitInput, PhotoCipher,
     WardrobeError, WardrobeService, make_thumbnail,
@@ -81,3 +82,27 @@ async def save_photo(item_id: str, request: Request, revision: int = Query(..., 
 @router.post("/outfits")
 async def outfits(body: OutfitInput, user=Depends(get_current_user)):
     return await _call(_service().outfits(user["user_id"], body))
+
+
+@router.post("/analyze")
+async def analyze_garment(request: Request, user=Depends(get_current_user)):
+    """Explicit, non-persistent draft. One image only; never save AI guesses."""
+    if request.headers.get("content-type", "").split(";")[0].lower() not in (
+        "image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(415, "Carica una foto JPEG, PNG o WebP.")
+
+    # Check the account-scoped cost cap before reading and forwarding the photo.
+    await _call(enforce_owner_quota(db, user["user_id"]))
+    raw = bytearray()
+    try:
+        async for chunk in request.stream():
+            if len(raw) + len(chunk) > MAX_UPLOAD:
+                raise HTTPException(413, "La foto supera 5 MB.")
+            raw.extend(chunk)
+        clean = await run_in_threadpool(make_thumbnail, bytes(raw))
+    except WardrobeError as exc:
+        raise HTTPException(exc.status, str(exc)) from None
+    finally:
+        raw.clear()
+    # No insertion into MongoDB, no persistent photo, no raw provider output.
+    return await _call(analyze_photo(clean))

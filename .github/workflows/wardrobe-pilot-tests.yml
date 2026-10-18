@@ -9,6 +9,8 @@ on:
       - 'frontend/src/life-setup/GuidedSetupScreen.tsx'
       - 'frontend/app/(tabs)/**'
       - 'tests/test_wardrobe_v1.py'
+      - 'frontend/e2e/wardrobe-pilot.spec.ts'
+      - 'frontend/e2e/wardrobe-qa.config.ts'
       - '.github/workflows/wardrobe-pilot-tests.yml'
 permissions:
   contents: read
