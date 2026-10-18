@@ -370,3 +370,47 @@ async def test_without_situation_id_town_weather_remains_independent(
     assert obs.status == "ok"
     assert obs.provenance == ["google_place:provider-place-t"]
     forecast.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_latest_place_change_must_be_user_confirmed_not_historical(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OWNER, revision=2, status="active",
+        location_label="Tarquinia", summary="Synthetic process",
+        history=[
+            SituationEvent(revision=1, operation="create",
+                           source="user_conversation",
+                           changes={"location_label": "Tarquinia"}),
+            SituationEvent(revision=2, operation="update",
+                           source="inferred",
+                           changes={"location_label": "Tarquinia"}),
+        ],
+    ))
+    blocked = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER, "user_message": "Ricontrolla."},
+    )
+    assert blocked.status == "partial"
+    assert blocked.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
+    suggest.assert_not_awaited()
+    resolve.assert_not_awaited()
+    forecast.assert_not_awaited()
+
+    # An unrelated later metadata revision must NOT erase a still-current,
+    # explicitly user-confirmed locality.
+    await db.situations.update_one(
+        {"id": SID, "user_id": OWNER},
+        {"$set": {"history.1.changes": {"current_state_summary": "Riesame"}}},
+    )
+    approved = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER, "user_message": "Ricontrolla."},
+    )
+    assert approved.status == "ok"
+    assert approved.provenance == [
+        "google_place:provider-place-t",
+        f"situation:{SID}:revision:2",
+    ]
