@@ -45,3 +45,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npx expo export --platform web --output-dir dist-mobile-qa
+        env:
+          EXPO_PUBLIC_BACKEND_URL: same-origin
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config=e2e/wardrobe-qa.config.ts
+        env:
+          EXPO_PUBLIC_BACKEND_URL: same-origin
