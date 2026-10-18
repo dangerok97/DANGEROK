@@ -7,9 +7,12 @@ No real account, API credentials, external model or notifications are used.
 """
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
+import os
+import uuid
 
 import pytest
 from mongomock_motor import AsyncMongoMockClient
+from motor.motor_asyncio import AsyncIOMotorClient
 
 from agent.background import recover_due
 from ambient.repository import AmbientRepository
@@ -22,11 +25,11 @@ OWNER = "synthetic-exp-wake-owner"
 OTHER = "synthetic-exp-wake-other"
 
 
-async def setup(monkeypatch):
+async def setup(monkeypatch, *, db=None):
     monkeypatch.setenv("AMBIENT_RUNTIME", "1")
     monkeypatch.setattr(OpportunityDiscovery, "note", AsyncMock(
         return_value={"outcome": "accepted"}))
-    db = AsyncMongoMockClient().exp_situation_restart
+    db = db if db is not None else AsyncMongoMockClient().exp_situation_restart
     await db.agent_goals.create_index("id", unique=True)
     await db.agent_runs.create_index("goal_id", unique=True)
     await db.ambient_wakes.create_index(
@@ -98,57 +101,61 @@ async def test_consumed_review_without_checkpoint_gets_exactly_one_recovery_wake
 
 @pytest.mark.asyncio
 async def test_expired_claimed_review_is_reclaimed_by_one_new_worker(monkeypatch):
-    db, sid, gid = await setup(monkeypatch)
-    repo = AmbientRepository(db)
-    original = await db.ambient_wakes.find_one({
-        "owner_id": OWNER, "source_ref": f"goal:{gid}", "status": "pending",
-    })
-    assert original is not None
-    # Use the actual persisted due moment, not an assumption about how
-    # many seconds Ambient's scheduling floor uses in this environment.
-    first_due = datetime.fromisoformat(original["scheduled_for"])
-    claim_at = first_due + timedelta(seconds=5)
-    claim_stamp = claim_at.isoformat()
-    assert original["attempts"] < 5 and original["scheduled_for"] <= claim_stamp
-    # Diagnose the actual atomically-selected filter before touching the
-    # claim code: a miss here is different from a failed find_one_and_update.
-    expected = {
-        "scheduled_for": {"$lte": claim_stamp},
-        "attempts": {"$lt": 5},
-        "$or": [
-            {"status": "pending"},
-            {"status": "claimed", "lease_until": {"$lt": claim_stamp}},
-        ],
-    }
-    assert await db.ambient_wakes.count_documents(expected) == 1, original
-    first = await repo.claim_due(
-        worker_id="synthetic-worker-that-died", now=claim_at,
-    )
-    after_attempt = await db.ambient_wakes.find_one({"id": original["id"]})
-    assert first and first.status == "claimed", {
-        "before_status": original.get("status"),
-        "after_status": (after_attempt or {}).get("status"),
-        "after_attempts": (after_attempt or {}).get("attempts"),
-        "after_worker": (after_attempt or {}).get("worker_id"),
-        "after_due": (after_attempt or {}).get("scheduled_for"),
-        "expected_claim_at": claim_stamp,
-    }
-    lease_expired = datetime.fromisoformat(first.lease_until) + timedelta(seconds=2)
-    recovered = await repo.claim_due(
-        worker_id="synthetic-replacement-worker",
-        now=lease_expired,
-    )
-    assert recovered and recovered.id == first.id
-    assert recovered.worker_id == "synthetic-replacement-worker"
-    assert recovered.attempts == first.attempts + 1
-    assert await db.ambient_wakes.count_documents({
-        "owner_id": OWNER, "source_ref": f"goal:{gid}",
-        "status": {"$in": ["pending", "claimed"]}
-    }) == 1
-    assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
-    # Claiming work is not evidence that its source was read or its physical
-    # process completed.
-    assert (await read_followup(db, OWNER, sid))["next_check_at"] is None
+    """Prove Mongo's atomic return-value semantics, not a mongomock substitute.
+
+    mongomock-motor 0.0.36 sometimes mutates an existing row but returns None
+    for find_one_and_update(return_document=True). Production uses actual
+    Motor/MongoDB, so claim and lease-recovery must be tested there.
+    """
+    url = (os.environ.get("MONGO_URL") or "").strip()
+    if (os.environ.get("GITHUB_ACTIONS") != "true"
+            or not url.startswith((
+                "mongodb://127.0.0.1:27017",
+                "mongodb://localhost:27017",
+            ))):
+        pytest.skip("Real Mongo lease acceptance runs only against CI localhost")
+
+    name = "ora_exp_claim_" + uuid.uuid4().hex[:14]
+    client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=3500)
+    try:
+        real_db = client[name]
+        await real_db.command("ping")
+        db, sid, gid = await setup(monkeypatch, db=real_db)
+        repo = AmbientRepository(db)
+        original = await db.ambient_wakes.find_one({
+            "owner_id": OWNER, "source_ref": f"goal:{gid}", "status": "pending",
+        })
+        assert original is not None
+        first_due = datetime.fromisoformat(original["scheduled_for"])
+        first = await repo.claim_due(
+            worker_id="synthetic-worker-that-died",
+            now=first_due + timedelta(seconds=5),
+        )
+        assert first is not None and first.status == "claimed"
+        assert first.worker_id == "synthetic-worker-that-died"
+        assert first.attempts == 1
+
+        lease_expired = datetime.fromisoformat(first.lease_until) + timedelta(seconds=2)
+        recovered = await repo.claim_due(
+            worker_id="synthetic-replacement-worker",
+            now=lease_expired,
+        )
+        assert recovered is not None and recovered.id == first.id
+        assert recovered.worker_id == "synthetic-replacement-worker"
+        assert recovered.attempts == 2
+        assert await db.ambient_wakes.count_documents({
+            "owner_id": OWNER, "source_ref": f"goal:{gid}",
+            "status": {"$in": ["pending", "claimed"]},
+        }) == 1
+        assert await db.agent_goals.count_documents({"owner_id": OWNER}) == 1
+        # Claiming an initial review does not certify a physical observation.
+        assert (await read_followup(db, OWNER, sid))["next_check_at"] is None
+        assert await db.delivery_plans.count_documents({}) == 0
+    finally:
+        try:
+            await client.drop_database(name)
+        finally:
+            client.close()
 
 
 @pytest.mark.asyncio
