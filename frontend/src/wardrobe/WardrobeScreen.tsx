@@ -139,7 +139,7 @@ function WardrobeScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
+    <SafeAreaView testID="wardrobe-screen" style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
       <ScrollView contentContainerStyle={[s.page, { paddingBottom: ambient.paddingBottom + 44 }]}>
         <Pressable onPress={() => router.push('/vita' as any)} accessibilityRole="button" style={s.back}>
           <Ionicons name="arrow-back" color={colors.accent} size={19} />
@@ -169,6 +169,13 @@ function WardrobeScreen() {
                   {action('Modifica', () => edit(item), false, busy)}
                   {action('Elimina', () => setDeleteTarget(item), false, busy)}
                 </View>
+                {deleteTarget?.id === item.id ? <View testID="wardrobe-delete-confirm" style={{ gap: 8 }}>
+                  <Text style={[s.note, foreground]}>Eliminare definitivamente anche la foto?</Text>
+                  <View style={s.inline}>
+                    {action('Annulla', () => setDeleteTarget(null), false, busy)}
+                    {action('Conferma eliminazione', () => { void remove(); }, true, busy)}
+                  </View>
+                </View> : null}
               </View>
             ))}
           </View>
@@ -229,14 +236,6 @@ function WardrobeScreen() {
           </View> : null}
         </View>
 
-        {deleteTarget ? <View style={[s.card, card]} testID="wardrobe-delete-confirm">
-          <Text style={[s.heading, foreground]}>Eliminare «{deleteTarget.name}»?</Text>
-          <Text style={[s.note, muted]}>Anche la foto privata associata verrà cancellata.</Text>
-          <View style={s.inline}>
-            {action('Annulla', () => setDeleteTarget(null), false, busy)}
-            {action('Elimina definitivamente', () => { void remove(); }, true, busy)}
-          </View>
-        </View> : null}
         {error ? <Text testID="wardrobe-error" style={{ color: colors.error }}>{error}</Text> : null}
         {notice ? <Text testID="wardrobe-notice" style={{ color: colors.textSecondary }}>{notice}</Text> : null}
         <Text style={[s.note, muted]}>Pilot: il motore attuale usa regole di categoria, formalità e colore. Il riconoscimento fotografico AI e lo stylist personale arriveranno soltanto dopo verifica della qualità.</Text>
