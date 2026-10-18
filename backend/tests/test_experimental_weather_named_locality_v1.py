@@ -139,7 +139,7 @@ async def test_only_active_owned_user_recorded_situation_can_reuse_locality(monk
                "user_message": "Ricontrolla la situazione"},
     )
     assert no.status == "partial"
-    assert no.payload["failure_code"] == "PLACE_QUERY_NOT_USER_GROUNDED"
+    assert no.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
     suggest.assert_not_awaited()
     yes = await get_weather_forecast(
         args, {"user_id": "owner-a", "db": db,
