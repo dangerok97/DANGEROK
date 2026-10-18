@@ -240,3 +240,7 @@ ALL_ROUTERS.append(whatsapp_router)
 # Static loyalty cards: existing authentication, isolated encrypted storage.
 from .loyalty_wallet import router as loyalty_wallet_router
 ALL_ROUTERS.append(loyalty_wallet_router)
+
+# Private fashion inventory pilot (separate from the autonomous agent).
+from wardrobe.router import router as wardrobe_router
+ALL_ROUTERS.append(wardrobe_router)

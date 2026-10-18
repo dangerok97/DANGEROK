@@ -65,6 +65,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="contesti" options={{ title: 'Vita' }} />
       {/* A secondary VITA destination, not another main navigation tab. */}
       <Tabs.Screen name="portafoglio" options={{ title: 'Portafoglio', href: null }} />
+      <Tabs.Screen name="guardaroba" options={{ title: 'Guardaroba', href: null }} />
       {/*
         ORA is a destination, and its surface is the conversation at `/ora` —
         not this screen, which was a second, thinner entry page sharing the
