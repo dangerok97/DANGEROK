@@ -4,6 +4,7 @@ export const CATEGORIES = [
   { value: 'top', label: 'Maglia / camicia' },
   { value: 'bottom', label: 'Pantaloni / gonna' },
   { value: 'shoes', label: 'Scarpe' },
+  { value: 'one_piece', label: 'Abito intero / tuta' },
   { value: 'outerwear', label: 'Giacca / cappotto' },
   { value: 'accessory', label: 'Accessorio' },
 ] as const;

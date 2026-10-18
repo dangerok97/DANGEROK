@@ -323,3 +323,39 @@ def test_ai_unavailable_is_explicit_and_manual_fallback_available(wardrobe_http,
     # Manual user input still works after a provider outage.
     created = client.put("/api/wardrobe/items", headers=headers(), json=item("e"))
     assert created.status_code == 200
+
+
+def test_one_piece_dress_replaces_top_and_bottom_without_creating_fake_items(wardrobe_http):
+    client, _ = wardrobe_http
+    base = "/api/wardrobe"
+    assert client.put(base + "/items", json=item("a", "one_piece", formality="formal", color="verde"),
+                      headers=headers()).status_code == 200
+    no_shoes = client.post(base + "/outfits", json={"occasion": "wedding"}, headers=headers()).json()
+    assert no_shoes["outfits"] == [] and no_shoes["missing"] == ["shoes"]
+    assert client.put(base + "/items", json=item("b", "shoes", formality="formal", color="nero"),
+                      headers=headers()).status_code == 200
+    full = client.post(base + "/outfits", json={"occasion": "wedding"}, headers=headers()).json()
+    assert full["missing"] == []
+    assert len(full["outfits"]) == 1
+    assert full["outfits"][0]["item_ids"] == ["a" * 32, "b" * 32]
+    dress = client.get(base + "/items", headers=headers()).json()["items"][0]
+    assert client.put(base + "/items", json=item("a", "one_piece", formality="formal",
+                      color="verde", revision=dress["revision"], status="laundry"),
+                      headers=headers()).status_code == 200
+    unavailable = client.post(base + "/outfits", json={"occasion": "wedding"}, headers=headers()).json()
+    assert unavailable["outfits"] == []
+
+
+def test_ai_accepts_a_single_one_piece_dress_as_editable_draft(wardrobe_http, monkeypatch):
+    from wardrobe import classify
+    client, db = wardrobe_http
+    async def model(*args, **kwargs):
+        return {"recognized": True, "confidence": "medium", "name": "Abito lungo",
+                "category": "one_piece", "color": "verde", "formality": "formal"}
+    monkeypatch.setattr(classify, "ask_json", model)
+    res = client.post("/api/wardrobe/analyze", headers={**headers(), "Content-Type": "image/png"},
+                      content=image_bytes())
+    assert res.status_code == 200
+    assert res.json()["suggestion"]["category"] == "one_piece"
+    assert res.json()["saved"] is False
+    assert db.wardrobe_items.docs == {}

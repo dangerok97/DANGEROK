@@ -88,8 +88,12 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       const allow = occasion === 'chic_evening' ? ['smart', 'formal'] : ['casual', 'smart'];
       const eligible = items.filter(i => i.status === 'available' && allow.includes(i.formality));
       const roles = ['top', 'bottom', 'shoes'];
-      const selected = roles.map(role => eligible.find(i => i.category === role));
-      const missing = roles.filter((_, i) => !selected[i]);
+      const separates = roles.map(role => eligible.find(i => i.category === role));
+      const dress = eligible.find(i => i.category === 'one_piece');
+      const footwear = eligible.find(i => i.category === 'shoes');
+      const selected = dress && footwear ? [dress, footwear] : separates;
+      const missing = dress ? (footwear ? [] : ['shoes']) :
+        roles.filter((_, i) => !separates[i]);
       json = { engine: 'rules-v1', occasion, missing,
         message: missing.length ? 'Servono altri capi' : 'Abbinamento indicativo',
         outfits: missing.length ? [] : [{ item_ids: selected.map(i => i!.id),
@@ -203,4 +207,31 @@ test('provider outage explains manual fallback; no invented AI result', async ({
   await expect(page.getByPlaceholder('Es. Camicia azzurra')).toHaveValue('');
   expect(stats.analyzed).toBe(1);
   expect(stats.saved).toBe(0);
+});
+
+
+test('a one-piece dress plus shoes is a complete wedding look', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockAccount(page);
+  await page.goto('/guardaroba');
+  await page.getByRole('button', { name: 'Aggiungi un capo' }).click();
+  await page.getByPlaceholder('Es. Camicia azzurra').fill('Abito verde');
+  await page.getByPlaceholder('Es. Blu, bianco, beige').fill('verde');
+  await page.getByRole('button', { name: 'Abito intero / tuta' }).click();
+  await page.getByRole('button', { name: 'Elegante', exact: true }).click();
+  await page.getByRole('button', { name: 'Salva capo' }).click();
+  await expect(page.getByTestId('wardrobe-notice')).toContainText('Capo salvato');
+
+  await page.getByRole('button', { name: 'Aggiungi un capo' }).click();
+  await page.getByPlaceholder('Es. Camicia azzurra').fill('Scarpe nere');
+  await page.getByPlaceholder('Es. Blu, bianco, beige').fill('nero');
+  await page.getByRole('button', { name: 'Scarpe', exact: true }).click();
+  await page.getByRole('button', { name: 'Elegante', exact: true }).click();
+  await page.getByRole('button', { name: 'Salva capo' }).click();
+
+  await page.getByRole('button', { name: 'Matrimonio' }).click();
+  await page.getByRole('button', { name: 'Proponi gli abbinamenti' }).click();
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Abito verde');
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Scarpe nere');
+  await expect(page.getByTestId('wardrobe-suggestions')).not.toContainText('Mancano');
 });

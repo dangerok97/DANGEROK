@@ -38,7 +38,7 @@ class GarmentInput(BaseModel):
     id: str = Field(pattern=r"^[0-9a-f]{32}$")
     revision: int = Field(default=0, ge=0)
     name: str = Field(min_length=2, max_length=80)
-    category: Literal["top", "bottom", "shoes", "outerwear", "accessory"]
+    category: Literal["top", "bottom", "shoes", "one_piece", "outerwear", "accessory"]
     color: str = Field(min_length=2, max_length=32)
     formality: Literal["sport", "casual", "smart", "formal"]
     seasons: list[Literal["spring", "summer", "fall", "winter"]] = Field(default_factory=list, max_length=4)

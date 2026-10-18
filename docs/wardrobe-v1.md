@@ -6,7 +6,8 @@
   creates a 480px JPEG and encrypts it using a *domain-separated* AES-GCM key derived
   from `TOKEN_VAULT_KEY`. Media is never public; responses use `private, no-store`.
 - Catalog in VITA → Guardaroba, no new main tab, max 75 garments for this pilot.
-- Occasion selector (run, casual evening, chic evening, club, wedding); no hallucinated
+- Occasion selector (run, casual evening, chic evening, club, wedding). One-piece dresses
+  and jumpsuits can form a complete outfit with shoes (without fake trousers/tops); no hallucinated
   items and no automatic use of clothes marked as unavailable / laundry.
 - Static, auditable preliminary pairing rules. The `engine=rules-v1` label is intentional.
   Outfit advice is **not** yet advanced AI fashion judgment and does not imply dress-code fit.
@@ -32,7 +33,7 @@ PostgreSQL schema into ORA's Expo/FastAPI/MongoDB application.
 - Automatic bulk classification, reliable material/tag extraction and background removal (only an explicit, user-reviewed single-photo AI *draft* is implemented).
 - Personal preference learning, fashion-trend curation, fit/size assessment.
 - Conversational wardrobe tools shared by ORA app and WhatsApp; calendar/real meteo.
-- One-piece garments (dresses), multi-garment photographic import, bulk duplicate identification.
+- Multi-garment photographic import, bulk duplicate identification, two-piece suits as a linked set.
 - Professional fashion-stylist quality assessment and real-account end-to-end pilot.
 
 ## Release gate
