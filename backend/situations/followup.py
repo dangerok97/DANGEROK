@@ -86,11 +86,16 @@ def followup_diagnosis(state):
                 (f" Prossima verifica: {label}." if label else ""))
     if status == "review_pending":
         label = str(state.get("assessment_label") or "").strip()
+        failed = (
+            f" Ultima proposta di controllo rifiutata: {why[error]}"
+            if error in why else ""
+        )
         return (
             "ORA ha preso in carico la valutazione di questa situazione, "
             "ma non ha ancora fissato un controllo verificato con fonti reali. "
             + (f"Il riesame del caso è previsto per {label}. " if label else "")
             + "Questo non è un orario di completamento né una notifica."
+            + failed
         )
     if status == "running":
         return "È in corso una verifica registrata, ma non ne conosco ancora l'esito."
@@ -135,22 +140,38 @@ def followup_diagnosis(state):
 async def read_followup(db, owner, situation_id):
     """Return verified schedule evidence with a meaningful human diagnosis."""
     state = await _read_followup_snapshot(db, owner, situation_id)
-    if db is not None and owner and situation_id:
+    # A stable goal ID may survive several user-initiated attention cycles.
+    # Old failed schedules are historical; they must not be presented as the
+    # reason a NEW cycle has no monitoring check. Read only the current cycle.
+    if (db is not None and owner and situation_id
+            and state.get("attention_saved") is True
+            and state.get("status") in (
+                "not_scheduled", "review_pending", "recovery_pending", "waiting_for_user",
+            )):
         try:
+            gid = goal_id_for(owner, situation_id)
+            cycle = await db.agent_goals.find_one(
+                {"owner_id": owner, "id": gid},
+                {"_id": 0, "source_situation.attention_started_at": 1},
+            )
+            started = ((cycle or {}).get("source_situation") or {}).get("attention_started_at")
+            query = {
+                "owner_id": owner, "goal_id": gid,
+                "kind": "situation_schedule_failed",
+            }
+            if _moment(started) is not None:
+                query["at"] = {"$gte": str(started)}
             event = await db.agent_journal.find_one(
-                {"owner_id": owner,
-                 "goal_id": goal_id_for(owner, situation_id),
-                 "kind": "situation_schedule_failed"},
-                {"_id": 0, "at": 1, "detail.error_code": 1},
+                query, {"_id": 0, "at": 1, "detail.error_code": 1},
                 sort=[("at", -1)],
             )
-            if event and state.get("status") not in ("scheduled", "due", "running"):
+            if event:
                 code = str((event.get("detail") or {}).get("error_code") or "")
                 if code:
                     state["last_schedule_error"] = code[:80]
                     state["last_schedule_attempt_at"] = event.get("at")
         except Exception:
-            # An audit lookup failure cannot change the schedule's truth.
+            # Missing audit data never changes whether a wake really exists.
             pass
     state["diagnosis"] = followup_diagnosis(state)
     return state
