@@ -235,7 +235,12 @@ async def test_new_attention_epoch_does_not_recycle_prior_schedule_failure(monke
 
     db = await setup(monkeypatch)
     now = datetime.now(timezone.utc)
-    cycle_start = (now - timedelta(minutes=4)).isoformat()
+    # The owner may establish a cycle in Italian local time. The journal is
+    # stored in UTC; filtering ISO strings without normalising would drop
+    # valid newer records in the hour overlapping the two offsets.
+    cycle_start = (now - timedelta(minutes=4)).astimezone(
+        timezone(timedelta(hours=2))
+    ).isoformat()
     old_time = (now - timedelta(days=3)).isoformat()
     new_time = (now - timedelta(minutes=1)).isoformat()
     gid = goal_id_for(OWNER, SID)
