@@ -72,7 +72,7 @@ async def test_consumed_review_without_checkpoint_gets_exactly_one_recovery_wake
     assert broken["goal_source_kind"] == INITIAL_KIND
     assert broken["next_check_at"] is None
     assert "prima valutazione" in broken["diagnosis"]
-    assert "non risulta ancora un orario di monitoraggio" in broken["diagnosis"]
+    assert "non risulta ancora un orario di monitoraggio" in broken["diagnosis"].lower()
     assert "aveva registrato un orario" not in broken["diagnosis"]
 
     later = datetime.now(timezone.utc) + timedelta(minutes=5)
