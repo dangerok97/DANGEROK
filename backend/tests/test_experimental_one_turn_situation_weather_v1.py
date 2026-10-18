@@ -1,0 +1,146 @@
+"""Cross-component acceptance for a fresh everyday Situation.
+
+A scripted cognitive decision invokes the actual tool registry, resolves the
+user-named locality without device GPS, then creates the owned temporary
+Situation with a durable INITIAL REVIEW wake. This is a *first-turn* test,
+not just a direct SituationService or weather adapter invocation.
+
+All inputs and provider responses are synthetic. No model, real location,
+user account, push, forecast quality or physical outcome is claimed.
+"""
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock
+
+import pytest
+from mongomock_motor import AsyncMongoMockClient
+
+from conversation_engine.ai_core.loop import run_cognitive_loop
+from conversation_engine.models import ConversationSession
+from opportunities.discovery import OpportunityDiscovery
+from places import lookup
+from situations.followup import INITIAL_KIND, goal_id_for, read_followup
+
+
+OWNER = "synthetic-first-turn-owner"
+
+
+async def setup(monkeypatch):
+    import weather
+    from home.service import HomeService
+
+    monkeypatch.setenv("AMBIENT_RUNTIME", "1")
+    monkeypatch.setattr(OpportunityDiscovery, "note",
+                        AsyncMock(return_value={"outcome": "accepted"}))
+    db = AsyncMongoMockClient().experiment_first_turn_situation
+    await db.agent_goals.create_index("id", unique=True)
+    await db.agent_runs.create_index("goal_id", unique=True)
+    await db.ambient_wakes.create_index(
+        "identity", unique=True,
+        partialFilterExpression={"status": {"$in": ["pending", "claimed"]}},
+    )
+    suggest = AsyncMock(return_value={
+        "available": True,
+        "suggestions": [{"place_id": "synthetic-town",
+                         "primary": "Tarquinia",
+                         "text": "Tarquinia, VT"}],
+    })
+    resolve = AsyncMock(return_value={
+        "available": True, "place_id": "synthetic-town",
+        "locality": "Tarquinia", "address": "Tarquinia, VT",
+        "latitude": 42.25, "longitude": 11.76,
+    })
+    forecast = AsyncMock(return_value={
+        "available": True, "provider": "synthetic-weather",
+        "place": "Tarquinia", "observed_at": "2026-10-18T14:00:00+02:00",
+        "retrieved_at": "2026-10-18T14:01:00+02:00",
+        "timezone": "Europe/Rome",
+        "condition_label": "Dry synthetic conditions",
+        "temperature_c": 21, "humidity_pct": 58,
+        "wind_kmh": 10, "precipitation_mm": 0, "hours": [],
+    })
+    monkeypatch.setattr(lookup, "suggest", suggest)
+    monkeypatch.setattr(lookup, "resolve", resolve)
+    monkeypatch.setattr(weather, "forecast_at", forecast)
+    device = AsyncMock(side_effect=AssertionError("Do not use device GPS"))
+    monkeypatch.setattr(HomeService, "_where_they_are", device)
+    return db, suggest, resolve, forecast, device
+
+
+@pytest.mark.asyncio
+async def test_first_message_weather_then_situation_wake_is_real_and_not_fake_check(
+    monkeypatch,
+):
+    db, suggest, resolve, forecast, device = await setup(monkeypatch)
+    session = ConversationSession(
+        user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}},
+    )
+    started = datetime.now(timezone.utc).isoformat()
+    calls = 0
+
+    async def decide(system, payload):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "response_mode": "tool",
+                "tool_call": {
+                    "capability": "get_weather_forecast",
+                    "arguments": {"place_query": "Tarquinia"},
+                },
+            }
+        if calls == 2:
+            assert "Tarquinia" in payload
+            return {
+                "response_mode": "answer",
+                "message_to_user": (
+                    "Ho registrato una situazione di prova. Il meteo è una "
+                    "fonte iniziale; un controllo eseguibile deve essere ancora scelto."
+                ),
+                "situation_update": {
+                    "operation": "create",
+                    "source": "user_conversation",
+                    "summary": "TEST: panni fittizi all'aperto",
+                    "semantic_kind": "situazione temporanea",
+                    "location_label": "Tarquinia",
+                    "started_at": started,
+                    "desired_outcome": "Sapere quando conviene intervenire",
+                    "attention_intent": "Osservare nuove condizioni e decidere quando agire",
+                },
+            }
+        raise AssertionError("No third model decision should be necessary")
+
+    result = await run_cognitive_loop(
+        sess=session, db=db,
+        user_message="TEST: ho steso adesso i panni a Tarquinia; segui la situazione.",
+        decision_fn=decide,
+    )
+    assert result.ok, result
+    assert result.tool_calls == 1
+    assert calls == 2
+    suggest.assert_awaited_once_with("Tarquinia")
+    resolve.assert_awaited_once_with("synthetic-town")
+    forecast.assert_awaited_once_with(
+        lat=42.25, lon=11.76, place="Tarquinia",
+    )
+    device.assert_not_awaited()
+
+    memory = await db.situations.find_one({"user_id": OWNER})
+    assert memory is not None and memory["location_label"] == "Tarquinia"
+    assert memory["attention_intent"]
+    gid = goal_id_for(OWNER, memory["id"])
+    review = await read_followup(db, OWNER, memory["id"])
+    assert review["status"] == "review_pending", review
+    assert review["next_check_at"] is None
+    assert (await db.agent_goals.find_one({
+        "owner_id": OWNER, "id": gid,
+    }))["source_kind"] == INITIAL_KIND
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{gid}",
+        "status": {"$in": ["pending", "claimed"]},
+    }) == 1
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": "another-owner",
+    }) == 0
+    assert await db.delivery_plans.count_documents({}) == 0
+    assert await db.life_nodes.count_documents({"type": "event"}) == 0
+    assert await db.situations.count_documents({"user_id": OWNER}) == 1
