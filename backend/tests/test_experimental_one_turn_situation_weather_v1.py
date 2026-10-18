@@ -186,3 +186,77 @@ async def test_first_message_weather_then_situation_wake_is_real_and_not_fake_ch
     assert await db.situations.count_documents({"user_id": OWNER}) == 1
     assert (await db.situations.find_one({"id": memory["id"]}))["status"] == "active"
     assert "panni siano asciutti" in result.ora_text
+
+
+@pytest.mark.asyncio
+async def test_provider_outage_after_owned_situation_create_keeps_review_but_never_promises_check(
+    monkeypatch,
+):
+    """A model outage after saving a Situation must not fake monitoring.
+
+    The initial review remains as durable work even when no subsequent
+    model answer arrives to choose a meaningful physical checkpoint.
+    """
+    db, suggest, resolve, forecast, device = await setup(monkeypatch)
+    session = ConversationSession(
+        user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}},
+    )
+    calls = 0
+
+    async def decide(system, payload):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "response_mode": "tool",
+                "tool_call": {
+                    "capability": "get_weather_forecast",
+                    "arguments": {"place_query": "Tarquinia"},
+                },
+            }
+        if calls == 2:
+            return {
+                "response_mode": "answer",
+                "message_to_user": (
+                    "Ho creato la memoria e seguirò il caso con ORA."
+                ),
+                "situation_update": {
+                    "operation": "create",
+                    "source": "user_conversation",
+                    "summary": "TEST: situazione non osservata fisicamente",
+                    "location_label": "Tarquinia",
+                    "desired_outcome": "Sapere il momento utile reale",
+                    "attention_intent": "Verificare condizioni prima di agire",
+                },
+            }
+        # All later model calls fail, e.g. quota, network or provider outage.
+        # No later function may forge a user-authorised physical checkpoint.
+        return None
+
+    result = await run_cognitive_loop(
+        sess=session, db=db,
+        user_message="TEST ORA: ho steso i panni a Tarquinia, segui la situazione.",
+        decision_fn=decide,
+    )
+    assert calls >= 3
+    suggest.assert_awaited_once()
+    resolve.assert_awaited_once()
+    forecast.assert_awaited_once()
+    device.assert_not_awaited()
+    state = await db.situations.find_one({"user_id": OWNER})
+    assert state is not None
+    assert state["attention_intent"]
+    gid = goal_id_for(OWNER, state["id"])
+    review = await read_followup(db, OWNER, state["id"])
+    assert review["status"] == "review_pending", review
+    assert review["next_check_at"] is None
+    assert (await db.agent_goals.find_one({"id": gid}))["source_kind"] == INITIAL_KIND
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{gid}",
+        "status": {"$in": ["pending", "claimed"]},
+    }) == 1
+    assert await db.delivery_plans.count_documents({}) == 0
+    assert not any(phrase in result.ora_text.lower() for phrase in (
+        "controllo già programmato", "prossimo controllo è programmato",
+        "è il momento di ritirarli", "i panni sono asciutti",
+    )), result.ora_text
