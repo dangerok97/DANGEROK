@@ -8,7 +8,7 @@ not just a direct SituationService or weather adapter invocation.
 All inputs and provider responses are synthetic. No model, real location,
 user account, push, forecast quality or physical outcome is claimed.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 
 import pytest
@@ -18,7 +18,7 @@ from conversation_engine.ai_core.loop import run_cognitive_loop
 from conversation_engine.models import ConversationSession
 from opportunities.discovery import OpportunityDiscovery
 from places import lookup
-from situations.followup import INITIAL_KIND, goal_id_for, read_followup
+from situations.followup import INITIAL_KIND, KIND, goal_id_for, read_followup
 
 
 OWNER = "synthetic-first-turn-owner"
@@ -75,10 +75,12 @@ async def test_first_message_weather_then_situation_wake_is_real_and_not_fake_ch
         user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}},
     )
     started = datetime.now(timezone.utc).isoformat()
+    due = (datetime.now(timezone.utc) + timedelta(minutes=32)).isoformat()
+    seen_initial_review = False
     calls = 0
 
     async def decide(system, payload):
-        nonlocal calls
+        nonlocal calls, seen_initial_review
         calls += 1
         if calls == 1:
             return {
@@ -107,7 +109,39 @@ async def test_first_message_weather_then_situation_wake_is_real_and_not_fake_ch
                     "attention_intent": "Osservare nuove condizioni e decidere quando agire",
                 },
             }
-        raise AssertionError("No third model decision should be necessary")
+        if calls == 3:
+            # The FollowupTurnGate rightfully rejects "I'll monitor" after
+            # saving a note without a scheduled checkpoint. The same cognitive
+            # turn must use the real governed scheduling capability.
+            memory = await db.situations.find_one({"user_id": OWNER})
+            assert memory, "the declared Situation must persist before scheduling"
+            initial = await read_followup(db, OWNER, memory["id"])
+            assert initial["status"] == "review_pending"
+            assert initial["next_check_at"] is None
+            assert (await db.agent_goals.find_one({
+                "owner_id": OWNER, "id": goal_id_for(OWNER, memory["id"]),
+            }))["source_kind"] == INITIAL_KIND
+            seen_initial_review = True
+            return {
+                "response_mode": "tool",
+                "tool_call": {
+                    "capability": "schedule_situation_check",
+                    "arguments": {
+                        "situation_id": memory["id"],
+                        "expected_revision": memory["revision"],
+                        "check_at": due,
+                        "purpose": "Rileggere i dati verificabili aggiornati",
+                        "notify_when": "Se una nuova fonte segnala un rischio anticipato",
+                        "completion_when": "Quando una verifica giustifica il consiglio utile",
+                    },
+                },
+            }
+        if calls == 4:
+            return {
+                "response_mode": "answer",
+                "message_to_user": "Il controllo futuro è stato registrato; non ho verificato che i panni siano asciutti.",
+            }
+        raise AssertionError("Unexpected extra model decision after verified check")
 
     result = await run_cognitive_loop(
         sess=session, db=db,
@@ -115,8 +149,9 @@ async def test_first_message_weather_then_situation_wake_is_real_and_not_fake_ch
         decision_fn=decide,
     )
     assert result.ok, result
-    assert result.tool_calls == 1
-    assert calls == 2
+    assert result.tool_calls == 2, result.trace
+    assert calls == 4
+    assert seen_initial_review is True
     suggest.assert_awaited_once_with("Tarquinia")
     resolve.assert_awaited_once_with("synthetic-town")
     forecast.assert_awaited_once_with(
@@ -129,18 +164,25 @@ async def test_first_message_weather_then_situation_wake_is_real_and_not_fake_ch
     assert memory["attention_intent"]
     gid = goal_id_for(OWNER, memory["id"])
     review = await read_followup(db, OWNER, memory["id"])
-    assert review["status"] == "review_pending", review
-    assert review["next_check_at"] is None
+    assert review["status"] == "scheduled", review
+    assert review["next_check_at"] == due
     assert (await db.agent_goals.find_one({
         "owner_id": OWNER, "id": gid,
-    }))["source_kind"] == INITIAL_KIND
+    }))["source_kind"] == KIND
     assert await db.ambient_wakes.count_documents({
         "owner_id": OWNER, "source_ref": f"goal:{gid}",
         "status": {"$in": ["pending", "claimed"]},
     }) == 1
+    scheduled_wake = await db.ambient_wakes.find_one({
+        "owner_id": OWNER, "source_ref": f"goal:{gid}",
+        "status": {"$in": ["pending", "claimed"]},
+    })
+    assert scheduled_wake["scheduled_for"] == due
     assert await db.ambient_wakes.count_documents({
         "owner_id": "another-owner",
     }) == 0
     assert await db.delivery_plans.count_documents({}) == 0
     assert await db.life_nodes.count_documents({"type": "event"}) == 0
     assert await db.situations.count_documents({"user_id": OWNER}) == 1
+    assert (await db.situations.find_one({"id": memory["id"]}))["status"] == "active"
+    assert "panni siano asciutti" in result.ora_text
