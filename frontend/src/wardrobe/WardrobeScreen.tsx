@@ -139,7 +139,7 @@ function WardrobeScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
       <ScrollView contentContainerStyle={[s.page, { paddingBottom: ambient.paddingBottom + 44 }]}>
         <Pressable onPress={() => router.push('/vita' as any)} accessibilityRole="button" style={s.back}>
           <Ionicons name="arrow-back" color={colors.accent} size={19} />
