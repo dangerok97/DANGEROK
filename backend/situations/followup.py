@@ -103,9 +103,22 @@ def followup_diagnosis(state):
     if error and error in why:
         return f"Ultimo tentativo non riuscito: {why[error]}"
     if status == "recovery_pending":
+        if state.get("goal_source_kind") == INITIAL_KIND:
+            return (
+                "La situazione è registrata, ma la prima valutazione non ha "
+                "più una sveglia eseguibile. ORA deve recuperare il riesame "
+                "prima di poter scegliere un controllo basato sulle fonti. "
+                "Non risulta ancora un orario di monitoraggio confermato."
+            )
         return ("ORA aveva registrato un orario, ma non risulta una sveglia "
                 "eseguibile collegata al lavoro: deve riparare la programmazione.")
     if status == "not_scheduled":
+        if state.get("goal_source_kind") == INITIAL_KIND:
+            return (
+                "La memoria della situazione esiste, ma non risulta neppure "
+                "una prima valutazione eseguibile. Non è stato fissato "
+                "alcun controllo futuro né osservato l'esito fisico."
+            )
         if state.get("goal_id"):
             return ("La situazione è registrata e il lavoro esiste, ma non "
                     "risulta una prossima esecuzione confermata.")
