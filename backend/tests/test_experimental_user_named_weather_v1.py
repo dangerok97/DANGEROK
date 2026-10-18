@@ -132,7 +132,10 @@ async def test_owner_owned_active_situation_supplies_previous_turn_location(
                "user_message": "Ora controlla di nuovo le condizioni."}
     obs = await get_weather_forecast(args, current)
     assert obs.status == "ok"
-    assert obs.provenance == ["google_place:provider-place-t"]
+    assert obs.provenance == [
+        "google_place:provider-place-t",
+        f"situation:{SID}:revision:1",
+    ]
     forecast.assert_awaited_once()
     gps.assert_not_awaited()
 
@@ -141,7 +144,7 @@ async def test_owner_owned_active_situation_supplies_previous_turn_location(
     resolve.reset_mock()
     foreign = await get_weather_forecast(args, {**current, "user_id": OTHER})
     assert foreign.status == "partial"
-    assert foreign.payload["failure_code"] == "PLACE_QUERY_NOT_USER_GROUNDED"
+    assert foreign.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
     forecast.assert_not_awaited()
     resolve.assert_not_awaited()
     suggest.assert_not_awaited()
@@ -169,7 +172,7 @@ async def test_inferred_location_is_not_authority_to_request_geocoding(
          "user_message": "Come evolve la situazione?"},
     )
     assert obs.status == "partial"
-    assert obs.payload["failure_code"] == "PLACE_QUERY_NOT_USER_GROUNDED"
+    assert obs.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
     suggest.assert_not_awaited()
 
 
@@ -271,3 +274,31 @@ async def test_real_conversation_core_can_call_weather_for_user_spoken_city(
     gps.assert_not_awaited()
     assert await db.situations.count_documents({}) == 0
     assert await db.agent_goals.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_claiming_foreign_situation_fails_even_if_city_named_this_turn(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OTHER, status="active",
+        summary="Other owner's private outdoor situation",
+        location_label="Tarquinia",
+        history=[
+            SituationEvent(revision=1, operation="create",
+                           source="user_conversation",
+                           changes={"location_label": "Tarquinia"}),
+        ],
+    ))
+    observation = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER,
+         "user_message": "Sono a Tarquinia, controlla."},
+    )
+    assert observation.status == "partial"
+    assert observation.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
+    suggest.assert_not_awaited()
+    resolve.assert_not_awaited()
+    forecast.assert_not_awaited()
+    gps.assert_not_awaited()
