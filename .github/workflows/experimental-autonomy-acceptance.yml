@@ -52,6 +52,7 @@ jobs:
           python -m pytest -q -n 0 --tb=short \
             tests/test_experimental_calendar_coverage_v1.py \
             tests/test_experimental_user_named_weather_v1.py \
+            tests/test_experimental_one_turn_situation_weather_v1.py \
             tests/test_experimental_calendar_weekday.py \
             tests/test_autonomy_e2e_lane_v1.py \
             tests/test_unified_calendar_noop_v1.py \
