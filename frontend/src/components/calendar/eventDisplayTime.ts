@@ -69,3 +69,24 @@ export function eventDisplayTime(
   const until = calendarTime(end, zone);
   return until ? `${from} – ${until}` : from;
 }
+
+/** A single clock policy for the native month list and the event detail.
+ *
+ * The API sends a legacy preformatted time_label for older / partial data.
+ * Prefer the event's structured dates and its own timezone: the legacy
+ * string can be produced in an unrelated viewer/browser timezone.
+ * This is presentation-only and never edits a stored appointment.
+ */
+export function agendaEventTime(event: {
+  starts_at?: string | null;
+  ends_at?: string | null;
+  timezone?: string | null;
+  all_day?: boolean;
+  end_time_known?: boolean;
+  time_label?: string | null;
+}): string {
+  if (event.all_day) return 'Tutto il giorno';
+  const verified = eventDisplayTime(event.starts_at, event.ends_at,
+    event.all_day, event.end_time_known, event.timezone);
+  return verified || event.time_label || '—';
+}
