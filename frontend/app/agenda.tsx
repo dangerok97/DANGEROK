@@ -9,6 +9,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { api, type AgendaDay, type AgendaEvent, type AgendaMonthResponse } from '@/src/api/client';
 import { CalendarEventForm } from '@/src/components/calendar/CalendarEventForm';
+import { agendaEventTime } from '@/src/components/calendar/eventDisplayTime';
 import {
   localDayKey, monthCells, monthHeading, selectSource,
   type CalendarSourceFilter,
@@ -252,7 +253,7 @@ function DayAgenda({ day, events, onCreate }: {
           onPress={() => router.push(`/calendar-event/${encodeURIComponent(e.id)}` as never)}
           style={styles.event}>
           <Text style={[oraType.small, { color: ora.ink2, width: 88, fontWeight: '600' }]}>
-            {e.time_label || '—'}
+            {agendaEventTime(e)}
           </Text>
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]} numberOfLines={2}>{e.title}</Text>

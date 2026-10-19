@@ -93,10 +93,61 @@ async def test_native_event_create_and_read_without_oauth(isolated_calendar):
     assert selected["events"][0]["id"] == own_id
     assert selected["events"][0]["source_type"] == "ora"
     assert selected["events"][0]["source_label"] == "Calendario ORA"
+    # This is the structured source for BOTH the month row and the detail
+    # screen. The client may be in Chicago; the appointment stays in Rome.
+    assert selected["events"][0]["timezone"] == "Europe/Rome"
+    assert selected["events"][0]["starts_at"] == "2026-10-11T09:30:00+02:00"
+    assert selected["events"][0]["ends_at"] == "2026-10-11T10:15:00+02:00"
+    assert detail.json()["timezone"] == selected["events"][0]["timezone"]
+    assert detail.json()["starts_at"] == selected["events"][0]["starts_at"]
+    assert detail.json()["ends_at"] == selected["events"][0]["ends_at"]
     assert detail.json()["provider"] == "ORA"
     assert detail.json()["is_local"] is True
     assert detail.json()["can_be_changed"] is True
     assert await db.connector_instances.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_remote_viewer_still_receives_event_zone_for_agenda_and_detail(
+    isolated_calendar, monkeypatch,
+):
+    """User requested Rome 18:00; a New York browser sees a legacy 12:00.
+
+    API must carry original event timezone so the unified frontend formatter
+    can show 18:00 consistently in the month and detail, without rewriting
+    either timestamp or attaching an external calendar.
+    """
+    db, identity, app = isolated_calendar
+
+    async def remote_viewer_zone(db_, user_id):
+        return SimpleNamespace(tz_name="America/New_York")
+
+    monkeypatch.setattr(agenda_service, "resolve_user_timezone", remote_viewer_zone)
+    created = await manual_event.create_manual_event(
+        db, identity["user_id"], title="TEST ORA timezone comparison",
+        start="2026-10-20T18:00:00+02:00",
+        end="2026-10-20T18:10:00+02:00",
+        tz_name="Europe/Rome", request_id="tz-agenda-vs-detail",
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+        result = await http.get("/api/agenda/month?month=2026-10")
+        detail = await http.get("/api/calendar/events/" + created["id"])
+    assert result.status_code == 200
+    assert detail.status_code == 200
+    assert result.json()["timezone"] == "America/New_York"
+    day = next(x for x in result.json()["days"] if x["date"] == "2026-10-20")
+    assert len(day["events"]) == 1
+    event = day["events"][0]
+    assert event["time_label"] == "12:00 — 12:10", (
+        "This is the legacy viewer-local label; not authoritative for event time."
+    )
+    assert event["starts_at"] == "2026-10-20T12:00:00-04:00"
+    assert event["ends_at"] == "2026-10-20T12:10:00-04:00"
+    assert event["timezone"] == "Europe/Rome"
+    assert detail.json()["starts_at"] == "2026-10-20T18:00:00+02:00"
+    assert detail.json()["ends_at"] == "2026-10-20T18:10:00+02:00"
+    assert detail.json()["timezone"] == event["timezone"]
+    assert await db.life_nodes.count_documents({"user_id": identity["user_id"], "type": "event"}) == 1
 
 
 @pytest.mark.asyncio
@@ -238,3 +289,85 @@ async def test_chat_reads_native_events_even_when_google_service_unavailable(
     assert rows[0]["title"] == "Giornata locale"
     assert rows[0]["all_day"] is True
     assert observed.payload["google_events_included"] is False
+
+
+@pytest.mark.asyncio
+async def test_event_zone_day_remains_in_right_month_when_viewer_is_abroad(
+    isolated_calendar, monkeypatch,
+):
+    """Regression: event clock 00:30 Rome must not land on September 30.
+
+    The API can project a UTC instant into New York and legitimately return a
+    September starts_at for October 1 in Rome. Its calendar cell must stay on
+    the *event's* date. The same applies in reverse at month's last boundary.
+    """
+    db, identity, app = isolated_calendar
+
+    async def remote_zone(db_, user_id):
+        return SimpleNamespace(tz_name="America/New_York")
+
+    monkeypatch.setattr(agenda_service, "resolve_user_timezone", remote_zone)
+    local = await manual_event.create_manual_event(
+        db, identity["user_id"], title="Test Rome first day",
+        start="2026-10-01T00:30:00+02:00",
+        end="2026-10-01T00:45:00+02:00",
+        tz_name="Europe/Rome", request_id="boundary-rome-oct01",
+    )
+    abroad = await manual_event.create_manual_event(
+        db, identity["user_id"], title="Test Honolulu last day",
+        start="2026-10-31T23:45:00-10:00",
+        end="2026-11-01T00:15:00-10:00",
+        tz_name="Pacific/Honolulu", request_id="boundary-hawaii-oct31",
+    )
+    outside = await manual_event.create_manual_event(
+        db, identity["user_id"], title="Do not show September",
+        start="2026-09-30T23:40:00+02:00",
+        end="2026-10-01T00:00:00+02:00",
+        tz_name="Europe/Rome", request_id="boundary-sept-excluded",
+    )
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test",
+    ) as http:
+        response = await http.get("/api/agenda/month?month=2026-10")
+        rome = await http.get("/api/calendar/events/" + local["id"])
+        honolulu = await http.get("/api/calendar/events/" + abroad["id"])
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["total_events"] == 2, result
+    assert result["source_counts"]["ora"] == 2
+    by_day = {row["date"]: row["events"] for row in result["days"]}
+    first_day = by_day["2026-10-01"]
+    last_day = by_day["2026-10-31"]
+    assert [row["id"] for row in first_day] == [local["id"]]
+    assert [row["id"] for row in last_day] == [abroad["id"]]
+    assert all(
+        event["id"] != outside["id"]
+        for events in by_day.values() for event in events
+    )
+    # Viewer-local projection differs from the event's calendar date;
+    # original offsets and IANA zone must survive for the native frontend.
+    assert first_day[0]["starts_at"][:10] == "2026-09-30"
+    assert first_day[0]["timezone"] == "Europe/Rome"
+    assert rome.json()["starts_at"] == "2026-10-01T00:30:00+02:00"
+    assert last_day[0]["starts_at"][:10] == "2026-11-01"
+    assert last_day[0]["timezone"] == "Pacific/Honolulu"
+    assert honolulu.json()["starts_at"] == "2026-10-31T23:45:00-10:00"
+    assert await db.life_nodes.count_documents({
+        "user_id": identity["user_id"], "type": "event",
+    }) == 3, "a read must never move or remove the actual event"
+
+
+def test_event_zone_day_formatter_does_not_shift_all_day_dates():
+    event = agenda_service._event_display_day
+    assert event({
+        "starts_at": "2026-09-30T18:30:00-04:00",
+        "timezone": "Europe/Rome", "all_day": False,
+    }) == "2026-10-01"
+    assert event({
+        "starts_at": "2026-10-01T00:00:00-04:00",
+        "timezone": "Pacific/Honolulu", "all_day": True,
+    }) == "2026-10-01"
+    assert event({
+        "starts_at": "2026-10-01T00:00:00-04:00",
+        "timezone": "Invalid/Unknown", "all_day": False,
+    }) == "2026-10-01"

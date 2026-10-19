@@ -2878,6 +2878,8 @@ export type AgendaEvent = {
   all_day?: boolean;
   location?: string;
   time_label?: string;
+  /** Event-origin timezone; may differ from the browser or viewer zone. */
+  timezone?: string | null;
   source_label?: string;
   source_type?: 'ora' | 'google' | 'apple' | 'other';
   /** Che cosa c'entra ORA con questo appuntamento. Vuoto quando non c'entra. */
