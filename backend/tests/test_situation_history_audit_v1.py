@@ -23,6 +23,8 @@ async def test_completed_and_closed_situation_still_reports_only_verified_histor
         id="sit_our_closed", user_id=OWNER, summary="Synthetic panni a Tarquinia",
         location_label="Tarquinia", status="cancelled",
         resolved_at="2026-10-19T20:23:34+00:00",
+        created_at="2026-10-19T12:00:00+00:00",
+        started_at="2026-10-19T12:00:00+00:00",
     )
     active = SituationState(
         id="sit_other_active", user_id=OWNER,
@@ -63,15 +65,17 @@ async def test_completed_and_closed_situation_still_reports_only_verified_histor
     stopped = await read_followup(db, OWNER, closed.id)
     assert stopped["status"] == "stopped", stopped
     assert stopped["situation_lifecycle"] == "cancelled"
-    assert stopped["last_checked_at"] == at
-    assert stopped["last_result"] == "Synthetic weather-source check was performed"
+    assert stopped["last_checked_at"] is None
+    assert stopped["last_step_at"] == at
+    assert stopped["last_result"] is None
+    assert stopped["last_result_verification"] == "location_not_proven"
     assert stopped["next_check_at"] is None
-    assert "documentato" in stopped["diagnosis"]
+    assert "NON ci sono prove sufficienti" in stopped["diagnosis"]
     assert "programmato" not in stopped["diagnosis"]
     last = await get_situation_followup(
         {"situation_id": closed.id}, {"db": db, "user_id": OWNER}
     )
-    assert last.status == "ok" and last.payload["last_checked_at"] == at
+    assert last.status == "ok" and last.payload["last_step_at"] == at
 
     listing = await list_situation_followups({}, {"db": db, "user_id": OWNER})
     assert listing.status == "ok"
@@ -79,7 +83,8 @@ async def test_completed_and_closed_situation_still_reports_only_verified_histor
     summaries = {entry["situation_id"]: entry for entry in listing.payload["items"]}
     assert set(summaries) == {closed.id, active.id}
     assert summaries[closed.id]["monitoring_status"] == "stopped"
-    assert summaries[closed.id]["last_checked_at"] == at
+    assert summaries[closed.id]["last_step_at"] == at
+    assert summaries[closed.id]["last_checked_at"] is None
     assert summaries[active.id]["next_check_at"] is None
     assert "Private foreign situation" not in str(listing.model_dump())
     assert "synthetic-other-account" not in str(listing.model_dump())

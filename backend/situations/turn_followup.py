@@ -37,6 +37,23 @@ the subject unambiguously. Then call get_situation_followup with the actual
 situation_id. If the records are ambiguous or the read fails, report that
 uncertainty instead of claiming a check ran. This is STATUS ONLY, not a new
 request to monitor, reactivate a cancelled goal or invent a notification.
+When the user gives an event date and locality, call
+list_situation_followups with place_query EXACTLY as spoken. Read each
+item's event_date, created_at, started_at, location_label, and matching flags:
+an updated_at timestamp or similar summary does NOT establish event identity.
+The tool enforces the user's current-turn date even if you forget to pass it.
+NEVER reinterpret an 11 October record as the 19 October event.
+If match_status=no_exact_match_in_recent_records, say no exactly matching
+record was found in the bounded archive; do NOT claim it was deleted or
+that an older check happened for the requested date. If a direct
+get_situation_followup returns identity_mismatch, do not quote any old
+results from previous turns; recover with the bounded list or report unknown.
+
+A logged last_step_at with last_result_verification=location_not_proven is
+ONLY a technical step; it is NOT weather evidence for that locality.
+Only last_checked_at with a result bound to source and owner supports an
+actual successful weather check. If last_result is null, do not reconstruct
+the result from memory, other locations or the model's own prose.
 A documented last_checked_at can establish a past step, not a physical outcome.
 This tool returns an owner-verified readback about the SCHEDULE, not an
 observation that the physical thing is complete.
