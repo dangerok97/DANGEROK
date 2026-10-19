@@ -82,7 +82,27 @@ def authoritative_place(message: str, proposed: str, known_places) -> tuple[str 
     }
     if len(present) > 1:
         return None, "multiple_explicit_places"
-    return (next(iter(present)), None) if present else (None, None)
+    if present:
+        return next(iter(present)), None
+
+    # A model might omit place_query entirely and the archive might contain
+    # ONLY a different city's record. Recover one explicitly spelled locality
+    # after common Italian locative prepositions, rather than treating
+    # 'no existing label mentioned' as permission to select Leesburg.
+    # This is deliberately bounded and fail-closed for ambiguous mentions.
+    hints = set()
+    for match in re.finditer(
+        r"(?<!\\w)(?:a|ad|in|presso)\\s+"
+        r"([A-ZÀ-Ý][A-Za-zÀ-ÿ'’\\-]{2,}"
+        r"(?:\\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'’\\-]{2,}){0,2})",
+        str(message or "")[:8000],
+    ):
+        value = normalized_place(match.group(1))
+        if value not in ("ora", "home", "vita", "whatsapp"):
+            hints.add(value)
+    if len(hints) > 1:
+        return None, "multiple_explicit_places"
+    return (next(iter(hints)), None) if hints else (None, None)
 
 
 def record_event_day(row: dict, zone: str) -> tuple[str | None, str]:
