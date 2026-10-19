@@ -700,12 +700,33 @@ class AgentService:
                 owner_id, goal, run, allowance, language=language,
                 revisit_due=revisit_due,
             )
-            if (not goal.is_open or goal.requires_user_input or goal.requires_user_authority
-                    or (run.background and goal.background_runs >= 3 and not goal.planning_unavailable)):
+            # The three-pass safety ceiling must never erase a NEW explicit
+            # model-chosen wait. A waiting goal has a real future checkpoint,
+            # and the due wake resets its per-checkpoint attempt budget.
+            future_wait = bool(
+                goal.status == "waiting" and goal.next_run_at
+                and goal.next_run_at > _now().isoformat()
+            )
+            budget_stalled = bool(
+                run.background and goal.background_runs >= 3
+                and not goal.planning_unavailable and not future_wait
+            )
+            if (not goal.is_open or goal.requires_user_input
+                    or goal.requires_user_authority or budget_stalled):
                 goal.next_run_at = None
             await self.repo.save_goal(goal)
         finally:
             await self.repo.release(goal_id, stopped_because=run.stopped_because, worker_id=worker)
+
+        # A failed three-pass Situation cannot disappear silently just because
+        # the model found no useful outcome. Persist one factual in-app activity,
+        # never a push or a claim that the person's physical task is complete.
+        if (run.background and result.get("state") == "in_progress"
+                and goal.source_kind in ("situation_initial_review", "situation_followup")
+                and goal.background_runs >= 3 and not goal.next_run_at
+                and goal.is_open and not goal.planning_unavailable
+                and not (goal.requires_user_input or goal.requires_user_authority)):
+            await self._note_situation_monitoring_suspended(owner_id, goal)
 
         # Whether any of that was worth their knowing. Asked once, at the end,
         # about the run as a whole — a decision per step would be the
@@ -714,6 +735,56 @@ class AgentService:
             owner_id, goal_id, run, allowance, language=language
         )
         return result
+
+    async def _note_situation_monitoring_suspended(self, owner_id, goal) -> bool:
+        """Leave one durable in-app record after budget exhaustion; no push."""
+        refs = [ref for ref in (goal.source_refs or [])
+                if str(ref).startswith("situation:")]
+        if len(refs) != 1 or goal.owner_id != owner_id:
+            return False
+        sid = refs[0].split(":", 1)[1]
+        try:
+            from situations.repository import SituationRepository
+            source = await SituationRepository(self.db).get(owner_id, sid)
+            latest = await self.repo.get_goal(owner_id, goal.id)
+            if (source is None or source.status not in ("active", "changed")
+                    or latest is None or not latest.is_open
+                    or latest.background_runs < 3 or latest.next_run_at
+                    or latest.requires_user_input or latest.requires_user_authority):
+                return False
+            from delivery.service import DeliveryService
+            import hashlib
+            epoch = str((latest.source_situation or {}).get("attention_started_at") or "")
+            fingerprint = hashlib.sha256(
+                f"{owner_id}|{goal.id}|{epoch}|budget_exhausted".encode()
+            ).hexdigest()[:24]
+            await DeliveryService(self.db).note_activity(
+                owner_id,
+                kind="monitoring_suspended",
+                summary=(
+                    "ORA ha sospeso i controlli automatici dopo tre tentativi "
+                    "senza un risultato conclusivo verificato. Non significa "
+                    "che la situazione fisica sia terminata."
+                ),
+                source_refs=[refs[0], f"goal:{goal.id}"],
+                provenance={
+                    "agent": "situation_monitoring_suspended",
+                    "reason": "background_budget_exhausted",
+                    "goal_id": goal.id, "attempts": latest.background_runs,
+                    "no_verified_completion": True,
+                },
+                visible=True, activity_id=f"ambs_{fingerprint}",
+            )
+            await self.repo.journal(
+                owner_id, goal.id, kind="situation_monitoring_suspended",
+                note="Controllo sospeso senza esito conclusivo; segnalato in-app.",
+                detail={"reason": "background_budget_exhausted"},
+            )
+            return True
+        except Exception as exc:
+            logger.warning("Situation suspension activity soft-fail: %s",
+                           type(exc).__name__)
+            return False
 
     async def _work(
         self, owner_id, goal, run: AgentRun, budget: AgentBudget, *, language: str,
