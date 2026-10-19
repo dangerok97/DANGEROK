@@ -81,6 +81,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Pilot web safety: no production API in preview bundle
+        run: node --experimental-strip-types frontend/src/shell/pilotPreviewIsolation.test.ts
       - name: North America browser
         working-directory: frontend
         env:
