@@ -92,9 +92,9 @@ def authoritative_place(message: str, proposed: str, known_places) -> tuple[str 
     # This is deliberately bounded and fail-closed for ambiguous mentions.
     hints = set()
     for match in re.finditer(
-        r"(?<!\\w)(?:a|ad|in|presso)\\s+"
-        r"([A-ZÀ-Ý][A-Za-zÀ-ÿ'’\\-]{2,}"
-        r"(?:\\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'’\\-]{2,}){0,2})",
+        r"(?<!\w)(?:a|ad|in|presso)\s+"
+        r"([A-ZÀ-Ý][A-Za-zÀ-ÿ'’\-]{2,}"
+        r"(?:\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'’\-]{2,}){0,2})",
         str(message or "")[:8000],
     ):
         value = normalized_place(match.group(1))
