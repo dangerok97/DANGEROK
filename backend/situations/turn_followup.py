@@ -29,8 +29,17 @@ A factual status question must first receive its evidence-backed answer. Do not
 replace a known date or source statement with a report about scheduler internals.
 For "Come mai non hai programmato il controllo?" or "A che punto siamo con
 il monitoraggio?", call get_situation_followup for the exact Situation and
-explain its diagnosis/status. This tool returns an owner-verified readback about
-the SCHEDULE, not an observation that the physical thing is complete.
+explain its diagnosis/status. For a lost/closed Situation or an unknown/stale
+situation_id, FIRST call list_situation_followups; this reads the owner's
+persisted records, including closed Situations, without requiring a current
+memory/star. Choose a record only if its source-backed title/context identifies
+the subject unambiguously. Then call get_situation_followup with the actual
+situation_id. If the records are ambiguous or the read fails, report that
+uncertainty instead of claiming a check ran. This is STATUS ONLY, not a new
+request to monitor, reactivate a cancelled goal or invent a notification.
+A documented last_checked_at can establish a past step, not a physical outcome.
+This tool returns an owner-verified readback about the SCHEDULE, not an
+observation that the physical thing is complete.
 If an external provider was not checked, say what is unknown about the world.
 A status-only answer neither cancels nor repairs existing delegated work. Do not
 create/update a Situation just to answer a factual question or trigger a guard.

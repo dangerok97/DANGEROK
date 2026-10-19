@@ -67,6 +67,7 @@ AmbientKind = Literal[
     "opportunity_resolved",
     "evidence_refreshed",
     "delivery_held",
+    "monitoring_suspended",
 ]
 
 
