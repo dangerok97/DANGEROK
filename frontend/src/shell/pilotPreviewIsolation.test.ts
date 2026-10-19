@@ -20,6 +20,7 @@ assert.match(conf, /location \^~ \/api\/ \{\s*if \(\$pilot_auth_ok = 0\) \{ retu
 assert.match(conf, /location \/ \{\s*if \(\$pilot_auth_ok = 0\) \{ return 403; \}/);
 assert.match(conf, /location = \/pilot-unlock \{\s*auth_basic/);
 assert.match(conf, /HttpOnly; Secure; SameSite=Strict/);
+assert.match(conf, /map_hash_bucket_size 128;/);
 assert.match(script, /PILOT_BASIC_AUTH_PASSWORD:\?Missing/);
 assert.match(script, /PILOT_COOKIE_TOKEN:\?Missing/);
 assert.match(script, /htpasswd /);
