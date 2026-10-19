@@ -19,6 +19,9 @@ from ambient.service import AmbientService
 from conversation_engine.ai_core.models import Observation
 from situations.repository import SituationRepository
 from situations.clock import local_check_fields
+from situations.history_identity import (
+    explicit_dates, authoritative_place, record_event_day, location_matches,
+)
 from timezone_service import user_clock_context
 
 logger = logging.getLogger("ora.situations.followup")
@@ -105,17 +108,20 @@ def followup_diagnosis(state):
     if status == "waiting_for_user":
         return "Il lavoro risulta in attesa di un dato o di un'autorizzazione specifica."
     if status == "stopped":
-        # A closed monitoring intent is still a historical fact; no vanished
-        # cards or model summaries can count as an executed inspection.
+        # Closed does not mean a past physical state was measured.
         if state.get("last_checked_at"):
             return ("Il monitoraggio è stato chiuso: non è previsto un altro controllo. "
-                    "Esiste un controllo eseguito "
-                    "e documentato; verifica l'orario e il risultato salvati. "
-                    "Non è previsto un nuovo controllo.")
+                    "Esiste una verifica eseguita e documentata con fonti "
+                    "collegate alla situazione.")
+        if state.get("last_step_at"):
+            return ("Il monitoraggio è stato chiuso: non è previsto un altro controllo. "
+                    "Risulta un passaggio tecnico eseguito, ma NON ci sono "
+                    "prove sufficienti per attribuirne il risultato alla "
+                    "località dichiarata. Non dichiarare il meteo o l'esito "
+                    "fisico come verificati.")
         return ("Il monitoraggio è stato chiuso: non è previsto un altro controllo. "
-                "Non risulta un controllo eseguito "
-                "e documentato per questa situazione; nessun nuovo controllo "
-                "è programmato.")
+                "Non risulta un controllo eseguito e documentato per questa "
+                "situazione; nessun nuovo controllo è programmato.")
     if status == "unavailable":
         if state.get("read_failure_code") == "situation_not_found_or_not_owned":
             return ("La situazione richiesta non risulta nell'archivio di questo "
@@ -204,6 +210,65 @@ async def read_followup(db, owner, situation_id):
     return state
 
 
+async def _last_source_bounded_step(db, owner, situation, gid, *, cycle_started_at=None):
+    """A successful step proves work, NOT that its place matches the case.
+
+    Old journal notes include prose from providers. Geography cannot be
+    established from that prose. A location-bound result needs matching
+    durable evidence from the exact step, owner, goal and Situation revision.
+    Missing provenance is made explicit instead of relabelled as local weather.
+    """
+    floor = [v for v in (
+        _moment(situation.created_at), _moment(situation.started_at),
+        _moment(cycle_started_at),
+    ) if v is not None]
+    earliest = max(floor) if floor else None
+    candidates = await db.agent_journal.find(
+        {"owner_id": owner, "goal_id": gid, "kind": "step_done",
+         "detail.really_happened": True, "detail.status": "succeeded"},
+        {"_id": 0, "at": 1, "note": 1, "detail.step_id": 1},
+    ).sort("at", -1).limit(12).to_list(12)
+    for row in candidates:
+        at = _moment(row.get("at"))
+        if at is None or (earliest and at < earliest):
+            continue
+        step_at = at.isoformat()
+        if not str(situation.location_label or "").strip():
+            return {"last_checked_at": step_at,
+                    "last_result": str(row.get("note") or "")[:300],
+                    "last_result_verification": "step_recorded_no_location"}
+        # A model-written step note (including 'Leesburg') has no authority
+        # over the user-confirmed locality. Require code-owned evidence with
+        # the exact step, Situation revision and a place provider reference.
+        step_id = str((row.get("detail") or {}).get("step_id") or "")
+        if step_id:
+            records = await db.agent_evidence.find(
+                {"owner_id": owner, "goal_id": gid, "step_id": step_id,
+                 "provenance.capability": "weather.read",
+                 "superseded": {"$ne": True}},
+                {"_id": 0, "provenance.source_refs": 1, "provenance.source_class": 1},
+            ).limit(8).to_list(8)
+            for evidence in records:
+                prov = evidence.get("provenance") or {}
+                refs = [str(x) for x in prov.get("source_refs") or []]
+                has_revision = any(
+                    ref.startswith(f"situation:{situation.id}:revision:")
+                    for ref in refs
+                )
+                has_source = any(
+                    ref.startswith(("google_place:", "place:")) for ref in refs
+                )
+                if (has_revision and has_source
+                        and prov.get("source_class") not in ("", "simulated", None)):
+                    return {"last_checked_at": step_at,
+                            "last_result": str(row.get("note") or "")[:300],
+                            "last_result_verification": "exact_step_geobound_evidence"}
+        return {"last_step_at": step_at,
+                "last_result": None,
+                "last_result_verification": "location_not_proven"}
+    return {"last_result_verification": "no_documented_step"}
+
+
 async def _read_followup_snapshot(db, owner, situation_id):
     """Read back a real goal, wake and executed check, never presentation copy."""
     out = {"status": "unavailable", "situation_id": situation_id, "next_check_at": None, "last_checked_at": None,
@@ -216,7 +281,8 @@ async def _read_followup_snapshot(db, owner, situation_id):
            "runtime_enabled": _enabled(), "delivery_channel": "in_app",
            "assessment_at": None, "assessment_label": None,
            "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita.",
-           "read_failure_code": None}
+           "read_failure_code": None,
+           "last_step_at": None, "last_result_verification": "no_documented_step"}
     if db is None or not owner or not situation_id:
         return out
     try:
@@ -237,15 +303,9 @@ async def _read_followup_snapshot(db, owner, situation_id):
             # deletion. Read only evidence for the *same owner* and canonical
             # Situation goal. Never revive a closed monitor to answer history.
             gid = goal_id_for(owner, situation_id)
-            last = await db.agent_journal.find_one(
-                {"owner_id": owner, "goal_id": gid, "kind": "step_done",
-                 "detail.really_happened": True, "detail.status": "succeeded"},
-                {"_id": 0, "at": 1, "note": 1},
-                sort=[("at", -1)],
-            )
-            if last:
-                out.update(last_checked_at=last.get("at"),
-                           last_result=str(last.get("note") or "")[:300])
+            out.update(await _last_source_bounded_step(
+                db, owner, situation, gid,
+            ))
             return {**out, "status": "stopped",
                     "situation_lifecycle": situation.status}
         ref = f"situation:{situation_id}"
@@ -298,12 +358,9 @@ async def _read_followup_snapshot(db, owner, situation_id):
             {"_id": 0, "detail.notify_when": 1}, sort=[("at", -1)])
         if arranged:
             out["notify_when"] = str(((arranged.get("detail") or {}).get("notify_when") or ""))[:400] or None
-        checked = await db.agent_journal.find_one(
-            {"owner_id": owner, "goal_id": goal["id"], "kind": "step_done",
-             "detail.really_happened": True, "detail.status": "succeeded", **cycle_query},
-            {"_id": 0, "at": 1, "note": 1}, sort=[("at", -1)])
-        if checked:
-            out.update(last_checked_at=checked.get("at"), last_result=str(checked.get("note") or "")[:300])
+        out.update(await _last_source_bounded_step(
+            db, owner, situation, goal["id"], cycle_started_at=cycle_start,
+        ))
         if terminal:
             return {**out, "status": "stopped"}
         if goal.get("requires_user_input") or goal.get("requires_user_authority"):
