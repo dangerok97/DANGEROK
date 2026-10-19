@@ -7,6 +7,7 @@ No prose classification, domain timers, new worker or external write authority.
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -19,6 +20,8 @@ from conversation_engine.ai_core.models import Observation
 from situations.repository import SituationRepository
 from situations.clock import local_check_fields
 from timezone_service import user_clock_context
+
+logger = logging.getLogger("ora.situations.followup")
 
 OPEN = ("proposed", "active", "waiting")
 KIND = "situation_followup"
@@ -102,7 +105,15 @@ def followup_diagnosis(state):
     if status == "waiting_for_user":
         return "Il lavoro risulta in attesa di un dato o di un'autorizzazione specifica."
     if status == "stopped":
-        return "Il monitoraggio è stato chiuso: non è previsto un altro controllo."
+        # A closed monitoring intent is still a historical fact; no vanished
+        # cards or model summaries can count as an executed inspection.
+        if state.get("last_checked_at"):
+            return ("Il monitoraggio è chiuso. Esiste un controllo eseguito "
+                    "e documentato; verifica l'orario e il risultato salvati. "
+                    "Non è previsto un nuovo controllo.")
+        return ("Il monitoraggio è chiuso. Non risulta un controllo eseguito "
+                "e documentato per questa situazione; nessun nuovo controllo "
+                "è programmato.")
     if status == "runtime_disabled" or state.get("runtime_enabled") is False:
         return why["runtime_disabled"]
     if error and error in why:
@@ -133,6 +144,16 @@ def followup_diagnosis(state):
         return ("La situazione è registrata, ma non risulta un controllo "
                 "con data e ora effettivamente salvato. Senza un errore "
                 "registrato non posso attribuire la causa al meteo o ai permessi.")
+    if status == "unavailable":
+        if state.get("read_failure_code") == "situation_not_found_or_not_owned":
+            return ("La situazione richiesta non risulta nell'archivio di questo "
+                    "account con l'identificativo indicato. Non è una prova che "
+                    "il controllo sia stato eseguito o cancellato: usa "
+                    "list_situation_followups per recuperare gli identificativi "
+                    "delle situazioni recenti, comprese quelle chiuse.")
+        if state.get("read_failure_code") == "storage_read_failed":
+            return ("La lettura del database non è riuscita; non posso "
+                    "confermare lo stato del controllo.")
     return ("Non riesco a leggere lo stato del controllo dal sistema. "
             "Questo non prova né che sia programmato né che sia terminato.")
 
@@ -192,13 +213,14 @@ async def _read_followup_snapshot(db, owner, situation_id):
            "attention_saved": None,
            "runtime_enabled": _enabled(), "delivery_channel": "in_app",
            "assessment_at": None, "assessment_label": None,
-           "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita."}
+           "delivery_note": "Gli aggiornamenti sono consultabili in ORA; nessuna push garantita.",
+           "read_failure_code": None}
     if db is None or not owner or not situation_id:
         return out
     try:
         situation = await SituationRepository(db).get(owner, situation_id)
         if situation is None:
-            return out
+            return {**out, "read_failure_code": "situation_not_found_or_not_owned"}
         out["desired_outcome"] = situation.desired_outcome
         # Report only the intent read from this owner's persisted Situation.
         # An expected outcome or estimate alone does not authorise monitoring.
@@ -209,7 +231,21 @@ async def _read_followup_snapshot(db, owner, situation_id):
         clock = await user_clock_context(db, owner)
         out.update(timezone=clock["timezone"], timezone_authority=clock["authority"])
         if situation.status not in ("active", "changed"):
-            return {**out, "status": "stopped"}
+            # A red-star dismissal or a settled Situation is NOT a database
+            # deletion. Read only evidence for the *same owner* and canonical
+            # Situation goal. Never revive a closed monitor to answer history.
+            gid = goal_id_for(owner, situation_id)
+            last = await db.agent_journal.find_one(
+                {"owner_id": owner, "goal_id": gid, "kind": "step_done",
+                 "detail.really_happened": True, "detail.status": "succeeded"},
+                {"_id": 0, "at": 1, "note": 1},
+                sort=[("at", -1)],
+            )
+            if last:
+                out.update(last_checked_at=last.get("at"),
+                           last_result=str(last.get("note") or "")[:300])
+            return {**out, "status": "stopped",
+                    "situation_lifecycle": situation.status}
         ref = f"situation:{situation_id}"
         goals = await db.agent_goals.find({"owner_id": owner, "source_refs": ref,
                                            "status": {"$in": list(OPEN)}}, {"_id": 0}).sort("updated_at", -1).to_list(8)
@@ -318,9 +354,12 @@ async def _read_followup_snapshot(db, owner, situation_id):
         return {**out, "status": ("runtime_disabled" if not _enabled() else "due" if at <= now else "scheduled"),
                 "next_check_at": at.isoformat(),
                 **local_check_fields(at, clock["timezone"])}
-    except Exception:
-        # A failed read is not proof that no job was scheduled.
-        return out
+    except Exception as exc:
+        # Do not swallow storage failures into the same generic result as a
+        # missing identifier. Log only the error class, never user content.
+        logger.warning("followup snapshot read failed error=%s", type(exc).__name__)
+        return {**out, "status": "unavailable",
+                "read_failure_code": "storage_read_failed"}
 
 
 async def arrange_followup(db, owner, *, situation_id, expected_revision, check_at, purpose, notify_when, completion_when=None):
@@ -681,10 +720,93 @@ async def schedule_situation_check(args, runtime):
                        status="ok" if state.get("ok") else "error", payload=state)
 
 
+
+async def list_situation_followups(args, runtime):
+    """Recover recent owner-specific monitoring history, even after closure.
+
+    An LLM can remember the wrong Situation id or lose a closed Situation
+    from its active context. Listing stored IDs is an evidence lookup, not a
+    semantic match to the user's words, a new scheduled wake or a revival.
+    """
+    from conversation_engine.ai_core.models import Observation
+
+    db, owner = runtime.get("db"), str(runtime.get("user_id") or "")
+    if db is None or not owner:
+        return Observation(
+            kind="tool", name="list_situation_followups", status="error",
+            payload={"status": "unavailable", "reason": "owner_context_required"},
+        )
+    try:
+        records = await db.situations.find(
+            {"user_id": owner},
+            {"_id": 0, "id": 1, "summary": 1, "status": 1,
+             "updated_at": 1, "location_label": 1},
+        ).sort("updated_at", -1).limit(8).to_list(8)
+        items = []
+        for row in records:
+            sid = str(row.get("id") or "")
+            if not sid:
+                continue
+            status = await read_followup(db, owner, sid)
+            items.append({
+                "situation_id": sid,
+                "situation_ref": f"situation:{sid}",
+                "summary": str(row.get("summary") or "")[:180],
+                "location_label": str(row.get("location_label") or "")[:100],
+                "lifecycle": str(row.get("status") or "")[:30],
+                "updated_at": str(row.get("updated_at") or "")[:64],
+                "monitoring_status": status["status"],
+                "diagnosis": status["diagnosis"],
+                "last_checked_at": status.get("last_checked_at"),
+                "last_result": status.get("last_result"),
+                "next_check_at": status.get("next_check_at"),
+            })
+    except Exception as exc:
+        logger.warning("followup recent owner read failed error=%s", type(exc).__name__)
+        return Observation(
+            kind="tool", name="list_situation_followups", status="error",
+            payload={"status": "unavailable", "reason": "storage_read_failed"},
+        )
+    ref = "situations:recent"
+    if items:
+        note = ("Elenco letto dall'archivio dell'account. Non equivale a "
+                "una prova di esecuzione: solo last_checked_at accompagnato "
+                "da last_result rappresenta un controllo documentato.")
+    else:
+        note = "Nessuna situazione presente nell'archivio di questo account."
+    return Observation(
+        kind="tool", name="list_situation_followups", status="ok",
+        payload={
+            "status": "ok", "items": items, "count": len(items),
+            "factual_readback": {
+                "ref": ref, "label": "Storia verificata delle situazioni ORA",
+                "text": note,
+            },
+        },
+        provenance=[ref],
+    )
+
+
 def register_followup_tools(registry):
     from conversation_engine.ai_core.tools.capability import CapabilitySpec
     registry.register(CapabilitySpec(
-        capability="get_situation_followup", description="Read owner-verified scheduling state, diagnosis and last failed attempt for a Situation. For 'perché non è programmato?', 'a che punto siamo?' or a status-only question, CALL THIS TOOL: it returns a factual_readback with a situation ref. Do not confuse the monitoring status with observation of the physical situation; reading never starts or repairs a job.",
+        capability="list_situation_followups",
+        description=(
+            "Read up to 8 most recent owner-owned Situation records, including "
+            "closed/cancelled ones. Use FIRST when the person asks what happened "
+            "to an earlier Situation or an exact situation_id is missing, stale "
+            "or unverified. This returns exact situation_id, lifecycle, "
+            "evidence-backed last_checked_at and next_check_at, never a "
+            "guessed execution. Select the correct record semantically from "
+            "the user's request, then call get_situation_followup with its "
+            "exact ID. Never interpret a missing record as successful work. "
+            "This tool cannot schedule, restart or delete anything."
+        ),
+        input_schema={"type": "object", "properties": {}},
+        classification="personal", side_effect="READ_ONLY", freshness="fresh",
+        risk="read", handler=list_situation_followups))
+    registry.register(CapabilitySpec(
+        capability="get_situation_followup", description="Read owner-verified scheduling state, diagnosis and last failed attempt for a Situation. For 'perché non è programmato?', 'a che punto siamo?' or a status-only question, CALL THIS TOOL: it returns a factual_readback with a situation ref. If an exact ID is missing or lookup unavailable, first call list_situation_followups and retry with the exact owner-owned ID. A closed Situation may still have a documented last check. Reading never starts or repairs a job.",
         input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}}, "required": ["situation_id"]},
         classification="personal", side_effect="READ_ONLY", freshness="fresh", handler=get_situation_followup))
     registry.register(CapabilitySpec(
