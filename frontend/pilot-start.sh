@@ -9,6 +9,10 @@ htpasswd -bBc /etc/nginx/.pilot-htpasswd "$PILOT_BASIC_AUTH_USER" "$PILOT_BASIC_
 # Prefer the DNS server assigned to this container by Railway.
 PILOT_DNS="$(awk '/^nameserver[[:space:]]+/{print $2;exit}' /etc/resolv.conf)"
 : "${PILOT_DNS:=127.0.0.11}"
+# Nginx resolver requires brackets around an IPv6 literal, e.g. [fd12::10].
+case "$PILOT_DNS" in
+  *:*) PILOT_DNS="[$PILOT_DNS]" ;;
+esac
 sed -e "s#__PILOT_COOKIE_TOKEN__#$PILOT_COOKIE_TOKEN#g" \
     -e "s#__PILOT_DNS__#$PILOT_DNS#g" \
     /etc/nginx/pilot.conf.template > /etc/nginx/conf.d/default.conf
