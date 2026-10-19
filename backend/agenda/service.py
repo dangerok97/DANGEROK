@@ -49,6 +49,27 @@ def _come_si_chiama_il_giorno(quando: date, oggi: date) -> str:
     return f"{_GIORNI[quando.weekday()]} {quando.day} {_MESI[quando.month - 1]}"
 
 
+def _event_display_day(item: Dict[str, Any]) -> str:
+    """Calendar cell must agree with the event's OWN timezone and clock.
+
+    calendar_times_in_window projects starts_at to the viewer's zone. Using
+    its first ten characters silently moves near-midnight events into the
+    previous/next day while the event detail correctly shows the source day.
+    All-day entries are already projected as the literal calendar date.
+    """
+    raw = str(item.get("starts_at") or "")
+    day = raw[:10]
+    if not raw or not item.get("timezone") or item.get("all_day"):
+        return day
+    try:
+        value = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if value.tzinfo is None:
+            return day  # No proved conversion from a naive local clock.
+        return value.astimezone(ZoneInfo(str(item["timezone"]))).date().isoformat()
+    except (ValueError, TypeError, KeyError):
+        return day
+
+
 class AgendaService:
     def __init__(self, db):
         self.db = db
@@ -68,11 +89,17 @@ class AgendaService:
         fine = inizio + timedelta(days=quanti)
 
         instances = await connected_calendar_instances(self.db, user_id)
-        eventi = await self._events_between(user_id, inizio, fine, instances=instances)
+        # A locally dated event may fall outside the *viewer's* day by up to
+        # 26 hours across world timezones. Read a safe buffer, then select by
+        # the event's own calendar date, not by the viewer's converted clock.
+        eventi = await self._events_between(
+            user_id, inizio - timedelta(days=2), fine + timedelta(days=2),
+            instances=instances,
+        )
         per_giorno: Dict[str, List[Dict[str, Any]]] = {}
         for e in eventi:
-            chiave = str(e.get("starts_at") or "")[:10]
-            if chiave:
+            chiave = _event_display_day(e)
+            if inizio.date().isoformat() <= chiave < fine.date().isoformat():
                 per_giorno.setdefault(chiave, []).append(e)
 
         giorni: List[Dict[str, Any]] = []
@@ -91,7 +118,7 @@ class AgendaService:
 
         return {
             "days": giorni,
-            "total_events": len(eventi),
+            "total_events": sum(len(items) for items in per_giorno.values()),
             "calendar_connected": bool(await self._connected_sources(user_id, instances)),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -120,7 +147,9 @@ class AgendaService:
         today = datetime.now(zone).date()
         instances = await connected_calendar_instances(self.db, user_id)
         events = await self._events_between(
-            user_id, first, next_month, with_notes=False, instances=instances,
+            user_id, first - timedelta(days=2),
+            next_month + timedelta(days=2),
+            with_notes=False, instances=instances,
         )
         # Old connector mirrors must not appear as an active subscription
         # after the person disconnects the provider. ORA entries are always
@@ -129,8 +158,8 @@ class AgendaService:
         grouped: Dict[str, List[Dict[str, Any]]] = {}
         sources = {"ora": 0, "google": 0, "apple": 0, "other": 0}
         for item in events:
-            key = str(item.get("starts_at") or "")[:10]
-            if key:
+            key = _event_display_day(item)
+            if first.date().isoformat() <= key < next_month.date().isoformat():
                 grouped.setdefault(key, []).append(item)
                 source = item.get("source_type") or "other"
                 sources[source] = sources.get(source, 0) + 1
@@ -152,7 +181,7 @@ class AgendaService:
             "month": month,
             "timezone": str(zone),
             "days": days,
-            "total_events": len(events),
+            "total_events": sum(len(items) for items in grouped.values()),
             "source_counts": sources,
             "calendar_connected": bool(connected),
             "connected_sources": sorted(connected),
