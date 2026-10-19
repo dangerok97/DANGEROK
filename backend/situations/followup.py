@@ -731,15 +731,71 @@ async def attention_withdrawal_confirmed(db, owner, situation_id) -> bool:
 
 
 async def get_situation_followup(args, runtime):
-    sid = str(args.get("situation_id") or "")
-    state = await read_followup(runtime.get("db"), runtime.get("user_id"), sid)
-    # A successful owner-scoped runtime read is genuine factual evidence
-    # about scheduling status, not evidence that the physical event changed.
+    from conversation_engine.ai_core.models import Observation
+    sid = str(args.get("situation_id") or "").strip()
+    db, owner = runtime.get("db"), str(runtime.get("user_id") or "")
+    spoken = str(runtime.get("user_message") or "")
+    date_query, date_error = explicit_dates(spoken)
+    if date_error:
+        return Observation(
+            kind="tool", name="get_situation_followup", status="error",
+            payload={"status": "identity_ambiguous", "reason": date_error},
+        )
+    try:
+        situation = await SituationRepository(db).get(owner, sid) if db is not None and owner and sid else None
+        if situation and date_query:
+            clock = await user_clock_context(db, owner)
+            day, authority = record_event_day(situation.model_dump(), clock["timezone"])
+            if day != date_query:
+                return Observation(
+                    kind="tool", name="get_situation_followup", status="error",
+                    payload={
+                        "status": "identity_mismatch",
+                        "reason": "SITUATION_DATE_NOT_USER_REQUESTED",
+                        "requested_date": date_query,
+                        "recorded_event_date": day,
+                        "date_authority": authority,
+                        "diagnosis": (
+                            "L'identificativo è di un'altra data: non "
+                            "attribuire questa verifica alla richiesta attuale. "
+                            "Usa list_situation_followups per trovare una "
+                            "Situazione della data indicata, o segnala che manca."
+                        ),
+                    },
+                )
+        expected_place, place_error = authoritative_place(
+            spoken, str(args.get("place_query") or ""),
+            [situation.location_label] if situation else [],
+        )
+        if place_error:
+            return Observation(
+                kind="tool", name="get_situation_followup", status="error",
+                payload={"status": "identity_ambiguous", "reason": place_error},
+            )
+        if (situation and expected_place
+                and not location_matches(situation.location_label, expected_place)):
+            return Observation(
+                kind="tool", name="get_situation_followup", status="error",
+                payload={"status": "identity_mismatch",
+                         "reason": "SITUATION_LOCALITY_NOT_USER_REQUESTED",
+                         "requested_place": expected_place,
+                         "diagnosis": (
+                             "La località salvata non corrisponde a quella "
+                             "dichiarata. Non riutilizzare il risultato "
+                             "di un'altra località."
+                         )},
+            )
+    except Exception as exc:
+        logger.warning("followup identity read failed error=%s", type(exc).__name__)
+        return Observation(
+            kind="tool", name="get_situation_followup", status="error",
+            payload={"status": "unavailable", "reason": "storage_read_failed"},
+        )
+    state = await read_followup(db, owner, sid)
     ref = f"situation:{sid}"
     if state["status"] != "unavailable":
         state["factual_readback"] = {
-            "ref": ref,
-            "label": "Stato verificato del monitoraggio ORA",
+            "ref": ref, "label": "Stato verificato del monitoraggio ORA",
             "text": state["diagnosis"],
         }
     return Observation(
@@ -747,7 +803,6 @@ async def get_situation_followup(args, runtime):
         status="ok" if state["status"] != "unavailable" else "error",
         payload=state, provenance=[ref] if state["status"] != "unavailable" else [],
     )
-
 
 async def schedule_situation_check(args, runtime):
     db, owner = runtime.get("db"), runtime.get("user_id")
@@ -781,30 +836,62 @@ async def schedule_situation_check(args, runtime):
 
 
 async def list_situation_followups(args, runtime):
-    """Recover recent owner-specific monitoring history, even after closure.
+    """Return recent owner-owned history matching the user's ACTUAL date.
 
-    An LLM can remember the wrong Situation id or lose a closed Situation
-    from its active context. Listing stored IDs is an evidence lookup, not a
-    semantic match to the user's words, a new scheduled wake or a revival.
+    Never let a model's semantic similarity promote an older 11 October
+    Situation into a 19 October record. Missing matches are reported as such;
+    no records are created, amended, deleted or revived.
     """
     from conversation_engine.ai_core.models import Observation
 
     db, owner = runtime.get("db"), str(runtime.get("user_id") or "")
+    spoken = str(runtime.get("user_message") or "")
     if db is None or not owner:
         return Observation(
             kind="tool", name="list_situation_followups", status="error",
             payload={"status": "unavailable", "reason": "owner_context_required"},
         )
+    expected_date, date_error = explicit_dates(spoken)
+    if date_error:
+        return Observation(
+            kind="tool", name="list_situation_followups", status="error",
+            payload={"status": "identity_ambiguous", "reason": date_error,
+                     "diagnosis": "Sono state citate più date: non posso "
+                                  "attribuire le verifiche a un giorno unico."},
+        )
     try:
+        # Index limits work per person. Even when an old record exists outside
+        # this bounded window, do not announce that the entire archive is empty.
         records = await db.situations.find(
             {"user_id": owner},
             {"_id": 0, "id": 1, "summary": 1, "status": 1,
-             "updated_at": 1, "location_label": 1},
-        ).sort("updated_at", -1).limit(8).to_list(8)
+             "created_at": 1, "started_at": 1, "updated_at": 1,
+             "location_label": 1},
+        ).sort("updated_at", -1).limit(64).to_list(64)
+        expected_place, place_error = authoritative_place(
+            spoken, str(args.get("place_query") or ""),
+            [row.get("location_label") for row in records],
+        )
+        if place_error:
+            return Observation(
+                kind="tool", name="list_situation_followups", status="error",
+                payload={"status": "identity_ambiguous", "reason": place_error,
+                         "diagnosis": "La località proposta non risulta "
+                                      "espressamente indicata nella richiesta."},
+            )
+        clock = await user_clock_context(db, owner)
+        zone = clock["timezone"]
         items = []
         for row in records:
             sid = str(row.get("id") or "")
             if not sid:
+                continue
+            event_date, authority = record_event_day(row, zone)
+            if expected_date and event_date != expected_date:
+                continue
+            if expected_place and not location_matches(
+                str(row.get("location_label") or ""), expected_place
+            ):
                 continue
             status = await read_followup(db, owner, sid)
             items.append({
@@ -813,38 +900,67 @@ async def list_situation_followups(args, runtime):
                 "summary": str(row.get("summary") or "")[:180],
                 "location_label": str(row.get("location_label") or "")[:100],
                 "lifecycle": str(row.get("status") or "")[:30],
+                "created_at": str(row.get("created_at") or "")[:64] or None,
+                "started_at": str(row.get("started_at") or "")[:64] or None,
+                "event_date": event_date,
+                "date_authority": authority,
                 "updated_at": str(row.get("updated_at") or "")[:64],
                 "monitoring_status": status["status"],
                 "diagnosis": status["diagnosis"],
                 "last_checked_at": status.get("last_checked_at"),
+                "last_step_at": status.get("last_step_at"),
+                "last_result_verification": status.get("last_result_verification"),
                 "last_result": status.get("last_result"),
                 "next_check_at": status.get("next_check_at"),
+                "identity_date_match": bool(expected_date and event_date == expected_date),
+                "identity_place_match": bool(expected_place),
             })
+            if len(items) == 8:
+                break
     except Exception as exc:
-        logger.warning("followup recent owner read failed error=%s", type(exc).__name__)
+        logger.warning("followup history scoped read failed error=%s", type(exc).__name__)
         return Observation(
             kind="tool", name="list_situation_followups", status="error",
             payload={"status": "unavailable", "reason": "storage_read_failed"},
         )
-    ref = "situations:recent"
-    if items:
-        note = ("Elenco letto dall'archivio dell'account. Non equivale a "
-                "una prova di esecuzione: solo last_checked_at accompagnato "
-                "da last_result rappresenta un controllo documentato.")
+    matched = bool(items)
+    if expected_date or expected_place:
+        scope_label = "data e località" if expected_date and expected_place else "data" if expected_date else "località"
+        note = (
+            f"Archivio verificato per {scope_label} espressamente richieste. "
+            f"{len(items)} Situazioni coerenti nei record recenti. "
+            "NON attribuire a questa richiesta le verifiche di record "
+            "esclusi o di date differenti. Se il risultato è vuoto, "
+            "non affermare che l'evento sia stato cancellato: "
+            "manca una corrispondenza verificabile nella finestra consultata."
+        )
     else:
-        note = "Nessuna situazione presente nell'archivio di questo account."
+        note = (
+            "Elenco cronologico limitato: ogni record include la data originaria. "
+            "Non attribuire una Situazione a una data o località senza "
+            "una verifica esplicita dell'identità."
+        )
+    ref = "situations:recent"
     return Observation(
         kind="tool", name="list_situation_followups", status="ok",
         payload={
             "status": "ok", "items": items, "count": len(items),
+            "match_status": (
+                "matched" if matched else
+                "no_exact_match_in_recent_records" if (expected_date or expected_place)
+                else "empty_recent_records"
+            ),
+            "requested_date": expected_date,
+            "requested_place": expected_place,
+            "timezone": zone,
+            "search_limit": 64,
             "factual_readback": {
-                "ref": ref, "label": "Storia verificata delle situazioni ORA",
+                "ref": ref, "label": "Identità verificata delle Situazioni ORA",
                 "text": note,
             },
         },
         provenance=[ref],
     )
-
 
 def register_followup_tools(registry):
     from conversation_engine.ai_core.tools.capability import CapabilitySpec
@@ -856,17 +972,24 @@ def register_followup_tools(registry):
             "to an earlier Situation or an exact situation_id is missing, stale "
             "or unverified. This returns exact situation_id, lifecycle, "
             "evidence-backed last_checked_at and next_check_at, never a "
-            "guessed execution. Select the correct record semantically from "
+            "guessed execution. Do not infer a date from updated_at: the server enforces the exact "date explicitly written by the person. For an explicitly named "locality supply place_query. Select the correct record semantically from "
             "the user's request, then call get_situation_followup with its "
             "exact ID. Never interpret a missing record as successful work. "
             "This tool cannot schedule, restart or delete anything."
         ),
-        input_schema={"type": "object", "properties": {}},
+        input_schema={"type": "object", "properties": {
+            "place_query": {"type": "string", "description":
+                "Exact locality written by user THIS turn. Leave absent if not stated."}
+        }},
         classification="personal", side_effect="READ_ONLY", freshness="fresh",
         risk="read", handler=list_situation_followups))
     registry.register(CapabilitySpec(
         capability="get_situation_followup", description="Read owner-verified scheduling state, diagnosis and last failed attempt for a Situation. For 'perché non è programmato?', 'a che punto siamo?' or a status-only question, CALL THIS TOOL: it returns a factual_readback with a situation ref. If an exact ID is missing or lookup unavailable, first call list_situation_followups and retry with the exact owner-owned ID. A closed Situation may still have a documented last check. Reading never starts or repairs a job.",
-        input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}}, "required": ["situation_id"]},
+        input_schema={"type": "object", "properties": {
+            "situation_id": {"type": "string"},
+            "place_query": {"type": "string", "description":
+                "Exact user-named locality for strict consistency check."}
+        }, "required": ["situation_id"]},
         classification="personal", side_effect="READ_ONLY", freshness="fresh", handler=get_situation_followup))
     registry.register(CapabilitySpec(
         capability="schedule_situation_check", description="Persist a real first follow-up in the existing background runtime for an active Situation. Choose checkpoint and purpose from current evidence, not by asking the user to supervise ORA. Reuses existing work without postponing it. Does not send a notification, grant external write authority, or prove an outcome. Read the returned status before promising a check. For dialogue use next_check_label and timezone from the result, not the raw UTC hour or the proposed check_at. This operation does not measure any physical state.",
