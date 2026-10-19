@@ -452,6 +452,11 @@ async def test_stylist_cost_limit_is_per_owner_and_persists_in_db():
 @pytest.mark.asyncio
 async def test_wardrobe_shared_conversation_capability_reads_same_store(monkeypatch):
     import json
+    # The real AI Core package bootstraps shared deps on import; a synthetic
+    # database URI suffices because this test never opens a network connection.
+    monkeypatch.setenv("MONGO_URL", "mongodb://127.0.0.1:27017")
+    monkeypatch.setenv("DB_NAME", "ora_wardrobe_ci")
+    monkeypatch.setenv("JWT_SECRET", "synthetic-wardrobe-unit-test-jwt-key")
     import llm.manager as llm_manager
     from wardrobe.caps import suggest_wardrobe_outfit
     from wardrobe.service import OutfitInput
