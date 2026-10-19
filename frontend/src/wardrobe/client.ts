@@ -41,8 +41,11 @@ export type GarmentAnalysis = {
 };
 
 export type OutfitResponse = {
-  engine: 'rules-v1'; occasion: Occasion; missing: Category[]; message: string;
-  outfits: { item_ids: string[]; title: string; why: string; score: number }[];
+  engine: 'rules-v1' | 'ai-stylist-v1';
+  ai_status?: 'ok' | 'not_requested' | 'insufficient_wardrobe' | 'unavailable' | 'rate_limited';
+  occasion: Occasion; missing: Category[]; message: string;
+  outfits: { item_ids: string[]; title: string; why: string;
+    styling_tip?: string; score?: number }[];
 };
 
 async function request<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
@@ -81,7 +84,8 @@ export const wardrobeClient = {
   analyze: (token: string, photo: Blob) => request<GarmentAnalysis>(token, '/analyze', {
     method: 'POST', headers: { 'Content-Type': photo.type }, body: photo,
   }),
-  outfits: (token: string, occasion: Occasion) => request<OutfitResponse>(token, '/outfits', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ occasion }),
+  outfits: (token: string, occasion: Occasion, styleNote = '') => request<OutfitResponse>(token, '/outfits', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ occasion, use_ai: true, style_note: styleNote.slice(0, 200) }),
   }),
 };

@@ -59,6 +59,8 @@ class OutfitInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     occasion: Literal["running", "casual_evening", "chic_evening", "club", "wedding"]
     temperature_c: float | None = Field(default=None, ge=-30, le=50)
+    use_ai: bool = False
+    style_note: str = Field(default="", max_length=200)
 
 
 class PhotoCipher:
@@ -117,6 +119,7 @@ def make_thumbnail(raw: bytes) -> bytes:
 
 class WardrobeService:
     def __init__(self, db, cipher: PhotoCipher):
+        self.db = db
         self.col = db.wardrobe_items
         self.cipher = cipher
 
@@ -193,6 +196,24 @@ class WardrobeService:
         if result.deleted_count != 1:
             raise WardrobeError("Capo modificato durante l'eliminazione.", 409)
 
+    async def list_metadata(self, owner: str) -> list[dict]:
+        """Only user-owned catalog metadata, never encrypted photo bytes or data URIs.
+
+        This is the sole wardrobe read usable by the AI stylist and conversational
+        capability. Listing clothing never implicitly sends photographs to a model.
+        """
+        docs = await self.col.find({"user_id": owner}).to_list(length=MAX_ITEMS + 1)
+        return [
+            {k: v for k, v in doc.items()
+             if k not in {"_id", "user_id", "photo_encrypted"}}
+            for doc in sorted(docs, key=lambda d: (d["name"].casefold(), d["id"]))
+        ]
+
     async def outfits(self, owner: str, body: OutfitInput) -> dict:
-        items = await self.list_items(owner)
-        return recommend(items, body.occasion, body.temperature_c)
+        from .stylist import advise
+        items = await self.list_metadata(owner)
+        return await advise(
+            self.db, owner, items, body.occasion,
+            temperature_c=body.temperature_c,
+            note=body.style_note, use_ai=body.use_ai,
+        )

@@ -8,7 +8,7 @@ type Item = { id: string; revision: number; name: string; category: string;
 
 async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outage' = 'recognized') {
   const items: Item[] = [];
-  const statistics = { analyzed: 0, saved: 0, photos: 0 };
+  const statistics = { analyzed: 0, saved: 0, photos: 0, lastStyleNote: '', usedAI: false };
   await page.addInitScript(() => {
     localStorage.setItem('ora_auth_token', JSON.stringify('synthetic-wardrobe-session'));
   });
@@ -84,7 +84,10 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       if (found >= 0) items.splice(found, 1);
       json = { deleted: true };
     } else if (path === '/api/wardrobe/outfits') {
-      const occasion = req.postDataJSON().occasion;
+      const outfitBody = req.postDataJSON();
+      const occasion = outfitBody.occasion;
+      statistics.lastStyleNote = outfitBody.style_note || '';
+      statistics.usedAI = outfitBody.use_ai === true;
       const allow = ['chic_evening', 'wedding'].includes(occasion) ? ['smart', 'formal'] : ['casual', 'smart'];
       const eligible = items.filter(i => i.status === 'available' && allow.includes(i.formality));
       const roles = ['top', 'bottom', 'shoes'];
@@ -94,10 +97,13 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       const selected = dress && footwear ? [dress, footwear] : separates;
       const missing = dress ? (footwear ? [] : ['shoes']) :
         roles.filter((_, i) => !separates[i]);
-      json = { engine: 'rules-v1', occasion, missing,
+      json = { engine: !missing.length && statistics.usedAI ? 'ai-stylist-v1' : 'rules-v1',
+        ai_status: missing.length ? 'insufficient_wardrobe' : statistics.usedAI ? 'ok' : 'not_requested',
+        occasion, missing,
         message: missing.length ? 'Servono altri capi' : 'Abbinamento indicativo',
         outfits: missing.length ? [] : [{ item_ids: selected.map(i => i!.id),
-          title: 'Look', why: 'Capi disponibili e compatibili.', score: 2 }] };
+          title: 'Look consigliato da ORA', why: 'Capi disponibili e compatibili.',
+          styling_tip: 'Mantieni un look coerente.' }] };
     }
     await route.fulfill({ status: 200, headers, json });
   });
@@ -234,4 +240,25 @@ test('a one-piece dress plus shoes is a complete wedding look', async ({ page })
   await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Abito verde');
   await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Scarpe nere');
   await expect(page.getByTestId('wardrobe-suggestions')).not.toContainText('Mancano');
+});
+
+
+test('AI stylist reads user note, shows verified status and only stored garments', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stats = await mockAccount(page);
+  await page.goto('/guardaroba');
+  await add(page, 'Camicia azzurra', 'Maglia / camicia', 'azzurro');
+  await add(page, 'Pantaloni blu', 'Pantaloni / gonna', 'blu');
+  await add(page, 'Mocassini marroni', 'Scarpe', 'marrone');
+  await page.getByRole('button', { name: 'Serata chic' }).click();
+  await page.getByTestId('wardrobe-style-note').fill('Cena elegante ma non troppo formale');
+  await page.getByRole('button', { name: 'Proponi gli abbinamenti con AI' }).click();
+  await expect(page.getByTestId('wardrobe-ai-status')).toContainText('Stylist AI');
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Camicia azzurra');
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Mocassini marroni');
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Consiglio:');
+  expect(stats.usedAI).toBe(true);
+  expect(stats.lastStyleNote).toBe('Cena elegante ma non troppo formale');
+  await page.getByTestId('wardrobe-style-note').fill('Serata elegante classica');
+  await expect(page.getByTestId('wardrobe-suggestions')).toHaveCount(0);
 });

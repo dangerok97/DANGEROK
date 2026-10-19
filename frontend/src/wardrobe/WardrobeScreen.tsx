@@ -41,6 +41,7 @@ function WardrobeScreen() {
   const photoEpoch = useRef(0);
   const [deleteTarget, setDeleteTarget] = useState<Garment | null>(null);
   const [occasion, setOccasion] = useState<Occasion>('casual_evening');
+  const [styleNote, setStyleNote] = useState('');
   const [result, setResult] = useState<OutfitResponse | null>(null);
 
   const load = useCallback(async () => {
@@ -151,7 +152,7 @@ function WardrobeScreen() {
     try {
       const token = await wardrobeClient.token();
       if (!token) throw new Error('Accedi nuovamente a ORA.');
-      setResult(await wardrobeClient.outfits(token, occasion));
+      setResult(await wardrobeClient.outfits(token, occasion, styleNote));
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
@@ -257,10 +258,22 @@ function WardrobeScreen() {
 
         <View style={[s.card, card]}>
           <Text style={[s.heading, foreground]}>Scegli un look</Text>
-          <Text style={[s.note, muted]}>Indica l'occasione: uso soltanto capi realmente presenti e disponibili.</Text>
+          <Text style={[s.note, muted]}>ORA valuta gli abbinamenti con l'AI, utilizzando esclusivamente i capi realmente presenti e disponibili. L'analisi invia al modello soltanto le descrizioni dei vestiti, mai le fotografie.</Text>
           <View style={s.choices}>{OCCASIONS.map(o => chip(o.label, occasion === o.value,
             () => { setOccasion(o.value); setResult(null); }, o.value))}</View>
-          {action(busy ? 'Elaborazione…' : 'Proponi gli abbinamenti', () => { void suggest(); }, true, busy)}
+          <TextInput testID="wardrobe-style-note" value={styleNote} maxLength={200}
+            onChangeText={text => { setStyleNote(text); setResult(null); }}
+            placeholder="Facoltativo: locale elegante ma non troppo formale, stile minimal..."
+            placeholderTextColor={colors.textSecondary}
+            style={[s.input, foreground, { borderColor: colors.border }]} />
+          {action(busy ? 'ORA sta valutando i look…' : 'Proponi gli abbinamenti con AI', () => { void suggest(); }, true, busy)}
+          {result ? <Text testID="wardrobe-ai-status" style={[s.note, result.engine === 'ai-stylist-v1'
+            ? { color: colors.accent } : muted]}>
+            {result.engine === 'ai-stylist-v1' ? 'Stylist AI · Proposte verificate sui capi salvati'
+              : result.ai_status === 'unavailable' ? 'Stylist AI non disponibile · Consigli preliminari'
+              : result.ai_status === 'rate_limited' ? 'Limite AI raggiunto · Consigli preliminari'
+              : 'Suggerimenti preliminari dai tuoi capi'}
+          </Text> : null}
           {result ? <View testID="wardrobe-suggestions" style={{ gap: 12 }}>
             {result.missing.length ? <Text style={[s.note, muted]}>
               Mancano capi adatti in queste categorie: {result.missing.map(label).join(', ')}. Non invento ciò che non hai caricato.
@@ -275,6 +288,7 @@ function WardrobeScreen() {
                   </View> : null;
                 })}
                 <Text style={[s.note, muted]}>{look.why}</Text>
+                {look.styling_tip ? <Text style={[s.note, foreground]}>Consiglio: {look.styling_tip}</Text> : null}
               </View>
             ))}
             <Text style={[s.note, muted]}>{result.message}</Text>
@@ -283,7 +297,7 @@ function WardrobeScreen() {
 
         {error ? <Text testID="wardrobe-error" style={{ color: colors.error }}>{error}</Text> : null}
         {notice ? <Text testID="wardrobe-notice" style={{ color: colors.textSecondary }}>{notice}</Text> : null}
-        <Text style={[s.note, muted]}>Pilot: il riconoscimento fotografico AI propone soltanto campi da verificare. Gli outfit usano ancora regole preliminari di categoria, formalità e colore: non sono una valutazione di uno stylist professionista.</Text>
+        <Text style={[s.note, muted]}>Lo stylist AI propone abbinamenti tra i tuoi capi verificati e spiega i motivi. In caso di indisponibilità dell'AI, ORA indica chiaramente quando usa regole preliminari. I consigli non garantiscono vestibilità o conformità al dress code.</Text>
       </ScrollView>
     </SafeAreaView>
   );

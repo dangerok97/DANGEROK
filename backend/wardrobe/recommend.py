@@ -61,7 +61,7 @@ def _palette_score(combo: tuple[dict, ...]) -> float:
     return 0.0
 
 
-def recommend(items: list[dict], occasion: str, temperature_c: float | None = None) -> dict[str, Any]:
+def recommend(items: list[dict], occasion: str, temperature_c: float | None = None, *, max_looks: int = 2) -> dict[str, Any]:
     """Use either separates (top+bottom+shoes) or one-piece clothing+shoes.
 
     No dress can appear simultaneously with trousers or another base top.
@@ -123,7 +123,7 @@ def recommend(items: list[dict], occasion: str, temperature_c: float | None = No
             "why": "Capi disponibili, coerenti per formalità e combinazione cromatica indicativa.",
             "score": round(score, 1),
         })
-        if len(chosen) == 2:
+        if len(chosen) >= max(1, min(int(max_looks), 12)):
             break
     return {
         "engine": "rules-v1", "occasion": occasion, "outfits": chosen,
