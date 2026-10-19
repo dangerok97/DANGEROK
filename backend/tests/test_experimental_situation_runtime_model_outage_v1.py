@@ -127,6 +127,43 @@ async def test_real_mongo_background_planning_outage_remains_recoverable(monkeyp
         assert await db.agent_needs.count_documents({"owner_id": OWNER}) == 0
         assert await db.delivery_plans.count_documents({"owner_id": OWNER}) == 0
         assert await db.life_nodes.count_documents({"user_id": OWNER, "type": "event"}) == 0
+
+        # A recovered technical wake must actually reach the planner after
+        # the provider is restored, not merely remain in the queue forever.
+        # Here the restored model truthfully reports that the synthetic
+        # situation has insufficient capabilities for a justified outcome.
+        # That is a safe terminal decision, NOT a drying/completion claim.
+        fake_model.return_value = {
+            "planning_outcome": "not_possible",
+            "reasoning": "Mancano fonti sufficienti per stimare l'esito fisico.",
+            "steps": [],
+        }
+        # Advance only the synthetic fixtures' clocks; never sleep or adjust
+        # production scheduling. The recovery scanner already placed one wake.
+        second_due = (datetime.now(timezone.utc) - timedelta(seconds=6)).isoformat()
+        await db.ambient_wakes.update_one(
+            {"owner_id": OWNER, "source_ref": f"goal:{gid}", "status": "pending"},
+            {"$set": {"scheduled_for": second_due}},
+        )
+        await db.agent_goals.update_one(
+            {"owner_id": OWNER, "id": gid},
+            {"$set": {"next_run_at": second_due}},
+        )
+        second = await runtime.tick(db, limit=1)
+        assert second["claimed"] == 1, second
+        assert fake_model.await_count == 2
+        final_goal = await db.agent_goals.find_one(
+            {"owner_id": OWNER, "id": gid}, {"_id": 0},
+        )
+        assert final_goal is not None
+        assert final_goal["status"] not in ("active", "waiting")
+        assert final_goal.get("planning_unavailable") is not True
+        assert await db.delivery_plans.count_documents({"owner_id": OWNER}) == 0
+        assert await db.life_nodes.count_documents({"user_id": OWNER, "type": "event"}) == 0
+        assert await db.ambient_wakes.count_documents({
+            "owner_id": OWNER, "source_ref": f"goal:{gid}",
+            "status": {"$in": ["pending", "claimed"]},
+        }) == 0
     finally:
         await client.drop_database(name)
         client.close()
