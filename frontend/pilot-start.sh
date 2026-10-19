@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+: "${PILOT_BASIC_AUTH_USER:?Missing isolated pilot username}"
+: "${PILOT_BASIC_AUTH_PASSWORD:?Missing isolated pilot password}"
+: "${PILOT_COOKIE_TOKEN:?Missing isolated pilot cookie token}"
+# Nginx conf is generated only inside the runtime container, never in the
+# public Expo bundle or GitHub. Credentials never enter Docker build args.
+htpasswd -bBc /etc/nginx/.pilot-htpasswd "$PILOT_BASIC_AUTH_USER" "$PILOT_BASIC_AUTH_PASSWORD" >/dev/null
+sed "s#__PILOT_COOKIE_TOKEN__#$PILOT_COOKIE_TOKEN#g" /etc/nginx/pilot.conf.template > /etc/nginx/conf.d/default.conf
+exec nginx -g 'daemon off;'
