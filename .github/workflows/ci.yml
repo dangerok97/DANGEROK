@@ -378,6 +378,11 @@ jobs:
       - name: ORA calendar month-grid regression
         working-directory: frontend
         run: node --experimental-strip-types src/components/calendar/nativeMonth.test.ts
+      - name: Calendar time is invariant across browser timezones (real-user release gate)
+        working-directory: frontend
+        run: |
+          TZ=America/Chicago node --experimental-strip-types src/components/calendar/eventDisplayTime.test.ts
+          TZ=Europe/Rome node --experimental-strip-types src/components/calendar/eventDisplayTime.test.ts
       - name: Calendar connector state and selected account consistency
         working-directory: frontend
         run: node --experimental-strip-types src/components/account/calendarConnection157.test.ts
