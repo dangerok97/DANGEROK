@@ -108,12 +108,24 @@ def followup_diagnosis(state):
         # A closed monitoring intent is still a historical fact; no vanished
         # cards or model summaries can count as an executed inspection.
         if state.get("last_checked_at"):
-            return ("Il monitoraggio è chiuso. Esiste un controllo eseguito "
+            return ("Il monitoraggio è stato chiuso: non è previsto un altro controllo. "
+                    "Esiste un controllo eseguito "
                     "e documentato; verifica l'orario e il risultato salvati. "
                     "Non è previsto un nuovo controllo.")
-        return ("Il monitoraggio è chiuso. Non risulta un controllo eseguito "
+        return ("Il monitoraggio è stato chiuso: non è previsto un altro controllo. "
+                "Non risulta un controllo eseguito "
                 "e documentato per questa situazione; nessun nuovo controllo "
                 "è programmato.")
+    if status == "unavailable":
+        if state.get("read_failure_code") == "situation_not_found_or_not_owned":
+            return ("La situazione richiesta non risulta nell'archivio di questo "
+                    "account con l'identificativo indicato. Non è una prova che "
+                    "il controllo sia stato eseguito o cancellato: usa "
+                    "list_situation_followups per recuperare gli identificativi "
+                    "delle situazioni recenti, comprese quelle chiuse.")
+        if state.get("read_failure_code") == "storage_read_failed":
+            return ("La lettura del database non è riuscita; non posso "
+                    "confermare lo stato del controllo.")
     if status == "runtime_disabled" or state.get("runtime_enabled") is False:
         return why["runtime_disabled"]
     if error and error in why:
@@ -144,16 +156,6 @@ def followup_diagnosis(state):
         return ("La situazione è registrata, ma non risulta un controllo "
                 "con data e ora effettivamente salvato. Senza un errore "
                 "registrato non posso attribuire la causa al meteo o ai permessi.")
-    if status == "unavailable":
-        if state.get("read_failure_code") == "situation_not_found_or_not_owned":
-            return ("La situazione richiesta non risulta nell'archivio di questo "
-                    "account con l'identificativo indicato. Non è una prova che "
-                    "il controllo sia stato eseguito o cancellato: usa "
-                    "list_situation_followups per recuperare gli identificativi "
-                    "delle situazioni recenti, comprese quelle chiuse.")
-        if state.get("read_failure_code") == "storage_read_failed":
-            return ("La lettura del database non è riuscita; non posso "
-                    "confermare lo stato del controllo.")
     return ("Non riesco a leggere lo stato del controllo dal sistema. "
             "Questo non prova né che sia programmato né che sia terminato.")
 
