@@ -1,0 +1,416 @@
+"""Owner-grounded named-locality weather, no GPS fallback or invented point.
+
+The conversational weather skill previously accepted only saved LifePlaces or
+device location, so a named town could become a false clarification blocker.
+This tests only a read-only resolution contract with synthetic Google responses.
+A forecast is NOT evidence that an object's physical process is complete.
+"""
+from unittest.mock import AsyncMock
+
+import pytest
+from mongomock_motor import AsyncMongoMockClient
+
+from conversation_engine.ai_core.tools.weather_caps import get_weather_forecast
+from places import lookup
+from situations.models import SituationEvent, SituationState
+from situations.repository import SituationRepository
+
+OWNER = "synthetic-weather-owner"
+OTHER = "synthetic-weather-other"
+SID = "sit_synthetic_named_place"
+
+
+@pytest.fixture
+def weather_context(monkeypatch):
+    import weather
+    from home.service import HomeService
+
+    db = AsyncMongoMockClient().exp_named_weather
+    suggestions = AsyncMock(return_value={
+        "available": True,
+        "suggestions": [
+            {"place_id": "provider-place-t", "primary": "Tarquinia",
+             "text": "Tarquinia, VT, Italia"},
+            {"place_id": "provider-place-street", "primary": "Via Tarquinia",
+             "text": "Via Tarquinia, Roma"},
+        ],
+    })
+    resolve = AsyncMock(return_value={
+        "available": True,
+        "place_id": "provider-place-t",
+        "locality": "Tarquinia",
+        "address": "Tarquinia VT Italia",
+        "latitude": 42.25,
+        "longitude": 11.76,
+    })
+    forecast = AsyncMock(return_value={
+        "available": True,
+        "place": "Tarquinia",
+        "provider": "synthetic-open-meteo",
+        "timezone": "Europe/Rome",
+        "observed_at": "2026-10-18T13:00:00+02:00",
+        "retrieved_at": "2026-10-18T13:01:00+02:00",
+        "temperature_c": 22,
+        "humidity_pct": 54,
+        "wind_kmh": 12,
+        "precipitation_mm": 0,
+        "hours": [{"time": "14:00", "datetime": "2026-10-18T14:00:00+02:00",
+                   "rain_chance_pct": 20}],
+    })
+    gps = AsyncMock(side_effect=AssertionError(
+        "explicit town must not silently be replaced by device GPS"
+    ))
+    monkeypatch.setattr(lookup, "suggest", suggestions)
+    monkeypatch.setattr(lookup, "resolve", resolve)
+    monkeypatch.setattr(weather, "forecast_at", forecast)
+    monkeypatch.setattr(HomeService, "_where_they_are", gps)
+    return db, suggestions, resolve, forecast, gps
+
+
+@pytest.mark.asyncio
+async def test_explicit_town_can_read_real_provider_with_unique_google_place_provenance(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    obs = await get_weather_forecast(
+        {"place_query": "Tarquinia"},
+        {"db": db, "user_id": OWNER,
+         "user_message": "Ho steso i panni a Tarquinia. Dimmi se piove."},
+    )
+    assert obs.status == "ok", obs
+    assert obs.payload["place"] == "Tarquinia"
+    assert obs.provenance == ["google_place:provider-place-t"]
+    suggest.assert_awaited_once_with("Tarquinia")
+    resolve.assert_awaited_once_with("provider-place-t")
+    forecast.assert_awaited_once_with(lat=42.25, lon=11.76, place="Tarquinia")
+    gps.assert_not_awaited()
+    assert await db.life_places.count_documents({}) == 0
+    assert await db.agent_goals.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message", [
+    "Come va il meteo?",
+    "Stendo il bucato a Tarquiniale.",
+    "Ho steso il bucato a Roma.",
+    "La località è nel messaggio precedente, oggi non la nomino.",
+])
+async def test_model_cannot_invent_location_or_match_substrings(
+    weather_context, message,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    obs = await get_weather_forecast(
+        {"place_query": "Tarquinia"},
+        {"db": db, "user_id": OWNER, "user_message": message},
+    )
+    assert obs.status == "partial"
+    assert obs.payload["failure_code"] == "PLACE_QUERY_NOT_USER_GROUNDED"
+    suggest.assert_not_awaited()
+    resolve.assert_not_awaited()
+    forecast.assert_not_awaited()
+    gps.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_owner_owned_active_situation_supplies_previous_turn_location(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OWNER, status="active",
+        summary="Oggetto temporaneo all'aperto",
+        location_label="Tarquinia",
+        history=[
+            SituationEvent(
+                revision=1, operation="create", source="user_conversation",
+                changes={"location_label": "Tarquinia"},
+            ),
+        ],
+    ))
+    args = {"place_query": "Tarquinia", "situation_id": SID}
+    current = {"db": db, "user_id": OWNER,
+               "user_message": "Ora controlla di nuovo le condizioni."}
+    obs = await get_weather_forecast(args, current)
+    assert obs.status == "ok"
+    assert obs.provenance == [
+        "google_place:provider-place-t",
+        f"situation:{SID}:revision:1",
+    ]
+    forecast.assert_awaited_once()
+    gps.assert_not_awaited()
+
+    forecast.reset_mock()
+    suggest.reset_mock()
+    resolve.reset_mock()
+    foreign = await get_weather_forecast(args, {**current, "user_id": OTHER})
+    assert foreign.status == "partial"
+    assert foreign.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
+    forecast.assert_not_awaited()
+    resolve.assert_not_awaited()
+    suggest.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_inferred_location_is_not_authority_to_request_geocoding(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OWNER, status="active",
+        summary="Situazione con luogo solo inferito",
+        location_label="Tarquinia",
+        history=[
+            SituationEvent(
+                revision=1, operation="create", source="inferred",
+                changes={"location_label": "Tarquinia"},
+            ),
+        ],
+    ))
+    obs = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER,
+         "user_message": "Come evolve la situazione?"},
+    )
+    assert obs.status == "partial"
+    assert obs.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
+    suggest.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_and_changed_geocoding_never_read_wrong_weather(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    suggest.return_value = {
+        "available": True,
+        "suggestions": [
+            {"place_id": "a", "primary": "Tarquinia"},
+            {"place_id": "b", "primary": "Tarquinia"},
+        ],
+    }
+    ctx = {"db": db, "user_id": OWNER, "user_message": "Sono a Tarquinia"}
+    out = await get_weather_forecast({"place_query": "Tarquinia"}, ctx)
+    assert out.status == "partial"
+    assert out.payload["failure_code"] == "PLACE_QUERY_AMBIGUOUS"
+    resolve.assert_not_awaited()
+    forecast.assert_not_awaited()
+
+    suggest.return_value = {
+        "available": True,
+        "suggestions": [{"place_id": "a", "primary": "Tarquinia"}],
+    }
+    resolve.return_value = {
+        "available": True, "place_id": "different",
+        "locality": "Tarquinia", "latitude": 42.25, "longitude": 11.76,
+    }
+    out = await get_weather_forecast({"place_query": "Tarquinia"}, ctx)
+    assert out.status == "partial"
+    assert out.payload["failure_code"] == "PLACE_QUERY_MISMATCH"
+    forecast.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_no_silent_switch_from_exact_saved_ref_to_city_or_device(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    obs = await get_weather_forecast(
+        {"place_query": "Tarquinia", "place_ref": "place:someone-else"},
+        {"db": db, "user_id": OWNER, "user_message": "Tarquinia"},
+    )
+    assert obs.status == "error"
+    assert obs.payload["error"] == "AMBIGUOUS_PLACE_INPUT"
+    suggest.assert_not_awaited()
+    resolve.assert_not_awaited()
+    forecast.assert_not_awaited()
+    gps.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_real_conversation_core_can_call_weather_for_user_spoken_city(
+    weather_context,
+):
+    """End-to-end synthetic cognitive turn through its registered tool."""
+    from conversation_engine.ai_core.loop import run_cognitive_loop
+    from conversation_engine.models import ConversationSession
+
+    db, suggest, resolve, forecast, gps = weather_context
+    session = ConversationSession(
+        user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}},
+    )
+    calls = 0
+
+    async def decide(system, payload):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "response_mode": "tool",
+                "tool_call": {
+                    "capability": "get_weather_forecast",
+                    "arguments": {"place_query": "Tarquinia"},
+                },
+            }
+        return {
+            "response_mode": "answer",
+            "message_to_user": (
+                "Ho letto il meteo aggiornato di Tarquinia. "
+                "Questo non dimostra che un processo fisico sia concluso."
+            ),
+        }
+
+    result = await run_cognitive_loop(
+        sess=session, db=db, user_message="Che meteo c'è a Tarquinia?",
+        decision_fn=decide,
+    )
+    assert result.ok, result
+    assert result.tool_calls == 1
+    assert calls >= 2
+    suggest.assert_awaited_once_with("Tarquinia")
+    resolve.assert_awaited_once_with("provider-place-t")
+    forecast.assert_awaited_once_with(
+        lat=42.25, lon=11.76, place="Tarquinia",
+    )
+    gps.assert_not_awaited()
+    assert await db.situations.count_documents({}) == 0
+    assert await db.agent_goals.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_claiming_foreign_situation_fails_even_if_city_named_this_turn(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OTHER, status="active",
+        summary="Other owner's private outdoor situation",
+        location_label="Tarquinia",
+        history=[
+            SituationEvent(revision=1, operation="create",
+                           source="user_conversation",
+                           changes={"location_label": "Tarquinia"}),
+        ],
+    ))
+    observation = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER,
+         "user_message": "Sono a Tarquinia, controlla."},
+    )
+    assert observation.status == "partial"
+    assert observation.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
+    suggest.assert_not_awaited()
+    resolve.assert_not_awaited()
+    forecast.assert_not_awaited()
+    gps.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", [
+    {"status": "cancelled"},
+    {"location_label": "Un altro luogo"},
+    {"revision": 2},
+])
+async def test_weather_in_flight_cannot_use_cancelled_moved_or_revised_situation(
+    weather_context, change,
+):
+    """Race after provider call: never attach a valid town's data to stale work."""
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OWNER, status="active",
+        location_label="Tarquinia", summary="Active synthetic outdoor case",
+        history=[
+            SituationEvent(
+                revision=1, operation="create", source="user_conversation",
+                changes={"location_label": "Tarquinia"},
+            ),
+        ],
+    ))
+    original_weather = forecast.return_value
+
+    async def change_during_provider(*, lat, lon, place):
+        assert place == "Tarquinia"
+        await db.situations.update_one(
+            {"user_id": OWNER, "id": SID},
+            {"$set": change},
+        )
+        return original_weather
+
+    forecast.side_effect = change_during_provider
+    obs = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER,
+         "user_message": "Puoi verificare le condizioni aggiornate?"},
+    )
+    forecast.assert_awaited_once()
+    assert obs.status == "partial"
+    assert obs.payload["status"] == "source_changed"
+    assert obs.payload["failure_code"] == "PLACE_QUERY_SITUATION_CHANGED"
+    assert "hours" not in obs.payload
+    assert not obs.provenance
+    gps.assert_not_awaited()
+    assert await db.agent_goals.count_documents({}) == 0
+    assert await db.delivery_plans.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_without_situation_id_town_weather_remains_independent(
+    weather_context,
+):
+    """A plain place question is not fenced to an unrelated Situation."""
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OWNER, status="cancelled",
+        location_label="Tarquinia", summary="Unrelated old Situation",
+    ))
+    obs = await get_weather_forecast(
+        {"place_query": "Tarquinia"},
+        {"db": db, "user_id": OWNER,
+         "user_message": "Che tempo fa ora a Tarquinia?"},
+    )
+    assert obs.status == "ok"
+    assert obs.provenance == ["google_place:provider-place-t"]
+    forecast.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_latest_place_change_must_be_user_confirmed_not_historical(
+    weather_context,
+):
+    db, suggest, resolve, forecast, gps = weather_context
+    await SituationRepository(db).insert(SituationState(
+        id=SID, user_id=OWNER, revision=2, status="active",
+        location_label="Tarquinia", summary="Synthetic process",
+        history=[
+            SituationEvent(revision=1, operation="create",
+                           source="user_conversation",
+                           changes={"location_label": "Tarquinia"}),
+            SituationEvent(revision=2, operation="update",
+                           source="inferred",
+                           changes={"location_label": "Tarquinia"}),
+        ],
+    ))
+    blocked = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER, "user_message": "Ricontrolla."},
+    )
+    assert blocked.status == "partial"
+    assert blocked.payload["failure_code"] == "PLACE_QUERY_SITUATION_NOT_CURRENT"
+    suggest.assert_not_awaited()
+    resolve.assert_not_awaited()
+    forecast.assert_not_awaited()
+
+    # An unrelated later metadata revision must NOT erase a still-current,
+    # explicitly user-confirmed locality.
+    await db.situations.update_one(
+        {"id": SID, "user_id": OWNER},
+        {"$set": {"history.1.changes": {"current_state_summary": "Riesame"}}},
+    )
+    approved = await get_weather_forecast(
+        {"place_query": "Tarquinia", "situation_id": SID},
+        {"db": db, "user_id": OWNER, "user_message": "Ricontrolla."},
+    )
+    assert approved.status == "ok"
+    assert approved.provenance == [
+        "google_place:provider-place-t",
+        f"situation:{SID}:revision:2",
+    ]
