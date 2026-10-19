@@ -22,38 +22,11 @@ import { api, CalendarEventDetail } from '@/src/api/client';
 import { haptic } from '@/src/utils/haptic';
 import { humanizeError } from '@/src/utils/errors';
 import { CalendarEventForm } from '@/src/components/calendar/CalendarEventForm';
+import { eventDisplayDay, eventDisplayTime } from '@/src/components/calendar/eventDisplayTime';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
 
 const MAX_WIDTH = 720;
-
-/** «giovedì 10 settembre», come lo direbbe una persona. */
-function humanDay(value?: string | null): string {
-  if (!value) return '';
-  const when = new Date(value);
-  if (Number.isNaN(when.getTime())) return '';
-  return when.toLocaleDateString('it-IT', {
-    weekday: 'long', day: 'numeric', month: 'long',
-  });
-}
-
-/** «10:00 – 11:00», o solo l'inizio quando non c'e' una fine. */
-function humanTime(
-  start?: string | null,
-  end?: string | null,
-  allDay?: boolean,
-  endTimeKnown?: boolean,
-): string {
-  if (allDay) return 'Tutto il giorno';
-  if (!start) return '';
-  const from = new Date(start);
-  if (Number.isNaN(from.getTime())) return '';
-  const fmt = (d: Date) => d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-  if (endTimeKnown === false || !end) return fmt(from);
-  const to = new Date(end);
-  if (Number.isNaN(to.getTime())) return fmt(from);
-  return `${fmt(from)} – ${fmt(to)}`;
-}
 
 function Row({ icon, label, value }: { icon: any; label: string; value: string }) {
   if (!value) return null;
@@ -117,10 +90,12 @@ export default function CalendarEventScreen() {
     }
   }, [event, id]);
 
-  const day = useMemo(() => humanDay(event?.starts_at), [event?.starts_at]);
+  const day = useMemo(() => eventDisplayDay(event?.starts_at, event?.timezone),
+    [event?.starts_at, event?.timezone]);
   const time = useMemo(
-    () => humanTime(event?.starts_at, event?.ends_at, event?.all_day, event?.end_time_known),
-    [event?.starts_at, event?.ends_at, event?.all_day, event?.end_time_known],
+    () => eventDisplayTime(event?.starts_at, event?.ends_at, event?.all_day,
+      event?.end_time_known, event?.timezone),
+    [event?.starts_at, event?.ends_at, event?.all_day, event?.end_time_known, event?.timezone],
   );
 
   return (
