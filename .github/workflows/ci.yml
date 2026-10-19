@@ -80,6 +80,13 @@ jobs:
       - name: Situation v157 initial review admission and checkpoint truth
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_declared_place_link_v162.py tests/test_situation_initial_admission_v157.py tests/test_situation_admission_integrity_v157.py tests/test_situation_runtime_integrity_v157.py tests/test_situation_wait_integrity_v157.py tests/test_situation_research_integrity_v159.py tests/test_followup_diagnostics_v149.py -x
+      - name: Test 2 - named-locality to monitored Situation, truthful state and worker restart
+        working-directory: backend
+        run: |
+          python -m pytest -q -n 0 -x \
+            tests/test_experimental_user_named_weather_v1.py \
+            tests/test_experimental_one_turn_situation_weather_v1.py \
+            tests/test_experimental_situation_restart_recovery_v1.py
       - name: Situation useful outcome, weather time, final delivery and closure
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_useful_outcome_v160.py tests/test_situation_weather_clock_v160.py tests/test_situation_outcome_delivery_v160.py tests/test_situation_outcome_visibility_v160.py tests/test_situation_completion_response_v160.py tests/test_situation_outcome_projection_v160.py -x
