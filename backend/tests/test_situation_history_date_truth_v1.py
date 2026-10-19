@@ -197,3 +197,26 @@ async def test_explicit_start_time_dominates_recent_update_date(monkeypatch):
         "started_at": "2026-10-11T12:00:00+00:00",
     }, "Europe/Rome")
     assert origin == "started_at"
+
+
+@pytest.mark.asyncio
+async def test_model_omits_place_argument_but_town_is_spoken(monkeypatch):
+    """Location still fences records when the LLM forgets place_query."""
+    monkeypatch.setenv("AMBIENT_RUNTIME", "1")
+    db = AsyncMongoMockClient().history_omitted_place
+    await insert(db, sid="sit_wrong_same_day", label="Leesburg",
+                 created="2026-10-19T12:00:00+00:00",
+                 summary="Synthetic weather for another city")
+    msg = "Cerca i panni del 19 ottobre 2026 a Tarquinia."
+    out = await list_situation_followups({}, context(db, msg))
+    assert out.status == "ok"
+    assert out.payload["requested_place"] == "tarquinia"
+    assert out.payload["requested_date"] == "2026-10-19"
+    assert out.payload["count"] == 0
+
+    wrong = await get_situation_followup(
+        {"situation_id": "sit_wrong_same_day"}, context(db, msg),
+    )
+    assert wrong.status == "error"
+    assert wrong.payload["reason"] == "SITUATION_LOCALITY_NOT_USER_REQUESTED"
+    assert "Synthetic weather" not in str(wrong.model_dump())
