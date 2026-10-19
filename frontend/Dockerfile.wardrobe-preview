@@ -1,0 +1,21 @@
+# Minimal, isolated public preview of PR #351. The production build stays unchanged.
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY scripts ./scripts
+RUN npm ci
+COPY . .
+ENV NODE_ENV=production
+# Use the preview domain; Nginx proxies /api privately to the isolated backend.
+ENV EXPO_PUBLIC_BACKEND_URL=same-origin
+RUN npx expo export --platform web --output-dir dist
+
+FROM nginx:1.27-alpine
+RUN apk add --no-cache apache2-utils
+COPY nginx.wardrobe-preview.conf /etc/nginx/pilot.conf.template
+COPY pilot-start.sh /usr/local/bin/pilot-start.sh
+COPY pilot-unlock.html /usr/share/nginx/html/pilot-unlock.html
+RUN chmod +x /usr/local/bin/pilot-start.sh
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/pilot-start.sh"]
