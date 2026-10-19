@@ -1,0 +1,40 @@
+# Build the complete pinned BodyParts3D 4.0 reference viewer (source is MIT; meshes CC BY 4.0).
+FROM node:22-bookworm-slim AS bodyparts3d-builder
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts /usr/local/share/ora-vision-scripts
+RUN sh /usr/local/share/ora-vision-scripts/build-bodyparts3d.sh /vendor/bodyparts3d
+
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY scripts ./scripts
+RUN npm ci
+
+COPY . .
+
+ARG EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+ENV EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=${EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID}
+ARG EXPO_PUBLIC_MAPS_WEB_KEY
+ENV EXPO_PUBLIC_MAPS_WEB_KEY=${EXPO_PUBLIC_MAPS_WEB_KEY}
+ENV NODE_ENV=production
+# Pilot must NEVER embed the production API into the browser bundle.
+ENV EXPO_PUBLIC_BACKEND_URL=same-origin
+
+RUN npx expo export --platform web --output-dir dist
+
+FROM nginx:1.27-alpine
+
+RUN sed -i 's#^error_log .*;#error_log /dev/stdout warn;#' /etc/nginx/nginx.conf
+RUN apk add --no-cache apache2-utils
+COPY nginx.pilot.conf /etc/nginx/pilot.conf.template
+COPY pilot-start.sh /usr/local/bin/pilot-start.sh
+COPY pilot-unlock.html /usr/share/nginx/html/pilot-unlock.html
+RUN chmod +x /usr/local/bin/pilot-start.sh
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=bodyparts3d-builder /vendor/bodyparts3d/dist /usr/share/nginx/html/bodyparts3d
+
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/pilot-start.sh"]
