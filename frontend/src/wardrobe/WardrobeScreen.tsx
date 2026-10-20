@@ -269,7 +269,7 @@ function WardrobeScreen() {
           {action(busy ? 'ORA sta valutando i look…' : 'Proponi gli abbinamenti con AI', () => { void suggest(); }, true, busy)}
           {result ? <Text testID="wardrobe-ai-status" style={[s.note, result.engine === 'ai-stylist-v1'
             ? { color: colors.accent } : muted]}>
-            {result.engine === 'ai-stylist-v1' ? 'Stylist AI · Proposte verificate sui capi salvati'
+            {result.engine === 'ai-stylist-v1' ? 'Stylist AI · Valutazione delle schede dei tuoi capi'
               : result.ai_status === 'unavailable' ? 'Stylist AI non disponibile · Consigli preliminari'
               : result.ai_status === 'rate_limited' ? 'Limite AI raggiunto · Consigli preliminari'
               : 'Suggerimenti preliminari dai tuoi capi'}
@@ -279,16 +279,29 @@ function WardrobeScreen() {
               Mancano capi adatti in queste categorie: {result.missing.map(label).join(', ')}. Non invento ciò che non hai caricato.
             </Text> : result.outfits.map((look, n) => (
               <View key={n} style={[s.look, { borderColor: colors.border }]}>
-                <Text style={[s.itemName, foreground]}>Look {n + 1}</Text>
-                {look.item_ids.map(id => {
-                  const item = items.find(i => i.id === id);
-                  return item ? <View key={id} style={s.lookLine}>
-                    {item.photo ? <Image source={{ uri: item.photo }} style={s.tinyPhoto} /> : null}
-                    <Text style={[s.note, foreground]}>{label(item.category)}: {item.name} ({item.color})</Text>
-                  </View> : null;
-                })}
-                <Text style={[s.note, muted]}>{look.why}</Text>
-                {look.styling_tip ? <Text style={[s.note, foreground]}>Consiglio: {look.styling_tip}</Text> : null}
+                <Text style={[s.itemName, foreground]}>Look {n + 1} · {look.title}</Text>
+                <View style={s.outfitItems}>
+                  {look.item_ids.map(id => {
+                    const item = items.find(i => i.id === id);
+                    return item ? <View key={id}
+                      style={[s.outfitItem, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}>
+                      {item.photo ? <Image source={{ uri: item.photo }} style={s.outfitPhoto} contentFit="contain" /> :
+                        <View style={[s.outfitPhoto, s.placeholder, { backgroundColor: colors.surface }]}>
+                          <Ionicons name="shirt-outline" size={27} color={colors.textSecondary} />
+                        </View>}
+                      <Text style={[s.outfitCategory, muted]}>{label(item.category)}</Text>
+                      <Text numberOfLines={3} style={[s.outfitName, foreground]}>{item.name}</Text>
+                      <Text style={[s.outfitColor, muted]}>{item.color}</Text>
+                    </View> : null;
+                  })}
+                </View>
+                <Text style={[s.note, foreground]}>{look.why}</Text>
+                {look.cautions?.length ? <View testID="wardrobe-cautions" style={s.cautions}>
+                  <Text style={[s.fieldTitle, foreground]}>Da considerare</Text>
+                  {look.cautions.map((warning, i) =>
+                    <Text key={i} style={[s.note, muted]}>• {warning}</Text>)}
+                </View> : null}
+                {look.styling_tip ? <Text style={[s.note, foreground]}>Consiglio sul capo: {look.styling_tip}</Text> : null}
               </View>
             ))}
             <Text style={[s.note, muted]}>{result.message}</Text>
@@ -326,6 +339,13 @@ const s = StyleSheet.create({
   detail: { fontSize: 12, lineHeight: 17 },
   inline: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   look: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },
-  lookLine: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  tinyPhoto: { width: 40, height: 40, borderRadius: 6 },
+  outfitItems: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  outfitItem: { width: 148, maxWidth: '100%', borderWidth: 1, borderRadius: 12,
+    padding: 9, gap: 5, overflow: 'hidden' },
+  outfitPhoto: { width: '100%', height: 128, borderRadius: 9 },
+  outfitCategory: { fontSize: 12, lineHeight: 16 },
+  outfitName: { fontWeight: '600', fontSize: 14, lineHeight: 18, minHeight: 18 },
+  outfitColor: { fontSize: 12 },
+  cautions: { gap: 5, paddingTop: 7 },
+
 });

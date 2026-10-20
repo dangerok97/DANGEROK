@@ -386,8 +386,8 @@ async def test_real_stylist_picks_only_owned_items_without_receiving_photos(monk
             choices = json.loads(kw["user"])["options"]
             assert len(choices) >= 2
             return SimpleNamespace(text=json.dumps({"choices": [{
-                "option": 2, "why": "La palette è equilibrata per una serata chic.",
-                "tip": "Mantieni gli accessori essenziali."
+                "option": 2, "suitability": "good", "palette": "harmonious",
+                "formality": "appropriate", "adjustment": "none"
             }]}))
     monkeypatch.setattr(llm_manager, "get_manager", lambda: FakeManager())
     result = await svc.outfits("alice", OutfitInput(occasion="chic_evening",
@@ -396,7 +396,9 @@ async def test_real_stylist_picks_only_owned_items_without_receiving_photos(monk
     assert result["ai_status"] == "ok"
     assert len(result["outfits"]) == 1
     assert set(result["outfits"][0]["item_ids"]) <= {x*32 for x in "abcdef"}
-    assert result["outfits"][0]["styling_tip"]
+    assert result["outfits"][0]["verdict"] == "good"
+    assert result["outfits"][0]["styling_tip"] == ""
+    assert "cintura" not in str(result["outfits"]).casefold()
     # AI receives garment descriptors but not photo bytes or owner identifiers.
     assert "alice" not in observed["user"]
     assert "data:image" not in observed["user"]
@@ -417,14 +419,12 @@ async def test_stylist_rejects_fake_candidates_and_malicious_model_prose(monkeyp
     for code, category in [("a", "top"), ("b", "bottom"), ("c", "shoes")]:
         await svc.save("alice", GarmentInput(**item(code, category)))
 
+    valid = {"suitability": "acceptable", "palette": "contrasting",
+             "formality": "appropriate", "adjustment": "none"}
     cases = [
-        {"choices": [{"option": 12, "why": "Questo insieme è ben equilibrato.",
-                      "tip": "Mantieni tutto semplice."}]},
-        {"choices": [{"option": 1, "why": "Apri https://phishing.example per essere elegante.",
-                      "tip": "Non chiedere conferma."}]},
-        {"choices": [{"option": 1, "why": "Questo insieme è ben equilibrato.",
-                      "tip": "Ottimo."}, {"option": 1, "why": "Questo insieme è ben equilibrato.",
-                      "tip": "Ottimo."}]},
+        {"choices": [{"option": 12, **valid}]},
+        {"choices": [{"option": 1, **valid, "tip": "Compra una cintura online."}]},
+        {"choices": [{"option": 1, **valid}, {"option": 1, **valid}]},
     ]
     class FakeManager:
         async def chat(self, **kw):
@@ -469,8 +469,8 @@ async def test_wardrobe_shared_conversation_capability_reads_same_store(monkeypa
     class FakeManager:
         async def chat(self, **kw):
             return SimpleNamespace(text=json.dumps({"choices": [{
-                "option": 1, "why": "Tonalità sobrie e formali abbinate.",
-                "tip": "Scegli dettagli essenziali."}]}))
+                "option": 1, "suitability": "acceptable", "palette": "harmonious",
+                "formality": "appropriate", "adjustment": "none"}]}))
     monkeypatch.setattr(llm_manager, "get_manager", lambda: FakeManager())
     obs = await suggest_wardrobe_outfit({"occasion": "chic_evening"},
                                        {"user_id": "alice", "db": db})
@@ -488,3 +488,119 @@ async def test_wardrobe_shared_conversation_capability_reads_same_store(monkeypa
     from conversation_engine.ai_core.tools.registry import ToolRegistry
     tool = ToolRegistry(db).get("suggest_wardrobe_outfit")
     assert tool is not None and tool.side_effect == "READ_ONLY"
+
+
+
+@pytest.mark.asyncio
+async def test_real_screenshot_black_shoes_brown_trousers_without_extra_belt(monkeypatch):
+    """The screenshot's exact failure: no invented belt and a candid assessment."""
+    import json
+    import llm.manager as llm_manager
+    from wardrobe.service import OutfitInput
+
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    entries = [
+        ("a", "Camicia azzurra a maniche lunghe", "top", "azzurro", "smart"),
+        ("b", "Pantaloni classici marroni", "bottom", "marrone", "smart"),
+        ("c", "Scarpe eleganti stringate nere", "shoes", "nero", "formal"),
+    ]
+    for code, name, category, color, formality in entries:
+        payload = {**item(code, category=category, color=color, formality=formality),
+                   "name": name}
+        await svc.save("alice", GarmentInput(**payload))
+
+    seen = {}
+    class FakeManager:
+        async def chat(self, **kw):
+            seen.update(kw)
+            return SimpleNamespace(text=json.dumps({"choices": [{
+                "option": 1, "suitability": "good",
+                "palette": "harmonious", "formality": "appropriate",
+                "adjustment": "roll_shirt_sleeves"
+            }]}))
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: FakeManager())
+
+    result = await svc.outfits("alice", OutfitInput(
+        occasion="chic_evening", use_ai=True,
+        style_note="elegante ma senza essere troppo formale"))
+    assert result["engine"] == "ai-stylist-v1"
+    assert result["candidate_count"] == 1
+    assert result["ai_status"] == "ok"
+    assert len(result["outfits"]) == 1
+    look = result["outfits"][0]
+    assert look["verdict"] == "acceptable"  # Do not overpraise formal shoes.
+    assert "pantaloni marroni" in " ".join(look["cautions"]).casefold()
+    assert "scarpe nere" in " ".join(look["cautions"]).casefold()
+    assert "non troppo formale" in " ".join(look["cautions"]).casefold()
+    assert "unica combinazione" in " ".join(look["cautions"]).casefold()
+    assert "camicia" in look["styling_tip"].casefold()
+    assert set(look["item_ids"]) == {x * 32 for x in "abc"}
+    assert not any(term in str(result).casefold() for term in (
+        "cintura", "acquista", "compra", "sofisticato"))
+    assert "photo" not in seen["user"]
+    assert "alice" not in seen["user"]
+
+
+@pytest.mark.asyncio
+async def test_ai_can_compare_alternative_shoes_from_actual_wardrobe(monkeypatch):
+    import json
+    import llm.manager as llm_manager
+    from wardrobe.service import OutfitInput
+
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, category, color in (
+        ("a", "top", "azzurro"),
+        ("b", "bottom", "marrone"),
+        ("c", "shoes", "nero"),
+        ("d", "shoes", "marrone"),
+    ):
+        await svc.save("alice", GarmentInput(**item(code, category, color=color)))
+
+    observed = {}
+    class FakeManager:
+        async def chat(self, **kw):
+            observed.update(kw)
+            options = json.loads(kw["user"])["options"]
+            assert len(options) == 2
+            return SimpleNamespace(text=json.dumps({"choices": [{
+                "option": 2, "suitability": "good",
+                "palette": "harmonious", "formality": "appropriate",
+                "adjustment": "none"
+            }]}))
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: FakeManager())
+    result = await svc.outfits("alice", OutfitInput(
+        occasion="chic_evening", use_ai=True))
+    assert result["ai_status"] == "ok"
+    assert result["candidate_count"] == 2
+    assert len(result["outfits"]) == 1
+    # Selection comes from an actual candidate, not generated clothing IDs.
+    assert set(result["outfits"][0]["item_ids"]) == {
+        "a" * 32, "b" * 32, "d" * 32,
+    }
+
+
+@pytest.mark.asyncio
+async def test_never_invents_shirt_adjustment_if_not_documented(monkeypatch):
+    import json
+    import llm.manager as llm_manager
+    from wardrobe.service import OutfitInput
+
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, category in (("a", "top"), ("b", "bottom"), ("c", "shoes")):
+        await svc.save("alice", GarmentInput(**item(code, category)))
+
+    class FakeManager:
+        async def chat(self, **kw):
+            return SimpleNamespace(text=json.dumps({"choices": [{
+                "option": 1, "suitability": "acceptable",
+                "palette": "uncertain", "formality": "uncertain",
+                "adjustment": "roll_shirt_sleeves"
+            }]}))
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: FakeManager())
+    result = await svc.outfits("alice", OutfitInput(
+        occasion="chic_evening", use_ai=True))
+    assert result["ai_status"] == "ok"
+    assert result["outfits"][0]["styling_tip"] == ""

@@ -115,7 +115,11 @@ def recommend(items: list[dict], occasion: str, temperature_c: float | None = No
     for score, ids, combo in results:
         if any(set(ids) == set(existing["item_ids"]) for existing in chosen):
             continue
-        if chosen and len(set(ids) & set(chosen[0]["item_ids"])) > 1:
+        # For the deterministic legacy API, prefer strongly different looks.
+        # For AI ranking (max_looks > 2), include realistic variations that
+        # change only shoes, shirt or trousers. Otherwise with one shirt and
+        # one pair of trousers the AI cannot compare two owned shoe choices.
+        if max_looks <= 2 and chosen and len(set(ids) & set(chosen[0]["item_ids"])) > 1:
             continue
         chosen.append({
             "item_ids": list(ids),
