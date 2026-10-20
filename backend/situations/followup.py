@@ -18,6 +18,8 @@ from agent.repository import AgentRepository
 from ambient.service import AmbientService
 from conversation_engine.ai_core.models import Observation
 from situations.repository import SituationRepository
+from situations.models import SituationState
+from situations.wake_audit import read_situation_wake_audit
 from situations.clock import local_check_fields
 from situations.history_identity import (
     explicit_dates, authoritative_place, record_event_day, location_matches,
@@ -792,11 +794,15 @@ async def get_situation_followup(args, runtime):
             payload={"status": "unavailable", "reason": "storage_read_failed"},
         )
     state = await read_followup(db, owner, sid)
+    if situation is not None and state["status"] != "unavailable":
+        state.update(await read_situation_wake_audit(db, owner, situation))
     ref = f"situation:{sid}"
     if state["status"] != "unavailable":
         state["factual_readback"] = {
             "ref": ref, "label": "Stato verificato del monitoraggio ORA",
-            "text": state["diagnosis"],
+            "text": (
+                state["diagnosis"] + " " + state.get("wake_audit_note", "")
+            )[:1200],
         }
     return Observation(
         kind="tool", name="get_situation_followup",
@@ -894,7 +900,10 @@ async def list_situation_followups(args, runtime):
             ):
                 continue
             status = await read_followup(db, owner, sid)
+            audit_state = SituationState.model_validate({"user_id": owner, **row})
+            audit = await read_situation_wake_audit(db, owner, audit_state, limit=8)
             items.append({
+                **audit,
                 "situation_id": sid,
                 "situation_ref": f"situation:{sid}",
                 "summary": str(row.get("summary") or "")[:180],
@@ -972,7 +981,10 @@ def register_followup_tools(registry):
             "to an earlier Situation or an exact situation_id is missing, stale "
             "or unverified. This returns exact situation_id, lifecycle, "
             "evidence-backed last_checked_at and next_check_at, never a "
-            "guessed execution. Do not infer a date from updated_at: the "
+            "guessed execution. A worker wake is NOT a weather check. " 
+            "Use wake_attempts/wake_attempt_count to distinguish actual " 
+            "scheduled background attempts from a verified last_checked_at. " 
+            "Do not infer a date from updated_at: the "
             "server enforces the exact date written by the person. "
             "For an explicitly named locality, pass place_query. "
             "Select the correct record semantically from the user request. "
