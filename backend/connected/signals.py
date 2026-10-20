@@ -143,12 +143,24 @@ class SignalService:
         await self._repair_supersession(doc)
         return signal, 'superseded_previous' if predecessor else 'recorded'
 
-    async def pending(self, owner_id: str, *, limit: int = MAX_PENDING) -> List[ConnectedSignal]:
+    async def pending(
+        self, owner_id: str, *, limit: int = MAX_PENDING, due_only: bool = False,
+    ) -> List[ConnectedSignal]:
+        """All unresolved legacy signals remain visible to ordinary readbacks.
+
+        Only the worker passes due_only=True; a pending signal on technical
+        backoff has NOT been skipped, archived, judged or deleted.
+        """
+        query = {
+            'owner_id': owner_id, 'status': 'pending',
+            '_supersession_pending': {'$ne': True},
+            '_core_work.phase': {'$exists': False},
+        }
+        if due_only:
+            query.update(legacy_interpret_due())
         docs = await self.db[SIGNALS].find(
-            {'owner_id': owner_id, 'status': 'pending',
-             '_supersession_pending': {'$ne': True},
-             **legacy_interpret_due()},
-            {'_id': 0}).sort('observed_at', 1).to_list(limit)
+            query, {'_id': 0},
+        ).sort('observed_at', 1).to_list(limit)
         return [ConnectedSignal.model_validate(d) for d in docs]
 
     async def claim_legacy_interpret(self, owner_id: str, signal_id: str) -> bool:
