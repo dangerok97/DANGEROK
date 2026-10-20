@@ -281,6 +281,75 @@ async def test_fresh_user_checkpoint_rearms_exhausted_existing_goal_once(monkeyp
     assert reused.next_run_at == actual_due
 
 
+
+@pytest.mark.asyncio
+async def test_late_explicit_weather_opt_in_upgrades_existing_pending_wake_without_moving_it(monkeypatch):
+    """Pilot regression: a real source request must not be swallowed by 'reused'."""
+    db, service, goal, forecast = await setup(monkeypatch, capability="")
+    goal.next_run_at = None
+    await service.repo.save_goal(goal)
+    first = await arrange_followup(
+        db, OWNER, situation_id=SID, expected_revision=1,
+        check_at=(datetime.now(timezone.utc) + timedelta(minutes=12)).isoformat(),
+        purpose="Existing general checkpoint",
+        notify_when="Only an actual urgent risk",
+        completion_when="One useful next action",
+    )
+    assert first.get("ok") is True and first["status"] == "scheduled", first
+    original = await service.repo.get_goal(OWNER, goal.id)
+    original_due = original.next_run_at
+    assert original_due
+    assert not original.source_situation.get("checkpoint_read_capability")
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{goal.id}",
+        "status": {"$in": ["pending", "claimed"]},
+    }) == 1
+
+    # User now authorizes a real weather read, but the already promised 12m
+    # checkpoint must remain the only alarm and the budget must not reset.
+    original.background_runs = 2
+    await service.repo.save_goal(original)
+    upgraded = await arrange_followup(
+        db, OWNER, situation_id=SID, expected_revision=1,
+        check_at=(datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
+        purpose="Explicitly read live weather at the existing checkpoint",
+        notify_when="Only an actual urgent risk",
+        completion_when="One evidence-backed next action",
+        read_capability="weather.read",
+    )
+    assert upgraded.get("ok") is True and upgraded.get("reused") is True, upgraded
+    current = await service.repo.get_goal(OWNER, goal.id)
+    assert current.next_run_at == original_due
+    assert current.source_situation["checkpoint_due_at"] == original_due
+    assert current.source_situation["checkpoint_read_capability"] == "weather.read"
+    assert current.background_runs == 2
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{goal.id}",
+        "status": {"$in": ["pending", "claimed"]},
+    }) == 1
+    forecast.assert_not_awaited()
+    assert await db.agent_evidence.count_documents({}) == 0
+    assert await db.delivery_plans.count_documents({}) == 0
+
+    # A duplicate message cannot shift the same checkpoint or mint new work.
+    repeated = await arrange_followup(
+        db, OWNER, situation_id=SID, expected_revision=1,
+        check_at=(datetime.now(timezone.utc) + timedelta(minutes=35)).isoformat(),
+        purpose="Repeat the same check",
+        notify_when="Only an actual urgent risk",
+        completion_when="One evidence-backed next action",
+        read_capability="weather.read",
+    )
+    assert repeated.get("ok") is True and repeated.get("reused") is True, repeated
+    after = await service.repo.get_goal(OWNER, goal.id)
+    assert after.next_run_at == original_due
+    assert after.background_runs == 2
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{goal.id}",
+        "status": {"$in": ["pending", "claimed"]},
+    }) == 1
+
+
 @pytest.mark.asyncio
 async def test_home_update_shows_documented_source_instead_of_only_working(monkeypatch):
     db, service, goal, forecast = await setup(monkeypatch)
