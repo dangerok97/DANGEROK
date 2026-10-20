@@ -428,6 +428,19 @@ one-shot action, resolve it instead of extending or monitoring it.
 - create: omit situation_id; runtime creates the canonical id
 - update/cancel/resolve: use an existing user-owned situation_id and expected_revision
 - none: no Situation mutation
+
+EPISODE IDENTITY: A new physical occurrence of a familiar activity is a NEW
+Situation even when the topic, person and place are unchanged. For example, if the person explicitly reports that a new occurrence
+has just begun after a previously tracked occurrence ended or aged, use
+create with a fresh ID and the new user-grounded started_at. Do not
+overwrite the earlier occurrence's created_at, physical start or history. An existing Situation may be updated only
+when the person is continuing the SAME real-world occurrence (including its
+original physical start), or explicitly correcting that occurrence's facts.
+Do not equate 'same type of activity' with 'same historical instance'.
+A prior Situation created to plan a future event may legitimately become
+active when that same planned event begins; do not duplicate such a plan.
+Never silently change the recorded start of an older completed/active event
+to the date of an unrelated new episode.
 For every create, semantic_kind MUST be a short human display label for the active Situation
 (usually 1-4 words, e.g. "Farmaco serale", "Pacco in arrivo", "Consegna attesa"). It is open free text,
 not a fixed domain/category, and it must describe the state rather than the tool used to handle it.

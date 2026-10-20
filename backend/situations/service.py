@@ -48,6 +48,7 @@ class SituationService:
         session_id: str,
         update: SituationUpdate,
         reasoning_epoch: str,
+        user_message: str = "",
     ) -> Dict[str, Any]:
         if update.operation == "none":
             return {"status": "noop"}
@@ -123,6 +124,27 @@ class SituationService:
                 "deduped": True,
                 "situation": situation.context_preview(),
             }
+        if update.operation == "update" and user_message:
+            from situations.episode_identity import fresh_declared_episode
+            replacement = fresh_declared_episode(
+                old=situation, update=update, user_message=user_message,
+            )
+            if replacement is not None:
+                # A current-turn declaration has established a new event.
+                # Never rewrite the physical start, journal or user-owned
+                # source of a previous event. The standard create path
+                # deduplicates by this exact reasoning epoch.
+                created = await self.apply(
+                    user_id=user_id, session_id=session_id,
+                    update=replacement, reasoning_epoch=reasoning_epoch,
+                )
+                created["new_episode"] = True
+                created["previous_situation_id"] = situation.id
+                logger.info("Situation new user episode created from old id (owner-scoped)")
+                return created
+        # Only modifications to the existing event require its current
+        # revision. A separately declared new event does not mutate the
+        # old record and cannot be blocked by an unrelated old edit.
         if update.expected_revision and update.expected_revision != situation.revision:
             raise SituationMutationError("REVISION_CONFLICT")
         if (
