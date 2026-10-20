@@ -226,3 +226,56 @@ async def test_schedule_refuses_unknown_skills_and_saves_selected_weather_skill(
     assert (await service.repo.get_goal(OWNER, goal.id)).source_situation.get(
         "checkpoint_read_capability"
     ) in ("", None)
+
+
+@pytest.mark.asyncio
+async def test_fresh_user_checkpoint_rearms_exhausted_existing_goal_once(monkeypatch):
+    db, service, goal, forecast = await setup(monkeypatch, capability="")
+    goal.background_runs = 3
+    goal.planning_attempts = 4
+    goal.planning_unavailable = True
+    goal.next_run_at = None  # an older cycle was exhausted
+    await service.repo.save_goal(goal)
+    at = (datetime.now(timezone.utc) + timedelta(minutes=12)).isoformat()
+    result = await arrange_followup(
+        db, OWNER, situation_id=SID, expected_revision=1,
+        check_at=at, purpose="Read real source at this explicit check",
+        notify_when="Only if new source evidence changes next action",
+        completion_when="One evidence-backed next action",
+        read_capability="weather.read",
+    )
+    assert result.get("ok") is True, result
+    latest = await service.repo.get_goal(OWNER, goal.id)
+    assert latest is not None
+    assert latest.background_runs == 0
+    assert latest.planning_attempts == 0
+    assert latest.planning_unavailable is False
+    assert latest.source_situation["checkpoint_read_capability"] == "weather.read"
+    actual_due = latest.source_situation["checkpoint_due_at"]
+    assert actual_due == latest.next_run_at
+    assert datetime.fromisoformat(actual_due) > datetime.now(timezone.utc)
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "source_ref": f"goal:{goal.id}",
+        "status": {"$in": ["pending", "claimed"]},
+    }) == 1
+    # Scheduling cannot pretend it already observed new weather or produce
+    # a user-facing result before the wake actually fires.
+    forecast.assert_not_awaited()
+    assert await db.agent_evidence.count_documents({}) == 0
+    assert await db.delivery_plans.count_documents({}) == 0
+
+    # Asking about the *same* still-pending checkpoint reuses the due time,
+    # rather than restoring the budget again or postponing it.
+    latest.background_runs = 2
+    await service.repo.save_goal(latest)
+    repeat = await arrange_followup(
+        db, OWNER, situation_id=SID, expected_revision=1,
+        check_at=(datetime.now(timezone.utc)+timedelta(minutes=22)).isoformat(),
+        purpose="Same checkpoint", notify_when="Only real risk",
+        completion_when="One evidence-backed next action",
+        read_capability="weather.read",
+    )
+    assert repeat.get("ok") is True and repeat.get("reused") is True, repeat
+    reused = await service.repo.get_goal(OWNER, goal.id)
+    assert reused.background_runs == 2
+    assert reused.next_run_at == actual_due
