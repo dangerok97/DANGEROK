@@ -7,7 +7,7 @@ type Item = { id: string; revision: number; name: string; category: string;
   visual_profile?: Record<string, any> | null;
   created_at: string; updated_at: string };
 
-async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outage' = 'recognized') {
+async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outage' | 'stylist_invalid' = 'recognized') {
   const items: Item[] = [];
   const feedback = new Map<string, 'like' | 'dislike'>();
   const statistics = { analyzed: 0, saved: 0, photos: 0,
@@ -157,13 +157,17 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
         ? ['Scarpe nere e pantaloni marroni creano uno stacco da valutare dal vivo.',
            'È l\'unica combinazione completa valutabile con i capi registrati.'] : [];
       json = { engine: allDisliked ? 'preference-v1'
-        : !missing.length && statistics.usedAI ? 'ai-stylist-v1' : 'rules-v1',
+        : !missing.length && statistics.usedAI && mode !== 'stylist_invalid' ? 'ai-stylist-v1' : 'rules-v1',
         ai_status: missing.length ? 'insufficient_wardrobe'
-          : allDisliked ? 'not_preferred' : statistics.usedAI ? 'ok' : 'not_requested',
+          : allDisliked ? 'not_preferred'
+          : mode === 'stylist_invalid' ? 'invalid_response'
+          : statistics.usedAI ? 'ok' : 'not_requested',
         candidate_count: missing.length || allDisliked ? 0 : 1,
         occasion, missing,
         message: allDisliked ? 'Hai già scartato tutti i look completi.'
-          : missing.length ? 'Servono altri capi' : 'Valutazione indicativa dalle schede',
+          : missing.length ? 'Servono altri capi'
+          : mode === 'stylist_invalid' ? 'Il modello AI ha risposto, ma non ha restituito una valutazione utilizzabile in sicurezza.'
+          : 'Valutazione indicativa dalle schede',
         outfits: missing.length || allDisliked ? [] : [{
           item_ids: selected.map(i => i!.id),
           title: cautions.length ? 'Look possibile, con riserve' : 'Look plausibile',
@@ -399,4 +403,19 @@ test('disliked complete outfit is not repeated, feedback changes the next sugges
   await page.getByTestId('wardrobe-outfit-feedback').getByRole('button', { name: 'Mi piace', exact: true }).click();
   expect(stats.feedbackWrites).toBe(2);
   await expect(page.getByTestId('wardrobe-outfit-feedback')).toContainText('✓ Mi piace');
+});
+
+
+test('distinguish provider outage from an unusable model response in VITA', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockAccount(page, 'stylist_invalid');
+  await page.goto('/guardaroba');
+  await add(page, 'Camicia azzurra', 'Maglia / camicia', 'azzurro');
+  await add(page, 'Pantaloni marroni', 'Pantaloni / gonna', 'marrone');
+  await add(page, 'Scarpe nere', 'Scarpe', 'nero');
+  await page.getByRole('button', { name: 'Serata chic' }).click();
+  await page.getByRole('button', { name: 'Proponi gli abbinamenti con AI' }).click();
+  await expect(page.getByTestId('wardrobe-ai-status')).toContainText('Risposta AI non valida');
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Il modello AI ha risposto');
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Camicia azzurra');
 });

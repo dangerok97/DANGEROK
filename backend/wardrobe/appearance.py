@@ -73,9 +73,19 @@ async def describe_appearance(photo_jpeg: bytes) -> dict:
             ask_json(SYSTEM, "Analizza solo l'aspetto del singolo capo prevalente.", image=photo_jpeg),
             timeout=ANALYSIS_TIMEOUT_S,
         )
-    except (VisionProviderError, asyncio.TimeoutError) as exc:
+    except VisionProviderError as exc:
+        detail = (
+            "Il provider per le fotografie ha raggiunto un limite di quota o fatturazione. "
+            "La foto e il capo sono invariati."
+            if exc.code == "provider_quota" else
+            "Il provider per le fotografie non è disponibile ora. "
+            "La foto e il capo sono invariati."
+        )
+        raise WardrobeError(detail, 503) from None
+    except asyncio.TimeoutError:
         raise WardrobeError(
-            "L'analisi visiva AI non è disponibile ora; la foto e il capo sono invariati.", 503
+            "L'analisi visiva AI ha superato il tempo di attesa; "
+            "la foto e il capo sono invariati.", 503
         ) from None
     try:
         parsed = VisionAttributes.model_validate(raw)
