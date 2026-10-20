@@ -430,10 +430,10 @@ one-shot action, resolve it instead of extending or monitoring it.
 - none: no Situation mutation
 
 EPISODE IDENTITY: A new physical occurrence of a familiar activity is a NEW
-Situation even when the topic, person and place are unchanged. For example,
-if the person says "ho steso i panni adesso" on a later day, do not update
-the old laundry Situation created days before: use create with a fresh ID and
-the new user-grounded started_at. An existing Situation may be updated only
+Situation even when the topic, person and place are unchanged. For example, if the person explicitly reports that a new occurrence
+has just begun after a previously tracked occurrence ended or aged, use
+create with a fresh ID and the new user-grounded started_at. Do not
+overwrite the earlier occurrence's created_at, physical start or history. An existing Situation may be updated only
 when the person is continuing the SAME real-world occurrence (including its
 original physical start), or explicitly correcting that occurrence's facts.
 Do not equate 'same type of activity' with 'same historical instance'.
