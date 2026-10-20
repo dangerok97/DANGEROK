@@ -3422,14 +3422,54 @@ class AgentService:
             # surrounding state stays a short category and never duplicates a
             # recommendation which an already-open page could keep after expiry.
             scheda["state"] = "Situazione in corso"
+            source_checked = None
+            if last_done and (last_done.get("detail") or {}).get("checkpoint_source"):
+                from situations.followup import read_followup
+                sid = str((goal.source_situation or {}).get("situation_id") or "")
+                if sid:
+                    verified = await read_followup(self.db, owner_id, sid)
+                    if (verified.get("last_checked_at")
+                            and verified.get("last_result_verification")
+                            == "exact_step_geobound_evidence"):
+                        source_checked = verified
             if outcome:
                 scheda["state"] = {"estimated": "Stima disponibile", "action_now": "Indicazione disponibile",
                                    "needs_input": "Serve un'informazione"}[outcome["status"]]
                 scheda["next_step"] = outcome["action_summary"] or outcome["headline"]
+            elif source_checked:
+                # The exact provider read is real, but it is not a measured
+                # outcome of the physical Situation. Show the useful progress
+                # separately from any unverified completion estimate.
+                scheda["state"] = "Fonte verificata; esito ancora da valutare"
+                scheda["already_done"] = str(
+                    source_checked.get("last_result") or ""
+                )[:200]
+                scheda["next_step"] = (
+                    "Ho letto una fonte reale per questa situazione, ma non "
+                    "ho ancora una conclusione verificata sul risultato da raggiungere."
+                )
             elif not scheda.get("needs_you"):
                 scheda["next_step"] = "La stima del momento utile non è ancora disponibile."
             if status in ("not_scheduled", "recovery_pending", "runtime_disabled", "unavailable"):
                 scheda["problem"] = "Non risulta un prossimo controllo confermato per questa situazione."
+            if (goal.background_runs >= 3 and not goal.next_run_at
+                    and goal.is_open
+                    and not goal.requires_user_input and not goal.requires_user_authority
+                    and not outcome):
+                # A background goal with exhausted attempts and no future
+                # wake is NOT 'in progress'. Make the failure visible on the
+                # same owner-specific Home/Updates goal card.
+                scheda["state"] = "Controllo automatico interrotto"
+                scheda["problem"] = (
+                    "ORA ha esaurito i tentativi senza una conclusione "
+                    "verificata e senza un nuovo controllo programmato."
+                )
+                scheda["next_step"] = (
+                    "Il monitoraggio non sta proseguendo automaticamente. "
+                    + ("La fonte è stata letta, ma manca l'esito utile."
+                       if source_checked else
+                       "Non risulta una lettura di fonte verificata.")
+                )
             if goal.requires_user_input and not scheda.get("needs_you"):
                 scheda["next_step"] = "Serve un chiarimento preciso da ORA prima di poter rispondere."
         if scheda["retry_available"]:
