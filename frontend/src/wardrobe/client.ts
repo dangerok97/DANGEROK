@@ -43,9 +43,11 @@ export type GarmentAnalysis = {
 export type OutfitResponse = {
   engine: 'rules-v1' | 'ai-stylist-v1';
   ai_status?: 'ok' | 'not_requested' | 'insufficient_wardrobe' | 'unavailable' | 'rate_limited';
+  candidate_count?: number;
   occasion: Occasion; missing: Category[]; message: string;
   outfits: { item_ids: string[]; title: string; why: string;
-    styling_tip?: string; score?: number }[];
+    verdict?: 'good' | 'acceptable' | 'weak';
+    cautions?: string[]; styling_tip?: string; score?: number }[];
 };
 
 async function request<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {

@@ -97,13 +97,23 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       const selected = dress && footwear ? [dress, footwear] : separates;
       const missing = dress ? (footwear ? [] : ['shoes']) :
         roles.filter((_, i) => !separates[i]);
+      const blackShoesBrownTrousers = selected.some(i => i?.category === 'shoes' && i.color.includes('nero'))
+        && selected.some(i => i?.category === 'bottom' && i.color.includes('marrone'));
+      const cautions = blackShoesBrownTrousers
+        ? ['Scarpe nere e pantaloni marroni creano uno stacco da valutare dal vivo.',
+           'È l\'unica combinazione completa valutabile con i capi registrati.'] : [];
       json = { engine: !missing.length && statistics.usedAI ? 'ai-stylist-v1' : 'rules-v1',
         ai_status: missing.length ? 'insufficient_wardrobe' : statistics.usedAI ? 'ok' : 'not_requested',
+        candidate_count: missing.length ? 0 : 1,
         occasion, missing,
-        message: missing.length ? 'Servono altri capi' : 'Abbinamento indicativo',
+        message: missing.length ? 'Servono altri capi' : 'Valutazione indicativa dalle schede',
         outfits: missing.length ? [] : [{ item_ids: selected.map(i => i!.id),
-          title: 'Look consigliato da ORA', why: 'Capi disponibili e compatibili.',
-          styling_tip: 'Mantieni un look coerente.' }] };
+          title: cautions.length ? 'Look possibile, con riserve' : 'Look plausibile',
+          why: 'La palette e la formalità devono essere valutate insieme.',
+          verdict: cautions.length ? 'acceptable' : 'good',
+          cautions,
+          styling_tip: selected.some(i => i?.category === 'top' && i.name.includes('Camicia')) ?
+            'Valuta la camicia dentro i pantaloni, se la vestibilità lo consente.' : '' }] };
     }
     await route.fulfill({ status: 200, headers, json });
   });
@@ -256,9 +266,30 @@ test('AI stylist reads user note, shows verified status and only stored garments
   await expect(page.getByTestId('wardrobe-ai-status')).toContainText('Stylist AI');
   await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Camicia azzurra');
   await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Mocassini marroni');
-  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Consiglio:');
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Consiglio sul capo:');
   expect(stats.usedAI).toBe(true);
   expect(stats.lastStyleNote).toBe('Cena elegante ma non troppo formale');
   await page.getByTestId('wardrobe-style-note').fill('Serata elegante classica');
   await expect(page.getByTestId('wardrobe-suggestions')).toHaveCount(0);
+});
+
+
+test('black shoes and brown trousers show candid warning without imaginary accessories', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockAccount(page);
+  await page.goto('/guardaroba');
+  await add(page, 'Camicia azzurra a maniche lunghe', 'Maglia / camicia', 'azzurro');
+  await add(page, 'Pantaloni classici marroni', 'Pantaloni / gonna', 'marrone');
+  await add(page, 'Scarpe stringate nere', 'Scarpe', 'nero');
+  await page.getByRole('button', { name: 'Serata chic' }).click();
+  await page.getByTestId('wardrobe-style-note').fill('Elegante ma senza essere troppo formale');
+  await page.getByRole('button', { name: 'Proponi gli abbinamenti con AI' }).click();
+  await expect(page.getByTestId('wardrobe-ai-status')).toContainText('Valutazione delle schede');
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Look possibile, con riserve');
+  await expect(page.getByTestId('wardrobe-cautions')).toContainText('Scarpe nere e pantaloni marroni');
+  await expect(page.getByTestId('wardrobe-suggestions')).not.toContainText('cintura');
+  await expect(page.locator('[data-testid="wardrobe-suggestions"] img')).toHaveCount(0);
+  // The UI must still make its registered garments legible, not 40px icon labels.
+  await expect(page.locator('[data-testid="wardrobe-suggestions"]')).toContainText('Camicia azzurra');
+  await expect(page.locator('[data-testid="wardrobe-suggestions"]')).toContainText('Scarpe stringate nere');
 });

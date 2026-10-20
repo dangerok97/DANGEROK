@@ -1,4 +1,4 @@
-# ORA Guardaroba — pilot V1 (isolated, not released)
+# ORA Guardaroba — pilot V1 · incremental live quality improvements
 
 ## Scope
 - `/api/wardrobe/items` authenticated inventory CRUD, revision conflicts, owner isolation.
@@ -11,7 +11,16 @@
   items and no automatic use of clothes marked as unavailable / laundry.
 - Style suggestions now use a **two-stage AI stylist** when requested: ORA builds
   a bounded list of *owned, available* complete outfits, then the existing LLM
-  manager ranks numbered options for event/formality/color and gives short advice.
+  manager ranks numbered options for event/formality/color.
+  **Grounded explanation contract (Oct 20, 2026):** the model is allowed to
+  return ONLY enumerated assessments and an enumerated shirt-wearing adjustment.
+  The server writes all displayed Italian explanations and allows an adjustment
+  only if that real garment supports it. This prevents model prose from
+  recommending an unrecorded belt, jacket or accessory.
+  Guardrails flag black shoes against brown trousers as a *possible* contrast,
+  and formal shoes against an explicit 'non troppo formale' preference.
+  A single eligible combination is labelled as the only current possibility,
+  never described as the objectively best outfit.
   Model output cannot invent garment IDs: server validates option numbers and
   resolves the exact original item IDs. No photographs, user IDs or login data
   are sent to the stylist. In failure/timeout, explicit `rules-v1` fallback
@@ -54,3 +63,13 @@ photo-picking, AI draft + owner-scoped stylist QA, and real-user evaluation on r
 Provider credentials are not required by unit/browser QA, which use synthetic responses;
 **no live model accuracy has been demonstrated by those tests**.
 The already open autonomy PR #350 remains untouched.
+
+## Feedback-driven quality gate
+The screenshot of blue shirt + brown trousers + black lace-ups, requested as
+'elegante ma senza essere troppo formale', exposed ungrounded belt advice and
+excessively flattering prose. The new deterministic quality guardrails require:
+- Honest contrast/formality cautions, rather than unqualified praise.
+- No invented belt, accessory, clothing purchase or unknown material.
+- Larger user-owned garment thumbnails and visible reservations in VITA.
+- Alternate shoes may compete even when shirt and trousers remain unchanged.
+- Synthetic regressions cannot establish aesthetic correctness on real clothes.

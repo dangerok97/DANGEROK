@@ -59,12 +59,15 @@ async def suggest_wardrobe_outfit(arguments: dict[str, Any], runtime: dict[str, 
         } for item_id in look["item_ids"] if item_id in catalog]
         looks.append({
             "pieces": pieces,
+            "verdict": look.get("verdict"),
             "why": look.get("why", ""),
+            "cautions": list(look.get("cautions") or [])[:3],
             "styling_tip": look.get("styling_tip", ""),
         })
     return _observation("ok", {
         "status": "ok", "occasion": outcome["occasion"], "looks": looks,
         "engine": outcome["engine"], "ai_status": outcome.get("ai_status"),
+        "candidate_count": outcome.get("candidate_count"),
         "notice": outcome.get("message"),
         "ui_actions": [{"kind": "ora_screen", "path": "/guardaroba",
                         "label": "Apri il guardaroba in ORA"}],
