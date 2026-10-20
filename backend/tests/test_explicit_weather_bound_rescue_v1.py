@@ -101,6 +101,65 @@ async def test_model_bound_recovers_exact_schedule_and_real_checkpoint_capabilit
     assert await db.delivery_plans.count_documents({}) == 0
 
 
+
+@pytest.mark.asyncio
+async def test_successfully_saved_checkpoint_survives_unrelated_unseen_plan_step(monkeypatch):
+    """A real schedule must not disappear behind generic partial-plan copy."""
+    db, _ = await fixture(monkeypatch)
+    session = ConversationSession(user_id=OWNER, meta={"ui_mode": "ai_core", "ai_core": {}})
+    due = (datetime.now(timezone.utc) + timedelta(minutes=8)).isoformat()
+    model_calls = 0
+
+    async def model(system, payload):
+        nonlocal model_calls
+        model_calls += 1
+        planned = {
+            "objective": "Programmare, poi leggere una fonte sul risultato",
+            "required_capabilities": [
+                "schedule_situation_check", "get_weather_forecast",
+            ],
+        }
+        if model_calls == 1:
+            return {
+                "response_mode": "tool",
+                "reasoning_status": "needs_tool",
+                "skill_plan": planned,
+                "tool_call": {
+                    "capability": "schedule_situation_check",
+                    "arguments": {
+                        "situation_id": SID, "expected_revision": 1,
+                        "check_at": due,
+                        "purpose": "One actual checkpoint at requested time",
+                        "completion_when": "A source-backed next action",
+                        "notify_when": "Only an urgent risk",
+                        "read_capability": "weather.read",
+                    },
+                },
+            }
+        return {
+            "response_mode": "answer",
+            "reasoning_status": "enough_information",
+            "message_to_user": "Fatto.",
+            "skill_plan": planned,
+        }
+
+    result = await run_cognitive_loop(
+        sess=session, user_message=user_command(), db=db,
+        decision_fn=model, max_steps=3,
+    )
+    assert result.ok
+    assert result.tool_calls == 1, result
+    state = await read_followup(db, OWNER, SID)
+    assert state["status"] == "scheduled", state
+    assert state["next_check_label"] in result.ora_text
+    assert "Altri passaggi" in result.ora_text
+    assert "non risultano confermati" in result.ora_text
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "status": {"$in": ["pending", "claimed"]},
+    }) == 1
+    assert await db.delivery_plans.count_documents({}) == 0
+
+
 @pytest.mark.asyncio
 async def test_exact_weather_command_reuses_existing_check_without_second_wake(monkeypatch):
     db, _ = await fixture(monkeypatch)
