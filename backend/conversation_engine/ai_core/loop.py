@@ -4447,6 +4447,54 @@ async def run_cognitive_loop(
         }
         if calendar_pending else None
     )
+    # A model-selected, explicitly authorised local weather checkpoint must
+    # not disappear merely because several AI deliberation passes were spent.
+    # This one bounded recovery uses the SAME governed scheduling capability,
+    # never a generic keyword router or a substitute for the future provider
+    # read. It runs only if the selected skill was not attempted this turn.
+    exact_checkpoint_receipt = None
+    pre_bound_states = _required_skill_states(required_skill_caps, skill_outcomes)
+    if (
+        not calendar_pending
+        and "schedule_situation_check" in pre_bound_states["unseen"]
+        and tool_calls < MAX_TOOL_CALLS
+        and not any(
+            isinstance(item, dict) and item.get("name") == "schedule_situation_check"
+            and item.get("kind") == "tool"
+            for item in observations[turn_start:]
+        )
+    ):
+        try:
+            from situations.explicit_weather_recovery import (
+                recover_explicit_weather_schedule,
+            )
+            exact_checkpoint_receipt = await recover_explicit_weather_schedule(
+                db, sess.user_id, user_message,
+                model_selected_capability=True,
+            )
+            if exact_checkpoint_receipt:
+                if exact_checkpoint_receipt.get("ok"):
+                    readback_obs = exact_checkpoint_receipt["observation"]
+                    observations.append(readback_obs.model_dump())
+                    attempted_skill_caps = _record_skill_attempt(
+                        attempted_skill_caps,
+                        "schedule_situation_check",
+                        readback_obs.name,
+                    )
+                    skill_outcomes = _merge_skill_outcomes(
+                        skill_outcomes,
+                        [_skill_outcome_summary("schedule_situation_check", readback_obs)],
+                    )
+                    tool_calls += 1
+                    trace["tool_calls"] = tool_calls
+                    add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_CONFIRMED")
+                else:
+                    add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_UNVERIFIED",
+                             reason="source_or_schedule_unverified")
+        except Exception as exc:
+            logger.warning("explicit checkpoint bound recovery failed: %s",
+                           type(exc).__name__)
+            add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_ERROR")
     bound_skill_states = _required_skill_states(
         required_skill_caps, skill_outcomes
     )
@@ -4562,6 +4610,19 @@ async def run_cognitive_loop(
             or "Non ho ancora una risposta verificata a questa richiesta."
         )
         add_step(trace, event="BARE_ACK_BLOCKED_BOUND")
+
+    if exact_checkpoint_receipt and not calendar_pending:
+        # Verified *partial* success must remain visible, even if other
+        # model-declared skills are still unexecuted. Never turn it into a
+        # blanket "job completed" statement or a promised notification.
+        ora = exact_checkpoint_receipt["text"]
+        if exact_checkpoint_receipt.get("ok") and (
+            bound_unseen or bound_waiting or bound_failed
+        ):
+            ora += (
+                " Altri passaggi del piano non sono stati completati; "
+                "la programmazione qui indicata è l'unico risultato verificato."
+            )
 
     # The last AI decision can be a phone tool call with no model prose.
     # Its grounded number/confirmation sentence survives the reasoning bound.
