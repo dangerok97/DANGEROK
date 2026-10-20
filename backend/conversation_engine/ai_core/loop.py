@@ -46,6 +46,7 @@ from conversation_engine.ai_core.prompt import (
     build_user_payload,
 )
 from conversation_engine.ai_core import state as state_mod
+from conversation_engine.ai_core.situation_receipt import verified_situation_receipt
 from conversation_engine.ai_core.tools.registry import (
     ToolRegistry,
     new_reasoning_epoch,
@@ -3326,6 +3327,8 @@ async def run_cognitive_loop(
             ora = _with_situation_handoff(
                 ora, situation_result, suppress=phone_turn
             )
+            if not phone_turn:
+                ora = verified_situation_receipt(ora, situation_result)
             if situation_result and ora:
                 add_step(
                     trace,
@@ -4419,6 +4422,8 @@ async def run_cognitive_loop(
     ora = _with_situation_handoff(
         ora, situation_result, suppress=phone_turn
     )
+    if not phone_turn:
+        ora = verified_situation_receipt(ora, situation_result)
     if situation_result and ora:
         add_step(
             trace,
