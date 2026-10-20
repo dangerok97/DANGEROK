@@ -446,12 +446,20 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
     if expected_revision != situation.revision:
         return {"ok": False, "error": "revision_conflict"}
     before = await read_followup(db, owner, situation_id)
+    # An explicitly requested source read can be attached to the SAME pending
+    # checkpoint without changing its due time. A plain repeated request still
+    # reuses the original alarm, and due/running checks are never rewritten.
+    upgrade_scheduled_source = bool(
+        safe_read and before["status"] == "scheduled"
+        and before.get("goal_source_kind") == KIND
+    )
     if before["status"] in ("scheduled", "due", "running", "waiting_for_user"):
         if before.get("goal_source_kind") not in (KIND, INITIAL_KIND):
             return {"ok": False, "error": "legacy_goal_pursuing", **before}
         if before["status"] == "waiting_for_user":
             return {"ok": False, "error": "goal_not_resumable", **before}
-        return {"ok": True, "reused": True, **before}
+        if not upgrade_scheduled_source:
+            return {"ok": True, "reused": True, **before}
     if before["status"] == "unavailable":
         return {"ok": False, "error": "followup_state_unavailable"}
     repo = AgentRepository(db)
@@ -482,8 +490,27 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             _moment(goal.next_run_at)
             if goal and goal.source_kind == KIND else None
         )
-        due = max(now + timedelta(seconds=60), prior_due or due)
-        if goal:
+        if upgrade_scheduled_source:
+            # Never postpone or replace the confirmed wake merely to add the
+            # user's now-explicit, read-only source selection. If it has been
+            # claimed in the meantime, fail visibly rather than implying the
+            # upcoming worker will perform a skill it did not receive.
+            if not goal or goal.source_kind != KIND or (
+                f"situation:{situation_id}" not in (goal.source_refs or [])
+            ) or prior_due is None or prior_due <= datetime.now(timezone.utc):
+                return {"ok": False, "error": "checkpoint_no_longer_pending",
+                        **(await read_followup(db, owner, situation_id))}
+            pending = await db.ambient_wakes.find_one({
+                "owner_id": owner, "source_ref": f"goal:{gid}",
+                "status": "pending", "scheduled_for": prior_due.isoformat(),
+            }, {"_id": 1})
+            if not pending:
+                return {"ok": False, "error": "checkpoint_no_longer_pending",
+                        **(await read_followup(db, owner, situation_id))}
+            due = prior_due
+        else:
+            due = max(now + timedelta(seconds=60), prior_due or due)
+        if goal and not upgrade_scheduled_source:
             from situations.outcomes import current_outcome
             assessment = await current_outcome(db, owner, goal, now=now)
             expiry = _moment(assessment["valid_until"]) if assessment else None
@@ -550,7 +577,8 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
                 # persist its selected read-only skill rather than losing it
                 # while reusing the old goal. Never rewrite the Situation.
                 goal.source_situation = source_snapshot
-            if safe_read and prior_checkpoint_due != due.isoformat():
+            if (safe_read and not upgrade_scheduled_source
+                    and prior_checkpoint_due != due.isoformat()):
                 # The previous 3-pass budget was for an older checkpoint.
                 # One explicit new request authorizes one *new* bounded pass;
                 # retrying the same already scheduled time does not reset it.
@@ -568,8 +596,16 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             return {"ok": False, "error": "situation_changed"}
         if latest.revision != expected_revision or not goal.is_open:
             return {"ok": False, "error": "situation_changed"}
-        wake = await AmbientService(db).schedule(owner, reason="opportunity_revisit", when=due,
-                                                 source_ref=f"goal:{gid}", provenance="model")
+        # The existing pending wake was proved above while holding the goal
+        # lease. Calling AmbientService.schedule again would mint a SECOND
+        # alarm at the same instant; upgrading its source selection is not
+        # a new scheduling decision.
+        wake = None
+        if not upgrade_scheduled_source:
+            wake = await AmbientService(db).schedule(
+                owner, reason="opportunity_revisit", when=due,
+                source_ref=f"goal:{gid}", provenance="model",
+            )
         if wake and wake.scheduled_for != goal.next_run_at:
             goal.next_run_at = wake.scheduled_for
             if safe_read:
@@ -592,7 +628,8 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
     finally:
         await repo.release(gid, stopped_because="checkpoint_arranged", worker_id=worker)
     state = await read_followup(db, owner, situation_id)
-    return {"ok": state["status"] in ("scheduled", "due", "running"), **state}
+    return {"ok": state["status"] in ("scheduled", "due", "running"),
+            **state, **({"reused": True} if upgrade_scheduled_source else {})}
 
 
 async def repair_missing_dedicated_wakes(db, owner, *, limit=8):
