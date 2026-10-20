@@ -596,8 +596,16 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             return {"ok": False, "error": "situation_changed"}
         if latest.revision != expected_revision or not goal.is_open:
             return {"ok": False, "error": "situation_changed"}
-        wake = await AmbientService(db).schedule(owner, reason="opportunity_revisit", when=due,
-                                                 source_ref=f"goal:{gid}", provenance="model")
+        # The existing pending wake was proved above while holding the goal
+        # lease. Calling AmbientService.schedule again would mint a SECOND
+        # alarm at the same instant; upgrading its source selection is not
+        # a new scheduling decision.
+        wake = None
+        if not upgrade_scheduled_source:
+            wake = await AmbientService(db).schedule(
+                owner, reason="opportunity_revisit", when=due,
+                source_ref=f"goal:{gid}", provenance="model",
+            )
         if wake and wake.scheduled_for != goal.next_run_at:
             goal.next_run_at = wake.scheduled_for
             if safe_read:
