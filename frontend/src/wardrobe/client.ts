@@ -22,7 +22,47 @@ export type GarmentInput = {
   id: string; revision: number; name: string; category: Category;
   color: string; formality: Formality; seasons: Season[]; status: GarmentStatus;
 };
-export type Garment = GarmentInput & { photo: string | null; created_at: string; updated_at: string };
+export const VISUAL_FIELDS = {
+  pattern: [
+    { value: 'solid', label: 'Tinta unita' }, { value: 'striped', label: 'Righe' },
+    { value: 'checked', label: 'Quadri' }, { value: 'printed', label: 'Stampa' },
+    { value: 'mixed', label: 'Misto' }, { value: 'uncertain', label: 'Incerto' },
+  ],
+  shape: [
+    { value: 'tailored', label: 'Strutturato' }, { value: 'regular', label: 'Regolare' },
+    { value: 'relaxed', label: 'Morbido' }, { value: 'sporty', label: 'Sportivo' },
+    { value: 'uncertain', label: 'Incerto' },
+  ],
+  surface: [
+    { value: 'smooth', label: 'Liscio' }, { value: 'knit_like', label: 'Simile a maglia' },
+    { value: 'denim_like', label: 'Aspetto denim' }, { value: 'leather_like', label: 'Aspetto pelle' },
+    { value: 'textured', label: 'Testurizzato' }, { value: 'uncertain', label: 'Incerto' },
+  ],
+  tone: [
+    { value: 'warm', label: 'Caldo' }, { value: 'cool', label: 'Freddo' },
+    { value: 'neutral', label: 'Neutro' }, { value: 'uncertain', label: 'Incerto' },
+  ],
+} as const;
+export type VisualField = keyof typeof VISUAL_FIELDS;
+export type VisualAppearance = {
+  pattern: typeof VISUAL_FIELDS.pattern[number]['value'];
+  shape: typeof VISUAL_FIELDS.shape[number]['value'];
+  surface: typeof VISUAL_FIELDS.surface[number]['value'];
+  tone: typeof VISUAL_FIELDS.tone[number]['value'];
+  confidence: 'high' | 'medium';
+};
+export type VisualProfile = VisualAppearance & { reviewed_at: string };
+export type AppearanceAnalysis = {
+  recognized: boolean; stored: false; draft: VisualAppearance | null;
+  revision: number; photo_sha256?: string; message: string;
+};
+export type AppearancePending = {
+  itemId: string; revision: number; photo_sha256: string; draft: VisualAppearance;
+};
+export type Garment = GarmentInput & {
+  photo: string | null; created_at: string; updated_at: string;
+  visual_profile?: VisualProfile | null;
+};
 export const OCCASIONS = [
   { value: 'running', label: 'Correre' },
   { value: 'casual_evening', label: 'Sabato sera' },
@@ -41,13 +81,15 @@ export type GarmentAnalysis = {
 };
 
 export type OutfitResponse = {
-  engine: 'rules-v1' | 'ai-stylist-v1';
-  ai_status?: 'ok' | 'not_requested' | 'insufficient_wardrobe' | 'unavailable' | 'rate_limited';
+  engine: 'rules-v1' | 'ai-stylist-v1' | 'preference-v1';
+  ai_status?: 'ok' | 'not_requested' | 'insufficient_wardrobe' | 'unavailable' | 'rate_limited' | 'not_preferred';
   candidate_count?: number;
   occasion: Occasion; missing: Category[]; message: string;
   outfits: { item_ids: string[]; title: string; why: string;
     verdict?: 'good' | 'acceptable' | 'weak';
-    cautions?: string[]; styling_tip?: string; score?: number }[];
+    cautions?: string[]; styling_tip?: string; score?: number;
+    feedback?: 'like' | 'dislike' | null;
+    visual_coverage?: { reviewed: number; total: number } }[];
 };
 
 async function request<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
@@ -86,6 +128,21 @@ export const wardrobeClient = {
   analyze: (token: string, photo: Blob) => request<GarmentAnalysis>(token, '/analyze', {
     method: 'POST', headers: { 'Content-Type': photo.type }, body: photo,
   }),
+  analyzeAppearance: (token: string, item: Garment) => request<AppearanceAnalysis>(token,
+    `/items/${encodeURIComponent(item.id)}/appearance/analyze?revision=${item.revision}`, { method: 'POST' }),
+  confirmAppearance: (token: string, pending: AppearancePending) => request<{ item: Garment }>(token,
+    `/items/${encodeURIComponent(pending.itemId)}/appearance`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...pending.draft, revision: pending.revision,
+        photo_sha256: pending.photo_sha256 }),
+    }),
+  clearAppearance: (token: string, item: Garment) => request<{ item: Garment }>(token,
+    `/items/${encodeURIComponent(item.id)}/appearance?revision=${item.revision}`, { method: 'DELETE' }),
+  feedback: (token: string, occasion: Occasion, itemIds: string[], reaction: 'like' | 'dislike') =>
+    request<{ stored: boolean; reaction: 'like' | 'dislike' }>(token, '/outfits/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ occasion, item_ids: itemIds, reaction }),
+    }),
   outfits: (token: string, occasion: Occasion, styleNote = '') => request<OutfitResponse>(token, '/outfits', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ occasion, use_ai: true, style_note: styleNote.slice(0, 200) }),

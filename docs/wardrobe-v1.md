@@ -73,3 +73,47 @@ excessively flattering prose. The new deterministic quality guardrails require:
 - Larger user-owned garment thumbnails and visible reservations in VITA.
 - Alternate shoes may compete even when shirt and trousers remain unchanged.
 - Synthetic regressions cannot establish aesthetic correctness on real clothes.
+
+
+## Visual knowledge, strictly opt-in (v2)
+A user-selected photograph remains encrypted in the wardrobe collection.
+Pressing **Analizza stile con AI** on an individual saved garment decrypts its
+existing EXIF-free JPEG in memory and explicitly submits it to the configured
+ORA Vision model. No background bulk scan or new external API key.
+The model returns only enumerated visual descriptors (pattern, visible structure,
+surface *appearance*, warm/cool tone and confidence); these are proposed values,
+not product properties or actual fabric composition. **Nothing is persisted
+until the owner reviews and confirms** the proposal in VITA. Any field can be
+corrected through chips. A saved profile is cleared when its photograph,
+category or registered color changes, and a user can remove it explicitly.
+Photo hash and optimistic revision prevent confirmation against a changed
+photograph; only the owner can scan, approve or clear it. A low-confidence
+scan is never saved. The confirmed metadata, not the JPEG, may accompany
+outfit descriptors sent to the AI stylist. A visible N/M coverage label
+indicates how many worn items have reviewed visual metadata. ORA still cannot
+judge actual fit on a human from a garment catalog.
+
+## Taste learning, explicit and owner-isolated
+"Mi piace / Non mi piace" persists one reaction per exact outfit+occasion
+in a dedicated owner-scoped collection (max 250 unique reactions/account).
+It does not silently learn from clicks or other app activity. Later calls
+prioritize liked real combinations, down-rank shared items disliked in other
+combinations, and *exclude* exact previously disliked outfits. If all complete
+outfits were declined, ORA says there is no currently acceptable combination,
+rather than inventing alternatives. Saving or changing an opinion is reversible.
+Deleting a garment also deletes any of its associated feedback. The AI sees
+only bounded clothing descriptors and an anonymous like flag per candidate;
+it never receives account IDs, encrypted photos, feedback database keys,
+or private personal context. This is lightweight preference ranking, not
+model fine-tuning or professional fashion expertise.
+
+## Release limits
+- Visual analysis requires an explicit click per saved garment and an explicit
+  second confirmation for details, so existing users' photographs are not
+  automatically exported for analysis.
+- No automatic outfit photography/rendering or virtual try-on. A source photo
+  that shows multiple garments may produce an uncertain response; a human must
+  review it.
+- Synthetic backend/Playwright tests prove correctness of ownership, data,
+  preference filters and interactions, not visual recognition accuracy on
+  real clothing photos. Live provider behavior must still be field-tested.

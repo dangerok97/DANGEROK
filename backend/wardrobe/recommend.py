@@ -127,7 +127,7 @@ def recommend(items: list[dict], occasion: str, temperature_c: float | None = No
             "why": "Capi disponibili, coerenti per formalità e combinazione cromatica indicativa.",
             "score": round(score, 1),
         })
-        if len(chosen) >= max(1, min(int(max_looks), 12)):
+        if len(chosen) >= max(1, min(int(max_looks), 36)):
             break
     return {
         "engine": "rules-v1", "occasion": occasion, "outfits": chosen,

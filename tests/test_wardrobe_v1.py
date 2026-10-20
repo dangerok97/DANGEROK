@@ -36,7 +36,8 @@ class Collection:
 
     @staticmethod
     def match(doc, query):
-        return all(doc.get(k) == v for k, v in query.items())
+        return all((v in doc.get(k, []) if isinstance(doc.get(k), list) and not isinstance(v, list)
+                    else doc.get(k) == v) for k, v in query.items())
 
     async def find_one(self, query):
         return next((dict(d) for d in self.docs.values() if self.match(d, query)), None)
@@ -67,6 +68,15 @@ class Collection:
         return SimpleNamespace(deleted_count=0)
 
 
+    async def delete_many(self, query):
+        removed = 0
+        for k, doc in list(self.docs.items()):
+            if self.match(doc, query):
+                del self.docs[k]
+                removed += 1
+        return SimpleNamespace(deleted_count=removed)
+
+
 class RateLimitBuckets:
     def __init__(self):
         self.docs = {}
@@ -84,6 +94,7 @@ class RateLimitBuckets:
 class FakeDB:
     def __init__(self):
         self.wardrobe_items = Collection()
+        self.wardrobe_outfit_feedback = Collection()
         self.rate_limit_buckets = RateLimitBuckets()
 
 
@@ -604,3 +615,233 @@ async def test_never_invents_shirt_adjustment_if_not_documented(monkeypatch):
         occasion="chic_evening", use_ai=True))
     assert result["ai_status"] == "ok"
     assert result["outfits"][0]["styling_tip"] == ""
+
+
+
+def test_reviewed_photo_details_are_opt_in_owner_scoped_and_photo_bound(wardrobe_http, monkeypatch):
+    from wardrobe import appearance
+    client, db = wardrobe_http
+    base = "/api/wardrobe"
+    key = "f" * 32
+    created = client.put(base + "/items", headers=headers(), json=item("f")).json()["item"]
+    assert created["visual_profile"] if "visual_profile" in created else True
+    assert client.post(f"{base}/items/{key}/appearance/analyze?revision=1",
+                       headers=headers()).status_code == 409  # No stored photo
+    stored = client.post(f"{base}/items/{key}/photo?revision=1",
+                         headers={**headers(), "Content-Type": "image/png"},
+                         content=image_bytes()).json()["item"]
+    assert stored["revision"] == 2
+    assert client.post(f"{base}/items/{key}/appearance/analyze?revision=2").status_code == 401
+    assert client.post(f"{base}/items/{key}/appearance/analyze?revision=2",
+                       headers=headers("bob")).status_code == 404
+    sent = []
+
+    async def observed(system, prompt, image):
+        sent.append(image)
+        return {"recognized": True, "confidence": "medium",
+                "pattern": "solid", "shape": "tailored", "surface": "smooth", "tone": "cool"}
+
+    monkeypatch.setattr(appearance, "ask_json", observed)
+    analysis = client.post(f"{base}/items/{key}/appearance/analyze?revision=2",
+                           headers=headers())
+    assert analysis.status_code == 200, analysis.text
+    result = analysis.json()
+    assert result["recognized"] is True
+    assert result["stored"] is False
+    assert len(result["photo_sha256"]) == 64
+    assert result["draft"]["pattern"] == "solid"
+    assert len(sent) == 1 and sent[0].startswith(b"\xff\xd8")
+    original = db.wardrobe_items.docs["alice:" + key]
+    assert original.get("visual_profile") is None
+    assert "photo_encrypted" in original
+    assert client.put(f"{base}/items/{key}/appearance",
+                      headers=headers("bob"), json={**result["draft"],
+                        "revision": 2, "photo_sha256": result["photo_sha256"]}).status_code == 404
+    invalid = client.put(f"{base}/items/{key}/appearance",
+                         headers=headers(), json={**result["draft"],
+                         "revision": 2, "photo_sha256": "0" * 64})
+    assert invalid.status_code == 409
+    confirmed = client.put(f"{base}/items/{key}/appearance",
+                           headers=headers(), json={**result["draft"],
+                           "revision": 2, "photo_sha256": result["photo_sha256"]})
+    assert confirmed.status_code == 200, confirmed.text
+    record = confirmed.json()["item"]
+    assert record["revision"] == 3
+    assert record["visual_profile"]["shape"] == "tailored"
+    assert record["visual_profile"]["reviewed_at"]
+    assert "visual_photo_sha256" not in record
+    stale = client.put(f"{base}/items/{key}/appearance",
+                       headers=headers(), json={**result["draft"],
+                       "revision": 2, "photo_sha256": result["photo_sha256"]})
+    assert stale.status_code == 409
+    # Replacing the photo drops previously reviewed visual features.
+    replaced = client.post(f"{base}/items/{key}/photo?revision=3",
+                           headers={**headers(), "Content-Type": "image/png"},
+                           content=image_bytes()).json()["item"]
+    assert replaced["revision"] == 4
+    assert replaced.get("visual_profile") is None
+    assert db.wardrobe_items.docs["alice:" + key].get("visual_photo_sha256") is None
+    assert client.get(base + "/items", headers=headers("bob")).json()["items"] == []
+
+
+def test_uncertain_visual_scan_never_persists_and_provider_errors_soft_fail(wardrobe_http, monkeypatch):
+    from wardrobe import appearance
+    from vision_provider import VisionProviderError
+    client, db = wardrobe_http
+    key = "f" * 32
+    base = "/api/wardrobe"
+    client.put(base + "/items", headers=headers(), json=item("f"))
+    client.post(f"{base}/items/{key}/photo?revision=1",
+                headers={**headers(), "Content-Type": "image/png"},
+                content=image_bytes())
+
+    async def doubtful(*args, **kwargs):
+        return {"recognized": False, "confidence": "low",
+                "pattern": "uncertain", "shape": "uncertain", "surface": "uncertain",
+                "tone": "uncertain"}
+    monkeypatch.setattr(appearance, "ask_json", doubtful)
+    resp = client.post(f"{base}/items/{key}/appearance/analyze?revision=2", headers=headers())
+    assert resp.status_code == 200 and resp.json()["draft"] is None
+    assert db.wardrobe_items.docs["alice:" + key].get("visual_profile") is None
+
+    async def down(*args, **kwargs):
+        raise VisionProviderError("provider_configuration")
+    monkeypatch.setattr(appearance, "ask_json", down)
+    resp = client.post(f"{base}/items/{key}/appearance/analyze?revision=2", headers=headers())
+    assert resp.status_code == 503
+    assert "invariati" in resp.json()["detail"]
+    assert db.wardrobe_items.docs["alice:" + key].get("visual_profile") is None
+
+
+def test_outfit_feedback_is_real_owned_complete_and_owner_isolated(wardrobe_http):
+    client, db = wardrobe_http
+    base = "/api/wardrobe"
+    for code, role in (("a", "top"), ("b", "bottom"), ("c", "shoes")):
+        assert client.put(base + "/items", headers=headers(),
+                          json=item(code, role)).status_code == 200
+    args = {"occasion": "chic_evening",
+            "item_ids": [x * 32 for x in "abc"], "reaction": "like"}
+    assert client.post(base + "/outfits/feedback", json=args).status_code == 401
+    assert client.post(base + "/outfits/feedback", json=args,
+                       headers=headers("bob")).status_code == 409
+    assert client.post(base + "/outfits/feedback", json={
+        **args, "item_ids": ["a"*32, "b"*32]}, headers=headers()).status_code == 409
+    first = client.post(base + "/outfits/feedback", json=args, headers=headers())
+    assert first.status_code == 200, first.text
+    assert first.json()["stored"] is True
+    assert len(db.wardrobe_outfit_feedback.docs) == 1
+    disliked = client.post(base + "/outfits/feedback", json={**args, "reaction": "dislike"},
+                            headers=headers())
+    assert disliked.status_code == 200
+    assert len(db.wardrobe_outfit_feedback.docs) == 1
+    assert next(iter(db.wardrobe_outfit_feedback.docs.values()))["reaction"] == "dislike"
+    blocked = client.post(base + "/outfits", json={"occasion": "chic_evening",
+                "use_ai": True}, headers=headers()).json()
+    assert blocked["ai_status"] == "not_preferred"
+    assert blocked["outfits"] == [] and blocked["missing"] == []
+    assert client.post(base + "/outfits", json={"occasion": "chic_evening",
+                "use_ai": True}, headers=headers("bob")).json()["outfits"] == []
+    # Explicitly deleting the shoes removes dangling feedback records.
+    assert client.delete(base + "/items/" + "c"*32 + "?revision=1",
+                         headers=headers()).status_code == 200
+    assert db.wardrobe_outfit_feedback.docs == {}
+
+
+@pytest.mark.asyncio
+async def test_learnt_feedback_prefers_actual_alternative_shoes(monkeypatch):
+    import json
+    import llm.manager as llm_manager
+    from wardrobe.service import OutfitInput
+    from wardrobe.preferences import OutfitFeedbackInput
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, role, color in (("a", "top", "azzurro"), ("b", "bottom", "marrone"),
+                              ("c", "shoes", "nero"), ("d", "shoes", "marrone")):
+        await svc.save("alice", GarmentInput(**item(code, role, color=color)))
+    disliked = OutfitFeedbackInput(
+        occasion="chic_evening", item_ids=[x*32 for x in "abc"], reaction="dislike")
+    liked = OutfitFeedbackInput(
+        occasion="chic_evening", item_ids=[x*32 for x in "abd"], reaction="like")
+    await svc.record_outfit_feedback("alice", disliked)
+    await svc.record_outfit_feedback("alice", liked)
+
+    observed = {}
+    class MockAI:
+        async def chat(self, **kw):
+            observed.update(kw)
+            opts = json.loads(kw["user"])["options"]
+            assert len(opts) == 1
+            assert opts[0]["items"][-1]["color"] == "marrone"
+            assert opts[0]["previous_user_feedback"] == "like"
+            return SimpleNamespace(text=json.dumps({"choices": [{
+                "option": 1, "suitability": "good", "palette": "harmonious",
+                "formality": "appropriate", "adjustment": "none"
+            }]}))
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: MockAI())
+    out = await svc.outfits("alice", OutfitInput(
+        occasion="chic_evening", use_ai=True))
+    assert out["ai_status"] == "ok"
+    assert out["outfits"][0]["item_ids"] == [x*32 for x in "abd"]
+    assert out["outfits"][0]["feedback"] == "like"
+    assert "alice" not in observed["user"]
+    assert (await svc.outfits("bob", OutfitInput(
+        occasion="chic_evening", use_ai=True)))["outfits"] == []
+
+
+@pytest.mark.asyncio
+async def test_reviewed_appearance_enriches_ai_only_after_user_confirmation(monkeypatch):
+    import json
+    import llm.manager as llm_manager
+    from wardrobe.service import OutfitInput
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, role in (("a", "top"), ("b", "bottom"), ("c", "shoes")):
+        await svc.save("alice", GarmentInput(**item(code, role)))
+    db.wardrobe_items.docs["alice:"+"a"*32]["visual_profile"] = {
+        "pattern": "striped", "shape": "tailored", "surface": "smooth",
+        "tone": "cool", "confidence": "high", "reviewed_at": "2026-10-20T09:30:00Z"}
+    observed = {}
+    class MockAI:
+        async def chat(self, **kw):
+            observed.update(kw)
+            return SimpleNamespace(text=json.dumps({"choices": [{
+                "option": 1, "suitability": "acceptable", "palette": "harmonious",
+                "formality": "appropriate", "adjustment": "none"
+            }]}))
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: MockAI())
+    result = await svc.outfits("alice", OutfitInput(
+        occasion="chic_evening", use_ai=True))
+    assert result["outfits"][0]["visual_coverage"] == {"reviewed": 1, "total": 3}
+    assert '"reviewed_visual"' in observed["user"]
+    assert '"striped"' in observed["user"]
+    assert "photo_encrypted" not in observed["user"]
+    assert "data:image" not in observed["user"]
+
+
+
+@pytest.mark.asyncio
+async def test_feedback_is_invalidated_on_identity_edit_or_replaced_photo():
+    from wardrobe.preferences import OutfitFeedbackInput
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, role in [("a", "top"), ("b", "bottom"), ("c", "shoes")]:
+        await svc.save("alice", GarmentInput(**item(code, role)))
+    body = OutfitFeedbackInput(occasion="chic_evening",
+                               item_ids=[x*32 for x in "abc"], reaction="dislike")
+    await svc.record_outfit_feedback("alice", body)
+    assert len(db.wardrobe_outfit_feedback.docs) == 1
+    # Changing only availability does not rewrite personal taste.
+    await svc.save("alice", GarmentInput(**item("a", revision=1, status="laundry")))
+    assert len(db.wardrobe_outfit_feedback.docs) == 1
+    # A new color makes the old, disliked outfit a different garment pairing.
+    await svc.save("alice", GarmentInput(**item("a", revision=2,
+                                               status="available", color="verde")))
+    assert db.wardrobe_outfit_feedback.docs == {}
+    await svc.record_outfit_feedback("alice", body)
+    assert len(db.wardrobe_outfit_feedback.docs) == 1
+
+    photo = make_thumbnail(image_bytes())
+    await svc.save_photo("alice", "a"*32, 3, photo)
+    assert len(db.wardrobe_outfit_feedback.docs) == 1  # first photo on unchanged garment
+    await svc.save_photo("alice", "a"*32, 4, photo)
+    assert db.wardrobe_outfit_feedback.docs == {}
