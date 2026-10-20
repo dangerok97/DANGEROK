@@ -118,3 +118,37 @@ async def test_real_ai_core_new_situation_receipt_is_db_owned(monkeypatch):
     assert docs[0]["started_at"] in turn.ora_text
     assert "2026-10-19T17:00:00+02:00" not in turn.ora_text
     assert await db.delivery_plans.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_invalid_model_id_returns_actual_owner_candidates_without_reassigning_checks(monkeypatch):
+    from situations.models import SituationState
+    from situations.followup import get_situation_followup
+
+    monkeypatch.setenv("AMBIENT_RUNTIME", "1")
+    db = AsyncMongoMockClient().test_receipt_recovery
+    real_id = "sit_f8b2e3c1d4a5dead"
+    await db.situations.insert_one(SituationState(
+        id=real_id, user_id=OWNER, summary="Synthetic new independent test",
+        location_label="Tarquinia",
+    ).model_dump())
+    await db.situations.insert_one(SituationState(
+        id="sit_0123456789abcdef", user_id="other-owner",
+        summary="Other account's private context", location_label="Leesburg",
+    ).model_dump())
+    obs = await get_situation_followup({
+        "situation_id": FALSE_ID,
+    }, {"db": db, "user_id": OWNER,
+        "user_message": "Qual è lo stato del controllo di questa Situazione?"})
+    assert obs.status == "error"
+    assert obs.payload["read_failure_code"] == "situation_not_found_or_not_owned"
+    candidates = obs.payload["recent_owner_candidates"]
+    assert len(candidates) == 1, candidates
+    assert candidates[0]["situation_id"] == real_id
+    assert "Leesburg" not in str(obs.model_dump())
+    assert "other-owner" not in str(obs.model_dump())
+    assert obs.payload["last_checked_at"] is None
+    assert obs.payload["next_check_at"] is None
+    assert "non attribuire automaticamente" in obs.payload["recovery_diagnosis"]
+    assert await db.agent_goals.count_documents({}) == 0
+    assert await db.ambient_wakes.count_documents({}) == 0
