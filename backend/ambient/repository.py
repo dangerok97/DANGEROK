@@ -120,7 +120,7 @@ class AmbientRepository:
         records are never rewritten.
         """
         stamp = _now().isoformat()
-        old_offset = r"(?:[+-](?!00:00)\\d{2}:\\d{2}|Z)$"
+        old_offset = r"(?:[+-](?!00:00)\d{2}:\d{2}|Z)$"
         allowed = {
             "$or": [
                 {"status": "pending"},
