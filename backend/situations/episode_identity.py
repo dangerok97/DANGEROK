@@ -23,21 +23,22 @@ _PERSONAL_OCCURRENCE = re.compile(
 )
 # Corrections to an existing observation are not new life events.
 _CORRECTION = re.compile(
-    r"\b(?:ho\s+sbagliato|mi\s+sono\s+sbagliat[oa]|corregg[ie]|"
-    r"rettific[ao]|intendevo|in\s+realt[aà]|la\s+data\s+(?:è|e'|era)|"
-    r"l['’]orario\s+(?:è|e'|era)|lo\s+stesso\s+episodio|"
-    r"stessa\s+situazione|quell[oa]\s+di\s+(?:ieri|prima)|"
-    r"ancora\s+(?:stesi|aperta|attiva|in\s+corso))\b",
+    r"\\b(?:ho\\s+sbagliato|mi\\s+sono\\s+sbagliat[oa]|corregg[ie]|"
+    r"rettific[ao]|intendevo|in\\s+realt[aà]|la\\s+data\\s+(?:è|e'|era)|"
+    r"l['’]orario\\s+(?:è|e'|era)|lo\\s+stesso\\s+episodio|"
+    r"stessa\\s+situazione|quell[oa]\\s+di\\s+(?:ieri|prima)|"
+    r"ancora|tuttora|prosegui|continuo|stess[oa])\\b",
     re.IGNORECASE,
 )
-# An old plan created before the physical start is not an old occurrence.
+# A previously declared *future intention* can begin today without a new
+# Situation. This uses general temporal grammar, not a list of activities.
 _FUTURE_PLAN = re.compile(
-    r"\b(?:stender[oò]|far[oò]|metter[oò]|andr[oò]|vorrei\s+fare|"
-    r"da\s+(?:stendere|fare|eseguire)|previsto\s+per|"
-    r"programmat[oa]\s+per|non\s+ancora\s+(?:iniziat|fatt))",
+    r"\\b(?:domani|dopodomani|in\\s+futuro|vorrei|prevedo|"
+    r"previst[oa]|pianificat[oa]|programmat[oa]|intenzione|"
+    r"da\\s+fare|non\\s+ancora\\s+iniziat[oa])\\b|"
+    r"\\b[a-zà-ÿ]{2,}rò\\b",
     re.IGNORECASE,
 )
-
 
 def _instant(raw: str | None) -> datetime | None:
     if not raw:
@@ -57,8 +58,8 @@ def fresh_declared_episode(
 
     Detect only when the user's text asserts an *immediate* occurrence,
     the model explicitly proposed changing an old Situation, and that
-    historical Situation predates the new event. No domain-specific
-    'panni' classifier and no assumed device GPS.
+    historical Situation predates the new event. No activity-specific
+    classifier and no assumed device GPS.
     """
     if update.operation != "update" or not update.situation_id:
         return None
