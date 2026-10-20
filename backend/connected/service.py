@@ -246,6 +246,11 @@ class ConnectedLifeService:
         asked_for_attachments = 0
 
         for signal in pending:
+            # The legacy lane used to re-ask the same unavailable provider on
+            # every Ambient tick. One atomic, durable claim prevents parallel
+            # workers from consuming the same quota and survives a restart.
+            if not await self.signals.claim_legacy_interpret(owner_id, signal.id):
+                continue
             # ORA's own work coming back round. Recorded as seen, never
             # passed on: an effect this system produced is not news about the
             # world, and treating it as news is how an agent ends up doing
@@ -286,15 +291,11 @@ class ConnectedLifeService:
             looked_at += 1
 
             if answer is None:
-                # No judgement available — a provider outage, a refusal, a
-                # malformed reply. Left pending on purpose: silence here is a
-                # missing answer, not an answer of "nothing", and the signal
-                # will be asked about again.
-                #
-                # This check sits above everything that reads the answer, and
-                # that placement is the whole point: it was once below the
-                # re-ask block, where the first outage would have crashed the
-                # pass on `None.get` instead of leaving the world untouched.
+                # A failed judgement is NOT noise. Retain the exact pending
+                # signal and defer its next model attempt exponentially,
+                # rather than hammering the same request every ten seconds.
+                # Newer unrelated signals remain eligible immediately.
+                await self.signals.defer_legacy_interpret(owner_id, signal.id)
                 continue
 
             # It said it cannot decide without seeing what was withheld.
