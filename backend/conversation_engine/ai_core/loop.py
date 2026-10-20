@@ -676,6 +676,29 @@ def _latest_situation_schedule(observations) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _verified_partial_situation_schedule_copy(observations) -> Optional[str]:
+    """Do not hide a verified checkpoint behind an unfinished multi-skill plan.
+
+    A saved check is a useful *partial* result even if another declared read
+    has not happened. The tool's own local date is the only clock we may show.
+    This NEVER means the physical result or push delivery is confirmed.
+    """
+    state = _latest_situation_schedule(observations)
+    if not state:
+        return None
+    label = str(state.get("next_check_label") or "").strip()
+    zone = str(state.get("timezone") or "").strip()
+    sid = str(state.get("situation_id") or "").strip()
+    if not label or not zone or not sid:
+        return None
+    return (
+        f"Il controllo della Situazione {sid} risulta programmato per "
+        f"{label} ({zone}), secondo lo stato salvato da ORA. "
+        "Altri passaggi del piano restano incompleti; non risultano "
+        "confermati né il risultato fisico né una notifica esterna."
+    )
+
+
 def _local_hhmm(iso_value: str, timezone_name: str) -> Optional[str]:
     try:
         instant = datetime.fromisoformat(str(iso_value).replace("Z", "+00:00"))
@@ -2468,7 +2491,10 @@ async def run_cognitive_loop(
                             )
                     else:
                         decision.message_to_user = (
-                            "Non sono riuscita a completare la richiesta in questo turno."
+                            _verified_partial_situation_schedule_copy(
+                                observations[turn_start:],
+                            )
+                            or "Non sono riuscita a completare la richiesta in questo turno."
                         )
                     decision.question = None
                     mode = "answer"
@@ -4583,9 +4609,12 @@ async def run_cognitive_loop(
             )
         elif bound_unseen:
             ora = (
-                "Non ho ancora completato la richiesta: restano passaggi "
-                "che non sono stati eseguiti. Ho conservato lo stato del piano "
-                "per poter riprendere il lavoro."
+                _verified_partial_situation_schedule_copy(observations[turn_start:])
+                or (
+                    "Non ho ancora completato la richiesta: restano passaggi "
+                    "che non sono stati eseguiti. Ho conservato lo stato del piano "
+                    "per poter riprendere il lavoro."
+                )
             )
         else:
             ora = (
