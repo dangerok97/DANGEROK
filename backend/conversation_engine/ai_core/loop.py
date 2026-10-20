@@ -1526,6 +1526,59 @@ async def run_cognitive_loop(
     if (sess.meta or {}).get("entry_point") != "phone":
         await followup_gate.refresh(context_facts, st.get("active_situation_ref"))
 
+    checkpoint_rescue_attempted = False
+    checkpoint_rescue_receipt = None
+
+    async def _recover_model_selected_weather_schedule(pending_caps):
+        """Execute one governed, explicitly commanded schedule at a terminal bound."""
+        nonlocal tool_calls, attempted_skill_caps, skill_outcomes
+        nonlocal checkpoint_rescue_attempted, checkpoint_rescue_receipt
+        if (
+            checkpoint_rescue_attempted
+            or "schedule_situation_check" not in (pending_caps or [])
+            or tool_calls >= MAX_TOOL_CALLS
+            or any(
+                isinstance(item, dict) and item.get("kind") == "tool"
+                and item.get("name") == "schedule_situation_check"
+                for item in observations[turn_start:]
+            )
+        ):
+            return checkpoint_rescue_receipt
+        checkpoint_rescue_attempted = True
+        try:
+            from situations.explicit_weather_recovery import (
+                recover_explicit_weather_schedule,
+            )
+            receipt = await recover_explicit_weather_schedule(
+                db, sess.user_id, user_message,
+                model_selected_capability=True,
+            )
+            if receipt is None:
+                return None
+            checkpoint_rescue_receipt = receipt
+            if receipt.get("ok"):
+                observation = receipt["observation"]
+                observations.append(observation.model_dump())
+                attempted_skill_caps = _record_skill_attempt(
+                    attempted_skill_caps, "schedule_situation_check",
+                    observation.name,
+                )
+                skill_outcomes = _merge_skill_outcomes(
+                    skill_outcomes,
+                    [_skill_outcome_summary("schedule_situation_check", observation)],
+                )
+                tool_calls += 1
+                trace["tool_calls"] = tool_calls
+                add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_CONFIRMED")
+            else:
+                add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_UNVERIFIED")
+            return receipt
+        except Exception as exc:
+            logger.warning("explicit checkpoint bound recovery failed: %s",
+                           type(exc).__name__)
+            add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_ERROR")
+            return None
+
     for step in range(max(1, max_steps)):
         # Every conversational step reaches the cognitive model. A tool may
         # carry exact material facts in say_this, but that is a post-reasoning
@@ -2391,9 +2444,32 @@ async def run_cognitive_loop(
                     )
                     continue
                 if pending_skill_caps and not skill_plan_waits_for_user:
-                    decision.message_to_user = (
-                        "Non sono riuscita a completare la richiesta in questo turno."
+                    # The ordinary final-answer path also reaches its last
+                    # reasoning step. Do not reserve the exact-command repair
+                    # for the separate loop-bound fallthrough only.
+                    receipt = (
+                        await _recover_model_selected_weather_schedule(pending_skill_caps)
+                        if step + 1 >= max_steps else None
                     )
+                    if receipt and receipt.get("ok"):
+                        refreshed = _required_skill_states(
+                            required_skill_caps, skill_outcomes,
+                        )
+                        pending_skill_caps = list(refreshed["unseen"])
+                        failed_skill_caps = list(refreshed["failed"])
+                        waiting_skill_caps = list(refreshed["waiting"])
+                    if receipt:
+                        decision.message_to_user = receipt["text"]
+                        if receipt.get("ok") and (
+                            pending_skill_caps or failed_skill_caps or waiting_skill_caps
+                        ):
+                            decision.message_to_user += (
+                                " Altri passaggi del piano sono ancora incompleti."
+                            )
+                    else:
+                        decision.message_to_user = (
+                            "Non sono riuscita a completare la richiesta in questo turno."
+                        )
                     decision.question = None
                     mode = "answer"
                     ora = _compose_user_text(decision, observations[turn_start:])
@@ -4447,54 +4523,14 @@ async def run_cognitive_loop(
         }
         if calendar_pending else None
     )
-    # A model-selected, explicitly authorised local weather checkpoint must
-    # not disappear merely because several AI deliberation passes were spent.
-    # This one bounded recovery uses the SAME governed scheduling capability,
-    # never a generic keyword router or a substitute for the future provider
-    # read. It runs only if the selected skill was not attempted this turn.
-    exact_checkpoint_receipt = None
+    # Both the normal terminal and this loop-bound exit share ONE guarded
+    # recovery attempt. A second path must never produce a duplicate alarm.
     pre_bound_states = _required_skill_states(required_skill_caps, skill_outcomes)
-    if (
-        not calendar_pending
-        and "schedule_situation_check" in pre_bound_states["unseen"]
-        and tool_calls < MAX_TOOL_CALLS
-        and not any(
-            isinstance(item, dict) and item.get("name") == "schedule_situation_check"
-            and item.get("kind") == "tool"
-            for item in observations[turn_start:]
+    exact_checkpoint_receipt = checkpoint_rescue_receipt
+    if not calendar_pending and not exact_checkpoint_receipt:
+        exact_checkpoint_receipt = await _recover_model_selected_weather_schedule(
+            pre_bound_states["unseen"],
         )
-    ):
-        try:
-            from situations.explicit_weather_recovery import (
-                recover_explicit_weather_schedule,
-            )
-            exact_checkpoint_receipt = await recover_explicit_weather_schedule(
-                db, sess.user_id, user_message,
-                model_selected_capability=True,
-            )
-            if exact_checkpoint_receipt:
-                if exact_checkpoint_receipt.get("ok"):
-                    readback_obs = exact_checkpoint_receipt["observation"]
-                    observations.append(readback_obs.model_dump())
-                    attempted_skill_caps = _record_skill_attempt(
-                        attempted_skill_caps,
-                        "schedule_situation_check",
-                        readback_obs.name,
-                    )
-                    skill_outcomes = _merge_skill_outcomes(
-                        skill_outcomes,
-                        [_skill_outcome_summary("schedule_situation_check", readback_obs)],
-                    )
-                    tool_calls += 1
-                    trace["tool_calls"] = tool_calls
-                    add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_CONFIRMED")
-                else:
-                    add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_UNVERIFIED",
-                             reason="source_or_schedule_unverified")
-        except Exception as exc:
-            logger.warning("explicit checkpoint bound recovery failed: %s",
-                           type(exc).__name__)
-            add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_ERROR")
     bound_skill_states = _required_skill_states(
         required_skill_caps, skill_outcomes
     )
