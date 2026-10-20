@@ -795,7 +795,9 @@ async def get_situation_followup(args, runtime):
         )
     state = await read_followup(db, owner, sid)
     if situation is not None and state["status"] != "unavailable":
-        state.update(await read_situation_wake_audit(db, owner, situation))
+        state.update(await read_situation_wake_audit(
+            db, owner, situation, timezone_name=state.get("timezone") or "UTC",
+        ))
     ref = f"situation:{sid}"
     if state["status"] != "unavailable":
         state["factual_readback"] = {
@@ -901,7 +903,9 @@ async def list_situation_followups(args, runtime):
                 continue
             status = await read_followup(db, owner, sid)
             audit_state = SituationState.model_validate({"user_id": owner, **row})
-            audit = await read_situation_wake_audit(db, owner, audit_state, limit=8)
+            audit = await read_situation_wake_audit(
+                db, owner, audit_state, limit=8, timezone_name=zone,
+            )
             items.append({
                 **audit,
                 "situation_id": sid,
