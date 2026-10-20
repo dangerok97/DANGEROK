@@ -676,6 +676,15 @@ class AgentService:
                 and not goal.requires_user_input
                 and not goal.requires_user_authority
             )
+            # An explicit checkpoint belongs to the model-selected source
+            # skill from scheduling time. Read that source under the same
+            # owned goal lease BEFORE the next open-ended AI decision.
+            checkpoint_source_due = bool(
+                run.background and goal.source_kind == "situation_followup"
+                and goal.next_run_at
+                and goal.next_run_at <= _now().isoformat()
+                and (goal.source_situation or {}).get("checkpoint_read_capability")
+            )
             if revisit_due:
                 goal.background_runs = 0
 
@@ -696,6 +705,27 @@ class AgentService:
             # Persist recovery before execution; cancellation leaves due work.
             goal.next_run_at = (_now() + timedelta(minutes=5)).isoformat()
             await self.repo.save_goal(goal)
+            if checkpoint_source_due:
+                from agent.checkpoint_source import run_due_checkpoint_source
+                try:
+                    source_state = await run_due_checkpoint_source(
+                        self, owner_id, goal, budget=allowance,
+                    )
+                except Exception as exc:
+                    # An unexpected provider or storage failure cannot be
+                    # counted as a completed checkpoint. Preserve the normal
+                    # bounded recovery and leave a source-scoped audit reason.
+                    logger.warning("due source check failed type=%s", type(exc).__name__)
+                    source_state = {"state": "checkpoint_source_error"}
+                if source_state.get("state") not in (
+                    "source_verified", "already_verified", "no_explicit_due_source"
+                ):
+                    await self.repo.journal(
+                        owner_id, goal.id, kind="checkpoint_source_failed",
+                        note="Il controllo pianificato non ha prodotto una lettura di fonte verificata.",
+                        detail={"reason": str(source_state.get("reason")
+                                              or source_state.get("state") or "unknown")[:72]},
+                    )
             result = await self._work(
                 owner_id, goal, run, allowance, language=language,
                 revisit_due=revisit_due,
@@ -2146,6 +2176,8 @@ class AgentService:
             goal.source_kind = "situation_followup"
             goal.rationale = note[:300]
         goal.next_run_at = due.isoformat()
+        if goal.source_situation.get("checkpoint_read_capability"):
+            goal.source_situation["checkpoint_due_at"] = due.isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
 
@@ -2216,12 +2248,15 @@ class AgentService:
 
             # Update only this still-open wait. A concurrent cancellation/defer
             # must not be undone while adopting Ambient's actual instant.
+            aligned_fields = {"next_run_at": actual_due.isoformat()}
+            if goal.source_situation.get("checkpoint_read_capability"):
+                aligned_fields["source_situation.checkpoint_due_at"] = actual_due.isoformat()
             aligned = await self.db.agent_goals.update_one(
                 {"id": goal.id, "owner_id": owner_id,
                  "status": {"$in": ["proposed", "active", "waiting"]},
                  "next_run_at": goal.next_run_at,
                  "source_situation": goal.source_situation},
-                {"$set": {"next_run_at": actual_due.isoformat()}},
+                {"$set": aligned_fields},
             )
             stopped = await interrupted()
             if stopped:
@@ -2234,6 +2269,8 @@ class AgentService:
                 return {"ok": False, "state": "goal_changed", "goal": goal.for_human()}
             due = actual_due
             goal.next_run_at = due.isoformat()
+            if goal.source_situation.get("checkpoint_read_capability"):
+                goal.source_situation["checkpoint_due_at"] = due.isoformat()
             total_minutes = max(MIN_WAIT_MINUTES, int(math.ceil((due - now).total_seconds() / 60)))
             for_hours = total_minutes // 60 if total_minutes % 60 == 0 else round(total_minutes / 60, 4)
 
