@@ -676,6 +676,15 @@ class AgentService:
                 and not goal.requires_user_input
                 and not goal.requires_user_authority
             )
+            # An explicit checkpoint belongs to the model-selected source
+            # skill from scheduling time. Read that source under the same
+            # owned goal lease BEFORE the next open-ended AI decision.
+            checkpoint_source_due = bool(
+                run.background and goal.source_kind == "situation_followup"
+                and goal.next_run_at
+                and goal.next_run_at <= _now().isoformat()
+                and (goal.source_situation or {}).get("checkpoint_read_capability")
+            )
             if revisit_due:
                 goal.background_runs = 0
 
@@ -696,6 +705,27 @@ class AgentService:
             # Persist recovery before execution; cancellation leaves due work.
             goal.next_run_at = (_now() + timedelta(minutes=5)).isoformat()
             await self.repo.save_goal(goal)
+            if checkpoint_source_due:
+                from agent.checkpoint_source import run_due_checkpoint_source
+                try:
+                    source_state = await run_due_checkpoint_source(
+                        self, owner_id, goal, budget=allowance,
+                    )
+                except Exception as exc:
+                    # An unexpected provider or storage failure cannot be
+                    # counted as a completed checkpoint. Preserve the normal
+                    # bounded recovery and leave a source-scoped audit reason.
+                    logger.warning("due source check failed type=%s", type(exc).__name__)
+                    source_state = {"state": "checkpoint_source_error"}
+                if source_state.get("state") not in (
+                    "source_verified", "already_verified", "no_explicit_due_source"
+                ):
+                    await self.repo.journal(
+                        owner_id, goal.id, kind="checkpoint_source_failed",
+                        note="Il controllo pianificato non ha prodotto una lettura di fonte verificata.",
+                        detail={"reason": str(source_state.get("reason")
+                                              or source_state.get("state") or "unknown")[:72]},
+                    )
             result = await self._work(
                 owner_id, goal, run, allowance, language=language,
                 revisit_due=revisit_due,
@@ -2146,6 +2176,8 @@ class AgentService:
             goal.source_kind = "situation_followup"
             goal.rationale = note[:300]
         goal.next_run_at = due.isoformat()
+        if goal.source_situation.get("checkpoint_read_capability"):
+            goal.source_situation["checkpoint_due_at"] = due.isoformat()
         await self.repo.save_plan(plan)
         await self.repo.save_goal(goal)
 
@@ -2216,12 +2248,15 @@ class AgentService:
 
             # Update only this still-open wait. A concurrent cancellation/defer
             # must not be undone while adopting Ambient's actual instant.
+            aligned_fields = {"next_run_at": actual_due.isoformat()}
+            if goal.source_situation.get("checkpoint_read_capability"):
+                aligned_fields["source_situation.checkpoint_due_at"] = actual_due.isoformat()
             aligned = await self.db.agent_goals.update_one(
                 {"id": goal.id, "owner_id": owner_id,
                  "status": {"$in": ["proposed", "active", "waiting"]},
                  "next_run_at": goal.next_run_at,
                  "source_situation": goal.source_situation},
-                {"$set": {"next_run_at": actual_due.isoformat()}},
+                {"$set": aligned_fields},
             )
             stopped = await interrupted()
             if stopped:
@@ -2234,6 +2269,8 @@ class AgentService:
                 return {"ok": False, "state": "goal_changed", "goal": goal.for_human()}
             due = actual_due
             goal.next_run_at = due.isoformat()
+            if goal.source_situation.get("checkpoint_read_capability"):
+                goal.source_situation["checkpoint_due_at"] = due.isoformat()
             total_minutes = max(MIN_WAIT_MINUTES, int(math.ceil((due - now).total_seconds() / 60)))
             for_hours = total_minutes // 60 if total_minutes % 60 == 0 else round(total_minutes / 60, 4)
 
@@ -3385,14 +3422,54 @@ class AgentService:
             # surrounding state stays a short category and never duplicates a
             # recommendation which an already-open page could keep after expiry.
             scheda["state"] = "Situazione in corso"
+            source_checked = None
+            if last_done and (last_done.get("detail") or {}).get("checkpoint_source"):
+                from situations.followup import read_followup
+                sid = str((goal.source_situation or {}).get("situation_id") or "")
+                if sid:
+                    verified = await read_followup(self.db, owner_id, sid)
+                    if (verified.get("last_checked_at")
+                            and verified.get("last_result_verification")
+                            == "exact_step_geobound_evidence"):
+                        source_checked = verified
             if outcome:
                 scheda["state"] = {"estimated": "Stima disponibile", "action_now": "Indicazione disponibile",
                                    "needs_input": "Serve un'informazione"}[outcome["status"]]
                 scheda["next_step"] = outcome["action_summary"] or outcome["headline"]
+            elif source_checked:
+                # The exact provider read is real, but it is not a measured
+                # outcome of the physical Situation. Show the useful progress
+                # separately from any unverified completion estimate.
+                scheda["state"] = "Fonte verificata; esito ancora da valutare"
+                scheda["already_done"] = str(
+                    source_checked.get("last_result") or ""
+                )[:200]
+                scheda["next_step"] = (
+                    "Ho letto una fonte reale per questa situazione, ma non "
+                    "ho ancora una conclusione verificata sul risultato da raggiungere."
+                )
             elif not scheda.get("needs_you"):
                 scheda["next_step"] = "La stima del momento utile non è ancora disponibile."
             if status in ("not_scheduled", "recovery_pending", "runtime_disabled", "unavailable"):
                 scheda["problem"] = "Non risulta un prossimo controllo confermato per questa situazione."
+            if (goal.background_runs >= 3 and not goal.next_run_at
+                    and goal.is_open
+                    and not goal.requires_user_input and not goal.requires_user_authority
+                    and not outcome):
+                # A background goal with exhausted attempts and no future
+                # wake is NOT 'in progress'. Make the failure visible on the
+                # same owner-specific Home/Updates goal card.
+                scheda["state"] = "Controllo automatico interrotto"
+                scheda["problem"] = (
+                    "ORA ha esaurito i tentativi senza una conclusione "
+                    "verificata e senza un nuovo controllo programmato."
+                )
+                scheda["next_step"] = (
+                    "Il monitoraggio non sta proseguendo automaticamente. "
+                    + ("La fonte è stata letta, ma manca l'esito utile."
+                       if source_checked else
+                       "Non risulta una lettura di fonte verificata.")
+                )
             if goal.requires_user_input and not scheda.get("needs_you"):
                 scheda["next_step"] = "Serve un chiarimento preciso da ORA prima di poter rispondere."
         if scheda["retry_available"]:

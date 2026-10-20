@@ -423,7 +423,7 @@ async def _read_followup_snapshot(db, owner, situation_id):
                 "read_failure_code": "storage_read_failed"}
 
 
-async def arrange_followup(db, owner, *, situation_id, expected_revision, check_at, purpose, notify_when, completion_when=None):
+async def arrange_followup(db, owner, *, situation_id, expected_revision, check_at, purpose, notify_when, completion_when=None, read_capability=None):
     """Ensure one real first checkpoint; reusing it must not move its deadline."""
     if not _enabled():
         return {"ok": False, "error": "runtime_disabled", "status": "runtime_disabled"}
@@ -433,6 +433,11 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
         return {"ok": False, "error": "timezone_aware_checkpoint_within_72h_required"}
     purpose, notify_when = str(purpose or "").strip(), str(notify_when or "").strip()
     completion_when = str(completion_when or "").strip()
+    from agent.checkpoint_source import checkpoint_capability
+    requested_read = str(read_capability or "").strip()
+    safe_read = checkpoint_capability(requested_read)
+    if requested_read and not safe_read:
+        return {"ok": False, "error": "unsupported_checkpoint_read_capability"}
     if not purpose or not notify_when or len(purpose) > 300 or len(notify_when) > 400:
         return {"ok": False, "error": "bounded_purpose_and_notification_condition_required"}
     situation = await SituationRepository(db).get(owner, situation_id)
@@ -490,6 +495,12 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             "situation_revision": str(fresh.revision),
             "attention_expected": "true" if fresh.attention_intent or fresh.next_check_summary else "false",
         }
+        if safe_read:
+            # The model explicitly chose a supported read-only skill; store
+            # it with the approved due instant. A retry remains this same
+            # checkpoint, never a new spontaneous provider invocation.
+            source_snapshot["checkpoint_read_capability"] = safe_read
+            source_snapshot["checkpoint_due_at"] = due.isoformat()
         source_snapshot.setdefault("attention_epoch", str(fresh.revision))
         source_snapshot.setdefault("attention_started_at", now.isoformat())
         fallback_outcome = str(
@@ -523,16 +534,30 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             if await repo.create_goal(goal) is None:
                 return {"ok": False, "error": "goal_not_persisted"}
         else:
+            prior_checkpoint_due = str(
+                (goal.source_situation or {}).get("checkpoint_due_at") or ""
+            )
             if goal.source_kind == INITIAL_KIND:
-                # The conversational model explicitly supplied the first
-                # evidence-backed checkpoint. Replace the initial-review
-                # alarm; it must not be shown or run as another check.
+                # An initial-review wake is not the requested future check.
                 from ambient.repository import AmbientRepository
                 await AmbientRepository(db).cancel_for(
                     owner, source_ref=f"goal:{gid}",
                 )
                 for field, value in contract.items():
                     setattr(goal, field, value)
+            elif safe_read and goal.source_kind == KIND:
+                # The same owned goal gets a NEW user-requested checkpoint;
+                # persist its selected read-only skill rather than losing it
+                # while reusing the old goal. Never rewrite the Situation.
+                goal.source_situation = source_snapshot
+            if safe_read and prior_checkpoint_due != due.isoformat():
+                # The previous 3-pass budget was for an older checkpoint.
+                # One explicit new request authorizes one *new* bounded pass;
+                # retrying the same already scheduled time does not reset it.
+                goal.background_runs = 0
+                if goal.planning_unavailable:
+                    goal.planning_attempts = 0
+                    goal.planning_unavailable = False
             goal.next_run_at = due.isoformat()
             await repo.save_goal(goal)
         latest = await SituationRepository(db).get(owner, situation_id)
@@ -547,6 +572,8 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
                                                  source_ref=f"goal:{gid}", provenance="model")
         if wake and wake.scheduled_for != goal.next_run_at:
             goal.next_run_at = wake.scheduled_for
+            if safe_read:
+                goal.source_situation["checkpoint_due_at"] = wake.scheduled_for
             await repo.save_goal(goal)
         latest = await SituationRepository(db).get(owner, situation_id)
         current = await repo.get_goal(owner, gid)
@@ -848,7 +875,8 @@ async def schedule_situation_check(args, runtime):
         situation_id=sid, expected_revision=args.get("expected_revision"),
         check_at=args.get("check_at"), purpose=args.get("purpose"),
         notify_when=args.get("notify_when"),
-        completion_when=args.get("completion_when"))
+        completion_when=args.get("completion_when"),
+        read_capability=args.get("read_capability"))
     if not state.get("ok") and db is not None and owner and sid:
         # Failed attempts need a durable reason. Do not write any user prose,
         # provider payload, proposed appointment, or raw tool arguments.
@@ -1040,6 +1068,6 @@ def register_followup_tools(registry):
         }, "required": ["situation_id"]},
         classification="personal", side_effect="READ_ONLY", freshness="fresh", handler=get_situation_followup))
     registry.register(CapabilitySpec(
-        capability="schedule_situation_check", description="Persist a real first follow-up in the existing background runtime for an active Situation. Choose checkpoint and purpose from current evidence, not by asking the user to supervise ORA. Reuses existing work without postponing it. Does not send a notification, grant external write authority, or prove an outcome. Read the returned status before promising a check. For dialogue use next_check_label and timezone from the result, not the raw UTC hour or the proposed check_at. This operation does not measure any physical state.",
-        input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}, "expected_revision": {"type": "integer"}, "check_at": {"type": "string", "description": "Timezone-aware ISO8601, within 72 hours. A recheck time, not a predicted completion."}, "purpose": {"type": "string", "maxLength": 300}, "completion_when": {"type": "string", "maxLength": 400, "description": "Plain user-facing condition/outcome ORA is trying to reach; no implementation wording. Must be grounded in evidence."}, "notify_when": {"type": "string", "maxLength": 400, "description": "Earlier exceptional condition worth warning about before completion."}}, "required": ["situation_id", "expected_revision", "check_at", "purpose", "completion_when", "notify_when"]},
+        capability="schedule_situation_check", description="Persist a real first follow-up in the existing background runtime for an active Situation. Choose checkpoint and purpose from current evidence, not by asking the user to supervise ORA. Reuses existing work without postponing it. Does not send a notification, grant external write authority, or prove an outcome. Read the returned status before promising a check. For dialogue use next_check_label and timezone from the result, not the raw UTC hour or the proposed check_at. When the person explicitly asks for a live weather reading at this checkpoint, pass read_capability='weather.read'. It persists that read-only capability for the wake, so the worker performs the real provider read before asking the AI for the outcome. Do NOT pass a read capability for unrelated checks or infer device GPS; the provider still requires an owned confirmed place. This operation does not measure any physical state.",
+        input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}, "expected_revision": {"type": "integer"}, "check_at": {"type": "string", "description": "Timezone-aware ISO8601, within 72 hours. A recheck time, not a predicted completion."}, "purpose": {"type": "string", "maxLength": 300}, "completion_when": {"type": "string", "maxLength": 400, "description": "Plain user-facing condition/outcome ORA is trying to reach; no implementation wording. Must be grounded in evidence."}, "notify_when": {"type": "string", "maxLength": 400, "description": "Earlier exceptional condition worth warning about before completion."}, "read_capability": {"type": "string", "enum": ["weather.read"], "description": "OPTIONAL: only when user explicitly asks to check weather at this deadline, opt in to a real bounded read-only weather skill. Not evidence of physical completion."}}, "required": ["situation_id", "expected_revision", "check_at", "purpose", "completion_when", "notify_when"]},
         classification="personal", side_effect="REVERSIBLE_WRITE", risk="write_soft", freshness="fresh", handler=schedule_situation_check))
