@@ -124,8 +124,6 @@ class SituationService:
                 "deduped": True,
                 "situation": situation.context_preview(),
             }
-        if update.expected_revision and update.expected_revision != situation.revision:
-            raise SituationMutationError("REVISION_CONFLICT")
         if update.operation == "update" and user_message:
             from situations.episode_identity import fresh_declared_episode
             replacement = fresh_declared_episode(
@@ -144,6 +142,11 @@ class SituationService:
                 created["previous_situation_id"] = situation.id
                 logger.info("Situation new user episode created from old id (owner-scoped)")
                 return created
+        # Only modifications to the existing event require its current
+        # revision. A separately declared new event does not mutate the
+        # old record and cannot be blocked by an unrelated old edit.
+        if update.expected_revision and update.expected_revision != situation.revision:
+            raise SituationMutationError("REVISION_CONFLICT")
         if (
             situation.status in ("cancelled", "resolved")
             and update.operation == "update"
