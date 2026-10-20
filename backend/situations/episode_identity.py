@@ -93,8 +93,8 @@ def fresh_declared_episode(
     # overwrite the start and history of an old episode.
     if (asserted - previous) < timedelta(hours=12):
         return None
-    if old.status not in ("active", "changed"):
-        return None
+    # Closed historic records must also remain closed. A new event is not
+    # allowed to reopen or mutate them merely because it shares the subject.
     # New episode, new server-created id, new journal, and no inherited
     # place/source/participants from the old record.
     summary = (update.summary or "").strip() or utterance[:320]
