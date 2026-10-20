@@ -76,6 +76,10 @@ def verified_situation_receipt(
     if operation == "create":
         # Model text should never compete with server-owned timestamps.
         text = _strip_unproven_model_fields(text)
+    elif not unknown_ids and not _POSITIVE_CREATE.search(original):
+        # Ordinary updates must not clutter every conversational reply with
+        # internal identifiers. We only correct fabricated create/ID claims.
+        return original
     created = str(saved.get("created_at") or "").strip()
     started = str(saved.get("started_at") or "").strip()
     lifecycle = str(saved.get("status") or "").strip()
