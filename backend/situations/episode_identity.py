@@ -65,8 +65,8 @@ def fresh_declared_episode(
     utterance = " ".join(str(user_message or "")[:1200].split())
     # 'ORA, ho steso...' addresses the assistant; the app's name is not
     # evidence for the temporal adverb 'ora' (= just now).
-    cleaned = re.sub(r"^ORA\\s*[,!:—-]\\s*", "", utterance, flags=re.IGNORECASE)
-    clauses = re.split(r"[.!?;\\n]+", cleaned)
+    cleaned = re.sub(r"^ORA\s*[,!:—-]\s*", "", utterance, flags=re.IGNORECASE)
+    clauses = re.split(r"[.!?;\n]+", cleaned)
     # Both the first-person event and the temporal marker must occur in the
     # *same clause*. 'Ho steso ieri. Ora voglio sapere...' is a status query,
     # not a fresh event today.
