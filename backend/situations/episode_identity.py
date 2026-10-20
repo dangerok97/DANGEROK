@@ -63,7 +63,20 @@ def fresh_declared_episode(
     if update.operation != "update" or not update.situation_id:
         return None
     utterance = " ".join(str(user_message or "")[:1200].split())
-    if not (_IMMEDIATE.search(utterance) and _PERSONAL_OCCURRENCE.search(utterance)):
+    # 'ORA, ho steso...' addresses the assistant; the app's name is not
+    # evidence for the temporal adverb 'ora' (= just now).
+    cleaned = re.sub(r"^ORA\\s*[,!:—-]\\s*", "", utterance, flags=re.IGNORECASE)
+    clauses = re.split(r"[.!?;\\n]+", cleaned)
+    # Both the first-person event and the temporal marker must occur in the
+    # *same clause*. 'Ho steso ieri. Ora voglio sapere...' is a status query,
+    # not a fresh event today.
+    declared_now = any(
+        _IMMEDIATE.search(clause) and _PERSONAL_OCCURRENCE.search(clause)
+        and abs(_IMMEDIATE.search(clause).start()
+                - _PERSONAL_OCCURRENCE.search(clause).start()) <= 115
+        for clause in clauses
+    )
+    if not declared_now:
         return None
     if _CORRECTION.search(utterance):
         return None
