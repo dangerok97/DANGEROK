@@ -73,6 +73,10 @@ class AmbientService:
         instantly and a moment next year would sit in the collection until
         somebody wondered what it was.
         """
+        if not isinstance(when, datetime) or when.tzinfo is None or when.utcoffset() is None:
+            logger.warning("Wake schedule rejected without timezone")
+            return None
+        when = when.astimezone(timezone.utc)
         floor = _now() + timedelta(seconds=30)
         # Most delivery decisions stay deliberately short-lived (72h). Some
         # background observations, such as a weekly routine, need a longer
