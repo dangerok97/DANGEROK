@@ -18,6 +18,23 @@ logger = logging.getLogger('ora.connected.signals')
 SIGNALS = 'connected_signals'
 RETENTION_DAYS = 30
 MAX_PENDING = 12
+# When a model has no usable judgement, do not ask it the identical signal
+# every Ambient tick. The record remains pending and survives a restart.
+LEGACY_RETRY_BASE_SECONDS = 60
+LEGACY_RETRY_MAX_SECONDS = 900
+LEGACY_LEASE_SECONDS = 240
+
+
+def legacy_interpret_due(now=None) -> Dict[str, Any]:
+    """Only unclaimed, due legacy signals (not governed Source Core work)."""
+    due = (now or datetime.now(timezone.utc)).isoformat()
+    return {
+        '_core_work.phase': {'$exists': False},
+        '$or': [
+            {'_legacy_interpret.next_run_at': {'$exists': False}},
+            {'_legacy_interpret.next_run_at': {'$lte': due}},
+        ],
+    }
 
 
 def _source_scope(signal: ConnectedSignal) -> Dict[str, str]:
@@ -128,10 +145,61 @@ class SignalService:
 
     async def pending(self, owner_id: str, *, limit: int = MAX_PENDING) -> List[ConnectedSignal]:
         docs = await self.db[SIGNALS].find(
-            {'owner_id': owner_id, 'status': 'pending', '_supersession_pending': {'$ne': True},
-             '_core_work.phase': {'$exists': False}},
+            {'owner_id': owner_id, 'status': 'pending',
+             '_supersession_pending': {'$ne': True},
+             **legacy_interpret_due()},
             {'_id': 0}).sort('observed_at', 1).to_list(limit)
         return [ConnectedSignal.model_validate(d) for d in docs]
+
+    async def claim_legacy_interpret(self, owner_id: str, signal_id: str) -> bool:
+        """Atomically reserve one legacy interpretation across worker processes.
+
+        A crash leaves a time-bound claim, not an unbounded lock. Source Core
+        work has an independent guarded lease and is intentionally excluded.
+        """
+        now = datetime.now(timezone.utc)
+        result = await self.db[SIGNALS].update_one(
+            {'owner_id': owner_id, 'id': signal_id, 'status': 'pending',
+             '_supersession_pending': {'$ne': True},
+             **legacy_interpret_due(now)},
+            {'$set': {
+                '_legacy_interpret.next_run_at': (
+                    now + timedelta(seconds=LEGACY_LEASE_SECONDS)
+                ).isoformat(),
+            }, '$inc': {'_legacy_interpret.attempts': 1}},
+        )
+        return bool(result.matched_count)
+
+    async def defer_legacy_interpret(self, owner_id: str, signal_id: str) -> bool:
+        """Back off a failed model read without settling or rewriting its source.
+
+        Never store the source body or provider payload. A new independent
+        signal can be interpreted immediately despite an older paused row.
+        """
+        row = await self.db[SIGNALS].find_one(
+            {'owner_id': owner_id, 'id': signal_id, 'status': 'pending',
+             '_supersession_pending': {'$ne': True},
+             '_core_work.phase': {'$exists': False}},
+            {'_id': 0, '_legacy_interpret.attempts': 1},
+        )
+        if row is None:
+            return False
+        attempts = max(1, int((row.get('_legacy_interpret') or {}).get('attempts') or 1))
+        delay = min(LEGACY_RETRY_MAX_SECONDS,
+                    LEGACY_RETRY_BASE_SECONDS * (2 ** min(attempts - 1, 6)))
+        result = await self.db[SIGNALS].update_one(
+            {'owner_id': owner_id, 'id': signal_id, 'status': 'pending',
+             '_supersession_pending': {'$ne': True},
+             '_core_work.phase': {'$exists': False},
+             '_legacy_interpret.attempts': attempts},
+            {'$set': {
+                '_legacy_interpret.next_run_at': (
+                    datetime.now(timezone.utc) + timedelta(seconds=delay)
+                ).isoformat(),
+                '_legacy_interpret.last_failure': 'model_unavailable',
+            }},
+        )
+        return bool(result.matched_count)
 
     async def get(self, owner_id: str, signal_id: str) -> Optional[ConnectedSignal]:
         doc = await self.db[SIGNALS].find_one(
