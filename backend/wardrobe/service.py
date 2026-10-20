@@ -173,6 +173,12 @@ class WardrobeService:
         )
         if result.matched_count != 1:
             raise WardrobeError("Il capo è cambiato durante il salvataggio.", 409)
+        if any(existing.get(field) != data.get(field) for field in (
+            "name", "category", "color", "formality")):
+            # Feedback on an old shirt/shoe identity is not a preference for a
+            # replaced or recategorized garment with the same item ID.
+            from .preferences import delete_item_feedback
+            await delete_item_feedback(self.db, owner, body.id)
         return self._public(owner, {**existing, **updated})
 
     async def save_photo(self, owner: str, item_id: str, revision: int, thumbnail: bytes) -> dict:
@@ -190,6 +196,11 @@ class WardrobeService:
             {"_id": existing["_id"], "user_id": owner, "revision": revision}, {"$set": updated})
         if result.matched_count != 1:
             raise WardrobeError("Fotografia non salvata: capo modificato.", 409)
+        if existing.get("photo_encrypted"):
+            # Replacing the visual identity also invalidates learnt approval
+            # of its prior photographed appearance, never other owners' likes.
+            from .preferences import delete_item_feedback
+            await delete_item_feedback(self.db, owner, item_id)
         return self._public(owner, {**existing, **updated})
 
     async def delete(self, owner: str, item_id: str, revision: int) -> None:
