@@ -82,7 +82,7 @@ export type GarmentAnalysis = {
 
 export type OutfitResponse = {
   engine: 'rules-v1' | 'ai-stylist-v1' | 'preference-v1';
-  ai_status?: 'ok' | 'not_requested' | 'insufficient_wardrobe' | 'unavailable' | 'rate_limited' | 'not_preferred';
+  ai_status?: 'ok' | 'not_requested' | 'insufficient_wardrobe' | 'unavailable' | 'invalid_response' | 'rate_limited' | 'not_preferred';
   candidate_count?: number;
   occasion: Occasion; missing: Category[]; message: string;
   outfits: { item_ids: string[]; title: string; why: string;

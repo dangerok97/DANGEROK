@@ -35,6 +35,104 @@ class StyleAnswer(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     choices: list[OutfitChoice] = Field(min_length=1, max_length=2)
 
+
+# Normalize harmless JSON formatting drift without trusting any generated prose.
+# The model may include a rationale, or use "1" instead of 1, but can never
+# add a garment, alter a candidate, or introduce an unsupported action.
+_ALLOWED = {
+    "suitability": {"good", "acceptable", "weak"},
+    "palette": {"harmonious", "contrasting", "uncertain"},
+    "formality": {"appropriate", "too_formal", "too_casual", "uncertain"},
+    "adjustment": {"none", "roll_shirt_sleeves", "tuck_shirt"},
+}
+_DEFAULTS = {
+    "suitability": "acceptable",
+    "palette": "uncertain",
+    "formality": "uncertain",
+    "adjustment": "none",
+}
+
+
+class InvalidStylistResponse(ValueError):
+    """The model did reply, but supplied no safely usable styling assessment."""
+
+
+def _choice_value(raw: object, key: str) -> str | None:
+    val = raw.get(key) if isinstance(raw, dict) else None
+    if not isinstance(val, str):
+        return None
+    normalized = val.strip().casefold().replace("-", "_").replace(" ", "_")
+    return normalized if normalized in _ALLOWED[key] else None
+
+
+def _parse_stylist_response(raw: str, option_count: int) -> StyleAnswer:
+    """Bounded, text-free interpretation of model JSON.
+
+    We discard all unrecognized keys, INCLUDING model prose such as a "tip"
+    containing an imaginary belt. No discarded field ever reaches the client.
+    Missing judgements may become explicit uncertainty, but a numeric candidate
+    plus *zero* understood judgements is NOT accepted as successful AI styling.
+    """
+    fence = chr(96) * 3
+    text = raw.strip()
+    if text.startswith(fence):
+        text = text[len(fence):].lstrip()
+        if text.lower().startswith("json"):
+            text = text[4:].lstrip()
+        text = text.removesuffix(fence).strip()
+    try:
+        data = json.loads(text)
+    except (ValueError, TypeError) as exc:
+        raise InvalidStylistResponse("not_json") from exc
+    if not isinstance(data, dict):
+        raise InvalidStylistResponse("root_not_object")
+    choices = data.get("choices")
+    if isinstance(choices, dict):
+        choices = [choices]
+    if not isinstance(choices, list) or not 1 <= len(choices) <= 2:
+        raise InvalidStylistResponse("missing_or_invalid_choices")
+
+    normalized: list[dict] = []
+    used: set[int] = set()
+    for row in choices:
+        if not isinstance(row, dict):
+            raise InvalidStylistResponse("choice_not_object")
+        raw_option = row.get("option")
+        if isinstance(raw_option, bool):
+            raise InvalidStylistResponse("invalid_option")
+        if isinstance(raw_option, int):
+            option = raw_option
+        elif isinstance(raw_option, str) and raw_option.strip().isdigit() and len(raw_option.strip()) <= 2:
+            option = int(raw_option.strip())
+        else:
+            raise InvalidStylistResponse("invalid_option")
+        if option in used:
+            raise InvalidStylistResponse("duplicate_candidate")
+        used.add(option)
+        if option < 1 or option > option_count:
+            # The LLM may supply another numbered candidate which the server
+            # never offered. Never use it; valid in-range choices may survive.
+            continue
+
+        known: dict[str, str] = {}
+        for key in _ALLOWED:
+            val = _choice_value(row, key)
+            if val is not None:
+                known[key] = val
+        # An option by itself, with no actual style assessment, is not valid AI advice.
+        if not any(k in known for k in ("suitability", "palette", "formality")):
+            raise InvalidStylistResponse("no_style_assessment")
+        normalized.append({
+            "option": option,
+            **{key: known.get(key, default) for key, default in _DEFAULTS.items()},
+        })
+    if not normalized:
+        raise InvalidStylistResponse("no_valid_candidate")
+    try:
+        return StyleAnswer.model_validate({"choices": normalized})
+    except (ValueError, TypeError) as exc:
+        raise InvalidStylistResponse("schema_not_usable") from exc
+
 SYSTEM = """Sei lo stylist AI di ORA. Confronta SOLTANTO le opzioni numerate,
 ognuna composta esclusivamente con indumenti già salvati dall'utente.
 Una combinazione possibile non è necessariamente bella: giudicala in modo
@@ -231,13 +329,23 @@ def _fallback(base: dict, *, status: str) -> dict:
         "engine": "rules-v1", "ai_status": status,
         "candidate_count": candidate_count,
     }
-    simple["message"] = (
-        "Stylist AI non disponibile: abbinamenti ottenuti con regole indicative, "
-        "non con una valutazione estetica approfondita."
-        if status == "unavailable" else
-        "Limite orario dello stylist AI raggiunto: "
-        "puoi usare soltanto i suggerimenti preliminari."
-    )
+    if status == "invalid_response":
+        simple["message"] = (
+            "Il modello AI ha risposto, ma non ha restituito una valutazione "
+            "utilizzabile in sicurezza. Questi sono solo abbinamenti preliminari; "
+            "non sono stati inventati capi o accessori."
+        )
+    elif status == "rate_limited":
+        simple["message"] = (
+            "Limite orario delle richieste allo stylist ORA raggiunto. "
+            "Mostro soltanto gli abbinamenti preliminari."
+        )
+    else:
+        simple["message"] = (
+            "Il servizio AI non ha completato la richiesta "
+            "(ad esempio per limite di quota o timeout). "
+            "Mostro soltanto gli abbinamenti preliminari."
+        )
     return simple
 
 
@@ -287,15 +395,21 @@ async def advise(db, owner: str, items: list[dict], occasion: str,
         answer = await asyncio.wait_for(get_manager().chat(
             system=SYSTEM, user=prompt, json_mode=True,
             latency_budget_s=14), timeout=24)
-        raw = str(answer.text).strip()
-        fence = chr(96) * 3
-        if raw.startswith(fence):
-            raw = raw.removeprefix(fence).removeprefix("json").strip()
-            raw = raw.removesuffix(fence).strip()
-        parsed = StyleAnswer.model_validate(json.loads(raw))
-        indices = [choice.option for choice in parsed.choices]
-        if len(indices) != len(set(indices)) or any(i > len(options) for i in indices):
-            raise ValueError("invalid_or_repeated_option")
+    except Exception as exc:
+        # No secret, prompt, account ID or raw model response is logged.
+        logging.getLogger("ora.wardrobe.stylist").info(
+            "stylist provider_unavailable kind=%s", type(exc).__name__)
+        return _fallback(base, status="unavailable")
+
+    try:
+        parsed = _parse_stylist_response(str(answer.text), len(options))
+    except InvalidStylistResponse as exc:
+        logging.getLogger("ora.wardrobe.stylist").info(
+            "stylist invalid_model_response reason=%s provider=%s",
+            str(exc), str(getattr(answer, "provider", "unknown"))[:24])
+        return _fallback(base, status="invalid_response")
+
+    try:
         selected = []
         for choice in parsed.choices:
             original = base["outfits"][choice.option - 1]
@@ -311,7 +425,7 @@ async def advise(db, owner: str, items: list[dict], occasion: str,
                        "delle fotografie che hai scelto di analizzare e confermare. "
                        "Non vede i capi indossati, né conosce la vestibilità reale.",
         }
-    except Exception as exc:
+    except (ValueError, TypeError, KeyError) as exc:
         logging.getLogger("ora.wardrobe.stylist").info(
-            "stylist soft fallback kind=%s", type(exc).__name__)
-        return _fallback(base, status="unavailable")
+            "stylist post_validation_failed kind=%s", type(exc).__name__)
+        return _fallback(base, status="invalid_response")

@@ -384,7 +384,8 @@ function WardrobeScreen() {
           {result ? <Text testID="wardrobe-ai-status" style={[s.note, result.engine === 'ai-stylist-v1'
             ? { color: colors.accent } : muted]}>
             {result.engine === 'ai-stylist-v1' ? 'Stylist AI · Valutazione delle schede dei tuoi capi'
-              : result.ai_status === 'unavailable' ? 'Stylist AI non disponibile · Consigli preliminari'
+              : result.ai_status === 'unavailable' ? 'Servizio AI indisponibile · Consigli preliminari'
+              : result.ai_status === 'invalid_response' ? 'Risposta AI non valida · Consigli preliminari'
               : result.ai_status === 'rate_limited' ? 'Limite AI raggiunto · Consigli preliminari'
               : result.ai_status === 'not_preferred' ? 'Nessun look nuovo · Preferenze rispettate'
               : 'Suggerimenti preliminari dai tuoi capi'}

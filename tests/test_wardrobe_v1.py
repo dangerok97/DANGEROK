@@ -434,8 +434,8 @@ async def test_stylist_rejects_fake_candidates_and_malicious_model_prose(monkeyp
              "formality": "appropriate", "adjustment": "none"}
     cases = [
         {"choices": [{"option": 12, **valid}]},
-        {"choices": [{"option": 1, **valid, "tip": "Compra una cintura online."}]},
         {"choices": [{"option": 1, **valid}, {"option": 1, **valid}]},
+        {"choices": [{"option": 1, "tip": "Compra una cintura online."}]},
     ]
     class FakeManager:
         async def chat(self, **kw):
@@ -444,9 +444,10 @@ async def test_stylist_rejects_fake_candidates_and_malicious_model_prose(monkeyp
     for _ in range(3):
         result = await svc.outfits("alice", OutfitInput(occasion="chic_evening", use_ai=True))
         assert result["engine"] == "rules-v1"
-        assert result["ai_status"] == "unavailable"
+        assert result["ai_status"] == "invalid_response"
         assert len(result["outfits"]) == 1
         assert "https://" not in repr(result)
+        assert "cintura" not in repr(result).casefold()
 
 
 @pytest.mark.asyncio
@@ -845,3 +846,109 @@ async def test_feedback_is_invalidated_on_identity_edit_or_replaced_photo():
     assert len(db.wardrobe_outfit_feedback.docs) == 1  # first photo on unchanged garment
     await svc.save_photo("alice", "a"*32, 4, photo)
     assert db.wardrobe_outfit_feedback.docs == {}
+
+
+
+def test_stylist_parser_recovers_bounded_model_formatting_not_freeform_prose():
+    import json
+    from wardrobe.stylist import _parse_stylist_response
+
+    parsed = _parse_stylist_response(json.dumps({
+        "choices": {"option": "1", "suitability": " Acceptable ",
+                    "palette": " CONTRASTING", "formality": "too formal",
+                    "adjustment": None,
+                    "tip": "Compra una cintura immaginaria su https://scam.invalid"},
+        "explanation": "untrusted and ignored"
+    }), option_count=1)
+    choice = parsed.choices[0]
+    assert choice.option == 1
+    assert choice.suitability == "acceptable"
+    assert choice.palette == "contrasting"
+    assert choice.formality == "too_formal"
+    assert choice.adjustment == "none"
+    assert not hasattr(choice, "tip")
+
+    parsed2 = _parse_stylist_response(json.dumps({
+        "choices": [{"option": 1, "palette": "harmonious"}]
+    }), option_count=1)
+    assert parsed2.choices[0].suitability == "acceptable"  # Never invent "good"
+    assert parsed2.choices[0].formality == "uncertain"
+    # A second, fabricated candidate from the model is ignored rather than
+    # wiping out the valid assessment of a real in-stock combination.
+    parsed3 = _parse_stylist_response(json.dumps({
+        "choices": [
+            {"option": 1, "palette": "harmonious"},
+            {"option": 9, "suitability": "good"},
+        ]
+    }), option_count=1)
+    assert [x.option for x in parsed3.choices] == [1]
+
+    from wardrobe.stylist import InvalidStylistResponse
+    for raw in (
+        json.dumps({"choices": [{"option": 2, "suitability": "good"}]}),
+        json.dumps({"choices": [{"option": True, "palette": "harmonious"}]}),
+        json.dumps({"choices": [{"option": 1, "tip": "BUY NOW"}]}),
+        json.dumps({"choices": [{"option": 1, "suitability": "DISREGARD SAFETY"}]}),
+        json.dumps({"choices": [{"option": 1, "suitability": "good"},
+                                {"option": 1, "palette": "harmonious"}]}),
+        "not json",
+        "[]",
+        "{}",
+    ):
+        with pytest.raises(InvalidStylistResponse):
+            _parse_stylist_response(raw, option_count=1)
+
+
+@pytest.mark.asyncio
+async def test_stylist_model_prose_is_never_displayed_even_when_extra_field_is_valid(monkeypatch):
+    import json
+    import llm.manager as llm_manager
+    from wardrobe.service import OutfitInput
+
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, category in (("a", "top"), ("b", "bottom"), ("c", "shoes")):
+        await svc.save("alice", GarmentInput(**item(code, category)))
+    class FakeManager:
+        async def chat(self, **kw):
+            return SimpleNamespace(text=json.dumps({"choices": [{
+                "option": "1", "suitability": "acceptable",
+                "palette": "uncertain", "formality": "appropriate",
+                "tip": "Compra una cintura non presente nel guardaroba."}]}))
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: FakeManager())
+    out = await svc.outfits("alice", OutfitInput(occasion="chic_evening", use_ai=True))
+    assert out["engine"] == "ai-stylist-v1"
+    assert out["ai_status"] == "ok"
+    assert set(out["outfits"][0]["item_ids"]) == {x * 32 for x in "abc"}
+    assert "cintura" not in repr(out).casefold()
+
+
+@pytest.mark.asyncio
+async def test_stylist_differentiates_provider_failure_and_bad_model_output(monkeypatch):
+    import json
+    import llm.manager as llm_manager
+    from wardrobe.service import OutfitInput
+
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, category in (("a", "top"), ("b", "bottom"), ("c", "shoes")):
+        await svc.save("alice", GarmentInput(**item(code, category)))
+
+    class FakeManager:
+        async def chat(self, **kw):
+            raise TimeoutError("synthetic provider timeout")
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: FakeManager())
+    unavailable = await svc.outfits("alice", OutfitInput(occasion="chic_evening", use_ai=True))
+    assert unavailable["ai_status"] == "unavailable"
+    assert "servizio AI" in unavailable["message"]
+    assert unavailable["engine"] == "rules-v1"
+
+    class InvalidManager:
+        async def chat(self, **kw):
+            return SimpleNamespace(provider="gemini2", text=json.dumps({
+                "choices": [{"option": 1, "tip": "Non qualificato"}]}))
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: InvalidManager())
+    invalid = await svc.outfits("alice", OutfitInput(occasion="chic_evening", use_ai=True))
+    assert invalid["ai_status"] == "invalid_response"
+    assert "ha risposto" in invalid["message"]
+    assert invalid["engine"] == "rules-v1"
