@@ -534,16 +534,30 @@ async def arrange_followup(db, owner, *, situation_id, expected_revision, check_
             if await repo.create_goal(goal) is None:
                 return {"ok": False, "error": "goal_not_persisted"}
         else:
+            prior_checkpoint_due = str(
+                (goal.source_situation or {}).get("checkpoint_due_at") or ""
+            )
             if goal.source_kind == INITIAL_KIND:
-                # The conversational model explicitly supplied the first
-                # evidence-backed checkpoint. Replace the initial-review
-                # alarm; it must not be shown or run as another check.
+                # An initial-review wake is not the requested future check.
                 from ambient.repository import AmbientRepository
                 await AmbientRepository(db).cancel_for(
                     owner, source_ref=f"goal:{gid}",
                 )
                 for field, value in contract.items():
                     setattr(goal, field, value)
+            elif safe_read and goal.source_kind == KIND:
+                # The same owned goal gets a NEW user-requested checkpoint;
+                # persist its selected read-only skill rather than losing it
+                # while reusing the old goal. Never rewrite the Situation.
+                goal.source_situation = source_snapshot
+            if safe_read and prior_checkpoint_due != due.isoformat():
+                # The previous 3-pass budget was for an older checkpoint.
+                # One explicit new request authorizes one *new* bounded pass;
+                # retrying the same already scheduled time does not reset it.
+                goal.background_runs = 0
+                if goal.planning_unavailable:
+                    goal.planning_attempts = 0
+                    goal.planning_unavailable = False
             goal.next_run_at = due.isoformat()
             await repo.save_goal(goal)
         latest = await SituationRepository(db).get(owner, situation_id)
