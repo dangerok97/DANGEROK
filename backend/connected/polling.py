@@ -733,12 +733,35 @@ async def _owners_with_something_to_understand(
     Una distinct su una collezione indicizzata: chi non ha niente in attesa
     non compare, e la domanda costa lo stesso su un database vuoto o pieno.
     """
+    from connected.signals import legacy_interpret_due
+    from connected.core_work import MAX_ATTEMPTS
+
+    # An account with ONLY paused source work is not currently due. The old
+    # query selected it every ten seconds even with a future next_run_at,
+    # causing phantom 'source_understanding looked_at=1, understood=0' loops.
+    now = datetime.now(timezone.utc).isoformat()
     query: Dict[str, Any] = {
         "status": "pending",
         "_supersession_pending": {"$ne": True},
         "$or": [
-            {"_core_work.phase": {"$exists": False}},
-            {"_core_work.phase": {"$in": ["running", "retry", "result_ready"]}},
+            legacy_interpret_due(),
+            {
+                "_core_work.phase": {"$in": ["running", "retry", "result_ready"]},
+                "$and": [
+                    {"$or": [
+                        {"_core_work.next_run_at": {"$exists": False}},
+                        {"_core_work.next_run_at": {"$lte": now}},
+                    ]},
+                    {"$or": [
+                        {"_core_work.lease_until": {"$exists": False}},
+                        {"_core_work.lease_until": {"$lte": now}},
+                    ]},
+                    {"$or": [
+                        {"_core_work.attempts": {"$exists": False}},
+                        {"_core_work.attempts": {"$lt": MAX_ATTEMPTS}},
+                    ]},
+                ],
+            },
         ],
     }
     if only:
