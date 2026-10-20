@@ -5,12 +5,15 @@ on 19 October 2026. Lexical ISO comparisons across '+02:00' and '+00:00'
 must not delay a due job or make ORA report 16:09 as '16:09 UTC'.
 All cases are synthetic, owner-scoped and avoid external notifications.
 """
-import hashlib
+import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
+import pytest_asyncio
 from mongomock_motor import AsyncMongoMockClient
+from motor.motor_asyncio import AsyncIOMotorClient
 
 from ambient.models import AmbientWake
 from ambient.repository import AmbientRepository, _utc_schedule
@@ -24,9 +27,25 @@ SID = "sit_rome_clock"
 ROME = ZoneInfo("Europe/Rome")
 
 
+@pytest_asyncio.fixture
+async def mongo_clock_db():
+    """Real ephemeral Mongo instance from CI, never a user or Railway DB."""
+    url = os.environ.get("MONGO_URL")
+    if not url:
+        pytest.skip("real UTC claim test requires explicit CI MONGO_URL")
+    client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=5000)
+    await client.admin.command("ping")
+    db = client["ora_ci_wake_utc_" + uuid.uuid4().hex[:20]]
+    try:
+        yield db
+    finally:
+        await client.drop_database(db.name)
+        client.close()
+
+
 @pytest.mark.asyncio
-async def test_offset_schedule_is_saved_as_utc_and_claimed_at_correct_instant():
-    db = AsyncMongoMockClient().offset_due
+async def test_offset_schedule_is_saved_as_utc_and_claimed_at_correct_instant(mongo_clock_db):
+    db = mongo_clock_db
     repo = AmbientRepository(db)
     await repo.ensure_indexes()
     wake = AmbientWake(
@@ -65,8 +84,8 @@ async def test_offset_schedule_is_saved_as_utc_and_claimed_at_correct_instant():
 
 
 @pytest.mark.asyncio
-async def test_scheduled_retry_and_reschedule_normalize_utc():
-    db = AsyncMongoMockClient().offset_retry
+async def test_scheduled_retry_and_reschedule_normalize_utc(mongo_clock_db):
+    db = mongo_clock_db
     repo = AmbientRepository(db)
     await repo.ensure_indexes()
     wake = await repo.schedule(AmbientWake(
