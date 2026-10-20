@@ -10,6 +10,7 @@ import base64
 import io
 import os
 import uuid
+import hmac
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -131,7 +132,7 @@ class WardrobeService:
         return await self.col.find_one({"_id": self._key(owner, item_id), "user_id": owner})
 
     def _public(self, owner: str, doc: dict) -> dict:
-        result = {k: v for k, v in doc.items() if k not in {"_id", "user_id", "photo_encrypted"}}
+        result = {k: v for k, v in doc.items() if k not in {"_id", "user_id", "photo_encrypted", "visual_photo_sha256"}}
         if doc.get("photo_encrypted"):
             image = self.cipher.decrypt(owner, doc["id"], doc["photo_encrypted"])
             result["photo"] = "data:image/jpeg;base64," + base64.b64encode(image).decode("ascii")
@@ -162,6 +163,10 @@ class WardrobeService:
                 raise
             return self._public(owner, record)
         updated = {**data, "revision": body.revision + 1, "updated_at": now}
+        if existing.get("category") != body.category or existing.get("color") != body.color:
+            # Do not trust old visual descriptions after an item is reclassified.
+            updated["visual_profile"] = None
+            updated["visual_photo_sha256"] = None
         result = await self.col.update_one(
             {"_id": existing["_id"], "user_id": owner, "revision": body.revision},
             {"$set": updated},
@@ -179,6 +184,7 @@ class WardrobeService:
         if not thumbnail or len(thumbnail) > MAX_THUMBNAIL:
             raise WardrobeError("Miniatura troppo grande.", 413)
         updated = {"photo_encrypted": self.cipher.encrypt(owner, item_id, thumbnail),
+                   "visual_profile": None, "visual_photo_sha256": None,
                    "revision": revision + 1, "updated_at": datetime.now(timezone.utc).isoformat()}
         result = await self.col.update_one(
             {"_id": existing["_id"], "user_id": owner, "revision": revision}, {"$set": updated})
@@ -195,6 +201,8 @@ class WardrobeService:
         result = await self.col.delete_one({"_id": existing["_id"], "user_id": owner, "revision": revision})
         if result.deleted_count != 1:
             raise WardrobeError("Capo modificato durante l'eliminazione.", 409)
+        from .preferences import delete_item_feedback
+        await delete_item_feedback(self.db, owner, item_id)
 
     async def list_metadata(self, owner: str) -> list[dict]:
         """Only user-owned catalog metadata, never encrypted photo bytes or data URIs.
@@ -205,15 +213,89 @@ class WardrobeService:
         docs = await self.col.find({"user_id": owner}).to_list(length=MAX_ITEMS + 1)
         return [
             {k: v for k, v in doc.items()
-             if k not in {"_id", "user_id", "photo_encrypted"}}
+             if k not in {"_id", "user_id", "photo_encrypted", "visual_photo_sha256"}}
             for doc in sorted(docs, key=lambda d: (d["name"].casefold(), d["id"]))
         ]
 
     async def outfits(self, owner: str, body: OutfitInput) -> dict:
         from .stylist import advise
+        from .preferences import load_feedback
         items = await self.list_metadata(owner)
+        feedback = await load_feedback(self.db, owner)
         return await advise(
             self.db, owner, items, body.occasion,
             temperature_c=body.temperature_c,
             note=body.style_note, use_ai=body.use_ai,
+            feedback=feedback,
         )
+
+    async def record_outfit_feedback(self, owner: str, body) -> dict:
+        from .preferences import record_feedback
+        items = await self.list_metadata(owner)
+        return await record_feedback(self.db, owner, items, body)
+
+
+    async def analyze_saved_photo(self, owner: str, item_id: str, revision: int) -> dict:
+        """Explicit foreground scan of one encrypted photo, returning no DB mutation."""
+        from .appearance import describe_appearance, photo_signature
+        from .classify import enforce_owner_quota
+
+        current = await self._load(owner, item_id)
+        if current is None:
+            raise WardrobeError("Capo non trovato.", 404)
+        if current["revision"] != revision:
+            raise WardrobeError("Capo cambiato: aggiorna la lista prima dell'analisi.", 409)
+        if not current.get("photo_encrypted"):
+            raise WardrobeError("Aggiungi prima una foto del capo.", 409)
+        await enforce_owner_quota(self.db, owner)
+        photo = self.cipher.decrypt(owner, item_id, current["photo_encrypted"])
+        output = await describe_appearance(photo)
+        if output["recognized"]:
+            return {**output, "revision": revision, "photo_sha256": photo_signature(photo)}
+        return {**output, "revision": revision}
+
+    async def confirm_appearance(self, owner: str, item_id: str, body) -> dict:
+        """Store only user-approved enum attributes for the exact current photo."""
+        from .appearance import photo_signature
+
+        current = await self._load(owner, item_id)
+        if current is None:
+            raise WardrobeError("Capo non trovato.", 404)
+        if current["revision"] != body.revision:
+            raise WardrobeError("La foto o il capo sono cambiati. Ripeti l'analisi.", 409)
+        if not current.get("photo_encrypted"):
+            raise WardrobeError("Fotografia non disponibile.", 409)
+        photo = self.cipher.decrypt(owner, item_id, current["photo_encrypted"])
+        if not hmac.compare_digest(body.photo_sha256, photo_signature(photo)):
+            raise WardrobeError("La foto è cambiata. Analizza di nuovo.", 409)
+
+        profile = body.model_dump(exclude={"revision", "photo_sha256"})
+        profile["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+        changes = {
+            "visual_profile": profile, "visual_photo_sha256": body.photo_sha256,
+            "revision": body.revision + 1, "updated_at": profile["reviewed_at"],
+        }
+        result = await self.col.update_one(
+            {"_id": current["_id"], "user_id": owner, "revision": body.revision},
+            {"$set": changes},
+        )
+        if result.matched_count != 1:
+            raise WardrobeError("Capo modificato durante la conferma.", 409)
+        return self._public(owner, {**current, **changes})
+
+    async def clear_appearance(self, owner: str, item_id: str, revision: int) -> dict:
+        current = await self._load(owner, item_id)
+        if current is None:
+            raise WardrobeError("Capo non trovato.", 404)
+        if current["revision"] != revision:
+            raise WardrobeError("Capo cambiato; aggiorna e riprova.", 409)
+        changes = {"visual_profile": None, "visual_photo_sha256": None,
+                   "revision": revision + 1,
+                   "updated_at": datetime.now(timezone.utc).isoformat()}
+        result = await self.col.update_one(
+            {"_id": current["_id"], "user_id": owner, "revision": revision},
+            {"$set": changes},
+        )
+        if result.matched_count != 1:
+            raise WardrobeError("Il capo è cambiato durante la modifica.", 409)
+        return self._public(owner, {**current, **changes})

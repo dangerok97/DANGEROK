@@ -9,9 +9,10 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useAmbientInset } from '@/src/shell';
 import { tokens } from '@/src/theme/tokens';
-import { wardrobeClient, CATEGORIES, FORMALITIES, OCCASIONS,
+import { wardrobeClient, CATEGORIES, FORMALITIES, OCCASIONS, VISUAL_FIELDS,
   type Garment, type GarmentInput, type Category, type Formality,
-  type GarmentStatus, type Occasion, type OutfitResponse, type GarmentAnalysis } from './client';
+  type GarmentStatus, type Occasion, type OutfitResponse, type GarmentAnalysis,
+  type AppearancePending, type VisualAppearance, type VisualField } from './client';
 import { pickGarmentPhoto } from './pickPhoto';
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Operazione non riuscita.';
@@ -43,6 +44,8 @@ function WardrobeScreen() {
   const [occasion, setOccasion] = useState<Occasion>('casual_evening');
   const [styleNote, setStyleNote] = useState('');
   const [result, setResult] = useState<OutfitResponse | null>(null);
+  const [appearancePending, setAppearancePending] = useState<AppearancePending | null>(null);
+  const [appearanceMessage, setAppearanceMessage] = useState('');
 
   const load = useCallback(async () => {
     const token = await wardrobeClient.token();
@@ -67,6 +70,7 @@ function WardrobeScreen() {
     setDraft({ id: Crypto.randomUUID().replace(/-/g, ''), revision: 0, name: '',
       category: 'top', color: '', formality: 'casual', seasons: [], status: 'available' });
     setNewPhoto(null); setError(''); setNotice('');
+    setAppearancePending(null);
   };
   const edit = (item: Garment) => {
     photoEpoch.current += 1; setRecognition(null); setAnalysisNote('');
@@ -134,6 +138,78 @@ function WardrobeScreen() {
       }
     } finally { setAnalyzing(false); }
   };
+  const scanAppearance = async (item: Garment) => {
+    if (busy || !item.photo) return;
+    setBusy(true); setError(''); setAppearanceMessage(''); setAppearancePending(null);
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      const analyzed = await wardrobeClient.analyzeAppearance(token, item);
+      if (analyzed.recognized && analyzed.draft && analyzed.photo_sha256) {
+        setAppearancePending({ itemId: item.id, revision: analyzed.revision,
+          photo_sha256: analyzed.photo_sha256, draft: analyzed.draft });
+        setAppearanceMessage(analyzed.message);
+      } else {
+        setAppearanceMessage(analyzed.message);
+      }
+    } catch (e) {
+      setAppearanceMessage(errorText(e));
+    } finally { setBusy(false); }
+  };
+  const patchAppearance = (field: VisualField, value: string) => {
+    setAppearancePending(previous => previous
+      ? { ...previous, draft: { ...previous.draft, [field]: value } as VisualAppearance }
+      : null);
+  };
+  const confirmAppearance = async () => {
+    if (!appearancePending || busy) return;
+    setBusy(true); setError('');
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      await wardrobeClient.confirmAppearance(token, appearancePending);
+      await load();
+      setResult(null);
+      setAppearancePending(null);
+      setAppearanceMessage('Caratteristiche visive confermate. ORA le userà nei prossimi look.');
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
+  const clearAppearance = async (item: Garment) => {
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      await wardrobeClient.clearAppearance(token, item);
+      await load();
+      setResult(null);
+      setAppearanceMessage('Analisi visiva rimossa da questo capo.');
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
+  const feedbackOutfit = async (
+    ids: string[], reaction: 'like' | 'dislike',
+  ) => {
+    if (busy || !result) return;
+    const submittedOccasion = result.occasion;
+    setBusy(true); setError('');
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      await wardrobeClient.feedback(token, submittedOccasion, ids, reaction);
+      const signature = [...ids].sort().join('|');
+      setResult(previous => previous && previous.occasion === submittedOccasion
+        ? { ...previous, outfits: previous.outfits.map(look =>
+          [...look.item_ids].sort().join('|') === signature
+            ? { ...look, feedback: reaction } : look) }
+        : previous);
+      setNotice(reaction === 'like'
+        ? 'Preferenza salvata: ORA terrà conto del look che ti piace.'
+        : 'Preferenza salvata: ORA eviterà di riproporti questo look.');
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
   const remove = async () => {
     if (!deleteTarget || busy) return;
     setBusy(true); setError('');
@@ -142,7 +218,8 @@ function WardrobeScreen() {
       if (!token) throw new Error('Accedi nuovamente a ORA.');
       await wardrobeClient.remove(token, deleteTarget);
       await load();
-      setDeleteTarget(null); setResult(null); setNotice('Capo eliminato dal guardaroba.');
+      setDeleteTarget(null); setResult(null); setAppearancePending(null);
+      setNotice('Capo eliminato dal guardaroba.');
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
@@ -189,7 +266,7 @@ function WardrobeScreen() {
         <Text style={[s.subhead, muted]}>I vestiti che possiedi, organizzati per trovare cosa indossare.</Text>
         <View style={[s.card, card]}>
           <Text style={[s.heading, foreground]}>I tuoi capi · {items.length}/75</Text>
-          <Text style={[s.note, muted]}>Le foto salvate sono protette e ottimizzate. L'analisi AI è facoltativa: la attivi solo tu.</Text>
+          <Text style={[s.note, muted]}>Le foto sono private e cifrate. ORA analizza visivamente solo i capi per cui premi «Analizza stile» e confermi i risultati.</Text>
           {!draft ? action('Aggiungi un capo', create, true, busy) : null}
           {loading ? <ActivityIndicator color={colors.accent} /> : null}
           {!loading && !items.length ? <Text style={[s.note, muted]}>Ancora nessun capo. Comincia dai vestiti che usi più spesso.</Text> : null}
@@ -205,6 +282,14 @@ function WardrobeScreen() {
                 {item.status !== 'available' ? <Text style={[s.detail, { color: colors.error }]}>
                   {item.status === 'laundry' ? 'Da lavare' : 'Non disponibile'}
                 </Text> : null}
+                {item.visual_profile ? <Text testID="wardrobe-visual-profile" style={[s.detail, { color: colors.accent }]}>
+                  Aspetto confermato: {VISUAL_FIELDS.pattern.find(o => o.value === item.visual_profile?.pattern)?.label},
+                  {' '}{VISUAL_FIELDS.shape.find(o => o.value === item.visual_profile?.shape)?.label}
+                </Text> : null}
+                {item.photo ? action(item.visual_profile ? 'Rianalizza stile' : 'Analizza stile con AI',
+                  () => { void scanAppearance(item); }, false, busy || analyzing) : null}
+                {item.visual_profile ? action('Rimuovi analisi visiva',
+                  () => { void clearAppearance(item); }, false, busy) : null}
                 <View style={s.inline}>
                   {action('Modifica', () => edit(item), false, busy)}
                   {action('Elimina', () => setDeleteTarget(item), false, busy)}
@@ -219,6 +304,35 @@ function WardrobeScreen() {
               </View>
             ))}
           </View>
+          {appearanceMessage ? <Text testID="wardrobe-appearance-message" style={[s.note, muted]}>
+            {appearanceMessage}
+          </Text> : null}
+          {appearancePending ? <View testID="wardrobe-appearance-editor"
+            style={[s.visualEditor, { borderColor: colors.border }]}>
+            <Text style={[s.heading, foreground]}>Controlla le caratteristiche visive</Text>
+            <Text style={[s.note, muted]}>
+              L'AI ha valutato solo l'aspetto della fotografia, non il materiale reale o la vestibilità.
+              Puoi correggere ogni valore prima di salvarlo.
+            </Text>
+            {(Object.keys(VISUAL_FIELDS) as VisualField[]).map(field => (
+              <View key={field} style={{ gap: 7 }}>
+                <Text style={[s.fieldTitle, foreground]}>
+                  {field === 'pattern' ? 'Fantasia' : field === 'shape' ? 'Taglio visivo'
+                    : field === 'surface' ? 'Aspetto superficie' : 'Tonalità'}
+                </Text>
+                <View style={s.choices}>
+                  {VISUAL_FIELDS[field].map(option => chip(
+                    option.label, appearancePending.draft[field] === option.value,
+                    () => patchAppearance(field, option.value), `${field}:${option.value}`))}
+                </View>
+              </View>
+            ))}
+            <View style={s.inline}>
+              {action('Scarta proposta', () => { setAppearancePending(null);
+                setAppearanceMessage('Proposta scartata: nessun dato visivo salvato.'); }, false, busy)}
+              {action('Conferma dettagli visivi', () => { void confirmAppearance(); }, true, busy)}
+            </View>
+          </View> : null}
         </View>
 
         {draft ? <View style={[s.card, card]} testID="wardrobe-editor">
@@ -258,7 +372,7 @@ function WardrobeScreen() {
 
         <View style={[s.card, card]}>
           <Text style={[s.heading, foreground]}>Scegli un look</Text>
-          <Text style={[s.note, muted]}>ORA valuta gli abbinamenti con l'AI, utilizzando esclusivamente i capi realmente presenti e disponibili. L'analisi invia al modello soltanto le descrizioni dei vestiti, mai le fotografie.</Text>
+          <Text style={[s.note, muted]}>ORA combina i capi che possiedi, le caratteristiche delle foto che hai approvato e i look a cui hai dato «Mi piace» o «Non mi piace». Le fotografie non vengono inviate allo stylist: solo descrizioni e caratteristiche confermate.</Text>
           <View style={s.choices}>{OCCASIONS.map(o => chip(o.label, occasion === o.value,
             () => { setOccasion(o.value); setResult(null); }, o.value))}</View>
           <TextInput testID="wardrobe-style-note" value={styleNote} maxLength={200}
@@ -272,6 +386,7 @@ function WardrobeScreen() {
             {result.engine === 'ai-stylist-v1' ? 'Stylist AI · Valutazione delle schede dei tuoi capi'
               : result.ai_status === 'unavailable' ? 'Stylist AI non disponibile · Consigli preliminari'
               : result.ai_status === 'rate_limited' ? 'Limite AI raggiunto · Consigli preliminari'
+              : result.ai_status === 'not_preferred' ? 'Nessun look nuovo · Preferenze rispettate'
               : 'Suggerimenti preliminari dai tuoi capi'}
           </Text> : null}
           {result ? <View testID="wardrobe-suggestions" style={{ gap: 12 }}>
@@ -280,6 +395,9 @@ function WardrobeScreen() {
             </Text> : result.outfits.map((look, n) => (
               <View key={n} style={[s.look, { borderColor: colors.border }]}>
                 <Text style={[s.itemName, foreground]}>Look {n + 1} · {look.title}</Text>
+                {look.visual_coverage ? <Text testID="wardrobe-visual-coverage" style={[s.detail, muted]}>
+                  Dettagli visivi approvati: {look.visual_coverage.reviewed}/{look.visual_coverage.total} capi
+                </Text> : null}
                 <View style={s.outfitItems}>
                   {look.item_ids.map(id => {
                     const item = items.find(i => i.id === id);
@@ -302,9 +420,20 @@ function WardrobeScreen() {
                     <Text key={i} style={[s.note, muted]}>• {warning}</Text>)}
                 </View> : null}
                 {look.styling_tip ? <Text style={[s.note, foreground]}>Consiglio sul capo: {look.styling_tip}</Text> : null}
+                <View testID="wardrobe-outfit-feedback" style={s.inline}>
+                  {action(look.feedback === 'like' ? '✓ Mi piace' : 'Mi piace',
+                    () => { void feedbackOutfit(look.item_ids, 'like'); }, false, busy)}
+                  {action(look.feedback === 'dislike' ? '✓ Non mi piace' : 'Non mi piace',
+                    () => { void feedbackOutfit(look.item_ids, 'dislike'); }, false, busy)}
+                </View>
+                {look.feedback === 'dislike' ? <Text style={[s.note, muted]}>
+                  Hai scartato questo look. ORA non lo riproporrà nei prossimi consigli.
+                </Text> : null}
               </View>
             ))}
-            <Text style={[s.note, muted]}>{result.message}</Text>
+            {result.ai_status === 'not_preferred' ? <Text testID="wardrobe-no-preferred"
+              style={[s.note, foreground]}>{result.message}</Text> :
+              <Text style={[s.note, muted]}>{result.message}</Text>}
           </View> : null}
         </View>
 
@@ -347,5 +476,6 @@ const s = StyleSheet.create({
   outfitName: { fontWeight: '600', fontSize: 14, lineHeight: 18, minHeight: 18 },
   outfitColor: { fontSize: 12 },
   cautions: { gap: 5, paddingTop: 7 },
+  visualEditor: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 12 },
 
 });

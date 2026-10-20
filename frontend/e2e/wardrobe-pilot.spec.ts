@@ -4,11 +4,15 @@ const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwM
 
 type Item = { id: string; revision: number; name: string; category: string;
   color: string; formality: string; status: string; seasons: string[]; photo: string | null;
+  visual_profile?: Record<string, any> | null;
   created_at: string; updated_at: string };
 
 async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outage' = 'recognized') {
   const items: Item[] = [];
-  const statistics = { analyzed: 0, saved: 0, photos: 0, lastStyleNote: '', usedAI: false };
+  const feedback = new Map<string, 'like' | 'dislike'>();
+  const statistics = { analyzed: 0, saved: 0, photos: 0,
+    appearanceScans: 0, appearanceConfirmations: 0, feedbackWrites: 0,
+    lastStyleNote: '', usedAI: false };
   await page.addInitScript(() => {
     localStorage.setItem('ora_auth_token', JSON.stringify('synthetic-wardrobe-session'));
   });
@@ -62,7 +66,9 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       statistics.saved++;
       const input = req.postDataJSON();
       const existing = items.findIndex(i => i.id === input.id);
-      const item: Item = { ...input, revision: input.revision + 1, photo: null,
+      const item: Item = { ...input, revision: input.revision + 1,
+        photo: existing >= 0 ? items[existing].photo : null,
+        visual_profile: existing >= 0 ? items[existing].visual_profile : null,
         created_at: '2026-10-18T13:00:00Z', updated_at: '2026-10-18T13:00:00Z' };
       if (existing >= 0) items[existing] = item;
       else items.push(item);
@@ -74,8 +80,46 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       if (item) {
         item.revision += 1;
         item.photo = 'data:image/png;base64,' + png;
+        item.visual_profile = null;
       }
       json = { item };
+    } else if (path.endsWith('/appearance/analyze') && req.method() === 'POST') {
+      statistics.appearanceScans++;
+      const id = path.split('/').at(-3);
+      const item = items.find(i => i.id === id);
+      if (!item?.photo) {
+        await route.fulfill({ status: 409, headers, json: { detail: 'Fotografia non disponibile.' } });
+        return;
+      }
+      json = mode === 'uncertain'
+        ? { recognized: false, stored: false, draft: null,
+            revision: item.revision, message: 'Non distinguo con certezza il capo.' }
+        : { recognized: true, stored: false, revision: item.revision,
+            photo_sha256: 'a'.repeat(64), message: 'Proposta visiva: conferma o correggi.',
+            draft: { pattern: 'striped', shape: 'tailored', surface: 'smooth',
+              tone: 'cool', confidence: 'medium' } };
+    } else if (path.endsWith('/appearance') && req.method() === 'PUT') {
+      statistics.appearanceConfirmations++;
+      const id = path.split('/').at(-2);
+      const item = items.find(i => i.id === id);
+      if (item) {
+        const input = req.postDataJSON();
+        const { revision, photo_sha256, ...details } = input;
+        item.revision++;
+        item.visual_profile = { ...details, reviewed_at: '2026-10-20T12:00:00Z' };
+      }
+      json = { item };
+    } else if (path.endsWith('/appearance') && req.method() === 'DELETE') {
+      const id = path.split('/').at(-2);
+      const item = items.find(i => i.id === id);
+      if (item) { item.visual_profile = null; item.revision++; }
+      json = { item };
+    } else if (path === '/api/wardrobe/outfits/feedback') {
+      statistics.feedbackWrites++;
+      const body = req.postDataJSON();
+      const signature = [body.occasion, ...[...body.item_ids].sort()].join(':');
+      feedback.set(signature, body.reaction);
+      json = { stored: true, reaction: body.reaction };
     } else if (path === '/api/wardrobe/items') {
       json = { items };
     } else if (path.startsWith('/api/wardrobe/items/') && req.method() === 'DELETE') {
@@ -94,24 +138,40 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       const separates = roles.map(role => eligible.find(i => i.category === role));
       const dress = eligible.find(i => i.category === 'one_piece');
       const footwear = eligible.find(i => i.category === 'shoes');
-      const selected = dress && footwear ? [dress, footwear] : separates;
-      const missing = dress ? (footwear ? [] : ['shoes']) :
+      const chosenShoes = eligible.filter(i => i.category === 'shoes');
+      const remaining = chosenShoes.find(shoe => {
+        const group = (dress ? [dress, shoe] : [separates[0], separates[1], shoe])
+          .filter(Boolean) as Item[];
+        const signature = [occasion, ...group.map(i => i.id).sort()].join(':');
+        return feedback.get(signature) !== 'dislike';
+      });
+      const selected = dress && remaining ? [dress, remaining]
+        : separates.map(i => i?.category === 'shoes' ? remaining : i);
+      const missing = dress ? (!footwear ? ['shoes'] : []) :
         roles.filter((_, i) => !separates[i]);
+      const allDisliked = !missing.length && !remaining;
+      const signature = [occasion, ...selected.filter(Boolean).map(i => i!.id).sort()].join(':');
       const blackShoesBrownTrousers = selected.some(i => i?.category === 'shoes' && i.color.includes('nero'))
         && selected.some(i => i?.category === 'bottom' && i.color.includes('marrone'));
       const cautions = blackShoesBrownTrousers
         ? ['Scarpe nere e pantaloni marroni creano uno stacco da valutare dal vivo.',
            'È l\'unica combinazione completa valutabile con i capi registrati.'] : [];
-      json = { engine: !missing.length && statistics.usedAI ? 'ai-stylist-v1' : 'rules-v1',
-        ai_status: missing.length ? 'insufficient_wardrobe' : statistics.usedAI ? 'ok' : 'not_requested',
-        candidate_count: missing.length ? 0 : 1,
+      json = { engine: allDisliked ? 'preference-v1'
+        : !missing.length && statistics.usedAI ? 'ai-stylist-v1' : 'rules-v1',
+        ai_status: missing.length ? 'insufficient_wardrobe'
+          : allDisliked ? 'not_preferred' : statistics.usedAI ? 'ok' : 'not_requested',
+        candidate_count: missing.length || allDisliked ? 0 : 1,
         occasion, missing,
-        message: missing.length ? 'Servono altri capi' : 'Valutazione indicativa dalle schede',
-        outfits: missing.length ? [] : [{ item_ids: selected.map(i => i!.id),
+        message: allDisliked ? 'Hai già scartato tutti i look completi.'
+          : missing.length ? 'Servono altri capi' : 'Valutazione indicativa dalle schede',
+        outfits: missing.length || allDisliked ? [] : [{
+          item_ids: selected.map(i => i!.id),
           title: cautions.length ? 'Look possibile, con riserve' : 'Look plausibile',
           why: 'La palette e la formalità devono essere valutate insieme.',
-          verdict: cautions.length ? 'acceptable' : 'good',
-          cautions,
+          verdict: cautions.length ? 'acceptable' : 'good', cautions,
+          feedback: feedback.get(signature) || null,
+          visual_coverage: { reviewed: selected.filter(i => i?.visual_profile?.reviewed_at).length,
+            total: selected.length },
           styling_tip: selected.some(i => i?.category === 'top' && i.name.includes('Camicia')) ?
             'Valuta la camicia dentro i pantaloni, se la vestibilità lo consente.' : '' }] };
     }
@@ -292,4 +352,51 @@ test('black shoes and brown trousers show candid warning without imaginary acces
   // The UI must still make its registered garments legible, not 40px icon labels.
   await expect(page.locator('[data-testid="wardrobe-suggestions"]')).toContainText('Camicia azzurra');
   await expect(page.locator('[data-testid="wardrobe-suggestions"]')).toContainText('Scarpe stringate nere');
+});
+
+
+test('visual AI details are opt-in, correctable, confirmed separately and revocable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stats = await mockAccount(page);
+  await page.goto('/guardaroba');
+  await page.getByRole('button', { name: 'Aggiungi un capo' }).click();
+  await choosePhoto(page);
+  await page.getByPlaceholder('Es. Camicia azzurra').fill('Camicia azzurra');
+  await page.getByPlaceholder('Es. Blu, bianco, beige').fill('azzurro');
+  await page.getByRole('button', { name: 'Salva capo' }).click();
+  await expect(page.getByTestId('wardrobe-notice')).toContainText('Capo salvato');
+  expect(stats.appearanceScans).toBe(0);
+  await page.getByRole('button', { name: 'Analizza stile con AI' }).click();
+  await expect(page.getByTestId('wardrobe-appearance-editor')).toBeVisible();
+  expect(stats.appearanceScans).toBe(1);
+  expect(stats.appearanceConfirmations).toBe(0);
+  await page.getByTestId('wardrobe-appearance-editor').getByRole('button', { name: 'Tinta unita' }).click();
+  await page.getByRole('button', { name: 'Conferma dettagli visivi' }).click();
+  await expect(page.getByTestId('wardrobe-visual-profile')).toContainText('Tinta unita');
+  expect(stats.appearanceConfirmations).toBe(1);
+  await page.getByRole('button', { name: 'Rimuovi analisi visiva' }).click();
+  await expect(page.getByTestId('wardrobe-visual-profile')).toHaveCount(0);
+});
+
+test('disliked complete outfit is not repeated, feedback changes the next suggestion', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stats = await mockAccount(page);
+  await page.goto('/guardaroba');
+  await add(page, 'Camicia blu', 'Maglia / camicia', 'blu');
+  await add(page, 'Pantaloni beige', 'Pantaloni / gonna', 'beige');
+  await add(page, 'Scarpe nere', 'Scarpe', 'nero');
+  await page.getByRole('button', { name: 'Serata chic' }).click();
+  await page.getByRole('button', { name: 'Proponi gli abbinamenti con AI' }).click();
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Scarpe nere');
+  await page.getByTestId('wardrobe-outfit-feedback').getByRole('button', { name: 'Non mi piace' }).click();
+  expect(stats.feedbackWrites).toBe(1);
+  await page.getByRole('button', { name: 'Proponi gli abbinamenti con AI' }).click();
+  await expect(page.getByTestId('wardrobe-no-preferred')).toContainText('Hai già scartato');
+  await add(page, 'Scarpe marroni', 'Scarpe', 'marrone');
+  await page.getByRole('button', { name: 'Proponi gli abbinamenti con AI' }).click();
+  await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Scarpe marroni');
+  await expect(page.getByTestId('wardrobe-suggestions')).not.toContainText('Scarpe nere');
+  await page.getByTestId('wardrobe-outfit-feedback').getByRole('button', { name: 'Mi piace', exact: true }).click();
+  expect(stats.feedbackWrites).toBe(2);
+  await expect(page.getByTestId('wardrobe-outfit-feedback')).toContainText('✓ Mi piace');
 });
