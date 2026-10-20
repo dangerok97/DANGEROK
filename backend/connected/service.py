@@ -234,7 +234,7 @@ class ConnectedLifeService:
         from connected.core_work import SourceCoreWorker, ready_for_owner
         if await ready_for_owner(self.db, owner_id):
             return await SourceCoreWorker(self.db).process_pending(owner_id, limit=limit)
-        pending = await self.signals.pending(owner_id, limit=limit)
+        pending = await self.signals.pending(owner_id, limit=limit, due_only=True)
         if not pending:
             return {"ok": True, "looked_at": 0, "noise": 0, "passed_on": 0}
 
