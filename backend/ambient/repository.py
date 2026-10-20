@@ -47,6 +47,24 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _utc_schedule(value: Any) -> Optional[str]:
+    """Canonical UTC instant for lexicographically indexed wake times.
+
+    Mongo filters use ISO strings. Comparing 16:09+02:00 to 14:09+00:00
+    as text is NOT comparing real instants. Reject naive/unknown timestamps
+    instead of silently assuming the device, server, or owner's timezone.
+    """
+    try:
+        parsed = value if isinstance(value, datetime) else datetime.fromisoformat(
+            str(value).replace("Z", "+00:00")
+        )
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            return None
+        return parsed.astimezone(timezone.utc).isoformat()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def _retained_until(when: str) -> datetime:
     moment = _now()
     try:
@@ -75,6 +93,10 @@ class AmbientRepository:
                 partialFilterExpression={"status": {"$in": list(OPEN)}},
             )
             await self.db[WAKES].create_index("expires_at", expireAfterSeconds=0)
+            # One bounded, compare-and-set normalization of still-open legacy
+            # alarms. Completed/cancelled history and user Situations stay
+            # untouched. Runtime retry/reschedule writes are UTC from now on.
+            await self.normalize_legacy_open_wakes()
 
             await self.db[ENDPOINTS].create_index("id", unique=True)
             await self.db[ENDPOINTS].create_index([("owner_id", 1), ("status", 1)])
@@ -89,6 +111,57 @@ class AmbientRepository:
 
     # --- arranged moments -------------------------------------------------
 
+    async def normalize_legacy_open_wakes(self, *, max_rows: int = 300) -> int:
+        """Fix historical offset-string ordering without recreating work.
+
+        Change only pending alarms or abandoned claims with expired leases.
+        The original owner, alarm, source, attempts and status remain the same;
+        no task is invoked, notified or rescheduled. Past results and closed
+        records are never rewritten.
+        """
+        stamp = _now().isoformat()
+        old_offset = r"(?:[+-](?!00:00)\d{2}:\d{2}|Z)$"
+        allowed = {
+            "$or": [
+                {"status": "pending"},
+                {"status": "claimed", "lease_until": {"$lt": stamp}},
+            ],
+            "scheduled_for": {"$regex": old_offset},
+        }
+        changed = 0
+        try:
+            records = await self.db[WAKES].find(
+                allowed,
+                {"_id": 0, "id": 1, "scheduled_for": 1,
+                 "status": 1, "lease_until": 1},
+            ).sort("scheduled_for", 1).limit(
+                max(1, min(int(max_rows), 1000))
+            ).to_list(max(1, min(int(max_rows), 1000)))
+            for record in records:
+                old = str(record.get("scheduled_for") or "")
+                instant = _utc_schedule(old)
+                if not instant or old == instant:
+                    continue
+                predicate = {
+                    "id": record.get("id"),
+                    "scheduled_for": old,
+                    "status": record.get("status"),
+                }
+                if record.get("status") == "claimed":
+                    predicate["lease_until"] = {"$lt": stamp}
+                # Do not change identity: the historical unique-key
+                # reservation belongs to this alarm. A new call site should
+                # always check canonical source/work before re-scheduling.
+                updated = await self.db[WAKES].update_one(
+                    predicate, {"$set": {"scheduled_for": instant,
+                                        "updated_at": stamp}},
+                )
+                changed += int(updated.modified_count)
+        except Exception as exc:
+            logger.warning("wake UTC legacy normalization failed type=%s",
+                           type(exc).__name__)
+        return changed
+
     async def schedule(self, wake: AmbientWake) -> Optional[AmbientWake]:
         """
         Set an alarm, unless the same alarm is already set.
@@ -97,9 +170,13 @@ class AmbientRepository:
         failure. Three updates to one concern should produce one moment to
         look at it again, and the caller wanting a second is the bug.
         """
+        canonical = _utc_schedule(wake.scheduled_for)
+        if canonical is None:
+            return None
+        wake = wake.model_copy(update={"scheduled_for": canonical})
         doc = wake.model_dump()
         doc["identity"] = wake.identity
-        doc["expires_at"] = _retained_until(wake.scheduled_for)
+        doc["expires_at"] = _retained_until(canonical)
         try:
             await self.db[WAKES].insert_one(doc)
             return wake
@@ -110,10 +187,13 @@ class AmbientRepository:
             return None
 
     async def reschedule(self, wake_id: str, *, when: str) -> Optional[AmbientWake]:
+        canonical = _utc_schedule(when)
+        if canonical is None:
+            return None
         doc = await self.db[WAKES].find_one_and_update(
             {"id": wake_id},
-            {"$set": {"scheduled_for": when, "status": "pending",
-                      "expires_at": _retained_until(when),
+            {"$set": {"scheduled_for": canonical, "status": "pending",
+                      "expires_at": _retained_until(canonical),
                       "claimed_at": None, "lease_until": None, "worker_id": "",
                       "updated_at": _now().isoformat()}},
             projection={"_id": 0},
@@ -188,12 +268,16 @@ class AmbientRepository:
 
     async def release(self, wake_id: str, *, when: str, error: str = "", worker_id: str = "") -> None:
         """Put it back for later — a technical retry, not a new judgement."""
+        canonical = _utc_schedule(when)
+        if canonical is None:
+            logger.warning("rejected naive wake retry time")
+            return
         await self.db[WAKES].update_one(
             {"id": wake_id, "status": "claimed", **({"worker_id": worker_id} if worker_id else {})},
             {"$set": {
                 "status": "pending",
-                "scheduled_for": when,
-                "expires_at": _retained_until(when),
+                "scheduled_for": canonical,
+                "expires_at": _retained_until(canonical),
                 "claimed_at": None,
                 "lease_until": None,
                 "worker_id": "",
