@@ -1945,7 +1945,10 @@ async def run_cognitive_loop(
                     session_id=sess.id,
                     update=resolved_situation_update,
                     reasoning_epoch=epoch,
+                    user_message=user_message,
                 )
+                if situation_result.get("new_episode"):
+                    add_step(trace, event="SITUATION_FRESH_USER_EPISODE")
                 st["active_situation_ref"] = dict(
                     situation_result.get("situation") or {}
                 )
@@ -1967,7 +1970,7 @@ async def run_cognitive_loop(
                 add_step(
                     trace,
                     event="SITUATION_MUTATION",
-                    operation=decision.situation_update.operation,
+                    operation=situation_result.get("operation") or decision.situation_update.operation,
                 )
                 await _emit_life_change(
                     trace,
@@ -1977,7 +1980,7 @@ async def run_cognitive_loop(
                         user_id=sess.user_id,
                         session_id=sess.id,
                         reasoning_epoch=epoch,
-                        operation=decision.situation_update.operation,
+                        operation=situation_result.get("operation") or decision.situation_update.operation,
                         result=situation_result,
                     ),
                     user_id=sess.user_id,
