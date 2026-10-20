@@ -11,8 +11,6 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
-from situations.history_identity import record_event_day
-
 
 def _when(raw):
     if not raw:
@@ -54,7 +52,7 @@ async def read_situation_wake_audit(db, owner: str, situation, *, limit=8) -> di
             "dalle sole sveglie del worker."
         ),
     }
-    if not db or not owner or not situation or situation.user_id != owner:
+    if db is None or not owner or situation is None or situation.user_id != owner:
         return default
     sid = str(situation.id or "")
     if not sid:
