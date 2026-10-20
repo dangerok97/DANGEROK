@@ -189,3 +189,32 @@ async def test_no_owner_cross_or_unsourced_new_episode(monkeypatch):
         update=update(started=when(days=-4)),
         user_message="Ho steso i panni adesso.",
     ) is None, "old model-authored start cannot establish present user occurrence"
+
+
+@pytest.mark.asyncio
+async def test_stale_revision_on_old_episode_cannot_block_user_new_event(monkeypatch):
+    db = AsyncMongoMockClient().episode_old_revision
+    service = SituationService(db)
+    monkeypatch.setattr(service, "_note_opportunity_change", AsyncMock(return_value=None))
+    old = await old_situation(db)
+    await db.situations.update_one(
+        {"id": old.id, "user_id": OWNER}, {"$set": {"revision": 7}},
+    )
+    before = await db.situations.find_one(
+        {"id": old.id, "user_id": OWNER}, {"_id": 0},
+    )
+    # The AI's reference may have been one revision old while the person
+    # independently began a new physical event.
+    new = await service.apply(
+        user_id=OWNER, session_id="ces_future",
+        reasoning_epoch="new_after_old_concurrent_edits",
+        update=update(started=when()),
+        user_message="Ho steso adesso un altro carico e voglio seguirlo.",
+    )
+    assert new["new_episode"] is True
+    assert new["operation"] == "create"
+    assert new["situation"]["id"] != old.id
+    assert await db.situations.find_one(
+        {"id": old.id, "user_id": OWNER}, {"_id": 0}
+    ) == before
+    assert await db.situations.count_documents({"user_id": OWNER}) == 2
