@@ -279,3 +279,35 @@ async def test_fresh_user_checkpoint_rearms_exhausted_existing_goal_once(monkeyp
     reused = await service.repo.get_goal(OWNER, goal.id)
     assert reused.background_runs == 2
     assert reused.next_run_at == actual_due
+
+
+@pytest.mark.asyncio
+async def test_home_update_shows_documented_source_instead_of_only_working(monkeypatch):
+    db, service, goal, forecast = await setup(monkeypatch)
+    result = await run_due_checkpoint_source(
+        service, OWNER, goal, budget=AgentBudget(),
+    )
+    assert result["state"] == "source_verified"
+    card = await service._open_card(OWNER, goal)
+    assert not card.get("stale"), card
+    assert card["state"] == "Fonte verificata; esito ancora da valutare", card
+    assert card["has_real_activity"] is True
+    assert "meteo" in card["already_done"].lower()
+    assert "non ho ancora" in card["next_step"].lower()
+    assert "asciutti" not in str(card).lower()
+    forecast.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_home_update_never_labels_three_exhausted_passes_as_working(monkeypatch):
+    db, service, goal, forecast = await setup(monkeypatch, capability="")
+    goal.background_runs = 3
+    goal.next_run_at = None
+    await service.repo.save_goal(goal)
+    card = await service._open_card(OWNER, goal)
+    assert not card.get("stale"), card
+    assert card["state"] == "Controllo automatico interrotto"
+    assert "senza un nuovo controllo" in card["problem"]
+    assert "non sta proseguendo" in card["next_step"]
+    assert card["has_real_activity"] is False
+    forecast.assert_not_awaited()
