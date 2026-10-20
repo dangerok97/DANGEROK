@@ -23,20 +23,20 @@ _PERSONAL_OCCURRENCE = re.compile(
 )
 # Corrections to an existing observation are not new life events.
 _CORRECTION = re.compile(
-    r"\\b(?:ho\\s+sbagliato|mi\\s+sono\\s+sbagliat[oa]|corregg[ie]|"
-    r"rettific[ao]|intendevo|in\\s+realt[aà]|la\\s+data\\s+(?:è|e'|era)|"
-    r"l['’]orario\\s+(?:è|e'|era)|lo\\s+stesso\\s+episodio|"
-    r"stessa\\s+situazione|quell[oa]\\s+di\\s+(?:ieri|prima)|"
-    r"ancora|tuttora|prosegui|continuo|stess[oa])\\b",
+    r"\b(?:ho\s+sbagliato|mi\s+sono\s+sbagliat[oa]|corregg[ie]|"
+    r"rettific[ao]|intendevo|in\s+realt[aà]|la\s+data\s+(?:è|e'|era)|"
+    r"l['’]orario\s+(?:è|e'|era)|lo\s+stesso\s+episodio|"
+    r"stessa\s+situazione|quell[oa]\s+di\s+(?:ieri|prima)|"
+    r"ancora|tuttora|prosegui|continuo|stess[oa])\b",
     re.IGNORECASE,
 )
 # A previously declared *future intention* can begin today without a new
 # Situation. This uses general temporal grammar, not a list of activities.
 _FUTURE_PLAN = re.compile(
-    r"\\b(?:domani|dopodomani|in\\s+futuro|vorrei|prevedo|"
+    r"\b(?:domani|dopodomani|in\s+futuro|vorrei|prevedo|"
     r"previst[oa]|pianificat[oa]|programmat[oa]|intenzione|"
-    r"da\\s+fare|non\\s+ancora\\s+iniziat[oa])\\b|"
-    r"\\b[a-zà-ÿ]{2,}rò\\b",
+    r"da\s+fare|non\s+ancora\s+iniziat[oa])\b|"
+    r"\b[a-zà-ÿ]{2,}rò\b",
     re.IGNORECASE,
 )
 
