@@ -794,6 +794,35 @@ async def get_situation_followup(args, runtime):
             payload={"status": "unavailable", "reason": "storage_read_failed"},
         )
     state = await read_followup(db, owner, sid)
+    if (situation is None and state.get("status") == "unavailable"
+            and state.get("read_failure_code") == "situation_not_found_or_not_owned"
+            and db is not None and owner):
+        # Recover from a potentially model-invented identifier without ever
+        # treating a merely similar record as the requested exact id.
+        # Same account, bounded and READ_ONLY; the owner must distinguish
+        # records semantically using exact date, subject and location.
+        listing = await list_situation_followups({}, runtime)
+        if listing.status == "ok":
+            data = listing.payload or {}
+            state["recent_owner_candidates"] = [
+                {
+                    "situation_id": row.get("situation_id"),
+                    "summary": row.get("summary"),
+                    "event_date": row.get("event_date"),
+                    "created_at": row.get("created_at"),
+                    "location_label": row.get("location_label"),
+                    "lifecycle": row.get("lifecycle"),
+                }
+                for row in (data.get("items") or [])[:5]
+            ]
+            state["recent_candidate_count"] = len(state["recent_owner_candidates"])
+            state["recovery_diagnosis"] = (
+                "L'ID citato non esiste nell'archivio di questo account. "
+                "La lista recente contiene SOLTANTO possibili record distinti "
+                "dell'account: non attribuire automaticamente a quel vecchio "
+                "ID il lavoro o il risultato di un altro record. Controlla "
+                "data originale e località prima di proporre l'ID corretto."
+            )
     if situation is not None and state["status"] != "unavailable":
         state.update(await read_situation_wake_audit(
             db, owner, situation, timezone_name=state.get("timezone") or "UTC",
