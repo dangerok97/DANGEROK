@@ -142,7 +142,8 @@ async def test_atomic_claim_prevents_duplicate_workers_and_foreign_claims():
         {"owner_id": "o1", "id": "sig_lease"}, {"_id": 0}
     )
     assert row["_legacy_interpret"]["attempts"] == 1
-    assert await signals.pending("o1") == []
+    assert [s.id for s in await signals.pending("o1")] == ["sig_lease"]
+    assert await signals.pending("o1", due_only=True) == []
     assert await signals.pending("o2") == []
     # Stale source must not be acknowledged as noise or completion.
     assert row["status"] == "pending"
