@@ -676,6 +676,29 @@ def _latest_situation_schedule(observations) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _verified_partial_situation_schedule_copy(observations) -> Optional[str]:
+    """Do not hide a verified checkpoint behind an unfinished multi-skill plan.
+
+    A saved check is a useful *partial* result even if another declared read
+    has not happened. The tool's own local date is the only clock we may show.
+    This NEVER means the physical result or push delivery is confirmed.
+    """
+    state = _latest_situation_schedule(observations)
+    if not state:
+        return None
+    label = str(state.get("next_check_label") or "").strip()
+    zone = str(state.get("timezone") or "").strip()
+    sid = str(state.get("situation_id") or "").strip()
+    if not label or not zone or not sid:
+        return None
+    return (
+        f"Il controllo della Situazione {sid} risulta programmato per "
+        f"{label} ({zone}), secondo lo stato salvato da ORA. "
+        "Altri passaggi del piano restano incompleti; non risultano "
+        "confermati né il risultato fisico né una notifica esterna."
+    )
+
+
 def _local_hhmm(iso_value: str, timezone_name: str) -> Optional[str]:
     try:
         instant = datetime.fromisoformat(str(iso_value).replace("Z", "+00:00"))
@@ -1525,6 +1548,59 @@ async def run_cognitive_loop(
     followup_gate = FollowupTurnGate(db, sess.user_id)
     if (sess.meta or {}).get("entry_point") != "phone":
         await followup_gate.refresh(context_facts, st.get("active_situation_ref"))
+
+    checkpoint_rescue_attempted = False
+    checkpoint_rescue_receipt = None
+
+    async def _recover_model_selected_weather_schedule(pending_caps):
+        """Execute one governed, explicitly commanded schedule at a terminal bound."""
+        nonlocal tool_calls, attempted_skill_caps, skill_outcomes
+        nonlocal checkpoint_rescue_attempted, checkpoint_rescue_receipt
+        if (
+            checkpoint_rescue_attempted
+            or "schedule_situation_check" not in (pending_caps or [])
+            or tool_calls >= MAX_TOOL_CALLS
+            or any(
+                isinstance(item, dict) and item.get("kind") == "tool"
+                and item.get("name") == "schedule_situation_check"
+                for item in observations[turn_start:]
+            )
+        ):
+            return checkpoint_rescue_receipt
+        checkpoint_rescue_attempted = True
+        try:
+            from situations.explicit_weather_recovery import (
+                recover_explicit_weather_schedule,
+            )
+            receipt = await recover_explicit_weather_schedule(
+                db, sess.user_id, user_message,
+                model_selected_capability=True,
+            )
+            if receipt is None:
+                return None
+            checkpoint_rescue_receipt = receipt
+            if receipt.get("ok"):
+                observation = receipt["observation"]
+                observations.append(observation.model_dump())
+                attempted_skill_caps = _record_skill_attempt(
+                    attempted_skill_caps, "schedule_situation_check",
+                    observation.name,
+                )
+                skill_outcomes = _merge_skill_outcomes(
+                    skill_outcomes,
+                    [_skill_outcome_summary("schedule_situation_check", observation)],
+                )
+                tool_calls += 1
+                trace["tool_calls"] = tool_calls
+                add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_CONFIRMED")
+            else:
+                add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_UNVERIFIED")
+            return receipt
+        except Exception as exc:
+            logger.warning("explicit checkpoint bound recovery failed: %s",
+                           type(exc).__name__)
+            add_step(trace, event="EXPLICIT_CHECKPOINT_BOUND_ERROR")
+            return None
 
     for step in range(max(1, max_steps)):
         # Every conversational step reaches the cognitive model. A tool may
@@ -2391,9 +2467,35 @@ async def run_cognitive_loop(
                     )
                     continue
                 if pending_skill_caps and not skill_plan_waits_for_user:
-                    decision.message_to_user = (
-                        "Non sono riuscita a completare la richiesta in questo turno."
+                    # The ordinary final-answer path also reaches its last
+                    # reasoning step. Do not reserve the exact-command repair
+                    # for the separate loop-bound fallthrough only.
+                    receipt = (
+                        await _recover_model_selected_weather_schedule(pending_skill_caps)
+                        if step + 1 >= max_steps else None
                     )
+                    if receipt and receipt.get("ok"):
+                        refreshed = _required_skill_states(
+                            required_skill_caps, skill_outcomes,
+                        )
+                        pending_skill_caps = list(refreshed["unseen"])
+                        failed_skill_caps = list(refreshed["failed"])
+                        waiting_skill_caps = list(refreshed["waiting"])
+                    if receipt:
+                        decision.message_to_user = receipt["text"]
+                        if receipt.get("ok") and (
+                            pending_skill_caps or failed_skill_caps or waiting_skill_caps
+                        ):
+                            decision.message_to_user += (
+                                " Altri passaggi del piano sono ancora incompleti."
+                            )
+                    else:
+                        decision.message_to_user = (
+                            _verified_partial_situation_schedule_copy(
+                                observations[turn_start:],
+                            )
+                            or "Non sono riuscita a completare la richiesta in questo turno."
+                        )
                     decision.question = None
                     mode = "answer"
                     ora = _compose_user_text(decision, observations[turn_start:])
@@ -4447,6 +4549,14 @@ async def run_cognitive_loop(
         }
         if calendar_pending else None
     )
+    # Both the normal terminal and this loop-bound exit share ONE guarded
+    # recovery attempt. A second path must never produce a duplicate alarm.
+    pre_bound_states = _required_skill_states(required_skill_caps, skill_outcomes)
+    exact_checkpoint_receipt = checkpoint_rescue_receipt
+    if not calendar_pending and not exact_checkpoint_receipt:
+        exact_checkpoint_receipt = await _recover_model_selected_weather_schedule(
+            pre_bound_states["unseen"],
+        )
     bound_skill_states = _required_skill_states(
         required_skill_caps, skill_outcomes
     )
@@ -4499,9 +4609,12 @@ async def run_cognitive_loop(
             )
         elif bound_unseen:
             ora = (
-                "Non ho ancora completato la richiesta: restano passaggi "
-                "che non sono stati eseguiti. Ho conservato lo stato del piano "
-                "per poter riprendere il lavoro."
+                _verified_partial_situation_schedule_copy(observations[turn_start:])
+                or (
+                    "Non ho ancora completato la richiesta: restano passaggi "
+                    "che non sono stati eseguiti. Ho conservato lo stato del piano "
+                    "per poter riprendere il lavoro."
+                )
             )
         else:
             ora = (
@@ -4562,6 +4675,19 @@ async def run_cognitive_loop(
             or "Non ho ancora una risposta verificata a questa richiesta."
         )
         add_step(trace, event="BARE_ACK_BLOCKED_BOUND")
+
+    if exact_checkpoint_receipt and not calendar_pending:
+        # Verified *partial* success must remain visible, even if other
+        # model-declared skills are still unexecuted. Never turn it into a
+        # blanket "job completed" statement or a promised notification.
+        ora = exact_checkpoint_receipt["text"]
+        if exact_checkpoint_receipt.get("ok") and (
+            bound_unseen or bound_waiting or bound_failed
+        ):
+            ora += (
+                " Altri passaggi del piano non sono stati completati; "
+                "la programmazione qui indicata è l'unico risultato verificato."
+            )
 
     # The last AI decision can be a phone tool call with no model prose.
     # Its grounded number/confirmation sentence survives the reasoning bound.
