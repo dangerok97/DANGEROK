@@ -816,3 +816,32 @@ async def test_reviewed_appearance_enriches_ai_only_after_user_confirmation(monk
     assert '"striped"' in observed["user"]
     assert "photo_encrypted" not in observed["user"]
     assert "data:image" not in observed["user"]
+
+
+
+@pytest.mark.asyncio
+async def test_feedback_is_invalidated_on_identity_edit_or_replaced_photo():
+    from wardrobe.preferences import OutfitFeedbackInput
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, role in [("a", "top"), ("b", "bottom"), ("c", "shoes")]:
+        await svc.save("alice", GarmentInput(**item(code, role)))
+    body = OutfitFeedbackInput(occasion="chic_evening",
+                               item_ids=[x*32 for x in "abc"], reaction="dislike")
+    await svc.record_outfit_feedback("alice", body)
+    assert len(db.wardrobe_outfit_feedback.docs) == 1
+    # Changing only availability does not rewrite personal taste.
+    await svc.save("alice", GarmentInput(**item("a", revision=1, status="laundry")))
+    assert len(db.wardrobe_outfit_feedback.docs) == 1
+    # A new color makes the old, disliked outfit a different garment pairing.
+    await svc.save("alice", GarmentInput(**item("a", revision=2,
+                                               status="available", color="verde")))
+    assert db.wardrobe_outfit_feedback.docs == {}
+    await svc.record_outfit_feedback("alice", body)
+    assert len(db.wardrobe_outfit_feedback.docs) == 1
+
+    photo = make_thumbnail(image_bytes())
+    await svc.save_photo("alice", "a"*32, 3, photo)
+    assert len(db.wardrobe_outfit_feedback.docs) == 1  # first photo on unchanged garment
+    await svc.save_photo("alice", "a"*32, 4, photo)
+    assert db.wardrobe_outfit_feedback.docs == {}
