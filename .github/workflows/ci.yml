@@ -80,6 +80,9 @@ jobs:
       - name: Ambient UTC instants, DST and legacy wake ordering
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ambient_utc_clock_v1.py -x
+      - name: Connected source LLM outage backoff and due-only owner selection
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_connected_llm_backoff_v1.py -x
       - name: Explicit due Situation source read is real, idempotent and isolated
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_explicit_due_source_v1.py -x
