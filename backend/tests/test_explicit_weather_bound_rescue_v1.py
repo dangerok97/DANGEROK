@@ -228,3 +228,106 @@ async def test_no_weather_rescue_on_status_negation_ambiguous_id_or_unselected_s
     ) is None
     assert await db.agent_goals.count_documents({}) == 0
     assert await db.ambient_wakes.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_natural_laundry_request_lets_ai_choose_relative_checkpoint_no_iso(monkeypatch):
+    """No technical clock data in the person's words; model picks interval."""
+    from situations.followup import schedule_situation_check
+    db, _ = await fixture(monkeypatch)
+    before = datetime.now(timezone.utc)
+    answer = await schedule_situation_check({
+        "situation_id": SID,
+        "expected_revision": 1,
+        "delay_minutes": 35,
+        "purpose": "Rivedere le condizioni esterne per decidere quando ritirare i panni.",
+        "completion_when": "Dare una stima utile del momento di ritiro.",
+        "notify_when": "Segnalare un rischio meteo imminente.",
+        "read_capability": "weather.read",
+    }, {"db": db, "user_id": OWNER,
+        "user_message": "Ho steso i panni a Tarquinia."})
+    assert answer.status == "ok", answer.payload
+    state = await read_followup(db, OWNER, SID)
+    assert state["status"] == "scheduled"
+    due = datetime.fromisoformat(state["next_check_at"].replace("Z", "+00:00"))
+    assert timedelta(minutes=34) <= due - before <= timedelta(minutes=36)
+    assert state["last_checked_at"] is None
+    assert state["next_check_label"]
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "status": "pending",
+    }) == 1
+    goal = await db.agent_goals.find_one({"owner_id": OWNER}, {"_id": 0})
+    assert goal["source_situation"]["checkpoint_read_capability"] == "weather.read"
+    assert await db.agent_evidence.count_documents({}) == 0
+    assert await db.delivery_plans.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_malformed_iso_recovers_explicit_five_minute_instruction(monkeypatch):
+    """This is the real 21 Oct error: model called schedule with a wall clock."""
+    from situations.followup import schedule_situation_check
+    db, _ = await fixture(monkeypatch)
+    before = datetime.now(timezone.utc)
+    answer = await schedule_situation_check({
+        "situation_id": SID, "expected_revision": 1,
+        "check_at": "21 ottobre alle 09:05",  # not ISO with timezone
+        "purpose": "Rileggere il meteo alla prossima verifica.",
+        "completion_when": "Capire quando è consigliabile ritirare i panni.",
+        "notify_when": "Rischio di pioggia prima dell'asciugatura.",
+        "read_capability": "weather.read",
+    }, {"db": db, "user_id": OWNER,
+        "user_message": (
+            f"ORA, programma fra 5 minuti un controllo meteo a Tarquinia "
+            f"per la Situazione {SID}."
+        )})
+    assert answer.status == "ok", answer.payload
+    state = await read_followup(db, OWNER, SID)
+    assert state["status"] == "scheduled"
+    due = datetime.fromisoformat(state["next_check_at"].replace("Z", "+00:00"))
+    assert timedelta(minutes=3) <= due - before <= timedelta(minutes=6)
+    assert await db.ambient_wakes.count_documents({
+        "owner_id": OWNER, "status": "pending",
+    }) == 1
+    assert await db.agent_evidence.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_or_negated_relative_time_does_not_schedule(monkeypatch):
+    from situations.followup import schedule_situation_check
+    db, _ = await fixture(monkeypatch)
+    arguments = {
+        "situation_id": SID, "expected_revision": 1,
+        "check_at": "alle nove e dieci",
+        "purpose": "Un controllo",
+        "completion_when": "Una stima",
+        "notify_when": "Un rischio",
+        "read_capability": "weather.read",
+    }
+    for words in (
+        "Non programmare fra 5 minuti un controllo meteo.",
+        "Programma fra 5 minuti e fra 10 minuti un controllo meteo.",
+        "Controlla il meteo, nessun orario indicato.",
+    ):
+        result = await schedule_situation_check(arguments, {
+            "db": db, "user_id": OWNER, "user_message": words,
+        })
+        assert result.status == "error"
+        assert result.payload.get("error") == "timezone_aware_checkpoint_within_72h_required"
+    assert await db.ambient_wakes.count_documents({}) == 0
+    assert await db.agent_goals.count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_bad_model_delay_fails_closed_even_if_it_could_guess_from_prose(monkeypatch):
+    from situations.followup import schedule_situation_check
+    db, _ = await fixture(monkeypatch)
+    response = await schedule_situation_check({
+        "situation_id": SID, "expected_revision": 1,
+        "delay_minutes": 0, "check_at": "tomorrow maybe",
+        "purpose": "Verifica", "completion_when": "Consiglio",
+        "notify_when": "Rischio",
+        "read_capability": "weather.read",
+    }, {"db": db, "user_id": OWNER,
+        "user_message": "Programma fra 5 minuti un controllo meteo."})
+    assert response.status == "error"
+    assert await db.ambient_wakes.count_documents({}) == 0
