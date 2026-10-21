@@ -3,22 +3,30 @@
 Implementati ingresso VITA → Casa, scanner iOS nativo, più stanze, API per
 account, pianta 2D e quote verificate. Il web iPhone propone il passaggio alla
 build ORA installata. Non esiste una scansione RoomPlan eseguibile in Safari.
-La configurazione di distribuzione resta disattivata finché esistono una
+La configurazione di distribuzione resta disattivata finché non esistono una
 build firmata realmente installabile e un link TestFlight/App Store valido.
 
-TypeScript, lint mirato, test geometrici/bridge/handoff, export web e prebuild
-iOS sono verificabili senza firma. La compilazione Swift è affidata al job
-macOS dedicato; la prova fisica richiede una build firmata sul dispositivo.
+TypeScript, lint mirato, test geometrici/bridge/handoff, export web, prebuild
+e compilazione Swift dell'app iOS sono PASS. Il job macOS dedicato ha
+compilato lo schema ORA per iOS Simulator senza firma sul commit `68013e53`;
+la prova fisica richiede ancora una build firmata sul dispositivo.
 Il repository non contiene credenziali Apple/Expo, né si presume un progetto
 EAS esistente. `EXPO_PUBLIC_EAS_PROJECT_ID` permette di collegarne uno reale.
 Corrette tre dipendenze native fuori dalla matrice Expo 54 prima del prebuild;
 il controllo remoto ha poi richiesto anche le patch Expo 54.0.37 ed
 expo-constants 18.0.14, ora allineate e verificate sul catalogo ufficiale.
-La CI generale e le dieci prove Chromium/WebKit sono passate; il primo job
-iOS si è fermato a quel controllo dipendenze, prima di compilare Swift.
+La CI generale, Loyalty e il workflow Casa sono interamente PASS. Le dieci
+prove Chromium/WebKit sono riuscite; il primo job iOS si era fermato al
+controllo dipendenze, mentre la seconda esecuzione ha compilato l'app.
 
 Esiti puntuali e percorso di installazione sono mantenuti in `HOUSE_SCANS.md`.
 Una CI verde o un rilascio Railway non chiudono da soli il collaudo LiDAR.
+Il deploy cloud è stato tentato e resta bloccato dall'indisponibilità
+ufficiale Railway del 21 ottobre (API/dashboard/CLI e nuove build). L'ultima
+lettura mostra la patch preparata sui due servizi esistenti ancora `STAGED`;
+ORA precedente risponde regolarmente, mentre la nuova API Casa è ancora 404.
+Prima di riprovare occorre rileggere patch e deployment per verificare che
+le richieste fallite non siano state applicate tardivamente.
 
 ---
 

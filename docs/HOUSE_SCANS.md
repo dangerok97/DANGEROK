@@ -98,9 +98,53 @@ Chromium/WebKit. Il job iOS ha richiesto le patch Expo 54.0.37 e
 expo-constants 18.0.14 prima di compilare: entrambe sono state allineate,
 con nuovo export web e 5/5 prove mobile locali riusciti. Il bridge Swift
 esplicita inoltre i callback senza valore di ritorno e i timeout sul main actor.
-Compilazione Swift e rilascio sono verifiche successive al controllo dipendenze.
-Firma Apple e prova fisica non risultano completate in questa fase: nessun
-esito sintetico le sostituisce.
+
+La seconda esecuzione, sul commit `68013e53`, è conclusa con successo:
+contratti, 10/10 prove browser e compilazione dell'app iOS senza firma su
+macOS. Il job iOS `119195953835` ha superato controllo dipendenze, prebuild,
+autolinking, CocoaPods e `xcodebuild` dello schema `ORA` per iOS Simulator.
+Il log completo è conservato nell'artifact del workflow per sette giorni.
+Anche CI generale e Loyalty sono PASS sullo stesso commit.
+
+Questa verifica dimostra che l'app e il modulo nativo compilano; non è
+un'installazione sul telefono né una scansione LiDAR. Firma Apple e prova
+fisica non risultano completate: nessun esito sintetico le sostituisce.
+
+## Rilascio cloud: blocco esterno del 21 ottobre 2026
+
+Il codice della funzione è salvato su `staging/cloud`, commit
+`68013e53b0310d982aeba73fd5f3676c71fef600`. La seconda CI ha confermato
+53 test API e 10/10 prove Chromium/WebKit. Anche la
+[CI generale](https://github.com/dangerok97/DANGEROK/actions/runs/39592280005)
+e il [workflow Loyalty](https://github.com/dangerok97/DANGEROK/actions/runs/39592280101)
+sono conclusi con successo sullo stesso commit. Il
+[workflow Casa](https://github.com/dangerok97/DANGEROK/actions/runs/39592280014)
+è interamente PASS, inclusa la compilazione iOS senza firma.
+
+Il rilascio è stato preparato sui servizi esistenti `ora-web` e `ora-backend`
+di ORA Staging, ambiente `production`. La patch
+`c5eb5e8e-d3fb-41ad-8674-ffc16c3d5007` modifica soltanto la sorgente dei due
+servizi, fissata a quel commit; nessuna modifica a volumi, database o segreti.
+L'ultima lettura riuscita mostra la patch `STAGED`, senza un nuovo deployment.
+Due tentativi di applicarla e il tentativo diretto sul servizio backend
+hanno restituito `-32603 Internal error`; successivamente anche le letture
+di stato hanno restituito lo stesso errore.
+
+La [pagina ufficiale Railway](https://status.railway.com/) segnala un
+incidente grave con dashboard/API/CLI indisponibili e nuove build sospese
+in tutte le regioni (aggiornamento 21 ottobre, 09:28 UTC). Il guasto è la
+spiegazione supportata per il blocco attuale; non ci sono elementi per
+attribuirlo alle credenziali GitHub dell'utente.
+
+Controlli HTTP pubblici durante il blocco: web `/healthz` e backend
+`/api/health` rispondono 200, con database disponibile; `/api/house-scans`
+risponde ancora 404. Il 200 della route web `/casa` è il fallback della SPA
+precedente e non prova la pubblicazione della nuova schermata.
+
+Alla ripresa del servizio, rileggere prima patch e deployment per escludere
+un'applicazione tardiva, poi applicare soltanto il rilascio già verificato.
+Confermare commit effettivo, salute dei servizi e risposta 401 dell'API Casa
+senza sessione. Non dichiarare la funzione online prima di queste verifiche.
 
 ## Riferimenti primari
 

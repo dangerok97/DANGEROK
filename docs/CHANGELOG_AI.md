@@ -17,6 +17,12 @@
   Expo 54.0.37/constants 18.0.14 richieste dal job iOS prima della compilazione,
   con export e 5/5 prove mobile nuovamente riusciti. Callback e timeout Swift
   esplicitano ritorno Void e main actor.
+- Seconda CI: contratti, 10/10 prove browser e compilazione iOS senza firma
+  su macOS PASS; anche CI generale e Loyalty PASS sul commit `68013e53`.
+  Rilascio cloud preparato
+  sugli stessi servizi e tentato, ma bloccato dall'incidente ufficiale Railway
+  del 21 ottobre. Sito/backend precedenti sani; API Casa ancora non pubblicata.
+  Patch e passaggi di ripresa documentati senza dichiarare un deploy riuscito.
 
 ---
 
