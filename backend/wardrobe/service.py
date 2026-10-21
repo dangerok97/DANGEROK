@@ -407,6 +407,11 @@ class WardrobeService:
         photo = combine_wardrobe_views(front, back)
         output = await describe_appearance(photo)
         if output["recognized"]:
+            if not back and isinstance(output.get("draft"), dict):
+                # Never present hallucinated "back" details as visually observed
+                # when the owner has uploaded only the front.
+                output["draft"]["back_graphic"] = "uncertain"
+                output["draft"]["back_style"] = "uncertain"
             return {**output, "revision": revision, "photo_sha256": photo_signature(photo),
                     "views_analyzed": 2 if back else 1}
         return {**output, "revision": revision}
@@ -422,6 +427,11 @@ class WardrobeService:
             raise WardrobeError("La foto o il capo sono cambiati. Ripeti l'analisi.", 409)
         if not current.get("photo_encrypted"):
             raise WardrobeError("Fotografia non disponibile.", 409)
+        if not current.get("photo_back_encrypted") and (
+            body.back_graphic != "uncertain" or body.back_style != "uncertain"
+        ):
+            raise WardrobeError(
+                "Senza una foto del retro non posso confermarne i dettagli visivi.", 422)
         front = self.cipher.decrypt(owner, item_id, current["photo_encrypted"])
         back = (self.cipher.decrypt(owner, f"{item_id}:back", current["photo_back_encrypted"])
                 if current.get("photo_back_encrypted") else None)
