@@ -373,7 +373,10 @@ function WardrobeScreen() {
               può distinguere disegni sul retro ma non conosce il tessuto reale o la vestibilità.
               Puoi correggere ogni valore prima di salvarlo.
             </Text>
-            {(Object.keys(VISUAL_FIELDS) as VisualField[]).map(field => (
+            {(Object.keys(VISUAL_FIELDS) as VisualField[])
+              .filter(field => (field !== 'back_graphic' && field !== 'back_style')
+                || items.some(i => i.id === appearancePending.itemId && !!i.back_photo))
+              .map(field => (
               <View key={field} style={{ gap: 7 }}>
                 <Text style={[s.fieldTitle, foreground]}>
                   {field === 'pattern' ? 'Fantasia' : field === 'shape' ? 'Taglio visivo'
