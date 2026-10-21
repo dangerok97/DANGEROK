@@ -980,8 +980,11 @@ def test_back_photo_is_one_owner_scoped_garment_and_private_source(wardrobe_http
     other = client.post(f"{base}/items/{key}/photo/back?revision=2",
                         headers={**headers("bob"), "Content-Type": "image/png"}, content=raw)
     assert other.status_code == 404
+    alternate_png = io.BytesIO()
+    Image.new("RGB", (80, 80), (185, 35, 45)).save(alternate_png, format="PNG")
     back = client.post(f"{base}/items/{key}/photo/back?revision=2",
-                       headers={**headers(), "Content-Type": "image/png"}, content=raw)
+                       headers={**headers(), "Content-Type": "image/png"},
+                       content=alternate_png.getvalue())
     assert back.status_code == 200, back.text
     doc = db.wardrobe_items.docs["alice:" + key]
     assert set(db.wardrobe_items.docs) == {"alice:" + key}
@@ -992,6 +995,7 @@ def test_back_photo_is_one_owner_scoped_garment_and_private_source(wardrobe_http
     assert back.json()["item"]["has_back"] is True
     assert back.json()["item"]["photo"].startswith("data:image/jpeg;base64,")
     assert back.json()["item"]["back_photo"].startswith("data:image/jpeg;base64,")
+    assert back.json()["item"]["photo"] != back.json()["item"]["back_photo"]
     for field in ("photo_encrypted", "photo_back_encrypted",
                   "front_source_encrypted", "back_source_encrypted"):
         assert field not in back.json()["item"]
