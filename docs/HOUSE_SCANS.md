@@ -136,13 +136,22 @@ in tutte le regioni (aggiornamento 21 ottobre, 09:28 UTC). Il guasto è la
 spiegazione supportata per il blocco attuale; non ci sono elementi per
 attribuirlo alle credenziali GitHub dell'utente.
 
+Nell'ultima rilettura le API Railway sono tornate accessibili: patch ancora
+`STAGED`, stesso commit e nessun nuovo deployment. Lo stato ufficiale delle
+11:33 UTC segnala API ripristinate solo in parte e build ancora sospese.
+Il successivo tentativo di applicare la patch è stato annullato dallo
+strumento con `Cancelled — the user did not approve this action. No changes
+were made.` Il rilascio resta quindi non applicato anche per questo blocco
+di approvazione; occorre una conferma esplicita prima di riprovarlo.
+
 Controlli HTTP pubblici durante il blocco: web `/healthz` e backend
 `/api/health` rispondono 200, con database disponibile; `/api/house-scans`
 risponde ancora 404. Il 200 della route web `/casa` è il fallback della SPA
 precedente e non prova la pubblicazione della nuova schermata.
 
-Alla ripresa del servizio, rileggere prima patch e deployment per escludere
-un'applicazione tardiva, poi applicare soltanto il rilascio già verificato.
+Alla ripresa del servizio e dopo la conferma del rilascio, rileggere prima
+patch e deployment per escludere un'applicazione tardiva, poi applicare
+soltanto il rilascio già verificato.
 Confermare commit effettivo, salute dei servizi e risposta 401 dell'API Casa
 senza sessione. Non dichiarare la funzione online prima di queste verifiche.
 

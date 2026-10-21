@@ -27,6 +27,11 @@ lettura mostra la patch preparata sui due servizi esistenti ancora `STAGED`;
 ORA precedente risponde regolarmente, mentre la nuova API Casa è ancora 404.
 Prima di riprovare occorre rileggere patch e deployment per verificare che
 le richieste fallite non siano state applicate tardivamente.
+Le ultime letture sono tornate disponibili e confermano patch ancora
+`STAGED`; le build Railway risultano tuttora sospese. Un nuovo avvio del
+deploy è stato annullato dal controllo di approvazione (`the user did not
+approve this action`), senza modifiche. Serve conferma esplicita del rilascio
+concreto prima di ritentare.
 
 ---
 

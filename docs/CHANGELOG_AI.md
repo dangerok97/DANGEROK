@@ -23,6 +23,10 @@
   sugli stessi servizi e tentato, ma bloccato dall'incidente ufficiale Railway
   del 21 ottobre. Sito/backend precedenti sani; API Casa ancora non pubblicata.
   Patch e passaggi di ripresa documentati senza dichiarare un deploy riuscito.
+- Le ultime letture Railway confermano patch ancora in attesa, con build
+  sospese. Il successivo avvio è stato annullato dal controllo di approvazione
+  per mancata approvazione dell'azione; nessun deploy applicato. Registrato
+  il blocco e richiesta conferma del rilascio concreto.
 
 ---
 
