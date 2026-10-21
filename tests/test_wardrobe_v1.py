@@ -1115,3 +1115,38 @@ async def test_stylist_uses_user_confirmed_back_graphics_not_unreviewed(monkeypa
     cautions = second["outfits"][0]["cautions"]
     assert any("grafica evidente" in c for c in cautions)
     assert any("streetwear" in c for c in cautions)
+
+
+
+def test_front_only_photo_cannot_claim_unseen_back_style(wardrobe_http, monkeypatch):
+    from wardrobe import appearance
+
+    client, _ = wardrobe_http
+    base, item_id = "/api/wardrobe", "b" * 32
+    client.put(base + "/items", headers=headers(), json=item("b", "top"))
+    front = client.post(f"{base}/items/{item_id}/photo?revision=1",
+                        headers={**headers(), "Content-Type": "image/png"},
+                        content=image_bytes())
+    assert front.status_code == 200
+
+    async def unreliable(*args, **kwargs):
+        return {"recognized": True, "confidence": "high",
+                "pattern": "solid", "shape": "regular",
+                "surface": "smooth", "tone": "cool",
+                "back_graphic": "large", "back_style": "streetwear"}
+    monkeypatch.setattr(appearance, "ask_json", unreliable)
+    response = client.post(f"{base}/items/{item_id}/appearance/analyze?revision=2",
+                           headers=headers())
+    assert response.status_code == 200
+    detail = response.json()
+    assert detail["views_analyzed"] == 1
+    assert detail["draft"]["back_graphic"] == "uncertain"
+    assert detail["draft"]["back_style"] == "uncertain"
+    cannot_confirm = client.put(f"{base}/items/{item_id}/appearance",
+                                headers=headers(),
+                                json={**detail["draft"], "revision": 2,
+                                      "back_graphic": "large",
+                                      "back_style": "streetwear",
+                                      "photo_sha256": detail["photo_sha256"]})
+    assert cannot_confirm.status_code == 422
+    assert "retro" in cannot_confirm.json()["detail"].lower()
