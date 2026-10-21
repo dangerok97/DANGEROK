@@ -69,8 +69,16 @@ export type AppearanceAnalysis = {
 export type AppearancePending = {
   itemId: string; revision: number; photo_sha256: string; draft: VisualAppearance;
 };
+export type StudioView = 'front' | 'back';
+export type StudioCutoutDraft = {
+  view: StudioView; revision: number; source_sha256: string;
+  preview: string; stored: false; message: string;
+  itemId: string;
+};
+
 export type Garment = GarmentInput & {
   photo: string | null; back_photo?: string | null; has_back?: boolean;
+  front_showcase?: string | null; back_showcase?: string | null;
   created_at: string; updated_at: string;
   visual_profile?: VisualProfile | null;
 };
@@ -103,11 +111,11 @@ export type OutfitResponse = {
     visual_coverage?: { reviewed: number; total: number } }[];
 };
 
-async function request<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(token: string, path: string, init: RequestInit = {}, timeoutMs = 25_000): Promise<T> {
   if (!token || (await authToken.get()) !== token) throw new Error('Sessione cambiata. Riapri il guardaroba.');
   if (!API_BASE_URL) throw new Error('Collegamento al server non configurato.');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${API_BASE_URL}/api/wardrobe${path}`, {
       ...init, signal: controller.signal, cache: 'no-store',
@@ -161,6 +169,24 @@ export const wardrobeClient = {
     request<{ stored: boolean; reaction: 'like' | 'dislike' }>(token, '/outfits/feedback', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ occasion, item_ids: itemIds, reaction }),
+    }),
+  showcaseStatus: (token: string) => request<{ enabled: boolean }>(token, '/showcase/availability'),
+  showcasePreview: (token: string, item: Garment, view: StudioView) =>
+    request<Omit<StudioCutoutDraft, 'itemId'>>(token,
+      `/items/${encodeURIComponent(item.id)}/showcase/preview?revision=${item.revision}&view=${view}`,
+      { method: 'POST' }, 45_000),
+  showcaseAccept: (token: string, draft: StudioCutoutDraft) =>
+    request<{ item: Garment }>(token,
+      `/items/${encodeURIComponent(draft.itemId)}/showcase`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ revision: draft.revision, view: draft.view,
+        source_sha256: draft.source_sha256, png_b64: draft.preview.split(',')[1] }),
+    }),
+  showcaseRemove: (token: string, item: Garment, view: StudioView) =>
+    request<{ item: Garment }>(token,
+      `/items/${encodeURIComponent(item.id)}/showcase`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ revision: item.revision, view }),
     }),
   outfits: (token: string, occasion: Occasion, styleNote = '') => request<OutfitResponse>(token, '/outfits', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

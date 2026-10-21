@@ -199,6 +199,8 @@ class WardrobeService:
         result = {k: v for k, v in doc.items() if k not in {
             "_id", "user_id", "photo_encrypted", "photo_back_encrypted",
             "front_source_encrypted", "back_source_encrypted", "visual_photo_sha256",
+            "front_showcase_encrypted", "back_showcase_encrypted",
+            "front_showcase_source_sha256", "back_showcase_source_sha256",
         }}
         for name, stored, scope in (
             ("photo", "photo_encrypted", doc["id"]),
@@ -210,6 +212,13 @@ class WardrobeService:
                     self.cipher.decrypt(owner, scope, payload)
                 ).decode("ascii")
                 if payload else None
+            )
+        for view in ("front", "back"):
+            encrypted = doc.get(f"{view}_showcase_encrypted")
+            result[f"{view}_showcase"] = (
+                "data:image/png;base64," + base64.b64encode(
+                    self.cipher.decrypt(owner, f"{doc['id']}:showcase-{view}", encrypted)
+                ).decode("ascii") if encrypted else None
             )
         result["has_back"] = bool(doc.get("photo_back_encrypted"))
         return result
@@ -271,6 +280,8 @@ class WardrobeService:
                    "front_source_encrypted": (
                        self.cipher.encrypt(owner, f"{item_id}:source-front", source)
                        if source else None),
+                   "front_showcase_encrypted": None,
+                   "front_showcase_source_sha256": None,
                    "revision": revision + 1, "updated_at": datetime.now(timezone.utc).isoformat()}
         result = await self.col.update_one(
             {"_id": existing["_id"], "user_id": owner, "revision": revision}, {"$set": updated})
@@ -306,6 +317,8 @@ class WardrobeService:
             "back_source_encrypted": (
                 self.cipher.encrypt(owner, f"{item_id}:source-back", source)
                 if source else None),
+            "back_showcase_encrypted": None,
+            "back_showcase_source_sha256": None,
             "visual_profile": None, "visual_photo_sha256": None,
             "revision": revision + 1,
             "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -329,6 +342,7 @@ class WardrobeService:
             raise WardrobeError("Questo capo non ha una foto retro.", 404)
         changes = {
             "photo_back_encrypted": None, "back_source_encrypted": None,
+            "back_showcase_encrypted": None, "back_showcase_source_sha256": None,
             "visual_profile": None, "visual_photo_sha256": None,
             "revision": revision + 1,
             "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -341,6 +355,95 @@ class WardrobeService:
         from .preferences import delete_item_feedback
         await delete_item_feedback(self.db, owner, item_id)
         return self._public(owner, {**existing, **changes})
+
+    def _cutout_source(self, owner: str, current: dict, view: str) -> bytes:
+        item_id = current["id"]
+        if view == "front":
+            if not current.get("photo_encrypted"):
+                raise WardrobeError("Carica prima la foto fronte.", 409)
+            if current.get("front_source_encrypted"):
+                return self.cipher.decrypt(owner, f"{item_id}:source-front",
+                                           current["front_source_encrypted"])
+            return self.cipher.decrypt(owner, item_id, current["photo_encrypted"])
+        if view != "back":
+            raise WardrobeError("Vista non valida.", 422)
+        if not current.get("photo_back_encrypted"):
+            raise WardrobeError("Carica prima la foto retro.", 409)
+        if current.get("back_source_encrypted"):
+            return self.cipher.decrypt(owner, f"{item_id}:source-back",
+                                       current["back_source_encrypted"])
+        return self.cipher.decrypt(owner, f"{item_id}:back",
+                                   current["photo_back_encrypted"])
+
+    async def cutout_preview(self, owner: str, item_id: str, revision: int,
+                             view: str) -> dict:
+        from .cutout import cutout_ready, generate_cutout_preview, source_signature
+        from .classify import enforce_owner_quota
+        current = await self._load(owner, item_id)
+        if not current:
+            raise WardrobeError("Capo non trovato.", 404)
+        if current["revision"] != revision:
+            raise WardrobeError("Capo modificato: aggiorna prima dell'anteprima.", 409)
+        if view not in ("front", "back"):
+            raise WardrobeError("Vista non valida.", 422)
+        if not cutout_ready():
+            raise WardrobeError("Foto vetrina non ancora disponibile in ORA.", 503)
+        source = self._cutout_source(owner, current, view)
+        await enforce_owner_quota(self.db, owner)
+        preview = await generate_cutout_preview(source)
+        return {
+            "view": view, "revision": revision,
+            "source_sha256": source_signature(source),
+            "preview": "data:image/png;base64," + base64.b64encode(preview).decode("ascii"),
+            "stored": False,
+            "message": "Anteprima generata. Confermala solo se il contorno è corretto.",
+        }
+
+    async def cutout_accept(self, owner: str, item_id: str, body) -> dict:
+        from .cutout import accept_png_b64, source_signature
+        current = await self._load(owner, item_id)
+        if not current:
+            raise WardrobeError("Capo non trovato.", 404)
+        if current["revision"] != body.revision:
+            raise WardrobeError("La foto è cambiata. Rigenera il ritaglio.", 409)
+        source = self._cutout_source(owner, current, body.view)
+        if not hmac.compare_digest(body.source_sha256, source_signature(source)):
+            raise WardrobeError("Foto originale modificata, riprova.", 409)
+        preview = accept_png_b64(body.png_b64)
+        changes = {
+            f"{body.view}_showcase_encrypted": self.cipher.encrypt(
+                owner, f"{item_id}:showcase-{body.view}", preview),
+            f"{body.view}_showcase_source_sha256": body.source_sha256,
+            "revision": body.revision + 1,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        r = await self.col.update_one(
+            {"_id": current["_id"], "user_id": owner, "revision": body.revision},
+            {"$set": changes})
+        if r.matched_count != 1:
+            raise WardrobeError("Foto modificata da un altro dispositivo.", 409)
+        return self._public(owner, {**current, **changes})
+
+    async def cutout_remove(self, owner: str, item_id: str, body) -> dict:
+        current = await self._load(owner, item_id)
+        if not current:
+            raise WardrobeError("Capo non trovato.", 404)
+        if current["revision"] != body.revision:
+            raise WardrobeError("Capo cambiato: aggiorna e riprova.", 409)
+        if not current.get(f"{body.view}_showcase_encrypted"):
+            raise WardrobeError("Ritaglio non presente.", 404)
+        changes = {
+            f"{body.view}_showcase_encrypted": None,
+            f"{body.view}_showcase_source_sha256": None,
+            "revision": body.revision + 1,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        r = await self.col.update_one(
+            {"_id": current["_id"], "user_id": owner, "revision": body.revision},
+            {"$set": changes})
+        if r.matched_count != 1:
+            raise WardrobeError("Ritaglio modificato da un altro dispositivo.", 409)
+        return self._public(owner, {**current, **changes})
 
     async def delete(self, owner: str, item_id: str, revision: int) -> None:
         existing = await self._load(owner, item_id)
@@ -366,6 +469,8 @@ class WardrobeService:
              if k not in {
                  "_id", "user_id", "photo_encrypted", "photo_back_encrypted",
                  "front_source_encrypted", "back_source_encrypted",
+                 "front_showcase_encrypted", "back_showcase_encrypted",
+                 "front_showcase_source_sha256", "back_showcase_source_sha256",
                  "visual_photo_sha256"}}
             for doc in sorted(docs, key=lambda d: (d["name"].casefold(), d["id"]))
         ]
