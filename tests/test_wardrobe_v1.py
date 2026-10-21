@@ -952,3 +952,166 @@ async def test_stylist_differentiates_provider_failure_and_bad_model_output(monk
     assert invalid["ai_status"] == "invalid_response"
     assert "ha risposto" in invalid["message"]
     assert invalid["engine"] == "rules-v1"
+
+
+
+def test_back_photo_is_one_owner_scoped_garment_and_private_source(wardrobe_http):
+    """No duplicate inventory item: front+back share revision and user-scoped ID."""
+    import base64
+    client, db = wardrobe_http
+    base = "/api/wardrobe"
+    key = "a" * 32
+    body = item("a", "top")
+    saved = client.put(base + "/items", headers=headers(), json=body)
+    assert saved.status_code == 200
+    raw = image_bytes()
+    wrong_owner = client.post(f"{base}/items/{key}/photo/back?revision=1",
+                              headers={**headers("bob"), "Content-Type": "image/png"}, content=raw)
+    assert wrong_owner.status_code == 404
+    missing_front = client.post(f"{base}/items/{key}/photo/back?revision=1",
+                                headers={**headers(), "Content-Type": "image/png"}, content=raw)
+    assert missing_front.status_code == 409
+
+    front = client.post(f"{base}/items/{key}/photo/front?revision=1",
+                        headers={**headers(), "Content-Type": "image/png"}, content=raw)
+    assert front.status_code == 200, front.text
+    assert front.json()["item"]["revision"] == 2
+    assert front.json()["item"]["back_photo"] is None
+    other = client.post(f"{base}/items/{key}/photo/back?revision=2",
+                        headers={**headers("bob"), "Content-Type": "image/png"}, content=raw)
+    assert other.status_code == 404
+    back = client.post(f"{base}/items/{key}/photo/back?revision=2",
+                       headers={**headers(), "Content-Type": "image/png"}, content=raw)
+    assert back.status_code == 200, back.text
+    doc = db.wardrobe_items.docs["alice:" + key]
+    assert set(db.wardrobe_items.docs) == {"alice:" + key}
+    assert "photo_back_encrypted" in doc and "back_source_encrypted" in doc
+    assert "front_source_encrypted" in doc
+    assert len(doc["front_source_encrypted"]) > 50
+    assert back.json()["item"]["revision"] == 3
+    assert back.json()["item"]["has_back"] is True
+    assert back.json()["item"]["photo"].startswith("data:image/jpeg;base64,")
+    assert back.json()["item"]["back_photo"].startswith("data:image/jpeg;base64,")
+    for field in ("photo_encrypted", "photo_back_encrypted",
+                  "front_source_encrypted", "back_source_encrypted"):
+        assert field not in back.json()["item"]
+        assert field not in client.get(base + "/items", headers=headers()).text
+    assert client.get(base + "/items", headers=headers("bob")).json()["items"] == []
+
+    wrong_key = client.delete(f"{base}/items/{key}/photo/back?revision=3", headers=headers("bob"))
+    assert wrong_key.status_code == 404
+    conflict = client.delete(f"{base}/items/{key}/photo/back?revision=2", headers=headers())
+    assert conflict.status_code == 409
+    removed = client.delete(f"{base}/items/{key}/photo/back?revision=3", headers=headers())
+    assert removed.status_code == 200
+    assert removed.json()["item"]["revision"] == 4
+    assert removed.json()["item"]["back_photo"] is None
+    assert removed.json()["item"]["photo"] is not None
+    assert len(db.wardrobe_items.docs) == 1
+
+
+def test_source_reference_is_optimized_and_has_no_exif_or_original_upload():
+    from wardrobe.service import make_source_photo
+    source = make_source_photo(image_bytes())
+    assert source.startswith(b"\xff\xd8")
+    with Image.open(io.BytesIO(source)) as image:
+        assert image.format == "JPEG"
+        assert image.width <= 1200 and image.height <= 1200
+        assert not image.info.get("exif")
+
+
+def test_appearance_combines_front_and_back_and_requires_new_signature(wardrobe_http, monkeypatch):
+    from wardrobe import appearance
+    from wardrobe.service import combine_wardrobe_views
+    client, db = wardrobe_http
+    base, key = "/api/wardrobe", "a"*32
+    client.put(base + "/items", headers=headers(), json=item("a"))
+    client.post(f"{base}/items/{key}/photo?revision=1",
+                headers={**headers(), "Content-Type": "image/png"}, content=image_bytes())
+    client.post(f"{base}/items/{key}/photo/back?revision=2",
+                headers={**headers(), "Content-Type": "image/png"}, content=image_bytes())
+
+    seen = []
+    async def visual(system, prompt, image):
+        seen.append((system, image))
+        return {"recognized": True, "confidence": "medium", "pattern": "solid",
+                "shape": "regular", "surface": "smooth", "tone": "cool",
+                "back_graphic": "large", "back_style": "streetwear"}
+    monkeypatch.setattr(appearance, "ask_json", visual)
+    result = client.post(f"{base}/items/{key}/appearance/analyze?revision=3",
+                         headers=headers())
+    assert result.status_code == 200, result.text
+    scan = result.json()
+    assert scan["views_analyzed"] == 2
+    assert scan["draft"]["back_graphic"] == "large"
+    with Image.open(io.BytesIO(seen[0][1])) as visual_image:
+        assert visual_image.size == (960, 506)
+    assert "FRONTE" in seen[0][0] and "RETRO" in seen[0][0]
+    # A hash of the front-only photo cannot authorize a two-view confirmation.
+    front_bytes = PhotoCipher(SECRET).decrypt(
+        "alice", key, db.wardrobe_items.docs["alice:" + key]["photo_encrypted"])
+    from wardrobe.appearance import photo_signature
+    bad = client.put(f"{base}/items/{key}/appearance", headers=headers(),
+                     json={**scan["draft"], "revision": 3,
+                           "photo_sha256": photo_signature(front_bytes)})
+    assert bad.status_code == 409
+    confirmed = client.put(f"{base}/items/{key}/appearance", headers=headers(),
+                           json={**scan["draft"], "revision": 3,
+                                 "photo_sha256": scan["photo_sha256"]})
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["item"]["visual_profile"]["back_style"] == "streetwear"
+    assert db.wardrobe_items.docs["alice:" + key]["revision"] == 4
+
+    # One replaced back photo makes both the combined visual profile and
+    # the old approval signature stale; the front survives unchanged.
+    other_png = io.BytesIO()
+    Image.new("RGB", (80, 80), (240, 220, 30)).save(other_png, format="PNG")
+    replaced = client.post(f"{base}/items/{key}/photo/back?revision=4",
+                           headers={**headers(), "Content-Type": "image/png"},
+                           content=other_png.getvalue())
+    assert replaced.status_code == 200
+    assert replaced.json()["item"]["visual_profile"] is None
+    assert db.wardrobe_items.docs["alice:" + key]["visual_photo_sha256"] is None
+    old_approval = client.put(f"{base}/items/{key}/appearance",
+                              headers=headers(), json={**scan["draft"], "revision": 4,
+                              "photo_sha256": scan["photo_sha256"]})
+    assert old_approval.status_code == 409  # Old two-view hash is not valid.
+
+
+@pytest.mark.asyncio
+async def test_stylist_uses_user_confirmed_back_graphics_not_unreviewed(monkeypatch):
+    import json
+    import llm.manager as llm_manager
+    from wardrobe.service import OutfitInput
+
+    db = FakeDB()
+    svc = WardrobeService(db, PhotoCipher(SECRET))
+    for code, cat, formal in (("a", "top", "smart"),
+                              ("b", "bottom", "smart"),
+                              ("c", "shoes", "formal")):
+        await svc.save("alice", GarmentInput(**item(code, cat, formality=formal)))
+    seen = []
+    class MockAI:
+        async def chat(self, **kw):
+            seen.append(kw["user"])
+            return SimpleNamespace(text=json.dumps({"choices":[{
+                "option":1, "suitability":"acceptable",
+                "palette":"contrasting", "formality":"appropriate",
+                "adjustment":"none"}]}))
+    monkeypatch.setattr(llm_manager, "get_manager", lambda: MockAI())
+    first = await svc.outfits("alice", OutfitInput(occasion="chic_evening",
+                        use_ai=True, style_note="serata chic"))
+    assert first["ai_status"] == "ok"
+    assert "back_graphic" not in seen[0]
+
+    db.wardrobe_items.docs["alice:"+"a"*32]["visual_profile"] = {
+        "pattern":"solid", "shape":"regular", "surface":"smooth", "tone":"cool",
+        "back_graphic":"large", "back_style":"streetwear",
+        "confidence":"medium", "reviewed_at":"2026-10-21T10:00:00Z"}
+    second = await svc.outfits("alice", OutfitInput(occasion="chic_evening",
+                         use_ai=True, style_note="serata chic"))
+    assert second["ai_status"] == "ok"
+    assert '"back_graphic":"large"' in seen[1]
+    cautions = second["outfits"][0]["cautions"]
+    assert any("grafica evidente" in c for c in cautions)
+    assert any("streetwear" in c for c in cautions)

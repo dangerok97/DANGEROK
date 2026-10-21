@@ -35,12 +35,14 @@ function WardrobeScreen() {
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState<GarmentInput | null>(null);
   const [newPhoto, setNewPhoto] = useState<Blob | null>(null);
+  const [newBackPhoto, setNewBackPhoto] = useState<Blob | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [recognition, setRecognition] = useState<GarmentAnalysis | null>(null);
   const [analysisNote, setAnalysisNote] = useState('');
   // Discard AI results after switching draft, photo, or manual field edits.
   const photoEpoch = useRef(0);
   const [deleteTarget, setDeleteTarget] = useState<Garment | null>(null);
+  const [removeBackTarget, setRemoveBackTarget] = useState<Garment | null>(null);
   const [occasion, setOccasion] = useState<Occasion>('casual_evening');
   const [styleNote, setStyleNote] = useState('');
   const [result, setResult] = useState<OutfitResponse | null>(null);
@@ -69,14 +71,14 @@ function WardrobeScreen() {
     photoEpoch.current += 1; setRecognition(null); setAnalysisNote('');
     setDraft({ id: Crypto.randomUUID().replace(/-/g, ''), revision: 0, name: '',
       category: 'top', color: '', formality: 'casual', seasons: [], status: 'available' });
-    setNewPhoto(null); setError(''); setNotice('');
+    setNewPhoto(null); setNewBackPhoto(null); setError(''); setNotice('');
     setAppearancePending(null);
   };
   const edit = (item: Garment) => {
     photoEpoch.current += 1; setRecognition(null); setAnalysisNote('');
     const { id, revision, name, category, color, formality, seasons, status } = item;
     setDraft({ id, revision, name, category, color, formality, seasons, status });
-    setNewPhoto(null); setError(''); setNotice('');
+    setNewPhoto(null); setNewBackPhoto(null); setError(''); setNotice('');
   };
   const patch = (values: Partial<GarmentInput>) => {
     photoEpoch.current += 1;
@@ -93,16 +95,27 @@ function WardrobeScreen() {
       const token = await wardrobeClient.token();
       if (!token) throw new Error('Accedi nuovamente a ORA.');
       const { item: saved } = await wardrobeClient.save(token, draft);
-      let photoProblem = '';
+      let current = saved;
+      const photoProblems: string[] = [];
       if (newPhoto) {
-        try { await wardrobeClient.photo(token, saved, newPhoto); }
-        catch (e) { photoProblem = errorText(e); }
+        try { current = (await wardrobeClient.photo(token, current, newPhoto)).item; }
+        catch (e) { photoProblems.push('fronte: ' + errorText(e)); }
+      }
+      if (newBackPhoto) {
+        if (!current.photo) {
+          photoProblems.push('retro: carica prima il fronte');
+        } else {
+          try { current = (await wardrobeClient.backPhoto(token, current, newBackPhoto)).item; }
+          catch (e) { photoProblems.push('retro: ' + errorText(e)); }
+        }
       }
       await load();
       photoEpoch.current += 1;
-      setResult(null); setDraft(null); setNewPhoto(null);
+      setResult(null); setDraft(null); setNewPhoto(null); setNewBackPhoto(null);
       setRecognition(null); setAnalysisNote('');
-      setNotice(photoProblem ? `Capo salvato, ma la foto non è stata caricata: ${photoProblem}` : 'Capo salvato nel tuo guardaroba.');
+      setNotice(photoProblems.length
+        ? 'Capo salvato. Una o più foto non sono state caricate: ' + photoProblems.join('; ')
+        : 'Capo salvato con le viste disponibili nel tuo guardaroba.');
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
@@ -113,6 +126,18 @@ function WardrobeScreen() {
       if (photo) {
         photoEpoch.current += 1;
         setNewPhoto(photo); setRecognition(null); setAnalysisNote('');
+        setError('');
+      }
+    } catch (e) { setError(errorText(e)); }
+  };
+  const chooseBackPhoto = async () => {
+    if (!draft || busy || analyzing) return;
+    try {
+      const photo = await pickGarmentPhoto();
+      if (photo) {
+        photoEpoch.current += 1;
+        setNewBackPhoto(photo);
+        setAppearancePending(null); setAppearanceMessage('');
         setError('');
       }
     } catch (e) { setError(errorText(e)); }
@@ -148,7 +173,8 @@ function WardrobeScreen() {
       if (analyzed.recognized && analyzed.draft && analyzed.photo_sha256) {
         setAppearancePending({ itemId: item.id, revision: analyzed.revision,
           photo_sha256: analyzed.photo_sha256, draft: analyzed.draft });
-        setAppearanceMessage(analyzed.message);
+        setAppearanceMessage(analyzed.message + (
+          analyzed.views_analyzed === 2 ? ' Fronte e retro valutati insieme.' : ' Solo fronte disponibile.'));
       } else {
         setAppearanceMessage(analyzed.message);
       }
@@ -185,6 +211,20 @@ function WardrobeScreen() {
       await load();
       setResult(null);
       setAppearanceMessage('Analisi visiva rimossa da questo capo.');
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
+  const removeBack = async () => {
+    if (!removeBackTarget || busy) return;
+    setBusy(true); setError('');
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      await wardrobeClient.removeBackPhoto(token, removeBackTarget);
+      await load();
+      setResult(null); setAppearancePending(null);
+      setRemoveBackTarget(null);
+      setNotice('Retro eliminato. Il fronte del capo è rimasto invariato.');
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
@@ -273,10 +313,19 @@ function WardrobeScreen() {
           <View style={s.grid}>
             {items.map(item => (
               <View key={item.id} style={[s.item, { borderColor: colors.border }]}>
-                {item.photo ? <Image source={{ uri: item.photo }} style={s.photo} contentFit="cover" /> :
-                  <View style={[s.photo, s.placeholder, { backgroundColor: colors.backgroundSecondary }]}>
-                    <Ionicons name="shirt-outline" size={32} color={colors.textSecondary} />
-                  </View>}
+                <View testID="wardrobe-item-views" style={s.dualPhotos}>
+                  <View style={{ width: item.back_photo ? '48%' : '100%', gap: 4 }}>
+                    {item.photo ? <Image source={{ uri: item.photo }} style={s.photo} contentFit="contain" /> :
+                      <View style={[s.photo, s.placeholder, { backgroundColor: colors.backgroundSecondary }]}>
+                        <Ionicons name="shirt-outline" size={32} color={colors.textSecondary} />
+                      </View>}
+                    <Text style={[s.photoLabel, muted]}>Fronte</Text>
+                  </View>
+                  {item.back_photo ? <View style={{ width: '48%', gap: 4 }}>
+                    <Image source={{ uri: item.back_photo }} style={s.photo} contentFit="contain" />
+                    <Text style={[s.photoLabel, muted]}>Retro</Text>
+                  </View> : null}
+                </View>
                 <Text numberOfLines={2} style={[s.itemName, foreground]}>{item.name}</Text>
                 <Text style={[s.detail, muted]}>{label(item.category)} · {item.color} · {styleLabel(item.formality)}</Text>
                 {item.status !== 'available' ? <Text style={[s.detail, { color: colors.error }]}>
@@ -285,6 +334,7 @@ function WardrobeScreen() {
                 {item.visual_profile ? <Text testID="wardrobe-visual-profile" style={[s.detail, { color: colors.accent }]}>
                   Aspetto confermato: {VISUAL_FIELDS.pattern.find(o => o.value === item.visual_profile?.pattern)?.label},
                   {' '}{VISUAL_FIELDS.shape.find(o => o.value === item.visual_profile?.shape)?.label}
+                  {item.visual_profile?.back_graphic === 'large' ? ' · Retro con grafica vistosa' : ''}
                 </Text> : null}
                 {item.photo ? action(item.visual_profile ? 'Rianalizza stile' : 'Analizza stile con AI',
                   () => { void scanAppearance(item); }, false, busy || analyzing) : null}
@@ -292,8 +342,16 @@ function WardrobeScreen() {
                   () => { void clearAppearance(item); }, false, busy) : null}
                 <View style={s.inline}>
                   {action('Modifica', () => edit(item), false, busy)}
+                  {item.back_photo ? action('Rimuovi retro', () => setRemoveBackTarget(item), false, busy) : null}
                   {action('Elimina', () => setDeleteTarget(item), false, busy)}
                 </View>
+                {removeBackTarget?.id === item.id ? <View testID="wardrobe-remove-back-confirm" style={{ gap: 8 }}>
+                  <Text style={[s.note, foreground]}>Eliminare solo la foto del retro?</Text>
+                  <View style={s.inline}>
+                    {action('Annulla', () => setRemoveBackTarget(null), false, busy)}
+                    {action('Conferma rimozione retro', () => { void removeBack(); }, true, busy)}
+                  </View>
+                </View> : null}
                 {deleteTarget?.id === item.id ? <View testID="wardrobe-delete-confirm" style={{ gap: 8 }}>
                   <Text style={[s.note, foreground]}>Eliminare definitivamente anche la foto?</Text>
                   <View style={s.inline}>
@@ -311,14 +369,16 @@ function WardrobeScreen() {
             style={[s.visualEditor, { borderColor: colors.border }]}>
             <Text style={[s.heading, foreground]}>Controlla le caratteristiche visive</Text>
             <Text style={[s.note, muted]}>
-              L'AI ha valutato solo l'aspetto della fotografia, non il materiale reale o la vestibilità.
+              L'AI ha valutato fronte e, quando presente, retro dello stesso capo:
+              può distinguere disegni sul retro ma non conosce il tessuto reale o la vestibilità.
               Puoi correggere ogni valore prima di salvarlo.
             </Text>
             {(Object.keys(VISUAL_FIELDS) as VisualField[]).map(field => (
               <View key={field} style={{ gap: 7 }}>
                 <Text style={[s.fieldTitle, foreground]}>
                   {field === 'pattern' ? 'Fantasia' : field === 'shape' ? 'Taglio visivo'
-                    : field === 'surface' ? 'Aspetto superficie' : 'Tonalità'}
+                    : field === 'surface' ? 'Aspetto superficie' : field === 'tone' ? 'Tonalità'
+                    : field === 'back_graphic' ? 'Stampa sul retro' : 'Impatto del retro sullo stile'}
                 </Text>
                 <View style={s.choices}>
                   {VISUAL_FIELDS[field].map(option => chip(
@@ -337,7 +397,10 @@ function WardrobeScreen() {
 
         {draft ? <View style={[s.card, card]} testID="wardrobe-editor">
           <Text style={[s.heading, foreground]}>{draft.revision ? 'Modifica il capo' : 'Nuovo capo'}</Text>
-          {action(newPhoto ? 'Foto selezionata · Cambia foto' : 'Scegli una foto del capo', () => { void choosePhoto(); }, false, busy || analyzing)}
+          {action(newPhoto ? 'Fronte selezionato · Cambia foto' : 'Scegli una foto del capo (fronte)', () => { void choosePhoto(); }, false, busy || analyzing)}
+          {action(newBackPhoto ? 'Retro selezionato · Cambia foto' : draft.revision ? 'Aggiungi o cambia foto retro' : 'Aggiungi foto retro (facoltativa)',
+            () => { void chooseBackPhoto(); }, false, busy || analyzing)}
+          <Text style={[s.note, muted]}>Il retro è facoltativo, ma utile per stampe e disegni nascosti sul davanti. Fronte e retro resteranno un solo capo.</Text>
           <Text style={[s.note, muted]}>Se vuoi, premi «Riconosci con AI»: una copia ridotta della foto sarà inviata al provider AI configurato per proporti i campi. Non viene salvato nulla senza il tuo «Salva capo».</Text>
           {newPhoto ? action(analyzing ? 'Riconoscimento in corso…' : 'Riconosci con AI', () => { void analyze(); }, true, busy || analyzing) : null}
           {analyzing ? <ActivityIndicator testID="wardrobe-analyzing" color={colors.accent} /> : null}
@@ -365,7 +428,7 @@ function WardrobeScreen() {
             {chip('Non disponibile', draft.status === 'unavailable', () => patch({ status: 'unavailable' as GarmentStatus }), 'unavailable')}
           </View>
           <View style={s.inline}>
-            {action('Annulla', () => { photoEpoch.current += 1; setDraft(null); setNewPhoto(null); setRecognition(null); setAnalysisNote(''); setError(''); }, false, busy || analyzing)}
+            {action('Annulla', () => { photoEpoch.current += 1; setDraft(null); setNewPhoto(null); setNewBackPhoto(null); setRecognition(null); setAnalysisNote(''); setError(''); }, false, busy || analyzing)}
             {action(busy ? 'Salvataggio…' : 'Salva capo', () => { void save(); }, true, busy || analyzing)}
           </View>
         </View> : null}
@@ -404,10 +467,15 @@ function WardrobeScreen() {
                     const item = items.find(i => i.id === id);
                     return item ? <View key={id}
                       style={[s.outfitItem, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}>
-                      {item.photo ? <Image source={{ uri: item.photo }} style={s.outfitPhoto} contentFit="contain" /> :
-                        <View style={[s.outfitPhoto, s.placeholder, { backgroundColor: colors.surface }]}>
-                          <Ionicons name="shirt-outline" size={27} color={colors.textSecondary} />
-                        </View>}
+                      <View style={s.outfitViewPhotos}>
+                        {item.photo ? <Image source={{ uri: item.photo }}
+                          style={[s.outfitPhoto, { width: item.back_photo ? '49%' : '100%' }]} contentFit="contain" /> :
+                          <View style={[s.outfitPhoto, s.placeholder, { width: '100%', backgroundColor: colors.surface }]}>
+                            <Ionicons name="shirt-outline" size={27} color={colors.textSecondary} />
+                          </View>}
+                        {item.back_photo ? <Image source={{ uri: item.back_photo }}
+                          style={[s.outfitPhoto, { width: '49%' }]} contentFit="contain" /> : null}
+                      </View>
                       <Text style={[s.outfitCategory, muted]}>{label(item.category)}</Text>
                       <Text numberOfLines={3} style={[s.outfitName, foreground]}>{item.name}</Text>
                       <Text style={[s.outfitColor, muted]}>{item.color}</Text>
@@ -464,6 +532,8 @@ const s = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   item: { width: 214, maxWidth: '100%', borderWidth: 1, borderRadius: 14, padding: 10, gap: 7 },
   photo: { width: '100%', height: 145, borderRadius: 10 },
+  dualPhotos: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  photoLabel: { textAlign: 'center', fontSize: 11 },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
   itemName: { fontSize: 16, fontWeight: '700' },
   detail: { fontSize: 12, lineHeight: 17 },
@@ -472,7 +542,8 @@ const s = StyleSheet.create({
   outfitItems: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   outfitItem: { width: 148, maxWidth: '100%', borderWidth: 1, borderRadius: 12,
     padding: 9, gap: 5, overflow: 'hidden' },
-  outfitPhoto: { width: '100%', height: 128, borderRadius: 9 },
+  outfitViewPhotos: { flexDirection: 'row', flexWrap: 'nowrap', gap: 4 },
+  outfitPhoto: { height: 128, borderRadius: 9 },
   outfitCategory: { fontSize: 12, lineHeight: 16 },
   outfitName: { fontWeight: '600', fontSize: 14, lineHeight: 18, minHeight: 18 },
   outfitColor: { fontSize: 12 },
