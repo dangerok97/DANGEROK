@@ -13,6 +13,10 @@
   alle versioni attese da Expo 54; aggiunto controllo nativo macOS in CI.
 - Test browser usano dati sintetici. Firma Apple, installazione e rilievo
   fisico sono verifiche distinte, documentate in `HOUSE_SCANS.md`.
+- Dopo la prima CI: controlli generali e 10/10 browser PASS. Allineate anche
+  Expo 54.0.37/constants 18.0.14 richieste dal job iOS prima della compilazione,
+  con export e 5/5 prove mobile nuovamente riusciti. Callback e timeout Swift
+  esplicitano ritorno Void e main actor.
 
 ---
 

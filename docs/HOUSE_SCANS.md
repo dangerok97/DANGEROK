@@ -93,7 +93,12 @@ Verifiche locali completate prima del rilascio:
   ritorno Email e callback Google). Screenshot controllati visivamente.
 - Audit della cronologia Git: PASS, nessun pattern di segreto rilevato.
 
-WebKit, compilazione Swift e rilascio vengono verificati nel workflow remoto.
+La prima CI remota ha superato contratti, controlli generali e 10/10 prove
+Chromium/WebKit. Il job iOS ha richiesto le patch Expo 54.0.37 e
+expo-constants 18.0.14 prima di compilare: entrambe sono state allineate,
+con nuovo export web e 5/5 prove mobile locali riusciti. Il bridge Swift
+esplicita inoltre i callback senza valore di ritorno e i timeout sul main actor.
+Compilazione Swift e rilascio sono verifiche successive al controllo dipendenze.
 Firma Apple e prova fisica non risultano completate in questa fase: nessun
 esito sintetico le sostituisce.
 

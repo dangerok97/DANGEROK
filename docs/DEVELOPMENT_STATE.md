@@ -11,7 +11,11 @@ iOS sono verificabili senza firma. La compilazione Swift è affidata al job
 macOS dedicato; la prova fisica richiede una build firmata sul dispositivo.
 Il repository non contiene credenziali Apple/Expo, né si presume un progetto
 EAS esistente. `EXPO_PUBLIC_EAS_PROJECT_ID` permette di collegarne uno reale.
-Corrette tre dipendenze native fuori dalla matrice Expo 54 prima del prebuild.
+Corrette tre dipendenze native fuori dalla matrice Expo 54 prima del prebuild;
+il controllo remoto ha poi richiesto anche le patch Expo 54.0.37 ed
+expo-constants 18.0.14, ora allineate e verificate sul catalogo ufficiale.
+La CI generale e le dieci prove Chromium/WebKit sono passate; il primo job
+iOS si è fermato a quel controllo dipendenze, prima di compilare Swift.
 
 Esiti puntuali e percorso di installazione sono mantenuti in `HOUSE_SCANS.md`.
 Una CI verde o un rilascio Railway non chiudono da soli il collaudo LiDAR.

@@ -198,10 +198,12 @@ final class OraRoomCaptureController: UIViewController, RoomCaptureViewDelegate,
   private func scheduleTimeout() {
     timeout?.cancel()
     let work = DispatchWorkItem { [weak self] in
-      self?.finish(.failure(OraRoomPlanFailure(
-        code: "ERR_ROOMPLAN_PROCESSING",
-        message: "La scansione non ha terminato l'elaborazione. Riprova con una stanza alla volta e una buona illuminazione."
-      )))
+      Task { @MainActor in
+        self?.finish(.failure(OraRoomPlanFailure(
+          code: "ERR_ROOMPLAN_PROCESSING",
+          message: "La scansione non ha terminato l'elaborazione. Riprova con una stanza alla volta e una buona illuminazione."
+        )))
+      }
     }
     timeout = work
     DispatchQueue.main.asyncAfter(deadline: .now() + 90, execute: work)

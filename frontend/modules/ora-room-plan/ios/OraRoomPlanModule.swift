@@ -32,13 +32,13 @@ public final class OraRoomPlanModule: Module {
       Self.availability()
     }
 
-    AsyncFunction("scan") { (promise: Promise) in
+    AsyncFunction("scan") { (promise: Promise) -> Void in
       Task { @MainActor in
         self.beginScan(promise: promise)
       }
     }.runOnQueue(.main)
 
-    AsyncFunction("cancel") { (promise: Promise) in
+    AsyncFunction("cancel") { (promise: Promise) -> Void in
       Task { @MainActor in
         self.cancelScan()
         promise.resolve()
@@ -168,10 +168,12 @@ public final class OraRoomPlanModule: Module {
         }
       }
       let work = DispatchWorkItem { [weak self] in
-        self?.settle(request: request, result: .failure(OraRoomPlanFailure(
-          code: "ERR_ROOMPLAN_INTERRUPTED",
-          message: "Riapri ORA e avvia di nuovo la scansione."
-        )))
+        Task { @MainActor in
+          self?.settle(request: request, result: .failure(OraRoomPlanFailure(
+            code: "ERR_ROOMPLAN_INTERRUPTED",
+            message: "Riapri ORA e avvia di nuovo la scansione."
+          )))
+        }
       }
       activationTimeout = work
       DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: work)
