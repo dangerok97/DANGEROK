@@ -331,3 +331,32 @@ async def test_bad_model_delay_fails_closed_even_if_it_could_guess_from_prose(mo
         "user_message": "Programma fra 5 minuti un controllo meteo."})
     assert response.status == "error"
     assert await db.ambient_wakes.count_documents({}) == 0
+
+
+def test_model_is_allowed_to_choose_minutes_without_timezone_json():
+    """The cognitive governance schema must allow the contract, not just the handler."""
+    from conversation_engine.ai_core.governance import validate_decision
+    from conversation_engine.ai_core.tools.registry import ToolRegistry
+
+    chosen = validate_decision({
+        "response_mode": "tool", "reasoning_status": "needs_tool",
+        "user_intent_summary": "Capire quando è utile ritirare il bucato",
+        "skill_plan": {
+            "objective": "Controllo autonomo dei panni",
+            "required_capabilities": ["schedule_situation_check"],
+        },
+        "tool_call": {
+            "capability": "schedule_situation_check",
+            "arguments": {
+                "situation_id": SID,
+                "expected_revision": 1,
+                "delay_minutes": 35,
+                "purpose": "Controllare condizioni esterne",
+                "completion_when": "Suggerire il ritiro quando probabile asciugatura",
+                "notify_when": "Prima della pioggia",
+                "read_capability": "weather.read",
+            },
+        },
+    }, tools=ToolRegistry(db=None))
+    assert chosen.ok, chosen.errors
+    assert chosen.decision.tool_call.arguments["delay_minutes"] == 35
