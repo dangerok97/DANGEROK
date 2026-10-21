@@ -9,6 +9,7 @@ on:
       - 'frontend/src/life-setup/GuidedSetupScreen.tsx'
       - 'frontend/app/(tabs)/**'
       - 'tests/test_wardrobe_v1.py'
+      - 'tests/test_wardrobe_cutout_core.py'
       - 'frontend/e2e/wardrobe-pilot.spec.ts'
       - 'frontend/e2e/wardrobe-qa.config.ts'
       - '.github/workflows/wardrobe-pilot-tests.yml'
@@ -29,7 +30,7 @@ jobs:
           cache-dependency-path: backend/requirements-cloud.txt
       - run: python -m pip install -r backend/requirements-cloud.txt
       - run: python -m compileall -q backend/wardrobe backend/routers/__init__.py
-      - run: python -m pytest -q tests/test_wardrobe_v1.py -ra
+      - run: python -m pytest -q tests/test_wardrobe_v1.py tests/test_wardrobe_cutout_core.py -ra
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
