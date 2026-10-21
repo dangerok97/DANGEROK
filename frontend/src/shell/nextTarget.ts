@@ -33,6 +33,7 @@ const ALLOWED = [
   '/memory-clarify/',
   '/situazione',
   '/manage-calendars',
+  '/casa',
 ];
 
 /** Never a destination: you would arrive where you just were. */

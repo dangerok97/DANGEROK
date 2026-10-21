@@ -40,7 +40,7 @@ test('completion fragment and tab proof are read once, without a JWT in URL', ()
   assert.match(done, /window\.history\.replaceState/);
   assert.match(done, /window\.sessionStorage\.removeItem/);
   assert.match(done, /googleBrowserLoginComplete\(ticket, proof\)/);
-  assert.match(done, /routeAfterAuth\(router, auth\.user\.user_id\)/);
+  assert.match(done, /routeAfterAuth\(router, auth\.user\.user_id, intended\)/);
   assert.match(gate, /'\/google-auth-complete'/);
   assert.match(backend, /return urlunsplit\(parts\._replace\(query="", fragment=urlencode\(params\)\)\)/);
   assert.ok(GOOGLE_BROWSER_PROOF_KEY.length > 12);

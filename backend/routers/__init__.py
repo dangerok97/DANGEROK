@@ -244,3 +244,7 @@ ALL_ROUTERS.append(loyalty_wallet_router)
 # Private fashion inventory pilot (separate from the autonomous agent).
 from wardrobe.router import router as wardrobe_router
 ALL_ROUTERS.append(wardrobe_router)
+
+# Owner-scoped RoomPlan captures and explicitly verified measurements.
+from .house_scans import router as house_scans_router
+ALL_ROUTERS.append(house_scans_router)

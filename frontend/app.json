@@ -16,6 +16,7 @@
       "bundleIdentifier": "com.emergent.oradecisionengine.b7escs",
       "usesAppleSignIn": true,
       "infoPlist": {
+        "NSCameraUsageDescription": "Consenti a ORA di usare la fotocamera e il sensore di profondità per acquisire stanze e misure della tua casa.",
         "NSCalendarsFullAccessUsageDescription": "Legge i tuoi eventi per aiutarti a organizzare la giornata.",
         "NSLocationWhenInUseUsageDescription": "ORA può usare la posizione mentre la usi per riconoscere i tuoi luoghi e aiutarti negli spostamenti.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Consenti a ORA di riconoscere quando arrivi o lasci i tuoi luoghi anche quando l'app non è aperta.",

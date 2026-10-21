@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { usePathname, useRouter } from 'expo-router';
+import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 
 import { useAuth } from '@/src/contexts/AuthContext';
 import { tokens } from '@/src/theme/tokens';
@@ -42,6 +42,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const cleanup = useSessionCleanup();
   const router = useRouter();
   const pathname = usePathname();
+  const params = useGlobalSearchParams<{ scan?: string }>();
+  // Preserve only this bounded, non-secret action through native sign-in.
+  const destination = pathname === '/casa' && params.scan === '1' ? '/casa?scan=1' : pathname;
   const sent = useRef<string | null>(null);
 
   const publicRoute = isPublic(pathname || '/');
@@ -54,10 +57,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
     // Redirect once per destination: without this the effect re-runs on every
     // render while the replace is in flight and stacks navigations.
-    if (sent.current === pathname) return;
-    sent.current = pathname;
-    router.replace(loginHrefFor(pathname) as any);
-  }, [anonymous, pathname, router]);
+    if (sent.current === destination) return;
+    sent.current = destination;
+    router.replace(loginHrefFor(destination) as any);
+  }, [anonymous, destination, router]);
 
   if (recovery && !user && !publicRoute) {
     return (

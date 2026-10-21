@@ -38,6 +38,7 @@ export function railKeyFor(pathname: string): RailKey {
     pathname.startsWith('/vita')
     || pathname.startsWith('/life-setup')
     || pathname.startsWith('/contesti')
+    || pathname === '/casa'
   ) return 'contesti';
   if (pathname.startsWith('/luoghi') || pathname.startsWith('/place/')) return 'luoghi';
   if (pathname.startsWith('/prepara-chiamata') || pathname.startsWith('/chiamate')) return 'chiamate';

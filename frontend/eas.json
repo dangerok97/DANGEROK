@@ -18,6 +18,12 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://ora-backend-production-aa56.up.railway.app"
+      },
+      "ios": {
+        "simulator": false
+      },
       "android": {
         "buildType": "apk"
       }

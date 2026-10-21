@@ -7,6 +7,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { PlacesSection } from '@/src/components/vita/PlacesSection';
 import { WalletEntry } from '@/src/wallet/WalletEntry';
 import { WardrobeEntry } from '@/src/wardrobe/WardrobeEntry';
+import { HouseScanEntry } from '@/src/features/houseScan/HouseScanEntry';
 /**
  * The guided first setup.
  *
@@ -1345,6 +1346,10 @@ export function GuidedSetupScreen() {
             <View testID="vita-wallet-section" style={{ gap: 8 }}>
               <Text style={[oraType.small, { color: ora.ink2, fontWeight: '700' }]}>TESSERE FEDELTÀ</Text>
               <WalletEntry />
+            </View>
+            <View testID="vita-house-scan-section" style={{ gap: 8 }}>
+              <Text style={[oraType.small, { color: ora.ink2, fontWeight: '700' }]}>CASA</Text>
+              <HouseScanEntry />
             </View>
             <View testID="vita-wardrobe-section" style={{ gap: 8 }}>
               <Text style={[oraType.small, { color: ora.ink2, fontWeight: '700' }]}>GUARDAROBA</Text>

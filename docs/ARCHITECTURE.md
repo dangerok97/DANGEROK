@@ -1,3 +1,33 @@
+## 21 ottobre 2026 — RoomPlan, geometria condivisa e piante per account
+
+Il modulo Expo locale `frontend/modules/ora-room-plan` espone disponibilità,
+scansione e cancellazione. Il controller Swift usa `RoomCaptureView`, conserva
+la sessione AR fra le stanze e allinea il risultato con `StructureBuilder`.
+Esporta solo geometria strutturata in metri, trasformazioni 4×4 column-major,
+confidenza e identificativi; il flusso non carica immagini o video della camera.
+Il bridge opzionale lascia funzionare web, Android ed Expo Go senza simulare
+la disponibilità dello scanner. La capacità viene verificata dal modulo iOS,
+non dedotta dallo user-agent del browser.
+
+`/api/house-scans` usa l'autenticazione esistente e la collezione `house_scans`.
+Tutte le letture/scritture sono associate all'owner. Creazione idempotente su
+owner + capture_id con impronta del contenuto; modifiche e cancellazioni usano
+una revisione atomica. Geometria originale immutabile, nomi e quote verificati
+separati. Validazione limita dimensione, quantità, numeri finiti, matrici rigide
+e riferimenti interni. La provenienza Apple è dichiarata dal client, senza
+attestazione crittografica. Nessuna pianta viene resa pubblica.
+
+Il frontend riusa il client API e lega le richieste alla sessione iniziale;
+il cambio account invalida letture e acquisizioni pendenti. Il deep link
+conserva esclusivamente `scan=1` attraverso il login. Le credenziali non entrano
+nel link. `EXPO_PUBLIC_IOS_ROOMPLAN_READY` e un URL TestFlight/App Store valido
+controllano solo l'invito all'installazione, non la capacità fisica del device.
+Il login passa sempre la destinazione validata anche nei callback dei provider;
+il redirect Google la conserva nella sessione del tab e la rimuove alla
+completion insieme alla prova monouso, validandola nuovamente prima di usarla.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 `vision_catalog_extended` compone tre raccolte additive, 50 ricette originali in nove primitive. `common_recipes()` conserva le venti ricette storiche; `all_recipes()` le integra con la nuova raccolta. `seeds()` e `METADATA` usano lo stesso insieme. Nessuna modifica a schema dati o servizio di pubblicazione. Il renderer include il massimo ingrandimento prospettico nel calcolo di adattamento: insieme e componente focalizzato restano entro la visuale allo zoom iniziale, anche per i nuovi gruppi larghi o profondi. I manifest dei 25 seed storici conservano il fingerprint canonico.

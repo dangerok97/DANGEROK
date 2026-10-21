@@ -1,3 +1,23 @@
+## 21 ottobre 2026 — Casa: rilievo iPhone e consultazione web
+
+VITA contiene l'ingresso «Pianta e misure della casa» (`/casa`). La prima
+implementazione usa Apple RoomPlan nell'app ORA per iOS 17+ con LiDAR, incluso
+iPhone 16 Pro: scansione guidata, più stanze nella stessa sessione, salvataggio
+sull'account, pianta 2D, nomi delle stanze e quote delle pareti verificabili.
+Le quote inserite dalla persona mantengono la geometria originale del rilievo.
+
+Il sito su iPhone apre la scansione nell'app installata tramite `ora://casa?scan=1`.
+Safari non esegue RoomPlan. Lo stesso account ritrova le piante anche sul web;
+gli altri dispositivi possono consultarle e correggere le quote. L'ingresso
+all'installazione appare solo quando è configurata una distribuzione iOS reale.
+La disponibilità del sito non prova che una build firmata sia già installabile.
+
+La scansione produce stime, non misure certificate. Un caricamento fallito è
+riprovabile finché la schermata resta aperta; il rilievo non ancora salvato
+non è un backup persistente. Stato verifiche e distribuzione: `HOUSE_SCANS.md`.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Il catalogo iniziale Vision passa da 25 a 75 famiglie, con cinquanta nuovi oggetti di cucina, casa, scrivania, elettronica, utensili e tempo libero. Ricerca per nome, sinonimo e categoria. Le nuove voci hanno parti selezionabili e spiegazioni; i percorsi didattici restano i 25 già pubblicati. Sono gruppi illustrativi, non interni verificati.

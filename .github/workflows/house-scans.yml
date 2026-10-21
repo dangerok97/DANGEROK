@@ -1,0 +1,164 @@
+name: House scans
+
+on:
+  push:
+    branches: ['staging/cloud']
+    paths:
+      - 'frontend/modules/ora-room-plan/**'
+      - 'frontend/src/features/houseScan/**'
+      - 'frontend/app/casa.tsx'
+      - 'frontend/app/login.tsx'
+      - 'frontend/app/google-auth-complete.tsx'
+      - 'frontend/src/auth/googleBrowserRedirect*'
+      - 'frontend/src/shell/nextTarget.ts'
+      - 'frontend/src/shell/AuthGate.tsx'
+      - 'frontend/e2e/house-scans.spec.ts'
+      - 'frontend/playwright.house-scans.config.ts'
+      - 'frontend/app.config.ts'
+      - 'frontend/app.json'
+      - 'frontend/eas.json'
+      - 'frontend/package*.json'
+      - 'backend/house_scans/**'
+      - 'backend/routers/house_scans.py'
+      - 'backend/tests/test_house_scans*.py'
+      - '.github/workflows/house-scans.yml'
+  pull_request:
+    paths:
+      - 'frontend/modules/ora-room-plan/**'
+      - 'frontend/src/features/houseScan/**'
+      - 'frontend/app/casa.tsx'
+      - 'frontend/app/login.tsx'
+      - 'frontend/app/google-auth-complete.tsx'
+      - 'frontend/src/auth/googleBrowserRedirect*'
+      - 'frontend/src/shell/nextTarget.ts'
+      - 'frontend/src/shell/AuthGate.tsx'
+      - 'frontend/e2e/house-scans.spec.ts'
+      - 'frontend/playwright.house-scans.config.ts'
+      - 'frontend/app.config.ts'
+      - 'frontend/app.json'
+      - 'frontend/eas.json'
+      - 'frontend/package*.json'
+      - 'backend/house_scans/**'
+      - 'backend/routers/house_scans.py'
+      - 'backend/tests/test_house_scans*.py'
+      - '.github/workflows/house-scans.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: house-scans-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: ora_house_scan_ci
+      JWT_SECRET: house-scan-ci-synthetic-key
+      CALENDAR_PROVIDER_MODE: fake
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-test.txt
+      - run: pip install -r backend/requirements-test.txt
+      - name: Account isolation, geometry validation, retries and measurements
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_house_scans*.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Geometry and web handoff
+        working-directory: frontend
+        run: node --experimental-strip-types --test src/features/houseScan/*.test.ts
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+  mobile-web:
+    name: iPhone web handoff and saved plans
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      EXPO_PUBLIC_BACKEND_URL: https://ora-backend-production-aa56.up.railway.app
+      EXPO_PUBLIC_IOS_ROOMPLAN_READY: '0'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npx expo export --platform web --output-dir dist-mobile-qa
+      - run: npx playwright test --config playwright.house-scans.config.ts
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: house-scans-mobile-web
+          path: |
+            frontend/test-results/house-scans
+            frontend/mobile-qa/house-scans-results.json
+          retention-days: 7
+
+  ios-compile:
+    name: iOS unsigned compilation (not a device scan)
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      EXPO_NO_CAPABILITY_SYNC: '1'
+      EXPO_PUBLIC_BACKEND_URL: https://ora-backend-production-aa56.up.railway.app
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Check Expo dependencies
+        run: npx expo install --check
+      - name: Generate native app and link the RoomPlan module
+        run: npx expo prebuild --platform ios --no-install --clean
+      - run: pod install --project-directory=ios
+      - name: Compile Swift, RoomPlan APIs and React Native bridge
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ios/ORA.xcworkspace -scheme ORA \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath /tmp/ora-roomplan-ios \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO build > /tmp/ora-roomplan-build.log 2>&1 || {
+              tail -n 160 /tmp/ora-roomplan-build.log
+              exit 1
+            }
+          tail -n 12 /tmp/ora-roomplan-build.log
+      - name: Preserve native compile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roomplan-ios-compile
+          path: /tmp/ora-roomplan-build.log
+          if-no-files-found: ignore
+          retention-days: 7

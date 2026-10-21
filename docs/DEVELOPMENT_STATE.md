@@ -1,3 +1,23 @@
+## 21 ottobre 2026 — Casa / RoomPlan: implementazione e distribuzione distinte
+
+Implementati ingresso VITA → Casa, scanner iOS nativo, più stanze, API per
+account, pianta 2D e quote verificate. Il web iPhone propone il passaggio alla
+build ORA installata. Non esiste una scansione RoomPlan eseguibile in Safari.
+La configurazione di distribuzione resta disattivata finché esistono una
+build firmata realmente installabile e un link TestFlight/App Store valido.
+
+TypeScript, lint mirato, test geometrici/bridge/handoff, export web e prebuild
+iOS sono verificabili senza firma. La compilazione Swift è affidata al job
+macOS dedicato; la prova fisica richiede una build firmata sul dispositivo.
+Il repository non contiene credenziali Apple/Expo, né si presume un progetto
+EAS esistente. `EXPO_PUBLIC_EAS_PROJECT_ID` permette di collegarne uno reale.
+Corrette tre dipendenze native fuori dalla matrice Expo 54 prima del prebuild.
+
+Esiti puntuali e percorso di installazione sono mantenuti in `HOUSE_SCANS.md`.
+Una CI verde o un rilascio Railway non chiudono da soli il collaudo LiDAR.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Preparata espansione a 75 famiglie/50 aggiunte sul ramo Vision, lasciando intatte le riparazioni della roadmap. Preflight controlla manifest, conteggi, alias e immutabilità dei 25 seed precedenti. Nuovi test Mongo e browser coprono tutte le famiglie aggiunte; rilascio e stato dei gate saranno documentati nella PR finale, non presunti completati qui.

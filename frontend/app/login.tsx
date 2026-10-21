@@ -37,7 +37,7 @@ import { RegistrationIntro, RegistrationMap } from '@/src/life-setup/Registratio
 import { humanizeError } from '@/src/utils/errors';
 import type { GoogleAuthResult } from '@/src/auth/googleAuth.types';
 import {
-  authorizedGoogleUrl, GOOGLE_BROWSER_PROOF_KEY, isIOSWebBrowser,
+  authorizedGoogleUrl, GOOGLE_BROWSER_PROOF_KEY, GOOGLE_BROWSER_NEXT_KEY, isIOSWebBrowser,
 } from '@/src/auth/googleBrowserRedirect';
 
 type Mode = 'buttons' | 'email';
@@ -191,13 +191,13 @@ export default function LoginScreen() {
       setBusy('google');
       const auth = await api.authGoogle(res.idToken, res.nonce);
       await signIn(auth.token, auth.user);
-      await routeAfterAuth(router, auth.user.user_id);
+      await routeAfterAuth(router, auth.user.user_id, intended);
     } catch (e: unknown) {
       setErr(authErrorMessage(e, 'Non riusciamo ad accedere con Google. Riprova.'));
     } finally {
       setBusy(null);
     }
-  }, [router, signIn]);
+  }, [router, signIn, intended]);
 
   useEffect(() => {
     // Google requires a full-page redirect on iOS browsers. An empty
@@ -234,6 +234,8 @@ export default function LoginScreen() {
       // Only a short-lived browser proof stays in this tab. Credentials and
       // the eventual ORA JWT never appear in a redirect URL.
       window.sessionStorage.setItem(GOOGLE_BROWSER_PROOF_KEY, started.proof);
+      if (intended) window.sessionStorage.setItem(GOOGLE_BROWSER_NEXT_KEY, intended);
+      else window.sessionStorage.removeItem(GOOGLE_BROWSER_NEXT_KEY);
       window.location.assign(started.authorize_url);
     } catch {
       setErr('Non riesco ad aprire Google. Riprova o usa Email.');
@@ -295,7 +297,7 @@ export default function LoginScreen() {
         full_name: res.fullName,
       });
       await signIn(auth.token, auth.user);
-      await routeAfterAuth(router, auth.user.user_id);
+      await routeAfterAuth(router, auth.user.user_id, intended);
     } catch (e: unknown) {
       setErr(authErrorMessage(e, 'Non riusciamo ad accedere con Apple. Riprova.'));
     } finally {
@@ -320,7 +322,7 @@ export default function LoginScreen() {
         ? await api.register(email, password, name.trim(), lastName.trim(), introDone)
         : await api.login(email, password);
       await signIn(auth.token, auth.user);
-      await routeAfterAuth(router, auth.user.user_id);
+      await routeAfterAuth(router, auth.user.user_id, intended);
     } catch (e: unknown) {
       setErr(
         authErrorMessage(

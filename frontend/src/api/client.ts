@@ -104,7 +104,7 @@ async function request<T>(path: string, init: RequestInit = {}, auth = true): Pr
 }
 
 /** A delayed lifecycle write must never borrow a newly signed-in account. */
-async function sessionRequest<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
+export async function sessionRequest<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {

@@ -1,5 +1,6 @@
 /** Browser-only OAuth redirect helpers. No credentials, tokens or account data. */
 export const GOOGLE_BROWSER_PROOF_KEY = 'ora:google:browser:proof';
+export const GOOGLE_BROWSER_NEXT_KEY = 'ora:google:browser:next';
 
 export function isIOSWebBrowser(userAgent: string): boolean {
   return /iPhone|iPad|iPod/i.test(userAgent || '');

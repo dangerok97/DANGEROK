@@ -1,3 +1,21 @@
+## 21 ottobre 2026 — Casa: scansione iPhone integrata in ORA
+
+- Aggiunti modulo Swift RoomPlan e schermata Casa condivisa con il web.
+- Supportate stanze successive, salvataggio autenticato, recupero degli invii
+  interrotti, pianta 2D, rinomina e quote verificate con geometria preservata.
+- Il sito iPhone apre l'app tramite deep link dopo l'accesso; nessuna richiesta
+  alla camera del browser e nessun link d'installazione inventato.
+- Corretto un ritorno alla Home dopo login che poteva perdere la destinazione
+  Casa; conservata anche durante il redirect completo Google su Safari.
+- API limita payload/geometria, isola gli account, impedisce duplicati e
+  protegge aggiornamenti/cancellazioni con revisione.
+- Allineati `expo-apple-authentication`, `expo-auth-session` e `expo-crypto`
+  alle versioni attese da Expo 54; aggiunto controllo nativo macOS in CI.
+- Test browser usano dati sintetici. Firma Apple, installazione e rilievo
+  fisico sono verifiche distinte, documentate in `HOUSE_SCANS.md`.
+
+---
+
 ## 12 ottobre 2026 — Vision: catalogo iniziale da 75 famiglie
 
 Aggiunte 50 ricette di oggetti quotidiani e rispettivi sinonimi/categorie. Preservati manifest e percorsi dei 25 oggetti precedenti. Aggiunti test di migrazione da 25 a 75, riuso senza generazione, isolamento delle vecchie voci private, mancata riattivazione dei ritirati e apertura/selezione delle 50 nuove famiglie su mobile e desktop.

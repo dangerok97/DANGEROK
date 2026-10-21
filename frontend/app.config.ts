@@ -13,6 +13,7 @@ function iosGoogleUrlScheme(clientId: string): string | null {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim();
   const iosUrlScheme = iosGoogleUrlScheme(iosClientId);
+  const easProjectId = (process.env.EXPO_PUBLIC_EAS_PROJECT_ID || '').trim();
   const plugins = [...(base.plugins || [])];
 
   // The native plugin requires the real reversed iOS client ID. Keeping it
@@ -30,6 +31,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: { ...base.ios, ...config.ios },
     android: { ...base.android, ...config.android },
     web: { ...base.web, ...config.web },
+    ...(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(easProjectId)
+      ? { extra: { ...base.extra, ...config.extra, eas: { ...base.extra?.eas, ...config.extra?.eas, projectId: easProjectId } } }
+      : {}),
     plugins,
   };
 };

@@ -1,0 +1,6 @@
+{
+  "name": "@ora/room-plan",
+  "version": "1.0.0",
+  "description": "Native Apple RoomPlan capture for ORA",
+  "private": true
+}

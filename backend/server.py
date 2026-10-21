@@ -146,6 +146,8 @@ async def startup():
     from security.rate_limit import ensure_rate_limit_indexes
     await ensure_session_indexes(db)
     await ensure_rate_limit_indexes(db)
+    from house_scans.service import ensure_indexes as ensure_house_scan_indexes
+    await ensure_house_scan_indexes(db)
     # Users
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id", unique=True)

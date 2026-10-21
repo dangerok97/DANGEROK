@@ -6,13 +6,15 @@ import { useRouter } from 'expo-router';
 import { api } from '@/src/api/client';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { routeAfterAuth } from '@/src/life-setup/routeAfterAuth';
-import { googleBrowserFailure, GOOGLE_BROWSER_PROOF_KEY } from '@/src/auth/googleBrowserRedirect';
+import { googleBrowserFailure, GOOGLE_BROWSER_PROOF_KEY, GOOGLE_BROWSER_NEXT_KEY } from '@/src/auth/googleBrowserRedirect';
+import { loginHrefFor, safeNextTarget } from '@/src/shell/nextTarget';
 import { tokens } from '@/src/theme/tokens';
 
 export default function GoogleAuthComplete() {
   const router = useRouter();
   const { signIn } = useAuth();
   const ran = useRef(false);
+  const returnTo = useRef<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -29,8 +31,18 @@ export default function GoogleAuthComplete() {
     // any requests or navigating. Browser tab proof stays in sessionStorage.
     const ticket = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('ticket') || '';
     const returnedError = new URLSearchParams(window.location.search).get('error') || '';
-    const proof = window.sessionStorage.getItem(GOOGLE_BROWSER_PROOF_KEY) || '';
-    window.sessionStorage.removeItem(GOOGLE_BROWSER_PROOF_KEY);
+    let proof = '';
+    let intended: string | null = null;
+    try {
+      proof = window.sessionStorage.getItem(GOOGLE_BROWSER_PROOF_KEY) || '';
+      intended = safeNextTarget(window.sessionStorage.getItem(GOOGLE_BROWSER_NEXT_KEY));
+      window.sessionStorage.removeItem(GOOGLE_BROWSER_PROOF_KEY);
+      window.sessionStorage.removeItem(GOOGLE_BROWSER_NEXT_KEY);
+    } catch {
+      // A browser that blocks session storage cannot verify this login flow.
+      proof = '';
+    }
+    returnTo.current = intended;
     window.history.replaceState(window.history.state, '', '/google-auth-complete');
 
     if (returnedError || !ticket || !proof) {
@@ -43,7 +55,7 @@ export default function GoogleAuthComplete() {
       try {
         const auth = await api.googleBrowserLoginComplete(ticket, proof);
         await signIn(auth.token, auth.user);
-        await routeAfterAuth(router, auth.user.user_id);
+        await routeAfterAuth(router, auth.user.user_id, intended);
       } catch {
         setError('L’accesso Google non è stato confermato. Riprova dalla schermata di accesso.');
       } finally {
@@ -66,7 +78,7 @@ export default function GoogleAuthComplete() {
             accessibilityLabel="Torna alla schermata di accesso"
             testID="google-auth-return-login"
             style={styles.back}
-            onPress={() => router.replace('/login')}
+            onPress={() => router.replace(loginHrefFor(returnTo.current) as never)}
           >
             <Text style={styles.backText}>Torna all’accesso</Text>
           </Pressable>
