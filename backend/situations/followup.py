@@ -46,12 +46,12 @@ def _moment(value):
 # just to express a relative checkpoint. This is clock conversion, not a
 # judgment about whether monitoring makes sense or a separate scheduler.
 _EXPLICIT_RELATIVE_MINUTES = re.compile(
-    r"(?<!\\w)(?:fra|tra)\\s+(?:circa\\s+)?(\\d{1,4})\\s+minut[oi](?!\\w)",
+    r"(?<!\w)(?:fra|tra)\s+(?:circa\s+)?(\d{1,4})\s+minut[oi](?!\w)",
     re.IGNORECASE,
 )
 _NEGATIVE_SCHEDULE = re.compile(
-    r"\\b(?:non|evita|senza)\\s+(?:\\w+\\s+){0,2}"
-    r"(?:programmare|programma|pianificare|pianifica|impostare|imposta|fissare|fissa)\\b",
+    r"\b(?:non|evita|senza)\s+(?:\w+\s+){0,2}"
+    r"(?:programmare|programma|pianificare|pianifica|impostare|imposta|fissare|fissa)\b",
     re.IGNORECASE,
 )
 _MAX_CHECK_DELAY_MINUTES = 72 * 60
