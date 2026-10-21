@@ -144,7 +144,8 @@ Per una serata 'elegante ma non troppo formale', scarpe molto formali
 possono essere un compromesso. Se esiste un solo look, valuta anche che
 potrebbe essere poco adatto; non inventare alternative o accessori.
 Alcuni capi includono attributi visivi confermati dall'utente
-(pattern, shape, surface, tone): se sono presenti, sfruttali per riconoscere
+(pattern, shape, surface, tone, back_graphic, back_style):
+se sono presenti, sfruttali per riconoscere
 l'armonia tra stili e volumi, senza inventare ulteriori caratteristiche.
 La reaction precedente 'like' / 'dislike' rappresenta la preferenza esplicita
 dell'utente. NON affermare di vedere la foto originale: disponi di descrizioni,
@@ -203,7 +204,8 @@ def _plain_candidate(item: dict) -> dict:
     if isinstance(visual, dict) and visual.get("reviewed_at"):
         output["reviewed_visual"] = {
             k: visual.get(k)
-            for k in ("pattern", "shape", "surface", "tone")
+            for k in ("pattern", "shape", "surface", "tone",
+                      "back_graphic", "back_style")
         }
     return output
 
@@ -241,6 +243,23 @@ def _cautions(pieces: list[dict], note: str, options_total: int) -> tuple[list[s
             "Le scarpe sono registrate come formali, mentre hai chiesto "
             "un look non troppo formale."
         )
+    for piece in pieces:
+        profile = piece.get("visual_profile")
+        if not isinstance(profile, dict) or not profile.get("reviewed_at"):
+            continue
+        if profile.get("back_graphic") == "large":
+            messages.append(
+                "Sul retro di un capo risulta confermata una grafica evidente: "
+                "tienine conto nell'abbinamento, anche se davanti appare semplice."
+            )
+            if profile.get("back_style") == "streetwear" and (
+                "chic" in note.casefold() or
+                any(p.get("formality") == "formal" for p in pieces)
+            ):
+                messages.append(
+                    "La grafica del retro dà un'impronta streetwear che può "
+                    "contrastare con il contesto più elegante richiesto."
+                )
     if options_total == 1:
         messages.append(
             "È l'unica combinazione completa valutabile con i capi "

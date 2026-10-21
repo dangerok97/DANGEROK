@@ -12,7 +12,7 @@ from .appearance import AppearanceConfirmation
 from .preferences import OutfitFeedbackInput
 from .service import (
     MAX_UPLOAD, GarmentInput, OutfitInput, PhotoCipher,
-    WardrobeError, WardrobeService, make_thumbnail,
+    WardrobeError, WardrobeService, make_thumbnail, make_source_photo,
 )
 
 
@@ -60,10 +60,7 @@ async def delete_item(item_id: str, revision: int = Query(..., ge=1), user=Depen
     return {"deleted": True}
 
 
-@router.post("/items/{item_id}/photo")
-async def save_photo(item_id: str, request: Request, revision: int = Query(..., ge=1),
-                     user=Depends(get_current_user)):
-    _check_id(item_id)
+async def _read_photo(request: Request) -> tuple[bytes, bytes]:
     if request.headers.get("content-type", "").split(";")[0].lower() not in (
         "image/jpeg", "image/png", "image/webp"):
         raise HTTPException(415, "Carica una foto JPEG, PNG o WebP.")
@@ -73,12 +70,42 @@ async def save_photo(item_id: str, request: Request, revision: int = Query(..., 
             if len(raw) + len(chunk) > MAX_UPLOAD:
                 raise HTTPException(413, "La foto supera 5 MB.")
             raw.extend(chunk)
-        thumbnail = await run_in_threadpool(make_thumbnail, bytes(raw))
-        return {"item": await _call(_service().save_photo(user["user_id"], item_id, revision, thumbnail))}
+        # Preserve the user-supplied view in an EXIF-free, size-bounded reference
+        # plus a thumbnail. Full upload bytes never enter persistent storage.
+        thumb = await run_in_threadpool(make_thumbnail, bytes(raw))
+        source = await run_in_threadpool(make_source_photo, bytes(raw))
+        return thumb, source
     except WardrobeError as exc:
         raise HTTPException(exc.status, str(exc)) from None
     finally:
         raw.clear()
+
+
+@router.post("/items/{item_id}/photo")
+@router.post("/items/{item_id}/photo/front")
+async def save_photo(item_id: str, request: Request, revision: int = Query(..., ge=1),
+                     user=Depends(get_current_user)):
+    _check_id(item_id)
+    thumbnail, source = await _read_photo(request)
+    return {"item": await _call(_service().save_photo(
+        user["user_id"], item_id, revision, thumbnail, source))}
+
+
+@router.post("/items/{item_id}/photo/back")
+async def save_back_photo(item_id: str, request: Request, revision: int = Query(..., ge=1),
+                          user=Depends(get_current_user)):
+    _check_id(item_id)
+    thumbnail, source = await _read_photo(request)
+    return {"item": await _call(_service().save_back_photo(
+        user["user_id"], item_id, revision, thumbnail, source))}
+
+
+@router.delete("/items/{item_id}/photo/back")
+async def remove_back_photo(item_id: str, revision: int = Query(..., ge=1),
+                            user=Depends(get_current_user)):
+    _check_id(item_id)
+    return {"item": await _call(_service().delete_back_photo(
+        user["user_id"], item_id, revision))}
 
 
 @router.post("/outfits")

@@ -42,6 +42,14 @@ export const VISUAL_FIELDS = {
     { value: 'warm', label: 'Caldo' }, { value: 'cool', label: 'Freddo' },
     { value: 'neutral', label: 'Neutro' }, { value: 'uncertain', label: 'Incerto' },
   ],
+  back_graphic: [
+    { value: 'none', label: 'Senza stampa' }, { value: 'small', label: 'Piccola stampa' },
+    { value: 'large', label: 'Grafica vistosa' }, { value: 'uncertain', label: 'Incerto' },
+  ],
+  back_style: [
+    { value: 'none', label: 'Nessun impatto' }, { value: 'casual', label: 'Più casual' },
+    { value: 'streetwear', label: 'Streetwear' }, { value: 'uncertain', label: 'Incerto' },
+  ],
 } as const;
 export type VisualField = keyof typeof VISUAL_FIELDS;
 export type VisualAppearance = {
@@ -49,18 +57,21 @@ export type VisualAppearance = {
   shape: typeof VISUAL_FIELDS.shape[number]['value'];
   surface: typeof VISUAL_FIELDS.surface[number]['value'];
   tone: typeof VISUAL_FIELDS.tone[number]['value'];
+  back_graphic: typeof VISUAL_FIELDS.back_graphic[number]['value'];
+  back_style: typeof VISUAL_FIELDS.back_style[number]['value'];
   confidence: 'high' | 'medium';
 };
 export type VisualProfile = VisualAppearance & { reviewed_at: string };
 export type AppearanceAnalysis = {
   recognized: boolean; stored: false; draft: VisualAppearance | null;
-  revision: number; photo_sha256?: string; message: string;
+  revision: number; photo_sha256?: string; message: string; views_analyzed?: 1 | 2;
 };
 export type AppearancePending = {
   itemId: string; revision: number; photo_sha256: string; draft: VisualAppearance;
 };
 export type Garment = GarmentInput & {
-  photo: string | null; created_at: string; updated_at: string;
+  photo: string | null; back_photo?: string | null; has_back?: boolean;
+  created_at: string; updated_at: string;
   visual_profile?: VisualProfile | null;
 };
 export const OCCASIONS = [
@@ -124,6 +135,14 @@ export const wardrobeClient = {
   photo: (token: string, item: Garment, photo: Blob) => request<{ item: Garment }>(token,
     `/items/${encodeURIComponent(item.id)}/photo?revision=${item.revision}`, {
       method: 'POST', headers: { 'Content-Type': photo.type }, body: photo,
+    }),
+  backPhoto: (token: string, item: Garment, photo: Blob) => request<{ item: Garment }>(token,
+    `/items/${encodeURIComponent(item.id)}/photo/back?revision=${item.revision}`, {
+      method: 'POST', headers: { 'Content-Type': photo.type }, body: photo,
+    }),
+  removeBackPhoto: (token: string, item: Garment) => request<{ item: Garment }>(token,
+    `/items/${encodeURIComponent(item.id)}/photo/back?revision=${item.revision}`, {
+      method: 'DELETE',
     }),
   analyze: (token: string, photo: Blob) => request<GarmentAnalysis>(token, '/analyze', {
     method: 'POST', headers: { 'Content-Type': photo.type }, body: photo,

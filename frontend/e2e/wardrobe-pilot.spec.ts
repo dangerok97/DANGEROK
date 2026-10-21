@@ -4,13 +4,13 @@ const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwM
 
 type Item = { id: string; revision: number; name: string; category: string;
   color: string; formality: string; status: string; seasons: string[]; photo: string | null;
-  visual_profile?: Record<string, any> | null;
+  visual_profile?: Record<string, any> | null; back_photo?: string | null; has_back?: boolean;
   created_at: string; updated_at: string };
 
 async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outage' | 'stylist_invalid' = 'recognized') {
   const items: Item[] = [];
   const feedback = new Map<string, 'like' | 'dislike'>();
-  const statistics = { analyzed: 0, saved: 0, photos: 0,
+  const statistics = { analyzed: 0, saved: 0, photos: 0, backPhotos: 0,
     appearanceScans: 0, appearanceConfirmations: 0, feedbackWrites: 0,
     lastStyleNote: '', usedAI: false };
   await page.addInitScript(() => {
@@ -68,10 +68,37 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       const existing = items.findIndex(i => i.id === input.id);
       const item: Item = { ...input, revision: input.revision + 1,
         photo: existing >= 0 ? items[existing].photo : null,
+        back_photo: existing >= 0 ? items[existing].back_photo : null,
         visual_profile: existing >= 0 ? items[existing].visual_profile : null,
         created_at: '2026-10-18T13:00:00Z', updated_at: '2026-10-18T13:00:00Z' };
       if (existing >= 0) items[existing] = item;
       else items.push(item);
+      json = { item };
+    } else if (path.startsWith('/api/wardrobe/items/') &&
+               path.endsWith('/photo/back') && req.method() === 'POST') {
+      statistics.backPhotos++;
+      const id = path.split('/').at(-3);
+      const item = items.find(i => i.id === id);
+      if (!item?.photo) {
+        await route.fulfill({ status: 409, headers,
+          json: { detail: 'Carica prima la fotografia del fronte.' } });
+        return;
+      }
+      item.revision += 1;
+      item.back_photo = 'data:image/png;base64,' + png;
+      item.has_back = true;
+      item.visual_profile = null;
+      json = { item };
+    } else if (path.startsWith('/api/wardrobe/items/') &&
+               path.endsWith('/photo/back') && req.method() === 'DELETE') {
+      const id = path.split('/').at(-3);
+      const item = items.find(i => i.id === id);
+      if (item) {
+        item.revision += 1;
+        item.back_photo = null;
+        item.has_back = false;
+        item.visual_profile = null;
+      }
       json = { item };
     } else if (path.startsWith('/api/wardrobe/items/') && path.endsWith('/photo') && req.method() === 'POST') {
       statistics.photos++;
@@ -95,9 +122,12 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
         ? { recognized: false, stored: false, draft: null,
             revision: item.revision, message: 'Non distinguo con certezza il capo.' }
         : { recognized: true, stored: false, revision: item.revision,
+            views_analyzed: item.back_photo ? 2 : 1,
             photo_sha256: 'a'.repeat(64), message: 'Proposta visiva: conferma o correggi.',
             draft: { pattern: 'striped', shape: 'tailored', surface: 'smooth',
-              tone: 'cool', confidence: 'medium' } };
+              tone: 'cool', confidence: 'medium',
+              back_graphic: item.back_photo ? 'large' : 'uncertain',
+              back_style: item.back_photo ? 'streetwear' : 'uncertain' } };
     } else if (path.endsWith('/appearance') && req.method() === 'PUT') {
       statistics.appearanceConfirmations++;
       const id = path.split('/').at(-2);
@@ -418,4 +448,44 @@ test('distinguish provider outage from an unusable model response in VITA', asyn
   await expect(page.getByTestId('wardrobe-ai-status')).toContainText('Risposta AI non valida');
   await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Il modello AI ha risposto');
   await expect(page.getByTestId('wardrobe-suggestions')).toContainText('Camicia azzurra');
+});
+
+
+test('front and optional back share one garment ID and are jointly analyzed', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stats = await mockAccount(page);
+  await page.goto('/guardaroba');
+  await page.getByRole('button', { name: 'Aggiungi un capo' }).click();
+  // Real file-picker calls, not an inert mock button.
+  let chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Scegli una foto del capo' }).click();
+  await (await chooser).setFiles({ name: 'front.png', mimeType: 'image/png',
+    buffer: Buffer.from(png, 'base64') });
+  chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Aggiungi foto retro (facoltativa)' }).click();
+  await (await chooser).setFiles({ name: 'back.png', mimeType: 'image/png',
+    buffer: Buffer.from(png, 'base64') });
+  await page.getByPlaceholder('Es. Camicia azzurra').fill('Maglia fronte neutro e retro grafico');
+  await page.getByPlaceholder('Es. Blu, bianco, beige').fill('bianco');
+  await page.getByRole('button', { name: 'Salva capo' }).click();
+  await expect(page.getByTestId('wardrobe-notice')).toContainText('Capo salvato');
+  expect(stats.photos).toBe(1);
+  expect(stats.backPhotos).toBe(1);
+  // Exactly one garment card with two views, no duplicate wardrobe entry.
+  await expect(page.getByTestId('wardrobe-item-views')).toHaveCount(1);
+  await expect(page.getByTestId('wardrobe-item-views').getByText('Fronte')).toBeVisible();
+  await expect(page.getByTestId('wardrobe-item-views').getByText('Retro')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Analizza stile con AI' }).click();
+  await expect(page.getByTestId('wardrobe-appearance-message')).toContainText('Fronte e retro valutati insieme');
+  await expect(page.getByTestId('wardrobe-appearance-editor')).toContainText('Stampa sul retro');
+  await expect(page.getByTestId('wardrobe-appearance-editor')).toContainText('Grafica vistosa');
+  await page.getByRole('button', { name: 'Conferma dettagli visivi' }).click();
+  await expect(page.getByTestId('wardrobe-visual-profile')).toContainText('Retro con grafica vistosa');
+
+  await page.getByRole('button', { name: 'Rimuovi retro' }).click();
+  await expect(page.getByTestId('wardrobe-remove-back-confirm')).toContainText('Eliminare solo');
+  await page.getByRole('button', { name: 'Conferma rimozione retro' }).click();
+  await expect(page.getByTestId('wardrobe-item-views').getByText('Retro')).toHaveCount(0);
+  await expect(page.getByTestId('wardrobe-item-views').getByText('Fronte')).toBeVisible();
 });

@@ -26,6 +26,8 @@ MAX_ITEMS = 75
 MAX_UPLOAD = 5 * 1024 * 1024
 MAX_PIXELS = 16_000_000
 MAX_THUMBNAIL = 160_000
+MAX_SOURCE = 650_000
+IMAGE_SOURCE_EDGE = 1200
 
 
 class WardrobeError(Exception):
@@ -118,6 +120,68 @@ def make_thumbnail(raw: bytes) -> bytes:
         raise WardrobeError("Carica una foto JPEG, PNG o WebP valida.", 422) from exc
 
 
+def make_source_photo(raw: bytes) -> bytes:
+    """Keep a bounded EXIF-free, user-supplied reference view (not the raw upload).
+
+    New front/back uploads retain a 1200px optimized reference for future
+    segmentation. Old garments only have the previous 480px normalized JPEG;
+    never label that missing original as full resolution.
+    """
+    if not raw or len(raw) > MAX_UPLOAD:
+        raise WardrobeError("La foto deve essere inferiore a 5 MB.", 413)
+    try:
+        with Image.open(io.BytesIO(raw), formats=["JPEG", "PNG", "WEBP"]) as opened:
+            if opened.width * opened.height > MAX_PIXELS:
+                raise WardrobeError("Immagine troppo grande: ritaglia il capo.", 413)
+            oriented = ImageOps.exif_transpose(opened)
+            oriented.load()
+            oriented.thumbnail((IMAGE_SOURCE_EDGE, IMAGE_SOURCE_EDGE), Image.Resampling.LANCZOS)
+            if oriented.mode in ("RGBA", "LA") or "transparency" in opened.info:
+                rgba = oriented.convert("RGBA")
+                white = Image.new("RGB", rgba.size, (255, 255, 255))
+                white.paste(rgba, mask=rgba.getchannel("A"))
+                oriented = white
+            else:
+                oriented = oriented.convert("RGB")
+            for quality in (84, 74, 62):
+                buff = io.BytesIO()
+                oriented.save(buff, format="JPEG", quality=quality, optimize=True)
+                if buff.tell() <= MAX_SOURCE:
+                    return buff.getvalue()
+            raise WardrobeError("La foto richiede un ritaglio più stretto.", 413)
+    except WardrobeError:
+        raise
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as exc:
+        raise WardrobeError("Carica una foto JPEG, PNG o WebP valida.", 422) from exc
+
+
+def combine_wardrobe_views(front: bytes, back: bytes | None) -> bytes:
+    """One explicit AI request for both views of the same stored garment.
+
+    Creates an ephemeral two-pane image: orientation labels are outside the
+    garment regions so the AI can distinguish front from back without confusing
+    the views with two separate items. Nothing is stored.
+    """
+    if not back:
+        return front
+    with Image.open(io.BytesIO(front)) as f, Image.open(io.BytesIO(back)) as b:
+        first = f.convert("RGB")
+        second = b.convert("RGB")
+        first.thumbnail((460, 460), Image.Resampling.LANCZOS)
+        second.thumbnail((460, 460), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (960, 506), (247, 248, 250))
+        canvas.paste(first, ((480 - first.width)//2, 40 + (460-first.height)//2))
+        canvas.paste(second, (480 + (480-second.width)//2, 40 + (460-second.height)//2))
+        from PIL import ImageDraw
+        draw = ImageDraw.Draw(canvas)
+        draw.text((12, 12), "FRONTE", fill=(20, 20, 25))
+        draw.text((493, 12), "RETRO", fill=(20, 20, 25))
+        draw.line([(479, 0), (479, 506)], fill=(155, 159, 166), width=2)
+        buff = io.BytesIO()
+        canvas.save(buff, format="JPEG", quality=82, optimize=True)
+        return buff.getvalue()
+
+
 class WardrobeService:
     def __init__(self, db, cipher: PhotoCipher):
         self.db = db
@@ -132,12 +196,22 @@ class WardrobeService:
         return await self.col.find_one({"_id": self._key(owner, item_id), "user_id": owner})
 
     def _public(self, owner: str, doc: dict) -> dict:
-        result = {k: v for k, v in doc.items() if k not in {"_id", "user_id", "photo_encrypted", "visual_photo_sha256"}}
-        if doc.get("photo_encrypted"):
-            image = self.cipher.decrypt(owner, doc["id"], doc["photo_encrypted"])
-            result["photo"] = "data:image/jpeg;base64," + base64.b64encode(image).decode("ascii")
-        else:
-            result["photo"] = None
+        result = {k: v for k, v in doc.items() if k not in {
+            "_id", "user_id", "photo_encrypted", "photo_back_encrypted",
+            "front_source_encrypted", "back_source_encrypted", "visual_photo_sha256",
+        }}
+        for name, stored, scope in (
+            ("photo", "photo_encrypted", doc["id"]),
+            ("back_photo", "photo_back_encrypted", f"{doc['id']}:back"),
+        ):
+            payload = doc.get(stored)
+            result[name] = (
+                "data:image/jpeg;base64," + base64.b64encode(
+                    self.cipher.decrypt(owner, scope, payload)
+                ).decode("ascii")
+                if payload else None
+            )
+        result["has_back"] = bool(doc.get("photo_back_encrypted"))
         return result
 
     async def list_items(self, owner: str) -> list[dict]:
@@ -181,7 +255,8 @@ class WardrobeService:
             await delete_item_feedback(self.db, owner, body.id)
         return self._public(owner, {**existing, **updated})
 
-    async def save_photo(self, owner: str, item_id: str, revision: int, thumbnail: bytes) -> dict:
+    async def save_photo(self, owner: str, item_id: str, revision: int, thumbnail: bytes,
+                         source: bytes | None = None) -> dict:
         existing = await self._load(owner, item_id)
         if not existing:
             raise WardrobeError("Capo non trovato.", 404)
@@ -189,8 +264,13 @@ class WardrobeService:
             raise WardrobeError("Il capo è stato modificato. Aggiorna e riprova.", 409)
         if not thumbnail or len(thumbnail) > MAX_THUMBNAIL:
             raise WardrobeError("Miniatura troppo grande.", 413)
+        if source is not None and (not source or len(source) > MAX_SOURCE):
+            raise WardrobeError("Foto di riferimento troppo grande.", 413)
         updated = {"photo_encrypted": self.cipher.encrypt(owner, item_id, thumbnail),
                    "visual_profile": None, "visual_photo_sha256": None,
+                   "front_source_encrypted": (
+                       self.cipher.encrypt(owner, f"{item_id}:source-front", source)
+                       if source else None),
                    "revision": revision + 1, "updated_at": datetime.now(timezone.utc).isoformat()}
         result = await self.col.update_one(
             {"_id": existing["_id"], "user_id": owner, "revision": revision}, {"$set": updated})
@@ -202,6 +282,65 @@ class WardrobeService:
             from .preferences import delete_item_feedback
             await delete_item_feedback(self.db, owner, item_id)
         return self._public(owner, {**existing, **updated})
+
+    async def save_back_photo(self, owner: str, item_id: str, revision: int,
+                              thumbnail: bytes, source: bytes | None = None) -> dict:
+        """Back is a second encrypted view of the SAME immutable garment ID.
+
+        The exact owner and revision fence prevent mixing back photos between
+        accounts/tabs. A back view requires a stored front view.
+        """
+        existing = await self._load(owner, item_id)
+        if not existing:
+            raise WardrobeError("Capo non trovato.", 404)
+        if existing["revision"] != revision:
+            raise WardrobeError("Capo cambiato: aggiorna e riprova.", 409)
+        if not existing.get("photo_encrypted"):
+            raise WardrobeError("Carica prima la fotografia del fronte.", 409)
+        if not thumbnail or len(thumbnail) > MAX_THUMBNAIL:
+            raise WardrobeError("Miniatura retro troppo grande.", 413)
+        if source is not None and (not source or len(source) > MAX_SOURCE):
+            raise WardrobeError("Foto retro troppo grande.", 413)
+        changes = {
+            "photo_back_encrypted": self.cipher.encrypt(owner, f"{item_id}:back", thumbnail),
+            "back_source_encrypted": (
+                self.cipher.encrypt(owner, f"{item_id}:source-back", source)
+                if source else None),
+            "visual_profile": None, "visual_photo_sha256": None,
+            "revision": revision + 1,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        result = await self.col.update_one(
+            {"_id": existing["_id"], "user_id": owner, "revision": revision},
+            {"$set": changes})
+        if result.matched_count != 1:
+            raise WardrobeError("Retro modificato da un altro dispositivo.", 409)
+        from .preferences import delete_item_feedback
+        await delete_item_feedback(self.db, owner, item_id)
+        return self._public(owner, {**existing, **changes})
+
+    async def delete_back_photo(self, owner: str, item_id: str, revision: int) -> dict:
+        existing = await self._load(owner, item_id)
+        if not existing:
+            raise WardrobeError("Capo non trovato.", 404)
+        if existing["revision"] != revision:
+            raise WardrobeError("Capo cambiato: aggiorna e riprova.", 409)
+        if not existing.get("photo_back_encrypted"):
+            raise WardrobeError("Questo capo non ha una foto retro.", 404)
+        changes = {
+            "photo_back_encrypted": None, "back_source_encrypted": None,
+            "visual_profile": None, "visual_photo_sha256": None,
+            "revision": revision + 1,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        result = await self.col.update_one(
+            {"_id": existing["_id"], "user_id": owner, "revision": revision},
+            {"$set": changes})
+        if result.matched_count != 1:
+            raise WardrobeError("Il retro è cambiato durante la rimozione.", 409)
+        from .preferences import delete_item_feedback
+        await delete_item_feedback(self.db, owner, item_id)
+        return self._public(owner, {**existing, **changes})
 
     async def delete(self, owner: str, item_id: str, revision: int) -> None:
         existing = await self._load(owner, item_id)
@@ -224,7 +363,10 @@ class WardrobeService:
         docs = await self.col.find({"user_id": owner}).to_list(length=MAX_ITEMS + 1)
         return [
             {k: v for k, v in doc.items()
-             if k not in {"_id", "user_id", "photo_encrypted", "visual_photo_sha256"}}
+             if k not in {
+                 "_id", "user_id", "photo_encrypted", "photo_back_encrypted",
+                 "front_source_encrypted", "back_source_encrypted",
+                 "visual_photo_sha256"}}
             for doc in sorted(docs, key=lambda d: (d["name"].casefold(), d["id"]))
         ]
 
@@ -259,10 +401,19 @@ class WardrobeService:
         if not current.get("photo_encrypted"):
             raise WardrobeError("Aggiungi prima una foto del capo.", 409)
         await enforce_owner_quota(self.db, owner)
-        photo = self.cipher.decrypt(owner, item_id, current["photo_encrypted"])
+        front = self.cipher.decrypt(owner, item_id, current["photo_encrypted"])
+        back = (self.cipher.decrypt(owner, f"{item_id}:back", current["photo_back_encrypted"])
+                if current.get("photo_back_encrypted") else None)
+        photo = combine_wardrobe_views(front, back)
         output = await describe_appearance(photo)
         if output["recognized"]:
-            return {**output, "revision": revision, "photo_sha256": photo_signature(photo)}
+            if not back and isinstance(output.get("draft"), dict):
+                # Never present hallucinated "back" details as visually observed
+                # when the owner has uploaded only the front.
+                output["draft"]["back_graphic"] = "uncertain"
+                output["draft"]["back_style"] = "uncertain"
+            return {**output, "revision": revision, "photo_sha256": photo_signature(photo),
+                    "views_analyzed": 2 if back else 1}
         return {**output, "revision": revision}
 
     async def confirm_appearance(self, owner: str, item_id: str, body) -> dict:
@@ -276,7 +427,15 @@ class WardrobeService:
             raise WardrobeError("La foto o il capo sono cambiati. Ripeti l'analisi.", 409)
         if not current.get("photo_encrypted"):
             raise WardrobeError("Fotografia non disponibile.", 409)
-        photo = self.cipher.decrypt(owner, item_id, current["photo_encrypted"])
+        if not current.get("photo_back_encrypted") and (
+            body.back_graphic != "uncertain" or body.back_style != "uncertain"
+        ):
+            raise WardrobeError(
+                "Senza una foto del retro non posso confermarne i dettagli visivi.", 422)
+        front = self.cipher.decrypt(owner, item_id, current["photo_encrypted"])
+        back = (self.cipher.decrypt(owner, f"{item_id}:back", current["photo_back_encrypted"])
+                if current.get("photo_back_encrypted") else None)
+        photo = combine_wardrobe_views(front, back)
         if not hmac.compare_digest(body.photo_sha256, photo_signature(photo)):
             raise WardrobeError("La foto è cambiata. Analizza di nuovo.", 409)
 
