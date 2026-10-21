@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 from pydantic import ValidationError
@@ -39,6 +40,56 @@ def _moment(value):
         return value.astimezone(timezone.utc) if value.tzinfo is not None else None
     except (ValueError, TypeError):
         return None
+
+
+# The person and the model need not manufacture an offset-aware timestamp
+# just to express a relative checkpoint. This is clock conversion, not a
+# judgment about whether monitoring makes sense or a separate scheduler.
+_EXPLICIT_RELATIVE_MINUTES = re.compile(
+    r"(?<!\\w)(?:fra|tra)\\s+(?:circa\\s+)?(\\d{1,4})\\s+minut[oi](?!\\w)",
+    re.IGNORECASE,
+)
+_NEGATIVE_SCHEDULE = re.compile(
+    r"\\b(?:non|evita|senza)\\s+(?:\\w+\\s+){0,2}"
+    r"(?:programmare|programma|pianificare|pianifica|impostare|imposta|fissare|fissa)\\b",
+    re.IGNORECASE,
+)
+_MAX_CHECK_DELAY_MINUTES = 72 * 60
+
+
+def _server_owned_check_at(args, user_message=""):
+    """Use an aware model instant OR an owner-bound, bounded relative duration.
+
+    A validated `delay_minutes` is the preferred contract: ORA chooses the
+    next interval; the server owns the absolute UTC calculation. For legacy
+    model calls that supplied malformed `check_at`, one explicit current-turn
+    Italian minute instruction can be mechanically recovered. Ambiguous,
+    negated or invalid values fail closed in the existing scheduling service.
+    """
+    now = datetime.now(timezone.utc)
+    minutes = args.get("delay_minutes")
+    if type(minutes) is int and 1 <= minutes <= _MAX_CHECK_DELAY_MINUTES:
+        return (now + timedelta(minutes=minutes)).isoformat()
+    if minutes is not None:
+        return None
+
+    candidate = args.get("check_at")
+    if _moment(candidate) is not None:
+        return candidate
+
+    spoken = str(user_message or "")[:2000]
+    if not spoken or _NEGATIVE_SCHEDULE.search(spoken):
+        return candidate
+    # Never infer an intention to schedule from a weather-related phrase: the
+    # model already selected the governed capability; this only repairs its
+    # clock representation for a directly stated relative time.
+    matches = _EXPLICIT_RELATIVE_MINUTES.findall(spoken)
+    if len(matches) != 1:
+        return candidate
+    elapsed = int(matches[0])
+    if not (1 <= elapsed <= _MAX_CHECK_DELAY_MINUTES):
+        return candidate
+    return (now + timedelta(minutes=elapsed)).isoformat()
 
 
 def _enabled():
@@ -910,7 +961,8 @@ async def schedule_situation_check(args, runtime):
     sid = str(args.get("situation_id") or "")
     state = await arrange_followup(db, owner,
         situation_id=sid, expected_revision=args.get("expected_revision"),
-        check_at=args.get("check_at"), purpose=args.get("purpose"),
+        check_at=_server_owned_check_at(args, runtime.get("user_message")),
+        purpose=args.get("purpose"),
         notify_when=args.get("notify_when"),
         completion_when=args.get("completion_when"),
         read_capability=args.get("read_capability"))
@@ -1105,6 +1157,6 @@ def register_followup_tools(registry):
         }, "required": ["situation_id"]},
         classification="personal", side_effect="READ_ONLY", freshness="fresh", handler=get_situation_followup))
     registry.register(CapabilitySpec(
-        capability="schedule_situation_check", description="Persist a real first follow-up in the existing background runtime for an active Situation. Choose checkpoint and purpose from current evidence, not by asking the user to supervise ORA. Reuses existing work without postponing it. Does not send a notification, grant external write authority, or prove an outcome. Read the returned status before promising a check. For dialogue use next_check_label and timezone from the result, not the raw UTC hour or the proposed check_at. When the person explicitly asks for a live weather reading at this checkpoint, pass read_capability='weather.read'. It persists that read-only capability for the wake, so the worker performs the real provider read before asking the AI for the outcome. Do NOT pass a read capability for unrelated checks or infer device GPS; the provider still requires an owned confirmed place. This operation does not measure any physical state.",
-        input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}, "expected_revision": {"type": "integer"}, "check_at": {"type": "string", "description": "Timezone-aware ISO8601, within 72 hours. A recheck time, not a predicted completion."}, "purpose": {"type": "string", "maxLength": 300}, "completion_when": {"type": "string", "maxLength": 400, "description": "Plain user-facing condition/outcome ORA is trying to reach; no implementation wording. Must be grounded in evidence."}, "notify_when": {"type": "string", "maxLength": 400, "description": "Earlier exceptional condition worth warning about before completion."}, "read_capability": {"type": "string", "enum": ["weather.read"], "description": "OPTIONAL: only when user explicitly asks to check weather at this deadline, opt in to a real bounded read-only weather skill. Not evidence of physical completion."}}, "required": ["situation_id", "expected_revision", "check_at", "purpose", "completion_when", "notify_when"]},
+        capability="schedule_situation_check", description="Persist a real first follow-up in the existing background runtime for an active Situation. Choose checkpoint and purpose from current evidence, not by asking the user to supervise ORA. Reuses existing work without postponing it. Does not send a notification, grant external write authority, or prove an outcome. Read the returned status before promising a check. For dialogue use next_check_label and timezone from the result, not the raw UTC hour or the proposed check_at. Prefer delay_minutes for any relative or autonomous next checkpoint: the server calculates the timestamp. Use check_at only for an absolute timezone-aware deadline. If changing outdoor weather is genuinely needed to follow a delegated Situation (for example when clothes are drying), you may select read_capability='weather.read' even if the person did not say the technical word 'meteo'. The worker will read the real provider at that checkpoint before AI reassessment. Never use weather.read for unrelated work or infer device GPS: the provider still requires an owned confirmed place. This operation does not measure any physical state.",
+        input_schema={"type": "object", "properties": {"situation_id": {"type": "string"}, "expected_revision": {"type": "integer"}, "check_at": {"type": "string", "description": "OPTIONAL absolute recheck: timezone-aware ISO8601 within 72 hours. Omit for a relative checkpoint."}, "delay_minutes": {"type": "integer", "minimum": 1, "maximum": 4320, "description": "PREFERRED for autonomous or relative next checks. Choose an interval in minutes (for example 90 for one and a half hours); server calculates exact UTC + timezone. Never generate ISO yourself for a relative check. This is a recheck, NOT a prediction that a physical process is finished."}, "purpose": {"type": "string", "maxLength": 300}, "completion_when": {"type": "string", "maxLength": 400, "description": "Plain user-facing condition/outcome ORA is trying to reach; no implementation wording. Must be grounded in evidence."}, "notify_when": {"type": "string", "maxLength": 400, "description": "Earlier exceptional condition worth warning about before completion."}, "read_capability": {"type": "string", "enum": ["weather.read"], "description": "OPTIONAL: only when user explicitly asks to check weather at this deadline, opt in to a real bounded read-only weather skill. Not evidence of physical completion."}}, "required": ["situation_id", "expected_revision", "purpose", "completion_when", "notify_when"]},
         classification="personal", side_effect="REVERSIBLE_WRITE", risk="write_soft", freshness="fresh", handler=schedule_situation_check))
