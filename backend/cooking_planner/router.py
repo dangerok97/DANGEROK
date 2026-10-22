@@ -166,7 +166,7 @@ async def get_shopping_list(week_start: str = Query(..., pattern=r"^\d{4}-\d{2}-
             })
     manual = (existing or {}).get("manual_items", [])
     items.extend({**item, "kind": "manual", "recipe_id": None, "recipe_title": None,
-                  "servings": None, "checked": item.get("checked", False)} for item in manual)
+                  "servings": None, "checked": checked.get(item["id"], item.get("checked", False))} for item in manual)
     items.sort(key=lambda item: (item["checked"], item["category"].casefold(), item["name"].casefold()))
     return {"week_start": week_start, "plan_revision": plan["revision"], "items": items,
             "note": "Le quantità sono riportate come scritte nelle ricette: ORA non somma unità ambigue né sottrae scorte non registrate."}
