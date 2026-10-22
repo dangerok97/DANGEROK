@@ -5,6 +5,7 @@ const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwM
 type Item = { id: string; revision: number; name: string; category: string;
   color: string; formality: string; status: string; seasons: string[]; photo: string | null;
   visual_profile?: Record<string, any> | null; back_photo?: string | null; has_back?: boolean;
+  front_showcase?: string | null; back_showcase?: string | null;
   created_at: string; updated_at: string };
 
 async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outage' | 'stylist_invalid' = 'recognized') {
@@ -12,6 +13,7 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
   const feedback = new Map<string, 'like' | 'dislike'>();
   const statistics = { analyzed: 0, saved: 0, photos: 0, backPhotos: 0,
     appearanceScans: 0, appearanceConfirmations: 0, feedbackWrites: 0,
+    studioPreviews: 0, studioApprovals: 0, studioRemovals: 0,
     lastStyleNote: '', usedAI: false };
   await page.addInitScript(() => {
     localStorage.setItem('ora_auth_token', JSON.stringify('synthetic-wardrobe-session'));
@@ -62,6 +64,38 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
         : { recognized: true, confidence: 'high', saved: false,
             engine: 'vision-ai-draft', message: 'Proposta AI da verificare.',
             suggestion: { name: 'Camicia blu', category: 'top', color: 'blu', formality: 'smart' } };
+    } else if (path === '/api/wardrobe/showcase/availability') {
+      json = { enabled: true };
+    } else if (path.endsWith('/showcase/preview') && req.method() === 'POST') {
+      statistics.studioPreviews++;
+      const params = new URL(req.url()).searchParams;
+      json = {
+        view: params.get('view') || 'front',
+        revision: Number(params.get('revision')),
+        source_sha256: 'a'.repeat(64),
+        preview: 'data:image/png;base64,' + png,
+        stored: false,
+        message: 'Anteprima pronta: verifica il ritaglio.',
+      };
+    } else if (path.endsWith('/showcase') && req.method() === 'PUT') {
+      statistics.studioApprovals++;
+      const body = req.postDataJSON();
+      const item = items.find(i => i.id === path.split('/').at(-2));
+      if (item) {
+        item.revision++;
+        item[body.view === 'front' ? 'front_showcase' : 'back_showcase'] =
+          'data:image/png;base64,' + body.png_b64;
+      }
+      json = { item };
+    } else if (path.endsWith('/showcase') && req.method() === 'DELETE') {
+      statistics.studioRemovals++;
+      const body = req.postDataJSON();
+      const item = items.find(i => i.id === path.split('/').at(-2));
+      if (item) {
+        item.revision++;
+        item[body.view === 'front' ? 'front_showcase' : 'back_showcase'] = null;
+      }
+      json = { item };
     } else if (path === '/api/wardrobe/items' && req.method() === 'PUT') {
       statistics.saved++;
       const input = req.postDataJSON();
@@ -69,6 +103,8 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       const item: Item = { ...input, revision: input.revision + 1,
         photo: existing >= 0 ? items[existing].photo : null,
         back_photo: existing >= 0 ? items[existing].back_photo : null,
+        front_showcase: existing >= 0 ? items[existing].front_showcase : null,
+        back_showcase: existing >= 0 ? items[existing].back_showcase : null,
         visual_profile: existing >= 0 ? items[existing].visual_profile : null,
         created_at: '2026-10-18T13:00:00Z', updated_at: '2026-10-18T13:00:00Z' };
       if (existing >= 0) items[existing] = item;
@@ -86,6 +122,7 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       }
       item.revision += 1;
       item.back_photo = 'data:image/png;base64,' + png;
+      item.back_showcase = null;
       item.has_back = true;
       item.visual_profile = null;
       json = { item };
@@ -96,6 +133,7 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       if (item) {
         item.revision += 1;
         item.back_photo = null;
+        item.back_showcase = null;
         item.has_back = false;
         item.visual_profile = null;
       }
@@ -107,6 +145,7 @@ async function mockAccount(page: Page, mode: 'recognized' | 'uncertain' | 'outag
       if (item) {
         item.revision += 1;
         item.photo = 'data:image/png;base64,' + png;
+        item.front_showcase = null;
         item.visual_profile = null;
       }
       json = { item };
@@ -488,4 +527,41 @@ test('front and optional back share one garment ID and are jointly analyzed', as
   await page.getByRole('button', { name: 'Conferma rimozione retro' }).click();
   await expect(page.getByTestId('wardrobe-item-views').getByText('Retro')).toHaveCount(0);
   await expect(page.getByTestId('wardrobe-item-views').getByText('Fronte')).toBeVisible();
+});
+
+
+test('studio showcase is opt-in, reviewed, accepted and original remains available', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stats = await mockAccount(page);
+  await page.goto('/guardaroba');
+  await page.getByRole('button', { name: 'Aggiungi un capo' }).click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Scegli una foto del capo' }).click();
+  await (await chooser).setFiles({ name: 'front.png', mimeType: 'image/png',
+    buffer: Buffer.from(png, 'base64') });
+  await page.getByPlaceholder('Es. Camicia azzurra').fill('Felpa blu');
+  await page.getByPlaceholder('Es. Blu, bianco, beige').fill('blu');
+  await page.getByRole('button', { name: 'Salva capo' }).click();
+  await expect(page.getByTestId('wardrobe-notice')).toContainText('Capo salvato');
+
+  await page.getByRole('button', { name: 'Crea foto vetrina fronte' }).click();
+  await expect(page.getByTestId('wardrobe-studio-review')).toBeVisible();
+  await expect(page.getByTestId('wardrobe-studio-review')).toContainText('Sfondo chiaro');
+  await expect(page.getByTestId('wardrobe-studio-review')).toContainText('Sfondo scuro');
+  expect(stats.studioApprovals).toBe(0);
+  await page.getByRole('button', { name: 'Scarta anteprima' }).click();
+  await expect(page.getByTestId('wardrobe-studio-review')).toHaveCount(0);
+  expect(stats.studioPreviews).toBe(1);
+  expect(stats.studioApprovals).toBe(0);
+
+  await page.getByRole('button', { name: 'Crea foto vetrina fronte' }).click();
+  await page.getByRole('button', { name: 'Accetta foto vetrina' }).click();
+  await expect(page.getByRole('button', { name: 'Mostra foto originali' })).toBeVisible();
+  expect(stats.studioApprovals).toBe(1);
+  await page.getByRole('button', { name: 'Mostra foto originali' }).click();
+  await expect(page.getByRole('button', { name: 'Mostra foto vetrina' })).toBeVisible();
+  await page.getByRole('button', { name: 'Rimuovi vetrina fronte' }).click();
+  expect(stats.studioRemovals).toBe(1);
+  await expect(page.getByRole('button', { name: 'Mostra foto originali' })).toHaveCount(0);
+  await expect(page.getByTestId('wardrobe-item-views')).toContainText('Fronte');
 });

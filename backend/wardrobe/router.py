@@ -10,6 +10,7 @@ from deps import db, get_current_user
 from .classify import analyze_photo, enforce_owner_quota
 from .appearance import AppearanceConfirmation
 from .preferences import OutfitFeedbackInput
+from .cutout import CutoutApproval, CutoutRemove, cutout_ready
 from .service import (
     MAX_UPLOAD, GarmentInput, OutfitInput, PhotoCipher,
     WardrobeError, WardrobeService, make_thumbnail, make_source_photo,
@@ -174,3 +175,36 @@ async def clear_saved_appearance(
 async def outfit_feedback(body: OutfitFeedbackInput, user=Depends(get_current_user)):
     """Owner-bound, confirmed like/dislike on an existing complete outfit."""
     return await _call(_service().record_outfit_feedback(user["user_id"], body))
+
+
+
+@router.get("/showcase/availability")
+async def showcase_availability(user=Depends(get_current_user)):
+    return {"enabled": cutout_ready()}
+
+
+@router.post("/items/{item_id}/showcase/preview")
+async def showcase_preview(
+    item_id: str, revision: int = Query(..., ge=1),
+    view: str = Query("front", pattern=r"^(front|back)$"),
+    user=Depends(get_current_user),
+):
+    _check_id(item_id)
+    return await _call(_service().cutout_preview(
+        user["user_id"], item_id, revision, view))
+
+
+@router.put("/items/{item_id}/showcase")
+async def showcase_accept(item_id: str, body: CutoutApproval,
+                           user=Depends(get_current_user)):
+    _check_id(item_id)
+    return {"item": await _call(_service().cutout_accept(
+        user["user_id"], item_id, body))}
+
+
+@router.delete("/items/{item_id}/showcase")
+async def showcase_remove(item_id: str, body: CutoutRemove,
+                           user=Depends(get_current_user)):
+    _check_id(item_id)
+    return {"item": await _call(_service().cutout_remove(
+        user["user_id"], item_id, body))}

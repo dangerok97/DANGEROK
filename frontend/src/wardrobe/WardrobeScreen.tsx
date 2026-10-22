@@ -12,7 +12,8 @@ import { tokens } from '@/src/theme/tokens';
 import { wardrobeClient, CATEGORIES, FORMALITIES, OCCASIONS, VISUAL_FIELDS,
   type Garment, type GarmentInput, type Category, type Formality,
   type GarmentStatus, type Occasion, type OutfitResponse, type GarmentAnalysis,
-  type AppearancePending, type VisualAppearance, type VisualField } from './client';
+  type AppearancePending, type VisualAppearance, type VisualField,
+  type StudioCutoutDraft, type StudioView } from './client';
 import { pickGarmentPhoto } from './pickPhoto';
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Operazione non riuscita.';
@@ -48,6 +49,9 @@ function WardrobeScreen() {
   const [result, setResult] = useState<OutfitResponse | null>(null);
   const [appearancePending, setAppearancePending] = useState<AppearancePending | null>(null);
   const [appearanceMessage, setAppearanceMessage] = useState('');
+  const [showcaseEnabled, setShowcaseEnabled] = useState(false);
+  const [showcaseDraft, setShowcaseDraft] = useState<StudioCutoutDraft | null>(null);
+  const [showOriginals, setShowOriginals] = useState(false);
 
   const load = useCallback(async () => {
     const token = await wardrobeClient.token();
@@ -64,6 +68,10 @@ function WardrobeScreen() {
     }).then(data => { if (live) setItems(data.items); })
       .catch(e => { if (live) setError(errorText(e)); })
       .finally(() => { if (live) setLoading(false); });
+    wardrobeClient.token()
+      .then(token => token ? wardrobeClient.showcaseStatus(token) : { enabled: false })
+      .then(status => { if (live) setShowcaseEnabled(status.enabled); })
+      .catch(() => { if (live) setShowcaseEnabled(false); });
     return () => { live = false; };
   }, []);
 
@@ -112,6 +120,7 @@ function WardrobeScreen() {
       await load();
       photoEpoch.current += 1;
       setResult(null); setDraft(null); setNewPhoto(null); setNewBackPhoto(null);
+      setShowcaseDraft(null);
       setRecognition(null); setAnalysisNote('');
       setNotice(photoProblems.length
         ? 'Capo salvato. Una o più foto non sono state caricate: ' + photoProblems.join('; ')
@@ -222,9 +231,47 @@ function WardrobeScreen() {
       if (!token) throw new Error('Accedi nuovamente a ORA.');
       await wardrobeClient.removeBackPhoto(token, removeBackTarget);
       await load();
-      setResult(null); setAppearancePending(null);
+      setResult(null); setAppearancePending(null); setShowcaseDraft(null);
       setRemoveBackTarget(null);
       setNotice('Retro eliminato. Il fronte del capo è rimasto invariato.');
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
+  const previewShowcase = async (item: Garment, view: StudioView) => {
+    if (busy || !showcaseEnabled) return;
+    setBusy(true); setError(''); setNotice(''); setShowcaseDraft(null);
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      const draft = await wardrobeClient.showcasePreview(token, item, view);
+      setShowcaseDraft({ ...draft, itemId: item.id });
+    } catch (e) {
+      setError(errorText(e));
+    } finally { setBusy(false); }
+  };
+  const confirmShowcase = async () => {
+    if (busy || !showcaseDraft) return;
+    setBusy(true); setError('');
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      await wardrobeClient.showcaseAccept(token, showcaseDraft);
+      await load();
+      setShowcaseDraft(null);
+      setNotice('Foto vetrina accettata. L' + 'originale rimane conservato.');
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
+  const removeShowcase = async (item: Garment, view: StudioView) => {
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      await wardrobeClient.showcaseRemove(token, item, view);
+      await load();
+      setShowcaseDraft(null);
+      setNotice('Foto vetrina rimossa; la foto originale non è stata eliminata.');
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
@@ -306,7 +353,10 @@ function WardrobeScreen() {
         <Text style={[s.subhead, muted]}>I vestiti che possiedi, organizzati per trovare cosa indossare.</Text>
         <View style={[s.card, card]}>
           <Text style={[s.heading, foreground]}>I tuoi capi · {items.length}/75</Text>
-          <Text style={[s.note, muted]}>Le foto sono private e cifrate. ORA analizza visivamente solo i capi per cui premi «Analizza stile» e confermi i risultati.</Text>
+          <Text style={[s.note, muted]}>Le foto sono private e cifrate. Le versioni vetrina sono facoltative: controlli il risultato prima di accettarlo e conservi sempre l'originale.</Text>
+          {items.some(item => item.front_showcase || item.back_showcase) ? action(
+            showOriginals ? 'Mostra foto vetrina' : 'Mostra foto originali',
+            () => setShowOriginals(value => !value), false, busy) : null}
           {!draft ? action('Aggiungi un capo', create, true, busy) : null}
           {loading ? <ActivityIndicator color={colors.accent} /> : null}
           {!loading && !items.length ? <Text style={[s.note, muted]}>Ancora nessun capo. Comincia dai vestiti che usi più spesso.</Text> : null}
@@ -315,14 +365,14 @@ function WardrobeScreen() {
               <View key={item.id} style={[s.item, { borderColor: colors.border }]}>
                 <View testID="wardrobe-item-views" style={s.dualPhotos}>
                   <View style={{ width: item.back_photo ? '48%' : '100%', gap: 4 }}>
-                    {item.photo ? <Image source={{ uri: item.photo }} style={s.photo} contentFit="contain" /> :
+                    {item.photo ? <Image source={{ uri: (!showOriginals && item.front_showcase) || item.photo }} style={s.photo} contentFit="contain" /> :
                       <View style={[s.photo, s.placeholder, { backgroundColor: colors.backgroundSecondary }]}>
                         <Ionicons name="shirt-outline" size={32} color={colors.textSecondary} />
                       </View>}
                     <Text style={[s.photoLabel, muted]}>Fronte</Text>
                   </View>
                   {item.back_photo ? <View style={{ width: '48%', gap: 4 }}>
-                    <Image source={{ uri: item.back_photo }} style={s.photo} contentFit="contain" />
+                    <Image source={{ uri: (!showOriginals && item.back_showcase) || item.back_photo }} style={s.photo} contentFit="contain" />
                     <Text style={[s.photoLabel, muted]}>Retro</Text>
                   </View> : null}
                 </View>
@@ -336,6 +386,16 @@ function WardrobeScreen() {
                   {' '}{VISUAL_FIELDS.shape.find(o => o.value === item.visual_profile?.shape)?.label}
                   {item.visual_profile?.back_graphic === 'large' ? ' · Retro con grafica vistosa' : ''}
                 </Text> : null}
+                {item.photo && showcaseEnabled ? <View style={{ gap: 7 }}>
+                  {action(item.front_showcase ? 'Rigenera vetrina fronte' : 'Crea foto vetrina fronte',
+                    () => { void previewShowcase(item, 'front'); }, false, busy)}
+                  {item.back_photo ? action(item.back_showcase ? 'Rigenera vetrina retro' : 'Crea foto vetrina retro',
+                    () => { void previewShowcase(item, 'back'); }, false, busy) : null}
+                  {item.front_showcase ? action('Rimuovi vetrina fronte',
+                    () => { void removeShowcase(item, 'front'); }, false, busy) : null}
+                  {item.back_showcase ? action('Rimuovi vetrina retro',
+                    () => { void removeShowcase(item, 'back'); }, false, busy) : null}
+                </View> : null}
                 {item.photo ? action(item.visual_profile ? 'Rianalizza stile' : 'Analizza stile con AI',
                   () => { void scanAppearance(item); }, false, busy || analyzing) : null}
                 {item.visual_profile ? action('Rimuovi analisi visiva',
@@ -362,6 +422,25 @@ function WardrobeScreen() {
               </View>
             ))}
           </View>
+          {showcaseDraft ? <View testID="wardrobe-studio-review"
+            style={[s.visualEditor, { borderColor: colors.border }]}>
+            <Text style={[s.heading, foreground]}>Anteprima foto vetrina · {showcaseDraft.view === 'front' ? 'Fronte' : 'Retro'}</Text>
+            <Text style={[s.note, muted]}>Controlla soprattutto bordi, maniche, lacci e stampe. Se mancano parti del capo, scarta il risultato: la foto originale resta intatta.</Text>
+            <View style={s.studioReviewRow}>
+              <View style={[s.studioReviewTile, { backgroundColor: '#ffffff' }]}>
+                <Image source={{ uri: showcaseDraft.preview }} style={s.studioReviewImage} contentFit="contain" />
+                <Text style={[s.studioLabel, { color: '#222222' }]}>Sfondo chiaro</Text>
+              </View>
+              <View style={[s.studioReviewTile, { backgroundColor: '#252a35' }]}>
+                <Image source={{ uri: showcaseDraft.preview }} style={s.studioReviewImage} contentFit="contain" />
+                <Text style={[s.studioLabel, { color: '#ffffff' }]}>Sfondo scuro</Text>
+              </View>
+            </View>
+            <View style={s.inline}>
+              {action('Scarta anteprima', () => setShowcaseDraft(null), false, busy)}
+              {action('Accetta foto vetrina', () => { void confirmShowcase(); }, true, busy)}
+            </View>
+          </View> : null}
           {appearanceMessage ? <Text testID="wardrobe-appearance-message" style={[s.note, muted]}>
             {appearanceMessage}
           </Text> : null}
@@ -471,12 +550,12 @@ function WardrobeScreen() {
                     return item ? <View key={id}
                       style={[s.outfitItem, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}>
                       <View style={s.outfitViewPhotos}>
-                        {item.photo ? <Image source={{ uri: item.photo }}
+                        {item.photo ? <Image source={{ uri: (!showOriginals && item.front_showcase) || item.photo }}
                           style={[s.outfitPhoto, { width: item.back_photo ? '49%' : '100%' }]} contentFit="contain" /> :
                           <View style={[s.outfitPhoto, s.placeholder, { width: '100%', backgroundColor: colors.surface }]}>
                             <Ionicons name="shirt-outline" size={27} color={colors.textSecondary} />
                           </View>}
-                        {item.back_photo ? <Image source={{ uri: item.back_photo }}
+                        {item.back_photo ? <Image source={{ uri: (!showOriginals && item.back_showcase) || item.back_photo }}
                           style={[s.outfitPhoto, { width: '49%' }]} contentFit="contain" /> : null}
                       </View>
                       <Text style={[s.outfitCategory, muted]}>{label(item.category)}</Text>
@@ -552,5 +631,9 @@ const s = StyleSheet.create({
   outfitColor: { fontSize: 12 },
   cautions: { gap: 5, paddingTop: 7 },
   visualEditor: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 12 },
+  studioReviewRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
+  studioReviewTile: { width: 210, maxWidth: '48%', borderRadius: 12, padding: 10, gap: 8 },
+  studioReviewImage: { width: '100%', height: 205 },
+  studioLabel: { fontSize: 12, textAlign: 'center' },
 
 });

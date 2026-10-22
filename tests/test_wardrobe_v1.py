@@ -1154,3 +1154,113 @@ def test_front_only_photo_cannot_claim_unseen_back_style(wardrobe_http, monkeypa
                                       "photo_sha256": detail["photo_sha256"]})
     assert cannot_confirm.status_code == 422
     assert "retro" in cannot_confirm.json()["detail"].lower()
+
+
+
+def test_showcase_preview_approve_revoke_and_photo_invalidation(wardrobe_http, monkeypatch):
+    import base64
+    from PIL import ImageDraw
+    from wardrobe import cutout
+
+    cli, db = wardrobe_http
+    base = "/api/wardrobe"
+    garment = "e"*32
+    cli.put(base + "/items", headers=headers(), json=item("e"))
+    photo = image_bytes()
+    saved = cli.post(f"{base}/items/{garment}/photo?revision=1",
+                     content=photo, headers={**headers(), "Content-Type": "image/png"})
+    assert saved.status_code == 200
+    # Feature gated: no worker credentials or network by default.
+    assert cli.get(base + "/showcase/availability", headers=headers()).json()["enabled"] is False
+    assert cli.post(f"{base}/items/{garment}/showcase/preview?revision=2",
+                    headers=headers()).status_code == 503
+
+    monkeypatch.setenv("ORA_WARDROBE_CUTOUT_URL", "http://studio-cutout.railway.internal:8080")
+    monkeypatch.setenv("ORA_WARDROBE_CUTOUT_TOKEN", "s"*40)
+    image = Image.new("RGBA", (576,576), (255,255,255,0))
+    ImageDraw.Draw(image).rectangle((145,90,440,470), fill=(63,120,195,255))
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    candidate = buf.getvalue()
+    assert cutout._validate_png(candidate).startswith(b"\x89PNG")
+    calls = []
+    async def fake_worker(src):
+        calls.append(src)
+        assert src.startswith(b"\xff\xd8")
+        return candidate
+    monkeypatch.setattr(cutout, "generate_cutout_preview", fake_worker)
+
+    assert cli.get(base + "/showcase/availability", headers=headers("bob")).json()["enabled"] is True
+    bad_owner = cli.post(f"{base}/items/{garment}/showcase/preview?revision=2",
+                         headers=headers("bob"))
+    assert bad_owner.status_code == 404
+    draft = cli.post(f"{base}/items/{garment}/showcase/preview?revision=2", headers=headers())
+    assert draft.status_code == 200, draft.text
+    data = draft.json()
+    assert data["stored"] is False and data["view"] == "front"
+    assert data["preview"].startswith("data:image/png;base64,")
+    assert db.wardrobe_items.docs["alice:"+garment].get("front_showcase_encrypted") is None
+    assert len(calls) == 1
+
+    accept = {
+        "view": "front", "revision":2,
+        "source_sha256":data["source_sha256"],
+        "png_b64":data["preview"].partition(",")[2],
+    }
+    wrong_sha = cli.put(f"{base}/items/{garment}/showcase",
+                        headers=headers(), json={**accept,"source_sha256":"0"*64})
+    assert wrong_sha.status_code == 409
+    assert cli.put(f"{base}/items/{garment}/showcase",headers=headers("bob"),json=accept).status_code == 404
+    approved=cli.put(f"{base}/items/{garment}/showcase",headers=headers(),json=accept)
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["item"]["revision"] == 3
+    assert approved.json()["item"]["photo"] is not None
+    assert approved.json()["item"]["front_showcase"].startswith("data:image/png;base64,")
+    assert "front_showcase_encrypted" not in approved.text
+    assert candidate not in repr(db.wardrobe_items.docs).encode()
+    assert cli.put(f"{base}/items/{garment}/showcase", headers=headers(), json=accept).status_code==409
+    assert cli.get(base+"/items",headers=headers("bob")).json()["items"]==[]
+
+    denied = cli.request("DELETE",f"{base}/items/{garment}/showcase",
+                         headers={**headers("bob"),"Content-Type":"application/json"},
+                         json={"revision":3,"view":"front"})
+    assert denied.status_code==404
+    removed=cli.request("DELETE",f"{base}/items/{garment}/showcase",
+                        headers={**headers(),"Content-Type":"application/json"},
+                        json={"revision":3,"view":"front"})
+    assert removed.status_code==200
+    assert removed.json()["item"]["front_showcase"] is None
+    assert removed.json()["item"]["photo"] is not None
+    approved2=cli.put(f"{base}/items/{garment}/showcase",headers=headers(),
+                      json={**accept,"revision":4})
+    assert approved2.status_code==200
+    nextphoto=cli.post(f"{base}/items/{garment}/photo?revision=5",
+                      headers={**headers(),"Content-Type":"image/png"},content=photo)
+    assert nextphoto.status_code==200
+    assert nextphoto.json()["item"]["front_showcase"] is None
+
+
+def test_cutout_validates_transparent_png_and_source_digest():
+    from PIL import ImageDraw
+    from wardrobe.cutout import _validate_png, source_signature, accept_png_b64
+
+    transparent=Image.new("RGBA",(576,576),(255,255,255,0))
+    buff=io.BytesIO()
+    transparent.save(buff,format="PNG")
+    with pytest.raises(WardrobeError):
+        _validate_png(buff.getvalue())
+
+    full=Image.new("RGBA",(576,576),(70,90,110,255))
+    out=io.BytesIO()
+    full.save(out,format="PNG")
+    with pytest.raises(WardrobeError):
+        _validate_png(out.getvalue())
+
+    valid=Image.new("RGBA",(576,576),(255,255,255,0))
+    ImageDraw.Draw(valid).ellipse((155,155,425,420),fill=(35,90,210,255))
+    out=io.BytesIO()
+    valid.save(out,format="PNG")
+    assert _validate_png(out.getvalue()).startswith(b"\x89PNG")
+    assert len(source_signature(b"front"))==64
+    with pytest.raises(WardrobeError):
+        accept_png_b64("not-base64@")
