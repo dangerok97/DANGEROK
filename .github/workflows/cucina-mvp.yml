@@ -8,6 +8,8 @@ on:
       - "backend/recipes/tests/test_*.py"
       - "frontend/src/recipes/**"
       - "frontend/app/(tabs)/cucina.tsx"
+      - "frontend/e2e/cucina.spec.ts"
+      - "frontend/e2e/cucina-qa.config.ts"
       - ".github/workflows/cucina-mvp.yml"
   pull_request:
     paths:
@@ -37,3 +39,25 @@ jobs:
         run: |
           python -m compileall -q recipes
           pytest -n 0 recipes/tests/test_parser.py recipes/tests/test_service.py
+
+  cucina-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      CI: '1'
+      EXPO_PUBLIC_BACKEND_URL: same-origin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx expo export --platform web --output-dir dist-mobile-qa
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npx playwright test --config=e2e/cucina-qa.config.ts
