@@ -1,4 +1,4 @@
-""""ORA modular routers. Each domain owns its own router file."""
+"""ORA modular routers. Each domain owns its own router file."""
 from action_engine import action_engine_router, study_plans_router, travel_projects_router
 from connectors.apple_calendar import apple_calendar_router
 from connectors.bank.router import router as bank_router
@@ -11,7 +11,7 @@ from goal_engine import goal_engine_router
 from home import router as home_router
 from intent_engine import intent_engine_router
 from llm.router import router as llm_router
-from proactive_engine import proactive_engine_router
+from proactive_engine import router as proactive_engine_router
 from conversation_engine import conversation_engine_router
 from semantic_engine.router import semantic_engine_router
 from ai_life_strategist.router import router as strategist_router
@@ -26,66 +26,230 @@ from weather_router import router as weather_router
 from accommodation.router import router as accommodation_router
 
 from . import (
-    admin, auth, auto_link as auto_link_router, behavior as behavior_router,
-    behavior_shadow as behavior_shadow_router, calendar_events as calendar_events_router,
-    connectors as connectors_router, context as context_router, daily as daily_router,
-    financial as financial_router, decisions as decisions_router, ingestion as ingestion_router,
-    knowledge as knowledge_router, legacy_tasks, life_graph as life_graph_router,
-    life_os as life_os_router, memory as memory_router, permissions as permissions_router,
+    admin,
+    auth,
+    auto_link as auto_link_router,
+    behavior as behavior_router,
+    behavior_shadow as behavior_shadow_router,
+    calendar_events as calendar_events_router,
+    connectors as connectors_router,
+    context as context_router,
+    daily as daily_router,
+    financial as financial_router,
+    decisions as decisions_router,
+    ingestion as ingestion_router,
+    knowledge as knowledge_router,
+    legacy_tasks,
+    life_graph as life_graph_router,
+    life_os as life_os_router,
+    memory as memory_router,
+    permissions as permissions_router,
 )
 
 ALL_ROUTERS = [
-    auth.router, agenda_router, weather_router, accommodation_router,
-    decisions_router.router, legacy_tasks.router, life_graph_router.router,
-    knowledge_router.router, auto_link_router.router, context_router.router,
-    admin.router, memory_router.router, permissions_router.router, connectors_router.router,
-    ingestion_router.router, google_calendar_router, gmail_router, apple_calendar_router,
-    bank_router, daily_router.router, financial_router.router, lifesearch_router,
-    behavior_router.router, behavior_shadow_router.router, calendar_events_router.router,
-    documents_router, energy_offers_router, home_router, intent_engine_router,
-    action_engine_router, study_plans_router, travel_projects_router, goal_engine_router,
-    proactive_engine_router, conversation_engine_router, semantic_engine_router,
-    strategist_router, life_profile_router, life_setup_router, life_objects_router,
-    life_map_router, activity_router, life_memory_router, life_os_router.router, llm_router,
+    auth.router,
+    #     L'AGENDA HA UNA PAGINA SUA, QUINDI HA UNA PORTA SUA. IL METEO PURE.
+    agenda_router,
+    weather_router,
+    accommodation_router,
+    decisions_router.router,
+    legacy_tasks.router,
+    life_graph_router.router,
+    knowledge_router.router,
+    auto_link_router.router,
+    context_router.router,
+    admin.router,
+    memory_router.router,
+    permissions_router.router,
+    connectors_router.router,
+    ingestion_router.router,
+    google_calendar_router,
+    gmail_router,
+    apple_calendar_router,
+    bank_router,
+    daily_router.router,
+    financial_router.router,
+    lifesearch_router,
+    behavior_router.router,
+    behavior_shadow_router.router,
+    calendar_events_router.router,
+    documents_router,
+    energy_offers_router,
+    home_router,
+    intent_engine_router,
+    action_engine_router,
+    study_plans_router,
+    travel_projects_router,
+    goal_engine_router,
+    proactive_engine_router,
+    conversation_engine_router,
+    semantic_engine_router,
+    strategist_router,
+    life_profile_router,
+    life_setup_router,
+    life_objects_router,
+    life_map_router,
+    activity_router,
+    life_memory_router,
+    life_os_router.router,
+    llm_router,
 ]
 
-# Optional domain routers remain isolated so optional dependencies cannot break bootstrap.
-def _append_optional(module: str, attribute: str, package: bool = False):
-    try:
-        if package:
-            mod = __import__(module, fromlist=[attribute])
-            ALL_ROUTERS.append(getattr(mod, attribute))
-        else:
-            mod = __import__(module, fromlist=["router"])
-            ALL_ROUTERS.append(getattr(mod, attribute))
-    except Exception:
-        pass
+# Device contacts — minimal owner-scoped address-book snapshot. The native
+# permission remains on the device; this surface only receives the fields ORA
+# needs for name resolution and can be revoked by clearing the snapshot.
+try:
+    from contacts.router import router as contacts_router
 
-_append_optional("contacts.router", "router")
-_append_optional("location.router", "router")
-_append_optional("places.router", "router")
-_append_optional("opportunities.router", "router")
-_append_optional("delivery.router", "router")
-_append_optional("ambient.router", "router")
-_append_optional("agent.router", "router")
-_append_optional("connected.router", "router")
-_append_optional("visuals.router", "router")
-_append_optional("waiting.router", "router")
-_append_optional("voice.router", "router")
-_append_optional("telephone.router", "router")
-_append_optional("autonomy.router", "router")
-_append_optional("preparation.router", "router")
+    ALL_ROUTERS.append(contacts_router)
+except Exception:
+    pass
 
+# Foreground location + presence (V2.7.1)
+try:
+    from location.router import router as location_router
+
+    ALL_ROUTERS.append(location_router)
+except Exception:
+    pass
+
+# Life Places — Vita → Luoghi (V3.6). Location stays where it was: this is
+# what ORA knows, not what it may observe.
+try:
+    from places.router import router as places_router
+
+    ALL_ROUTERS.append(places_router)
+except Exception:
+    pass
+
+# Opportunity Intelligence (V3.7) — a debug surface only. There is no tab and
+# no delivery: where a person meets an opportunity belongs to a later phase.
+try:
+    from opportunities.router import router as opportunities_router
+
+    ALL_ROUTERS.append(opportunities_router)
+except Exception:
+    pass
+
+# Ambient presence and delivery judgement (V3.8). No endpoint sends anything:
+# sending is what happens to a plan whose moment arrives and whose facts still
+# hold.
+try:
+    from delivery.router import router as delivery_router
+
+    ALL_ROUTERS.append(delivery_router)
+except Exception:
+    pass
+
+# Ambient runtime, devices and app presence (V3.8 Sprint 2). Nothing here
+# sends: a notification is what happens to a plan whose moment arrives and
+# whose facts still hold.
+try:
+    from ambient.router import router as ambient_router
+
+    ALL_ROUTERS.append(ambient_router)
+except Exception:
+    pass
+
+# Personal agent (V3.9). Goals, plans and the authority ceiling. No endpoint
+# executes a step: execution is what happens inside the loop when the ceiling
+# allows it, and Sprint 1 does not cross into the world at all.
+try:
+    from agent.router import router as agent_router
+
+    ALL_ROUTERS.append(agent_router)
+except Exception:
+    pass
+
+# Connected Life (V3.10). The outside world as sensors of the Personal Life
+# Model: three endpoints, and none of them returns meaning. Reading is a fact
+# somebody may ask for; what a change means is a judgement made on its own
+# schedule, and an endpoint that returned it could be polled into making one.
+try:
+    from connected.router import router as connected_router
+
+    ALL_ROUTERS.append(connected_router)
+except Exception:
+    pass
+
+# Contextual card visuals (PX1.2)
+try:
+    from visuals.router import router as visuals_router
+
+    ALL_ROUTERS.append(visuals_router)
+except Exception:
+    pass
+
+# Open questions — what ORA is waiting for, and where it resumes (V3.1)
+try:
+    from waiting.router import router as waiting_router
+
+    ALL_ROUTERS.append(waiting_router)
+except Exception:
+    pass
+
+# La voce di ORA (V3.13). Un endpoint che trasforma una risposta gia' decisa
+# in suono, dietro un contratto: chi chiama non sa da quale fornitore arrivi
+# la voce, e quando non arriva da nessuno parla il browser.
+try:
+    from voice.router import router as voice_router
+
+    ALL_ROUTERS.append(voice_router)
+except Exception:
+    pass
+
+# ORA al telefono (V3.13 Sprint 3). Due porte verso la persona, dietro
+# l'autenticazione di sempre, e due verso l'operatore, pubbliche e verificate
+# con la firma: un endpoint che fa squillare un telefono sta su internet.
+try:
+    from telephone.router import router as telephone_router
+
+    ALL_ROUTERS.append(telephone_router)
+except Exception:
+    pass
+
+# Il ciclo autonomo (V3.20). Porte di sola lettura piu' una per fermarsi: il
+# si' che fa partire un proposito passa da dove e' sempre passato, perche' un
+# secondo percorso per dire di si' sarebbe un secondo posto in cui
+# dimenticarsi di chiederlo.
+try:
+    from autonomy.router import router as autonomy_router
+
+    ALL_ROUTERS.append(autonomy_router)
+except Exception:
+    pass
+
+# La preparazione di una missione (V3.20.1). Chi chiamare, che cosa manca, e
+# il si' su un numero — che e' l'unico posto in cui quel si' si puo' dare.
+try:
+    from preparation.router import router as preparation_router
+
+    ALL_ROUTERS.append(preparation_router)
+except Exception:
+    pass
+
+# ORA Vision X-Ray: user-authorized foreground photos, illustrative parts.
 from vision_xray import router as vision_xray_router
 ALL_ROUTERS.append(vision_xray_router)
+
+# Official WhatsApp Cloud API: provider-signed ingress + authenticated linking.
+# Import errors must not mask a broken integration in staging.
 from whatsapp.router import router as whatsapp_router
 ALL_ROUTERS.append(whatsapp_router)
+
+# Static loyalty cards: existing authentication, isolated encrypted storage.
 from .loyalty_wallet import router as loyalty_wallet_router
 ALL_ROUTERS.append(loyalty_wallet_router)
+
+# Private fashion inventory pilot (separate from the autonomous agent).
 from wardrobe.router import router as wardrobe_router
 ALL_ROUTERS.append(wardrobe_router)
+
+# Owner-scoped RoomPlan captures and explicitly verified measurements.
 from .house_scans import router as house_scans_router
 ALL_ROUTERS.append(house_scans_router)
+
+# ORA Cucina: private recipe collection and conservative text import.
 from recipes.router import router as recipes_router
 ALL_ROUTERS.append(recipes_router)
 
