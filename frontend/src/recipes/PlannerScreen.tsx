@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/src/contexts/AuthContext';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { API_BASE_URL, authToken } from '@/src/api/client';
 import { recipesClient, type Recipe } from './client';
@@ -15,7 +14,6 @@ function mondayOfWeek() { const d = new Date(); d.setHours(12,0,0,0); d.setDate(
 function shiftWeek(week: string, amount: number) { const d = new Date(week + 'T12:00:00'); d.setDate(d.getDate() + amount*7); return dateString(d); }
 
 export default function CookingPlannerScreen() {
-  const { user } = useAuth();
   const router = useRouter();
   const { colors } = useTheme();
   const [week, setWeek] = useState(dateString(mondayOfWeek()));
@@ -68,16 +66,6 @@ export default function CookingPlannerScreen() {
   const panel = { backgroundColor: colors.surface, borderColor: colors.border };
   const primary = { color: colors.textPrimary };
   const secondary = { color: colors.textSecondary };
-  const addRecipe = () => {
-    if (!plan || !recipes.length) return;
-    const servingsNum = Number(servings);
-    if (!Number.isInteger(servingsNum) || servingsNum < 1 || servingsNum > 30) { setError('Inserisci porzioni da 1 a 30.'); return; }
-    const recipe = recipes[0];
-    const slots = plan.slots.filter(s => !(s.day === day && s.meal === 'dinner'));
-    slots.push({ day, meal: 'dinner', recipe_id: recipe.id, servings: servingsNum });
-    setPlan({ ...plan, slots });
-    setNotice(`Aggiunta “${recipe.title}” a ${dayNames[day]}.`);
-  };
   const savePlan = async () => {
     if (!plan) return;
     setBusy(true); setError(''); setNotice('');
