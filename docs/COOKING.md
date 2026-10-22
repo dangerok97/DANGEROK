@@ -35,7 +35,7 @@ iOS già installata, modalità cucina guidata, lista della spesa, planning,
 nutrizione e tool conversazionali/WhatsApp per lettura e scrittura.
 
 Test richiesti prima di dichiarare la pubblicazione:
-cd backend && pytest -n 0 tests/test_recipes_parser.py tests/test_recipes_service.py
+cd backend && pytest -n 0 recipes/tests/test_parser.py recipes/tests/test_service.py
 cd frontend && npx tsc --noEmit
 cd frontend && npx expo export --platform web
 

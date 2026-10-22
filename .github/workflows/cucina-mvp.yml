@@ -5,14 +5,14 @@ on:
     branches: [staging/cloud]
     paths:
       - "backend/recipes/**"
-      - "backend/tests/test_recipes_*.py"
+      - "backend/recipes/tests/test_*.py"
       - "frontend/src/recipes/**"
       - "frontend/app/(tabs)/cucina.tsx"
       - ".github/workflows/cucina-mvp.yml"
   pull_request:
     paths:
       - "backend/recipes/**"
-      - "backend/tests/test_recipes_*.py"
+      - "backend/recipes/tests/test_*.py"
       - "frontend/src/recipes/**"
       - "frontend/app/(tabs)/cucina.tsx"
       - ".github/workflows/cucina-mvp.yml"
@@ -36,4 +36,4 @@ jobs:
         working-directory: backend
         run: |
           python -m compileall -q recipes
-          pytest -n 0 tests/test_recipes_parser.py tests/test_recipes_service.py
+          pytest -n 0 recipes/tests/test_parser.py recipes/tests/test_service.py
