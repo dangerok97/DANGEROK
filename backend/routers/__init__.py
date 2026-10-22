@@ -248,3 +248,7 @@ ALL_ROUTERS.append(wardrobe_router)
 # Owner-scoped RoomPlan captures and explicitly verified measurements.
 from .house_scans import router as house_scans_router
 ALL_ROUTERS.append(house_scans_router)
+
+# ORA Cucina: private recipe collection and conservative text import.
+from recipes.router import router as recipes_router
+ALL_ROUTERS.append(recipes_router)

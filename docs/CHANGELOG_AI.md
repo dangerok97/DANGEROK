@@ -1,3 +1,13 @@
+## 22 ottobre 2026 — ORA Cucina, fase 1
+
+- Ricettario sotto VITA: link o testo, preview, correzione e conferma.
+- Non si inventano ingredienti, né si dichiara analizzato un video non letto.
+- Isolamento per account, deduplicazione, revisione ottimistica e ricerca.
+- Preferiti e stato già cucinata; test parser e test Mongo sintetici.
+- Verifica CI e deploy devono essere registrati separatamente.
+
+---
+
 ## 21 ottobre 2026 — Casa: scansione iPhone integrata in ORA
 
 - Aggiunti modulo Swift RoomPlan e schermata Casa condivisa con il web.

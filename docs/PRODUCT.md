@@ -1,3 +1,12 @@
+## 22 ottobre 2026 — Cucina: salva ricette in VITA
+
+ORA introduce /cucina: ingresso VITA, preview da testo o link, correzione,
+archivio per account, preferiti, ricerca, già cucinate e deduplicazione.
+Il link social senza testo resta da completare: nessuna trascrizione inventata.
+Contratti e limiti: docs/COOKING.md.
+
+---
+
 ## 21 ottobre 2026 — Casa: rilievo iPhone e consultazione web
 
 VITA contiene l'ingresso «Pianta e misure della casa» (`/casa`). La prima

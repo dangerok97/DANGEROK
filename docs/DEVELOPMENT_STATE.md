@@ -1,3 +1,14 @@
+## 22 ottobre 2026 — Cucina: implementazione, test, deploy distinti
+
+La fase 1 contiene API, parser, persistenza account-scoped, UI e test.
+Nessuna migrazione distruttiva. I test, export web, check GitHub Actions
+e pubblicazione Railway vanno verificati e riportati separatamente.
+Il backend Railway precedente risultava online, ma l'ultimo tentativo
+del 21/10 si è fermato allo snapshot per un errore interno di autenticazione.
+Un commit GitHub non è un rilascio dimostrato. Vedi docs/COOKING.md.
+
+---
+
 ## 21 ottobre 2026 — Casa / RoomPlan: implementazione e distribuzione distinte
 
 Implementati ingresso VITA → Casa, scanner iOS nativo, più stanze, API per

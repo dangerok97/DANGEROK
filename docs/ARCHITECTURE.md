@@ -1,3 +1,14 @@
+## 22 ottobre 2026 — Cucina: provenienza e revisione
+
+Il dominio backend/recipes espone /api/recipes e salva in ora_recipes
+Mongo con isolamento per account, identità per fonte e aggiornamenti CAS.
+Il parser testuale è deterministico; nessun fetch di URL arbitrari,
+nessuna richiesta AI a pagamento. Il frontend Expo riusa sessione e tema,
+la route secondaria /cucina e l'ingresso in VITA.
+Contratti dettagliati: docs/COOKING.md.
+
+---
+
 ## 21 ottobre 2026 — RoomPlan, geometria condivisa e piante per account
 
 Il modulo Expo locale `frontend/modules/ora-room-plan` espone disponibilità,

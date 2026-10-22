@@ -7,6 +7,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { PlacesSection } from '@/src/components/vita/PlacesSection';
 import { WalletEntry } from '@/src/wallet/WalletEntry';
 import { WardrobeEntry } from '@/src/wardrobe/WardrobeEntry';
+import { RecipeEntry } from '@/src/recipes/RecipeEntry';
 import { HouseScanEntry } from '@/src/features/houseScan/HouseScanEntry';
 /**
  * The guided first setup.
@@ -1354,6 +1355,10 @@ export function GuidedSetupScreen() {
             <View testID="vita-wardrobe-section" style={{ gap: 8 }}>
               <Text style={[oraType.small, { color: ora.ink2, fontWeight: '700' }]}>GUARDAROBA</Text>
               <WardrobeEntry />
+            </View>
+            <View testID="vita-recipe-section" style={{ gap: 8 }}>
+              <Text style={[oraType.small, { color: ora.ink2, fontWeight: '700' }]}>CUCINA</Text>
+              <RecipeEntry />
             </View>
             <BankSummaryCard />
             {uploadedContractId ? <EnergyOffersPanel documentId={uploadedContractId} pollMs={15000} /> : null}
