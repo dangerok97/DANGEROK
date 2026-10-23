@@ -1,3 +1,23 @@
+## 23 ottobre 2026 — Notifiche web: ORA raggiunge l'iPhone ad app chiusa
+
+Censimento in produzione: zero dispositivi registrati per le notifiche, zero
+piani di consegna consegnati (2 trattenuti, 4 annullati). ORA si usa da Safari
+e il canale Expo esiste solo in un'app nativa: «ti avviso io» non poteva
+arrivare. WhatsApp copre solo la finestra di 23,5 ore dopo un messaggio.
+
+Aggiunto il canale Web Push (PR #380): cifratura RFC 8291 e VAPID RFC 8292 con
+le librerie già presenti, allowlist dei servizi push, una sola decisione di
+consegna inviata a ogni canale attivo, app installabile sulla schermata Home
+(iOS 16.4+), service worker che mostra soltanto la notifica e apre un percorso
+verificato dal server, riga «Su questo telefono» con invio di prova.
+
+Configurazione: `WEBPUSH_VAPID_PRIVATE_KEY`, `WEBPUSH_SUBJECT` su ora-backend.
+Da verificare sul dispositivo reale: installazione, permesso, prova ricevuta,
+avviso di una Situazione ad app chiusa. Un 201 del servizio push significa
+«accettata», non «vista».
+
+---
+
 ## 23 ottobre 2026 — Catena delle Situazioni: dove si rompeva
 
 Ricostruita sui dati reali la catena frase → Situazione → controllo → meteo →
