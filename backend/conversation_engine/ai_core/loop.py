@@ -2650,16 +2650,16 @@ async def run_cognitive_loop(
                         None,
                     )
                     payload = (followup or {}).get("payload") or {}
-                    completion = str(payload.get("completion_when") or "").strip()
-                    early = str(payload.get("notify_when") or "").strip()
-                    if completion and early:
+                    # Fixed, grammatical wording. Interpolating the model's
+                    # completion_when produced "Ti avviso quando avere i panni
+                    # asciutti" in production (23/10).
+                    check_label = str(payload.get("next_check_label") or "").strip()
+                    if followup:
                         decision.message_to_user = (
-                            f"Sto seguendo questa situazione. Ti avviso quando {completion.rstrip('.').lower()}. "
-                            f"Se prima {early.rstrip('.').lower()}, ti avviso prima."
-                        )
-                    elif completion:
-                        decision.message_to_user = (
-                            f"Sto seguendo questa situazione. Ti avviso quando {completion.rstrip('.').lower()}."
+                            "La seguo io. "
+                            + (f"Il prossimo controllo è {check_label}: " if check_label else "")
+                            + "ti avviso in Aggiornamenti quando è il momento giusto, "
+                            "o prima se c'è un rischio."
                         )
                     else:
                         decision.message_to_user = (

@@ -1022,6 +1022,16 @@ class AgentService:
         if not evidence:
             return ("execute", pending[0])
 
+        # A Situation estimate is only accepted with a sourced baseline. Run
+        # the pending baseline research before asking the judge, so it cannot
+        # skip straight to an estimate that validation will always reject.
+        if goal.source_kind in ("situation_initial_review", "situation_followup"):
+            research = next((s for s in pending if s.capability_needed == "web.research"), None)
+            if research is not None and not any(
+                item.provenance.capability == "web.research" for item in evidence
+            ):
+                return ("execute", research)
+
         if budget.cognitive_calls >= budget.max_cognitive_calls:
             # Out of judgement for this run is NOT the same as out of work.
             # Pending steps still exist; finishing here asks the completion
@@ -1515,6 +1525,7 @@ class AgentService:
             goal.planning_unavailable = True
             run.stopped_because = "invalid_response"
             return None
+        steps = await self._with_situation_baseline_research(owner_id, goal, steps)
 
         plan = ActionPlan(
             goal_id=goal.id,
@@ -1538,6 +1549,52 @@ class AgentService:
             detail={"steps": len(plan.steps)},
         )
         return plan
+
+    async def _with_situation_baseline_research(self, owner_id, goal, steps):
+        """Give a Situation plan the empirical baseline its estimate needs.
+
+        Production 23/10: the checkpoint judge, now seeing live weather, wrote
+        "dovrebbero asciugarsi entro le 18:00" five times, and every proposal
+        was rejected because an estimate must cite sourced research or a
+        computation, not live conditions alone. The planner only ever planned
+        a weather read, so no estimate could ever be shown. Domain-neutral:
+        the question is built from the Situation's own outcome; research
+        already held and still valid is reused, never repeated.
+        """
+        if goal.source_kind not in ("situation_initial_review", "situation_followup"):
+            return steps
+        if any(s.capability_needed == "web.research" or s.step_type == "research" for s in steps):
+            return steps
+        try:
+            held = await self.evidence.for_goal(owner_id, goal.id)
+        except Exception:
+            held = []
+        now = _now()
+        for item in held:
+            if item.provenance.capability != "web.research":
+                continue
+            until = _aware_wait_until(item.provenance.research_valid_until)
+            if until is None or until > now:
+                return steps
+        subject = (goal.objective or goal.desired_outcome or "").strip().rstrip(".")[:200]
+        if not subject:
+            return steps
+        question = (
+            f"Quanto tempo serve di solito perché si realizzi questo: {subject}? "
+            "Da quali condizioni dipende e come cambia la durata? Fonti affidabili."
+        )[:300]
+        research = ActionStep(
+            ordinal=0, step_type="research", capability_needed="web.research",
+            intent="Trovare una durata tipica da fonti affidabili per poter stimare il momento utile",
+            expected_result=question,
+        )
+        # After the first read (usually the live conditions), before the rest.
+        merged = [*steps[:1], research, *steps[1:]][:MAX_PLAN_STEPS]
+        if research not in merged:
+            merged = [*steps[:MAX_PLAN_STEPS - 1], research]
+        for ordinal, step in enumerate(merged):
+            step.ordinal = ordinal
+        return merged
 
     async def _planning_fence(self, owner_id, goal, run: AgentRun) -> None:
         """Do not publish a slow planning response after its source changed."""
@@ -3225,10 +3282,16 @@ class AgentService:
             # A future schedule is not an update. Home is for something that
             # actually happened, something the person must answer, or a
             # concrete failure/overdue condition worth surfacing now.
+            # Exception, owner-approved board 23/10: an active Situation ORA
+            # is following belongs in "ORA ci sta pensando" from the start,
+            # with its next check, instead of appearing only after the first
+            # checkpoint ran.
             if (
                 card.get("has_real_activity")
                 or card.get("needs_you")
                 or card.get("problem")
+                or (goal.source_kind in ("situation_initial_review", "situation_followup")
+                    and card.get("situation"))
             ):
                 out.append(card)
             if len(out) >= 3:

@@ -114,6 +114,9 @@ jobs:
       - name: Just-started Situation takes the place of the current authorized position
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_current_presence_place_v1.py -x
+      - name: Situation estimate gets its research baseline; plain replies stay clean
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_situation_estimate_baseline_v1.py tests/test_situation_verified_receipt_v1.py -x
       - name: ORA native calendar without any external connector
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py -x
