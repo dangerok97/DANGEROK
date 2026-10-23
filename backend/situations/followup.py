@@ -956,12 +956,42 @@ async def get_situation_followup(args, runtime):
         payload=state, provenance=[ref] if state["status"] != "unavailable" else [],
     )
 
+# Production 23/10: a model chose a first check 180 minutes away for a new
+# Situation with no estimate yet, so the person saw no useful window for hours.
+# Until a first estimate exists, an interval the MODEL chose is capped; a time
+# the PERSON stated, an absolute deadline and later checks are untouched.
+FIRST_ESTIMATE_MAX_MINUTES = 45
+
+
+async def _cap_first_unestimated_check(db, owner, sid, args, user_message, check_at):
+    minutes = args.get("delay_minutes")
+    if type(minutes) is not int or minutes <= FIRST_ESTIMATE_MAX_MINUTES:
+        return check_at
+    if _EXPLICIT_RELATIVE_MINUTES.findall(str(user_message or "")[:2000]):
+        return check_at  # the person stated the interval
+    if db is None or not owner or not sid:
+        return check_at
+    try:
+        from agent.repository import AgentRepository
+        from situations.outcomes import current_outcome
+        goal = await AgentRepository(db).get_goal(owner, goal_id_for(owner, sid))
+        if goal is not None and await current_outcome(db, owner, goal):
+            return check_at  # an estimate exists; the model may space checks out
+    except Exception:
+        return check_at
+    return (datetime.now(timezone.utc) + timedelta(minutes=FIRST_ESTIMATE_MAX_MINUTES)).isoformat()
+
+
 async def schedule_situation_check(args, runtime):
     db, owner = runtime.get("db"), runtime.get("user_id")
     sid = str(args.get("situation_id") or "")
+    check_at = _server_owned_check_at(args, runtime.get("user_message"))
+    if check_at is not None:
+        check_at = await _cap_first_unestimated_check(
+            db, owner, sid, args, runtime.get("user_message"), check_at)
     state = await arrange_followup(db, owner,
         situation_id=sid, expected_revision=args.get("expected_revision"),
-        check_at=_server_owned_check_at(args, runtime.get("user_message")),
+        check_at=check_at,
         purpose=args.get("purpose"),
         notify_when=args.get("notify_when"),
         completion_when=args.get("completion_when"),

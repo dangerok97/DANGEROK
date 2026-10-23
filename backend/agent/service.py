@@ -3217,6 +3217,8 @@ class AgentService:
                 continue
             if await self._legacy_event_alert_expired(owner_id, goal):
                 continue
+            if await self._only_closed_situations(owner_id, goal):
+                continue
             card = await self._open_card(owner_id, goal)
             if card.get("stale"):
                 continue
@@ -3233,6 +3235,30 @@ class AgentService:
                 break
         return out
 
+    async def _only_closed_situations(self, owner_id: str, goal) -> bool:
+        """True when every Situation this goal is about has been closed.
+
+        Production 23/10: a generic goal created from a laundry Situation kept
+        asking for "the exact address" on Home after the person had cancelled
+        that Situation. Dedicated follow-ups are cancelled with their Situation;
+        generic goals that merely reference it were not. Presentation only:
+        nothing is deleted, and a goal with no Situation reference is unaffected.
+        """
+        sids = [str(ref).split(":", 1)[1] for ref in (getattr(goal, "source_refs", None) or [])
+                if str(ref).startswith("situation:") and ":" in str(ref)]
+        if not sids:
+            return False
+        try:
+            from situations.repository import SituationRepository
+            repo = SituationRepository(self.db)
+            for sid in sids[:8]:
+                situation = await repo.get(owner_id, sid)
+                if situation is not None and situation.status in ("active", "changed"):
+                    return False
+            return True
+        except Exception:
+            return False  # never hide work on a failed read
+
     async def for_detail(self, owner_id: str, goal_id: str) -> Optional[Dict[str, Any]]:
         """Read one owner's still relevant goal, independently of Home ranking."""
         goal = await self.repo.get_goal(owner_id, goal_id)
@@ -3245,6 +3271,8 @@ class AgentService:
             if deadline is not None and deadline <= _now():
                 return None
             if await self._legacy_event_alert_expired(owner_id, goal):
+                return None
+            if await self._only_closed_situations(owner_id, goal):
                 return None
             card = await self._open_card(owner_id, goal)
             return None if card.get("stale") else card
