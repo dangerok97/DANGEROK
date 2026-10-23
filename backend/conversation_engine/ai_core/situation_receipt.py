@@ -76,6 +76,14 @@ def verified_situation_receipt(
     if operation == "create":
         # Model text should never compete with server-owned timestamps.
         text = _strip_unproven_model_fields(text)
+        # Owner feedback 23/10: a plain conversational answer ("la seguo io")
+        # got an internal id and ISO timestamps appended on every new
+        # Situation. The receipt exists to correct record claims; with no id,
+        # no creation claim and no timestamp in the text there is nothing to
+        # correct, and the person sees the Situation in Aggiornamenti.
+        if not (_ID_RE.search(original) or _POSITIVE_CREATE.search(original)
+                or _ISO_LINE.search(original)):
+            return text
     elif not unknown_ids and not _POSITIVE_CREATE.search(original):
         # Ordinary updates must not clutter every conversational reply with
         # internal identifiers. We only correct fabricated create/ID claims.
