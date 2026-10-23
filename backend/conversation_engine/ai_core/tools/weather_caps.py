@@ -83,18 +83,9 @@ async def _resolve_user_named_locality(arguments: Dict[str, Any], runtime: Dict[
         suggestions = await lookup.suggest(label)
         if not suggestions.get("available"):
             return None, "PLACE_LOOKUP_UNAVAILABLE"
-        candidates = {
-            str(item["place_id"])
-            for item in (suggestions.get("suggestions") or [])
-            if isinstance(item, dict) and item.get("place_id")
-            and normalized in {
-                " ".join(str(item.get("primary") or "").casefold().split()),
-                " ".join(str(item.get("text") or "").casefold().split()),
-            }
-        }
-        if len(candidates) != 1:
+        place_id = lookup.unique_locality_match(suggestions, label)
+        if not place_id:
             return None, "PLACE_QUERY_AMBIGUOUS"
-        place_id = next(iter(candidates))
         resolved = await lookup.resolve(place_id)
         if (
             not resolved.get("available")

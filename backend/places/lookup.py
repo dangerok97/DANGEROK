@@ -90,7 +90,8 @@ async def suggest(
                     "X-Goog-FieldMask": (
                         "suggestions.placePrediction.placeId,"
                         "suggestions.placePrediction.text,"
-                        "suggestions.placePrediction.structuredFormat"
+                        "suggestions.placePrediction.structuredFormat,"
+                        "suggestions.placePrediction.types"
                     ),
                 },
                 content=json.dumps(payload),
@@ -115,9 +116,43 @@ async def suggest(
                 "text": (prediction.get("text") or {}).get("text"),
                 "primary": (structured.get("mainText") or {}).get("text"),
                 "secondary": (structured.get("secondaryText") or {}).get("text"),
+                "types": [str(t) for t in (prediction.get("types") or [])][:8],
             }
         )
     return {"available": True, "suggestions": out[:8]}
+
+
+# Types that name a town or village, as opposed to a business, station or
+# landmark that happens to carry the same name.
+_LOCALITY_TYPES = {
+    "locality", "sublocality", "postal_town", "administrative_area_level_3",
+    "administrative_area_level_2", "colloquial_area",
+}
+
+
+def unique_locality_match(suggestions: Dict[str, Any], label: str) -> Optional[str]:
+    """The one place_id whose name equals `label`, preferring a locality.
+
+    Production 23/10: "Montalto di Castro" matched both the town and the
+    train station "Montalto Di Castro", and the strict single-match rule gave
+    up. When several predictions carry exactly the name, keep the ones typed
+    as a locality; still return None when the result stays ambiguous.
+    """
+    def norm(value: Any) -> str:
+        return " ".join(str(value or "").casefold().split())
+
+    wanted = norm(label)
+    if not wanted:
+        return None
+    rows = [item for item in (suggestions.get("suggestions") or [])
+            if isinstance(item, dict) and item.get("place_id")
+            and wanted in {norm(item.get("primary")), norm(item.get("text"))}]
+    ids = {str(item["place_id"]) for item in rows}
+    if len(ids) == 1:
+        return next(iter(ids))
+    towns = {str(item["place_id"]) for item in rows
+             if _LOCALITY_TYPES.intersection(item.get("types") or [])}
+    return next(iter(towns)) if len(towns) == 1 else None
 
 
 async def resolve(
