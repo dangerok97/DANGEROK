@@ -122,7 +122,7 @@ jobs:
         run: python -m pytest -q -n 0 tests/test_places_locality_match_v1.py -x
       - name: A refused Situation estimate records which rule refused it
         working-directory: backend
-        run: python -m pytest -q -n 0 tests/test_situation_rejection_reasons_v1.py -x
+        run: python -m pytest -q -n 0 tests/test_situation_rejection_reasons_v1.py tests/test_situation_research_baseline_unblock_v1.py tests/test_situation_useful_outcome_v160.py tests/test_situation_research_integrity_v159.py -x
       - name: ORA native calendar without any external connector
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py -x

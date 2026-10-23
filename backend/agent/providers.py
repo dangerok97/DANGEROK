@@ -1718,16 +1718,24 @@ async def do_research(
         and sufficiency == "sufficient" and validated_claims and not rejected_claims
         and not context_unavailable
         and not getattr(assessment, "missing_evidence", None)
-        and not getattr(synthesis, "unresolved", None)
         and not any(not getattr(c, "resolved", False) for c in conflicts)
     )
+    # What the synthesis leaves open is a caveat, not a veto. Production
+    # 23/10: a sufficient, fully cited drying-time baseline was refused
+    # because it noted that the evening's drizzle was still uncertain — which
+    # is exactly what the live weather reading is for. Missing evidence and
+    # unresolved conflicts still refuse it.
+    open_points = [str(u)[:120] for u in (getattr(synthesis, "unresolved", None) or [])][:2]
     provenance = ResultProvenance(
         source_class="external_research", capability="web.research", provider="research",
         source_refs=[run_id] if run_id else [],
         observed_at=observed_at, freshness=freshness,
         research_sufficient=bool(enough and run_id and still_valid and freshness in ("fresh", "recent")),
         research_valid_until=str(getattr(run, "valid_until", "") or "") or None,
-        certainty_note=f"quanto bastano le fonti: {sufficiency}; claim citate verificate: {validated_claims}"[:200],
+        certainty_note=(
+            f"quanto bastano le fonti: {sufficiency}; claim citate verificate: {validated_claims}"
+            + (f"; resta aperto: {'; '.join(open_points)}" if open_points else "")
+        )[:200],
     )
     if getattr(run, "status", "") == "failed" or not claims:
         return CapabilityOutcome(

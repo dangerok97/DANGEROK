@@ -177,8 +177,17 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
     ids = list(dict.fromkeys(assessment.evidence_ids))
     by_id = {item.id: item for item in evidence
              if item.owner_id == owner and item.goal_id == goal.id}
-    if any(ref not in by_id or not _evidence_usable(by_id[ref], now) for ref in ids):
-        return _reject(reasons, "evidence_unknown_or_stale")
+    if any(ref not in by_id for ref in ids):
+        return _reject(reasons, "evidence_unknown")
+    # Research that is not (or no longer) established is simply not support:
+    # it is set aside rather than sinking a judgement that rests on other,
+    # valid readings. The rules below still decide whether what remains is
+    # enough — an estimate without a usable baseline is refused there.
+    # Any other stale or unusable citation still refuses the whole proposal.
+    ids = [ref for ref in ids if _evidence_usable(by_id[ref], now)
+           or by_id[ref].provenance.capability != "web.research"]
+    if any(not _evidence_usable(by_id[ref], now) for ref in ids):
+        return _reject(reasons, "evidence_not_usable")
     cited = [by_id[ref] for ref in ids]
     if not await _weather_binding_current(db, owner, state, state.revision, cited):
         return _reject(reasons, "weather_binding_stale")

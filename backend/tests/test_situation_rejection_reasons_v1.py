@@ -18,7 +18,7 @@ def test_validator_has_no_silent_rejection_left():
     assert bare == []
     codes = [n.args[1].value for n in ast.walk(tree)
              if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "_reject"]
-    assert len(codes) == len(set(codes)) >= 19
+    assert len(codes) == len(set(codes)) >= 20
     assert "estimate_without_baseline" in codes and "no_fresh_evidence_this_run" in codes
 
 
