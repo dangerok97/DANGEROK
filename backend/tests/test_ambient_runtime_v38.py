@@ -1218,14 +1218,20 @@ def test_expo_notifications_is_configured_without_native_folders():
 
 
 def test_the_web_does_not_pretend_to_have_native_push():
-    """§25: a browser asking for permission and registering nothing is theatre."""
+    """§25: a browser asking for permission and registering nothing is theatre.
+
+    Since 23/10/2026 the web has a real channel (Web Push, see
+    test_web_push_channel_v1). The lifecycle is enabled only when the browser
+    can actually subscribe; everywhere else it stays 'unsupported'.
+    """
     frontend = HERE.parent / "frontend"
     registration = (frontend / "src" / "ambient" / "pushRegistration.ts").read_text(
         encoding="utf-8"
     )
     assert "capability()" in registration
     assert "'unsupported'" in registration
-    assert "native: capability() === 'native'" in registration
+    assert "native: capability() !== 'unsupported'" in registration
+    assert "webPushSupport() === 'supported' ? 'web' : 'unsupported'" in registration
     lifecycle = (frontend / "src" / "ambient" / "pushLifecycle.ts").read_text(encoding="utf-8")
     assert "if (!deps.native) return Promise.resolve({ ok: false, state: 'unsupported' });" in lifecycle
 
