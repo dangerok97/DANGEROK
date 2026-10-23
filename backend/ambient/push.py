@@ -57,6 +57,14 @@ def device_hash(raw: str) -> str:
     return hashlib.sha256((raw or "").encode("utf-8")).hexdigest()[:32]
 
 
+def _provider_for(token: str) -> str:
+    if is_expo_push_token(token):
+        return "expo"
+    from ambient.webpush import is_web_push_token
+
+    return "webpush" if is_web_push_token(token) else "stub"
+
+
 class PushEndpointService:
     def __init__(self, db):
         self.db = db
@@ -96,7 +104,7 @@ class PushEndpointService:
                 owner_id=owner_id,
                 token=token,
                 platform=platform if platform in ("ios", "android", "web") else "unknown",
-                provider="expo" if is_expo_push_token(token) else "stub",
+                provider=_provider_for(token),
                 device_hash=handle,
                 session_digest=session_digest,
                 session_expires_at=session_expires_at,
@@ -302,15 +310,25 @@ class ExpoNotificationProvider:
 
 def install_provider(db) -> str:
     """
-    Choose the channel this process delivers through.
+    Choose the channels this process delivers through.
 
-    Expo only when explicitly asked for. The default stays the stub, so no
-    deployment starts sending because a dependency happened to be installed —
-    and the name it returns is what the report is allowed to claim.
+    Expo only when explicitly asked for; Web Push only when its VAPID key is
+    configured. The default stays the stub, so no deployment starts sending
+    because a dependency happened to be installed — and the name it returns
+    is what the report is allowed to claim.
     """
+    from ambient.webpush import (
+        CompositeNotificationProvider, WebPushNotificationProvider, configured,
+    )
     from delivery.provider import set_provider
 
+    channels = []
     if os.environ.get("PUSH_PROVIDER", "").strip().lower() == "expo":
-        set_provider(ExpoNotificationProvider(db))
-        return "expo"
-    return "stub"
+        channels.append(ExpoNotificationProvider(db))
+    if configured():
+        channels.append(WebPushNotificationProvider(db))
+    if not channels:
+        return "stub"
+    provider = channels[0] if len(channels) == 1 else CompositeNotificationProvider(channels)
+    set_provider(provider)
+    return provider.name

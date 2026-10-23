@@ -13,10 +13,14 @@
  * granting one capability never widens the others.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { api } from '@/src/api/client';
+import { pushRecovery, webPushRecovery } from '@/src/ambient/pushLifecycle';
+import { enablePush } from '@/src/ambient/pushRegistration';
+import { usePushRegistration } from '@/src/ambient/usePushRegistration';
+import { webPushSupport } from '@/src/ambient/webPush';
 import { ConnectorOAuthError } from '@/src/connectors/connectorOAuth';
 import { connectGoogleSource } from '@/src/connectors/connectorOAuthRuntime';
 import { humanizeError } from '@/src/utils/errors';
@@ -702,6 +706,7 @@ export default function PermessiScreen() {
         detail="Quanto vuoi che ORA ti interrompa quando non sei nell’app. Qualunque cosa scegli, continui a trovare tutto qui dentro."
         testID="perm-notifications"
       >
+        <DeviceNotificationsRow />
         {notifications ? (
           <>
             {NOTIFICATION_CHOICES.map((c) => (
@@ -924,3 +929,53 @@ const revokeStyles = StyleSheet.create({
   description: { fontSize: 15, lineHeight: 23 },
   action: { minHeight: 50, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
 });
+
+
+/*
+  Se questo telefono può davvero ricevere un avviso. È un fatto del
+  dispositivo, separato da quanto ORA può interrompere: senza questo, le
+  preferenze sopra non raggiungono nessuno quando l'app è chiusa.
+*/
+function DeviceNotificationsRow() {
+  const push = usePushRegistration();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const recovery = Platform.OS === 'web' ? webPushRecovery(push, webPushSupport()) : pushRecovery(push);
+  const granted = push.state === 'granted';
+  const canEnable = !granted && (recovery ? recovery.action === 'enable' : push.state === 'idle' || push.state === 'undetermined');
+
+  const press = async () => {
+    if (busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      if (granted) {
+        const result = await api.sendTestNotification();
+        setNote(result.accepted > 0
+          ? 'Inviata. Dovrebbe arrivarti tra pochi secondi, anche con ORA chiusa.'
+          : 'Non sono riuscito a inviarla a questo telefono. Riprova tra poco.');
+      } else if (canEnable) {
+        const outcome = await enablePush();
+        if (!outcome.ok) setNote('Non sono riuscito ad attivarle. Riprova.');
+      }
+    } catch {
+      setNote(granted ? 'Prova non riuscita. Riprova tra qualche secondo.' : 'Non sono riuscito ad attivarle. Riprova.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const detail = note
+    || (granted ? 'Attive: ORA può avvisarti anche con l’app chiusa. Tocca per una prova.'
+      : recovery?.message || 'Tocca per attivare le notifiche su questo telefono.');
+  return (
+    <ChoiceRow
+      label="Su questo telefono"
+      detail={busy || push.busy ? 'Verifico…' : detail}
+      selected={granted}
+      onPress={() => void press()}
+      busy={busy || push.busy}
+      testID="notification-device"
+    />
+  );
+}

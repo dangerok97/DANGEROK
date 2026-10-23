@@ -24,8 +24,9 @@ router = APIRouter(prefix="/ambient", tags=["ambient"])
 
 
 class RegisterIn(BaseModel):
-    # An Expo push token. Written once, never read back out.
-    token: str = Field(max_length=400)
+    # An Expo push token, or a browser PushSubscription serialised as JSON.
+    # Written once, never read back out.
+    token: str = Field(max_length=1200)
     platform: str = Field(default="unknown", max_length=12)
     # An opaque device string; only its hash is stored.
     device: str = Field(default="", max_length=200)
@@ -86,9 +87,16 @@ async def register(body: RegisterIn, user=Depends(get_current_user),
     except (pyjwt.PyJWTError, KeyError, ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid token")
 
+    push_token = body.token
+    if body.platform == "web":
+        from ambient.webpush import subscription_token
+
+        push_token = subscription_token(body.token) or ""
+        if not push_token:
+            raise HTTPException(status_code=400, detail="invalid_subscription")
     result = await PushEndpointService(db).register(
         user["user_id"],
-        token=body.token,
+        token=push_token,
         platform=body.platform,
         device=body.device,
         permission_state=body.permission_state,
@@ -124,6 +132,50 @@ async def register(body: RegisterIn, user=Depends(get_current_user),
         connector_id="notifications", audit=False,
     )
     return result
+
+
+@router.get("/push/web-config")
+async def web_config(user=Depends(get_current_user)):
+    """The public application-server key a browser subscribes with."""
+    from ambient.webpush import vapid_public_key
+
+    key = vapid_public_key()
+    return {"available": bool(key), "public_key": key}
+
+
+_last_test: dict = {}
+
+
+@router.post("/push/test")
+async def send_test(user=Depends(get_current_user)):
+    """
+    A notification the person asked for, to their own devices, right now.
+
+    The only send that skips the delivery judgement — because the person
+    tapped "Prova" — and it carries no content from their life. The result
+    says what each push service accepted; acceptance is not "seen".
+    """
+    import time as _time
+
+    from delivery.provider import get_provider
+
+    owner = user["user_id"]
+    now = _time.monotonic()
+    if now - _last_test.get(owner, -1e9) < 20:
+        raise HTTPException(status_code=429, detail="test_too_soon")
+    _last_test[owner] = now
+    words = {"title": "ORA", "body": "Le notifiche funzionano. Ti avviso così quando serve."}
+    outcome = await get_provider().send(
+        owner_id=owner, plan_id=f"dlv_test{int(_time.time())}",
+        title=words["title"], body=words["body"], deep_link="/",
+        public_title=words["title"], public_body=words["body"],
+    )
+    return {
+        "ok": bool(outcome.get("ok")),
+        "provider": outcome.get("provider"),
+        "accepted": int(outcome.get("provider_accepted") or 0),
+        "reason": outcome.get("reason"),
+    }
 
 
 @router.post("/push/release")

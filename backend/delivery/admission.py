@@ -166,7 +166,13 @@ async def drain_with_receipts(db) -> int:
     from ambient.push import ExpoNotificationProvider
     from delivery.provider import get_provider
 
-    if isinstance(get_provider(), ExpoNotificationProvider):
+    from ambient.webpush import CompositeNotificationProvider
+
+    current = get_provider()
+    if isinstance(current, ExpoNotificationProvider) or (
+        isinstance(current, CompositeNotificationProvider)
+        and current.includes(ExpoNotificationProvider)
+    ):
         from delivery.expo_receipts import ExpoReceiptAudit
 
         try:
