@@ -734,6 +734,9 @@ class AutonomousGoal(BaseModel):
             "id": self.id,
             "what": cosa,
             "created_at": self.created_at,
+            # Last real activity: Home freshness counts from here, so a long
+            # but still-moving piece of work does not vanish after creation.
+            "updated_at": self.updated_at,
             "valid_until": self.valid_until,
             "outcome": self.desired_outcome,
             "why_now": self.why_now or None,

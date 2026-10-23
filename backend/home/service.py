@@ -477,6 +477,16 @@ class HomeService:
         except Exception as e:
             logger.info("agent work read soft-fail: %s", type(e).__name__)
 
+        # Expired or long-inactive updates leave Home by themselves; the same
+        # filtered lists feed the Home section, its counter and the full page.
+        from home.freshness import current_only
+
+        # Insights are typed InsightItem rows that always carry valid_until
+        # (1–3 days) and already expire in _build_insights.
+        opportunities = current_only(opportunities, now)
+        agent_work = current_only(agent_work, now)
+        ora_ti_consiglia = current_only(ora_ti_consiglia, now)
+
         primary_public = primary.to_public() if primary else None
         if primary_public:
             try:
