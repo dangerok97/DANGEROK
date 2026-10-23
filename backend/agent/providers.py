@@ -29,7 +29,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import Dict, List
 
 from agent.models import ResultProvenance
 from agent.memory_sources import MEMORY_READ_PROJECTION, memory_source_id, memory_source_version
@@ -55,6 +55,9 @@ class Claim:
 
     text: str
     supports: str = ""
+    # Optional numeric readings behind the sentence (e.g. temperature_c) for
+    # display only. Never sent to a model; the sentence stays the evidence.
+    measures: Dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -1053,6 +1056,9 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
             text=(f"Condizioni riportate{f' a {place_label}' if place_label else ''} "
                   f"all'osservazione {observed_at or 'di orario non verificabile'}: " + ", ".join(current_bits))[:600],
             supports="condizioni meteo all'orario dell'osservazione",
+            measures={key: float(data[key]) for key in
+                      ("temperature_c", "humidity_pct", "wind_kmh", "precipitation_mm")
+                      if isinstance(data.get(key), (int, float)) and not isinstance(data.get(key), bool)},
         ))
 
     hours = [hour for hour in list(data.get("hours") or [])[:12] if isinstance(hour, dict)]
@@ -1074,6 +1080,7 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
                 f"indicata dal provider è {round(max(rain_values))}%."
             ),
             supports="probabilità di pioggia nel profilo orario, distinta dall'intensità",
+            measures={"rain_chance_max_pct": float(max(rain_values))},
         ))
     if temps:
         claims.append(Claim(

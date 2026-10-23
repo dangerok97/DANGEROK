@@ -105,6 +105,9 @@ jobs:
       - name: Situation checkpoint judge sees its Situation and latest source read
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_judge_context_v1.py -x
+      - name: Situation card shows numbers of the latest real weather read
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_situation_card_conditions_v1.py -x
       - name: ORA native calendar without any external connector
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py -x
@@ -394,6 +397,9 @@ jobs:
       - name: Home update lifecycle regression
         working-directory: frontend
         run: node --experimental-strip-types src/components/home/v3/home3.test.ts
+      - name: Updates board groups (Adesso, Serve te, ORA ci sta pensando)
+        working-directory: frontend
+        run: node --experimental-strip-types src/components/home/v3/gruppiAggiornamenti.test.ts
       - name: Home calendar excludes task deadlines and review checkpoints
         working-directory: frontend
         run: node --experimental-strip-types --test src/components/home/v3/calendarItems.test.ts

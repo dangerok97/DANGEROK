@@ -15,7 +15,8 @@ import { IconBubble, OraBadge, OraButton, OraCard, OraLink, SectionTitle } from 
 import { ora, oraType } from '@/src/theme/oraSurface';
 import { ContextualCardVisual } from './ContextualCardVisual';
 import { agoLabel, relativeDayLabel } from './homeItemView';
-import { aggiornamentoScaduto, quandoAggiornamento } from './aggiornamenti';
+import { aggiornamentoScaduto, elencoAggiornamenti, quandoAggiornamento, type Aggiornamento } from './aggiornamenti';
+import { UpdatesBoard, sintesiAggiornamenti } from './UpdatesBoard';
 import { SituationDetails, SituationOutcomeSummary } from '@/src/components/ora/SituationOutcomeSummary';
 
 /* -------------------------------------------------------------------------- */
@@ -328,160 +329,66 @@ export function UpdatesFeed({
   const total = visibleSuggestions.length + visibleInsights.length + raised.length + working.length;
   if (!total) return null;
 
+  /*
+    Bacheca approvata il 23/10/2026: Adesso → Serve te → ORA ci sta pensando.
+    Lo stesso elenco della pagina (elencoAggiornamenti), costruito dalle liste
+    già filtrate qui sopra, così numero e contenuto non si scollano.
+  */
+  const righe = elencoAggiornamenti({
+    agent_work: working,
+    opportunities: raised,
+    ora_ti_consiglia: visibleSuggestions,
+    insights: visibleInsights,
+  } as Parameters<typeof elencoAggiornamenti>[0]);
+  const apri = (a: Aggiornamento) => {
+    if (a.genere === 'lavoro') return onOpenWork ? onOpenWork(a.id) : onSeeAll?.();
+    if (a.genere === 'occasione') {
+      const o = raised.find((x) => x.id === a.id);
+      return o && onOpportunityOpen ? onOpportunityOpen(o) : onSeeAll?.();
+    }
+    if (a.genere === 'suggerimento') {
+      const sug = visibleSuggestions.find((x) => x.id === a.id);
+      return sug ? onOpen(sug) : onSeeAll?.();
+    }
+    const ins = visibleInsights.find((x) => x.id === a.id);
+    return ins ? onInsight(ins) : onSeeAll?.();
+  };
+  const rimuovi = (a: Aggiornamento) => {
+    if (a.genere === 'occasione') {
+      const o = raised.find((x) => x.id === a.id);
+      if (o) onOpportunityDismiss?.(o);
+      return;
+    }
+    if (a.genere === 'suggerimento') onDismiss(a.id);
+  };
+  const testId = (a: Aggiornamento) =>
+    a.genere === 'suggerimento' ? `home-update-${a.id}`
+      : a.genere === 'occasione' ? `home-opportunity-${a.id}`
+        : a.genere === 'spunto' ? `home-insight-${a.id}`
+          : `home-work-${a.id}`;
+
   return (
     <SectionShell
       title="Aggiornamenti di ORA"
       icon="sparkles-outline"
-      subtitle="Ecco cosa sta succedendo, in modo chiaro."
+      subtitle={sintesiAggiornamenti(righe) || 'Ecco cosa sta succedendo, in modo chiaro.'}
       linkLabel={total === 1 ? '1 aggiornamento' : `${total} aggiornamenti`}
       onLink={onSeeAll}
       footerLabel={onSeeAll ? 'Vedi tutti gli aggiornamenti' : undefined}
       onFooter={onSeeAll}
       testID="home-updates"
     >
-      {working.map((w) => (
-        <AgentWorkRow
-          key={w.id}
-          work={w}
-          //     «APRI DETTAGLI» APRE *QUESTO*, NON LA LISTA.
-          // Prima chiamava `onSeeAll`: due bottoni diversi che finivano nello
-          // stesso posto, e il dettaglio del singolo aggiornamento non
-          // esisteva da nessuna parte.
-          onOpen={onOpenWork ? () => onOpenWork(w.id) : undefined}
-        />
-      ))}
-
-      {raised.map((o) => (
-        <View key={o.id} style={styles.oppItem} testID={`home-opportunity-${o.id}`}>
-          <Text style={[styles.oppTitle, { color: colors.textPrimary }]}>{o.title}</Text>
-          <Text style={[styles.oppWhy, { color: colors.textTertiary }]} testID={`home-opportunity-${o.id}-date`}>
-            Creato: {quandoAggiornamento(o.created_at) || 'data non disponibile'}
-            {o.valid_until ? ` · Scade: ${quandoAggiornamento(o.valid_until) || o.valid_until}` : ''}
-          </Text>
-          <Text style={[styles.oppWhy, { color: colors.textTertiary }]} numberOfLines={3}>
-            {o.why_now}
-          </Text>
-          {/*
-            La meta' della frase per cui vale la pena leggere la riga: non
-            cosa e' successo, ma cosa ORA puo' farci. Compare solo quando c'e'
-            davvero qualcosa che ORA si e' offerta di fare — un'offerta
-            scritta per riempire lo spazio si riconosce, e costa la fiducia
-            di tutte le righe che verranno dopo.
-          */}
-          {o.what_ora_can_do ? (
-            <Text
-              style={[styles.oppOffer, { color: colors.textSecondary }]}
-              numberOfLines={2}
-              testID={`opportunity-offer-${o.id}`}
-            >
-              {o.what_ora_can_do}
-            </Text>
-          ) : null}
-          <View style={styles.oppActions}>
-            <Pressable
-              onPress={() => onOpportunityOpen?.(o)}
-              style={({ pressed }) => [styles.oppCta, pressed && styles.pressed]}
-              accessibilityRole="button"
-              testID={`opportunity-open-${o.id}`}
-            >
-              <Text style={[styles.oppCtaText, { color: colors.accent }]}>Apri aggiornamento</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => onOpportunityDefer?.(o)}
-              style={({ pressed }) => [styles.oppCta, pressed && styles.pressed]}
-              accessibilityRole="button"
-              testID={`opportunity-later-${o.id}`}
-            >
-              <Text style={[styles.oppCtaText, { color: colors.textSecondary }]}>Più tardi</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => onOpportunityDismiss?.(o)}
-              style={({ pressed }) => [styles.oppCta, pressed && styles.pressed]}
-              accessibilityRole="button"
-              testID={`opportunity-dismiss-${o.id}`}
-            >
-              <Text style={[styles.oppCtaText, { color: colors.textSecondary }]}>
-                Non mi interessa
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      ))}
-
-      {visibleSuggestions.map((s) => (
-        <Pressable
-          key={s.id}
-          onPress={() => onOpen(s)}
-          disabled={busyId === s.id}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          accessibilityRole="button"
-          testID={`home-update-${s.id}`}
-        >
-          <ContextualCardVisual
-            item={{ type: 'insight', source_type: s.source }}
-            size="row"
-            style={styles.rowVisual}
-          />
-          <View style={styles.rowText}>
-            <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={2}>
-              {s.title}
-            </Text>
-            {s.description || s.reason ? (
-              <Text style={[styles.rowMeta, { color: colors.textTertiary }]} numberOfLines={2}>
-                {s.description || s.reason}
-              </Text>
-            ) : null}
-            {/*
-              Da dove viene. Una riga che dice una cosa sulla vita di qualcuno
-              senza dire come fa a saperlo chiede fiducia senza darne motivo —
-              e quando la sorgente non si ricostruisce, lo dice.
-            */}
-            <Text
-              style={[styles.rowMeta, { color: colors.textTertiary }]}
-              numberOfLines={1}
-              testID={`update-source-${s.id}`}
-            >
-              Fonte: {s.source_label || 'originale non disponibile'}
-            </Text>
-          </View>
-          {agoLabel(s.created_at) ? (
-            <Text style={[styles.ago, { color: colors.textTertiary }]}>{agoLabel(s.created_at)}</Text>
-          ) : null}
-          <Pressable
-            onPress={() => onDismiss(s.id)}
-            hitSlop={10}
-            style={styles.dismiss}
-            accessibilityRole="button"
-            accessibilityLabel={`Ignora: ${s.title}`}
-          >
-            <Ionicons name="close" size={16} color={colors.textTertiary} />
-          </Pressable>
-        </Pressable>
-      ))}
-
-      {visibleInsights.map((i) => (
-        <Pressable
-          key={i.id}
-          onPress={() => onInsight(i)}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          accessibilityRole="button"
-          testID={`home-insight-${i.id}`}
-        >
-          <ContextualCardVisual
-            item={{ type: 'insight', source_type: i.source }}
-            size="row"
-            style={styles.rowVisual}
-          />
-          <View style={styles.rowText}>
-            <Text style={[styles.rowTitle, { color: colors.textPrimary }]} numberOfLines={2}>
-              {i.text}
-            </Text>
-          </View>
-          {agoLabel(i.created_at) ? (
-            <Text style={[styles.ago, { color: colors.textTertiary }]}>{agoLabel(i.created_at)}</Text>
-          ) : null}
-        </Pressable>
-      ))}
+      <UpdatesBoard
+        righe={righe}
+        onOpen={apri}
+        onDismiss={rimuovi}
+        canDismiss={(a) =>
+          (a.genere === 'occasione' && !!onOpportunityDismiss) || (a.genere === 'suggerimento' && busyId !== a.id)}
+        testIdFor={testId}
+        limit={4}
+        showFilters={false}
+        showNote={false}
+      />
     </SectionShell>
   );
 }
