@@ -70,7 +70,9 @@ export default function CookingPlannerScreen() {
     if (!plan) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const data = await request('/plan', { method: 'PUT', body: JSON.stringify({ ...plan, budget_eur: budget.trim() ? Number(budget) : null }) });
+      // Send only writable fields: the stored plan also carries server metadata (created_at, updated_at).
+      const { week_start, revision, household_size, preferences, slots } = plan;
+      const data = await request('/plan', { method: 'PUT', body: JSON.stringify({ week_start, revision, household_size, preferences, slots, budget_eur: budget.trim() ? Number(budget) : null }) });
       setPlan(data.plan as Plan);
       const s = await request(`/shopping-list?week_start=${week}`);
       setItems((s.items ?? []) as Item[]);

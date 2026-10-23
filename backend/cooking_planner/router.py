@@ -42,6 +42,10 @@ class PlanWrite(BaseModel):
     budget_eur: float | None = Field(default=None, ge=0, le=100000)
     preferences: list[str] = Field(default_factory=list, max_length=30)
     slots: list[MealSlot] = Field(default_factory=list, max_length=21)
+    # Read-only metadata returned by the API. A client that re-sends the stored plan
+    # must not be rejected for echoing it; the values are ignored and never persisted.
+    created_at: str | None = Field(default=None, exclude=True)
+    updated_at: str | None = Field(default=None, exclude=True)
 
     @field_validator("week_start")
     @classmethod
