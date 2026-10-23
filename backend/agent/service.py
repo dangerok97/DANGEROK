@@ -2424,9 +2424,11 @@ class AgentService:
         if raw is None or goal.source_kind not in ("situation_initial_review", "situation_followup"):
             return False
         from situations.outcomes import validate_assessment, current_outcome
+        reasons: list = []
         assessment = await validate_assessment(
             self.db, owner_id, goal, raw,
             evidence=await self.evidence.for_goal(owner_id, goal.id), run_at=run.at,
+            reasons=reasons,
         )
         saved = await self.db.agent_goals.update_one({
             "id": goal.id, "owner_id": owner_id, "status": {"$in": ["active", "waiting"]},
@@ -2440,8 +2442,22 @@ class AgentService:
             kind="situation_outcome_assessed" if assessment else "situation_outcome_rejected",
             note=assessment.headline if assessment else "La proposta non aveva tempi, revisione e fonti sufficienti per essere mostrata.",
             detail={"outcome_id": assessment.id if assessment else None,
-                    "status": assessment.status if assessment else None},
+                    "status": assessment.status if assessment else None,
+                    # Which rule refused it, and the proposal's shape — never
+                    # its words. Without this every rejection looks the same.
+                    "rejected_by": None if assessment else (reasons[0] if reasons else "unknown"),
+                    "proposed": None if assessment or not isinstance(raw, dict) else {
+                        "status": raw.get("status"), "basis": raw.get("basis"),
+                        "action_reason": raw.get("action_reason"),
+                        "has_window": bool(raw.get("window_start") and raw.get("window_end")),
+                        "evidence_count": len(raw.get("evidence_ids") or []),
+                    }},
         )
+        if not assessment:
+            logger.info("situation outcome rejected goal=%s rule=%s status=%s basis=%s",
+                        goal.id, reasons[0] if reasons else "unknown",
+                        raw.get("status") if isinstance(raw, dict) else None,
+                        raw.get("basis") if isinstance(raw, dict) else None)
         return assessment is not None and await current_outcome(self.db, owner_id, goal) is not None
 
     async def _consider_visibility(

@@ -113,16 +113,27 @@ async def weather_evidence_current(db, owner, goal, evidence, *, now=None):
     return bool(evidence) and await _weather_binding_current(db, owner, state, state.revision, evidence)
 
 
-async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, now=None):
-    """Validate a judgement; invalid or insufficient proposals remain unknown."""
+def _reject(reasons, code):
+    """A refused proposal stays unknown; the caller may learn which rule refused it."""
+    if isinstance(reasons, list):
+        reasons.append(code)
+    return None
+
+
+async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, now=None, reasons=None):
+    """Validate a judgement; invalid or insufficient proposals remain unknown.
+
+    `reasons`, when given, receives the one rule that refused the proposal, so
+    a rejection is diagnosable instead of a silent `None`.
+    """
     now = now or datetime.now(timezone.utc)
     sid = situation_id(goal)
     if not sid or goal.owner_id != owner or not isinstance(raw, dict):
-        return None
+        return _reject(reasons, "no_binding")
     state = await SituationRepository(db).get(owner, sid)
     if (state is None or state.status not in ("active", "changed")
             or str(state.revision) != goal.source_situation.get("situation_revision")):
-        return None
+        return _reject(reasons, "situation_not_current")
     fields = {
         key: raw.get(key) for key in (
             "status", "headline", "action_summary", "basis", "action_reason",
@@ -137,62 +148,62 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
             situation_revision=state.revision, assessed_at=assessed_at, **fields,
         )
     except (TypeError, ValueError, ValidationError):
-        return None
+        return _reject(reasons, "schema_invalid")
     expiry = moment(assessment.valid_until)
     if not expiry or not now < expiry <= now + timedelta(hours=72):
-        return None
+        return _reject(reasons, "validity_out_of_range")
     start, end = moment(assessment.window_start), moment(assessment.window_end)
     if bool(start) != bool(end):
-        return None
+        return _reject(reasons, "window_half_open")
     if start and (end < start or end <= now or end > now + timedelta(hours=72)):
-        return None
+        return _reject(reasons, "window_out_of_range")
     physical_start = moment(state.started_at)
     if start and physical_start and start < physical_start:
-        return None
+        return _reject(reasons, "window_before_start")
     if assessment.status == "needs_input":
         if assessment.basis != "missing_information" or start or assessment.action_reason:
-            return None
+            return _reject(reasons, "needs_input_inconsistent")
     else:
         if assessment.basis == "missing_information" or not assessment.action_summary.strip():
-            return None
+            return _reject(reasons, "no_action_or_missing_basis")
         if assessment.status == "action_now" and assessment.action_reason is None:
-            return None
+            return _reject(reasons, "action_now_without_reason")
         if assessment.status == "estimated" and (not start or assessment.action_reason is not None):
-            return None
+            return _reject(reasons, "estimated_shape_invalid")
         if assessment.status == "action_now" and start:
             # A future forecast window must never masquerade as action due now.
-            return None
+            return _reject(reasons, "action_now_with_future_window")
 
     ids = list(dict.fromkeys(assessment.evidence_ids))
     by_id = {item.id: item for item in evidence
              if item.owner_id == owner and item.goal_id == goal.id}
     if any(ref not in by_id or not _evidence_usable(by_id[ref], now) for ref in ids):
-        return None
+        return _reject(reasons, "evidence_unknown_or_stale")
     cited = [by_id[ref] for ref in ids]
     if not await _weather_binding_current(db, owner, state, state.revision, cited):
-        return None
+        return _reject(reasons, "weather_binding_stale")
     if assessment.status != "needs_input":
         if not cited:
-            return None
+            return _reject(reasons, "no_cited_evidence")
         # A new useful-action decision must re-read something in this pass.
         # Reaching a timer alone cannot turn an older estimate into readiness.
         since = moment(run_at)
         if since and not any(moment(item.observed_at) and moment(item.observed_at) >= since for item in cited):
-            return None
+            return _reject(reasons, "no_fresh_evidence_this_run")
         if since and any(item.provenance.capability == "weather.read"
                          and (moment(item.observed_at) is None or moment(item.observed_at) < since)
                          for item in cited):
-            return None
+            return _reject(reasons, "weather_not_reread_this_run")
         if assessment.basis == "estimate" and assessment.action_reason != "early_risk":
             # Live conditions alone do not establish a physical rate/duration.
             # A sourced empirical baseline or a real computed estimate is needed.
             if not any(item.provenance.capability == "web.research"
                        or item.provenance.source_class == "deterministic_computation"
                        for item in cited):
-                return None
+                return _reject(reasons, "estimate_without_baseline")
         if (assessment.basis == "direct_observation"
                 and all(item.provenance.capability in ("weather.read", "web.research") for item in cited)):
-            return None
+            return _reject(reasons, "direct_observation_unsupported")
     # The result cannot outlive evidence whose provider gives a shorter horizon.
     expiries = [moment(item.provenance.weather_valid_until or item.provenance.research_valid_until)
                 for item in cited]
