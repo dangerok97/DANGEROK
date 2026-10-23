@@ -2656,10 +2656,9 @@ async def run_cognitive_loop(
                     check_label = str(payload.get("next_check_label") or "").strip()
                     if followup:
                         decision.message_to_user = (
-                            "La seguo io. "
-                            + (f"Il prossimo controllo è {check_label}: " if check_label else "")
-                            + "ti avviso in Aggiornamenti quando è il momento giusto, "
-                            "o prima se c'è un rischio."
+                            "Sto seguendo questa situazione. Ti avviso quando è il momento giusto per agire"
+                            + (f" (prossimo controllo {check_label})" if check_label else "")
+                            + ". Se prima arriva un rischio, ti avviso prima."
                         )
                     else:
                         decision.message_to_user = (
