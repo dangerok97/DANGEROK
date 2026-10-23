@@ -857,14 +857,10 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
 
             try:
                 suggestions = await lookup.suggest(label)
-                matches = {
-                    str(item["place_id"]) for item in suggestions.get("suggestions", [])
-                    if isinstance(item, dict) and item.get("place_id")
-                    and normalized(label) in {normalized(item.get("primary")), normalized(item.get("text"))}
-                }
-                if not suggestions.get("available") or len(matches) != 1:
+                place_id = (lookup.unique_locality_match(suggestions, label)
+                            if suggestions.get("available") else None)
+                if not place_id:
                     return location_failure("situation_location_unresolved", "Il servizio luoghi non ha risolto in modo univoco la località della situazione.")
-                place_id = next(iter(matches))
                 resolved = await lookup.resolve(place_id)
                 if (not resolved.get("available") or str(resolved.get("place_id") or "") != place_id
                         or normalized(label) not in {normalized(resolved.get("locality")), normalized(resolved.get("address"))}):
