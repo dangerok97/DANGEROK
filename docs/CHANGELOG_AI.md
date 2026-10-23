@@ -1,3 +1,19 @@
+## 23 ottobre 2026 — Situazioni: il controllo in background non lavora più alla cieca
+
+- Causa trovata in produzione (Situazione del 22/10, 23:47): il controllo
+  programmato leggeva davvero il meteo, ma `agent/reasoning._dump` riduceva il
+  contesto a 9000 caratteri e, non riuscendoci, inviava al modello solo uno
+  stub `source_context_unavailable` (334 byte, nessuna Situazione, nessun meteo).
+- Effetto osservato: «contesto troncato» a ogni controllo, nessuna stima,
+  monitoraggio silenzioso e infine una domanda inutile sulla posizione già nota.
+- Correzione: limite 24000 caratteri per le Situazioni e percorso «essenziali»
+  (Situazione, orologio locale, passi aperti, ultima lettura) prima dello stub.
+- Test con modelli reali e forme misurate in produzione: falliscono sul codice
+  precedente, passano su quello nuovo. Aggiunti alla CI.
+- Il collaudo end-to-end su dispositivo è distinto e va registrato a parte.
+
+---
+
 ## 22 ottobre 2026 — ORA Cucina, fase 1
 
 - Ricettario sotto VITA: link o testo, preview, correzione e conferma.

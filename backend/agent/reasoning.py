@@ -905,7 +905,7 @@ def _dump(payload: Dict[str, Any]) -> str:
     goal = payload.get("goal") or {}
     if goal.get("source_kind") not in ("situation_initial_review", "situation_followup"):
         return encoded[:9000]
-    if len(encoded) <= 9000:
+    if len(encoded) <= _SITUATION_CONTEXT_CHARS:
         return encoded
 
     # An ongoing Situation needs its latest source read and physical start on
@@ -920,7 +920,7 @@ def _dump(payload: Dict[str, Any]) -> str:
         return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
 
     encoded = encode()
-    while len(encoded) > 9000:
+    while len(encoded) > _SITUATION_CONTEXT_CHARS:
         strings, lists = [], []
 
         def visit(node, key=""):
@@ -970,8 +970,14 @@ def _dump(payload: Dict[str, Any]) -> str:
             _, _, parent, index = min(lists, key=lambda item: item[:2])
             parent.pop(index)
         else:
-            # If even the protected source handles cannot fit, make the missing
-            # context explicit. A clipped object must never look complete.
+            # Never hand the model a blind stub while the essentials fit: an
+            # empty context made every checkpoint "reread a narrower source"
+            # and, after the reread, ask the person for facts ORA already had.
+            essential = _situation_essentials(payload)
+            if essential is not None:
+                return essential
+            # If even the essentials cannot fit, make the missing context
+            # explicit. A clipped object must never look complete.
             return json.dumps({
                 "goal": {key: goal.get(key) for key in ("id", "source_kind", "desired_outcome")},
                 "source_context_unavailable": True, "context_truncated": True,
@@ -979,3 +985,85 @@ def _dump(payload: Dict[str, Any]) -> str:
             }, ensure_ascii=False, default=str)
         encoded = encode()
     return encoded
+
+
+# Situation passes carry the owner's own Situation preview and bounded source
+# reads. 9000 characters was smaller than ONE ordinary weather read (8 evidence
+# rows) plus the Situation itself, so every real checkpoint fell to the blind
+# stub above. This is still a bound, not an open door.
+_SITUATION_CONTEXT_CHARS = 24000
+
+_GOAL_ESSENTIAL_KEYS = (
+    "id", "source_kind", "objective", "desired_outcome", "success_criteria",
+    "stop_conditions", "source_refs", "source_situation", "source_context",
+    "source_context_unavailable", "situation_outcome",
+)
+_EVIDENCE_ESSENTIAL_KEYS = (
+    "evidence_id", "what_was_found", "capability", "where_this_came_from",
+    "observed_at", "how_old", "weather_valid_until", "research_sufficient",
+    "research_valid_until", "really_happened",
+)
+
+
+def _situation_essentials(payload: Dict[str, Any]) -> Optional[str]:
+    """The smallest context that still lets a Situation pass reason.
+
+    Drops what the model can do without (capability catalogue, plan history,
+    repeated provenance) before the Situation, the local clock, pending work
+    or the latest source read. Returns None if even this cannot fit.
+    """
+    goal = payload.get("goal") or {}
+    out: Dict[str, Any] = {
+        "goal": {key: goal[key] for key in _GOAL_ESSENTIAL_KEYS if key in goal},
+        "context_truncated": True,
+        "context_note": (
+            "Secondary material (capability catalogue, plan history, repeated "
+            "source metadata) was omitted to fit. The Situation, local clock, "
+            "pending work and the latest source reads below are complete."
+        ),
+    }
+    evidence_keys = []
+    for key, value in payload.items():
+        if key in ("goal", "what_ora_can_do", "plan"):
+            continue
+        if (isinstance(value, list) and value
+                and all(isinstance(row, dict) and row.get("evidence_id") for row in value)):
+            out[key] = [{name: row.get(name) for name in _EVIDENCE_ESSENTIAL_KEYS
+                         if row.get(name) is not None} for row in value]
+            evidence_keys.append(key)
+        else:
+            out[key] = value
+
+    def fits():
+        return len(json.dumps(out, ensure_ascii=False, separators=(",", ":"),
+                              default=str)) <= _SITUATION_CONTEXT_CHARS
+
+    # Oldest evidence goes first, never the latest weather read or research.
+    for key in evidence_keys:
+        rows = out[key]
+        while not fits() and len(rows) > 1:
+            weather = [str(r.get("observed_at") or "") for r in rows if r.get("capability") == "weather.read"]
+            latest = weather[-1] if weather else None
+            drop = next((i for i, r in enumerate(rows)
+                         if not (r.get("capability") == "web.research"
+                                 or (r.get("capability") == "weather.read"
+                                     and str(r.get("observed_at") or "") == latest))), None)
+            if drop is None:
+                break
+            rows.pop(drop)
+    # Still too large: shorten long findings, then drop the oldest protected
+    # rows. At least one row of the latest read always survives.
+    for key in evidence_keys:
+        if fits():
+            break
+        for row in out[key]:
+            text = str(row.get("what_was_found") or "")
+            if len(text) > 240:
+                row["what_was_found"] = text[:239] + "…"
+    for key in evidence_keys:
+        rows = out[key]
+        while not fits() and len(rows) > 1:
+            rows.pop(0)
+    if not fits():
+        return None
+    return json.dumps(out, ensure_ascii=False, separators=(",", ":"), default=str)

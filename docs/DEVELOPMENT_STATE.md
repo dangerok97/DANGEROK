@@ -1,3 +1,20 @@
+## 23 ottobre 2026 — Catena delle Situazioni: dove si rompeva
+
+Ricostruita sui dati reali la catena frase → Situazione → controllo → meteo →
+stima → Aggiornamenti. Turno di chat e programmazione del primo controllo
+funzionavano (checkpoint dopo 60 minuti). La lettura meteo in background era
+reale e localizzata correttamente. Il giudizio del modello riceveva però uno
+stub vuoto perché il pacchetto superava 9000 caratteri: nessuna stima possibile,
+attesa silenziosa, poi `ask_user` su un dato già noto e obiettivo bloccato in
+`waiting` senza prossima esecuzione.
+
+Corretto in `agent/reasoning.py`; test `tests/test_situation_judge_context_v1.py`
+in CI. Restano da verificare con una prova reale: stima consegnata in
+Aggiornamenti, avviso al momento utile, comportamento con provider non
+disponibile. Una CI verde non sostituisce questa prova.
+
+---
+
 ## 22 ottobre 2026 — Cucina: implementazione, test, deploy distinti
 
 La fase 1 contiene API, parser, persistenza account-scoped, UI e test.
