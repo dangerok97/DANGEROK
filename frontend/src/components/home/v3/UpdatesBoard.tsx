@@ -225,11 +225,11 @@ function UpdateCard({
               onPress={() => void dismiss()}
               disabled={busy}
               accessibilityRole="button"
-              accessibilityLabel={`Non mi interessa: ${a.cosa}`}
+              accessibilityLabel={`Ignora: ${a.cosa}`}
               style={({ pressed }) => [styles.btn, { backgroundColor: colors.backgroundPrimary }, pressed && styles.pressed]}
               testID={`${testID}-rimuovi`}
             >
-              <Text style={[styles.btnText, { color: colors.textSecondary }]}>{busy ? 'Rimozione…' : 'Non mi interessa'}</Text>
+              <Text style={[styles.btnText, { color: colors.textSecondary }]}>{busy ? 'Rimozione…' : 'Ignora'}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 16.5, lineHeight: 22, fontWeight: '600', letterSpacing: -0.25 },
   meta: { fontSize: 14, lineHeight: 20 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 12, paddingLeft: 52, flexWrap: 'wrap' },
-  btn: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 9 },
+  btn: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
   btnText: { fontSize: 14.5, fontWeight: '600' },
   big: { fontSize: 21, lineHeight: 27, fontWeight: '700', letterSpacing: -0.4, marginTop: 10 },
   facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
