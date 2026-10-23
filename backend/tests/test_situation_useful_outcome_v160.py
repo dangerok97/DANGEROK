@@ -658,6 +658,9 @@ async def test_large_model_payload_keeps_valid_json_current_weather_baseline_and
         return {"decision": "wait"} if boundary == "choose" else {"outcome": "uncertain"}
 
     monkeypatch.setattr(reasoning, "_ask_model", model)
+    # Keep exercising compaction under pressure: the production Situation
+    # bound is now larger, so force the former 9000 limit for this payload.
+    monkeypatch.setattr(reasoning, "_SITUATION_CONTEXT_CHARS", 9000)
     if boundary == "choose":
         await reasoning.choose_next_action(payload_goal, plan=plan.for_ai(), evidence=rows,
             candidates=[step.for_ai() for step in plan.steps[-2:]],
