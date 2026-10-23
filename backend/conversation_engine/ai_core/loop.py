@@ -2017,6 +2017,14 @@ async def run_cognitive_loop(
                 )
                 if resolved_situation_update is not decision.situation_update:
                     add_step(trace, event="SITUATION_OWNED_PLACE_REF_RECOVERED")
+                from situations.declared_place_link import attach_current_presence_label
+
+                with_presence = await attach_current_presence_label(
+                    db, owner_id=sess.user_id, update=resolved_situation_update,
+                )
+                if with_presence is not resolved_situation_update:
+                    resolved_situation_update = with_presence
+                    add_step(trace, event="SITUATION_CURRENT_PRESENCE_PLACE")
                 situation_result = await SituationService(db).apply(
                     user_id=sess.user_id,
                     session_id=sess.id,

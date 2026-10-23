@@ -53,3 +53,52 @@ async def restore_owned_place_reference(
     return update.model_copy(update={
         "linked_object_refs": [*update.linked_object_refs, f"place:{matches[0]}"],
     })
+
+
+# An activity the person says they have JUST started is happening where they
+# are. Owner decision 23/10/2026: ORA must understand where without asking.
+# Production 23/10: "Ho appena steso i panni" read weather at the current
+# position, but the Situation was stored without a place and another component
+# then asked the person for the locality. Narrow, consent-gated rule.
+CURRENT_PRESENCE_START_WINDOW_MINUTES = 15
+
+
+async def attach_current_presence_label(
+    db, *, owner_id: str, update: SituationUpdate, now=None, where=None,
+) -> SituationUpdate:
+    """Fill a missing place label from the current authorized position.
+
+    Only for a new conversational Situation whose physical start is within the
+    last 15 minutes, with no place stated and no linked place. Uses the same
+    consent- and freshness-gated position as "Meteo dove sei"; a stale point,
+    revoked consent or a missing locality changes nothing.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    if (db is None or not owner_id or update.operation != "create"
+            or update.source != "user_conversation"
+            or str(update.location_label or "").strip()
+            or any(str(ref).startswith("place:") for ref in update.linked_object_refs)
+            or not update.started_at):
+        return update
+    try:
+        started = datetime.fromisoformat(str(update.started_at).replace("Z", "+00:00"))
+    except ValueError:
+        return update
+    if started.tzinfo is None:
+        return update
+    moment = now or datetime.now(timezone.utc)
+    window = timedelta(minutes=CURRENT_PRESENCE_START_WINDOW_MINUTES)
+    if not (moment - window <= started <= moment + timedelta(minutes=2)):
+        return update
+    try:
+        if where is None:
+            from home.service import HomeService
+            where = HomeService(db)._where_they_are
+        point = await where(owner_id)
+    except Exception:
+        return update
+    label = str((point or (None, None, ""))[2] or "").strip()[:180]
+    if not label:
+        return update
+    return update.model_copy(update={"location_label": label})
