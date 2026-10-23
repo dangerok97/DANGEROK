@@ -263,6 +263,8 @@ class AgentEvidence(BaseModel):
     provenance: ResultProvenance = Field(default_factory=ResultProvenance)
     observed_at: str = Field(default_factory=now_iso)
     expires_at: Optional[str] = None
+    # Numeric readings behind the claim, for display only (never in for_ai).
+    measures: Dict[str, float] = Field(default_factory=dict, max_length=12)
 
     @property
     def is_real(self) -> bool:

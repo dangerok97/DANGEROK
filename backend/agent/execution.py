@@ -268,6 +268,7 @@ class StepExecutor:
                 claim=claim.text,
                 supports=claim.supports or (step.expected_result or "")[:300],
                 provenance=outcome.provenance,
+                measures=dict(getattr(claim, "measures", None) or {}),
             )
             await self.evidence.record(evidence)
             refs.append(evidence.id)

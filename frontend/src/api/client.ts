@@ -3448,12 +3448,26 @@ export type SituationOutcome = {
   timezone: string;
 };
 
+/** Values from the latest real weather read of this Situation, never defaults. */
+export type SituationConditions = {
+  temperature_c?: number;
+  humidity_pct?: number;
+  wind_kmh?: number;
+  precipitation_mm?: number;
+  rain_chance_max_pct?: number;
+  observed_at?: string;
+};
+
 export type MonitoredSituation = {
   id: string;
   revision: number;
   summary: string;
   session_id?: string | null;
   created_at?: string | null;
+  /** Physical start, only when the person or a trusted source established it. */
+  started_at?: string | null;
+  location_label?: string | null;
+  conditions?: SituationConditions | null;
   current_state?: string | null;
   expected_outcome?: string | null;
   desired_outcome?: string | null;

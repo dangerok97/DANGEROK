@@ -24,6 +24,44 @@ def concrete_need(need):
     return ""
 
 
+_CONDITION_KEYS = ("temperature_c", "humidity_pct", "wind_kmh", "precipitation_mm", "rain_chance_max_pct")
+
+
+async def latest_conditions(db, owner_id, goal_id):
+    """Numbers from the most recent real weather read of this goal, or None.
+
+    Only values the provider actually returned and that were stored with the
+    owner-scoped evidence. Never a default, never an estimate.
+    """
+    try:
+        rows = await db.agent_evidence.find(
+            {"owner_id": owner_id, "goal_id": goal_id,
+             "provenance.capability": "weather.read",
+             "superseded": {"$ne": True},
+             "measures": {"$exists": True, "$ne": {}}},
+            {"_id": 0, "measures": 1, "observed_at": 1, "provenance.observed_at": 1},
+        ).sort("observed_at", -1).to_list(8)
+    except Exception:
+        return None
+    if not rows:
+        return None
+
+    # Rows of one read are stored milliseconds apart; the provider observation
+    # time is what they share.
+    def read_time(row):
+        return str((row.get("provenance") or {}).get("observed_at") or row.get("observed_at") or "")
+
+    latest = read_time(rows[0])
+    merged = {}
+    for row in rows:
+        if read_time(row) != latest:
+            continue
+        for key, value in (row.get("measures") or {}).items():
+            if key in _CONDITION_KEYS and isinstance(value, (int, float)) and not isinstance(value, bool):
+                merged.setdefault(key, value)
+    return {**merged, "observed_at": latest} if merged else None
+
+
 async def situation_card(db, owner_id, goal):
     if goal.source_kind not in ("situation_followup", "situation_initial_review"):
         return None
@@ -47,6 +85,10 @@ async def situation_card(db, owner_id, goal):
             "summary": situation.summary,
             "session_id": situation.session_id,
             "created_at": situation.created_at,
+            # Physical start only when the person/trusted source established it.
+            "started_at": situation.started_at or None,
+            "location_label": situation.location_label or None,
+            "conditions": await latest_conditions(db, owner_id, goal.id),
             "current_state": situation.current_state_summary or None,
             "expected_outcome": situation.expected_outcome_summary or None,
             "desired_outcome": tracking.get("desired_outcome"),
