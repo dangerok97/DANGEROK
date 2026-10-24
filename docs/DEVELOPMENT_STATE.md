@@ -1,3 +1,25 @@
+## 24 ottobre 2026 (notte) — Prove reali oltre i panni: lavatrice e parcheggio
+
+Tre prove in produzione sull'account del proprietario, con autorizzazione,
+ciascuna chiusa al termine:
+
+- Panni (02:53): primo controllo dopo 3 minuti, meteo + ricerca, stima
+  salvata e mostrata «asciutti tra le 07:00 e le 11:00».
+- Lavatrice cotone 40° (03:03): ricerca sufficiente 150–210 min, finestra
+  05:33–06:33; al primo passaggio il giudice esitava per «assenza di
+  telemetria» → guida corretta (#386), titolo con l'orario.
+- Parcheggio «pagato fino alle 4:55»: la scadenza dichiarata non era citabile
+  e la rilettura della Situation falliva → evidenza `situation.read` della
+  dichiarazione (#387) e lettura della Situation via `information.read`
+  (#388). Esito: risultato «scaduto alle 4:55, rinnova» salvato, obiettivo
+  completato e bisogno di notifica creato. Il controllo avveniva alla scadenza
+  e non prima: guida sul margine aggiunta (#388).
+
+Non verificato: ricezione della notifica sul telefono (nessun dispositivo
+registrato fino all'attivazione delle notifiche web da parte del proprietario).
+
+---
+
 ## 24 ottobre 2026 — Situazioni: perché l'avviso non arrivava, e notifiche web online
 
 Prova reale notturna (panni stesi a Tarquinia alle 18:23 del 23/10). Con i
