@@ -76,6 +76,13 @@ def _retention_every_ticks() -> int:
     return max(1, int((6 * 3600) / max(1.0, TICK_SECONDS)))
 
 
+# ORA checking its own watches: every quarter of an hour, so a watch that lost
+# its alarm is noticed long before the moment it was supposed to report.
+def _self_check_every_ticks() -> int:
+    minutes = float(os.environ.get("ORA_SELF_CHECK_EVERY_MINUTES", "15"))
+    return max(1, int((minutes * 60) / max(1.0, TICK_SECONDS)))
+
+
 _task: Optional[asyncio.Task] = None
 _stopping = False
 _worker_id = ""
@@ -459,6 +466,12 @@ async def _cycle(db, ticks):
         # concurrent lane) and runs half a period after start-up, not at it.
         from ops.retention import run as prune
         _launch("recovery", lambda: prune(db), timeout=300)
+    check = _self_check_every_ticks()
+    if check > 1 and ticks % check == check // 3:
+        # Same maintenance lane: never a new concurrent lane, and a pass
+        # skipped because the lane is busy simply happens next time.
+        from ops.selfcheck import run as self_check
+        _launch("recovery", lambda: self_check(db), timeout=120)
 
 
 async def _stop_jobs():

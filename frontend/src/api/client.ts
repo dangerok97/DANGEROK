@@ -699,6 +699,9 @@ export const api = {
     request<WhatsAppLinkStatus>('/whatsapp/status'),
   whatsappStartLink: () =>
     request<WhatsAppPairing>('/whatsapp/link/start', { method: 'POST' }),
+  selfCheck: () =>
+    request<{ checked: boolean; at?: string; watches?: number; healthy?: boolean;
+      items?: Array<{ code: string; text: string; repaired: boolean }> }>('/ops/self-check'),
   siriKeyStatus: () =>
     request<SiriKeyStatus>('/siri/key'),
   siriIssueKey: () =>

@@ -23,6 +23,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Appear, useAmbientInset } from '@/src/shell';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { haptic } from '@/src/utils/haptic';
+import { SelfCheckCard } from '@/src/components/account/SelfCheckCard';
 import {
   ACCOUNT_MAX_WIDTH,
   ACCOUNT_RAIL_WIDTH,
@@ -140,6 +141,8 @@ export default function ProfiloScreen() {
           />
         ))}
       </View>
+
+      <SelfCheckCard />
     </>
   );
 
