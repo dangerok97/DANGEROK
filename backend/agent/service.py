@@ -71,6 +71,8 @@ logger = logging.getLogger(__name__)
 MAX_ITERATIONS = 6
 MAX_MODEL_CALLS = 8
 MAX_PLAN_STEPS = 12
+# A paused Situation watch looks again this soon, so it never goes silent.
+PAUSED_WATCH_RECHECK_MINUTES = 20
 
 # The first planning pass plus three durable retries. Technical outages have
 # their own budget: they have not executed a plan or disproved its outcome.
@@ -2371,7 +2373,55 @@ class AgentService:
         plan.status = "active"
         await self.repo.save_plan(plan)
         await self.repo.journal(owner_id, goal.id, kind="paused", note=note)
+        await self._keep_watching(owner_id, goal)
         return {"ok": True, "state": "in_progress", "goal": goal.for_human()}
+
+    async def _keep_watching(self, owner_id, goal) -> None:
+        """
+        A watched Situation never stops being watched by accident.
+
+        Production 24/10 18:22, laundry: the planner meant "re-read, then wait
+        for the window", wrote no usable step, and the run paused — with no
+        next check. The goal stayed open with nothing scheduled and Home
+        showed "not scheduled" for clothes still outside. A pause on a
+        Situation watch now always leaves the next look on the calendar.
+        """
+        from situations.followup import INITIAL_KIND, KIND
+        if (getattr(goal, "source_kind", "") not in (KIND, INITIAL_KIND)
+                or not goal.is_open or goal.requires_user_input
+                or getattr(goal, "requires_user_authority", False)):
+            return
+        now = _now()
+        planned = goal.next_run_at
+        try:
+            if planned and datetime.fromisoformat(str(planned)) > now:
+                return
+        except ValueError:
+            pass
+        try:
+            from ambient.service import AmbientService
+
+            alarm = await AmbientService(self.db).schedule(
+                owner_id, reason="opportunity_revisit",
+                when=now + timedelta(minutes=PAUSED_WATCH_RECHECK_MINUTES),
+                source_ref=f"goal:{goal.id}", provenance="code_schedule",
+            )
+        except Exception:
+            logger.exception("keep watching failed goal=%s", goal.id)
+            return
+        if alarm is None:
+            return
+        latest = await self.repo.get_goal(owner_id, goal.id)
+        if latest is None or not latest.is_open:
+            return
+        latest.next_run_at = alarm.scheduled_for
+        await self.repo.save_goal(latest)
+        goal.next_run_at = alarm.scheduled_for
+        await self.repo.journal(
+            owner_id, goal.id, kind="situation_checkpoint_repaired",
+            note="Ricontrollo programmato: una pausa non interrompe la sorveglianza.",
+            detail={"after_minutes": PAUSED_WATCH_RECHECK_MINUTES},
+        )
 
     async def _stop(self, goal, run: AgentRun, note: str) -> Dict[str, Any]:
         goal.status = "failed"
