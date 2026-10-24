@@ -64,11 +64,19 @@ async def test_model_chosen_far_first_check_is_capped_until_an_estimate_exists(m
 
 
 @pytest.mark.asyncio
-async def test_short_model_interval_is_kept(monkeypatch):
+async def test_without_an_estimate_even_a_short_model_interval_becomes_a_first_look(monkeypatch):
     db = await fixture(monkeypatch, "first_short")
     before = datetime.now(timezone.utc)
     assert (await schedule(db, 35)).status == "ok"
-    assert 34 <= minutes_until(await read_followup(db, OWNER, SID), before) <= 36
+    assert minutes_until(await read_followup(db, OWNER, SID), before) <= FIRST_ESTIMATE_MAX_MINUTES + 1
+
+
+@pytest.mark.asyncio
+async def test_an_interval_within_the_first_look_is_kept(monkeypatch):
+    db = await fixture(monkeypatch, "first_within")
+    before = datetime.now(timezone.utc)
+    assert (await schedule(db, 2)).status == "ok"
+    assert 1 <= minutes_until(await read_followup(db, OWNER, SID), before) <= 3
 
 
 @pytest.mark.asyncio

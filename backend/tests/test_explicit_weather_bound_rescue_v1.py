@@ -250,7 +250,10 @@ async def test_natural_laundry_request_lets_ai_choose_relative_checkpoint_no_iso
     state = await read_followup(db, OWNER, SID)
     assert state["status"] == "scheduled"
     due = datetime.fromisoformat(state["next_check_at"].replace("Z", "+00:00"))
-    assert timedelta(minutes=34) <= due - before <= timedelta(minutes=36)
+    # No estimate exists yet: the model's 35 minutes become a prompt first
+    # look (situations.followup.FIRST_ESTIMATE_MAX_MINUTES), still relative.
+    from situations.followup import FIRST_ESTIMATE_MAX_MINUTES
+    assert timedelta(0) < due - before <= timedelta(minutes=FIRST_ESTIMATE_MAX_MINUTES + 1)
     assert state["last_checked_at"] is None
     assert state["next_check_label"]
     assert await db.ambient_wakes.count_documents({
