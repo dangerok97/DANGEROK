@@ -43,6 +43,9 @@ MAX_FACTS = 12
 MAX_DOCUMENTS = 10
 MAX_EVENTS = 10
 MAX_CLAIMS = 8
+# Weather carries current, trend, daylight and two days: twelve hours of profile
+# alone is four claims, and cutting the daylight is how evening went unseen.
+WEATHER_MAX_CLAIMS = 12
 
 
 def _now() -> datetime:
@@ -1126,7 +1129,7 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
     # any temporary life outcome. No coordinates or raw provider payload are
     # persisted.
     hourly_profile = []
-    for hour, moment in dated_hours[:6]:
+    for hour, moment in dated_hours[:12]:
         clock = moment.isoformat() if moment else str(hour.get("datetime") or hour.get("time") or "")[:64]
         bits = [clock + (" (data/fuso non verificabili)" if moment is None else "")]
         if hour.get("temperature_c") is not None:
@@ -1143,6 +1146,17 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
         claims.append(Claim(
             text=("Profilo previsto: " + " | ".join(hourly_profile[start:start + 3]))[:600],
             supports="andamento orario delle condizioni ambientali",
+        ))
+
+    # Daylight bounds what ambient conditions can do: the hours after sunset
+    # are cooler and damper. Production 24/10 (Tarquinia, 16 °C, 65%): a
+    # completion estimate ran into the evening without knowing it was evening.
+    sunrise, sunset = str(data.get("sunrise") or "")[:5], str(data.get("sunset") or "")[:5]
+    if sunrise and sunset:
+        claims.append(Claim(
+            text=(f"Luce del giorno oggi{f' a {place_label}' if place_label else ''}: "
+                  f"alba {sunrise}, tramonto {sunset} (ora locale del luogo)."),
+            supports="ore di luce del giorno nel luogo",
         ))
 
     for day in list(data.get("days") or [])[:2]:
@@ -1194,7 +1208,7 @@ async def read_weather(db, owner_id: str, goal, *, step=None) -> CapabilityOutco
                "dati non convalidati per una decisione attuale: occorre una lettura aggiornata.")
         ),
         provenance=provenance,
-        claims=claims[:MAX_CLAIMS],
+        claims=claims[:WEATHER_MAX_CLAIMS],
         data_ref="weather:forecast",
     )
 

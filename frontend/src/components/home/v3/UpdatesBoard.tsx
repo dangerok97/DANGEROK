@@ -278,7 +278,12 @@ function SituationCard({
     || (s.expected_outcome || '').trim()
     || (s.followup_status === 'scheduled' || s.followup_status === 'due' || s.followup_status === 'running'
       ? 'Sto preparando la stima'
-      : (s.monitor_diagnosis || '').trim() || 'Situazione in osservazione');
+      // The technical diagnosis belongs to the detail page. Owner screenshot
+      // 24/10 18:37: "La situazione è registrata e il lavoro esiste, ma non
+      // risulta una prossima esecuzione confermata." as the card's headline.
+      : s.followup_status === 'not_scheduled' || s.followup_status === 'recovery_pending'
+        ? 'Sto riprendendo il controllo'
+        : 'Situazione in osservazione');
   const spiegazione = esito
     ? (esito.basis === 'missing_information'
       ? 'Mi manca un dato per stimare'
@@ -354,9 +359,9 @@ function SituationCard({
 
       <View style={[styles.foot, { borderTopColor: colors.divider }]}>
         <Text style={[styles.footText, { color: colors.textTertiary }]}>
-          {prossimo ? <>Prossimo controllo <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{prossimo}</Text></> : 'Nessun controllo programmato'}
+          {prossimo ? <>Prossimo controllo <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{prossimo}</Text></> : 'Prossimo controllo da fissare'}
         </Text>
-        <Text style={[styles.footText, { color: colors.textTertiary }]}>Ti avviso io</Text>
+        {prossimo ? <Text style={[styles.footText, { color: colors.textTertiary }]}>Ti avviso io</Text> : null}
       </View>
 
       {urgent ? (
