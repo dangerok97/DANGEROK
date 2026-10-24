@@ -453,9 +453,12 @@ async def _cycle(db, ticks):
         _launch("relations", lambda: keep_relations_current(db), timeout=120)
     if ticks % _fallback_every_ticks() == 0:
         _launch("recovery", lambda: sweep(db), timeout=120)
-    if ticks % _retention_every_ticks() == 0:
+    every = _retention_every_ticks()
+    if every > 1 and ticks % every == every // 2:
+        # Shares the maintenance lane with the safety-net sweep (never a new
+        # concurrent lane) and runs half a period after start-up, not at it.
         from ops.retention import run as prune
-        _launch("retention", lambda: prune(db), timeout=300)
+        _launch("recovery", lambda: prune(db), timeout=300)
 
 
 async def _stop_jobs():

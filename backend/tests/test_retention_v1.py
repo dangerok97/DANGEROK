@@ -50,4 +50,5 @@ def test_runtime_schedules_the_retention_lane():
     import inspect
     from ambient import runtime
     assert "ops.retention" in inspect.getsource(runtime._cycle)
-    assert runtime._retention_every_ticks() >= 1
+    every = runtime._retention_every_ticks()
+    assert every > 1 and every // 2 != 0  # never at start-up, never a new lane
