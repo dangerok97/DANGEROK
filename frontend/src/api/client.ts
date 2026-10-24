@@ -691,12 +691,22 @@ export type WhatsAppPairing = {
   instruction: string;
 };
 
+export type SiriKeyStatus = { active: boolean; created_at: string | null; last_used_at: string | null };
+
 export const api = {
   // --- WhatsApp: verified Cloud API transport for this same ORA account ---
   whatsappStatus: () =>
     request<WhatsAppLinkStatus>('/whatsapp/status'),
   whatsappStartLink: () =>
     request<WhatsAppPairing>('/whatsapp/link/start', { method: 'POST' }),
+  siriKeyStatus: () =>
+    request<SiriKeyStatus>('/siri/key'),
+  siriIssueKey: () =>
+    request<SiriKeyStatus & { key: string }>('/siri/key', { method: 'POST' }),
+  siriRevokeKey: () =>
+    request<SiriKeyStatus>('/siri/key', { method: 'DELETE' }),
+  /** Where the shortcut sends what was dictated. */
+  siriAskUrl: () => `${BASE}/api/siri/ask`,
   whatsappDisconnect: () =>
     request<{ ok: boolean; linked: boolean }>('/whatsapp/link', { method: 'DELETE' }),
   whatsappSetNotifications: (enabled: boolean) =>

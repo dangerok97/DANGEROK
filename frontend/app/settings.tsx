@@ -36,6 +36,7 @@ import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { DevDiagnostics } from '@/src/components/dev/DevDiagnostics';
 import { WhatsAppConnection } from '@/src/components/account/WhatsAppConnection';
+import { SiriConnection } from '@/src/components/account/SiriConnection';
 import {
   BoundaryNote,
   CALENDAR_WRITE_BOUNDARY,
@@ -449,6 +450,8 @@ export default function ConnessioniScreen() {
             ) : null}
 
             <WhatsAppConnection />
+
+            <SiriConnection />
 
             {error ? <InlineError>{error}</InlineError> : null}
 

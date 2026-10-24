@@ -126,6 +126,9 @@ jobs:
       - name: Records that only grew are pruned to their purpose
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_retention_v1.py -x
+      - name: Siri shortcut key opens one door and answers are said for the ear
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_siri_shortcut_v1.py -x
       - name: A refused Situation estimate records which rule refused it
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_rejection_reasons_v1.py tests/test_situation_research_baseline_unblock_v1.py tests/test_situation_rain_warning_reaches_v1.py tests/test_situation_statement_evidence_v1.py tests/test_situation_useful_outcome_v160.py tests/test_situation_research_integrity_v159.py -x
@@ -415,6 +418,7 @@ jobs:
             src/ambient/pushLifecycle.test.ts \
             src/ambient/webPush.test.ts \
             src/shell/globalBar.test.ts \
+            src/components/account/siriConnection.test.ts \
             src/ambient/pushRegistration.test.cjs \
             src/connectors/connectorOAuth.test.ts
       - name: Google login iOS browser redirect and blank-button fallback
