@@ -11,12 +11,16 @@ from typing import Any
 
 OCCASIONS = {
     "running": ("sport",),
+    "everyday": ("casual", "smart", "sport"),
+    "work": ("smart", "casual", "formal"),
     "casual_evening": ("casual", "smart"),
     "chic_evening": ("smart", "formal"),
     "club": ("smart", "casual"),
     "wedding": ("formal", "smart"),
 }
 REQUIRED = ("top", "bottom", "shoes")
+# At or below this, a look without a layer on top is not a complete look.
+LAYER_BELOW_C = 16
 NEUTRAL = {"nero", "bianco", "grigio", "beige", "blu", "marrone"}
 COLOR_ALIASES = {
     "black": "nero", "white": "bianco", "grey": "grigio", "gray": "grigio",
@@ -102,6 +106,21 @@ def recommend(items: list[dict], occasion: str, temperature_c: float | None = No
             "message": "Non ho abbastanza capi adatti e disponibili per un look completo.",
         }
 
+    # Cold enough for a jacket: the best owned layer for this weather and
+    # occasion goes on every look. Only when the temperature is known — a
+    # jacket added on a guess is clothing chosen for weather nobody checked.
+    layer = None
+    if temperature_c is not None and temperature_c <= LAYER_BELOW_C:
+        layers = sorted(
+            (i for i in available if i.get("category") == "outerwear"),
+            key=lambda i: (-_season_score(i, temperature_c),
+                           i.get("formality") != allowed[0],
+                           i.get("name", "").casefold(), i.get("id", "")),
+        )
+        layer = layers[0] if layers else None
+    if layer is not None:
+        outfits = [(*combo, layer) for combo in outfits]
+
     results: list[tuple[float, tuple[str, ...], tuple[dict, ...]]] = []
     for combo in outfits:
         ids = tuple(str(item["id"]) for item in combo)
@@ -129,7 +148,11 @@ def recommend(items: list[dict], occasion: str, temperature_c: float | None = No
         })
         if len(chosen) >= max(1, min(int(max_looks), 36)):
             break
-    return {
+    out = {
         "engine": "rules-v1", "occasion": occasion, "outfits": chosen,
         "missing": [], "message": "Consigli preliminari: controlla vestibilità e dress code.",
     }
+    if temperature_c is not None and temperature_c <= LAYER_BELOW_C and layer is None:
+        # Not a missing look — a missing layer the weather asks for.
+        out["layer_missing"] = True
+    return out

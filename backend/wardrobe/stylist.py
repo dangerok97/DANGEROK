@@ -167,6 +167,8 @@ non puoi aggiungere campi descrittivi."""
 
 OCCASION_NAME = {
     "running": "correre",
+    "everyday": "giornata normale, tutti i giorni",
+    "work": "lavoro o ufficio",
     "casual_evening": "uscita serale informale",
     "chic_evening": "uscita serale chic",
     "club": "serata in discoteca",

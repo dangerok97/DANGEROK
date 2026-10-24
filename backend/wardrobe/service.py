@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .recommend import recommend
 
 MAX_ITEMS = 75
+RAINY = {"rain", "drizzle", "showers", "thunderstorm", "snow"}
 MAX_UPLOAD = 5 * 1024 * 1024
 MAX_PIXELS = 16_000_000
 MAX_THUMBNAIL = 160_000
@@ -60,10 +61,12 @@ class GarmentInput(BaseModel):
 
 class OutfitInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    occasion: Literal["running", "casual_evening", "chic_evening", "club", "wedding"]
+    occasion: Literal["running", "everyday", "work", "casual_evening", "chic_evening", "club", "wedding"]
     temperature_c: float | None = Field(default=None, ge=-30, le=50)
     use_ai: bool = False
     style_note: str = Field(default="", max_length=200)
+    # Read today's weather where the person is when no temperature was given.
+    use_weather: bool = True
 
 
 class PhotoCipher:
@@ -370,17 +373,56 @@ class WardrobeService:
             for doc in sorted(docs, key=lambda d: (d["name"].casefold(), d["id"]))
         ]
 
+    async def _weather_now(self, owner: str) -> dict | None:
+        """The temperature where the person is now, or nothing — never a guess."""
+        try:
+            import weather as meteo
+            from home.service import HomeService
+
+            point = await HomeService(self.db)._where_they_are(owner)
+            if point is None:
+                return None
+            lat, lon, place = point
+            now = await meteo.now_at(lat=lat, lon=lon, place=place)
+        except Exception:
+            return None
+        if not now.get("available") or now.get("temperature_c") is None:
+            return None
+        return {
+            "temperature_c": float(now["temperature_c"]),
+            "condition": str(now.get("condition") or ""),
+            "label": str(now.get("condition_label") or now.get("label") or ""),
+            "place": str(now.get("place") or ""),
+        }
+
     async def outfits(self, owner: str, body: OutfitInput) -> dict:
         from .stylist import advise
         from .preferences import load_feedback
+        from .recommend import LAYER_BELOW_C
         items = await self.list_metadata(owner)
         feedback = await load_feedback(self.db, owner)
-        return await advise(
+        temperature = body.temperature_c
+        weather = None
+        if temperature is None and body.use_weather:
+            weather = await self._weather_now(owner)
+            if weather:
+                temperature = weather["temperature_c"]
+        note = body.style_note
+        if weather and weather["condition"] in RAINY:
+            note = (note + " Oggi piove.").strip()[:200]
+        result = await advise(
             self.db, owner, items, body.occasion,
-            temperature_c=body.temperature_c,
-            note=body.style_note, use_ai=body.use_ai,
+            temperature_c=temperature,
+            note=note, use_ai=body.use_ai,
             feedback=feedback,
         )
+        if weather:
+            result["weather"] = weather
+        if temperature is not None and temperature <= LAYER_BELOW_C and not any(
+            i.get("category") == "outerwear" and i.get("status") == "available" for i in items
+        ):
+            result["layer_missing"] = True
+        return result
 
     async def record_outfit_feedback(self, owner: str, body) -> dict:
         from .preferences import record_feedback

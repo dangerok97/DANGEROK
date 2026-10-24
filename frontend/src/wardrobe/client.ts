@@ -75,6 +75,8 @@ export type Garment = GarmentInput & {
   visual_profile?: VisualProfile | null;
 };
 export const OCCASIONS = [
+  { value: 'everyday', label: 'Tutti i giorni' },
+  { value: 'work', label: 'Lavoro' },
   { value: 'running', label: 'Correre' },
   { value: 'casual_evening', label: 'Sabato sera' },
   { value: 'chic_evening', label: 'Serata chic' },
@@ -101,7 +103,18 @@ export type OutfitResponse = {
     cautions?: string[]; styling_tip?: string; score?: number;
     feedback?: 'like' | 'dislike' | null;
     visual_coverage?: { reviewed: number; total: number } }[];
+  /** Today's weather where the person is, when ORA could read it. */
+  weather?: { temperature_c: number; condition: string; label: string; place: string };
+  /** Cold enough for a jacket, but none is available. */
+  layer_missing?: boolean;
 };
+
+export const SEASONS: { value: Season; label: string }[] = [
+  { value: 'spring', label: 'Primavera' },
+  { value: 'summer', label: 'Estate' },
+  { value: 'fall', label: 'Autunno' },
+  { value: 'winter', label: 'Inverno' },
+];
 
 async function request<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
   if (!token || (await authToken.get()) !== token) throw new Error('Sessione cambiata. Riapri il guardaroba.');

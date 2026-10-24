@@ -9,10 +9,10 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useAmbientInset } from '@/src/shell';
 import { tokens } from '@/src/theme/tokens';
-import { wardrobeClient, CATEGORIES, FORMALITIES, OCCASIONS, VISUAL_FIELDS,
+import { wardrobeClient, CATEGORIES, FORMALITIES, OCCASIONS, SEASONS, VISUAL_FIELDS,
   type Garment, type GarmentInput, type Category, type Formality,
   type GarmentStatus, type Occasion, type OutfitResponse, type GarmentAnalysis,
-  type AppearancePending, type VisualAppearance, type VisualField } from './client';
+  type AppearancePending, type VisualAppearance, type VisualField, type Season } from './client';
 import { pickGarmentPhoto } from './pickPhoto';
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Operazione non riuscita.';
@@ -43,7 +43,8 @@ function WardrobeScreen() {
   const photoEpoch = useRef(0);
   const [deleteTarget, setDeleteTarget] = useState<Garment | null>(null);
   const [removeBackTarget, setRemoveBackTarget] = useState<Garment | null>(null);
-  const [occasion, setOccasion] = useState<Occasion>('casual_evening');
+  const [occasion, setOccasion] = useState<Occasion>('everyday');
+  const [filter, setFilter] = useState<'all' | 'laundry' | Category>('all');
   const [styleNote, setStyleNote] = useState('');
   const [result, setResult] = useState<OutfitResponse | null>(null);
   const [appearancePending, setAppearancePending] = useState<AppearancePending | null>(null);
@@ -263,6 +264,21 @@ function WardrobeScreen() {
     } catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
+  const setStatus = async (item: Garment, status: GarmentStatus) => {
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      const token = await wardrobeClient.token();
+      if (!token) throw new Error('Accedi nuovamente a ORA.');
+      const { id, revision, name, category, color, formality, seasons } = item;
+      await wardrobeClient.save(token, { id, revision, name, category, color, formality, seasons, status });
+      await load();
+      setResult(null);
+      setNotice(status === 'laundry' ? `${item.name}: messo a lavare. Non lo userò nei look finché non è pulito.`
+        : `${item.name}: di nuovo disponibile.`);
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusy(false); }
+  };
   const suggest = async () => {
     if (busy) return;
     setBusy(true); setError(''); setNotice(''); setResult(null);
@@ -274,6 +290,8 @@ function WardrobeScreen() {
     finally { setBusy(false); }
   };
 
+  const shown = items.filter(item => filter === 'all' ? true
+    : filter === 'laundry' ? item.status === 'laundry' : item.category === filter);
   const card = { backgroundColor: colors.surface, borderColor: colors.border };
   const foreground = { color: colors.textPrimary };
   const muted = { color: colors.textSecondary };
@@ -310,8 +328,17 @@ function WardrobeScreen() {
           {!draft ? action('Aggiungi un capo', create, true, busy) : null}
           {loading ? <ActivityIndicator color={colors.accent} /> : null}
           {!loading && !items.length ? <Text style={[s.note, muted]}>Ancora nessun capo. Comincia dai vestiti che usi più spesso.</Text> : null}
+          {items.length ? <View testID="wardrobe-filters" style={s.choices}>
+            {chip(`Tutti · ${items.length}`, filter === 'all', () => setFilter('all'), 'f-all')}
+            {CATEGORIES.filter(c => items.some(i => i.category === c.value)).map(c => chip(
+              `${c.label} · ${items.filter(i => i.category === c.value).length}`,
+              filter === c.value, () => setFilter(c.value), `f-${c.value}`))}
+            {items.some(i => i.status === 'laundry') ? chip(
+              `Da lavare · ${items.filter(i => i.status === 'laundry').length}`,
+              filter === 'laundry', () => setFilter('laundry'), 'f-laundry') : null}
+          </View> : null}
           <View style={s.grid}>
-            {items.map(item => (
+            {shown.map(item => (
               <View key={item.id} style={[s.item, { borderColor: colors.border }]}>
                 <View testID="wardrobe-item-views" style={s.dualPhotos}>
                   <View style={{ width: item.back_photo ? '48%' : '100%', gap: 4 }}>
@@ -340,6 +367,10 @@ function WardrobeScreen() {
                   () => { void scanAppearance(item); }, false, busy || analyzing) : null}
                 {item.visual_profile ? action('Rimuovi analisi visiva',
                   () => { void clearAppearance(item); }, false, busy) : null}
+                {item.status === 'available'
+                  ? action('Messo a lavare', () => { void setStatus(item, 'laundry'); }, false, busy)
+                  : action(item.status === 'laundry' ? 'Lavato, di nuovo disponibile' : 'Di nuovo disponibile',
+                    () => { void setStatus(item, 'available'); }, false, busy)}
                 <View style={s.inline}>
                   {action('Modifica', () => edit(item), false, busy)}
                   {item.back_photo ? action('Rimuovi retro', () => setRemoveBackTarget(item), false, busy) : null}
@@ -424,6 +455,12 @@ function WardrobeScreen() {
           <Text style={[s.fieldTitle, muted]}>Stile</Text>
           <View style={s.choices}>{FORMALITIES.map(o => chip(o.label, draft.formality === o.value,
             () => patch({ formality: o.value as Formality }), o.value))}</View>
+          <Text style={[s.fieldTitle, muted]}>Stagioni</Text>
+          <Text style={[s.note, muted]}>Quando lo metti. ORA guarda il meteo di oggi e preferisce i capi della stagione giusta.</Text>
+          <View testID="wardrobe-seasons" style={s.choices}>{SEASONS.map(o => chip(o.label, draft.seasons.includes(o.value),
+            () => patch({ seasons: draft.seasons.includes(o.value)
+              ? draft.seasons.filter(v => v !== o.value)
+              : [...draft.seasons, o.value] as Season[] }), o.value))}</View>
           <Text style={[s.fieldTitle, muted]}>Disponibilità</Text>
           <View style={s.choices}>
             {chip('Disponibile', draft.status === 'available', () => patch({ status: 'available' as GarmentStatus }), 'available')}
@@ -455,6 +492,13 @@ function WardrobeScreen() {
               : result.ai_status === 'rate_limited' ? 'Limite AI raggiunto · Consigli preliminari'
               : result.ai_status === 'not_preferred' ? 'Nessun look nuovo · Preferenze rispettate'
               : 'Suggerimenti preliminari dai tuoi capi'}
+          </Text> : null}
+          {result?.weather ? <Text testID="wardrobe-weather" style={[s.note, foreground]}>
+            Adesso{result.weather.place ? ` a ${result.weather.place}` : ''}: {Math.round(result.weather.temperature_c)}°
+            {result.weather.label ? `, ${result.weather.label.toLowerCase()}` : ''}. Ho scelto i capi per questo tempo.
+          </Text> : result ? <Text style={[s.note, muted]}>Non conosco il meteo dove sei: attiva la posizione per look adatti al tempo di oggi.</Text> : null}
+          {result?.layer_missing ? <Text testID="wardrobe-layer-missing" style={[s.note, { color: colors.error }]}>
+            Fa freddo per uscire senza giacca, ma nel guardaroba non ce n'è una disponibile. Aggiungila per averla nei look.
           </Text> : null}
           {result ? <View testID="wardrobe-suggestions" style={{ gap: 12 }}>
             {result.missing.length ? <Text style={[s.note, muted]}>

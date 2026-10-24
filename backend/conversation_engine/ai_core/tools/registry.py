@@ -34,7 +34,7 @@ class ToolRegistry:
             description=(
                 "Recommend a look using only clothes already owned and saved in "
                 "the user's ORA wardrobe. Use when asked how to dress for a run, "
-                "a casual Saturday evening, a chic night out, a club or wedding. "
+                "an ordinary day, work or the office, a casual Saturday evening, a chic night out, a club or wedding. "
                 "Chooses outfit combinations, never invents garments; says when "
                 "a complete look is unavailable, and clearly distinguishes AI "
                 "stylist judgement from fallback matching rules. On WhatsApp "
@@ -44,7 +44,7 @@ class ToolRegistry:
                 "type": "object",
                 "properties": {
                     "occasion": {"type": "string",
-                        "enum": ["running", "casual_evening", "chic_evening", "club", "wedding"]},
+                        "enum": ["running", "everyday", "work", "casual_evening", "chic_evening", "club", "wedding"]},
                     "style_note": {"type": "string",
                         "description": "Optional brief actual user styling preference, max 200 chars."},
                     "temperature_c": {"type": "number",
