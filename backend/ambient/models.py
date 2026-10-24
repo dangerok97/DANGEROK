@@ -159,8 +159,8 @@ class PushEndpoint(BaseModel):
     owner_id: str
 
     platform: Literal["ios", "android", "web", "unknown"] = "unknown"
-    provider: Literal["expo", "stub"] = "expo"
-    token: str = Field(default="", max_length=400)
+    provider: Literal["expo", "webpush", "stub"] = "expo"
+    token: str = Field(default="", max_length=1200)
     # A hash, not the device's own id: enough to recognise the same phone
     # again without keeping an identifier that follows somebody around.
     device_hash: str = Field(default="", max_length=64)

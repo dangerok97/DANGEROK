@@ -179,3 +179,27 @@ export function pushRecovery(snapshot: PushSnapshot): {
     default: return null;
   }
 }
+
+/**
+ * The same recovery, worded for a browser. On iPhone the push APIs exist only
+ * when ORA is opened from its Home Screen icon, and a browser never asks again
+ * after "denied" — the only honest action there is an instruction.
+ */
+export function webPushRecovery(
+  snapshot: PushSnapshot,
+  support: 'supported' | 'install_required' | 'unsupported',
+): ReturnType<typeof pushRecovery> {
+  if (support === 'install_required') return {
+    message: 'Per ricevere gli avvisi anche con ORA chiusa, aggiungila alla schermata Home: tocca Condividi, poi «Aggiungi alla schermata Home», e apri ORA da quell’icona.',
+    actionLabel: null, action: null,
+  };
+  if (support === 'unsupported') return {
+    message: 'Questo browser non riceve notifiche. Gli aggiornamenti restano in ORA.',
+    actionLabel: null, action: null,
+  };
+  if (snapshot.state === 'denied') return {
+    message: 'Le notifiche di ORA sono bloccate. Riattivale da Impostazioni › Notifiche › ORA, poi torna qui.',
+    actionLabel: null, action: null,
+  };
+  return pushRecovery(snapshot);
+}

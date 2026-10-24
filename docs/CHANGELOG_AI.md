@@ -1,3 +1,14 @@
+## 23 ottobre 2026 — Notifiche web (PR #380)
+
+- Nuovo canale `ambient/webpush.py` accanto a Expo; `CompositeNotificationProvider`
+  invia la stessa decisione a tutti i canali abilitati.
+- Endpoint `GET /ambient/push/web-config` e `POST /ambient/push/test`.
+- Frontend: manifest, icone, `public/sw.js`, canale web nel ciclo push esistente,
+  istruzioni per l'installazione su iPhone, `/notifica` per il tocco.
+- Test: `test_web_push_channel_v1.py`, `webPush.test.ts`, `pushLifecycle.test.ts`.
+
+---
+
 ## 23 ottobre 2026 — Situazioni: il controllo in background non lavora più alla cieca
 
 - Causa trovata in produzione (Situazione del 22/10, 23:47): il controllo

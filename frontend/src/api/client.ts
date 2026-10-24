@@ -1304,6 +1304,13 @@ export const api = {
       method: 'POST', body: JSON.stringify(body),
     }),
 
+  sendTestNotification: () =>
+    request<{ ok: boolean; provider: string | null; accepted: number; reason: string | null }>(
+      '/ambient/push/test', { method: 'POST' }),
+
+  webPushConfig: () =>
+    request<{ available: boolean; public_key: string | null }>('/ambient/push/web-config'),
+
   releasePushDevice: (device: string, sessionToken?: string) => sessionToken
     ? sessionRequest<{ ok: boolean; released: number }>('/ambient/push/release', sessionToken, {
       method: 'POST',

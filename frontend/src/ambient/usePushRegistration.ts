@@ -3,7 +3,8 @@ import { AppState, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 import { useAuth } from '@/src/contexts/AuthContext';
-import { pushLifecycle, reconcilePush, sessionCleanup } from './pushRegistration';
+import { capability, pushLifecycle, reconcilePush, sessionCleanup } from './pushRegistration';
+import { ensureWebWorker } from './webPush';
 
 export function usePushRegistration() {
   return useSyncExternalStore(pushLifecycle.subscribe, pushLifecycle.getSnapshot, pushLifecycle.getSnapshot);
@@ -18,15 +19,17 @@ export function usePushReconciliation(): void {
   const push = usePushRegistration();
   const cleanup = useSessionCleanup();
   useEffect(() => {
-    if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
+    const channel = capability();
+    if (channel === 'unsupported') return;
     if (loading || !user?.user_id) return;
+    if (channel === 'web') void ensureWebWorker();
     const sync = () => { void reconcilePush(); };
     sync();
     const foreground = AppState.addEventListener('change', state => {
       if (state === 'active') sync();
     });
-    const rotation = Notifications.addPushTokenListener(sync);
-    return () => { foreground.remove(); rotation.remove(); };
+    const rotation = channel === 'native' ? Notifications.addPushTokenListener(sync) : null;
+    return () => { foreground.remove(); rotation?.remove(); };
   }, [loading, user?.user_id]);
 
   useEffect(() => {

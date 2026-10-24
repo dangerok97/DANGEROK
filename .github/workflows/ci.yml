@@ -123,6 +123,9 @@ jobs:
       - name: A refused Situation estimate records which rule refused it
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_rejection_reasons_v1.py tests/test_situation_research_baseline_unblock_v1.py tests/test_situation_rain_warning_reaches_v1.py tests/test_situation_useful_outcome_v160.py tests/test_situation_research_integrity_v159.py -x
+      - name: Web Push reaches the Home Screen app with ORA closed
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_web_push_channel_v1.py -x
       - name: ORA native calendar without any external connector
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_ora_native_calendar_v155.py tests/test_calendar_home_month_consistency_v157.py tests/test_calendar_target_integrity_v157.py -x
@@ -404,6 +407,7 @@ jobs:
             src/auth/sessionCleanup.test.ts \
             src/auth/tokenStore.test.ts \
             src/ambient/pushLifecycle.test.ts \
+            src/ambient/webPush.test.ts \
             src/ambient/pushRegistration.test.cjs \
             src/connectors/connectorOAuth.test.ts
       - name: Google login iOS browser redirect and blank-button fallback

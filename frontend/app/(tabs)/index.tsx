@@ -16,6 +16,7 @@ import {
   RefreshControl,
   AppState,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -68,7 +69,8 @@ import { useAmbientInset } from '@/src/shell';
 import { buildOraConversationHref } from '@/src/ora/oraNav';
 import { usePushRegistration } from '@/src/ambient/usePushRegistration';
 import { enablePush } from '@/src/ambient/pushRegistration';
-import { pushRecovery } from '@/src/ambient/pushLifecycle';
+import { pushRecovery, webPushRecovery } from '@/src/ambient/pushLifecycle';
+import { webPushSupport } from '@/src/ambient/webPush';
 
 /**
  * Home is the one route allowed past PX1.1's 800px reading column: it is a
@@ -324,7 +326,8 @@ export default function HomeScreen() {
   const [permissionBusy, setPermissionBusy] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const push = usePushRegistration();
-  const notificationRecovery = pushRecovery(push);
+  const notificationRecovery = Platform.OS === 'web'
+    ? webPushRecovery(push, webPushSupport()) : pushRecovery(push);
   useEffect(() => { setAskedLater(false); setPermissionError(null); }, [user?.user_id]);
 
   const enableNotifications = useCallback(async () => {

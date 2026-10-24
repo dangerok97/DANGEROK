@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createPushLifecycle, pushRecovery, type PushPermission, type PushSession } from './pushLifecycle.ts';
+import { createPushLifecycle, pushRecovery, webPushRecovery, type PushPermission, type PushSession } from './pushLifecycle.ts';
 
 const first = { ownerId: 'synthetic-first', token: 'synthetic-session-first' };
 const second = { ownerId: 'synthetic-second', token: 'synthetic-session-second' };
@@ -170,4 +170,17 @@ test('web never calls native permission, token, registration or unregistration e
   assert.equal((await lifecycle.reconcile(true)).state, 'unsupported');
   await lifecycle.release();
   assert.deepEqual(calls, []);
+});
+
+test('web recovery tells an iPhone user how to install, and never offers a dead settings button', () => {
+  const base = { ownerId: 'synthetic', busy: false, canAskAgain: false };
+  const install = webPushRecovery({ ...base, state: 'unsupported' }, 'install_required');
+  assert.match(install!.message, /schermata Home/);
+  assert.equal(install!.action, null);
+  const denied = webPushRecovery({ ...base, state: 'denied' }, 'supported');
+  assert.match(denied!.message, /Impostazioni/);
+  assert.equal(denied!.action, null);
+  const consent = webPushRecovery({ ...base, state: 'needs_consent', canAskAgain: true }, 'supported');
+  assert.equal(consent!.action, 'enable');
+  assert.equal(webPushRecovery({ ...base, state: 'granted' }, 'supported'), null);
 });

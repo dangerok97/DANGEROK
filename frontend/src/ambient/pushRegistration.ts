@@ -1,4 +1,4 @@
-/** Native push effects. Only enablePush may request an OS permission. */
+/** Native and Web Push effects. Only enablePush may request an OS permission. */
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -10,13 +10,22 @@ import { storage } from '@/src/utils/storage';
 import { createInstallationHandle, createRegistrationRevision } from './installationHandle';
 import { createPushLifecycle, type PushPermission, type PushSession } from './pushLifecycle';
 import { createSessionCleanup, PENDING_SESSION_CLEANUP_KEY as CLEANUP_KEY, type PendingSessionCleanup } from '../auth/sessionCleanup';
+import { requestWebPermission, stopWebPush, webPermission, webPushSupport, webSubscription } from './webPush';
 
 export type { PushOutcome, PushSnapshot } from './pushLifecycle';
-export type PushCapability = 'native' | 'unsupported';
+export type PushCapability = 'native' | 'web' | 'unsupported';
 export function capability(): PushCapability {
-  return Platform.OS === 'ios' || Platform.OS === 'android' ? 'native' : 'unsupported';
+  if (Platform.OS === 'ios' || Platform.OS === 'android') return 'native';
+  return Platform.OS === 'web' && webPushSupport() === 'supported' ? 'web' : 'unsupported';
 }
+const WEB_CHANNEL = 'web-push';
+/** Browser storage for the installation handle; never holds a token. */
+const webHandleStore = {
+  getItemAsync: async (key: string) => (globalThis as any).localStorage.getItem(key) as string | null,
+  setItemAsync: async (key: string, value: string) => { (globalThis as any).localStorage.setItem(key, value); },
+};
 function projectId(): string | undefined {
+  if (capability() === 'web') return WEB_CHANNEL;
   const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, unknown>;
   const eas = (extra.eas ?? {}) as Record<string, unknown>;
   return (typeof eas.projectId === 'string' ? eas.projectId : undefined)
@@ -41,9 +50,12 @@ async function bounded<T>(work: Promise<T>): Promise<T> {
   } finally { if (timeout) clearTimeout(timeout); }
 }
 
-const deviceHandle = createInstallationHandle(Platform.OS, SecureStore, () => Crypto.randomUUID());
-const registrationRevision = createRegistrationRevision(SecureStore);
+const handleStore = capability() === 'web' ? webHandleStore : SecureStore;
+const deviceHandle = createInstallationHandle(Platform.OS, handleStore,
+  () => capability() === 'web' ? (globalThis as any).crypto.randomUUID() : Crypto.randomUUID());
+const registrationRevision = createRegistrationRevision(handleStore);
 async function stopNative(): Promise<void> {
+  if (capability() === 'web') { await bounded(stopWebPush()); return; }
   if (capability() !== 'native') return;
   // Stop Expo's own persisted token auto-registration before unregistering.
   // Otherwise a later native token event can silently opt the device back in.
@@ -55,9 +67,11 @@ async function stopNative(): Promise<void> {
 }
 
 export const pushLifecycle = createPushLifecycle({
-  native: capability() === 'native', projectId,
-  permission: async () => permissionValue(await Notifications.getPermissionsAsync()),
-  requestPermission: async () => permissionValue(await Notifications.requestPermissionsAsync()),
+  native: capability() !== 'unsupported', projectId,
+  permission: async () => capability() === 'web'
+    ? webPermission() : permissionValue(await Notifications.getPermissionsAsync()),
+  requestPermission: async () => capability() === 'web'
+    ? requestWebPermission() : permissionValue(await Notifications.requestPermissionsAsync()),
   prepareChannel: async () => {
     if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('default', {
       name: 'Aggiornamenti ORA', importance: Notifications.AndroidImportance.DEFAULT,
@@ -65,6 +79,11 @@ export const pushLifecycle = createPushLifecycle({
   },
   device: deviceHandle,
   token: async id => {
+    if (capability() === 'web') {
+      const config = await bounded(api.webPushConfig());
+      if (!config.available || !config.public_key) throw new Error('web_push_unavailable');
+      return bounded(webSubscription(config.public_key));
+    }
     const work = Notifications.getExpoPushTokenAsync({ projectId: id });
     // Expo has no AbortSignal parameter. If it finishes after our deadline
     // and logout, undo its auto-registration without touching a new account.
@@ -150,7 +169,7 @@ export async function endPushSession(token: string | null): Promise<void> {
   // turn a pending server revocation into a claimed success.
   void release.catch(() => undefined);
   if (token) {
-    const device = capability() === 'native' ? await deviceHandle().catch(() => null) : null;
+    const device = capability() !== 'unsupported' ? await deviceHandle().catch(() => null) : null;
     await sessionCleanup.add({ token, device, expiresAt: tokenExpiry(token) });
   }
   void sessionCleanup.flush();
