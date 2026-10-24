@@ -9,7 +9,7 @@ import { useIconFonts } from '@/src/hooks/use-icon-fonts';
 import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
-import { AuthGate, ShellModeProvider, useShellTransitionMs } from '@/src/shell';
+import { AuthGate, GlobalPhoneBar, ShellModeProvider, useAmbientInset, useGlobalBarVisible, useShellTransitionMs } from '@/src/shell';
 import { installWebGlobals } from '@/src/theme/webGlobals';
 import { useNotificationHandoff } from '@/src/ambient/useNotificationHandoff';
 import { usePushReconciliation } from '@/src/ambient/usePushRegistration';
@@ -99,6 +99,10 @@ function ThemedStack() {
   useDeviceContactsReconciliation();
   useNotificationHandoff();
   usePushReconciliation();
+  // Outside the tabs the same bottom bar is drawn globally; screens get the
+  // clearance the tabs already give theirs.
+  const barVisible = useGlobalBarVisible();
+  const { paddingBottom } = useAmbientInset();
   return (
     <View style={{ flex: 1, backgroundColor: colors.backgroundPrimary }}>
       {/*
@@ -110,7 +114,10 @@ function ThemedStack() {
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: colors.backgroundPrimary },
+            contentStyle: {
+              backgroundColor: colors.backgroundPrimary,
+              paddingBottom: barVisible ? paddingBottom : 0,
+            },
             // Ambient ↔ Focus foundation (~220–280ms); 0 when reduce-motion
             animation: transitionMs === 0 ? 'none' : 'fade',
             animationDuration: transitionMs || undefined,
@@ -120,6 +127,7 @@ function ThemedStack() {
             fullScreenGestureEnabled: true,
           }}
         />
+        <GlobalPhoneBar />
       </AuthGate>
     </View>
   );
