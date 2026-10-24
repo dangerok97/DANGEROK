@@ -10,7 +10,7 @@ test('the bar follows the person outside the tabs (owner request 24/10)', () => 
 
 test('never twice, never over a bottom input, never before sign-in, never on desktop', () => {
   assert.equal(shouldShowGlobalBar('(tabs)', true, false), false);
-  for (const page of ['ora', 'conversation', 'ora-ai', 'login', 'notifica']) {
+  for (const page of ['ora', 'conversation', 'ora-ai', 'login', 'notifica', 'vision-xray', 'chiamate']) {
     assert.equal(shouldShowGlobalBar(page, true, false), false, page);
   }
   assert.equal(shouldShowGlobalBar('vita', false, false), false);
