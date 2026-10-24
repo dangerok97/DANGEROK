@@ -18,7 +18,7 @@ import { useRouter } from 'expo-router';
 
 import { api } from '@/src/api/client';
 import { pushRecovery, webPushRecovery } from '@/src/ambient/pushLifecycle';
-import { enablePush } from '@/src/ambient/pushRegistration';
+import { enablePush, reconcilePush } from '@/src/ambient/pushRegistration';
 import { usePushRegistration } from '@/src/ambient/usePushRegistration';
 import { webPushSupport } from '@/src/ambient/webPush';
 import { ConnectorOAuthError } from '@/src/connectors/connectorOAuth';
@@ -32,6 +32,7 @@ import {
   BoundaryNote,
   CALENDAR_WRITE_BOUNDARY,
   ChoiceRow,
+  ToggleRow,
   DOCUMENT_SCOPE_BOUNDARY,
   InlineError,
   LinkRow,
@@ -937,45 +938,81 @@ const revokeStyles = StyleSheet.create({
   preferenze sopra non raggiungono nessuno quando l'app è chiusa.
 */
 function DeviceNotificationsRow() {
+  const { colors } = useTheme();
   const push = usePushRegistration();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const recovery = Platform.OS === 'web' ? webPushRecovery(push, webPushSupport()) : pushRecovery(push);
-  const granted = push.state === 'granted';
-  const canEnable = !granted && (recovery ? recovery.action === 'enable' : push.state === 'idle' || push.state === 'undetermined');
+  const on = push.state === 'granted';
+  // A switch only where it can really switch: otherwise an honest instruction.
+  const canSwitch = on || (recovery ? recovery.action === 'enable'
+    : push.state === 'idle' || push.state === 'undetermined');
 
-  const press = async () => {
+  const change = async (next: boolean) => {
     if (busy) return;
     setBusy(true);
     setNote(null);
     try {
-      if (granted) {
-        const result = await api.sendTestNotification();
-        setNote(result.accepted > 0
-          ? 'Inviata. Dovrebbe arrivarti tra pochi secondi, anche con ORA chiusa.'
-          : 'Non sono riuscito a inviarla a questo telefono. Riprova tra poco.');
-      } else if (canEnable) {
+      if (next) {
         const outcome = await enablePush();
         if (!outcome.ok) setNote('Non sono riuscito ad attivarle. Riprova.');
+      } else {
+        // Account consent off: this phone stays registered but nothing is
+        // delivered until the switch is turned on again.
+        await api.pauseNotificationDelivery();
+        await reconcilePush();
       }
     } catch {
-      setNote(granted ? 'Prova non riuscita. Riprova tra qualche secondo.' : 'Non sono riuscito ad attivarle. Riprova.');
+      setNote(next ? 'Non sono riuscito ad attivarle. Riprova.' : 'Non sono riuscito a spegnerle. Riprova.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const test = async () => {
+    if (busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const result = await api.sendTestNotification();
+      setNote(result.accepted > 0
+        ? 'Inviata. Dovrebbe arrivarti tra pochi secondi, anche con ORA chiusa.'
+        : 'Non sono riuscito a inviarla a questo telefono. Riprova tra poco.');
+    } catch {
+      setNote('Prova non riuscita. Riprova tra qualche secondo.');
     } finally {
       setBusy(false);
     }
   };
 
   const detail = note
-    || (granted ? 'Attive: ORA può avvisarti anche con l’app chiusa. Tocca per una prova.'
-      : recovery?.message || 'Tocca per attivare le notifiche su questo telefono.');
+    || (on ? 'Attive: ORA può avvisarti anche con l’app chiusa.'
+      : recovery?.message || 'Spente: gli aggiornamenti restano dentro ORA.');
+
+  if (!canSwitch) {
+    return <BoundaryNote>{detail}</BoundaryNote>;
+  }
   return (
-    <ChoiceRow
-      label="Su questo telefono"
-      detail={busy || push.busy ? 'Verifico…' : detail}
-      selected={granted}
-      onPress={() => void press()}
-      busy={busy || push.busy}
-      testID="notification-device"
-    />
+    <>
+      <ToggleRow
+        label="Notifiche su questo telefono"
+        detail={detail}
+        value={on}
+        onChange={(v) => void change(v)}
+        busy={busy || push.busy}
+        testID="notification-device"
+      />
+      {on ? (
+        <Pressable
+          onPress={() => void test()}
+          disabled={busy}
+          accessibilityRole="button"
+          testID="notification-test"
+          style={({ pressed }) => [{ paddingVertical: 12, alignSelf: 'flex-start' }, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={{ color: colors.accent, fontSize: 15, fontWeight: '600' }}>Invia una notifica di prova</Text>
+        </Pressable>
+      ) : null}
+    </>
   );
 }

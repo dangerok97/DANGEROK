@@ -1304,6 +1304,12 @@ export const api = {
       method: 'POST', body: JSON.stringify(body),
     }),
 
+  pauseNotificationDelivery: () =>
+    request<{ ok?: boolean }>('/permissions/consents/revoke', {
+      method: 'POST',
+      body: JSON.stringify({ capability_id: 'notifications.deliver', connector_id: 'notifications', reason: 'user_switch_off' }),
+    }),
+
   sendTestNotification: () =>
     request<{ ok: boolean; provider: string | null; accepted: number; reason: string | null }>(
       '/ambient/push/test', { method: 'POST' }),
