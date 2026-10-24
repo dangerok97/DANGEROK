@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from deps import db, get_current_user
 from house_scans.models import (
-    CreateHouseScan, MAX_CAPTURE_BYTES, MAX_PATCH_BYTES, UpdateHouseScan,
+    AddManualRoom, CreateHouseScan, MAX_CAPTURE_BYTES, MAX_PATCH_BYTES, UpdateHouseScan,
 )
 from house_scans.service import HouseScanError, HouseScanService
 
@@ -107,6 +107,26 @@ async def create_scan(request: Request, response: Response, user=Depends(get_cur
     scan, created = await _call(_service().create(user["user_id"], body))
     response.status_code = 201 if created else 200
     return {"scan": scan, "created": created}
+
+
+@router.post("/manual-rooms")
+async def add_manual_room(request: Request, response: Response, user=Depends(get_current_user)):
+    """A room measured by hand: starts a plan, or joins one made the same way."""
+    body = await _read_body(request, AddManualRoom, max_bytes=MAX_PATCH_BYTES)
+    scan, created = await _call(_service().add_manual_room(user["user_id"], body))
+    response.status_code = 201 if created else 200
+    return {"scan": scan, "created": created}
+
+
+@router.delete("/{scan_id}/rooms/{room_id}")
+async def remove_manual_room(scan_id: str, room_id: str,
+                             revision: int = Query(..., ge=1, le=2_147_483_647),
+                             user=Depends(get_current_user)):
+    _check_id(scan_id)
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", room_id):
+        raise _error(422, "Identificativo della stanza non valido.")
+    return {"scan": await _call(_service().remove_manual_room(
+        user["user_id"], scan_id, room_id, revision))}
 
 
 @router.get("/{scan_id}")

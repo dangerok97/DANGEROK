@@ -59,3 +59,39 @@ export function parseMetres(input: string): number | null {
   const value = Number(text);
   return Number.isFinite(value) && value > 0 && value <= 100 ? value : null;
 }
+
+export type RoomStats = {
+  floor_area_m2: number | null; floor_area_approximate: boolean; perimeter_m: number;
+  height_m: number; wall_area_m2: number; paintable_wall_area_m2: number;
+};
+
+/** Same rules as the server (house_scans/stats.py): verified lengths first. */
+export function roomStats(scan: HouseScan, room: HouseRoom): RoomStats {
+  const lengths = room.walls.map(wall => wallMeasurement(scan, room, wall).length_m);
+  const height = Math.max(0, ...room.walls.map(wall => wall.dimensions.y || 0));
+  const wallArea = room.walls.reduce((sum, wall, i) => sum + lengths[i] * wall.dimensions.y, 0);
+  const openings = [...room.doors, ...room.windows, ...room.openings]
+    .reduce((sum, o) => sum + o.dimensions.x * o.dimensions.y, 0);
+  let floor: number | null = null;
+  let approximate = false;
+  const f = room.floors[0];
+  const depth = f ? (f.dimensions.y || f.dimensions.z) : 0;
+  if (f && f.dimensions.x > 0 && depth > 0) floor = f.dimensions.x * depth;
+  if (floor === null) {
+    const points = room.walls.map(w => surfaceLine(w)).filter((l): l is PlanLine => l !== null).flatMap(l => [l.start, l.end]);
+    if (points.length) {
+      const xs = points.map(p => p.x); const ys = points.map(p => p.y);
+      floor = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+      approximate = true;
+    }
+  }
+  return {
+    floor_area_m2: floor, floor_area_approximate: approximate,
+    perimeter_m: lengths.reduce((a, b) => a + b, 0), height_m: height,
+    wall_area_m2: wallArea, paintable_wall_area_m2: Math.max(wallArea - openings, 0),
+  };
+}
+
+export function formatArea(value: number): string {
+  return `${value.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m²`;
+}

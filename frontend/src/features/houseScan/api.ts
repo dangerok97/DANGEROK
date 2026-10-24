@@ -1,5 +1,5 @@
 import { authToken, sessionRequest } from '@/src/api/client';
-import type { HouseCapture, HouseScan, HouseScanPatch, HouseScanSummary } from './types';
+import type { HouseCapture, HouseScan, HouseScanPatch, HouseScanSummary, ManualRoomInput } from './types';
 
 /** Freeze the session before opening the camera; never borrow a later login. */
 async function request<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
@@ -25,6 +25,14 @@ export const houseScanApi = {
     request<{ scan: HouseScan }>(token, `/${encodeURIComponent(id)}`, {
       method: 'PATCH', body: JSON.stringify(patch),
     }),
+  /** A room measured by hand: starts a plan, or joins a plan made the same way. */
+  addManualRoom: (token: string, room: ManualRoomInput, plan?: { id: string; revision: number }, title = 'Casa') =>
+    request<{ scan: HouseScan; created: boolean }>(token, '/manual-rooms', {
+      method: 'POST',
+      body: JSON.stringify(plan ? { room, scan_id: plan.id, revision: plan.revision } : { room, title }),
+    }),
+  removeRoom: (token: string, scan: HouseScanSummary, roomId: string) =>
+    request<{ scan: HouseScan }>(token, `/${encodeURIComponent(scan.id)}/rooms/${encodeURIComponent(roomId)}?revision=${scan.revision}`, { method: 'DELETE' }),
   remove: (token: string, scan: HouseScanSummary) =>
     request<{ deleted: boolean }>(token, `/${encodeURIComponent(scan.id)}?revision=${scan.revision}`, { method: 'DELETE' }),
 };
