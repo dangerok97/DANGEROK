@@ -48,6 +48,12 @@ export const SIRI_STEPS: Array<{ title: string; detail: string }> = [
   },
 ];
 
+export const SIRI_SHARE_TIP =
+  'Salvare ricette dai social: duplica il comando, chiamalo «Salva in ORA», nei dettagli attiva ' +
+  '«Mostra nel foglio di condivisione» e nel campo text metti «Salva questa ricetta:» seguito da ' +
+  '«Input comando rapido» al posto del testo dettato. Da Instagram, TikTok o Safari tocca Condividi → ' +
+  'Salva in ORA: la ricetta finisce nel tuo ricettario.';
+
 export const SIRI_LOCATION_TIP =
   'Facoltativo, per le richieste legate a dove sei: prima di «Ottieni contenuti di URL» ' +
   'aggiungi «Ottieni posizione attuale», poi nel corpo JSON aggiungi due campi Numero, ' +
@@ -185,6 +191,7 @@ export function SiriConnection() {
           </View>
         ))}
         <Text style={[styles.description, { color: colors.textSecondary }]}>{SIRI_LOCATION_TIP}</Text>
+        <Text testID="siri-share-tip" style={[styles.description, { color: colors.textSecondary }]}>{SIRI_SHARE_TIP}</Text>
       </View>
 
       <View style={styles.buttons}>

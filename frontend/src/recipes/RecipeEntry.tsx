@@ -21,7 +21,7 @@ export function RecipeEntry() {
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Cucina e ricette</Text>
         <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Salva ricette da link o testo. Ritrova ingredienti, passaggi e preferite.
+          Salva ricette da Instagram, TikTok, siti o foto. Cucina passo passo, porzioni e spesa.
         </Text>
       </View>
       <Ionicons name="arrow-forward" size={20} color={colors.accent} />

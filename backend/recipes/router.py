@@ -1,10 +1,11 @@
 """ORA Cucina endpoints; same bearer auth and owner scoping as the app."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from deps import db, get_current_user
-from .parser import preview
+from . import importer
+from .parser import URL_PATTERN
 from .service import RecipeError, RecipeService, RecipeWrite, SourceInput
 
 
@@ -21,10 +22,42 @@ def service() -> RecipeService:
 
 @router.post("/preview")
 async def preview_recipe(body: SourceInput, user=Depends(get_current_user)):
+    """A link is read (structured page, or the post's own words); text is ordered. Never saved here."""
+    source = body.source.strip()
     try:
-        return preview(body.source)
+        if URL_PATTERN.fullmatch(source):
+            if not importer.allow(user["user_id"]):
+                raise HTTPException(429, "Troppe importazioni nell'ultima ora. Riprova più tardi.")
+            return await importer.from_link(source)
+        return await importer.from_text(source)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
+
+
+@router.post("/preview-photo")
+async def preview_photo(request: Request, user=Depends(get_current_user)):
+    """A photo of a book page or a screenshot. Read once, never stored."""
+    from wardrobe.service import MAX_UPLOAD, WardrobeError, make_source_photo
+
+    if request.headers.get("content-type", "").split(";")[0].lower() not in (
+            "image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(415, "Carica una foto JPEG, PNG o WebP.")
+    if not importer.allow(user["user_id"]):
+        raise HTTPException(429, "Troppe importazioni nell'ultima ora. Riprova più tardi.")
+    raw = bytearray()
+    try:
+        async for chunk in request.stream():
+            if len(raw) + len(chunk) > MAX_UPLOAD:
+                raise HTTPException(413, "La foto supera 5 MB.")
+            raw.extend(chunk)
+        from starlette.concurrency import run_in_threadpool
+        # EXIF-free, bounded copy: the same normalisation the wardrobe uses.
+        clean = await run_in_threadpool(make_source_photo, bytes(raw))
+    except WardrobeError as exc:
+        raise HTTPException(exc.status, str(exc)) from None
+    finally:
+        raw.clear()
+    return await importer.from_photo(clean)
 
 
 @router.get("/items")

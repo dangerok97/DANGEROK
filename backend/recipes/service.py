@@ -38,6 +38,8 @@ class RecipeWrite(BaseModel):
     servings: int | None = Field(default=None, ge=1, le=99)
     favorite: bool = False
     status: Literal["to_try", "cooked"] = "to_try"
+    image_url: str = Field(default="", max_length=2048)
+    total_minutes: int | None = Field(default=None, ge=1, le=10080)
 
     @field_validator("ingredients", "steps", "tags")
     @classmethod
@@ -55,6 +57,9 @@ class RecipeWrite(BaseModel):
             raise ValueError("Il titolo contiene caratteri non validi.")
         if self.source_url:
             self.source_url = canonical_url(self.source_url)
+        if self.image_url and (not self.image_url.startswith("https://")
+                               or any(ord(c) < 33 for c in self.image_url)):
+            self.image_url = ""
         if not self.source_url and not self.source_text.strip():
             raise ValueError("Conserva la fonte: incolla un testo o un link.")
         self.tags = list(dict.fromkeys(self.tags))
