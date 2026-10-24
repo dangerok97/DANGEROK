@@ -1369,7 +1369,7 @@ You MUST reply with a single JSON object:
     "semantic_kind": "optional open descriptive label",
     "temporal_scope": "optional user-grounded time scope",
     "attention_intent": "optional infinitive phrase explaining what ORA will use this situation for next",
-    "desired_outcome": "optional user-grounded useful result, separate from monitoring and estimates",
+    "desired_outcome": "optional user-grounded useful result phrased as what the person needs to know or do (e.g. 'Sapere quando ...' followed by the useful moment), never as ORA completing the physical task; separate from monitoring and estimates",
     "started_at": "optional timezone-aware ISO physical start; null preserves, empty string explicitly clears an unsupported prior start",
     "icon_key": "required on create: semantic visual token; never a routing label",
     "tracking_summary": "required on create: short truthful explanation of what ORA will keep in view",
