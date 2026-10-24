@@ -105,6 +105,14 @@ try:
 except Exception:
     pass
 
+# ORA's own health check of its watches and notifications.
+try:
+    from ops.router import router as ops_router
+
+    ALL_ROUTERS.append(ops_router)
+except Exception:
+    pass
+
 # Siri through the Shortcuts app: one personal, revocable key per account.
 try:
     from siri.router import router as siri_router

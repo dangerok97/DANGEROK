@@ -134,7 +134,7 @@ jobs:
         run: python -m pytest -q -n 0 recipes/tests/test_importer.py cooking_planner/tests -x
       - name: A refused Situation estimate records which rule refused it
         working-directory: backend
-        run: python -m pytest -q -n 0 tests/test_situation_rejection_reasons_v1.py tests/test_situation_ready_at_checkpoint_v1.py tests/test_situation_pause_keeps_watching_v1.py tests/test_situation_daylight_and_season_v1.py tests/test_situation_research_baseline_unblock_v1.py tests/test_situation_rain_warning_reaches_v1.py tests/test_situation_statement_evidence_v1.py tests/test_situation_useful_outcome_v160.py tests/test_situation_research_integrity_v159.py -x
+        run: python -m pytest -q -n 0 tests/test_situation_rejection_reasons_v1.py tests/test_situation_ready_at_checkpoint_v1.py tests/test_situation_pause_keeps_watching_v1.py tests/test_self_check_v1.py tests/test_situation_daylight_and_season_v1.py tests/test_situation_research_baseline_unblock_v1.py tests/test_situation_rain_warning_reaches_v1.py tests/test_situation_statement_evidence_v1.py tests/test_situation_useful_outcome_v160.py tests/test_situation_research_integrity_v159.py -x
       - name: Web Push reaches the Home Screen app with ORA closed
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_web_push_channel_v1.py -x
