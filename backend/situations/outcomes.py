@@ -113,6 +113,9 @@ async def weather_evidence_current(db, owner, goal, evidence, *, now=None):
     return bool(evidence) and await _weather_binding_current(db, owner, state, state.revision, evidence)
 
 
+RECENT_READ_MINUTES = 30
+
+
 def _reject(reasons, code):
     """A refused proposal stays unknown; the caller may learn which rule refused it."""
     if isinstance(reasons, list):
@@ -140,6 +143,12 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
             "window_start", "window_end", "valid_until", "evidence_ids",
         ) if key in raw
     }
+    # Production 24/10 20:16: the model wrote the reason where the status
+    # goes ("status": "early_risk"). The meaning is unambiguous, so it is
+    # placed where it belongs instead of discarding a rain warning.
+    if fields.get("status") in ("early_risk", "outcome_ready"):
+        fields["action_reason"] = fields.get("action_reason") or fields["status"]
+        fields["status"] = "action_now"
     assessed_at = now.isoformat()
     identity = hashlib.sha256(f"{goal.id}:{state.revision}:{assessed_at}".encode()).hexdigest()[:20]
     try:
@@ -194,9 +203,16 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
     if assessment.status != "needs_input":
         if not cited:
             return _reject(reasons, "no_cited_evidence")
-        # A new useful-action decision must re-read something in this pass.
-        # Reaching a timer alone cannot turn an older estimate into readiness.
+        # A new useful-action decision must rest on a current reading.
+        # Readiness ("pronto adesso") must re-read in this very pass: reaching
+        # a timer alone cannot turn an older estimate into readiness. A risk
+        # warning or an estimated window may use a reading from the last
+        # RECENT_READ_MINUTES — production 23/10 19:16 refused "ritira i panni,
+        # arriva la pioggia" because the forecast had been read 8 minutes
+        # earlier, in the previous pass of the same check.
         since = moment(run_at)
+        if since and assessment.action_reason != "outcome_ready":
+            since = since - timedelta(minutes=RECENT_READ_MINUTES)
         if since and not any(moment(item.observed_at) and moment(item.observed_at) >= since for item in cited):
             return _reject(reasons, "no_fresh_evidence_this_run")
         if since and any(item.provenance.capability == "weather.read"
@@ -211,6 +227,7 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
                        for item in cited):
                 return _reject(reasons, "estimate_without_baseline")
         if (assessment.basis == "direct_observation"
+                and assessment.action_reason != "early_risk"
                 and all(item.provenance.capability in ("weather.read", "web.research") for item in cited)):
             return _reject(reasons, "direct_observation_unsupported")
     # The result cannot outlive evidence whose provider gives a shorter horizon.
