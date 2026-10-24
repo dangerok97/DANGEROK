@@ -29,8 +29,13 @@ import { useDeclareShellMode } from './ShellModeContext';
 import { SideRail, type RailKey } from './SideRail';
 import { railKeyFor } from './DesktopShell';
 
-export function AmbientTabBar({ state, navigation }: BottomTabBarProps) {
+export function AmbientTabBar(props: BottomTabBarProps) {
   useDeclareShellMode('ambient');
+  return <AmbientBar {...props} />;
+}
+
+/** The bar itself, without declaring a shell mode (also used outside the tabs). */
+export function AmbientBar({ state, navigation }: Pick<BottomTabBarProps, 'state' | 'navigation'>) {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();

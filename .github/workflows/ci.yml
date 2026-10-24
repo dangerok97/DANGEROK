@@ -411,6 +411,7 @@ jobs:
             src/auth/tokenStore.test.ts \
             src/ambient/pushLifecycle.test.ts \
             src/ambient/webPush.test.ts \
+            src/shell/globalBar.test.ts \
             src/ambient/pushRegistration.test.cjs \
             src/connectors/connectorOAuth.test.ts
       - name: Google login iOS browser redirect and blank-button fallback
