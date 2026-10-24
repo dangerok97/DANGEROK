@@ -64,3 +64,20 @@ async def test_a_closed_situation_records_nothing(monkeypatch):
     await db.situations.update_one({"id": state.id}, {"$set": {"status": "cancelled"}})
     await service._note_situation_statement(OWNER, goal)
     assert await db.agent_evidence.count_documents({"kind": "situation_statement"}) == 0
+
+
+@pytest.mark.asyncio
+async def test_rereading_the_situation_reads_the_declaration_not_a_failure(monkeypatch):
+    from types import SimpleNamespace
+    from agent import providers
+
+    db, service, state, goal, run, _, baseline, live = await setup(monkeypatch)
+    step = SimpleNamespace(input_refs=[f"situation:{state.id}"])
+    outcome = await providers.read_internal_state(db, OWNER, goal, step=step)
+    assert outcome.status == "succeeded"
+    assert outcome.provenance.source_refs == [f"situation:{state.id}:revision:{state.revision}"]
+    assert outcome.claims and "Dichiarato dalla persona" in outcome.claims[0].text
+    # A step citing memory handles keeps the memory path.
+    await db.situations.update_one({"id": state.id}, {"$set": {"status": "resolved"}})
+    closed = await providers.read_internal_state(db, OWNER, goal, step=step)
+    assert closed.status == "unavailable" and closed.error_type == "memory_reference_required"

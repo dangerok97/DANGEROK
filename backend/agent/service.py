@@ -2431,7 +2431,7 @@ class AgentService:
         It is the person's statement, not a measurement: it never proves that
         anything physical happened.
         """
-        from situations.outcomes import situation_id
+        from situations.outcomes import situation_id, statement_text
         from situations.repository import SituationRepository
 
         sid = situation_id(goal)
@@ -2450,20 +2450,9 @@ class AgentService:
                 "provenance.source_refs": ref, "observed_at": {"$gte": recent},
             }, {"_id": 1}):
                 return
-            parts = [f"Dichiarato dalla persona: {state.summary}"]
-            if state.facts:
-                parts.append("fatti: " + "; ".join(str(f) for f in state.facts[:6]))
-            if state.constraints:
-                parts.append("vincoli: " + "; ".join(str(c) for c in state.constraints[:4]))
-            if state.started_at:
-                parts.append(f"inizio: {state.started_at}")
-            if state.temporal_scope:
-                parts.append(f"periodo: {state.temporal_scope}")
-            if state.location_label:
-                parts.append(f"luogo: {state.location_label}")
             await self.evidence.record(AgentEvidence(
                 owner_id=owner_id, goal_id=goal.id, kind="situation_statement",
-                claim=(". ".join(parts))[:600],
+                claim=statement_text(state),
                 supports=(goal.desired_outcome or "")[:300],
                 provenance=ResultProvenance(
                     source_class="internal_observation", capability="situation.read",

@@ -26,6 +26,22 @@ def moment(value):
         return None
 
 
+def statement_text(state) -> str:
+    """What the person declared about a Situation, in one line (≤600)."""
+    parts = [f"Dichiarato dalla persona: {state.summary}"]
+    if state.facts:
+        parts.append("fatti: " + "; ".join(str(f) for f in state.facts[:6]))
+    if state.constraints:
+        parts.append("vincoli: " + "; ".join(str(c) for c in state.constraints[:4]))
+    if state.started_at:
+        parts.append(f"inizio: {state.started_at}")
+    if state.temporal_scope:
+        parts.append(f"periodo: {state.temporal_scope}")
+    if state.location_label:
+        parts.append(f"luogo: {state.location_label}")
+    return ". ".join(parts)[:600]
+
+
 def situation_id(goal):
     if goal.source_kind not in ("situation_initial_review", "situation_followup"):
         return None

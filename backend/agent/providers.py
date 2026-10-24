@@ -29,7 +29,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from agent.models import ResultProvenance
 from agent.memory_sources import MEMORY_READ_PROJECTION, memory_source_id, memory_source_version
@@ -129,6 +129,34 @@ def _memory_support(doc) -> str:
     return "; ".join(parts)[:300]
 
 
+async def _read_situation_statement(db, owner_id: str, goal) -> Optional[CapabilityOutcome]:
+    from situations.outcomes import situation_id, statement_text
+    from situations.repository import SituationRepository
+
+    sid = situation_id(goal) if getattr(goal, "owner_id", None) == owner_id else None
+    if not sid:
+        return None
+    try:
+        state = await SituationRepository(db).get(owner_id, sid)
+    except Exception:
+        return None
+    if state is None or state.status not in ("active", "changed"):
+        return None
+    text = statement_text(state)
+    return CapabilityOutcome(
+        status="succeeded",
+        observation="Ho riletto quello che hai dichiarato su questa situazione.",
+        provenance=ResultProvenance(
+            source_class="internal_observation", capability="information.read",
+            provider="situation", source_refs=[f"situation:{state.id}:revision:{state.revision}"],
+            freshness="fresh",
+            certainty_note="Quello che la persona ha dichiarato; non è una misura dell'esito.",
+        ),
+        claims=[Claim(text=text, supports=(getattr(goal, "desired_outcome", "") or "")[:300])],
+        data_ref=f"situation:{state.id}",
+    )
+
+
 async def read_internal_state(db, owner_id: str, goal, *, step=None) -> CapabilityOutcome:
     """Read cited governed memories, or explicitly bounded recent notes.
 
@@ -140,6 +168,12 @@ async def read_internal_state(db, owner_id: str, goal, *, step=None) -> Capabili
     step_refs = list(getattr(step, "input_refs", None) or [])
     requested = _memory_ids(step_refs or getattr(goal, "source_refs", None))
     if step_refs and not requested:
+        # Production 24/10: planners on a Situation goal asked to "re-read the
+        # situation" through this capability and got a failure every pass.
+        # The Situation itself is the person's own declaration: read that.
+        statement = await _read_situation_statement(db, owner_id, goal)
+        if statement is not None:
+            return statement
         return _unavailable(
             "information.read", "memory_reference_required",
             "Per rileggere una memoria serve il suo riferimento già osservato.",
