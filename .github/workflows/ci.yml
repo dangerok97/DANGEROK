@@ -120,6 +120,9 @@ jobs:
       - name: A town name shared by a station resolves to the town
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_places_locality_match_v1.py -x
+      - name: Home never leads with a stale guided-flow placeholder or a vague ask
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_home_stale_focus_v1.py -x
       - name: Records that only grew are pruned to their purpose
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_retention_v1.py -x

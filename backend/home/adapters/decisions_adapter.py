@@ -119,10 +119,15 @@ async def load_decisions(
         life_os_plan_id = intent_meta.get("life_os_plan_id")
         # Legacy Action Engine / plan-linked decisions are plan shells for ranking
         # (past deadlines must not receive bill-style overdue Daily Focus boosts).
+        # Production 24/10: guided-flow decisions are stored with origin
+        # "action_engine" (no suffix). "Admin: Conosco un pagamento entro fine
+        # mese", due 12/10 with no amount, was still today's critical focus on
+        # 24/10. A flow's own placeholder deadline is a plan horizon, not a
+        # concrete overdue bill.
         is_legacy_plan = bool(
             study_plan_id
             or travel_project_id
-            or str(origin).startswith("action_engine_")
+            or str(origin).startswith("action_engine")
         )
         if is_life_os:
             # Keep generic — never reclassify into study/travel Action Engine paths
