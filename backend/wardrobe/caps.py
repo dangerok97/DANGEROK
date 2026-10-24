@@ -34,7 +34,7 @@ async def suggest_wardrobe_outfit(arguments: dict[str, Any], runtime: dict[str, 
         )
     except (ValueError, TypeError):
         return _observation("partial", {"status": "INVALID_OCCASION",
-                   "reason": "Indica corsa, serata casual, serata chic, discoteca o matrimonio."})
+                   "reason": "Indica corsa, tutti i giorni, lavoro, serata casual, serata chic, discoteca o matrimonio."})
     try:
         service = WardrobeService(db, PhotoCipher.configured())
         outcome = await service.outfits(owner, body)

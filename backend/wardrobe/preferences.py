@@ -21,7 +21,7 @@ MAX_FEEDBACK = 250
 
 class OutfitFeedbackInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    occasion: Literal["running", "casual_evening", "chic_evening", "club", "wedding"]
+    occasion: Literal["running", "everyday", "work", "casual_evening", "chic_evening", "club", "wedding"]
     item_ids: list[str] = Field(min_length=2, max_length=3)
     reaction: Literal["like", "dislike"]
 
