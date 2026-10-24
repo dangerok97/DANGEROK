@@ -1,3 +1,34 @@
+## 24 ottobre 2026 — Situazioni: perché l'avviso non arrivava, e notifiche web online
+
+Prova reale notturna (panni stesi a Tarquinia alle 18:23 del 23/10). Con i
+codici di scarto introdotti in #381 la causa è diventata leggibile:
+
+- la ricerca sui tempi di asciugatura era sufficiente e citata, ma veniva
+  marcata insufficiente per un solo punto «irrisolto» (la pioviggine serale):
+  ora è una nota di cautela, non un veto (#381);
+- alle 19:16 l'avviso «ritira i panni, arriva la pioggia» è stato scartato
+  perché il meteo era stato letto 8 minuti prima, nel passaggio precedente;
+  alle 20:16 il modello aveva scritto «early_risk» come stato. Ora un avviso
+  di rischio o una finestra stimata possono basarsi su letture degli ultimi
+  30 minuti; «pronto adesso» richiede sempre una lettura nuova (#383);
+- il primo controllo di una Situazione senza stima avviene entro 3 minuti,
+  non più 45 (#382).
+
+Notifiche web (#380, #384): canale Web Push attivo in produzione
+(`push channel=expo+webpush`), file dell'app installabile pubblicati e
+verificati (service worker, manifest, icone, meta tag). La build web in
+modalità «single» ignorava `+html.tsx` e `public/`: ora uno script dopo
+l'esportazione li aggiunge e fa fallire la build se mancano.
+
+Pulizia: ogni 6 ore vengono rimosse le copie della Home più vecchie di 30
+giorni (restano sempre le ultime 20) e le righe di audit oltre la loro
+scadenza (#382).
+
+Da verificare sul dispositivo reale: installazione, permesso, notifica di
+prova ricevuta, avviso di una Situazione ad app chiusa.
+
+---
+
 ## 23 ottobre 2026 — Notifiche web: ORA raggiunge l'iPhone ad app chiusa
 
 Censimento in produzione: zero dispositivi registrati per le notifiche, zero

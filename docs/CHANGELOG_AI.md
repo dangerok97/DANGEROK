@@ -1,3 +1,15 @@
+## 24 ottobre 2026 — PR #381–#384
+
+- #381 codici di scarto delle stime nel journal; ricerca sufficiente non più
+  annullata da un punto irrisolto; citazione di ricerca non valida esclusa.
+- #382 primo controllo entro 3 minuti; `ops/retention.py` nella corsia di
+  manutenzione del runtime.
+- #383 finestra di 30 minuti per avvisi di rischio e stime; stato
+  `early_risk` normalizzato.
+- #384 `frontend/scripts/inject-pwa.sh` dopo `expo export`.
+
+---
+
 ## 23 ottobre 2026 — Notifiche web (PR #380)
 
 - Nuovo canale `ambient/webpush.py` accanto a Expo; `CompositeNotificationProvider`
