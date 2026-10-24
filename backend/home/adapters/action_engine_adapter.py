@@ -1,8 +1,24 @@
 """Surface Action Engine projects / next steps on Home."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
+
+# A guided flow nobody touched for a week is not today's work. It stays in
+# its own page and resumes from there; Home stops proposing it (24/10: a
+# 9 October "Admin" flow still headed the owner's Home).
+IDLE_FLOW_DAYS = 7
+
+
+def _idle(row: dict, now: datetime) -> bool:
+    raw = row.get("updated_at") or row.get("created_at")
+    try:
+        seen = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    if seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    return now - seen > timedelta(days=IDLE_FLOW_DAYS)
 
 from home.actions_catalog import actions_for
 from home.models import ConnectionWarning, HomeAction, HomeItem, ReasonFactor
@@ -17,6 +33,8 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
         {"_id": 0},
     ).to_list(20)
     for s in sessions:
+        if _idle(s, now):
+            continue
         it = HomeItem(
             id=f"ae_session_{s['id']}",
             type="resume",
@@ -60,6 +78,8 @@ async def load_action_engine_items(db, user_id: str) -> Tuple[List[HomeItem], Li
         {"_id": 0},
     ).to_list(30)
     for p in projects:
+        if _idle(p, now):
+            continue
         hint = p.get("next_focus_hint") or p.get("title")
         flow = p.get("flow") or "generic"
         links = p.get("linked") or {}

@@ -8,6 +8,10 @@ from situations.repository import SituationRepository
 
 UNINFORMATIVE = (
     "mi manca un'informazione che sai solo tu",
+    # The goal-level placeholder written into every need (24/10: the ING card
+    # showed it while the need itself asked about UnipolMove and TIBER OIL).
+    "manca una cosa che sai solo tu",
+    "serve il tuo via libera.",
     "mi serve una tua risposta per continuare",
     "serve il tuo via libera per procedere",
 )
