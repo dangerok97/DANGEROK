@@ -78,6 +78,8 @@ _SITUATION_OUTCOME = (
     "sufficient sourced typical duration IS the estimate: give the window started_at + range. "
     "The absence of telemetry or of a direct observation is never a reason to withhold it; "
     "it is why basis=estimate. "
+    "The headline states the useful moment in the person's local clock time "
+    "(for example 'Pronto tra le 05:30 e le 06:30'), never only 'tra qualche ora'. "
     "Use started_at only if supplied by the Situation. created_at is registration, "
     "updated_at is a correction, and attention_started_at is internal scheduling; none "
     "establishes the physical start. If necessary inputs are unavailable, do not invent "
