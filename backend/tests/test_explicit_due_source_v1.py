@@ -115,8 +115,10 @@ async def test_explicit_real_source_executes_even_when_model_next_step_is_stalle
     assert outcome["state"] == "in_progress", outcome
     # A stalled AI no longer implies zero actual source reads.
     forecast.assert_awaited_once()
+    # Since 24/10/2026 each pass also records the person's own declaration
+    # (situation.read); it is not a source read and is counted apart.
     evidence = await db.agent_evidence.find(
-        {"owner_id": OWNER, "goal_id": goal.id}, {"_id": 0},
+        {"owner_id": OWNER, "goal_id": goal.id, "kind": {"$ne": "situation_statement"}}, {"_id": 0},
     ).to_list(20)
     assert evidence
     assert all(e["provenance"]["capability"] == "weather.read" for e in evidence)
