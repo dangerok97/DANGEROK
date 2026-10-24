@@ -130,6 +130,8 @@ async def weather_evidence_current(db, owner, goal, evidence, *, now=None):
 
 
 RECENT_READ_MINUTES = 30
+# Readiness: a reading from the same checkpoint, which may span two passes.
+READY_READ_MINUTES = 3
 
 
 def _reject(reasons, code):
@@ -226,9 +228,16 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
         # RECENT_READ_MINUTES — production 23/10 19:16 refused "ritira i panni,
         # arriva la pioggia" because the forecast had been read 8 minutes
         # earlier, in the previous pass of the same check.
+        #
+        # Production 24/10 17:29: the checkpoint re-read the weather at 17:29:34
+        # and the judgement came in the next pass, a minute later — readiness
+        # was refused for a reading one minute old. A reading from the same
+        # checkpoint (READY_READ_MINUTES) is this check, not an older estimate.
         since = moment(run_at)
-        if since and assessment.action_reason != "outcome_ready":
-            since = since - timedelta(minutes=RECENT_READ_MINUTES)
+        if since:
+            since = since - timedelta(minutes=(
+                READY_READ_MINUTES if assessment.action_reason == "outcome_ready"
+                else RECENT_READ_MINUTES))
         if since and not any(moment(item.observed_at) and moment(item.observed_at) >= since for item in cited):
             return _reject(reasons, "no_fresh_evidence_this_run")
         if since and any(item.provenance.capability == "weather.read"
@@ -245,7 +254,15 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
         if (assessment.basis == "direct_observation"
                 and assessment.action_reason != "early_risk"
                 and all(item.provenance.capability in ("weather.read", "web.research") for item in cited)):
-            return _reject(reasons, "direct_observation_unsupported")
+            # The same 17:29 proposal said "observed" for laundry nobody can
+            # observe. "It should be ready now" is still the useful result —
+            # so it is recorded as what it is, an estimate, and needs the
+            # sourced baseline every estimate needs.
+            if (assessment.action_reason == "outcome_ready"
+                    and any(item.provenance.capability == "web.research" for item in cited)):
+                assessment.basis = "estimate"
+            else:
+                return _reject(reasons, "direct_observation_unsupported")
     # The result cannot outlive evidence whose provider gives a shorter horizon.
     expiries = [moment(item.provenance.weather_valid_until or item.provenance.research_valid_until)
                 for item in cited]

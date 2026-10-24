@@ -312,7 +312,10 @@ async def test_fresh_estimated_action_completes_watch_and_binds_final_need(monke
 @pytest.mark.asyncio
 async def test_timer_without_fresh_read_cannot_announce_readiness(monkeypatch):
     db, _, _, goal, run, _, baseline, live = await setup(monkeypatch)
-    run.at = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat()
+    # The last reading belongs to a check well before this timer pass. (A
+    # reading from the same checkpoint, a minute or two earlier, is fresh:
+    # see test_situation_ready_at_checkpoint_v1.)
+    run.at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
     assert await validate_assessment(db, OWNER, goal, action(baseline, live),
                                      evidence=[baseline, live], run_at=run.at) is None
 
