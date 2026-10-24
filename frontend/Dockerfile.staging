@@ -26,7 +26,7 @@ ENV EXPO_PUBLIC_IOS_INSTALL_URL=${EXPO_PUBLIC_IOS_INSTALL_URL}
 ENV NODE_ENV=production
 ENV EXPO_PUBLIC_BACKEND_URL=https://ora-backend-production-aa56.up.railway.app
 
-RUN npx expo export --platform web --output-dir dist
+RUN npx expo export --platform web --output-dir dist && sh scripts/inject-pwa.sh dist
 
 FROM nginx:1.27-alpine
 
