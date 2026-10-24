@@ -7,7 +7,9 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from .models import CreateHouseScan, MAX_CAPTURE_BYTES, UpdateHouseScan
+from .models import (
+    AddManualRoom, CreateHouseScan, HouseCapture, MAX_CAPTURE_BYTES, MAX_ROOMS, UpdateHouseScan,
+)
 
 SUMMARY_FIELDS = (
     "id", "title", "capture_id", "source", "captured_at", "created_at", "updated_at",
@@ -177,3 +179,95 @@ class HouseScanService:
         result = await self.col.delete_one({"user_id": owner, "id": scan_id, "revision": revision})
         if result.deleted_count != 1:
             raise HouseScanError("La planimetria è cambiata durante l'eliminazione.", 409)
+
+    # --- Rooms measured by hand -------------------------------------------
+
+    @staticmethod
+    def _digest(capture: dict) -> str:
+        canonical = json.dumps(capture, sort_keys=True, ensure_ascii=False,
+                               allow_nan=False, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(canonical).hexdigest()
+
+    async def add_manual_room(self, owner: str, body: AddManualRoom) -> tuple[dict, bool]:
+        from .manual import build_room
+
+        room = build_room(body.room)
+        now = datetime.now(timezone.utc).isoformat()
+        if body.scan_id is None:
+            capture = HouseCapture.model_validate({
+                "schema_version": 1, "capture_id": "manual-" + uuid.uuid4().hex,
+                "source": "manual", "captured_at": now, "rooms": [room],
+            }).model_dump(mode="json", exclude_none=True)
+            await self.ensure_ready()
+            scan_id = uuid.uuid4().hex
+            record = {
+                "_id": scan_id, "id": scan_id, "user_id": owner,
+                "capture_id": capture["capture_id"], "title": body.title,
+                "source": "manual", "captured_at": capture["captured_at"],
+                "created_at": now, "updated_at": now, "revision": 1,
+                "room_count": 1, "wall_count": len(room["walls"]),
+                "verified_wall_count": 0,
+                "capture": capture, "capture_sha256": self._digest(capture),
+                "room_labels": [], "wall_measurements": [],
+                "provenance": {
+                    "source_attestation": "user_entered",
+                    "geometry_units": "metres",
+                    "transform_order": "column_major",
+                    "original_measurements": "user_entered",
+                },
+            }
+            await self.col.insert_one(record)
+            return _public(record), True
+
+        current = await self._load(owner, body.scan_id)
+        if current.get("source") != "manual":
+            raise HouseScanError("A un rilievo LiDAR non si aggiungono stanze a mano: crea una nuova pianta.", 409)
+        if current["revision"] != body.revision:
+            raise HouseScanError("La planimetria è cambiata. Aggiorna e riprova.", 409)
+        rooms = list(current["capture"]["rooms"])
+        if len(rooms) >= MAX_ROOMS:
+            raise HouseScanError(f"Una pianta può avere al massimo {MAX_ROOMS} stanze.", 422)
+        capture = HouseCapture.model_validate({**current["capture"], "rooms": [*rooms, room]}).model_dump(
+            mode="json", exclude_none=True)
+        changes = {
+            "capture": capture, "capture_sha256": self._digest(capture),
+            "room_count": len(capture["rooms"]),
+            "wall_count": sum(len(r["walls"]) for r in capture["rooms"]),
+            "revision": body.revision + 1, "updated_at": now,
+        }
+        result = await self.col.update_one(
+            {"user_id": owner, "id": body.scan_id, "revision": body.revision}, {"$set": changes},
+        )
+        if result.matched_count != 1:
+            raise HouseScanError("La planimetria è cambiata durante il salvataggio. Aggiorna e riprova.", 409)
+        return _public({**current, **changes}), False
+
+    async def remove_manual_room(self, owner: str, scan_id: str, room_id: str, revision: int) -> dict:
+        current = await self._load(owner, scan_id)
+        if current.get("source") != "manual":
+            raise HouseScanError("Le stanze di un rilievo LiDAR non si tolgono una per una.", 409)
+        if current["revision"] != revision:
+            raise HouseScanError("La planimetria è cambiata. Aggiorna e riprova.", 409)
+        rooms = [r for r in current["capture"]["rooms"] if r["id"] != room_id]
+        if len(rooms) == len(current["capture"]["rooms"]):
+            raise HouseScanError("Stanza non trovata in questa pianta.", 404)
+        if not rooms:
+            raise HouseScanError("È l'unica stanza: elimina la pianta intera.", 409)
+        capture = {**current["capture"], "rooms": rooms}
+        measurements = [m for m in current["wall_measurements"] if m["room_id"] != room_id]
+        changes = {
+            "capture": capture, "capture_sha256": self._digest(capture),
+            "room_count": len(rooms),
+            "wall_count": sum(len(r["walls"]) for r in rooms),
+            "room_labels": [l for l in current["room_labels"] if l["room_id"] != room_id],
+            "wall_measurements": measurements,
+            "verified_wall_count": len(measurements),
+            "revision": revision + 1,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        result = await self.col.update_one(
+            {"user_id": owner, "id": scan_id, "revision": revision}, {"$set": changes},
+        )
+        if result.matched_count != 1:
+            raise HouseScanError("La planimetria è cambiata durante il salvataggio. Aggiorna e riprova.", 409)
+        return _public({**current, **changes})

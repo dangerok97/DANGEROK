@@ -49,3 +49,17 @@ test('Italian metric input accepts comma and rejects ambiguity and non-finite va
   assert.equal(parseMetres('4.2'), 4.2);
   for (const bad of ['-1', '0', 'NaN', 'Infinity', '1,2.3', '1.000,4', '12 m', '100.001', '']) assert.equal(parseMetres(bad), null);
 });
+
+test('room numbers: floor area, perimeter and paintable walls, verified lengths first', async () => {
+  const { roomStats } = await import('./geometry.ts');
+  const scan = { room_labels: [], wall_measurements: [] } as unknown as HouseScan;
+  const stats = roomStats(scan, room);
+  assert.ok(Math.abs((stats.floor_area_m2 ?? 0) - 12) < 1e-9);
+  assert.equal(stats.floor_area_approximate, true);
+  assert.equal(stats.perimeter_m, 14);
+  assert.ok(Math.abs(stats.wall_area_m2 - 14 * 2.8) < 1e-9);
+  const floored = { ...room, floors: [{ id: 'f', dimensions: { x: 4, y: 3, z: 0 }, transform: [], confidence: 'high' as const }] };
+  assert.equal(roomStats(scan, floored).floor_area_approximate, false);
+  const verified = { room_labels: [], wall_measurements: [{ room_id: 'r1', wall_id: 'a', length_m: 4.1, verified_at: '', source: 'user_verified' }] } as unknown as HouseScan;
+  assert.ok(Math.abs(roomStats(verified, room).perimeter_m - 14.1) < 1e-9);
+});

@@ -59,6 +59,25 @@ class ToolRegistry:
             handler=suggest_wardrobe_outfit,
             tags=["wardrobe", "fashion", "outfit", "style"],
         ))
+        from house_scans.caps import read_house_measurements
+        self.register(CapabilitySpec(
+            capability="read_house_measurements",
+            description=(
+                "Read the user's saved house plans in ORA (LiDAR scans or rooms "
+                "measured by hand): each room's floor area, perimeter, ceiling "
+                "height, wall area, paintable wall area without doors and windows, "
+                "and how many doors and windows. Use when asked how big a room or "
+                "the house is, whether furniture fits, or how much paint, flooring "
+                "or skirting a room needs. Never estimate sizes that are not saved."
+            ),
+            input_schema={"type": "object", "properties": {}},
+            classification="personal",
+            side_effect="READ_ONLY",
+            freshness="stable",
+            risk="read",
+            handler=read_house_measurements,
+            tags=["house", "home", "rooms", "measurements", "floor plan"],
+        ))
         from shipping.caps import get_shipment_status
         self.register(
             CapabilitySpec(

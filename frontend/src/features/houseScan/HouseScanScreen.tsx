@@ -8,7 +8,7 @@ import { useTheme } from '@/src/theme/ThemeProvider';
 import { tokens } from '@/src/theme/tokens';
 import { loginHrefFor, useAmbientInset } from '@/src/shell';
 import { houseScanApi } from './api';
-import { formatMetres, parseMetres, roomName, wallMeasurement } from './geometry';
+import { formatArea, formatMetres, parseMetres, roomName, roomStats, wallMeasurement } from './geometry';
 import { getHouseScanLaunch } from './launch';
 import { getHouseScanAvailability, scanHouse, cancelHouseScan } from './native';
 import type { HouseScanAvailability } from './nativeTypes';
@@ -16,7 +16,9 @@ import type { HouseCapture, HouseScan, HouseScanPatch, HouseScanSummary } from '
 import FloorPlan from './FloorPlan';
 
 type PendingCapture = { capture: HouseCapture; token: string };
-type Busy = 'capture' | 'save' | 'edit' | 'delete' | null;
+type Busy = 'capture' | 'save' | 'edit' | 'delete' | 'manual' | null;
+type ManualForm = { name: string; length: string; width: string; height: string; doors: number; windows: number };
+const EMPTY_ROOM: ManualForm = { name: '', length: '', width: '', height: '2,70', doors: 1, windows: 1 };
 
 function errorText(error: unknown): string {
   const e = error as { code?: string; status?: number; message?: string };
@@ -75,6 +77,9 @@ function HouseScanScreen({ accountEmail, startFromLink }: { accountEmail: string
   const [rename, setRename] = useState('');
   const [measurement, setMeasurement] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [manual, setManual] = useState<ManualForm>(EMPTY_ROOM);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [removeRoomConfirm, setRemoveRoomConfirm] = useState(false);
   const alive = useRef(true);
   const session = useRef<string | null>(null);
   const readEpoch = useRef(0);
@@ -270,6 +275,51 @@ function HouseScanScreen({ accountEmail, startFromLink }: { accountEmail: string
     finally { operation.current = false; if (alive.current) setBusy(null); }
   };
 
+  const addManualRoom = async () => {
+    if (operation.current) return;
+    const name = manual.name.trim();
+    const length = parseMetres(manual.length);
+    const width = parseMetres(manual.width);
+    const height = parseMetres(manual.height);
+    if (!name) { setError('Dai un nome alla stanza, ad esempio Soggiorno.'); return; }
+    if (length === null || width === null || length < 0.5 || width < 0.5 || length > 30 || width > 30) {
+      setError('Inserisci lunghezza e larghezza in metri, tra 0,5 e 30, ad esempio 4,20.'); return;
+    }
+    if (height === null || height < 1.8 || height > 8) { setError('Inserisci un’altezza tra 1,80 e 8 metri.'); return; }
+    const target = selected?.capture.source === 'manual' ? selected : null;
+    operation.current = true; readEpoch.current += 1; detailReadEpoch.current = 0;
+    setLoading(false); setDetailLoading(false); setBusy('manual'); setError(''); setNotice('');
+    try {
+      const result = await houseScanApi.addManualRoom(await token(),
+        { name, length_m: length, width_m: width, height_m: height, doors: manual.doors, windows: manual.windows },
+        target ? { id: target.id, revision: target.revision } : undefined);
+      if (alive.current) {
+        readEpoch.current += 1; applyScan(result.scan);
+        const added = result.scan.capture.rooms[result.scan.capture.rooms.length - 1];
+        setRoomId(added?.id || null); setWallId(null);
+        setManual(EMPTY_ROOM); setManualOpen(false);
+        setNotice(result.created ? `${name} salvata. Aggiungi le altre stanze per completare la casa.`
+          : `${name} aggiunta a “${result.scan.title}”.`);
+      }
+    } catch (e) { if (alive.current) setError(errorText(e)); }
+    finally { operation.current = false; if (alive.current) setBusy(null); }
+  };
+
+  const removeRoom = async () => {
+    if (!selected || !room || operation.current) return;
+    operation.current = true; readEpoch.current += 1; detailReadEpoch.current = 0;
+    setBusy('edit'); setError(''); setNotice('');
+    try {
+      const result = await houseScanApi.removeRoom(await token(), selected, room.id);
+      if (alive.current) {
+        readEpoch.current += 1; applyScan(result.scan);
+        setRoomId(result.scan.capture.rooms[0]?.id || null); setWallId(null); setRemoveRoomConfirm(false);
+        setNotice('Stanza tolta dalla pianta.');
+      }
+    } catch (e) { if (alive.current) setError(errorText(e)); }
+    finally { operation.current = false; if (alive.current) setBusy(null); }
+  };
+
   const openNative = async () => {
     if (!launch.nativeUrl) return;
     setError(''); setLaunchAttempted(true);
@@ -277,7 +327,10 @@ function HouseScanScreen({ accountEmail, startFromLink }: { accountEmail: string
     catch { setError('Non riesco ad aprire ORA per iPhone. Verifica che la versione con scansione casa sia installata.'); }
   };
 
-  const selectRoom = (id: string) => { setRoomId(id); setWallId(null); setRename(''); setMeasurement(''); };
+  const selectRoom = (id: string) => { setRoomId(id); setWallId(null); setRename(''); setMeasurement(''); setRemoveRoomConfirm(false); };
+  const stats = selected && room ? roomStats(selected, room) : null;
+  const totalArea = selected ? selected.capture.rooms.reduce((sum, r) => sum + (roomStats(selected, r).floor_area_m2 || 0), 0) : 0;
+  const manualTarget = selected?.capture.source === 'manual' ? selected : null;
   const selectWall = (id: string) => { setWallId(id); setMeasurement(''); };
   const nativeMessage = availability?.reason === 'requires_ios17'
     ? 'La scansione richiede iOS 17 o successivo.'
@@ -294,7 +347,7 @@ function HouseScanScreen({ accountEmail, startFromLink }: { accountEmail: string
       <View style={styles.header}>
         <View style={[styles.heroIcon, { backgroundColor: colors.accentMuted }]}><Ionicons name="home-outline" size={30} color={colors.accent} /></View>
         <Text style={[styles.title, { color: colors.textPrimary }]}>La tua casa</Text>
-        <Text style={[styles.body, { color: colors.textSecondary }]}>Scansiona le stanze. Ritrova pianta e misure quando ti servono.</Text>
+        <Text style={[styles.body, { color: colors.textSecondary }]}>Scansiona le stanze o inserisci le misure a mano. Ritrova pianta, metri quadri e misure quando ti servono, e chiedile a ORA.</Text>
         <Text style={[styles.caption, { color: colors.textTertiary }]}>Account: {accountEmail}</Text>
       </View>
 
@@ -330,6 +383,45 @@ function HouseScanScreen({ accountEmail, startFromLink }: { accountEmail: string
         </> : <Text style={[styles.small, { color: colors.textSecondary }]}>Puoi consultare qui le piante del tuo account. Per acquisire una stanza, apri ORA su un iPhone o iPad con LiDAR.</Text>}
       </View>
 
+      <View testID="house-manual" style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>Misure a mano</Text>
+        <Text style={[styles.small, { color: colors.textSecondary }]}>Basta un metro: lunghezza, larghezza e altezza della stanza. ORA disegna la pianta e calcola metri quadri e pareti da pitturare. {manualTarget ? `La stanza si aggiunge a “${manualTarget.title}”.` : 'La prima stanza crea una nuova pianta.'}</Text>
+        {!manualOpen ? <Action label={manualTarget ? `Aggiungi una stanza a “${manualTarget.title}”` : 'Inserisci una stanza a mano'} icon="create-outline"
+          testID="house-manual-open" disabled={!!busy} onPress={() => { setManualOpen(true); setError(''); }} /> : <>
+          <TextInput testID="house-manual-name" accessibilityLabel="Nome della nuova stanza" placeholder="Nome, es. Soggiorno" placeholderTextColor={colors.placeholder}
+            value={manual.name} onChangeText={name => setManual(m => ({ ...m, name }))} maxLength={80}
+            style={[styles.input, { color: colors.textPrimary, borderColor: colors.borderStrong, backgroundColor: colors.backgroundPrimary }]} />
+          <View style={styles.editRow}>
+            {([['length', 'Lunghezza (m)', 'es. 4,20'], ['width', 'Larghezza (m)', 'es. 3,50'], ['height', 'Altezza (m)', '2,70']] as const).map(([key, title, hint]) =>
+              <View key={key} style={styles.field}>
+                <Text style={[styles.caption, { color: colors.textSecondary }]}>{title}</Text>
+                <TextInput testID={`house-manual-${key}`} accessibilityLabel={title} placeholder={hint} placeholderTextColor={colors.placeholder}
+                  keyboardType="decimal-pad" inputMode="decimal" maxLength={6} value={manual[key]}
+                  onChangeText={value => setManual(m => ({ ...m, [key]: value }))}
+                  style={[styles.input, { minWidth: 96, color: colors.textPrimary, borderColor: colors.borderStrong, backgroundColor: colors.backgroundPrimary }]} />
+              </View>)}
+          </View>
+          <View style={styles.editRow}>
+            {([['doors', 'Porte'], ['windows', 'Finestre']] as const).map(([key, title]) =>
+              <View key={key} style={[styles.stepper, { borderColor: colors.border }]}>
+                <Text style={[styles.small, { color: colors.textPrimary }]}>{title}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Meno ${title.toLowerCase()}`} disabled={manual[key] <= 0}
+                  onPress={() => setManual(m => ({ ...m, [key]: Math.max(0, m[key] - 1) }))} style={styles.stepButton}>
+                  <Ionicons name="remove" size={20} color={colors.accent} /></Pressable>
+                <Text testID={`house-manual-${key}`} style={[styles.savedTitle, { color: colors.textPrimary }]}>{manual[key]}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Più ${title.toLowerCase()}`} disabled={manual[key] >= 4}
+                  onPress={() => setManual(m => ({ ...m, [key]: Math.min(4, m[key] + 1) }))} style={styles.stepButton}>
+                  <Ionicons name="add" size={20} color={colors.accent} /></Pressable>
+              </View>)}
+          </View>
+          <Text style={[styles.caption, { color: colors.textTertiary }]}>Per stanze non rettangolari inserisci il rettangolo più vicino, poi correggi le pareti con le misure verificate.</Text>
+          <View style={styles.editRow}>
+            <Action label={busy === 'manual' ? 'Salvataggio…' : 'Salva stanza'} testID="house-manual-save" disabled={!!busy} onPress={() => void addManualRoom()} />
+            <Action label="Annulla" quiet disabled={!!busy} onPress={() => { setManualOpen(false); setManual(EMPTY_ROOM); }} />
+          </View>
+        </>}
+      </View>
+
       {pending ? <View testID="house-pending-save" style={[styles.card, { borderColor: colors.warning, backgroundColor: colors.warningBg }]}>
         <Text style={[styles.heading, { color: colors.textPrimary }]}>Scansione da salvare</Text>
         <Text style={[styles.small, { color: colors.textSecondary }]}>{pending.capture.rooms.length} {pending.capture.rooms.length === 1 ? 'stanza acquisita' : 'stanze acquisite'}. Resta su questa schermata fino al salvataggio: chiuderla o cambiare pagina elimina il rilievo non salvato.</Text>
@@ -361,7 +453,7 @@ function HouseScanScreen({ accountEmail, startFromLink }: { accountEmail: string
       {detailLoading ? <ActivityIndicator testID="house-detail-loading" color={colors.accent} /> : null}
       {selected && room && !detailLoading ? <View testID="house-detail" style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.heading, { color: colors.textPrimary }]}>{selected.title}</Text>
-        <Text style={[styles.caption, { color: colors.textSecondary }]}>Rilievo LiDAR del {dateLabel(selected.captured_at)}</Text>
+        <Text style={[styles.caption, { color: colors.textSecondary }]}>{selected.capture.source === 'manual' ? 'Misure inserite a mano' : 'Rilievo LiDAR'} del {dateLabel(selected.captured_at)}{totalArea > 0 ? ` · ${formatArea(totalArea)} in tutto` : ''}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomTabs}>
           {selected.capture.rooms.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: item.id === room.id }}
             testID={`house-room-${item.id}`} onPress={() => selectRoom(item.id)}
@@ -371,6 +463,18 @@ function HouseScanScreen({ accountEmail, startFromLink }: { accountEmail: string
         </ScrollView>
         <FloorPlan room={room} selectedWallId={wallId} onSelectWall={selectWall} />
         <Text style={[styles.caption, { color: colors.textSecondary }]}>{room.walls.length} pareti · {room.doors.length} porte · {room.windows.length} finestre</Text>
+        {stats ? <View testID="house-room-stats" style={styles.statsGrid}>
+          {([
+            ['Superficie', stats.floor_area_m2 !== null ? `${stats.floor_area_approximate ? 'circa ' : ''}${formatArea(stats.floor_area_m2)}` : '—'],
+            ['Perimetro', formatMetres(stats.perimeter_m)],
+            ['Altezza', stats.height_m ? formatMetres(stats.height_m) : '—'],
+            ['Pareti da pitturare', formatArea(stats.paintable_wall_area_m2)],
+          ] as const).map(([title, value]) => <View key={title} style={[styles.stat, { backgroundColor: colors.backgroundSecondary }]}>
+            <Text style={[styles.caption, { color: colors.textSecondary }]}>{title}</Text>
+            <Text style={[styles.savedTitle, { color: colors.textPrimary }]}>{value}</Text>
+          </View>)}
+        </View> : null}
+        {stats ? <Text style={[styles.caption, { color: colors.textTertiary }]}>Pareti da pitturare: senza porte e finestre, soffitto escluso. Puoi chiedere a ORA quanta pittura o pavimento serve.</Text> : null}
         <View style={styles.editRow}>
           <TextInput testID="house-room-name" accessibilityLabel="Nome della stanza" placeholder={roomName(selected, room)} placeholderTextColor={colors.placeholder}
             value={rename} onChangeText={setRename} maxLength={80} style={[styles.input, { flex: 1, color: colors.textPrimary, borderColor: colors.borderStrong, backgroundColor: colors.backgroundPrimary }]} />
@@ -410,6 +514,12 @@ function HouseScanScreen({ accountEmail, startFromLink }: { accountEmail: string
           {quote.verified ? <Action label="Rimuovi verifica" quiet disabled={!!busy} onPress={() => void update({ wall_measurements: [{ room_id: room.id, wall_id: wall.id, length_m: null }] }, 'Verifica rimossa. La quota da scansione è conservata.')} /> : null}
         </View> : null}
         <Text style={[styles.caption, { color: colors.textTertiary }]}>Le quote da scansione vanno controllate per tagli o mobili su misura. Le misure verificate sono annotate senza deformare la pianta.</Text>
+        {selected.capture.source === 'manual' && selected.capture.rooms.length > 1 ? (!removeRoomConfirm
+          ? <Action label={`Togli ${roomName(selected, room)} dalla pianta`} quiet disabled={!!busy} onPress={() => setRemoveRoomConfirm(true)} />
+          : <View style={[styles.message, { backgroundColor: colors.errorBg }]}>
+            <Text style={[styles.small, { color: colors.textPrimary }]}>Togliere “{roomName(selected, room)}” e le sue misure?</Text>
+            <View style={styles.editRow}><Action label="Togli stanza" testID="house-confirm-remove-room" disabled={!!busy} onPress={() => void removeRoom()} /><Action label="Annulla" quiet disabled={!!busy} onPress={() => setRemoveRoomConfirm(false)} /></View>
+          </View>) : null}
         {!deleteConfirm ? <Action label="Elimina questa pianta" quiet disabled={!!busy} onPress={() => setDeleteConfirm(true)} /> : <View style={[styles.message, { backgroundColor: colors.errorBg }]}>
           <Text style={[styles.small, { color: colors.textPrimary }]}>Eliminare “{selected.title}” con tutte le sue stanze e misure?</Text>
           <View style={styles.editRow}><Action label="Elimina pianta" testID="house-confirm-delete" disabled={!!busy} onPress={() => void deleteScan()} /><Action label="Annulla" quiet disabled={!!busy} onPress={() => setDeleteConfirm(false)} /></View>
@@ -461,5 +571,10 @@ const styles = StyleSheet.create({
   input: { minWidth: 140, minHeight: 48, borderWidth: 1, borderRadius: tokens.radius.md, paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, ...tokens.typography.bodySmall },
   wallList: { gap: tokens.spacing.sm },
   wallRow: { padding: tokens.spacing.md, borderRadius: tokens.radius.md, minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.md },
+  field: { gap: 4 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm, borderWidth: 1, borderRadius: tokens.radius.md, paddingLeft: tokens.spacing.md },
+  stepButton: { width: tokens.touch.min, height: tokens.touch.min, alignItems: 'center', justifyContent: 'center' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.sm },
+  stat: { flexGrow: 1, flexBasis: 140, padding: tokens.spacing.md, borderRadius: tokens.radius.md, gap: 2 },
   inspector: { borderWidth: 1, borderRadius: tokens.radius.md, padding: tokens.spacing.md, gap: tokens.spacing.md },
 });

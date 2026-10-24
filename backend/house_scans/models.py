@@ -128,7 +128,8 @@ class CapturedRoom(CaptureModel):
 class HouseCapture(CaptureModel):
     schema_version: Literal[1]
     capture_id: Identifier
-    source: Literal["apple_roomplan"]
+    # "manual": rooms the person measured and typed in, built by the server.
+    source: Literal["apple_roomplan", "manual"]
     captured_at: AwareDatetime
     rooms: list[CapturedRoom] = Field(min_length=1, max_length=MAX_ROOMS)
 
@@ -210,4 +211,32 @@ class UpdateHouseScan(CaptureModel):
         measurements = [(item.room_id, item.wall_id) for item in self.wall_measurements]
         if len(labels) != len(set(labels)) or len(measurements) != len(set(measurements)):
             raise ValueError("Indica una sola modifica per ogni stanza o parete.")
+        return self
+
+
+class ManualRoom(CaptureModel):
+    """A rectangular room measured by hand: what anyone without LiDAR can do."""
+    name: Name
+    length_m: Number = Field(ge=0.5, le=30)
+    width_m: Number = Field(ge=0.5, le=30)
+    height_m: Number = Field(default=2.7, ge=1.8, le=8)
+    doors: int = Field(default=1, ge=0, le=4)
+    windows: int = Field(default=1, ge=0, le=4)
+
+    _name = field_validator("name")(clean_name)
+
+
+class AddManualRoom(CaptureModel):
+    room: ManualRoom
+    # Absent: a new plan is started with this room. Present: the room joins it.
+    scan_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")] | None = None
+    revision: int | None = Field(default=None, ge=1, le=2_147_483_647)
+    title: Name = "Casa"
+
+    _title = field_validator("title")(clean_name)
+
+    @model_validator(mode="after")
+    def revision_with_plan(self):
+        if self.scan_id and self.revision is None:
+            raise ValueError("Indica la revisione della pianta a cui aggiungere la stanza.")
         return self

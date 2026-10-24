@@ -22,7 +22,7 @@ export type HouseRoom = {
 export type HouseCapture = {
   schema_version: 1;
   capture_id: string;
-  source: 'apple_roomplan';
+  source: 'apple_roomplan' | 'manual';
   captured_at: string;
   rooms: HouseRoom[];
 };
@@ -30,7 +30,7 @@ export type HouseScanSummary = {
   id: string;
   title: string;
   capture_id: string;
-  source: 'apple_roomplan';
+  source: 'apple_roomplan' | 'manual';
   captured_at: string;
   created_at: string;
   updated_at: string;
@@ -57,4 +57,7 @@ export type HouseScanPatch = {
   title?: string;
   room_labels?: RoomLabel[];
   wall_measurements?: { room_id: string; wall_id: string; length_m: number | null }[];
+};
+export type ManualRoomInput = {
+  name: string; length_m: number; width_m: number; height_m: number; doors: number; windows: number;
 };
