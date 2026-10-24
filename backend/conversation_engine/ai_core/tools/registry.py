@@ -59,6 +59,58 @@ class ToolRegistry:
             handler=suggest_wardrobe_outfit,
             tags=["wardrobe", "fashion", "outfit", "style"],
         ))
+        from recipes import caps as recipe_caps
+        self.register(CapabilitySpec(
+            capability="save_recipe",
+            description=(
+                "Save a recipe to the user's ORA recipe book from a link (Instagram, "
+                "TikTok, YouTube, Pinterest, any food site) or from pasted recipe text. "
+                "Reads the published recipe or the post's own caption; never invents "
+                "quantities. Use when the user shares a recipe link or says to save a "
+                "recipe. Report what was saved and any notes (e.g. caption needed)."
+            ),
+            input_schema={"type": "object", "properties": {
+                "source": {"type": "string", "description": "The https link or the full recipe text, as given."},
+            }, "required": ["source"]},
+            classification="personal",
+            side_effect="REVERSIBLE_WRITE",
+            risk="write_soft",
+            handler=recipe_caps.save_recipe,
+            tags=["food", "recipes", "cooking", "kitchen"],
+        ))
+        self.register(CapabilitySpec(
+            capability="read_my_recipes",
+            description=(
+                "Read the recipes the user saved in ORA (title, tags, minutes, servings, "
+                "ingredients, favourite, cooked before). Use for 'cosa cucino stasera', "
+                "'ho uova e zucchine, cosa faccio', planning meals, or finding a saved "
+                "recipe. Suggest only from these, and say when nothing fits."
+            ),
+            input_schema={"type": "object", "properties": {
+                "query": {"type": "string", "description": "Optional word to filter: an ingredient, a tag or part of a title."},
+            }},
+            classification="personal",
+            side_effect="READ_ONLY",
+            freshness="stable",
+            risk="read",
+            handler=recipe_caps.read_recipes,
+            tags=["food", "recipes", "cooking", "meal"],
+        ))
+        self.register(CapabilitySpec(
+            capability="add_to_shopping_list",
+            description=(
+                "Add items to the user's ORA shopping list for this week, e.g. "
+                "'aggiungi latte e uova alla spesa'. Items already there are not duplicated."
+            ),
+            input_schema={"type": "object", "properties": {
+                "items": {"type": "array", "items": {"type": "string"}},
+            }, "required": ["items"]},
+            classification="personal",
+            side_effect="REVERSIBLE_WRITE",
+            risk="write_soft",
+            handler=recipe_caps.add_to_shopping_list,
+            tags=["food", "shopping", "groceries"],
+        ))
         from house_scans.caps import read_house_measurements
         self.register(CapabilitySpec(
             capability="read_house_measurements",
