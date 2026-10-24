@@ -120,6 +120,9 @@ jobs:
       - name: A town name shared by a station resolves to the town
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_places_locality_match_v1.py -x
+      - name: Records that only grew are pruned to their purpose
+        working-directory: backend
+        run: python -m pytest -q -n 0 tests/test_retention_v1.py -x
       - name: A refused Situation estimate records which rule refused it
         working-directory: backend
         run: python -m pytest -q -n 0 tests/test_situation_rejection_reasons_v1.py tests/test_situation_research_baseline_unblock_v1.py tests/test_situation_rain_warning_reaches_v1.py tests/test_situation_useful_outcome_v160.py tests/test_situation_research_integrity_v159.py -x

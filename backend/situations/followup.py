@@ -958,9 +958,12 @@ async def get_situation_followup(args, runtime):
 
 # Production 23/10: a model chose a first check 180 minutes away for a new
 # Situation with no estimate yet, so the person saw no useful window for hours.
-# Until a first estimate exists, an interval the MODEL chose is capped; a time
-# the PERSON stated, an absolute deadline and later checks are untouched.
-FIRST_ESTIMATE_MAX_MINUTES = 45
+# Capped at 45, the same afternoon still waited 45 minutes without looking at
+# a 100% evening-rain forecast. Until a first estimate exists, ORA looks right
+# away: the first check reads the sources and produces the estimate (or the
+# early warning); the model spaces out the checks after that. A time the
+# PERSON stated, an absolute deadline and later checks are untouched.
+FIRST_ESTIMATE_MAX_MINUTES = 3
 
 
 async def _cap_first_unestimated_check(db, owner, sid, args, user_message, check_at):
