@@ -105,6 +105,14 @@ try:
 except Exception:
     pass
 
+# Siri through the Shortcuts app: one personal, revocable key per account.
+try:
+    from siri.router import router as siri_router
+
+    ALL_ROUTERS.append(siri_router)
+except Exception:
+    pass
+
 # Foreground location + presence (V2.7.1)
 try:
     from location.router import router as location_router
