@@ -260,3 +260,7 @@ ALL_ROUTERS.append(house_scans_router)
 # ORA Cucina: private recipe collection and conservative text import.
 from recipes.router import router as recipes_router
 ALL_ROUTERS.append(recipes_router)
+
+# Weekly meal planner and generated shopping list, sharing recipe ownership.
+from cooking_planner.router import router as cooking_planner_router
+ALL_ROUTERS.append(cooking_planner_router)

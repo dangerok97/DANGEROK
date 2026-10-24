@@ -178,11 +178,18 @@ function RecipeScreen() {
             <Text style={[styles.h1, primary]}>Il mio ricettario</Text>
             <Text style={[styles.lead, secondary]}>Una ricetta salvata diventa qualcosa che puoi ritrovare e cucinare.</Text>
           </View>
-          <Pressable testID="recipes-back" onPress={() => router.push('/vita' as any)}
-            accessibilityRole="button" accessibilityLabel="Torna a Vita"
-            style={[styles.smallButton, { borderColor: colors.border }]}>
-            <Ionicons name="arrow-back" size={21} color={colors.textPrimary} />
-          </Pressable>
+          <View style={{ gap: 8, alignItems: 'flex-end' }}>
+            <Pressable onPress={() => router.push('/cucina-piano' as any)}
+              accessibilityRole="button" accessibilityLabel="Apri piano pasti e lista della spesa"
+              style={[styles.smallButton, { borderColor: colors.accent, backgroundColor: colors.accentMuted }]}>
+              <Text style={[styles.note, primary]}>Piano e spesa</Text>
+            </Pressable>
+            <Pressable testID="recipes-back" onPress={() => router.push('/vita' as any)}
+              accessibilityRole="button" accessibilityLabel="Torna a Vita"
+              style={[styles.smallButton, { borderColor: colors.border }]}>
+              <Ionicons name="arrow-back" size={21} color={colors.textPrimary} />
+            </Pressable>
+          </View>
         </View>
         {error ? <Text testID="recipes-error" style={[styles.alert, { color: colors.error,
           backgroundColor: colors.backgroundSecondary }]}>{error}</Text> : null}
