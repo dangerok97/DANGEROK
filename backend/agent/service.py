@@ -726,6 +726,8 @@ class AgentService:
                         detail={"reason": str(source_state.get("reason")
                                               or source_state.get("state") or "unknown")[:72]},
                     )
+            if goal.source_kind in ("situation_initial_review", "situation_followup"):
+                await self._note_situation_statement(owner_id, goal)
             result = await self._work(
                 owner_id, goal, run, allowance, language=language,
                 revisit_due=revisit_due,
@@ -2418,6 +2420,59 @@ class AgentService:
 
 
     # --- whether to say anything about it ----------------------------------
+
+    async def _note_situation_statement(self, owner_id, goal) -> None:
+        """What the person declared about the Situation, as citable evidence.
+
+        Production 24/10: "pagato fino alle 5:30" lived only in the Situation's
+        facts, so no result could cite it and a declared deadline could never
+        become a reminder. This re-reads the current revision once per pass
+        (at most every 20 minutes) and records it as an internal observation.
+        It is the person's statement, not a measurement: it never proves that
+        anything physical happened.
+        """
+        from situations.outcomes import situation_id
+        from situations.repository import SituationRepository
+
+        sid = situation_id(goal)
+        if not sid:
+            return
+        try:
+            state = await SituationRepository(self.db).get(owner_id, sid)
+            if state is None or state.status not in ("active", "changed"):
+                return
+            if str(state.revision) != str(goal.source_situation.get("situation_revision") or state.revision):
+                return
+            ref = f"situation:{state.id}:revision:{state.revision}"
+            recent = (_now() - timedelta(minutes=20)).isoformat()
+            if await self.db.agent_evidence.find_one({
+                "owner_id": owner_id, "goal_id": goal.id, "kind": "situation_statement",
+                "provenance.source_refs": ref, "observed_at": {"$gte": recent},
+            }, {"_id": 1}):
+                return
+            parts = [f"Dichiarato dalla persona: {state.summary}"]
+            if state.facts:
+                parts.append("fatti: " + "; ".join(str(f) for f in state.facts[:6]))
+            if state.constraints:
+                parts.append("vincoli: " + "; ".join(str(c) for c in state.constraints[:4]))
+            if state.started_at:
+                parts.append(f"inizio: {state.started_at}")
+            if state.temporal_scope:
+                parts.append(f"periodo: {state.temporal_scope}")
+            if state.location_label:
+                parts.append(f"luogo: {state.location_label}")
+            await self.evidence.record(AgentEvidence(
+                owner_id=owner_id, goal_id=goal.id, kind="situation_statement",
+                claim=(". ".join(parts))[:600],
+                supports=(goal.desired_outcome or "")[:300],
+                provenance=ResultProvenance(
+                    source_class="internal_observation", capability="situation.read",
+                    provider="situation", source_refs=[ref], freshness="fresh",
+                    certainty_note="Quello che la persona ha dichiarato; non è una misura dell'esito.",
+                ),
+            ))
+        except Exception as exc:
+            logger.info("situation statement evidence deferred: %s", type(exc).__name__)
 
     async def _record_situation_outcome(self, owner_id, goal, raw, run):
         """Persist the existing model's judgement only with an intact source binding."""

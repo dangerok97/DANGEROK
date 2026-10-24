@@ -545,13 +545,15 @@ async def test_real_worker_admission_estimate_recheck_and_useful_action(monkeypa
 
     def records(rows):
         baseline = next((SimpleNamespace(id=row["evidence_id"]) for row in rows if row["capability"] == "web.research"), None)
-        live = [SimpleNamespace(id=row["evidence_id"]) for row in rows if row["capability"] == "weather.read"][-1]
+        # Since 24/10/2026 the person's own statement is evidence from the
+        # first pass, so the model may be asked before any weather exists.
+        live = ([SimpleNamespace(id=row["evidence_id"]) for row in rows if row["capability"] == "weather.read"] or [None])[-1]
         return baseline, live
 
     async def next_action(payload, *, evidence, candidates, **kwargs):
         assert payload["source_context"][0]["started_at"] == state.started_at
         baseline, live = records(evidence)
-        if baseline is None or phase["risk"]:
+        if baseline is None or live is None or phase["risk"]:
             return {"decision": "execute", "step_id": candidates[0]["id"], "reasoning": "Servono le fonti pertinenti."}
         return {"decision": "wait", "reasoning": "Riesaminare le condizioni prima della finestra utile.",
                 "wait_minutes": 180, "situation_outcome": estimate(baseline, live)}
