@@ -34,6 +34,12 @@ REARM_AFTER_MINUTES = 5
 OVERDUE_MINUTES = 20
 DELIVERY_LATE_MINUTES = 30
 KEEP_REPORTS = 48
+# A result told days ago is history; a question unanswered for two weeks is
+# no longer something ORA should keep putting in front of the person.
+RESULT_STALE_HOURS = 48
+QUESTION_STALE_DAYS = 14
+RESULT_KINDS = {"useful_result", "important_outcome"}
+QUESTION_KINDS = {"needs_information", "needs_authority"}
 
 
 def _moment(value) -> Optional[datetime]:
@@ -98,6 +104,8 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
             findings.append({"code": "watch_overdue", "ref": f"goal:{goal['id']}", "repaired": False,
                              "late_minutes": int((now - due).total_seconds() // 60)})
 
+    findings.extend(await _retire_stale_needs(db, owner, now))
+
     plans = await db.delivery_plans.find(
         {"owner_id": owner, "created_at": {"$gte": (now - timedelta(hours=24)).isoformat()}},
         {"_id": 0, "id": 1, "status": 1, "not_before": 1, "rationale": 1, "mode": 1},
@@ -131,6 +139,54 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
         logger.info("self_check owner=%s findings=%s", owner[:8],
                     ",".join(f"{f['code']}:{'fixed' if f.get('repaired') else 'open'}" for f in findings))
     return report
+
+
+async def _retire_stale_needs(db, owner: str, now: datetime) -> list[dict]:
+    """
+    What Home asks the person must still be true.
+
+    Production 25/10: "Serve te" still showed a trip of 20/09, a medical visit
+    of 12/10 "oggi alle 13:30", the address for laundry from a closed
+    situation and a parking that expired the night before. A need is retired
+    when its work ended, when the situation it was about is over, when it
+    reported a result more than two days ago, or when a question went two
+    weeks without an answer. Retired, not deleted: it stays in the history.
+    """
+    from agent.needs import NeedService
+    from situations.repository import SituationRepository
+
+    service = NeedService(db)
+    rows = await db.agent_needs.find({"owner_id": owner, "status": "open"},
+                                     {"_id": 0, "id": 1, "goal_id": 1, "kind": 1, "created_at": 1}).to_list(50)
+    out: list[dict] = []
+    goals: dict[str, Optional[dict]] = {}
+    for need in rows:
+        gid = need.get("goal_id") or ""
+        if gid not in goals:
+            goals[gid] = await db.agent_goals.find_one(
+                {"owner_id": owner, "id": gid}, {"_id": 0, "status": 1, "source_refs": 1}) if gid else None
+        goal = goals[gid]
+        why = None
+        if goal is None or goal.get("status") in ("completed", "cancelled", "failed", "abandoned"):
+            why = "il lavoro a cui si riferiva è finito"
+        else:
+            refs = [str(r).split(":", 1)[1] for r in goal.get("source_refs") or [] if str(r).startswith("situation:")]
+            if refs:
+                situation = await SituationRepository(db).get(owner, refs[0])
+                if situation is None or situation.status not in ("active", "changed"):
+                    why = "la situazione a cui si riferiva è conclusa"
+        created = _moment(need.get("created_at"))
+        if why is None and created:
+            age = now - created
+            if need.get("kind") in RESULT_KINDS and age > timedelta(hours=RESULT_STALE_HOURS):
+                why = "risultato già comunicato da più di due giorni"
+            elif need.get("kind") in QUESTION_KINDS and age > timedelta(days=QUESTION_STALE_DAYS):
+                why = "domanda rimasta senza risposta per due settimane"
+        if why is None:
+            continue
+        await service.cancel(owner, need["id"], how=why, by="code")
+        out.append({"code": "need_retired", "ref": f"need:{need['id']}", "repaired": True})
+    return out
 
 
 async def run(db, *, now: Optional[datetime] = None) -> dict[str, Any]:

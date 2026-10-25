@@ -59,3 +59,38 @@ def test_runtime_runs_it_in_the_maintenance_lane():
     from ambient import runtime
     src = inspect.getsource(runtime._cycle)
     assert "ops.selfcheck" in src and '_launch("recovery", lambda: self_check(db)' in src
+
+
+@pytest.mark.asyncio
+async def test_stale_requests_leave_home_but_current_ones_stay(monkeypatch):
+    db, service, state, goal, run, _, baseline, live = await setup(monkeypatch)
+    now = datetime.now(timezone.utc)
+    old = (now - timedelta(days=20)).isoformat()
+    await db.agent_goals.insert_one({"id": "gol_done", "owner_id": OWNER, "status": "completed"})
+    await db.agent_needs.insert_many([
+        {"id": "ned_done", "owner_id": OWNER, "goal_id": "gol_done", "kind": "needs_information",
+         "status": "open", "created_at": now.isoformat()},
+        {"id": "ned_old_result", "owner_id": OWNER, "goal_id": goal.id, "kind": "important_outcome",
+         "status": "open", "created_at": (now - timedelta(days=3)).isoformat()},
+        {"id": "ned_old_question", "owner_id": OWNER, "goal_id": goal.id, "kind": "needs_information",
+         "status": "open", "created_at": old},
+        {"id": "ned_current", "owner_id": OWNER, "goal_id": goal.id, "kind": "needs_information",
+         "status": "open", "created_at": now.isoformat()},
+    ])
+
+    async def get(owner, need_id):
+        from agent.models import CommunicationNeed
+        row = await db.agent_needs.find_one({"id": need_id}, {"_id": 0})
+        return row and CommunicationNeed.model_construct(**row)
+
+    cancelled = []
+
+    async def cancel(self, owner, need_id, *, how="", by="code"):
+        cancelled.append((need_id, how))
+        await db.agent_needs.update_one({"id": need_id}, {"$set": {"status": "cancelled", "resolution": how}})
+
+    monkeypatch.setattr("agent.needs.NeedService.cancel", cancel)
+    report = await selfcheck.check_owner(db, OWNER)
+    retired = {ref.split(":", 1)[1] for ref in (f["ref"] for f in report["findings"] if f["code"] == "need_retired")}
+    assert retired == {"ned_done", "ned_old_result", "ned_old_question"}
+    assert (await db.agent_needs.find_one({"id": "ned_current"}))["status"] == "open"
