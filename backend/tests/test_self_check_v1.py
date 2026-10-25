@@ -94,3 +94,15 @@ async def test_stale_requests_leave_home_but_current_ones_stay(monkeypatch):
     retired = {ref.split(":", 1)[1] for ref in (f["ref"] for f in report["findings"] if f["code"] == "need_retired")}
     assert retired == {"ned_done", "ned_old_result", "ned_old_question"}
     assert (await db.agent_needs.find_one({"id": "ned_current"}))["status"] == "open"
+async def test_rearm_restores_the_run_budget_so_the_check_actually_runs(monkeypatch):
+    """Production 25/10 16:30-17:10: re-armed alarms refused on arrival by the background budget."""
+    db, service, state, goal, run, _, baseline, live = await setup(monkeypatch)
+    goal.next_run_at = None
+    goal.background_runs = 3
+    goal.status = "active"
+    await service.repo.save_goal(goal)
+    await db.ambient_wakes.delete_many({})
+    report = await selfcheck.check_owner(db, OWNER)
+    assert any(f["code"] == "watch_without_alarm" and f["repaired"] for f in report["findings"])
+    saved = await service.repo.get_goal(OWNER, goal.id)
+    assert saved.background_runs == 0 and saved.status == "waiting" and saved.next_run_at

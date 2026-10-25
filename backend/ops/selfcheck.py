@@ -67,6 +67,14 @@ async def _rearm(db, owner: str, goal: dict, now: datetime) -> Optional[str]:
     if latest is None or not latest.is_open:
         return None
     latest.next_run_at = alarm.scheduled_for
+    # Production 25/10 16:30-17:10: the watch had used its three background
+    # runs, so every re-armed alarm was refused on arrival ("background
+    # budget") and the clothes were never announced. A re-arm by the self-check
+    # is at most one every quarter of an hour: it restores the budget and the
+    # waiting state the worker expects, otherwise the repair is only cosmetic.
+    latest.background_runs = 0
+    if latest.status == "active":
+        latest.status = "waiting"
     await repo.save_goal(latest)
     await repo.journal(owner, goal["id"], kind="situation_checkpoint_repaired",
                        note="Controllo automatico di ORA: sorveglianza riattivata.",
