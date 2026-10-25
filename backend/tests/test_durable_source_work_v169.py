@@ -340,7 +340,8 @@ async def test_outage_before_any_effect_is_bounded_and_does_not_ask_another_engi
     for index in range(core_work.MAX_ATTEMPTS):
         result = await SourceCoreWorker(db).process_one(OWNER, signal.id, decision_fn=AsyncMock())
         assert result['state'] == ('failed' if index == core_work.MAX_ATTEMPTS-1 else 'retry')
-        clock[0] += timedelta(minutes=1)
+        # Retries back off (30 s, 2, 8, 32 min, capped): step past the longest.
+        clock[0] += timedelta(seconds=core_work.RETRY_MAX_SECONDS + 60)
     assert (await SourceCoreWorker(db).process_one(OWNER, signal.id, decision_fn=AsyncMock()))['state'] == 'not_claimed'
     assert broken.await_count == core_work.MAX_ATTEMPTS
     assert await db.ambient_activity.count_documents({}) == 0
