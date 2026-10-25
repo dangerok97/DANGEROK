@@ -94,6 +94,7 @@ async def test_stale_requests_leave_home_but_current_ones_stay(monkeypatch):
     retired = {ref.split(":", 1)[1] for ref in (f["ref"] for f in report["findings"] if f["code"] == "need_retired")}
     assert retired == {"ned_done", "ned_old_result", "ned_old_question"}
     assert (await db.agent_needs.find_one({"id": "ned_current"}))["status"] == "open"
+@pytest.mark.asyncio
 async def test_rearm_restores_the_run_budget_so_the_check_actually_runs(monkeypatch):
     """Production 25/10 16:30-17:10: re-armed alarms refused on arrival by the background budget."""
     db, service, state, goal, run, _, baseline, live = await setup(monkeypatch)
