@@ -276,7 +276,9 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
         if assessment.basis == "estimate" and assessment.action_reason != "early_risk":
             # Live conditions alone do not establish a physical rate/duration.
             # A sourced empirical baseline or a real computed estimate is needed.
-            if not any(item.provenance.capability == "web.research"
+            # The person's own past with the same thing, at the same place,
+            # is an empirical baseline too — usually the best one available.
+            if not any(item.provenance.capability in ("web.research", "situation.history")
                        or item.provenance.source_class == "deterministic_computation"
                        for item in cited):
                 return _reject(reasons, "estimate_without_baseline")
