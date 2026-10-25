@@ -730,6 +730,7 @@ class AgentService:
                     )
             if goal.source_kind in ("situation_initial_review", "situation_followup"):
                 await self._note_situation_statement(owner_id, goal)
+                await self._note_situation_experience(owner_id, goal)
             result = await self._work(
                 owner_id, goal, run, allowance, language=language,
                 revisit_due=revisit_due,
@@ -2512,6 +2513,36 @@ class AgentService:
             ))
         except Exception as exc:
             logger.info("situation statement evidence deferred: %s", type(exc).__name__)
+
+    async def _note_situation_experience(self, owner_id, goal) -> None:
+        """The person's own past with similar Situations, once per watch."""
+        try:
+            from situations.experience import recall
+            from situations.outcomes import situation_id
+            from situations.repository import SituationRepository
+
+            sid = situation_id(goal)
+            if not sid or await self.db.agent_evidence.find_one(
+                    {"owner_id": owner_id, "goal_id": goal.id, "kind": "situation_experience"}, {"_id": 1}):
+                return
+            state = await SituationRepository(self.db).get(owner_id, sid)
+            if state is None:
+                return
+            clock = await _user_clock_context(self.db, owner_id)
+            text = await recall(self.db, owner_id, state, tz=str((clock or {}).get("timezone") or "Europe/Rome"))
+            if not text:
+                return
+            await self.evidence.record(AgentEvidence(
+                owner_id=owner_id, goal_id=goal.id, kind="situation_experience",
+                claim=text, supports=(goal.desired_outcome or "")[:300],
+                provenance=ResultProvenance(
+                    source_class="internal_observation", capability="situation.history",
+                    provider="situation", source_refs=[f"situation:{sid}"], freshness="fresh",
+                    certainty_note="Storia della persona: orari segnalati da lei, non misure dell'esito.",
+                ),
+            ))
+        except Exception as exc:
+            logger.info("situation experience evidence deferred: %s", type(exc).__name__)
 
     async def _record_situation_outcome(self, owner_id, goal, raw, run):
         """Persist the existing model's judgement only with an intact source binding."""

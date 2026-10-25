@@ -316,6 +316,11 @@ class SituationService:
                     "situation attention admission soft-fail: %s", type(exc).__name__
                 )
         latest_changes = situation.history[-1].changes if situation.history else {}
+        if operation in ("resolve", "cancel"):
+            # Before the watch is closed: what was estimated and when it ended
+            # become evidence for the next similar Situation.
+            from situations.experience import record as remember
+            await remember(self.db, user_id, situation, operation=operation)
         if operation in ("resolve", "cancel") or (
             operation == "update"
             and not (situation.attention_intent or situation.next_check_summary)
