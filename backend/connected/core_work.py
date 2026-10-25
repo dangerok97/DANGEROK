@@ -25,6 +25,7 @@ from conversation_engine.ai_core.source_activation import SourceActivation
 LEASE_SECONDS = 240
 TURN_SECONDS = 180
 MAX_ATTEMPTS = 5
+RETRY_MAX_SECONDS = 2 * 3600
 COLLECTION = 'connected_signals'
 PILOT_ENROLLMENTS = 'source_pilot_enrollments'
 
@@ -432,10 +433,15 @@ class SourceCoreWorker:
                 phase = ('handoff_failed' if exhausted and effect.get('state') == 'verified' else
                          'result_ready' if effect.get('state') == 'verified' else
                          'reconciliation_required' if effect else 'failed' if exhausted else 'retry')
+                # Production 25/10: the same source item was retried every 30
+                # seconds, two model calls each time, while the model quota was
+                # already exhausted. Back off: 30 s, 2 min, 8 min, 32 min.
+                attempts = max(1, int(row['_core_work'].get('attempts') or 1))
+                delay = min(RETRY_MAX_SECONDS, 30 * (4 ** (attempts - 1)))
                 await work.change({'_core_work.phase': phase,
                     '_core_work.last_error_kind': type(exc).__name__,
                     '_core_work.lease_until': _now().isoformat(),
-                    '_core_work.next_run_at': (_now() + timedelta(seconds=30)).isoformat()})
+                    '_core_work.next_run_at': (_now() + timedelta(seconds=delay)).isoformat()})
                 return {'state': phase, 'home_visible': False, 'notifications_sent': False}
             except LeaseLost:
                 return {'state': 'lease_lost', 'home_visible': False, 'notifications_sent': False}

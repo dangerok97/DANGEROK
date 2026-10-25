@@ -98,3 +98,19 @@ async def test_an_older_reading_next_to_a_fresh_one_is_set_aside(monkeypatch):
         assert reasons and reasons[0] != "weather_not_reread_this_run", reasons
     else:
         assert old.id not in result.evidence_ids
+
+
+@pytest.mark.asyncio
+async def test_a_refused_proposal_does_not_erase_the_last_valid_estimate(monkeypatch):
+    """Production 25/10 12:14: one rejected proposal wiped the 14:00-16:00 estimate from Home."""
+    from test_situation_useful_outcome_v160 import estimate
+    db, service, state, goal, run, _, baseline, live = await setup(monkeypatch)
+    assert await service._record_situation_outcome(OWNER, goal, estimate(baseline, live), run)
+    before = (await db.agent_goals.find_one({"id": goal.id}))["situation_outcome"]
+    bad = estimate(baseline, live)
+    bad["evidence_ids"] = ["evd_not_there"]
+    assert not await service._record_situation_outcome(OWNER, goal, bad, run)
+    after = (await db.agent_goals.find_one({"id": goal.id}))["situation_outcome"]
+    assert after and after["id"] == before["id"]
+    kinds = [j["kind"] for j in await db.agent_journal.find({"goal_id": goal.id}).to_list(20)]
+    assert "situation_outcome_rejected" in kinds

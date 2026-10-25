@@ -2524,13 +2524,19 @@ class AgentService:
             evidence=await self.evidence.for_goal(owner_id, goal.id), run_at=run.at,
             reasons=reasons,
         )
+        # A refused proposal is not a reason to forget the last valid result.
+        # Production 25/10 12:14: one rejected proposal wiped the 14:00-16:00
+        # estimate from Home. The previous result keeps its own validity and
+        # expires by itself; only an accepted result replaces it.
         saved = await self.db.agent_goals.update_one({
             "id": goal.id, "owner_id": owner_id, "status": {"$in": ["active", "waiting"]},
             "source_situation.situation_revision": goal.source_situation.get("situation_revision"),
-        }, {"$set": {"situation_outcome": assessment.model_dump() if assessment else None}})
+        }, {"$set": {"situation_outcome": assessment.model_dump()}} if assessment
+            else {"$set": {"updated_at": _now().isoformat()}})
         if not saved.matched_count:
             return False
-        goal.situation_outcome = assessment
+        if assessment:
+            goal.situation_outcome = assessment
         await self.repo.journal(
             owner_id, goal.id,
             kind="situation_outcome_assessed" if assessment else "situation_outcome_rejected",
