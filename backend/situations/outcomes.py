@@ -132,6 +132,8 @@ async def weather_evidence_current(db, owner, goal, evidence, *, now=None):
 RECENT_READ_MINUTES = 30
 # Readiness: a reading from the same checkpoint, which may span two passes.
 READY_READ_MINUTES = 3
+# How early before its own estimated window readiness may be announced.
+READY_EARLY_MINUTES = 10
 
 
 def _reject(reasons, code):
@@ -187,6 +189,22 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
     physical_start = moment(state.started_at)
     if start and physical_start and start < physical_start:
         return _reject(reasons, "window_before_start")
+    if assessment.action_reason == "outcome_ready":
+        # Production 25/10 12:14: estimated dry 14:00-16:00, and at 12:14 the
+        # model said "it should be ready now". Readiness cannot come before the
+        # window ORA itself estimated, unless the estimate is revised first.
+        previous = getattr(goal, "situation_outcome", None)
+        if previous is None:
+            row = await db.agent_goals.find_one({"id": goal.id, "owner_id": owner},
+                                                {"_id": 0, "situation_outcome": 1})
+            previous = (row or {}).get("situation_outcome")
+        if previous is not None and not isinstance(previous, dict):
+            previous = previous.model_dump()
+        earliest = moment((previous or {}).get("window_start"))
+        if ((previous or {}).get("status") == "estimated"
+                and str((previous or {}).get("situation_revision")) == str(state.revision)
+                and earliest and now < earliest - timedelta(minutes=READY_EARLY_MINUTES)):
+            return _reject(reasons, "ready_before_window")
     if assessment.status == "needs_input":
         if assessment.basis != "missing_information" or start or assessment.action_reason:
             return _reject(reasons, "needs_input_inconsistent")
@@ -238,6 +256,17 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
             since = since - timedelta(minutes=(
                 READY_READ_MINUTES if assessment.action_reason == "outcome_ready"
                 else RECENT_READ_MINUTES))
+        # Production 25/10 12:14: the proposal cited this pass's reading and
+        # two earlier ones of the same place. An older reading next to a fresh
+        # one is not support but it is not a contradiction either: it is set
+        # aside, and the fresh one carries the judgement.
+        def _fresh(item):
+            seen = moment(item.observed_at)
+            return seen is not None and since is not None and seen >= since
+        if since and any(item.provenance.capability == "weather.read" and _fresh(item) for item in cited):
+            cited = [item for item in cited
+                     if item.provenance.capability != "weather.read" or _fresh(item)]
+            ids = [item.id for item in cited]
         if since and not any(moment(item.observed_at) and moment(item.observed_at) >= since for item in cited):
             return _reject(reasons, "no_fresh_evidence_this_run")
         if since and any(item.provenance.capability == "weather.read"

@@ -172,6 +172,9 @@ async def test_source_change_during_visibility_judgement_cannot_borrow_a_new_res
 
 @pytest.mark.asyncio
 async def test_same_topic_deduplicates_estimates_but_preserves_changed_window_and_final_action(monkeypatch):
+    # The final readiness comes without time passing; the window guard is
+    # covered in test_situation_ready_at_checkpoint_v1.
+    monkeypatch.setattr("situations.outcomes.READY_EARLY_MINUTES", 24 * 60)
     db, service, _, goal, run, _, raw, _ = await scenario(monkeypatch)
     first = await consider(service, goal, run)
     assert first.is_visible
