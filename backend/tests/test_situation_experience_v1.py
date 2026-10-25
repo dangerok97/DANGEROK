@@ -30,6 +30,13 @@ async def test_closing_records_estimate_and_end_and_a_new_one_recalls_it():
         "situation_outcome": {"headline": "Asciutti tra le 16:00 e le 17:00",
                               "window_start": "2026-10-25T15:00:00+00:00", "window_end": "2026-10-25T16:00:00+00:00"},
     })
+    await db.agent_goals.update_one({"source_refs": ["situation:sit_old"]}, {"$set": {"id": "gol_old"}})
+    await db.agent_evidence.insert_many([
+        {"owner_id": "u1", "goal_id": "gol_old", "provenance": {"capability": "weather.read"},
+         "measures": {"temperature_c": 14, "humidity_pct": 70}},
+        {"owner_id": "u1", "goal_id": "gol_old", "provenance": {"capability": "weather.read"},
+         "measures": {"temperature_c": 17.6, "humidity_pct": 58, "wind_kmh": 9}},
+    ])
     old = state("sit_old", started="2026-10-25T09:39:00+01:00", resolved="2026-10-25T16:40:00+00:00",
                 facts=["erano ancora un po' umidi"])
     await experience.record(db, "u1", old, operation="resolve")
@@ -37,6 +44,7 @@ async def test_closing_records_estimate_and_end_and_a_new_one_recalls_it():
     text = await experience.recall(db, "u1", new, tz="Europe/Rome")
     assert text and "stima 16:00-17:00" in text and "chiusa alle 17:40" in text
     assert "umidi" in text and "Tarquinia" in text
+    assert "14–18°C" in text and "58–70% umidità" in text
     # Elsewhere, or something else, recalls nothing.
     assert await experience.recall(db, "u1", state("sit_x", place="Roma")) is None
     assert await experience.recall(db, "u1", state("sit_y", summary="Lavatrice avviata")) is None
@@ -51,3 +59,12 @@ def test_history_counts_as_a_baseline_and_guidance_mentions_it():
     assert "situation_experience" in _SITUATION_OUTCOME
     for word in ("panni", "laundry", "bucato"):
         assert word not in _SITUATION_OUTCOME.lower()
+
+
+@pytest.mark.asyncio
+async def test_nothing_is_required_from_the_person():
+    db = AsyncMongoMockClient().experience_v1_silent
+    await experience.record(db, "u1", state("sit_a", started="2026-10-25T09:00:00+01:00",
+                                            resolved="2026-10-25T17:00:00+00:00"), operation="cancel")
+    text = await experience.recall(db, "u1", state("sit_b"))
+    assert text and "annullata" in text

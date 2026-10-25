@@ -5,8 +5,10 @@ Every time somebody hung the washing out, ORA started from zero: a generic
 article on drying times and the weather. But the best evidence about how long
 something takes *at this person's home* is how long it took the last times.
 
-When a Situation is resolved or cancelled, what ORA estimated and when it
-actually ended are kept (no free text the person did not give, no coordinates).
+When a Situation is resolved or cancelled, ORA keeps its own record: what the
+weather readings actually measured while it watched, its first and its final
+hypothesis, and when the Situation ended. Nothing is asked of the person; a
+fact they added when closing it is kept too, but never required.
 When a similar Situation starts — similar description, same place — the last
 few are offered to the reasoning as a citable observation and as an empirical
 baseline: "il 25/10 stesi alle 09:39, stima 16:00-17:00, ritirati alle 17:40".
@@ -59,8 +61,12 @@ async def record(db, owner: str, situation, *, operation: str) -> None:
     try:
         goal = await db.agent_goals.find_one(
             {"owner_id": owner, "source_refs": f"situation:{situation.id}"},
-            {"_id": 0, "situation_outcome": 1}, sort=[("updated_at", -1)])
+            {"_id": 0, "id": 1, "situation_outcome": 1}, sort=[("updated_at", -1)])
         outcome = (goal or {}).get("situation_outcome") or {}
+        conditions = await _observed_conditions(db, owner, (goal or {}).get("id"))
+        first = await db.agent_journal.find_one(
+            {"owner_id": owner, "goal_id": (goal or {}).get("id"), "kind": "situation_outcome_assessed"},
+            {"_id": 0, "note": 1}, sort=[("at", 1)]) if goal else None
         latest = situation.history[-1].changes if situation.history else {}
         doc = {
             "owner_id": owner, "situation_id": situation.id,
@@ -71,6 +77,12 @@ async def record(db, owner: str, situation, *, operation: str) -> None:
             "estimate": {"headline": str(outcome.get("headline") or "")[:200],
                          "window_start": outcome.get("window_start"),
                          "window_end": outcome.get("window_end")} if outcome else None,
+            # ORA's own data: what the weather actually did while it watched,
+            # its first and its final hypothesis. Nothing asked of the person.
+            "conditions": conditions,
+            "first_hypothesis": str((first or {}).get("note") or "")[:200],
+            "final_hypothesis": {"headline": str(outcome.get("headline") or "")[:200],
+                                 "ready": outcome.get("action_reason") == "outcome_ready"} if outcome else None,
             # Only facts the person (or the conversation) added when closing it.
             "closing_facts": [str(f)[:160] for f in (latest.get("facts") or [])][:3],
             "recorded_at": datetime.now(timezone.utc).isoformat(),
@@ -83,6 +95,35 @@ async def record(db, owner: str, situation, *, operation: str) -> None:
             await db[COLLECTION].delete_many({"_id": {"$in": [d["_id"] for d in old]}})
     except Exception as exc:
         logger.info("situation experience not recorded: %s", type(exc).__name__)
+
+
+async def _observed_conditions(db, owner: str, goal_id: Optional[str]) -> Optional[dict]:
+    """Ranges of what the weather readings measured during the watch."""
+    if not goal_id:
+        return None
+    rows = await db.agent_evidence.find(
+        {"owner_id": owner, "goal_id": goal_id, "provenance.capability": "weather.read",
+         "measures": {"$exists": True}}, {"_id": 0, "measures": 1}).to_list(60)
+    ranges: dict[str, list[float]] = {}
+    for row in rows:
+        for key in ("temperature_c", "humidity_pct", "wind_kmh"):
+            value = (row.get("measures") or {}).get(key)
+            if isinstance(value, (int, float)):
+                ranges.setdefault(key, []).append(float(value))
+    if not ranges:
+        return None
+    return {key: [min(v), max(v)] for key, v in ranges.items()} | {"readings": len(rows)}
+
+
+def _conditions_text(c: Optional[dict]) -> str:
+    if not c:
+        return ""
+    bits = []
+    for key, unit in (("temperature_c", "°C"), ("humidity_pct", "% umidità"), ("wind_kmh", " km/h vento")):
+        if key in c:
+            lo, hi = c[key]
+            bits.append(f"{round(lo)}{unit}" if round(lo) == round(hi) else f"{round(lo)}–{round(hi)}{unit}")
+    return (" con " + ", ".join(bits)) if bits else ""
 
 
 async def recall(db, owner: str, situation, *, tz: str = "Europe/Rome") -> Optional[str]:
@@ -103,8 +144,10 @@ async def recall(db, owner: str, situation, *, tz: str = "Europe/Rome") -> Optio
             window = f", stima {_local(est['window_start'], tz)[-5:]}-{_local(est['window_end'], tz)[-5:]}"
         how = "chiusa" if r.get("operation") == "resolve" else "annullata"
         facts = f" ({'; '.join(r['closing_facts'])})" if r.get("closing_facts") else ""
-        parts.append(f"{_local(r.get('started_at'), tz)} inizio{window}, {how} alle "
-                     f"{_local(r.get('ended_at'), tz)[-5:]}{facts}")
+        final = r.get("final_hypothesis") or {}
+        said = "; ORA aveva concluso che fosse pronto" if final.get("ready") else ""
+        parts.append(f"{_local(r.get('started_at'), tz)} inizio{_conditions_text(r.get('conditions'))}"
+                     f"{window}{said}, {how} alle {_local(r.get('ended_at'), tz)[-5:]}{facts}")
     text = ("Esperienze precedenti della persona in situazioni simili"
             f"{' a ' + situation.location_label if situation.location_label else ''}: "
             + " | ".join(parts) + ". L'orario di chiusura è quando la persona l'ha segnalata, "
