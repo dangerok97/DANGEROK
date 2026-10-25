@@ -310,7 +310,20 @@ async def _through_the_preparation(
             resolution = ""
         elif semantic_decision in ("replace", "shared"):
             resolution = semantic_decision
+        elif _identity_resolution_in(detto, prep) == "shared":
+            # The model was unclear, but the words name both: same person.
+            resolution = "shared"
+            semantic_resolution = {"decision": "shared", "canonical_name": ""}
 
+    if corrected_counterparty and prep.identity_conflicts:
+        from preparation.trust import identity_of, is_relation
+        labels = {identity_of(c.get("name") or "") for c in prep.identity_conflicts if is_relation(c.get("name") or "")}
+        if identity_of(corrected_counterparty) in labels:
+            # «Asia è la mia ragazza» is not «call la mia ragazza instead»:
+            # moving the call to the relation re-asked the same question.
+            corrected_counterparty = ""
+            resolution = "shared"
+            semantic_resolution = {"decision": "shared", "canonical_name": ""}
     if corrected_counterparty:
         # Explicitly naming who the active preparation is about outranks the
         # stale entity inferred in an earlier turn.
@@ -328,7 +341,8 @@ async def _through_the_preparation(
             semantic_resolution.get("decision") == resolution
             if semantic_resolution else False
         )
-        legacy_support = _identity_resolution_in(detto, prep) == resolution
+        legacy_support = (_identity_resolution_in(detto, prep) == resolution
+                          or semantic_resolution.get("decision") == resolution)
         if (resolution not in ("replace", "shared")
                 or not prep.identity_conflict_shown_in
                 or prep.identity_conflict_shown_in == _this_turn(runtime)
@@ -650,9 +664,22 @@ async def _ai_identity_resolution(text: str, prep) -> Dict[str, str]:
     if canonical:
         canonical = allowed_by_identity.get(identity_of(canonical), "")
     if decision == "same_person":
-        canonical = conflict_by_identity.get(identity_of(canonical), "")
-        if not canonical:
-            return {"decision": "unclear", "canonical_name": ""}
+        # Owner screenshot 25/10: «Asia è la mia ragazza» came back as
+        # same_person with canonical «Asia» (the selected name), which this
+        # used to refuse — and the same question was asked again. Either name
+        # of the same human is a valid answer: both keep the number.
+        from preparation.trust import is_relation
+        if (identity_of(canonical) in conflict_by_identity
+                and is_relation(conflict_by_identity[identity_of(canonical)])
+                and selected_name and not is_relation(selected_name)):
+            # «la mia ragazza» is who Asia is, not a better name for her:
+            # moving the call to the relation re-asked the same question.
+            return {"decision": "shared", "canonical_name": selected_name}
+        if identity_of(canonical) in conflict_by_identity:
+            return {"decision": decision, "canonical_name": conflict_by_identity[identity_of(canonical)]}
+        if identity_of(canonical) == identity_of(selected_name):
+            return {"decision": "shared", "canonical_name": selected_name}
+        return {"decision": "unclear", "canonical_name": ""}
     return {"decision": decision, "canonical_name": canonical}
 
 
@@ -664,6 +691,20 @@ def _identity_resolution_in(text: str, prep) -> str:
     message = identity_of(text)
     if re.search(r"\b(non|no|forse)\b", message) or "?" in text:
         return ""
+    # «Asia è la mia ragazza», «la mia ragazza si chiama Asia», «sì, è Asia»:
+    # the name and the saved relation are the same person — both keep it.
+    from preparation.trust import is_relation
+    selected = identity_of(prep.selected_contact.name if prep.selected_contact else prep.counterparty or "")
+    for row in prep.identity_conflicts or []:
+        label = identity_of(row.get("name") or "")
+        if not (label and selected and is_relation(row.get("name") or "")):
+            continue
+        both = (re.search(r"(?:^| )" + re.escape(selected) + r"(?: |$)", message)
+                and (label in message or label.split(" ", 1)[-1] in message.split()))
+        if both and re.search(r"\b(è|e|si chiama|sono)\b", message):
+            return "shared"
+        if selected and re.fullmatch(r"(?:sì |si )?(?:è |e )?" + re.escape(selected), message):
+            return "shared"
     if any(part in message for part in ("è condiviso", "numero condiviso", "lo usano entrambi")):
         return "shared"
     name = identity_of(prep.selected_contact.name if prep.selected_contact else "")

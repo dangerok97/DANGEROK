@@ -674,3 +674,77 @@ def test_phone_conflict_guidance_does_not_require_magic_phrases():
     guidance = _what_to_say_now(card, False).lower()
     assert "parole normali" in guidance
     assert "non pretendere formule" in guidance
+
+
+def test_conflict_question_about_a_relation_is_plain_italian():
+    from preparation.trust import conflict_message, is_relation
+
+    text = conflict_message(NUMBER, "Asia", [{"name": "la mia ragazza"}])
+    assert "a la mia" not in text and "correzione o un numero condiviso" not in text
+    assert "Asia è la mia ragazza?" in text
+    assert is_relation("mio fratello") and not is_relation("Asia")
+    assert "associato ad Asia" in conflict_message(NUMBER, "Mario", [{"name": "Asia"}])
+    assert "associato al dottor Rossi" in conflict_message(NUMBER, "Mario", [{"name": "il dottor Rossi"}])
+
+
+async def _asia_with_relation_conflict(db):
+    from telephone.caps import _through_the_preparation
+
+    await claim(db, "la mia ragazza")
+    prep = await prepare(db, "Asia")
+    assert prep.identity_conflicts
+    shown = await _through_the_preparation(
+        {"preparation_id": prep.preparation_id},
+        {"session_id": "chat", "reasoning_epoch": "one", "user_message": prep.user_request},
+        db, "owner",
+    )
+    assert "Asia è la mia ragazza?" in shown.payload["say_this"]
+    return await by_id(db, "owner", prep.preparation_id)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_says", [
+    {"decision": "same_person", "canonical_name": "la mia ragazza"},
+    {"decision": "same_person", "canonical_name": "Asia"},
+    {"decision": "unclear", "canonical_name": ""},
+])
+async def test_owner_screenshot_asia_is_my_girlfriend_is_not_asked_again(db, monkeypatch, model_says):
+    from telephone.caps import _through_the_preparation
+
+    prep = await _asia_with_relation_conflict(db)
+
+    async def classify(system, payload):
+        return model_says
+
+    monkeypatch.setattr("research.reasoning._ask_model", classify)
+    result = await _through_the_preparation(
+        {"preparation_id": prep.preparation_id},
+        {"session_id": "chat", "reasoning_epoch": "two", "user_message": "Asia è la mia ragazza"},
+        db, "owner",
+    )
+    assert result.payload["identity_conflicts"] == []
+    assert result.payload["contact"]["name"] == "Asia"
+    assert result.payload["contact"]["number"] == NUMBER
+    assert "condiviso" not in result.payload["say_this"].lower()
+    assert result.payload["call_id"] is None
+    assert await trust.still_trusted(db, "owner", "asia", NUMBER)
+    assert await trust.still_trusted(db, "owner", "la mia ragazza", NUMBER)
+
+
+@pytest.mark.asyncio
+async def test_relation_passed_as_new_counterparty_does_not_loop(db, monkeypatch):
+    from telephone.caps import _through_the_preparation
+
+    prep = await _asia_with_relation_conflict(db)
+
+    async def classify(system, payload):
+        return {"decision": "unclear", "canonical_name": ""}
+
+    monkeypatch.setattr("research.reasoning._ask_model", classify)
+    result = await _through_the_preparation(
+        {"preparation_id": prep.preparation_id, "correct_counterparty": "la mia ragazza"},
+        {"session_id": "chat", "reasoning_epoch": "two", "user_message": "Asia è la mia ragazza"},
+        db, "owner",
+    )
+    assert result.payload["identity_conflicts"] == []
+    assert result.payload["contact"]["name"] == "Asia"
