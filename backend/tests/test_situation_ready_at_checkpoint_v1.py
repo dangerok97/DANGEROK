@@ -59,3 +59,42 @@ def test_guidance_says_a_reached_window_is_readiness_not_a_later_window():
     from agent.reasoning import _SITUATION_OUTCOME as text
     assert "inside or past a previously estimated window" in text
     assert "time passing is not such a reason" in text
+
+
+@pytest.mark.asyncio
+async def test_readiness_before_its_own_estimated_window_is_refused(monkeypatch):
+    """Production 25/10 12:14: estimated 14:00-16:00, 'should be ready now' at 12:14."""
+    from test_situation_useful_outcome_v160 import estimate
+    db, service, state, goal, run, _, baseline, live = await setup(monkeypatch)
+    previous = await validate_assessment(db, OWNER, goal, estimate(baseline, live),
+                                         evidence=[baseline, live], run_at=read_before(live, 1))
+    assert previous is not None and previous.window_start
+    goal.situation_outcome = previous
+    reasons = []
+    early = await validate_assessment(db, OWNER, goal, action(baseline, live), evidence=[baseline, live],
+                                      run_at=read_before(live, 1), reasons=reasons)
+    from datetime import datetime as _dt
+    starts = _dt.fromisoformat(previous.window_start)
+    if starts - _dt.now(starts.tzinfo) > timedelta(minutes=10):
+        assert early is None and reasons == ["ready_before_window"]
+
+
+@pytest.mark.asyncio
+async def test_an_older_reading_next_to_a_fresh_one_is_set_aside(monkeypatch):
+    import copy
+    db, service, state, goal, run, _, baseline, live = await setup(monkeypatch)
+    run_at = read_before(live, 1)
+    old = copy.deepcopy(live)
+    old.id = "evd_old_reading"
+    old.observed_at = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    old.provenance.observed_at = old.observed_at
+    await db.agent_evidence.insert_one(old.model_dump())
+    raw = action(baseline, live)
+    raw["evidence_ids"] = [baseline.id, live.id, old.id]
+    reasons = []
+    result = await validate_assessment(db, OWNER, goal, raw, evidence=[baseline, live, old],
+                                       run_at=run_at, reasons=reasons)
+    if result is None:
+        assert reasons and reasons[0] != "weather_not_reread_this_run", reasons
+    else:
+        assert old.id not in result.evidence_ids

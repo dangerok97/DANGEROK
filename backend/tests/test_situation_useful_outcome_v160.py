@@ -419,6 +419,9 @@ async def test_noncurrent_weather_cannot_promote_initial_review_to_confirmed_che
 
 @pytest.mark.asyncio
 async def test_old_visibility_judgement_cannot_raise_need_for_newer_assessment(monkeypatch):
+    # The fixture's window opens 90 minutes after the estimate and the test
+    # does not travel in time: let readiness through (see ready_before_window).
+    monkeypatch.setattr("situations.outcomes.READY_EARLY_MINUTES", 24 * 60)
     db, service, _, goal, run, _, baseline, live = await setup(monkeypatch)
     assert await service._record_situation_outcome(OWNER, goal, estimate(baseline, live), run)
     first = await current_outcome(db, OWNER, goal)
@@ -502,6 +505,8 @@ async def test_real_worker_admission_estimate_recheck_and_useful_action(monkeypa
     either estimated readiness or a protective action. It proves the wiring;
     the synthetic model judgement is not evidence of physical readiness.
     """
+    # Same as above: the window opens 90 minutes later and no time passes here.
+    monkeypatch.setattr("situations.outcomes.READY_EARLY_MINUTES", 24 * 60)
     from agent import reasoning
     from ambient.models import AmbientWake
     from ambient.runtime import _handle

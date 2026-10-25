@@ -108,6 +108,8 @@ _SITUATION_OUTCOME = (
     "a predicted completion time. Direct observation requires an actual observation "
     "channel for the outcome; a weather forecast or research article is not such a channel. "
     "At a checkpoint read current evidence again before announcing action_now. "
+    "Compare the local clock time with the previous window before deciding: before its "
+    "start, the result is the confirmed (or revised) estimate, never readiness. "
     "When the local time is inside or past a previously estimated window and the fresh "
     "reading shows no adverse change, the useful result is action_now with "
     "action_reason=outcome_ready and basis=estimate (it should be ready: check or act now), "
