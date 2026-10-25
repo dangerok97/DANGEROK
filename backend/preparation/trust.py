@@ -215,11 +215,37 @@ async def identity_conflicts(
     return [conflicts[key] for key in sorted(conflicts)]
 
 
+_RELATION = re.compile(r"^(?:(?:la|il|lo|l')\s*)?(?:mia|mio|mie|miei)\s+\w+", re.I)
+_ARTICLE_A = (("gli ", "agli "), ("il ", "al "), ("lo ", "allo "), ("la ", "alla "),
+              ("le ", "alle "), ("i ", "ai "), ("l'", "all'"))
+
+
+def is_relation(label: str) -> bool:
+    """«la mia ragazza», «mio fratello»: who someone is to the person, not a name."""
+    return bool(_RELATION.match((label or "").strip()))
+
+
+def _a(label: str) -> str:
+    """«a» + article, the Italian way: «alla mia ragazza», not «a la mia ragazza»."""
+    low = label.lower()
+    for article, joined in _ARTICLE_A:
+        if low.startswith(article):
+            return joined + label[len(article):]
+    return ("ad " if low[:1] == "a" else "a ") + label
+
+
 def conflict_message(number: str, name: str, conflicts: List[Dict[str, str]]) -> str:
+    # Owner screenshot 25/10: «era associato a la mia ragazza. Ora lo indichi
+    # per Asia. È una correzione o un numero condiviso?» — asked twice, after
+    # «Asia è la mia ragazza». A relation is not a rival owner of the number.
+    relations = [c["name"] for c in conflicts if is_relation(c["name"])]
+    if len(conflicts) == 1 and relations:
+        return (f"Avevo salvato il {number} come «{relations[0][:45]}». "
+                f"{name[:50]} è {relations[0][:45]}?")
     names = ", ".join(c["name"][:45] for c in conflicts[:2])
     if len(conflicts) > 2:
         names += " e altri"
-    return (f"Il numero {number} era associato a {names}. "
+    return (f"Il numero {number} era associato {_a(names)}. "
             f"Ora lo indichi per {name[:50]}. "
             "È una correzione o un numero condiviso?")
 
