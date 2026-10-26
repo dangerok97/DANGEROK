@@ -13,7 +13,9 @@ async def load_reminders(
     # Optional reminders collection — soft-fail if absent/empty
     try:
         cur = db.reminders.find(
-            {"user_id": user_id, "status": {"$in": ["open", "active", "pending"]}},
+            # A call outcome is news, not something to do: it stays in the chat.
+            {"user_id": user_id, "status": {"$in": ["open", "active", "pending"]},
+             "origin": {"$ne": "phone_call_result"}},
             {"_id": 0},
         ).limit(20)
         docs = await cur.to_list(20)

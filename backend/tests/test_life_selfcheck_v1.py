@@ -180,3 +180,31 @@ async def test_a_reminder_completed_before_sending_never_arrives(monkeypatch):
     assert await drain(db, owner_id=OWNER, limit=1) == 1
     outbound.assert_not_awaited() 
     judgement.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_reminder_the_person_asked_for_is_not_throttled(monkeypatch):
+    from ambient.push import PushEndpointService
+    from delivery.admission import drain
+    from test_recurring_memo_delivery_v131 import TOKEN, install_scripted_gate
+
+    db = AsyncMongoMockClient().one_shot_throttle_v1
+    await _due_reminder(db, datetime.now(timezone.utc))
+    await PushEndpointService(db).register(OWNER, token=TOKEN, device="synthetic-ios",
+                                           platform="ios", permission_state="granted")
+    context, _, outbound = install_scripted_gate(monkeypatch, db)
+    context.return_value = {**context.return_value,
+                            "recent_interruptions": [{"minutes_ago": 2}, {"minutes_ago": 30}]}
+    assert await drain(db, owner_id=OWNER, limit=2) == 1
+    outbound.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_uninvited_pushes_keep_the_ceiling():
+    from delivery.service import DeliveryService
+
+    moment = {"can_be_notified": {"push": True}, "recent_interruptions": [{"minutes_ago": 2}]}
+    assert await DeliveryService(_db())._may_push(OWNER, moment) == (False, "too_soon_after_last")
+    assert await DeliveryService(_db())._may_push(OWNER, moment, invited=True) == (True, "")
+    denied = {"can_be_notified": {"push": False}}
+    assert (await DeliveryService(_db())._may_push(OWNER, denied, invited=True))[0] is False
