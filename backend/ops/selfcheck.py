@@ -15,7 +15,10 @@ Every pass (a few times an hour, in the maintenance lane):
 * a notification still pending well past its moment is reported, and so is
   one that expired unsent today;
 * somebody with things ORA would notify but no device that can receive them
-  is reported.
+  is reported;
+* an appointment in the next hours that nothing is looking at (no review, no
+  departure alarm) gets one review arranged an hour before it. The review
+  decides whether there is anything to say: the self-check never does.
 
 What it found is written down per person (ops_self_checks), bounded, with no
 personal content — codes and references only — so ORA, the app and the person
@@ -40,6 +43,11 @@ RESULT_STALE_HOURS = 48
 QUESTION_STALE_DAYS = 14
 RESULT_KINDS = {"useful_result", "important_outcome"}
 QUESTION_KINDS = {"needs_information", "needs_authority"}
+# An appointment closer than this is looked at before it starts.
+EVENT_LOOKAHEAD_HOURS = 3
+EVENT_REVIEW_BEFORE_MINUTES = 60
+EVENT_TOO_CLOSE_MINUTES = 15
+EVENT_WAKE_PREFIX = "calendar_event_due:"
 
 
 def _moment(value) -> Optional[datetime]:
@@ -113,6 +121,10 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
                              "late_minutes": int((now - due).total_seconds() // 60)})
 
     findings.extend(await _retire_stale_needs(db, owner, now))
+    try:
+        findings.extend(await _attend_upcoming_events(db, owner, now))
+    except Exception as exc:
+        logger.info("self_check events deferred: %s", type(exc).__name__)
 
     plans = await db.delivery_plans.find(
         {"owner_id": owner, "created_at": {"$gte": (now - timedelta(hours=24)).isoformat()}},
@@ -147,6 +159,47 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
         logger.info("self_check owner=%s findings=%s", owner[:8],
                     ",".join(f"{f['code']}:{'fixed' if f.get('repaired') else 'open'}" for f in findings))
     return report
+
+
+async def _attend_upcoming_events(db, owner: str, now: datetime) -> list[dict]:
+    """
+    An appointment in a few hours must be looked at by somebody.
+
+    Audit 26/10: only appointments with a place got an alarm (the departure
+    estimate). "Chiamata con il commercialista alle 15" had none: unless
+    something else happened that day, no review ran before it and ORA said
+    nothing. One review, an hour before; whether it becomes a notification is
+    the ordinary judgement's to decide.
+    """
+    from ambient.service import AmbientService
+    from opportunities.snapshot import _calendar
+
+    out: list[dict] = []
+    for event in await _calendar(db, owner, now):
+        if event.get("all_day"):
+            continue
+        start = _moment(event.get("starts_at"))
+        ref = str(event.get("ref") or "")
+        if not ref or start is None:
+            continue
+        ahead = start - now
+        if ahead <= timedelta(minutes=EVENT_TOO_CLOSE_MINUTES) or ahead > timedelta(hours=EVENT_LOOKAHEAD_HOURS):
+            continue
+        wake_ref = f"{EVENT_WAKE_PREFIX}{ref}"[:120]
+        watched = await db.ambient_wakes.count_documents(
+            {"owner_id": owner, "status": {"$ne": "cancelled"},
+             "source_ref": {"$in": [wake_ref, f"calendar_departure_due:{ref}"[:120]]}}, limit=1)
+        if watched:
+            continue
+        when = max(now + timedelta(minutes=2), start - timedelta(minutes=EVENT_REVIEW_BEFORE_MINUTES))
+        wake = await AmbientService(db).schedule(
+            owner, reason="ambient_review", when=when,
+            source_ref=wake_ref, provenance="code_schedule",
+        )
+        out.append({"code": "event_unattended", "ref": f"event:{ref[:80]}",
+                    "repaired": wake is not None,
+                    "next_check_at": getattr(wake, "scheduled_for", None)})
+    return out
 
 
 async def _retire_stale_needs(db, owner: str, now: datetime) -> list[dict]:
@@ -205,8 +258,16 @@ async def run(db, *, now: Optional[datetime] = None) -> dict[str, Any]:
         "owner_id", {"source_kind": {"$in": [KIND, INITIAL_KIND]}, "status": {"$in": list(OPEN)}})
     recent = await db.delivery_plans.distinct(
         "owner_id", {"created_at": {"$gte": (now - timedelta(hours=24)).isoformat()}})
+    # People ORA can reach: their appointments are worth a look even when no
+    # watch or notification is open.
+    reachable: list = []
+    for field in ("owner_id", "user_id"):
+        try:
+            reachable += await db.push_endpoints.distinct(field, {"status": "active"})
+        except Exception:
+            pass
     summary = {"owners": 0, "findings": 0, "repaired": 0}
-    for owner in list(dict.fromkeys([*owners, *recent]))[:MAX_OWNERS_PER_PASS]:
+    for owner in list(dict.fromkeys([*owners, *recent, *[r for r in reachable if r]]))[:MAX_OWNERS_PER_PASS]:
         try:
             report = await check_owner(db, owner, now=now)
         except Exception as exc:

@@ -15,6 +15,7 @@ WORDS = {
     "delivery_missed_while_stopped": "Un avviso è scaduto mentre ero ferma",
     "no_device_for_notifications": "Nessun telefono può ricevere le mie notifiche",
     "need_retired": "Ho tolto da Home una richiesta che non era più attuale",
+    "event_unattended": "Un appuntamento delle prossime ore non era seguito: lo guardo un'ora prima",
 }
 
 

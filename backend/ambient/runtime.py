@@ -428,7 +428,15 @@ async def _serve_recurring_memos(db, *, reconcile: bool = False):
             logger.info("recurring memo reconciliation deferred: %s", type(exc).__name__)
     from memos.service import RecurringMemoService
 
-    return await RecurringMemoService(db).fire_due()
+    result = await RecurringMemoService(db).fire_due()
+    # One-time reminders share this lane: same cost when nothing is due.
+    try:
+        from memos.one_shot import fire_due as fire_one_shot
+
+        await fire_one_shot(db)
+    except Exception as exc:
+        logger.info("one-shot reminders deferred: %s", type(exc).__name__)
+    return result
 
 
 async def _cycle(db, ticks):

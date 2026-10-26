@@ -159,6 +159,8 @@ class ActionEngineService:
         await self.db.action_projects.create_index([("user_id", 1), ("flow", 1), ("title", 1)])
         try:
             await self.db.reminders.create_index([("user_id", 1), ("status", 1), ("due_at", 1)])
+            # The one-time reminder lane asks across people, by moment.
+            await self.db.reminders.create_index([("status", 1), ("due_at", 1)])
         except Exception:
             pass
         await self.study_plans.ensure_indexes()
