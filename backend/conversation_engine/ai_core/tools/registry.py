@@ -222,6 +222,45 @@ class ToolRegistry:
                 tags=["memo", "recurring", "memory"],
             )
         )
+        from memos.caps import cancel_reminder, list_reminders, set_reminder
+        self.register(CapabilitySpec(
+            capability="set_reminder",
+            description=(
+                "Set a one-time reminder at a precise moment: 'ricordami domani alle 9 di "
+                "chiamare il dentista', 'tra mezz'ora ricordami il forno', 'un'ora prima "
+                "dell'appuntamento'. ORA sends it at that moment as a notification and shows "
+                "it in Home, without needing anything else. Give either delay_minutes (from "
+                "now) or at_local (local date and time, YYYY-MM-DDTHH:MM, computed from the "
+                "clock in context). With no time stated, ask once; never invent one. Promise "
+                "the reminder only after ok=true, using the returned at_label."
+            ),
+            input_schema={"type": "object", "properties": {
+                "what": {"type": "string", "description": "What to remind, short, in the person's words."},
+                "delay_minutes": {"type": "number", "description": "Minutes from now."},
+                "at_local": {"type": "string", "description": "Local YYYY-MM-DDTHH:MM."},
+                "note": {"type": "string", "description": "Optional detail to show when it fires."},
+            }, "required": ["what"]},
+            classification="personal", side_effect="REVERSIBLE_WRITE", freshness="stable",
+            risk="write_soft", handler=set_reminder, tags=["reminder", "promemoria", "time"],
+        ))
+        self.register(CapabilitySpec(
+            capability="list_reminders",
+            description="List the person's upcoming one-time reminders (what, when, reminder_id).",
+            input_schema={"type": "object", "properties": {}},
+            classification="personal", side_effect="READ_ONLY", freshness="fresh",
+            risk="read", handler=list_reminders, tags=["reminder", "promemoria"],
+        ))
+        self.register(CapabilitySpec(
+            capability="cancel_reminder",
+            description=(
+                "Cancel one upcoming reminder by reminder_id (from list_reminders), when the "
+                "person says it is no longer needed or wants it moved (then set a new one)."
+            ),
+            input_schema={"type": "object", "properties": {"reminder_id": {"type": "string"}},
+                          "required": ["reminder_id"]},
+            classification="personal", side_effect="REVERSIBLE_WRITE", freshness="stable",
+            risk="write_soft", handler=cancel_reminder, tags=["reminder", "promemoria"],
+        ))
         self.register(
             CapabilitySpec(
                 capability="prepare_amazon_search",

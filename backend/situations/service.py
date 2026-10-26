@@ -105,11 +105,15 @@ class SituationService:
             )
             await self.repo.insert(situation)
             await self._note_opportunity_change(user_id, situation, operation="create")
-            return {
+            out = {
                 "status": "success",
                 "operation": "create",
                 "situation": situation.context_preview(),
             }
+            stated = await self._arm_stated_time(user_id, situation, user_message)
+            if stated:
+                out["stated_reminder"] = stated
+            return out
 
         sid = (update.situation_id or "").strip()
         if not sid:
@@ -222,11 +226,23 @@ class SituationService:
         if not await self.repo.save(situation, previous_revision=previous_revision):
             raise SituationMutationError("REVISION_CONFLICT")
         await self._note_opportunity_change(user_id, situation, operation=update.operation)
-        return {
+        out = {
             "status": "success",
             "operation": update.operation,
             "situation": situation.context_preview(),
         }
+        if update.operation == "update":
+            stated = await self._arm_stated_time(user_id, situation, user_message)
+            if stated:
+                out["stated_reminder"] = stated
+        return out
+
+    async def _arm_stated_time(self, user_id: str, situation, user_message: str):
+        """A moment the person stated becomes a reminder sent by code."""
+        if not user_message:
+            return None
+        from situations.stated_time import arm
+        return await arm(self.db, user_id, situation, user_message)
 
     async def _govern_linked_refs(
         self, user_id: str, update: SituationUpdate
@@ -329,6 +345,8 @@ class SituationService:
             # An explicit withdrawal of the attention obligation is just as
             # binding as closing the Situation. Do not let a stale initial
             # review wake resurrect the old intent.
+            from situations.stated_time import disarm
+            await disarm(self.db, user_id, situation.id)
             try:
                 from situations.followup import cancel_dedicated_followup
                 await cancel_dedicated_followup(self.db, user_id, situation.id)
