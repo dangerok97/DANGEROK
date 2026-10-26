@@ -125,6 +125,10 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
         findings.extend(await _attend_upcoming_events(db, owner, now))
     except Exception as exc:
         logger.info("self_check events deferred: %s", type(exc).__name__)
+    try:
+        findings.extend(await _review_near_deadlines(db, owner, now))
+    except Exception as exc:
+        logger.info("self_check deadlines deferred: %s", type(exc).__name__)
 
     plans = await db.delivery_plans.find(
         {"owner_id": owner, "created_at": {"$gte": (now - timedelta(hours=24)).isoformat()}},
@@ -199,6 +203,52 @@ async def _attend_upcoming_events(db, owner: str, now: datetime) -> list[dict]:
         out.append({"code": "event_unattended", "ref": f"event:{ref[:80]}",
                     "repaired": wake is not None,
                     "next_check_at": getattr(wake, "scheduled_for", None)})
+    return out
+
+
+def deadline_moments(due: datetime, date_only: bool, local_now: datetime) -> list[tuple[str, datetime]]:
+    """When a deadline deserves a look: the evening before and the morning of
+    (a bare date), or the evening before and two hours before (a time)."""
+    tz = local_now.tzinfo
+    day = due.astimezone(tz).date()
+    eve = datetime.combine(day - timedelta(days=1), datetime.min.time(), tzinfo=tz).replace(hour=18)
+    if date_only:
+        morning = datetime.combine(day, datetime.min.time(), tzinfo=tz).replace(hour=9)
+        return [("eve", eve), ("morning", morning)]
+    return [("eve", eve), ("before", due - timedelta(hours=2))]
+
+
+async def _review_near_deadlines(db, owner: str, now: datetime) -> list[dict]:
+    """
+    A deadline the person set gets looked at before it passes.
+
+    Audit 26/10: plan steps and decisions with a date were only titles in
+    Home; no review ever saw the date. Now the review sees it (snapshot
+    `deadlines`) and this makes sure one actually runs at the useful moments.
+    Whether to say anything is, as always, the review's call.
+    """
+    from ambient.service import AmbientService
+    from opportunities.deadlines import upcoming
+    from timezone_service import user_clock_context
+
+    clock = await user_clock_context(db, owner, now=now)
+    local_now = datetime.fromisoformat(clock["local_datetime"])
+    out: list[dict] = []
+    for row in await upcoming(db, owner, local_now, days=2):
+        for label, moment in deadline_moments(row["due"], row["date_only"], local_now):
+            if not (now < moment <= now + timedelta(hours=EVENT_LOOKAHEAD_HOURS)):
+                continue
+            wake_ref = f"deadline_due:{row['ref']}:{label}:{moment.date().isoformat()}"[:120]
+            if await db.ambient_wakes.count_documents(
+                    {"owner_id": owner, "source_ref": wake_ref, "status": {"$ne": "cancelled"}}, limit=1):
+                continue
+            wake = await AmbientService(db).schedule(
+                owner, reason="ambient_review", when=moment.astimezone(timezone.utc),
+                source_ref=wake_ref, provenance="code_schedule",
+            )
+            out.append({"code": "deadline_unattended", "ref": row["ref"][:100],
+                        "repaired": wake is not None,
+                        "next_check_at": getattr(wake, "scheduled_for", None)})
     return out
 
 
