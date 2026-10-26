@@ -73,16 +73,24 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
             continue
         out["due"] += 1
         late = moment - due > timedelta(minutes=LATE_GRACE_MINUTES)
+        superseded = False
+        if not late:
+            from situations.stated_time import already_said
+            superseded = await already_said(db, owner, row)
         claimed = await db[COLLECTION].find_one_and_update(
             {"id": rid, "user_id": owner, "status": {"$in": list(OPEN)},
              "notified_state": {"$exists": False}},
-            {"$set": {"notified_state": "missed" if late else "raised",
+            {"$set": {"notified_state": "missed" if late else "superseded" if superseded else "raised",
                       "notified_at": moment.isoformat()}},
         )
         if not claimed:
             continue  # another instance, or closed in the meantime
         if late:
             out["missed"] += 1
+            continue
+        if superseded:
+            # The watch already said it, or the Situation is over: once is enough.
+            out["superseded"] = out.get("superseded", 0) + 1
             continue
         title = str(row.get("title") or "Promemoria").strip()[:280]
         body = str(row.get("body") or row.get("description") or "").strip()
