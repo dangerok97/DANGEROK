@@ -2528,6 +2528,20 @@ class AgentService:
             state = await SituationRepository(self.db).get(owner_id, sid)
             if state is None:
                 return
+            from situations.typical import describe, match
+            usual = match(state.summary or "", " ".join(state.facts or []))
+            if usual:
+                # A general baseline for an ordinary process, cited like a
+                # source: the watch no longer depends on a web search to have one.
+                await self.evidence.record(AgentEvidence(
+                    owner_id=owner_id, goal_id=goal.id, kind="situation_experience",
+                    claim=describe(usual), supports=(goal.desired_outcome or "")[:300],
+                    provenance=ResultProvenance(
+                        source_class="internal_observation", capability="situation.typical",
+                        provider="situation", source_refs=[f"situation:{sid}"], freshness="fresh",
+                        certainty_note="Durata tipica generale, non una misura di questa situazione.",
+                    ),
+                ))
             clock = await _user_clock_context(self.db, owner_id)
             text = await recall(self.db, owner_id, state, tz=str((clock or {}).get("timezone") or "Europe/Rome"))
             if not text:
