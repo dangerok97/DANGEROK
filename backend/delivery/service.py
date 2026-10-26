@@ -309,7 +309,10 @@ class DeliveryService:
                 what_decided_the_mode=decision.what_decided_the_mode,
             )
 
-        allowed, why_not = await self._may_push(user_id, moment)
+        allowed, why_not = await self._may_push(
+            user_id, moment,
+            invited=kind == "opportunity" and getattr(subject, "source_context", "") == ONE_SHOT,
+        )
         if not allowed:
             # A technical refusal, named as one. The judgement stands; the
             # channel is unavailable, so it lands on the screen instead.
@@ -887,7 +890,7 @@ class DeliveryService:
     # --- the bounds code is allowed to hold -------------------------------
 
     async def _may_push(
-        self, user_id: str, moment: Dict[str, Any]
+        self, user_id: str, moment: Dict[str, Any], *, invited: bool = False
     ) -> tuple[bool, str]:
         """
         Whether a push is technically permissible. Never whether it is a good idea.
@@ -905,6 +908,13 @@ class DeliveryService:
             # model agreeing — and it is not a dismissal: the concern goes on
             # living wherever it was living.
             return False, "muted_by_user"
+
+        if invited:
+            # "Ricordamelo alle 15", the outcome of a call they asked for: the
+            # person chose this interruption. The ceiling below is for the ones
+            # nobody asked for; applying it here lost a reminder set two
+            # minutes after another notification (audit 26/10).
+            return True, ""
 
         recent = moment.get("recent_interruptions") or []
         within_hour = [
