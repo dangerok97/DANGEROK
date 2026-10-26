@@ -219,6 +219,19 @@ class DeliveryService:
                     reason="Il ricordo o il promemoria è stato modificato o revocato.",
                 )
 
+        if kind == "opportunity":
+            from memos.one_shot import reminder_opportunity_current
+
+            if not await reminder_opportunity_current(self.db, subject):
+                await self.cancel_for_source(
+                    user_id, subject_id, source_type=kind,
+                    reason="il promemoria è stato completato o eliminato",
+                )
+                return DeliveryResult(
+                    mode="in_app", blocked_by="reminder_source_changed",
+                    reason="Il promemoria è stato completato o eliminato.",
+                )
+
         if any(e.kind == "departure" for e in getattr(subject, "evidence", [])):
             from places.departures import DepartureService
             try:
@@ -256,8 +269,15 @@ class DeliveryService:
         if kind == "source_result":
             from llm.model_contract import scoped_model_contract
             contract_scope = scoped_model_contract(os.environ.get("ORA_SOURCE_MODEL_CONTRACT"))
-        with contract_scope:
-            answer = await decide_delivery(moment, language=language)
+        from memos.one_shot import SOURCE_CONTEXT as ONE_SHOT, push_decision
+        if kind == "opportunity" and getattr(subject, "source_context", "") == ONE_SHOT:
+            # The person already decided this one: "ricordamelo alle 15".
+            # Asking a model whether to interrupt would only make the reminder
+            # depend on a quota. Quiet hours and devices still apply below.
+            answer = push_decision(subject)
+        else:
+            with contract_scope:
+                answer = await decide_delivery(moment, language=language)
 
         if answer is None:
             # No judgement was available. Nothing is sent, nothing is
@@ -543,6 +563,10 @@ class DeliveryService:
 
                 if not await memo_opportunity_current(self.db, subject):
                     return None
+            from memos.one_shot import reminder_opportunity_current
+
+            if not await reminder_opportunity_current(self.db, subject):
+                return None
             return subject
 
         if plan.source_type == "agent_need":
