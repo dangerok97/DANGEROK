@@ -152,20 +152,37 @@ async def arm(db, owner: str, situation, user_message: str) -> Optional[dict]:
 
         clock = await user_clock_context(db, owner)
         now = datetime.fromisoformat(clock["local_datetime"])
-        found = stated_moment(user_message, now=now, started_at=_aware(situation.started_at))
-        if not found:
-            return None
-        moment, words = found
+        started = _aware(situation.started_at)
+        found = stated_moment(user_message, now=now, started_at=started)
         rid = f"rem_sit_{situation.id}"[:80]
-        due = moment.astimezone(timezone.utc).isoformat()
         existing = await db.reminders.find_one({"id": rid, "user_id": owner}, {"_id": 0, "due_at": 1})
-        local = moment.strftime("%H:%M")
         summary = " ".join(str(situation.summary or "").split())[:110]
+        typical = None
+        if not found:
+            # Nothing stated. A usual duration gives a fallback the first
+            # time only: a later turn must not keep pushing it forward, and
+            # it never replaces a moment the person stated.
+            from situations.typical import match
+            typical = match(situation.summary or "", user_message)
+            if typical is None or existing:
+                return None
+            base = started if started and now - timedelta(hours=12) <= started <= now else now
+            moment = base + timedelta(minutes=typical.likely)
+            if moment <= now + timedelta(minutes=1):
+                return None
+            words = f"tempo tipico: {typical.label}"
+        else:
+            moment, words = found
+        due = moment.astimezone(timezone.utc).isoformat()
+        local = moment.strftime("%H:%M")
+        title = (f"Di solito a quest'ora ha finito: {summary}" if typical
+                 else f"Sono le {local}, l'ora che avevi detto: {summary}")
         doc = {
             "id": rid, "user_id": owner, "status": "open", "due_at": due,
-            "title": f"Sono le {local}, l'ora che avevi detto: {summary}"[:160],
+            "title": title[:160],
             "origin": ORIGIN, "updated_at": datetime.now(timezone.utc).isoformat(),
-            "meta": {"situation_id": situation.id, "kind": "stated_end", "words": words[:80]},
+            "meta": {"situation_id": situation.id, "kind": "typical_end" if typical else "stated_end",
+                     "words": words[:80]},
         }
         if existing and existing.get("due_at") == due:
             return {"at_local": local, "unchanged": True}
@@ -175,7 +192,10 @@ async def arm(db, owner: str, situation, user_message: str) -> Optional[dict]:
              "$setOnInsert": {"created_at": doc["updated_at"]}},
             upsert=True,
         )
-        return {"at_local": local, "words": words[:80]}
+        out = {"at_local": local, "words": words[:80]}
+        if typical:
+            out.update({"typical": True, "typical_range_minutes": [typical.low, typical.high]})
+        return out
     except Exception as exc:
         logger.info("stated time not armed: %s", type(exc).__name__)
         return None
@@ -203,4 +223,10 @@ async def already_said(db, owner: str, row: dict) -> bool:
     goal = await db.agent_goals.find_one(
         {"owner_id": owner, "source_refs": f"situation:{sid}"},
         {"_id": 0, "situation_outcome": 1}, sort=[("updated_at", -1)])
-    return ((goal or {}).get("situation_outcome") or {}).get("action_reason") == "outcome_ready"
+    outcome = (goal or {}).get("situation_outcome") or {}
+    if outcome.get("action_reason") == "outcome_ready":
+        return True
+    # A usual duration is only a fallback: once the watch has its own
+    # estimate for this situation, that estimate is what the person hears.
+    return ((row.get("meta") or {}).get("kind") == "typical_end"
+            and bool(outcome.get("window_start") or outcome.get("window_end")))

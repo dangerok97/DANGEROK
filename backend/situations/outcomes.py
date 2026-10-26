@@ -278,7 +278,7 @@ async def validate_assessment(db, owner, goal, raw, *, evidence, run_at=None, no
             # A sourced empirical baseline or a real computed estimate is needed.
             # The person's own past with the same thing, at the same place,
             # is an empirical baseline too — usually the best one available.
-            if not any(item.provenance.capability in ("web.research", "situation.history")
+            if not any(item.provenance.capability in ("web.research", "situation.history", "situation.typical")
                        or item.provenance.source_class == "deterministic_computation"
                        for item in cited):
                 return _reject(reasons, "estimate_without_baseline")
