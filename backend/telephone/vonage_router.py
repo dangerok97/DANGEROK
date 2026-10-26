@@ -405,9 +405,11 @@ async def _apply_what_was_agreed(call, session) -> None:
         logger.info("agent non risvegliato dalla chiamata: %s", type(e).__name__)
 
     #     E LA CHAT DA CUI E' PARTITA VIENE A SAPERE COM'E' ANDATA.
-    from telephone.chat_report import tell_the_chat
+    from telephone.chat_report import notify_the_result, tell_the_chat
 
     await tell_the_chat(db, call)
+    #     E ANCHE IL TELEFONO, SE L'APP E' CHIUSA.
+    await notify_the_result(db, call)
 
 
 #     FRA «SQUILLA» E «PRONTO» NON CI SONO SEMPRE DEI SECONDI.

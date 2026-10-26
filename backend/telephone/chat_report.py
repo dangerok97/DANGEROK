@@ -127,3 +127,38 @@ async def calling_from(db, owner_id: str, chat_session_id: str) -> bool:
         "provider_ref": {"$nin": ["", None]},
     }, {"_id": 0, "id": 1})
     return riga is not None
+
+
+async def notify_the_result(db, call) -> bool:
+    """
+    The outcome also reaches the phone, not only the chat.
+
+    Audit 26/10: «Messaggio consegnato ad Asia» was written in the chat the
+    call started from, and nowhere else. Whoever closed the app after saying
+    «sì, chiamala» never learned how it went. The person asked for this call,
+    so its outcome is announced by code, through the one-time reminder lane
+    (memos.one_shot): once, at once, discreet on the lock screen.
+    """
+    try:
+        from datetime import datetime, timezone
+        from telephone.service import TelephoneService
+
+        fresca = await TelephoneService(db).get(call.owner_id, call.id) or call
+        riga = what_to_tell_the_chat(fresca)
+        if not riga:
+            return False
+        stamp = datetime.now(timezone.utc).isoformat()
+        result = await db.reminders.update_one(
+            {"id": f"rem_call_{call.id}"[:80], "user_id": call.owner_id},
+            {"$setOnInsert": {
+                "id": f"rem_call_{call.id}"[:80], "user_id": call.owner_id,
+                "title": riga[:160], "status": "open", "due_at": stamp,
+                "origin": "phone_call_result", "created_at": stamp, "updated_at": stamp,
+                "meta": {"call_id": call.id, "kind": "phone_call_result"},
+            }},
+            upsert=True,
+        )
+        return bool(result.upserted_id)
+    except Exception as e:  # pragma: no cover
+        logger.info("esito non notificato: %s", type(e).__name__)
+        return False

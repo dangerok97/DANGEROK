@@ -101,7 +101,8 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
             identity_key=f"{SOURCE_CONTEXT}:{rid}",
             status="active",
             semantic_summary=title,
-            why_it_matters="Mi hai chiesto di ricordartelo.",
+            why_it_matters=("Mi avevi chiesto di fare questa telefonata."
+                            if row.get("origin") == "phone_call_result" else "Mi hai chiesto di ricordartelo."),
             why_now=(f"È il momento: {title}" + (f" — {body}" if body else ""))[:400],
             relevance="high",
             urgency="urgent",
@@ -109,7 +110,8 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
             confidence="strong",
             initiative="inform",
             what_ora_can_do="Ricordartelo adesso.",
-            evidence=[EvidenceRef(kind="reminder", ref=rid, summary=title[:240])],
+            evidence=[EvidenceRef(kind="phone_call" if row.get("origin") == "phone_call_result" else "reminder",
+                                  ref=rid, summary=title[:240])],
             source_context=SOURCE_CONTEXT,
             decision_provenance="user",
             valid_until=(due + timedelta(hours=VALID_HOURS)).isoformat(),
@@ -154,6 +156,17 @@ async def reminder_opportunity_current(db, subject: Any) -> bool:
 def push_decision(subject: Any) -> Dict[str, Any]:
     """The delivery decision the person made when they asked for the reminder."""
     summary = str(getattr(subject, "semantic_summary", "") or "Promemoria")
+    call = any(getattr(e, "kind", "") == "phone_call" for e in getattr(subject, "evidence", []) or [])
+    if call:
+        return {
+            "mode": "push", "timing": "now",
+            "reason_to_interrupt": "Mi avevi chiesto di fare questa telefonata: ecco com'è andata.",
+            "reason_to_open": "L'esito della telefonata.",
+            "what_decided_the_mode": "telefonata richiesta dalla persona",
+            "confidence": "strong", "sensitivity": "personal", "requires_recheck": True,
+            "copy": {"title": "Telefonata conclusa", "body": summary[:200],
+                     "public_title": "Telefonata conclusa", "public_body": "Apri ORA per l'esito."},
+        }
     return {
         "mode": "push", "timing": "now",
         "reason_to_interrupt": "Mi avevi chiesto di ricordartelo a quest'ora.",
