@@ -80,6 +80,7 @@ async def build(
         ("disagreements", _disagreements),
         ("money", _money),
         ("documents", _documents),
+        ("deadlines", _deadlines),
         ("market_offers", _market_offers),
         ("life_profile", _life_profile),
         ("existing_work", _existing_work),
@@ -164,6 +165,9 @@ def _temporal_facts(snapshot: Dict[str, Any], now: datetime) -> Dict[str, Any]:
         "something_tomorrow": any(
             (row.get("in_days") == 1) for row in (snapshot.get("calendar") or [])
         ),
+        "deadline_today": any(r.get("days_left") == 0 for r in snapshot.get("deadlines") or []),
+        "deadline_tomorrow": any(r.get("days_left") == 1 for r in snapshot.get("deadlines") or []),
+        "deadline_overdue": any(r.get("overdue") for r in snapshot.get("deadlines") or []),
     }
 
 
@@ -777,6 +781,13 @@ async def _documents(db, user_id: str, now: datetime, *, document_ids=None) -> L
     return out
 
 
+async def _deadlines(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
+    """Open plan steps and decisions with a date, as facts (V3 audit 26/10)."""
+    from opportunities.deadlines import as_facts, upcoming
+
+    return as_facts(await upcoming(db, user_id, now), now)
+
+
 async def _market_offers(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
     """Fresh, source-backed alternatives from recurring public web research."""
     from energy_offers.service import SOURCE_FRESH_FOR
@@ -892,6 +903,7 @@ def evidence_refs(snapshot: Dict[str, Any]) -> Dict[str, str]:
             )
     take("existing_work", snapshot.get("existing_work"))
     take("document", snapshot.get("documents"))
+    take("deadline", snapshot.get("deadlines"))
     take("market_offer", snapshot.get("market_offers"))
     take("profile_fact", snapshot.get("life_profile"))
 
