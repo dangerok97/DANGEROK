@@ -32,6 +32,8 @@ LATE_GRACE_MINUTES = 45
 # How long after its moment the notification may still be useful.
 VALID_HOURS = 6
 MAX_PER_PASS = 20
+# How long a reminder that was told stays in Home.
+SHOWN_AFTER_HOURS = 12
 
 
 def _moment(value: Any) -> Optional[datetime]:
@@ -118,6 +120,15 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
         out["raised"] += 1
         if out["raised"] >= MAX_PER_PASS:
             break
+    # Told (or missed) more than half a day ago: no longer a thing to show
+    # in Home. Kept, not deleted.
+    try:
+        await db[COLLECTION].update_many(
+            {"status": {"$in": list(OPEN)}, "notified_state": {"$in": ["raised", "missed", "superseded"]},
+             "notified_at": {"$lte": (moment - timedelta(hours=SHOWN_AFTER_HOURS)).isoformat()}},
+            {"$set": {"status": "past", "updated_at": moment.isoformat()}})
+    except Exception as exc:
+        logger.info("one_shot past sweep deferred: %s", type(exc).__name__)
     if out["due"]:
         logger.info("one_shot_reminders %s", out)
     return out

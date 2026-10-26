@@ -61,3 +61,14 @@ def test_tools_are_registered_for_every_channel():
     registry = ToolRegistry()
     for name in ("set_reminder", "list_reminders", "cancel_reminder"):
         assert registry.get(name) is not None
+
+
+@pytest.mark.asyncio
+async def test_a_told_reminder_leaves_home_after_half_a_day(runtime):
+    db = runtime["db"]
+    await set_reminder({"what": "Il forno", "delay_minutes": 5}, runtime)
+    told = (NOW + timedelta(minutes=6)).astimezone(timezone.utc)
+    await one_shot.fire_due(db, now=told)
+    assert (await db.reminders.find_one({}))["status"] == "open"
+    await one_shot.fire_due(db, now=told + timedelta(hours=13))
+    assert (await db.reminders.find_one({}))["status"] == "past"
