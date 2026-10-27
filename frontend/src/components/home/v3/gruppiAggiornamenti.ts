@@ -19,6 +19,9 @@ const STATI_CHE_CHIEDONO = new Set(['Serve una risposta', 'Serve la tua scelta']
 export function gruppoDi(a: Aggiornamento): GruppoAggiornamento {
   const esito = a.situazione?.outcome;
   if (esito?.status === 'action_now') return 'adesso';
+  // A reminder that arrived is about now; a call outcome is news to read.
+  if (a.promemoria === 'reminder') return 'adesso';
+  if (a.promemoria === 'phone_call') return 'da_sapere';
   if (
     esito?.status === 'needs_input'
     || a.cosa_serve.trim()

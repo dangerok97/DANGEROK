@@ -176,3 +176,42 @@ def push_decision(subject: Any) -> Dict[str, Any]:
         "copy": {"title": "Promemoria", "body": summary[:200],
                  "public_title": "Promemoria", "public_body": "Apri ORA per vederlo."},
     }
+
+
+SNOOZE_MINUTES = (5, 10, 15, 30, 60, 120, 180)
+
+
+async def act(db, owner: str, opportunity_id: str, action: str, minutes: int = 10) -> Dict[str, Any]:
+    """«Fatto» or «ricordamelo più tardi» on a reminder that already arrived."""
+    import uuid
+
+    opp = await db.opportunities.find_one({"owner_id": owner, "id": opportunity_id}, {"_id": 0})
+    if not opp or opp.get("source_context") != SOURCE_CONTEXT:
+        return {"ok": False, "reason": "not_a_reminder"}
+    rid = str(opp.get("identity_key") or "").split(":", 1)[-1]
+    row = await db[COLLECTION].find_one({"id": rid, "user_id": owner}, {"_id": 0})
+    now = datetime.now(timezone.utc)
+    out: Dict[str, Any] = {"ok": True, "action": action}
+    if action == "snooze":
+        if minutes not in SNOOZE_MINUTES:
+            return {"ok": False, "reason": "invalid_minutes"}
+        if not row:
+            return {"ok": False, "reason": "reminder_missing"}
+        due = now + timedelta(minutes=minutes)
+        new_id = f"rem_{uuid.uuid4().hex[:16]}"
+        await db[COLLECTION].insert_one({
+            "id": new_id, "user_id": owner, "title": row.get("title") or "Promemoria",
+            "body": row.get("body") or "", "status": "open", "due_at": due.isoformat(),
+            "origin": "snooze", "created_at": now.isoformat(), "updated_at": now.isoformat(),
+            "meta": {"snoozed_from": rid},
+        })
+        out.update({"reminder_id": new_id, "due_at": due.isoformat()})
+    elif action != "done":
+        return {"ok": False, "reason": "invalid_action"}
+    if row:
+        await db[COLLECTION].update_one(
+            {"id": rid, "user_id": owner},
+            {"$set": {"status": "done", "updated_at": now.isoformat()}})
+    from opportunities.service import OpportunityService
+    await OpportunityService(db).resolve(owner, opportunity_id)
+    return out

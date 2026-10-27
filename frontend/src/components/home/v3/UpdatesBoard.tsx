@@ -145,6 +145,8 @@ function etichetta(a: Aggiornamento, g: GruppoAggiornamento): string | null {
   if (g === 'adesso') return 'Adesso';
   if (g !== 'per_te') return null;
   if (a.genere === 'suggerimento') return a.stato || 'Una proposta';
+  if (a.promemoria === 'reminder') return 'Promemoria';
+  if (a.promemoria === 'phone_call') return 'Telefonata';
   if (a.genere === 'occasione') return 'Da confermare';
   return 'Serve una risposta';
 }
@@ -191,7 +193,7 @@ function UpdateCard({
     >
       <View style={styles.row}>
         <View style={[styles.icon, { backgroundColor: urgent ? colors.surface : tone.bg }]}>
-          <Ionicons name={ICONE[a.genere]} size={20} color={tone.fg} />
+          <Ionicons name={a.promemoria === 'reminder' ? 'alarm-outline' : a.promemoria === 'phone_call' ? 'call-outline' : ICONE[a.genere]} size={20} color={tone.fg} />
         </View>
         <View style={styles.body}>
           {tag || quando ? (

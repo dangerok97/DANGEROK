@@ -46,6 +46,8 @@ export type Aggiornamento = {
   situazione?: MonitoredSituation | null;
   /** Information is true to its source, but no concrete next step is committed. */
   solo_informazione?: boolean;
+  /** Un promemoria chiesto dalla persona, o l'esito di una chiamata chiesta da lei. */
+  promemoria?: 'reminder' | 'phone_call';
   lavoro?: 'verify' | 'prepare';
   preparazione?: { checked_at?: string; summary?: string; question?: string; limits?: string; options?: { event_id: string; title: string; starts_at: string; ends_at: string }[] };
   azione?: { kind: 'verify' | 'prepare' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
@@ -103,7 +105,23 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     situazione: w.situation || null,
   }));
 
-  const occasioni: Aggiornamento[] = (home.opportunities || []).filter(o => !aggiornamentoScaduto(o.valid_until)).slice(0, 2).map((o) => ({
+  const occasioni: Aggiornamento[] = (home.opportunities || []).filter(o => !aggiornamentoScaduto(o.valid_until)).slice(0, 2).map((o): Aggiornamento => (o.reminder ? {
+    // Asked for by the person: not «una cosa che ho notato», nothing to verify.
+    id: o.id,
+    genere: 'occasione' as const,
+    promemoria: o.reminder.kind,
+    solo_informazione: true,
+    cosa: o.title,
+    perche: '',
+    fonte: o.reminder.kind === 'phone_call' ? 'La telefonata che mi hai chiesto' : 'Il promemoria che mi hai chiesto',
+    stato: '',
+    cosa_sta_facendo: '',
+    cosa_serve: '',
+    non_so: '',
+    prossimo_passo: '',
+    quando: o.created_at || '',
+    scade: o.valid_until || undefined,
+  } : {
     id: o.id,
     genere: 'occasione',
     solo_informazione: o.informational_only ??
@@ -175,6 +193,13 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
   // sollevate, poi i suggerimenti, poi gli spunti.
   return [...lavori, ...occasioni, ...suggerimenti, ...spunti]
     .filter(a => !aggiornamentoScaduto(a.scade));
+}
+
+/** Come si chiama, per chi legge, un aggiornamento preciso. */
+export function comeSiChiamaQuesto(a: Aggiornamento): string {
+  if (a.promemoria === 'reminder') return 'Il promemoria che mi hai chiesto';
+  if (a.promemoria === 'phone_call') return 'La telefonata che mi hai chiesto';
+  return comeSiChiama(a.genere);
 }
 
 /** Come si chiama, per chi legge, il genere di un aggiornamento. */

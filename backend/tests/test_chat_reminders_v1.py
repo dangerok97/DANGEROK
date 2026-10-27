@@ -72,3 +72,20 @@ async def test_a_told_reminder_leaves_home_after_half_a_day(runtime):
     assert (await db.reminders.find_one({}))["status"] == "open"
     await one_shot.fire_due(db, now=told + timedelta(hours=13))
     assert (await db.reminders.find_one({}))["status"] == "past"
+
+
+@pytest.mark.asyncio
+async def test_done_and_later_on_an_arrived_reminder(runtime, monkeypatch):
+    from opportunities.models import Opportunity
+
+    db = runtime["db"]
+    await set_reminder({"what": "Bere un bicchiere d'acqua", "delay_minutes": 1}, runtime)
+    await one_shot.fire_due(db, now=(NOW + timedelta(minutes=2)).astimezone(timezone.utc))
+    opp = await db.opportunities.find_one({}, {"_id": 0})
+    public = Opportunity(**opp).for_home()
+    assert public["reminder"] == {"kind": "reminder"}
+    later = await one_shot.act(db, OWNER, opp["id"], "snooze", 10)
+    assert later["ok"] and await db.reminders.count_documents({"status": "open"}) == 1
+    assert (await db.opportunities.find_one({"id": opp["id"]}))["status"] != "active"
+    assert (await one_shot.act(db, OWNER, opp["id"], "snooze", 7))["reason"] == "invalid_minutes"
+    assert (await one_shot.act(db, "intruder", opp["id"], "done"))["ok"] is False
