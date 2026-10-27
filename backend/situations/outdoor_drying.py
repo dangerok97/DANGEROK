@@ -153,7 +153,13 @@ async def _fetch_hours(lat: float, lon: float, start: datetime) -> List[Dict[str
 
 
 async def where(db, owner: str, situation) -> Optional[Dict[str, Any]]:
-    """The place of the drying: the situation's place, else home, else here now."""
+    """
+    Where the things are drying: the Situation's own place, never the phone.
+
+    The person may leave; what is drying stays. Same rule as the watch's
+    weather read: the place linked to the Situation, else its confirmed
+    locality resolved unambiguously, else the confirmed home.
+    """
     try:
         from places.service import PlacesService
 
@@ -164,21 +170,23 @@ async def where(db, owner: str, situation) -> Optional[Dict[str, Any]]:
                 if p and p.coordinates is not None and p.state == "confirmed":
                     return {"lat": p.coordinates.latitude, "lon": p.coordinates.longitude,
                             "label": p.locality or p.label, "ref": f"place:{p.id}"}
+        label = " ".join(str(getattr(situation, "location_label", "") or "").split())
+        if label:
+            from places import lookup
+
+            suggestions = await lookup.suggest(label)
+            place_id = lookup.unique_locality_match(suggestions, label) if suggestions.get("available") else None
+            if place_id:
+                resolved = await lookup.resolve(place_id)
+                if resolved.get("available") and resolved.get("latitude") is not None:
+                    return {"lat": round(float(resolved["latitude"]), 2), "lon": round(float(resolved["longitude"]), 2),
+                            "label": label, "ref": ""}
         for p in await places.list_places(owner):
             if p.role == "home" and p.coordinates is not None and p.state == "confirmed":
                 return {"lat": p.coordinates.latitude, "lon": p.coordinates.longitude,
                         "label": p.locality or p.label, "ref": f"place:{p.id}"}
     except Exception as exc:
         logger.info("drying place soft-fail: %s", type(exc).__name__)
-    try:
-        from home.service import HomeService
-
-        point = await HomeService(db)._where_they_are(owner)
-        if point:
-            # Rounded: about a kilometre is enough for the weather.
-            return {"lat": round(point[0], 2), "lon": round(point[1], 2), "label": point[2] or "", "ref": ""}
-    except Exception as exc:
-        logger.info("drying position soft-fail: %s", type(exc).__name__)
     return None
 
 

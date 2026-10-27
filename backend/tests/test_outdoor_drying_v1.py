@@ -137,3 +137,22 @@ async def test_arm_uses_the_computation_for_things_drying_outdoors(monkeypatch):
     monkeypatch.setattr(od, "plan", plan)
     out = await arm(AsyncMongoMockClient().drying_arm_v1, OWNER, _Sit(now), "Ho steso i panni")
     assert out["drying"] and out["at_local"] == "15:10"
+
+
+@pytest.mark.asyncio
+async def test_the_place_is_the_situations_never_the_phone(monkeypatch):
+    from unittest.mock import AsyncMock
+    from home.service import HomeService
+    from places import lookup
+
+    monkeypatch.setattr(HomeService, "_where_they_are", AsyncMock(side_effect=AssertionError("no device GPS")))
+    monkeypatch.setattr(lookup, "suggest", AsyncMock(return_value={
+        "available": True, "suggestions": [{"place_id": "t", "primary": "Tarquinia", "text": "Tarquinia, VT"}]}))
+    monkeypatch.setattr(lookup, "resolve", AsyncMock(return_value={
+        "available": True, "place_id": "t", "locality": "Tarquinia", "latitude": 42.2534, "longitude": 11.7581}))
+    sit = _Sit(datetime(2026, 10, 27, 9, 0, tzinfo=ROME))
+    sit.location_label = "Tarquinia"
+    place = await od.where(AsyncMongoMockClient().drying_where_v1, OWNER, sit)
+    assert place == {"lat": 42.25, "lon": 11.76, "label": "Tarquinia", "ref": ""}
+    sit.location_label = ""
+    assert await od.where(AsyncMongoMockClient().drying_where2_v1, OWNER, sit) is None

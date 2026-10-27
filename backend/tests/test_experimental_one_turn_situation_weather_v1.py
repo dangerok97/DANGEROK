@@ -61,6 +61,10 @@ async def setup(monkeypatch):
     monkeypatch.setattr(lookup, "suggest", suggest)
     monkeypatch.setattr(lookup, "resolve", resolve)
     monkeypatch.setattr(weather, "forecast_at", forecast)
+    # The code-computed drying plan has its own lookup and hourly read and its
+    # own tests (test_outdoor_drying_v1); here the watch's path is measured.
+    from situations import outdoor_drying
+    monkeypatch.setattr(outdoor_drying, "plan", AsyncMock(return_value=None))
     device = AsyncMock(side_effect=AssertionError("Do not use device GPS"))
     monkeypatch.setattr(HomeService, "_where_they_are", device)
     return db, suggest, resolve, forecast, device
