@@ -115,10 +115,12 @@ def compute(hours: List[Dict[str, Any]], *, start: datetime, now: datetime) -> D
             dry_at = span_from + timedelta(hours=(LOAD_UNITS - total) / rate)
         total += rate * fraction
     conditions = {k: [round(min(v)), round(max(v))] for k, v in seen.items() if v}
+    night_now = any(h["at"] <= now < h["at"] + timedelta(hours=1) and h.get("is_day") is False for h in hours)
     if done_now is None:
         done_now = min(1.0, total / LOAD_UNITS) if hours and hours[-1]["at"] < now else 0.0
     return {"dry_at": dry_at, "rain_at": rain_at if (rain_at and (dry_at is None or rain_at < dry_at)) else None,
-            "dusk_at": dusk_at, "done_fraction": round(done_now, 2), "conditions": conditions}
+            "dusk_at": dusk_at, "done_fraction": round(done_now, 2), "conditions": conditions,
+            "night_now": night_now}
 
 
 async def _fetch_hours(lat: float, lon: float, start: datetime) -> List[Dict[str, Any]]:
@@ -236,8 +238,15 @@ async def plan(db, owner: str, situation, *, now: Optional[datetime] = None, tz=
             main_at = max(now + timedelta(minutes=2), dusk_at - timedelta(minutes=DUSK_MARGIN_MINUTES))
             at_dusk = compute(hours, start=start, now=main_at)["done_fraction"]
             share = f", a quell'ora circa al {round(at_dusk * 100)}%" if at_dusk and at_dusk < 1 else ""
-            title = (f"Con questo meteo non si asciugano del tutto prima di sera: conviene ritirarli verso "
-                     f"le {_hhmm(main_at, tz)}{share} ({summary})")
+            if result.get("night_now"):
+                # Already dark: drying has practically stopped until morning.
+                main_at = now + timedelta(minutes=2)
+                share = f" (ora circa al {round(result['done_fraction'] * 100)}%)" if result["done_fraction"] < 1 else ""
+                title = (f"È già buio e l'aria si fa umida: con questo meteo non si asciugano stanotte, "
+                         f"conviene ritirarli{share} ({summary})")
+            else:
+                title = (f"Con questo meteo non si asciugano del tutto prima di sera: conviene ritirarli verso "
+                         f"le {_hhmm(main_at, tz)}{share} ({summary})")
         elif dry_at:
             title = f"Dovrebbero essere asciutti, secondo il meteo: {summary}"
         else:
@@ -317,3 +326,77 @@ async def replan_due(db, owner: str, *, now: Optional[datetime] = None) -> List[
         out.append({"code": "drying_replanned", "ref": f"situation:{situation.id}",
                     "repaired": bool(result), "moved": before != after})
     return out
+
+
+def _texts(situation) -> list:
+    return [str(getattr(situation, f, "") or "") for f in
+            ("summary", "tracking_summary", "current_state_summary", "attention_intent")] + \
+           [" ".join(getattr(situation, "facts", None) or [])]
+
+
+def concerns(situation) -> bool:
+    """Whether this Situation is about something drying outdoors (its own words)."""
+    return applies(*_texts(situation))
+
+
+async def ensure_planned(db, owner: str, situation) -> Optional[Dict[str, Any]]:
+    """
+    Plan once for a drying Situation that has no plan yet. Never raises.
+
+    27/10: the plan was armed only from the chat turn that created the
+    Situation, and only if the model had already marked it as watched. That
+    mark arrived a step later, the plan never ran, and the person heard from
+    the model's own watch at 21:04, hours after dark.
+    """
+    try:
+        if situation.status not in ("active", "changed") or not concerns(situation):
+            return None
+        if await db.reminders.find_one({"user_id": owner, "id": f"rem_sit_{situation.id}"[:80]}, {"_id": 1}):
+            return None
+        return await plan(db, owner, situation)
+    except Exception as exc:
+        logger.info("drying ensure deferred: %s", type(exc).__name__)
+        return None
+
+
+async def plan_missing(db, owner: str, *, now: Optional[datetime] = None) -> List[dict]:
+    """Self-check: every active drying Situation has a computed plan."""
+    from situations.models import SituationState
+
+    out = []
+    rows = await db.situations.find(
+        {"user_id": owner, "status": {"$in": ["active", "changed"]}}, {"_id": 0}).to_list(20)
+    for row in rows:
+        try:
+            situation = SituationState(**row)
+        except Exception:
+            continue
+        if not concerns(situation):
+            continue
+        planned = await ensure_planned(db, owner, situation)
+        if planned:
+            out.append({"code": "drying_planned", "ref": f"situation:{situation.id}", "repaired": True})
+    return out
+
+
+async def speaks_for(db, owner: str, situation_id: str) -> bool:
+    """The computed plan is the one voice for this Situation (no double pushes)."""
+    if not situation_id:
+        return False
+    row = await db.reminders.find_one(
+        {"user_id": owner, "id": f"rem_sit_{situation_id}"[:80], "meta.kind": "drying_end",
+         "status": {"$ne": "cancelled"}}, {"_id": 1})
+    return row is not None
+
+
+async def situation_of(db, owner: str, kind: str, subject) -> str:
+    """The Situation a notification is about, when it is about exactly one."""
+    refs: list = []
+    if kind == "agent_need":
+        goal = await db.agent_goals.find_one(
+            {"owner_id": owner, "id": getattr(subject, "goal_id", "")}, {"_id": 0, "source_refs": 1})
+        refs = [str(r) for r in (goal or {}).get("source_refs") or []]
+    elif kind == "opportunity":
+        refs = [str(getattr(e, "ref", "")) for e in getattr(subject, "evidence", None) or []]
+    ids = {r.split(":")[1] for r in refs if r.startswith("situation:") and len(r.split(":")) > 1}
+    return next(iter(ids)) if len(ids) == 1 else ""

@@ -691,6 +691,18 @@ def _identity_resolution_in(text: str, prep) -> str:
     message = identity_of(text)
     if re.search(r"\b(non|no|forse)\b", message) or "?" in text:
         return ""
+    # Owner WhatsApp 27/10 21:44: the question was «Asia è la mia ragazza?» —
+    # a yes/no question about exactly one saved relation — and «Sì» was
+    # refused as a generic yes, three times. A yes to that specific question
+    # is an explicit answer; a generic yes to any other question is not.
+    from preparation.trust import is_relation as _relation
+    _conflicts = list(prep.identity_conflicts or [])
+    _selected = (prep.selected_contact.name if prep.selected_contact else prep.counterparty) or ""
+    if (len(_conflicts) == 1 and _relation(_conflicts[0].get("name") or "")
+            and _selected and not _relation(_selected)
+            and message.split()[:1] and message.split()[0] in {
+                "si", "sì", "certo", "esatto", "giusto", "confermo", "yes", "ok", "okay", "esattamente", "sicuro"}):
+        return "shared"
     # «Asia è la mia ragazza», «la mia ragazza si chiama Asia», «sì, è Asia»:
     # the name and the saved relation are the same person — both keep it.
     from preparation.trust import is_relation

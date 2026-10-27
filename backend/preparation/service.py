@@ -147,10 +147,18 @@ async def change_counterparty(
     nuovo = " ".join((name or "").strip(" ,.;:!?").split())[:160]
     if len(nuovo) < 2:
         return prep, "non ho capito di chi intendi il numero"
-    from preparation.trust import identity_of
+    from preparation.trust import identity_of, is_relation
 
     if identity_of(nuovo) == identity_of(prep.counterparty):
         return prep, ""
+    # Owner WhatsApp 27/10: «la mia ragazza» → number given → understood as
+    # Asia → «Non ho trovato un numero per Asia». The number the person just
+    # gave for the relation travels to the name; the usual identity check
+    # still runs on it.
+    carried = ""
+    if (is_relation(prep.counterparty or "") and not is_relation(nuovo)
+            and prep.selected_contact is not None and prep.selected_contact.number):
+        carried = prep.selected_contact.number
 
     prep.counterparty = nuovo
     prep.selected_contact = None
@@ -165,7 +173,10 @@ async def change_counterparty(
     prep.number_trust = ""
     prep.summary_shown_in = ""
     prep.conversation_ready = False
-    return await look_around(db, prep, operation=operation)
+    prep, why = await look_around(db, prep, operation=operation)
+    if prep is not None and carried and (prep.selected_contact is None or not prep.selected_contact.number):
+        return await set_contact_number(db, prep, number=carried)
+    return prep, why
 
 
 async def _who_to_call(db, prep: MissionPreparation) -> MissionPreparation:

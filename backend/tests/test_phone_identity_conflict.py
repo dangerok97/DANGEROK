@@ -748,3 +748,54 @@ async def test_relation_passed_as_new_counterparty_does_not_loop(db, monkeypatch
     )
     assert result.payload["identity_conflicts"] == []
     assert result.payload["contact"]["name"] == "Asia"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer", ["Si", "Sì", "Si cazzo!!!", "esatto"])
+async def test_owner_whatsapp_a_plain_yes_to_the_relation_question_is_enough(db, monkeypatch, answer):
+    from telephone.caps import _through_the_preparation
+
+    prep = await _asia_with_relation_conflict(db)
+
+    async def classify(system, payload):
+        return {"decision": "unclear", "canonical_name": ""}
+
+    monkeypatch.setattr("research.reasoning._ask_model", classify)
+    result = await _through_the_preparation(
+        {"preparation_id": prep.preparation_id},
+        {"session_id": "chat", "reasoning_epoch": "two", "user_message": answer},
+        db, "owner",
+    )
+    assert result.payload["identity_conflicts"] == []
+    assert result.payload["contact"]["name"] == "Asia"
+    assert "è la mia ragazza?" not in result.payload["say_this"]
+
+
+@pytest.mark.asyncio
+async def test_a_plain_no_to_the_relation_question_does_not_merge(db, monkeypatch):
+    from telephone.caps import _through_the_preparation
+
+    prep = await _asia_with_relation_conflict(db)
+
+    async def classify(system, payload):
+        return {"decision": "unclear", "canonical_name": ""}
+
+    monkeypatch.setattr("research.reasoning._ask_model", classify)
+    result = await _through_the_preparation(
+        {"preparation_id": prep.preparation_id},
+        {"session_id": "chat", "reasoning_epoch": "two", "user_message": "No"},
+        db, "owner",
+    )
+    assert result.payload["identity_conflicts"]
+
+
+@pytest.mark.asyncio
+async def test_the_number_given_for_the_relation_travels_to_the_name(db):
+    from preparation.service import change_counterparty
+
+    prep = await prepare(db, "la mia ragazza", number="327 7631311")
+    assert prep.selected_contact and prep.selected_contact.number
+    number = prep.selected_contact.number
+    moved, _ = await change_counterparty(db, prep, name="Asia")
+    assert moved.counterparty == "Asia"
+    assert moved.selected_contact is not None and moved.selected_contact.number == number

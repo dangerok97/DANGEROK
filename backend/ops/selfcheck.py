@@ -126,7 +126,8 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
     except Exception as exc:
         logger.info("self_check events deferred: %s", type(exc).__name__)
     try:
-        from situations.outdoor_drying import replan_due
+        from situations.outdoor_drying import plan_missing, replan_due
+        findings.extend(await plan_missing(db, owner, now=now))
         findings.extend(await replan_due(db, owner, now=now))
     except Exception as exc:
         logger.info("self_check drying deferred: %s", type(exc).__name__)
