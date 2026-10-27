@@ -156,3 +156,82 @@ async def test_the_place_is_the_situations_never_the_phone(monkeypatch):
     assert place == {"lat": 42.25, "lon": 11.76, "label": "Tarquinia", "ref": ""}
     sit.location_label = ""
     assert await od.where(AsyncMongoMockClient().drying_where2_v1, OWNER, sit) is None
+
+
+# --- 27/10: the plan must exist whatever path created the Situation ---------
+
+@pytest.mark.asyncio
+async def test_a_drying_situation_created_without_attention_is_still_planned(monkeypatch):
+    from unittest.mock import AsyncMock
+    from situations.models import SituationUpdate
+    from situations.service import SituationService
+
+    calls = []
+
+    async def plan(db, owner, situation, **kw):
+        calls.append(situation.id)
+        await db.reminders.insert_one({"id": f"rem_sit_{situation.id}", "user_id": owner,
+                                       "status": "open", "meta": {"kind": "drying_end"}})
+        return {"at_local": "16:45"}
+
+    monkeypatch.setattr(od, "plan", plan)
+    from opportunities.discovery import OpportunityDiscovery
+    monkeypatch.setattr(OpportunityDiscovery, "note", AsyncMock(return_value={"outcome": "accepted"}))
+    db = AsyncMongoMockClient().drying_created_v1
+    out = await SituationService(db).apply(
+        user_id=OWNER, session_id="s", reasoning_epoch="e1", user_message="",
+        update=SituationUpdate(operation="create", summary="Panni stesi in terrazzo"))
+    assert out["status"] == "success" and len(calls) == 1
+    # The self-check finds nothing left to plan.
+    assert await od.plan_missing(db, OWNER) == []
+
+
+@pytest.mark.asyncio
+async def test_self_check_plans_a_drying_situation_that_has_none(monkeypatch):
+    from situations.models import SituationState
+
+    async def plan(db, owner, situation, **kw):
+        return {"at_local": "16:45"}
+
+    monkeypatch.setattr(od, "plan", plan)
+    db = AsyncMongoMockClient().drying_missing_v1
+    await db.situations.insert_one(SituationState(id="sit_x", user_id=OWNER, summary="Ho steso il bucato").model_dump())
+    await db.situations.insert_one(SituationState(id="sit_y", user_id=OWNER, summary="Riunione alle 15").model_dump())
+    found = await od.plan_missing(db, OWNER)
+    assert [f["ref"] for f in found] == ["situation:sit_x"]
+
+
+@pytest.mark.asyncio
+async def test_one_voice_for_a_drying_situation():
+    from types import SimpleNamespace
+
+    db = AsyncMongoMockClient().drying_voice_v1
+    await db.agent_goals.insert_one({"owner_id": OWNER, "id": "gol_1", "source_refs": ["situation:sit_dry"]})
+    need = SimpleNamespace(goal_id="gol_1")
+    assert await od.situation_of(db, OWNER, "agent_need", need) == "sit_dry"
+    assert not await od.speaks_for(db, OWNER, "sit_dry")
+    await db.reminders.insert_one({"id": "rem_sit_sit_dry", "user_id": OWNER, "status": "open",
+                                   "meta": {"kind": "drying_end"}})
+    assert await od.speaks_for(db, OWNER, "sit_dry")
+    opp = SimpleNamespace(evidence=[SimpleNamespace(ref="situation:sit_dry")])
+    assert await od.situation_of(db, OWNER, "opportunity", opp) == "sit_dry"
+
+
+def test_delivery_keeps_the_watch_in_the_app_when_the_plan_speaks():
+    import inspect
+    from delivery import service
+
+    src = inspect.getsource(service.DeliveryService.evaluate_subject)
+    assert "computed_plan_speaks" in src and "requires_response" in src
+
+
+@pytest.mark.asyncio
+async def test_after_dark_it_says_so_now():
+    db = AsyncMongoMockClient().drying_night_v1
+    hung = datetime(2026, 10, 27, 15, 30, tzinfo=ROME)
+    now = datetime(2026, 10, 27, 18, 40, tzinfo=ROME)
+    out = await od.plan(db, OWNER, _Sit(hung), now=now.astimezone(timezone.utc), tz=ROME, place=PLACE,
+                        hours=day(hung, temp=15, rh=75, wind=6, sun=200, dusk_hour=17))
+    row = await db.reminders.find_one({"id": "rem_sit_sit_dry"})
+    assert out["not_today"] and row["title"].startswith("È già buio")
+    assert datetime.fromisoformat(row["due_at"]).astimezone(ROME).strftime("%H:%M") == "18:42"

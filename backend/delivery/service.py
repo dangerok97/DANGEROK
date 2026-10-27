@@ -178,6 +178,19 @@ class DeliveryService:
             # Re-judgement sees the validated current need, not caller-held
             # wording or a result from an older Situation attention cycle.
             subject = current
+        if (kind in ("agent_need", "opportunity")
+                and getattr(subject, "source_context", "") != "one_shot_reminder"
+                and not getattr(subject, "requires_response", False)):
+            # Something drying outdoors has one voice: the computed plan sends
+            # its own notices. The model's watch stays in the app (27/10: a
+            # second notice at 21:04, hours after dark).
+            from situations.outdoor_drying import situation_of, speaks_for
+            sid = await situation_of(self.db, user_id, kind, subject)
+            if sid and await speaks_for(self.db, user_id, sid):
+                await self.cancel_for_source(user_id, subject_id, source_type=kind,
+                                             reason="gli avvisi li manda il calcolo dal meteo")
+                return DeliveryResult(mode="in_app", blocked_by="computed_plan_speaks",
+                                      reason="Per questa situazione avvisa il calcolo dal meteo.")
         # Do not even ask a model to notify about a provably expired event.
         # The exact source is rechecked once more just before send.
         if kind == "opportunity":

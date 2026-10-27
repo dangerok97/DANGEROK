@@ -332,6 +332,11 @@ class SituationService:
                     "situation attention admission soft-fail: %s", type(exc).__name__
                 )
         latest_changes = situation.history[-1].changes if situation.history else {}
+        if operation in ("create", "update"):
+            # Something drying outdoors gets its computed plan whatever path
+            # created it, without waiting for the model to mark it as watched.
+            from situations.outdoor_drying import ensure_planned
+            await ensure_planned(self.db, user_id, situation)
         if operation in ("resolve", "cancel"):
             # Before the watch is closed: what was estimated and when it ended
             # become evidence for the next similar Situation.
