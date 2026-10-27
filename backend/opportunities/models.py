@@ -350,6 +350,11 @@ class Opportunity(BaseModel):
             "created_at": self.created_at,
             "valid_until": self.valid_until,
             "status": self.status,
+            # A reminder the person asked for, or the outcome of a call they
+            # asked for: not "something ORA noticed" (owner screenshot 27/10).
+            "reminder": ({"kind": "phone_call" if any(e.kind == "phone_call" for e in self.evidence)
+                          else "reminder"}
+                         if self.source_context == "one_shot_reminder" else None),
         }
 
     def for_ai(self) -> Dict[str, Any]:

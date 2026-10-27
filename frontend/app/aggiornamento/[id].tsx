@@ -22,7 +22,7 @@ import { api, type HomeV2Response } from '@/src/api/client';
 import { OraBadge, OraCard } from '@/src/components/ora-ui';
 import { NienteQui, PaginaOra } from '@/src/components/pagine/PaginaOra';
 import {
-  comeSiChiama,
+  comeSiChiamaQuesto,
   quandoAggiornamento,
   elencoAggiornamenti,
   type Aggiornamento,
@@ -88,8 +88,8 @@ export default function DettaglioAggiornamento() {
 
   return (
     <PaginaOra
-      titolo="Aggiornamento di ORA"
-      sottotitolo={a ? comeSiChiama(a.genere) : undefined}
+      titolo={a?.promemoria === 'reminder' ? 'Promemoria' : a?.promemoria === 'phone_call' ? 'Telefonata' : 'Aggiornamento di ORA'}
+      sottotitolo={a ? comeSiChiamaQuesto(a) : undefined}
       attiva="index"
       testID="pagina-aggiornamento"
     >
@@ -102,10 +102,80 @@ export default function DettaglioAggiornamento() {
           testo="Questo aggiornamento è scaduto o non è più attivo. ORA non ti chiederà di risolvere un evento già passato."
           testID="dettaglio-mancante"
         />
+      ) : a.promemoria ? (
+        <DettaglioPromemoria a={a} onClosed={() => router.replace('/' as never)} />
       ) : (
         <Dettaglio a={a} onRemoved={() => router.replace('/aggiornamenti' as never)} onChanged={leggi} />
       )}
     </PaginaOra>
+  );
+}
+
+export const RIMANDI: Array<{ minuti: number; label: string }> = [
+  { minuti: 10, label: 'Tra 10 minuti' },
+  { minuti: 60, label: 'Tra un\'ora' },
+];
+
+/**
+ * Un promemoria che hai chiesto tu, o l'esito di una telefonata che hai
+ * chiesto tu. Non «una cosa che ho notato» e niente da verificare
+ * (screenshot del 27/10): la frase, quando, e cosa puoi farci.
+ */
+function DettaglioPromemoria({ a, onClosed }: { a: Aggiornamento; onClosed: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [errore, setErrore] = useState('');
+  const [fatto, setFatto] = useState('');
+  const agisci = async (azione: 'done' | 'snooze', minuti = 10) => {
+    if (busy) return;
+    setBusy(azione + minuti);
+    setErrore('');
+    try {
+      const r = await api.reminderAction(a.id, azione, minuti);
+      if (azione === 'snooze' && r.due_at) {
+        const ora = new Date(r.due_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        setFatto(`Va bene, te lo ricordo alle ${ora}.`);
+        setTimeout(onClosed, 1200);
+      } else {
+        onClosed();
+      }
+    } catch (e) {
+      setErrore(humanizeError(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const telefonata = a.promemoria === 'phone_call';
+  return (
+    <>
+      <OraCard style={styles.voce} testID="promemoria-testo">
+        <View style={styles.testa}>
+          <Ionicons name={telefonata ? 'call-outline' : 'alarm-outline'} size={18} color={ora.deep} />
+          <Text style={[oraType.small, { color: ora.ink3, fontWeight: '600' }]}>
+            {(quandoAggiornamento(a.quando) || '').toUpperCase()}
+          </Text>
+        </View>
+        <Text style={[oraType.title, { color: ora.ink }]}>{a.cosa}</Text>
+      </OraCard>
+      {fatto ? (
+        <Text accessibilityRole="alert" style={[oraType.body, { color: ora.ink }]} testID="promemoria-rimandato">{fatto}</Text>
+      ) : (
+        <View style={styles.bottoni}>
+          <Pressable accessibilityRole="button" testID="promemoria-fatto"
+            onPress={() => void agisci('done')} disabled={!!busy}
+            style={({ pressed }) => [styles.retry, pressed && { opacity: 0.8 }]}>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>{busy === 'done10' ? '…' : telefonata ? 'Ok' : 'Fatto'}</Text>
+          </Pressable>
+          {!telefonata && RIMANDI.map(r => (
+            <Pressable key={r.minuti} accessibilityRole="button" testID={`promemoria-rimanda-${r.minuti}`}
+              onPress={() => void agisci('snooze', r.minuti)} disabled={!!busy}
+              style={({ pressed }) => [styles.secondario, pressed && { opacity: 0.8 }]}>
+              <Text style={{ color: ora.ink, fontWeight: '600' }}>{busy === 'snooze' + r.minuti ? '…' : r.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      {errore ? <Text accessibilityRole="alert" style={{ color: ora.attention }}>{errore}</Text> : null}
+    </>
   );
 }
 
@@ -282,4 +352,6 @@ const styles = StyleSheet.create({
   testa: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   remove: { alignSelf: 'flex-start', paddingVertical: 10 },
   retry: { minHeight: 44, padding: 12, borderRadius: 12, backgroundColor: ora.cta, alignSelf: 'flex-start' },
+  secondario: { minHeight: 44, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: ora.hairline, alignSelf: 'flex-start' },
+  bottoni: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 });

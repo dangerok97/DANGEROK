@@ -1247,6 +1247,13 @@ export const api = {
     takes the card off the screen, and "vediamo" opens the conversation
     without deciding anything at all. None of them creates work.
   */
+  /** «Fatto» or «ricordamelo tra N minuti» on a reminder that arrived. */
+  reminderAction: (id: string, action: 'done' | 'snooze', minutes = 10) =>
+    request<{ ok: boolean; action: string; due_at?: string }>(`/opportunities/${id}/reminder`, {
+      method: 'POST',
+      body: JSON.stringify({ action, minutes }),
+    }),
+
   dismissOpportunity: (id: string, suppress = false) =>
     request<{ ok: boolean; status: string }>(`/opportunities/${id}/dismiss`, {
       method: 'POST',
@@ -3408,6 +3415,8 @@ export type HomeOpportunity = {
   what_ora_can_do?: string | null;
   question?: string | null;
   seen?: boolean;
+  /** A reminder the person asked for, or the outcome of a call they asked for. */
+  reminder?: { kind: 'reminder' | 'phone_call' } | null;
 };
 
 /**

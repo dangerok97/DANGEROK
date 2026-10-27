@@ -112,6 +112,23 @@ async def resolve(opportunity_id: str, user=Depends(get_current_user)):
     return result
 
 
+class ReminderActionIn(BaseModel):
+    action: str
+    minutes: int = 10
+
+
+@router.post("/{opportunity_id}/reminder")
+async def reminder_action(opportunity_id: str, body: ReminderActionIn, user=Depends(get_current_user)):
+    """«Fatto» / «Ricordamelo tra…» on a reminder the person asked for."""
+    from deps import db
+    from memos.one_shot import act
+
+    result = await act(db, user["user_id"], opportunity_id, body.action, body.minutes)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("reason") or "non valido")
+    return result
+
+
 @router.post("/changes")
 async def record_change(body: ChangeIn, user=Depends(get_current_user)):
     """
