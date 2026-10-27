@@ -159,6 +159,12 @@ async def arm(db, owner: str, situation, user_message: str) -> Optional[dict]:
         summary = " ".join(str(situation.summary or "").split())[:110]
         typical = None
         if not found:
+            from situations import outdoor_drying
+            if outdoor_drying.applies(situation.summary or "", user_message, " ".join(getattr(situation, "facts", None) or [])):
+                # Drying outdoors: computed from the hourly weather, not a
+                # usual duration and not a guess (24-26/10).
+                planned = await outdoor_drying.plan(db, owner, situation, tz=now.tzinfo)
+                return {**planned, "drying": True} if planned else None
             # Nothing stated. A usual duration gives a fallback the first
             # time only: a later turn must not keep pushing it forward, and
             # it never replaces a moment the person stated.
@@ -223,6 +229,9 @@ async def already_said(db, owner: str, row: dict) -> bool:
     goal = await db.agent_goals.find_one(
         {"owner_id": owner, "source_refs": f"situation:{sid}"},
         {"_id": 0, "situation_outcome": 1}, sort=[("updated_at", -1)])
+    if (row.get("meta") or {}).get("kind") == "rain_risk":
+        # Rain is an exception to warn about, whatever the watch concluded.
+        return False
     outcome = (goal or {}).get("situation_outcome") or {}
     if outcome.get("action_reason") == "outcome_ready":
         return True

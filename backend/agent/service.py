@@ -2528,6 +2528,24 @@ class AgentService:
             state = await SituationRepository(self.db).get(owner_id, sid)
             if state is None:
                 return
+            computed = await self.db.reminders.find_one(
+                {"user_id": owner_id, "id": f"rem_sit_{sid}"[:80], "meta.kind": "drying_end"},
+                {"_id": 0, "due_at": 1, "meta": 1})
+            if computed:
+                meta = computed.get("meta") or {}
+                await self.evidence.record(AgentEvidence(
+                    owner_id=owner_id, goal_id=goal.id, kind="situation_experience",
+                    claim=(f"Stima calcolata dal codice dal meteo orario del luogo ({meta.get('weather') or 'condizioni previste'}): "
+                           f"momento utile previsto {computed.get('due_at')}; avanzamento stimato ora "
+                           f"{round(100 * float(meta.get('done_fraction') or 0))}%. Il codice la ricalcola ogni ora "
+                           "e invia da solo l'avviso; è una stima dal meteo, non un'osservazione.")[:600],
+                    supports=(goal.desired_outcome or "")[:300],
+                    provenance=ResultProvenance(
+                        source_class="deterministic_computation", capability="situation.drying",
+                        provider="situation", source_refs=[f"situation:{sid}"], freshness="fresh",
+                        certainty_note="Calcolo dal meteo orario; non una misura dell'oggetto.",
+                    ),
+                ))
             from situations.typical import describe, match
             usual = match(state.summary or "", " ".join(state.facts or []))
             if usual:
