@@ -72,12 +72,19 @@ async def _local_now(db, owner):
     return datetime.fromisoformat(clock["local_datetime"])
 
 
+_REPEAT_WORDS = {"daily": "ogni giorno", "weekdays": "dal lunedì al venerdì", "weekly": "ogni settimana"}
+
+
 def _public(row: Dict[str, Any], tz) -> Dict[str, Any]:
     from memos.one_shot import _due
 
     due = _due(row)
-    return {"reminder_id": row.get("id"), "what": row.get("title"),
-            "at_label": _label(due.astimezone(tz)) if due else ""}
+    out = {"reminder_id": row.get("id"), "what": row.get("title"),
+           "at_label": _label(due.astimezone(tz)) if due else ""}
+    repeat = (row.get("meta") or {}).get("repeat")
+    if repeat:
+        out["repeats"] = _REPEAT_WORDS.get(repeat, repeat)
+    return out
 
 
 async def set_reminder(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
@@ -118,14 +125,25 @@ async def set_reminder(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Ob
          "due_at": {"$gte": window[0], "$lte": window[1]}}, {"_id": 0})
     if same:
         return _obs(name, True, {"status": "already_set", **_public(same, now.tzinfo)})
+    from memos.one_shot import REPEATS
+    repeat = str(arguments.get("repeat") or "").strip().lower()
+    if repeat in ("", "none", "no"):
+        repeat = ""
+    elif repeat not in REPEATS:
+        return _obs(name, False, {"error": "invalid_repeat", "allowed": list(REPEATS)})
     stamp = datetime.now(timezone.utc).isoformat()
+    meta = {"session_id": str(runtime.get("session_id") or "")[:80]}
+    if repeat:
+        meta.update({"repeat": repeat, "tz": str(getattr(now.tzinfo, "key", "") or "Europe/Rome")})
     row = {"id": f"rem_{uuid.uuid4().hex[:16]}", "user_id": owner, "title": what,
            "body": " ".join(str(arguments.get("note") or "").split())[:300],
            "status": "open", "due_at": due.isoformat(), "origin": "chat_reminder",
-           "created_at": stamp, "updated_at": stamp,
-           "meta": {"session_id": str(runtime.get("session_id") or "")[:80]}}
+           "created_at": stamp, "updated_at": stamp, "meta": meta}
+    if repeat:
+        row["meta"]["series"] = row["id"]
     await db.reminders.insert_one(dict(row))
     return _obs(name, True, {"status": "set", **_public(row, now.tzinfo),
+                             "repeat": _REPEAT_WORDS.get(repeat, "una volta"),
                              "delivery": "notifica sul telefono all'ora indicata, e in Home"})
 
 

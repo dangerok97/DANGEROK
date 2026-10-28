@@ -239,6 +239,9 @@ class ToolRegistry:
                 "delay_minutes": {"type": "number", "description": "Minutes from now."},
                 "at_local": {"type": "string", "description": "Local YYYY-MM-DDTHH:MM."},
                 "note": {"type": "string", "description": "Optional detail to show when it fires."},
+                "repeat": {"type": "string", "enum": ["none", "daily", "weekdays", "weekly"],
+                           "description": "For 'ogni giorno', 'dal lunedì al venerdì', 'ogni martedì': "
+                                          "the first moment goes in at_local, the series keeps that local time."},
             }, "required": ["what"]},
             classification="personal", side_effect="REVERSIBLE_WRITE", freshness="stable",
             risk="write_soft", handler=set_reminder, tags=["reminder", "promemoria", "time"],
@@ -254,7 +257,8 @@ class ToolRegistry:
             capability="cancel_reminder",
             description=(
                 "Cancel one upcoming reminder by reminder_id (from list_reminders), when the "
-                "person says it is no longer needed or wants it moved (then set a new one)."
+                "person says it is no longer needed or wants it moved (then set a new one). For a "
+                "repeating one this stops the whole series."
             ),
             input_schema={"type": "object", "properties": {"reminder_id": {"type": "string"}},
                           "required": ["reminder_id"]},

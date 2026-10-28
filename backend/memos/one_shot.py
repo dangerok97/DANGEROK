@@ -79,6 +79,8 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
         if not late:
             from situations.stated_time import already_said
             superseded = await already_said(db, owner, row)
+        if (row.get("meta") or {}).get("repeat"):
+            await _schedule_next(db, row, due, moment)
         claimed = await db[COLLECTION].find_one_and_update(
             {"id": rid, "user_id": owner, "status": {"$in": list(OPEN)},
              "notified_state": {"$exists": False}},
@@ -199,11 +201,20 @@ async def act(db, owner: str, opportunity_id: str, action: str, minutes: int = 1
             return {"ok": False, "reason": "reminder_missing"}
         due = now + timedelta(minutes=minutes)
         new_id = f"rem_{uuid.uuid4().hex[:16]}"
+        meta = dict(row.get("meta") or {})
+        # «Non ancora» on an estimate is the person's own time: learn from the
+        # first one (later ones are the same answer said again).
+        if not meta.get("snoozed_from"):
+            start, told = _moment(meta.get("start")), _moment(row.get("due_at"))
+            if start and told and told > start:
+                from situations.calibration import learn_not_yet
+                await learn_not_yet(db, owner, meta, planned_minutes=(told - start).total_seconds() / 60,
+                                    extra_minutes=minutes)
         await db[COLLECTION].insert_one({
             "id": new_id, "user_id": owner, "title": row.get("title") or "Promemoria",
             "body": row.get("body") or "", "status": "open", "due_at": due.isoformat(),
             "origin": "snooze", "created_at": now.isoformat(), "updated_at": now.isoformat(),
-            "meta": {"snoozed_from": rid},
+            "meta": {"snoozed_from": rid, **({"situation_id": meta["situation_id"]} if meta.get("situation_id") else {})},
         })
         out.update({"reminder_id": new_id, "due_at": due.isoformat()})
     elif action != "done":
@@ -214,4 +225,53 @@ async def act(db, owner: str, opportunity_id: str, action: str, minutes: int = 1
             {"$set": {"status": "done", "updated_at": now.isoformat()}})
     from opportunities.service import OpportunityService
     await OpportunityService(db).resolve(owner, opportunity_id)
+    sid = ((row or {}).get("meta") or {}).get("situation_id")
+    if action == "done" and sid:
+        # «Fatto» on "dovrebbero essere asciutti" ends the Situation, now.
+        from situations.closing import close
+        out["situation_closed"] = await close(
+            db, owner, sid, by="person", fact="La persona l'ha segnata come fatta dal promemoria di ORA.")
     return out
+
+
+REPEATS = ("daily", "weekdays", "weekly")
+
+
+def next_occurrence(due: datetime, repeat: str, tz_name: str, *, after: datetime) -> Optional[datetime]:
+    """The next moment at the same local time, strictly after `after`."""
+    from zoneinfo import ZoneInfo
+
+    try:
+        tz = ZoneInfo(tz_name or "Europe/Rome")
+    except Exception:
+        tz = ZoneInfo("Europe/Rome")
+    local = due.astimezone(tz)
+    step = 7 if repeat == "weekly" else 1
+    candidate = local
+    for _ in range(400):
+        candidate = (candidate.replace(tzinfo=None) + timedelta(days=step)).replace(tzinfo=tz)
+        if repeat == "weekdays" and candidate.weekday() >= 5:
+            continue
+        if candidate.astimezone(timezone.utc) > after:
+            return candidate.astimezone(timezone.utc)
+    return None
+
+
+async def _schedule_next(db, row: Dict[str, Any], due: datetime, now: datetime) -> None:
+    """A repeating reminder plans its next occurrence when this one comes due."""
+    import uuid
+
+    meta = dict(row.get("meta") or {})
+    nxt = next_occurrence(due, str(meta.get("repeat")), str(meta.get("tz") or ""), after=now)
+    if nxt is None:
+        return
+    series = meta.get("series") or row.get("id")
+    if await db[COLLECTION].find_one({"user_id": row["user_id"], "meta.series": series,
+                                      "due_at": nxt.isoformat()}, {"_id": 1}):
+        return
+    await db[COLLECTION].insert_one({
+        "id": f"rem_{uuid.uuid4().hex[:16]}", "user_id": row["user_id"], "title": row.get("title") or "Promemoria",
+        "body": row.get("body") or "", "status": "open", "due_at": nxt.isoformat(),
+        "origin": row.get("origin") or "chat_reminder", "created_at": now.isoformat(), "updated_at": now.isoformat(),
+        "meta": {**meta, "series": series},
+    })
