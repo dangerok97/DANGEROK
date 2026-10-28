@@ -83,6 +83,8 @@ async def record(db, owner: str, situation, *, operation: str) -> None:
             "first_hypothesis": str((first or {}).get("note") or "")[:200],
             "final_hypothesis": {"headline": str(outcome.get("headline") or "")[:200],
                                  "ready": outcome.get("action_reason") == "outcome_ready"} if outcome else None,
+            # Closed by the person (a real moment) or by ORA after silence.
+            "closed_by": "ora" if (situation.history and situation.history[-1].source == "inferred") else "person",
             # Only facts the person (or the conversation) added when closing it.
             "closing_facts": [str(f)[:160] for f in (latest.get("facts") or [])][:3],
             "recorded_at": datetime.now(timezone.utc).isoformat(),
@@ -143,6 +145,8 @@ async def recall(db, owner: str, situation, *, tz: str = "Europe/Rome") -> Optio
         if est.get("window_start") and est.get("window_end"):
             window = f", stima {_local(est['window_start'], tz)[-5:]}-{_local(est['window_end'], tz)[-5:]}"
         how = "chiusa" if r.get("operation") == "resolve" else "annullata"
+        if r.get("closed_by") == "ora":
+            how = "chiusa da ORA dopo il silenzio (ora non significativa)"
         facts = f" ({'; '.join(r['closing_facts'])})" if r.get("closing_facts") else ""
         final = r.get("final_hypothesis") or {}
         said = "; ORA aveva concluso che fosse pronto" if final.get("ready") else ""

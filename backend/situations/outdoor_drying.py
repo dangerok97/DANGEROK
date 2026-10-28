@@ -84,7 +84,7 @@ def _moment(value: Any) -> Optional[datetime]:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
-def compute(hours: List[Dict[str, Any]], *, start: datetime, now: datetime) -> Dict[str, Any]:
+def compute(hours: List[Dict[str, Any]], *, start: datetime, now: datetime, units: float = LOAD_UNITS) -> Dict[str, Any]:
     """
     hours: [{at (aware), temp_c, rh, wind_kmh, radiation, is_day, rain_pct, rain_mm}] in order.
     Returns {dry_at, rain_at, dusk_at, done_fraction, conditions} — instants are aware or None.
@@ -110,14 +110,14 @@ def compute(hours: List[Dict[str, Any]], *, start: datetime, now: datetime) -> D
             seen["temp"].append(h["temp_c"]); seen["rh"].append(h["rh"]); seen["wind"].append(h["wind_kmh"])
         rate = 0.0 if raining else hourly_rate(h["temp_c"], h["rh"], h["wind_kmh"], h.get("radiation"), h.get("is_day"))
         if done_now is None and at <= now < end:
-            done_now = min(1.0, (total + rate * max(0.0, (now - span_from).total_seconds() / 3600)) / LOAD_UNITS)
-        if dry_at is None and rate > 0 and total + rate * fraction >= LOAD_UNITS:
-            dry_at = span_from + timedelta(hours=(LOAD_UNITS - total) / rate)
+            done_now = min(1.0, (total + rate * max(0.0, (now - span_from).total_seconds() / 3600)) / units)
+        if dry_at is None and rate > 0 and total + rate * fraction >= units:
+            dry_at = span_from + timedelta(hours=(units - total) / rate)
         total += rate * fraction
     conditions = {k: [round(min(v)), round(max(v))] for k, v in seen.items() if v}
     night_now = any(h["at"] <= now < h["at"] + timedelta(hours=1) and h.get("is_day") is False for h in hours)
     if done_now is None:
-        done_now = min(1.0, total / LOAD_UNITS) if hours and hours[-1]["at"] < now else 0.0
+        done_now = min(1.0, total / units) if hours and hours[-1]["at"] < now else 0.0
     return {"dry_at": dry_at, "rain_at": rain_at if (rain_at and (dry_at is None or rain_at < dry_at)) else None,
             "dusk_at": dusk_at, "done_fraction": round(done_now, 2), "conditions": conditions,
             "night_now": night_now}
@@ -224,7 +224,9 @@ async def plan(db, owner: str, situation, *, now: Optional[datetime] = None, tz=
         hours = hours if hours is not None else await _fetch_hours(place["lat"], place["lon"], start)
         if not hours:
             return None
-        result = compute(hours, start=start, now=now)
+        from situations.calibration import factor
+        units = LOAD_UNITS * await factor(db, owner, "drying")  # this person's own times
+        result = compute(hours, start=start, now=now, units=units)
         summary = " ".join(str(situation.summary or "").split())[:100]
         weather = _conditions_text(result["conditions"])
         sid = situation.id
@@ -236,7 +238,7 @@ async def plan(db, owner: str, situation, *, now: Optional[datetime] = None, tz=
         at_dusk = None
         if not_today and dusk_at:
             main_at = max(now + timedelta(minutes=2), dusk_at - timedelta(minutes=DUSK_MARGIN_MINUTES))
-            at_dusk = compute(hours, start=start, now=main_at)["done_fraction"]
+            at_dusk = compute(hours, start=start, now=main_at, units=units)["done_fraction"]
             share = f", a quell'ora circa al {round(at_dusk * 100)}%" if at_dusk and at_dusk < 1 else ""
             if result.get("night_now"):
                 # Already dark: drying has practically stopped until morning.
@@ -253,7 +255,7 @@ async def plan(db, owner: str, situation, *, now: Optional[datetime] = None, tz=
             title = ""
         meta = {"situation_id": sid, "kind": "drying_end", "place_ref": place.get("ref", ""),
                 "point": None if place.get("ref") else [place["lat"], place["lon"]],
-                "planned_at": now.isoformat(), "done_fraction": result["done_fraction"],
+                "planned_at": now.isoformat(), "start": start.isoformat(), "done_fraction": result["done_fraction"],
                 "weather": weather[:120]}
         stamp = now.isoformat()
         if main_at and main_at > now:

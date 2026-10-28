@@ -173,7 +173,8 @@ async def arm(db, owner: str, situation, user_message: str) -> Optional[dict]:
             if typical is None or existing:
                 return None
             base = started if started and now - timedelta(hours=12) <= started <= now else now
-            moment = base + timedelta(minutes=typical.likely)
+            from situations.calibration import factor
+            moment = base + timedelta(minutes=typical.likely * await factor(db, owner, f"typical:{typical.key}"))
             if moment <= now + timedelta(minutes=1):
                 return None
             words = f"tempo tipico: {typical.label}"
@@ -188,6 +189,8 @@ async def arm(db, owner: str, situation, user_message: str) -> Optional[dict]:
             "title": title[:160],
             "origin": ORIGIN, "updated_at": datetime.now(timezone.utc).isoformat(),
             "meta": {"situation_id": situation.id, "kind": "typical_end" if typical else "stated_end",
+                     "typical_key": typical.key if typical else None,
+                     "start": (started if started and typical and base == started else now).isoformat(),
                      "words": words[:80]},
         }
         if existing and existing.get("due_at") == due:
