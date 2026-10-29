@@ -711,6 +711,11 @@ export const api = {
   /** Where the shortcut sends what was dictated. */
   siriAskUrl: () => `${BASE}/api/siri/ask`,
 
+  /** The morning brief: on/off and the hour (5-11). */
+  morningBrief: () => request<{ enabled: boolean; hour: number }>('/brief/morning'),
+  setMorningBrief: (body: { enabled?: boolean; hour?: number }) =>
+    request<{ enabled: boolean; hour: number }>('/brief/morning', { method: 'PUT', body: JSON.stringify(body) }),
+
   /** Everything ORA stores for this account, as one JSON file (no secrets). */
   exportMyData: async (): Promise<{ blob: Blob; filename: string }> => {
     if (!BASE) throw networkError('Backend URL non configurata (EXPO_PUBLIC_BACKEND_URL).', 'backend_url_missing');
@@ -3438,7 +3443,7 @@ export type HomeOpportunity = {
   question?: string | null;
   seen?: boolean;
   /** A reminder the person asked for, or the outcome of a call they asked for. */
-  reminder?: { kind: 'reminder' | 'phone_call' } | null;
+  reminder?: { kind: 'reminder' | 'phone_call' | 'morning_brief' } | null;
 };
 
 /**

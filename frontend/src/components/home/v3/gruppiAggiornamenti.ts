@@ -21,7 +21,7 @@ export function gruppoDi(a: Aggiornamento): GruppoAggiornamento {
   if (esito?.status === 'action_now') return 'adesso';
   // A reminder that arrived is about now; a call outcome is news to read.
   if (a.promemoria === 'reminder') return 'adesso';
-  if (a.promemoria === 'phone_call') return 'da_sapere';
+  if (a.promemoria === 'phone_call' || a.promemoria === 'morning_brief') return 'da_sapere';
   if (
     esito?.status === 'needs_input'
     || a.cosa_serve.trim()

@@ -429,6 +429,13 @@ async def _serve_recurring_memos(db, *, reconcile: bool = False):
     from memos.service import RecurringMemoService
 
     result = await RecurringMemoService(db).fire_due()
+    # The morning brief queues itself in the same lane, once a day per person.
+    try:
+        from brief.morning import fire_due as morning_brief
+
+        await morning_brief(db)
+    except Exception as exc:
+        logger.info("morning brief deferred: %s", type(exc).__name__)
     # One-time reminders share this lane: same cost when nothing is due.
     try:
         from memos.one_shot import fire_due as fire_one_shot

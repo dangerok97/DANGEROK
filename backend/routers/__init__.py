@@ -105,6 +105,14 @@ try:
 except Exception:
     pass
 
+# The morning brief preference.
+try:
+    from brief.router import router as brief_router
+
+    ALL_ROUTERS.append(brief_router)
+except Exception:
+    pass
+
 # ORA's own health check of its watches and notifications.
 try:
     from ops.router import router as ops_router

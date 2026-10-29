@@ -88,7 +88,8 @@ export default function DettaglioAggiornamento() {
 
   return (
     <PaginaOra
-      titolo={a?.promemoria === 'reminder' ? 'Promemoria' : a?.promemoria === 'phone_call' ? 'Telefonata' : 'Aggiornamento di ORA'}
+      titolo={a?.promemoria === 'reminder' ? 'Promemoria' : a?.promemoria === 'phone_call' ? 'Telefonata'
+        : a?.promemoria === 'morning_brief' ? 'Il punto del mattino' : 'Aggiornamento di ORA'}
       sottotitolo={a ? comeSiChiamaQuesto(a) : undefined}
       attiva="index"
       testID="pagina-aggiornamento"
@@ -144,12 +145,13 @@ function DettaglioPromemoria({ a, onClosed }: { a: Aggiornamento; onClosed: () =
       setBusy(null);
     }
   };
-  const telefonata = a.promemoria === 'phone_call';
+  // A call outcome and the morning brief are news to read: «Ok», no snooze.
+  const telefonata = a.promemoria === 'phone_call' || a.promemoria === 'morning_brief';
   return (
     <>
       <OraCard style={styles.voce} testID="promemoria-testo">
         <View style={styles.testa}>
-          <Ionicons name={telefonata ? 'call-outline' : 'alarm-outline'} size={18} color={ora.deep} />
+          <Ionicons name={a.promemoria === 'morning_brief' ? 'sunny-outline' : telefonata ? 'call-outline' : 'alarm-outline'} size={18} color={ora.deep} />
           <Text style={[oraType.small, { color: ora.ink3, fontWeight: '600' }]}>
             {(quandoAggiornamento(a.quando) || '').toUpperCase()}
           </Text>

@@ -27,3 +27,8 @@ const [normale] = elencoAggiornamenti(home(null));
 assert.equal(normale.promemoria, undefined);
 assert.equal(comeSiChiamaQuesto(normale), 'Una cosa che ho notato');
 console.log('Reminder updates: PASS');
+
+const [brief] = elencoAggiornamenti(home({ kind: 'morning_brief' } as any));
+assert.equal(comeSiChiamaQuesto(brief), 'La tua giornata in breve');
+assert.equal(gruppoDi(brief), 'da_sapere');
+console.log('Morning brief update: PASS');
