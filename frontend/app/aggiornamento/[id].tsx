@@ -88,7 +88,9 @@ export default function DettaglioAggiornamento() {
 
   return (
     <PaginaOra
-      titolo={a?.promemoria === 'reminder' ? 'Promemoria' : a?.promemoria === 'phone_call' ? 'Telefonata' : 'Aggiornamento di ORA'}
+      titolo={a?.promemoria === 'reminder' ? 'Promemoria' : a?.promemoria === 'phone_call' ? 'Telefonata'
+        : a?.promemoria === 'morning_brief' ? 'Il punto del mattino'
+        : a?.promemoria === 'habit' ? 'Una proposta' : 'Aggiornamento di ORA'}
       sottotitolo={a ? comeSiChiamaQuesto(a) : undefined}
       attiva="index"
       testID="pagina-aggiornamento"
@@ -125,13 +127,16 @@ function DettaglioPromemoria({ a, onClosed }: { a: Aggiornamento; onClosed: () =
   const [busy, setBusy] = useState<string | null>(null);
   const [errore, setErrore] = useState('');
   const [fatto, setFatto] = useState('');
-  const agisci = async (azione: 'done' | 'snooze', minuti = 10) => {
+  const agisci = async (azione: 'done' | 'snooze' | 'accept' | 'decline', minuti = 10) => {
     if (busy) return;
     setBusy(azione + minuti);
     setErrore('');
     try {
       const r = await api.reminderAction(a.id, azione, minuti);
-      if (azione === 'snooze' && r.due_at) {
+      if (azione === 'accept') {
+        setFatto('Fatto: da ora te lo ricordo io, senza che tu me lo chieda.');
+        setTimeout(onClosed, 1500);
+      } else if (azione === 'snooze' && r.due_at) {
         const ora = new Date(r.due_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
         setFatto(`Va bene, te lo ricordo alle ${ora}.`);
         setTimeout(onClosed, 1200);
@@ -144,19 +149,33 @@ function DettaglioPromemoria({ a, onClosed }: { a: Aggiornamento; onClosed: () =
       setBusy(null);
     }
   };
-  const telefonata = a.promemoria === 'phone_call';
+  // A call outcome and the morning brief are news to read: «Ok», no snooze.
+  const telefonata = a.promemoria === 'phone_call' || a.promemoria === 'morning_brief';
   return (
     <>
       <OraCard style={styles.voce} testID="promemoria-testo">
         <View style={styles.testa}>
-          <Ionicons name={telefonata ? 'call-outline' : 'alarm-outline'} size={18} color={ora.deep} />
+          <Ionicons name={a.promemoria === 'morning_brief' ? 'sunny-outline' : telefonata ? 'call-outline' : 'alarm-outline'} size={18} color={ora.deep} />
           <Text style={[oraType.small, { color: ora.ink3, fontWeight: '600' }]}>
             {(quandoAggiornamento(a.quando) || '').toUpperCase()}
           </Text>
         </View>
         <Text style={[oraType.title, { color: ora.ink }]}>{a.cosa}</Text>
       </OraCard>
-      {fatto ? (
+      {!fatto && a.promemoria === 'habit' ? (
+        <View style={styles.bottoni}>
+          <Pressable accessibilityRole="button" testID="abitudine-si"
+            onPress={() => void agisci('accept')} disabled={!!busy}
+            style={({ pressed }) => [styles.retry, pressed && { opacity: 0.8 }]}>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>{busy === 'accept10' ? '…' : 'Sì, rendilo ricorrente'}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" testID="abitudine-no"
+            onPress={() => void agisci('decline')} disabled={!!busy}
+            style={({ pressed }) => [styles.secondario, pressed && { opacity: 0.8 }]}>
+            <Text style={{ color: ora.ink, fontWeight: '600' }}>No, grazie</Text>
+          </Pressable>
+        </View>
+      ) : fatto ? (
         <Text accessibilityRole="alert" style={[oraType.body, { color: ora.ink }]} testID="promemoria-rimandato">{fatto}</Text>
       ) : (
         <View style={styles.bottoni}>

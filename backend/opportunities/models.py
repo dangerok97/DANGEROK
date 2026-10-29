@@ -353,8 +353,10 @@ class Opportunity(BaseModel):
             # A reminder the person asked for, or the outcome of a call they
             # asked for: not "something ORA noticed" (owner screenshot 27/10).
             "reminder": ({"kind": "phone_call" if any(e.kind == "phone_call" for e in self.evidence)
+                          else "morning_brief" if any(e.kind == "morning_brief" for e in self.evidence)
                           else "reminder"}
-                         if self.source_context == "one_shot_reminder" else None),
+                         if self.source_context == "one_shot_reminder"
+                         else {"kind": "habit"} if self.source_context == "habit_proposal" else None),
         }
 
     def for_ai(self) -> Dict[str, Any]:

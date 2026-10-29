@@ -16,6 +16,7 @@ WORDS = {
     "no_device_for_notifications": "Nessun telefono può ricevere le mie notifiche",
     "need_retired": "Ho tolto da Home una richiesta che non era più attuale",
     "deadline_unattended": "Una scadenza si avvicina: la ricontrollo al momento utile",
+    "habit_proposed": "Ho notato un promemoria che chiedi spesso: ti propongo di renderlo ricorrente",
     "situation_auto_closed": "Ho chiuso una cosa già finita che nessuno aveva chiuso",
     "drying_planned": "Una cosa stesa fuori non aveva ancora il calcolo dal meteo: l'ho fatto",
     "drying_replanned": "Ho ricalcolato con il meteo aggiornato quando si asciuga una cosa stesa fuori",

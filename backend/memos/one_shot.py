@@ -104,7 +104,9 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
             status="active",
             semantic_summary=title,
             why_it_matters=("Mi avevi chiesto di fare questa telefonata."
-                            if row.get("origin") == "phone_call_result" else "Mi hai chiesto di ricordartelo."),
+                            if row.get("origin") == "phone_call_result" else
+                            "Il punto del mattino che ricevi ogni giorno." if row.get("origin") == "morning_brief"
+                            else "Mi hai chiesto di ricordartelo."),
             why_now=(f"È il momento: {title}" + (f" — {body}" if body else ""))[:400],
             relevance="high",
             urgency="urgent",
@@ -112,7 +114,8 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
             confidence="strong",
             initiative="inform",
             what_ora_can_do="Ricordartelo adesso.",
-            evidence=[EvidenceRef(kind="phone_call" if row.get("origin") == "phone_call_result" else "reminder",
+            evidence=[EvidenceRef(kind={"phone_call_result": "phone_call", "morning_brief": "morning_brief"}.get(
+                                      str(row.get("origin") or ""), "reminder"),
                                   ref=rid, summary=title[:240])],
             source_context=SOURCE_CONTEXT,
             decision_provenance="user",
@@ -158,7 +161,18 @@ async def reminder_opportunity_current(db, subject: Any) -> bool:
 def push_decision(subject: Any) -> Dict[str, Any]:
     """The delivery decision the person made when they asked for the reminder."""
     summary = str(getattr(subject, "semantic_summary", "") or "Promemoria")
-    call = any(getattr(e, "kind", "") == "phone_call" for e in getattr(subject, "evidence", []) or [])
+    kinds = {getattr(e, "kind", "") for e in getattr(subject, "evidence", []) or []}
+    if "morning_brief" in kinds:
+        return {
+            "mode": "push", "timing": "now",
+            "reason_to_interrupt": "Il punto del mattino che hai attivato.",
+            "reason_to_open": "La giornata in breve.",
+            "what_decided_the_mode": "punto del mattino attivato dalla persona",
+            "confidence": "strong", "sensitivity": "personal", "requires_recheck": True,
+            "copy": {"title": "Il punto del mattino", "body": summary[:200],
+                     "public_title": "Il punto del mattino", "public_body": "Apri ORA per la tua giornata."},
+        }
+    call = "phone_call" in kinds
     if call:
         return {
             "mode": "push", "timing": "now",
@@ -188,6 +202,9 @@ async def act(db, owner: str, opportunity_id: str, action: str, minutes: int = 1
     import uuid
 
     opp = await db.opportunities.find_one({"owner_id": owner, "id": opportunity_id}, {"_id": 0})
+    if opp and opp.get("source_context") == "habit_proposal" and action in ("accept", "decline"):
+        from memos.habits import answer
+        return await answer(db, owner, opportunity_id, accept=action == "accept")
     if not opp or opp.get("source_context") != SOURCE_CONTEXT:
         return {"ok": False, "reason": "not_a_reminder"}
     rid = str(opp.get("identity_key") or "").split(":", 1)[-1]
