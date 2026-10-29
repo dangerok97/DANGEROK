@@ -37,6 +37,7 @@ import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { DevDiagnostics } from '@/src/components/dev/DevDiagnostics';
 import { WhatsAppConnection } from '@/src/components/account/WhatsAppConnection';
 import { SiriConnection } from '@/src/components/account/SiriConnection';
+import { YourData } from '@/src/components/account/YourData';
 import {
   BoundaryNote,
   CALENDAR_WRITE_BOUNDARY,
@@ -452,6 +453,8 @@ export default function ConnessioniScreen() {
             <WhatsAppConnection />
 
             <SiriConnection />
+
+            <YourData />
 
             {error ? <InlineError>{error}</InlineError> : null}
 

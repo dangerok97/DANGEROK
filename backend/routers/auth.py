@@ -374,3 +374,50 @@ async def logout(user=Depends(get_current_user), authorization: str = Header(...
     await revoke(db, token, payload["exp"])
     await AmbientRepository(db).revoke_session(user["user_id"], token_digest(token), include_legacy=True)
     return {"ok": True}
+
+
+# --- Your data: export and account deletion (29/10/2026) -----------------
+
+class DeleteAccountIn(BaseModel):
+    confirm: str = Field(default="", max_length=20)
+    password: Optional[str] = Field(default=None, max_length=200)
+
+
+@router.get("/account/export")
+async def export_account(request: Request, user=Depends(get_current_user)):
+    """Everything stored under this account, as one JSON file (no secrets)."""
+    import json as _json
+    from account_lifecycle import export
+
+    await enforce_rate_limit(db, request, scope="account.export", limit=5, window_seconds=3600)
+    data = await export(db, user["user_id"])
+    day = data["exported_at"][:10]
+    return Response(
+        content=_json.dumps(data, ensure_ascii=False, indent=1, default=str),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="ora-i-miei-dati-{day}.json"',
+                 "Cache-Control": "no-store"},
+    )
+
+
+@router.post("/account/delete")
+async def delete_account(body: DeleteAccountIn, request: Request, user=Depends(get_current_user),
+                         authorization: str = Header(...)):
+    """Erase the account and everything stored for it. Immediate, irreversible."""
+    from account_lifecycle import delete
+
+    await enforce_rate_limit(db, request, scope="account.delete", limit=5, window_seconds=3600)
+    if body.confirm.strip().upper() != "ELIMINA":
+        raise HTTPException(status_code=400, detail="Per confermare scrivi ELIMINA")
+    if user.get("password_hash") and not verify_password(body.password or "", user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Password non corretta")
+    try:
+        from deps import pyjwt, JWT_SECRET, JWT_ALGO
+        from session_revocation import revoke
+        token = authorization.split(" ", 1)[1].strip()
+        payload = pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        await revoke(db, token, payload["exp"])
+    except Exception:
+        pass  # the user row is gone below: every token stops working anyway
+    result = await delete(db, user["user_id"], user.get("email") or "")
+    return result

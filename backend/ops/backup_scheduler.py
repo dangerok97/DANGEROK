@@ -81,6 +81,14 @@ async def run_backup_if_due(db: Any, *, now: datetime | None = None) -> dict[str
         archive_path = Path(raw_path)
         manifest = await create_archive(db, documents, archive_path)
         upload_archive(archive_path, key)
+        try:
+            # Deleted accounts must leave the backups too: keep a bounded window.
+            from ops.backup_restore import prune_daily
+            pruned = prune_daily(now)
+            if pruned:
+                logger.info("daily backup pruned=%s", pruned)
+        except Exception as exc:
+            logger.info("backup prune deferred: %s", type(exc).__name__)
         await db.backup_runs.update_one(
             {"_id": day},
             {"$set": {

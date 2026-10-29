@@ -142,6 +142,38 @@ def upload_archive(path: str | Path, key: str) -> None:
     _s3_client().upload_file(str(path), os.environ["BACKUP_S3_BUCKET"], key)
 
 
+def retention_days() -> int:
+    try:
+        return max(7, int(os.environ.get("BACKUP_RETENTION_DAYS", "30")))
+    except ValueError:
+        return 30
+
+
+def prune_daily(now: datetime) -> int:
+    """Remove daily archives older than the retention window. Returns how many."""
+    from datetime import timedelta
+
+    client = _s3_client()
+    bucket = os.environ["BACKUP_S3_BUCKET"]
+    cutoff = (now - timedelta(days=retention_days())).date().isoformat()
+    removed = 0
+    token = None
+    while True:
+        kwargs = {"Bucket": bucket, "Prefix": "ora/daily/"}
+        if token:
+            kwargs["ContinuationToken"] = token
+        page = client.list_objects_v2(**kwargs)
+        for obj in page.get("Contents") or []:
+            parts = str(obj.get("Key") or "").split("/")
+            day = parts[2] if len(parts) > 2 else ""
+            if len(day) == 10 and day < cutoff:
+                client.delete_object(Bucket=bucket, Key=obj["Key"])
+                removed += 1
+        if not page.get("IsTruncated"):
+            return removed
+        token = page.get("NextContinuationToken")
+
+
 def download_archive(key: str, path: str | Path) -> None:
     _s3_client().download_file(os.environ["BACKUP_S3_BUCKET"], key, str(path))
 

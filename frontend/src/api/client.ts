@@ -710,6 +710,28 @@ export const api = {
     request<SiriKeyStatus>('/siri/key', { method: 'DELETE' }),
   /** Where the shortcut sends what was dictated. */
   siriAskUrl: () => `${BASE}/api/siri/ask`,
+
+  /** Everything ORA stores for this account, as one JSON file (no secrets). */
+  exportMyData: async (): Promise<{ blob: Blob; filename: string }> => {
+    if (!BASE) throw networkError('Backend URL non configurata (EXPO_PUBLIC_BACKEND_URL).', 'backend_url_missing');
+    const t = await authToken.get();
+    const res = await fetch(`${BASE}/api/auth/account/export`, { headers: t ? { Authorization: `Bearer ${t}` } : {} });
+    if (!res.ok) {
+      const err: any = new Error(res.status === 429 ? 'Troppe esportazioni in poco tempo. Riprova più tardi.' : `HTTP ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
+    const cd = res.headers.get('Content-Disposition') || '';
+    const filename = /filename="([^"]+)"/.exec(cd)?.[1] || 'ora-i-miei-dati.json';
+    return { blob: await res.blob(), filename };
+  },
+
+  /** Erase the account and everything stored for it. Irreversible. */
+  deleteMyAccount: (confirm: string, password?: string) =>
+    request<{ ok: boolean; records: number; files: number }>('/auth/account/delete', {
+      method: 'POST',
+      body: JSON.stringify({ confirm, password: password || null }),
+    }),
   whatsappDisconnect: () =>
     request<{ ok: boolean; linked: boolean }>('/whatsapp/link', { method: 'DELETE' }),
   whatsappSetNotifications: (enabled: boolean) =>
