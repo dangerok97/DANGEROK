@@ -202,6 +202,9 @@ async def act(db, owner: str, opportunity_id: str, action: str, minutes: int = 1
     import uuid
 
     opp = await db.opportunities.find_one({"owner_id": owner, "id": opportunity_id}, {"_id": 0})
+    if opp and opp.get("source_context") == "habit_proposal" and action in ("accept", "decline"):
+        from memos.habits import answer
+        return await answer(db, owner, opportunity_id, accept=action == "accept")
     if not opp or opp.get("source_context") != SOURCE_CONTEXT:
         return {"ok": False, "reason": "not_a_reminder"}
     rid = str(opp.get("identity_key") or "").split(":", 1)[-1]

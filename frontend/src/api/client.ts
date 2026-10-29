@@ -1275,7 +1275,7 @@ export const api = {
     without deciding anything at all. None of them creates work.
   */
   /** «Fatto» or «ricordamelo tra N minuti» on a reminder that arrived. */
-  reminderAction: (id: string, action: 'done' | 'snooze', minutes = 10) =>
+  reminderAction: (id: string, action: 'done' | 'snooze' | 'accept' | 'decline', minutes = 10) =>
     request<{ ok: boolean; action: string; due_at?: string }>(`/opportunities/${id}/reminder`, {
       method: 'POST',
       body: JSON.stringify({ action, minutes }),
@@ -3443,7 +3443,7 @@ export type HomeOpportunity = {
   question?: string | null;
   seen?: boolean;
   /** A reminder the person asked for, or the outcome of a call they asked for. */
-  reminder?: { kind: 'reminder' | 'phone_call' | 'morning_brief' } | null;
+  reminder?: { kind: 'reminder' | 'phone_call' | 'morning_brief' | 'habit' } | null;
 };
 
 /**
