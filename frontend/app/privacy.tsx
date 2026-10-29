@@ -59,7 +59,9 @@ const sections: LegalSection[] = [
   {
     title: '8. Le tue scelte',
     paragraphs: [
-      'Puoi revocare connessioni esterne dalle impostazioni disponibili nell’app. Puoi inoltre interrompere l’uso di ORA e richiedere la gestione o cancellazione dei dati attraverso i canali di assistenza indicati nell’app e nella schermata di consenso OAuth.',
+      'Puoi revocare connessioni esterne dalle impostazioni disponibili nell’app.',
+      'Da Impostazioni → I tuoi dati puoi scaricare in qualsiasi momento tutti i dati che ORA ha salvato per te, in un unico file (password, token di accesso e chiavi esclusi).',
+      'Sempre da Impostazioni → I tuoi dati puoi eliminare l’account: l’eliminazione è immediata e cancella account, conversazioni, ricordi, situazioni, promemoria, documenti, foto e collegamenti, compresi i dati letti da Gmail, Google Calendar e dagli altri servizi collegati. Le copie di sicurezza cifrate vengono rimosse entro 30 giorni.',
     ],
   },
   {

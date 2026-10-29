@@ -16,6 +16,7 @@ import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { haptic } from '@/src/utils/haptic';
+import { YourData } from '@/src/components/account/YourData';
 import {
   BoundaryNote,
   CALENDAR_WRITE_BOUNDARY,
@@ -104,6 +105,8 @@ export default function PrivacyScreen() {
           />
         </View>
       </SettingCard>
+
+      <YourData />
 
       <SettingCard title="Quello che ORA non fa da sola" testID="privacy-boundaries">
         <BoundaryNote>{CALENDAR_WRITE_BOUNDARY}</BoundaryNote>
