@@ -14,7 +14,7 @@ import { UpdateNextStep } from '@/src/components/home/v3/UpdateNextStep';
  * domanda non fosse stata fatta.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -161,6 +161,13 @@ function DettaglioPromemoria({ a, onClosed }: { a: Aggiornamento; onClosed: () =
           </Text>
         </View>
         <Text style={[oraType.title, { color: ora.ink }]}>{a.cosa}</Text>
+        {a.percorso ? (
+          <Pressable accessibilityRole="link" testID="promemoria-percorso"
+            onPress={() => void Linking.openURL(a.percorso as string)}
+            style={({ pressed }) => [styles.retry, pressed && { opacity: 0.8 }]}>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Apri il percorso</Text>
+          </Pressable>
+        ) : null}
       </OraCard>
       {!fatto && a.promemoria === 'habit' ? (
         <View style={styles.bottoni}>

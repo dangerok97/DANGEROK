@@ -48,6 +48,8 @@ export type Aggiornamento = {
   solo_informazione?: boolean;
   /** Un promemoria chiesto dalla persona, o l'esito di una chiamata chiesta da lei. */
   promemoria?: 'reminder' | 'phone_call' | 'morning_brief' | 'habit';
+  /** Percorso pronto (Google Maps) per un avviso di partenza. */
+  percorso?: string;
   lavoro?: 'verify' | 'prepare';
   preparazione?: { checked_at?: string; summary?: string; question?: string; limits?: string; options?: { event_id: string; title: string; starts_at: string; ends_at: string }[] };
   azione?: { kind: 'verify' | 'prepare' | 'suggestion' | 'route'; label: string; route?: string; params?: Record<string, unknown> };
@@ -110,6 +112,8 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     id: o.id,
     genere: 'occasione' as const,
     promemoria: o.reminder.kind,
+    percorso: o.reminder.route_url && /^https:\/\/www\.google\.com\/maps\//.test(o.reminder.route_url)
+      ? o.reminder.route_url : undefined,
     solo_informazione: true,
     cosa: o.title,
     perche: '',

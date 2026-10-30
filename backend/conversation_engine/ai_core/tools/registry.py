@@ -1477,7 +1477,7 @@ class ToolRegistry:
                 classification="personal",
                 side_effect="REVERSIBLE_WRITE",
                 risk="write_soft",
-                handler=cal_caps.create_calendar_event,
+                handler=_create_event_and_plan_departure,
                 tags=["calendar", "temporal"],
             )
         )
@@ -2197,6 +2197,32 @@ class ToolRegistry:
             },
             provenance=["conversation:intention"],
         )
+
+
+async def _create_event_and_plan_departure(arguments: Dict[str, Any], runtime: Dict[str, Any]):
+    """
+    An appointment with a place gets its leave time at once (owner 30/10:
+    «alle 15 ho il parrucchiere a Montalto di Castro»). The event is written
+    exactly as before; then the leave notice is computed so the answer can
+    say when ORA will tell the person to go, and the route is ready.
+    """
+    from conversation_engine.ai_core.tools import calendar_caps as cal_caps
+
+    result = await cal_caps.create_calendar_event(arguments, runtime)
+    if getattr(result, "status", "") != "ok" or not str(arguments.get("location") or "").strip():
+        return result
+    try:
+        from places.leave_notice import plan_owner
+        rows = await plan_owner(runtime.get("db"), str(runtime.get("user_id") or ""))
+        title = str(arguments.get("title") or "")
+        row = next((r for r in rows if str(r.get("event") or "") == title), rows[0] if rows else None)
+        if row:
+            payload = dict(result.payload or {})
+            payload["departure"] = {k: v for k, v in row.items() if k != "event"}
+            result = result.model_copy(update={"payload": payload})
+    except Exception as exc:
+        logger.info("departure plan after event deferred: %s", type(exc).__name__)
+    return result
 
 
 def tool_signature(capability: str, arguments: Dict[str, Any]) -> str:

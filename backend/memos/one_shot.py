@@ -114,9 +114,13 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
             confidence="strong",
             initiative="inform",
             what_ora_can_do="Ricordartelo adesso.",
-            evidence=[EvidenceRef(kind={"phone_call_result": "phone_call", "morning_brief": "morning_brief"}.get(
+            evidence=[EvidenceRef(kind={"phone_call_result": "phone_call", "morning_brief": "morning_brief",
+                                        "leave_notice": "leave_notice"}.get(
                                       str(row.get("origin") or ""), "reminder"),
-                                  ref=rid, summary=title[:240])],
+                                  ref=rid, summary=title[:240])]
+                     + ([EvidenceRef(kind="route", ref=str((row.get("meta") or {})["route_url"])[:120],
+                                     summary=str((row.get("meta") or {}).get("destination") or "")[:240])]
+                        if (row.get("meta") or {}).get("route_url") else []),
             source_context=SOURCE_CONTEXT,
             decision_provenance="user",
             valid_until=(due + timedelta(hours=VALID_HOURS)).isoformat(),
@@ -162,6 +166,16 @@ def push_decision(subject: Any) -> Dict[str, Any]:
     """The delivery decision the person made when they asked for the reminder."""
     summary = str(getattr(subject, "semantic_summary", "") or "Promemoria")
     kinds = {getattr(e, "kind", "") for e in getattr(subject, "evidence", []) or []}
+    if "leave_notice" in kinds:
+        return {
+            "mode": "push", "timing": "now",
+            "reason_to_interrupt": "È il momento di partire per l'appuntamento.",
+            "reason_to_open": "Il percorso è pronto.",
+            "what_decided_the_mode": "appuntamento con luogo dichiarato dalla persona",
+            "confidence": "strong", "sensitivity": "personal", "requires_recheck": True,
+            "copy": {"title": "È ora di metterti in moto", "body": summary[:200],
+                     "public_title": "È ora di partire", "public_body": "Apri ORA per il percorso."},
+        }
     if "morning_brief" in kinds:
         return {
             "mode": "push", "timing": "now",

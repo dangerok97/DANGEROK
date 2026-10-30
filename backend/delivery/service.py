@@ -191,6 +191,15 @@ class DeliveryService:
                                              reason="gli avvisi li manda il calcolo dal meteo")
                 return DeliveryResult(mode="in_app", blocked_by="computed_plan_speaks",
                                       reason="Per questa situazione avvisa il calcolo dal meteo.")
+        if (kind == "opportunity" and getattr(subject, "source_context", "") != "one_shot_reminder"
+                and any(getattr(e, "kind", "") == "departure" for e in getattr(subject, "evidence", []) or [])
+                and await self.db.reminders.find_one(
+                    {"user_id": user_id, "origin": "leave_notice", "status": {"$ne": "cancelled"}}, {"_id": 1})):
+            # The leave notice computed by code is the one voice for departures.
+            await self.cancel_for_source(user_id, subject_id, source_type=kind,
+                                         reason="l'avviso di partenza lo manda il calcolo del percorso")
+            return DeliveryResult(mode="in_app", blocked_by="computed_plan_speaks",
+                                  reason="Per la partenza avvisa il calcolo del percorso.")
         # Do not even ask a model to notify about a provably expired event.
         # The exact source is rechecked once more just before send.
         if kind == "opportunity":
