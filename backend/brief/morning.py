@@ -101,18 +101,16 @@ async def _reminders(db, owner: str, local_now: datetime) -> List[str]:
 async def _home_weather(db, owner: str, local_now: datetime) -> str:
     """Today at home, and whether a load hung out at 9 would dry today."""
     try:
-        from places.service import PlacesService
-        home = next((p for p in await PlacesService(db).list_places(owner)
-                     if p.role == "home" and p.coordinates is not None and p.state == "confirmed"), None)
-        if home is None:
+        point = await _where(db, owner)
+        if point is None:
             return ""
+        lat, lon, label = point
         import weather as weather_service
-        data = await weather_service.forecast_at(lat=home.coordinates.latitude, lon=home.coordinates.longitude,
-                                                 place=home.locality or home.label)
+        data = await weather_service.forecast_at(lat=lat, lon=lon, place=label)
         if not data.get("available"):
             return ""
         today = (data.get("days") or [{}])[0]
-        place = (home.locality or home.label or "Casa")[:24]
+        place = (label or "Da te")[:24]
         bits = [place]
         if today.get("min_c") is not None and today.get("max_c") is not None:
             bits.append(f"{today['min_c']}-{today['max_c']} °C")
@@ -124,7 +122,7 @@ async def _home_weather(db, owner: str, local_now: datetime) -> str:
         hang = local_now.replace(hour=9, minute=0, second=0, microsecond=0)
         if local_now > hang:
             hang = local_now
-        hours = await od._fetch_hours(home.coordinates.latitude, home.coordinates.longitude, hang)
+        hours = await od._fetch_hours(lat, lon, hang)
         units = od.LOAD_UNITS * await factor(db, owner, "drying")
         result = od.compute(hours, start=hang.astimezone(timezone.utc), now=hang.astimezone(timezone.utc), units=units)
         dry, dusk = result.get("dry_at"), result.get("dusk_at")
@@ -136,6 +134,39 @@ async def _home_weather(db, owner: str, local_now: datetime) -> str:
     except Exception as exc:
         logger.info("brief weather skipped: %s", type(exc).__name__)
         return ""
+
+
+async def _where(db, owner: str):
+    """
+    Where the day's weather is read: the confirmed home; else the place where
+    things were last hung out to dry (30/10: no home saved, so the first brief
+    had nothing to say); else where the person is now, if location is on.
+    """
+    from places.service import PlacesService
+
+    places = PlacesService(db)
+    for p in await places.list_places(owner):
+        if p.role == "home" and p.coordinates is not None and p.state == "confirmed":
+            return p.coordinates.latitude, p.coordinates.longitude, p.locality or p.label
+    last = await db.reminders.find_one(
+        {"user_id": owner, "meta.kind": "drying_end"}, {"_id": 0, "meta": 1}, sort=[("updated_at", -1)])
+    meta = (last or {}).get("meta") or {}
+    if meta.get("place_ref"):
+        p = await places.get_place(owner, str(meta["place_ref"]).split(":", 1)[-1])
+        if p and p.coordinates is not None:
+            return p.coordinates.latitude, p.coordinates.longitude, p.locality or p.label
+    if meta.get("point"):
+        sit = await db.situations.find_one({"user_id": owner, "id": meta.get("situation_id")},
+                                           {"_id": 0, "location_label": 1})
+        return float(meta["point"][0]), float(meta["point"][1]), (sit or {}).get("location_label") or ""
+    try:
+        from home.service import HomeService
+        here = await HomeService(db)._where_they_are(owner)
+        if here:
+            return here
+    except Exception:
+        pass
+    return None
 
 
 def compose(appointments: List[str], deadlines: List[str], reminders: List[str], weather: str) -> str:

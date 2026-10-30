@@ -91,3 +91,17 @@ async def test_todays_reminders_are_listed():
         {"user_id": OWNER, "status": "open", "title": "Domani", "due_at": (now + timedelta(days=1)).astimezone(timezone.utc).isoformat()},
     ])
     assert await morning._reminders(db, OWNER, now) == ["Pastiglia alle 20:00"]
+
+
+@pytest.mark.asyncio
+async def test_without_a_saved_home_the_last_drying_place_is_used(monkeypatch):
+    from unittest.mock import AsyncMock
+    from home.service import HomeService
+
+    monkeypatch.setattr(HomeService, "_where_they_are", AsyncMock(return_value=None))
+    db = AsyncMongoMockClient().brief_where_v1
+    assert await morning._where(db, OWNER) is None
+    await db.situations.insert_one({"user_id": OWNER, "id": "sit_1", "location_label": "Tarquinia"})
+    await db.reminders.insert_one({"user_id": OWNER, "updated_at": "2026-10-27T20:00:00+00:00",
+                                   "meta": {"kind": "drying_end", "situation_id": "sit_1", "point": [42.25, 11.76]}})
+    assert await morning._where(db, OWNER) == (42.25, 11.76, "Tarquinia")
