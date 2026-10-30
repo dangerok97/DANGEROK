@@ -3443,7 +3443,7 @@ export type HomeOpportunity = {
   question?: string | null;
   seen?: boolean;
   /** A reminder the person asked for, or the outcome of a call they asked for. */
-  reminder?: { kind: 'reminder' | 'phone_call' | 'morning_brief' | 'habit' } | null;
+  reminder?: { kind: 'reminder' | 'phone_call' | 'morning_brief' | 'habit'; route_url?: string } | null;
 };
 
 /**

@@ -37,3 +37,9 @@ const [habit] = elencoAggiornamenti(home({ kind: 'habit' } as any));
 assert.equal(comeSiChiamaQuesto(habit), 'Una proposta di ORA');
 assert.equal(gruppoDi(habit), 'per_te');
 console.log('Habit proposal update: PASS');
+
+const [leave] = elencoAggiornamenti(home({ kind: 'reminder', route_url: 'https://www.google.com/maps/dir/?api=1&destination=42.35,11.61&travelmode=driving' } as any));
+assert.match(String(leave.percorso), /^https:\/\/www\.google\.com\/maps\/dir\//);
+const [bad] = elencoAggiornamenti(home({ kind: 'reminder', route_url: 'javascript:alert(1)' } as any));
+assert.equal(bad.percorso, undefined);
+console.log('Leave route: PASS');

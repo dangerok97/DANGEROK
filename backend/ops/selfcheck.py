@@ -126,6 +126,10 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
     except Exception as exc:
         logger.info("self_check events deferred: %s", type(exc).__name__)
     try:
+        from places.leave_notice import plan_owner as plan_departures
+        for row in await plan_departures(db, owner, now=now):
+            if row.get("status") == "planned" and not row.get("unchanged"):
+                findings.append({"code": "leave_planned", "ref": "event", "repaired": True})
         from memos.habits import propose
         from timezone_service import user_clock_context
         tz_name = str((await user_clock_context(db, owner, now=now)).get("timezone") or "Europe/Rome")
