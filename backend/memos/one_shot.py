@@ -183,7 +183,7 @@ def push_decision(subject: Any) -> Dict[str, Any]:
             "reason_to_open": "La giornata in breve.",
             "what_decided_the_mode": "punto del mattino attivato dalla persona",
             "confidence": "strong", "sensitivity": "personal", "requires_recheck": True,
-            "copy": {"title": "Il punto del mattino", "body": summary[:200],
+            "copy": {"title": "Buongiorno, ecco la tua giornata", "body": summary[:200],
                      "public_title": "Il punto del mattino", "public_body": "Apri ORA per la tua giornata."},
         }
     call = "phone_call" in kinds

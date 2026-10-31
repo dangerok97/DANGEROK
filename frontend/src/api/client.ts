@@ -343,6 +343,14 @@ export type LifePlace = {
 };
 
 /** One address Google proposes while somebody types. */
+export type MorningToday = {
+  greeting: string;
+  day: string;
+  headline: string;
+  at: string;
+  sections: Array<{ key: string; icon: string; title: string; lines: string[]; good?: boolean }>;
+};
+
 export type PlaceSuggestion = {
   place_id: string | null;
   text?: string | null;
@@ -723,6 +731,8 @@ export const api = {
 
   /** The morning brief: on/off and the hour (5-11). */
   morningBrief: () => request<{ enabled: boolean; hour: number }>('/brief/morning'),
+  /** The whole morning brief, built now: the page behind the notification. */
+  morningToday: () => request<MorningToday>('/brief/morning/today'),
   setMorningBrief: (body: { enabled?: boolean; hour?: number }) =>
     request<{ enabled: boolean; hour: number }>('/brief/morning', { method: 'PUT', body: JSON.stringify(body) }),
 
