@@ -436,6 +436,12 @@ async def _serve_recurring_memos(db, *, reconcile: bool = False):
         await morning_brief(db)
     except Exception as exc:
         logger.info("morning brief deferred: %s", type(exc).__name__)
+    try:
+        from brief.evening import fire_due as evening_brief
+
+        await evening_brief(db)
+    except Exception as exc:
+        logger.info("evening brief deferred: %s", type(exc).__name__)
     # One-time reminders share this lane: same cost when nothing is due.
     try:
         from memos.one_shot import fire_due as fire_one_shot

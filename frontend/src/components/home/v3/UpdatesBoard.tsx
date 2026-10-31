@@ -148,6 +148,8 @@ function etichetta(a: Aggiornamento, g: GruppoAggiornamento): string | null {
   if (a.promemoria === 'reminder') return 'Promemoria';
   if (a.promemoria === 'phone_call') return 'Telefonata';
   if (a.promemoria === 'morning_brief') return 'Il punto del mattino';
+  if (a.promemoria === 'evening_brief') return 'Domani';
+  if (a.promemoria === 'ora_check') return 'Controllo di ORA';
   if (a.promemoria === 'habit') return 'Proposta';
   if (a.genere === 'occasione') return 'Da confermare';
   return 'Serve una risposta';
@@ -195,7 +197,7 @@ function UpdateCard({
     >
       <View style={styles.row}>
         <View style={[styles.icon, { backgroundColor: urgent ? colors.surface : tone.bg }]}>
-          <Ionicons name={a.promemoria === 'reminder' ? 'alarm-outline' : a.promemoria === 'phone_call' ? 'call-outline' : a.promemoria === 'morning_brief' ? 'sunny-outline' : a.promemoria === 'habit' ? 'repeat-outline' : ICONE[a.genere]} size={20} color={tone.fg} />
+          <Ionicons name={a.promemoria === 'reminder' ? 'alarm-outline' : a.promemoria === 'phone_call' ? 'call-outline' : a.promemoria === 'morning_brief' ? 'sunny-outline' : a.promemoria === 'evening_brief' ? 'moon-outline' : a.promemoria === 'ora_check' ? 'pulse-outline' : a.promemoria === 'habit' ? 'repeat-outline' : ICONE[a.genere]} size={20} color={tone.fg} />
         </View>
         <View style={styles.body}>
           {tag || quando ? (

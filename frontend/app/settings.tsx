@@ -39,6 +39,8 @@ import { WhatsAppConnection } from '@/src/components/account/WhatsAppConnection'
 import { SiriConnection } from '@/src/components/account/SiriConnection';
 import { YourData } from '@/src/components/account/YourData';
 import { MorningBrief } from '@/src/components/account/MorningBrief';
+import { EveningBrief } from '@/src/components/account/EveningBrief';
+import { OraCheck } from '@/src/components/account/OraCheck';
 import {
   BoundaryNote,
   CALENDAR_WRITE_BOUNDARY,
@@ -454,6 +456,8 @@ export default function ConnessioniScreen() {
             <WhatsAppConnection />
 
             <MorningBrief />
+            <EveningBrief />
+            <OraCheck />
 
             <SiriConnection />
 

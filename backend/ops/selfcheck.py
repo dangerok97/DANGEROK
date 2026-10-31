@@ -343,6 +343,13 @@ async def run(db, *, now: Optional[datetime] = None) -> dict[str, Any]:
         summary["findings"] += len(report["findings"])
         summary["repaired"] += report["repaired"]
     logger.info("self_check pass %s", summary)
+    # Once a day ORA also tests its own paths end to end (ops/canary.py).
+    try:
+        from ops.canary import run_due as canary
+
+        await canary(db, now=now)
+    except Exception as exc:
+        logger.warning("canary deferred: %s", type(exc).__name__)
     return summary
 
 

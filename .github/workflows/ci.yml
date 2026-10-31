@@ -433,7 +433,7 @@ jobs:
         run: node --experimental-strip-types src/components/home/v3/home3.test.ts
       - name: Updates board groups (Adesso, Serve te, ORA ci sta pensando)
         working-directory: frontend
-        run: node --experimental-strip-types src/components/home/v3/gruppiAggiornamenti.test.ts && node --experimental-strip-types src/components/home/v3/reminderUpdate.test.ts && node --experimental-strip-types src/components/account/yourData.test.ts && node --experimental-strip-types src/components/home/setupCard.test.ts && node --experimental-strip-types src/components/brief/puntoDelMattino.test.ts
+        run: node --experimental-strip-types src/components/home/v3/gruppiAggiornamenti.test.ts && node --experimental-strip-types src/components/home/v3/reminderUpdate.test.ts && node --experimental-strip-types src/components/account/yourData.test.ts && node --experimental-strip-types src/components/home/setupCard.test.ts && node --experimental-strip-types src/components/brief/puntoDelMattino.test.ts && node --experimental-strip-types src/components/account/eveningAndCheck.test.ts
       - name: Home calendar excludes task deadlines and review checkpoints
         working-directory: frontend
         run: node --experimental-strip-types --test src/components/home/v3/calendarItems.test.ts

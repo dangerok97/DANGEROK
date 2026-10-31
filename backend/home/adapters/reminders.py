@@ -15,7 +15,7 @@ async def load_reminders(
         cur = db.reminders.find(
             # A call outcome is news, not something to do: it stays in the chat.
             {"user_id": user_id, "status": {"$in": ["open", "active", "pending"]},
-             "origin": {"$nin": ["phone_call_result", "morning_brief", "leave_notice"]}},
+             "origin": {"$nin": ["phone_call_result", "morning_brief", "leave_notice", "evening_brief", "canary"]}},
             {"_id": 0},
         ).limit(20)
         docs = await cur.to_list(20)
