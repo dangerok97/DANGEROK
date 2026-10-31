@@ -14,7 +14,6 @@ import { useRouter } from 'expo-router';
 import { api, type PlaceSuggestion } from '@/src/api/client';
 import { PaginaOra } from '@/src/components/pagine/PaginaOra';
 import { OraCard } from '@/src/components/ora-ui';
-import { MorningBrief } from '@/src/components/account/MorningBrief';
 import { enablePush } from '@/src/ambient/pushRegistration';
 import { webPushSupport } from '@/src/ambient/webPush';
 import { ora, oraType } from '@/src/theme/oraSurface';
@@ -29,6 +28,12 @@ const MODES: Array<{ id: Mode; label: string; icon: keyof typeof Ionicons.glyphM
   { id: 'transit', label: 'Con i mezzi', icon: 'bus-outline' },
   { id: 'bicycle', label: 'In bici', icon: 'bicycle-outline' },
 ];
+
+/** Oltre questa incertezza il punto potrebbe essere la casa del vicino. */
+export const MAX_HOME_ACCURACY_M = 150;
+
+/** Le ore che il server accetta per il punto del mattino (5-11). */
+export const ORE_BRIEF = [6, 7, 8, 9, 10, 11];
 
 export const PROVE = [
   'Ricordami tra 2 minuti di bere un bicchiere d\'acqua',
@@ -74,6 +79,26 @@ export default function Inizia() {
     setQ(''); setSugg([]);
   });
 
+  // «Sono a casa adesso»: il punto del GPS diventa casa, e vale anche come posizione condivisa.
+  const casaQui = () => fai('home-gps', async () => {
+    const { requestForegroundPosition } = await import('@/src/location/foregroundGeo');
+    const fix = await requestForegroundPosition({ maximumAgeMs: 0 });
+    if (!fix.ok) {
+      throw new Error(fix.reason === 'denied'
+        ? 'La posizione è bloccata: consentila nelle impostazioni del browser per questo sito, oppure scrivi l\'indirizzo.'
+        : 'Non riesco a leggere il GPS adesso. Riprova all\'aperto o scrivi l\'indirizzo.');
+    }
+    if (typeof fix.accuracyMeters === 'number' && fix.accuracyMeters > MAX_HOME_ACCURACY_M) {
+      throw new Error(`Il GPS è impreciso (circa ${Math.round(fix.accuracyMeters)} m): riprova tra poco o scrivi l'indirizzo.`);
+    }
+    await api.placesCreate({ label: 'Casa', role: 'home', latitude: fix.latitude, longitude: fix.longitude,
+      accuracy_meters: fix.accuracyMeters, location_source: 'current_position', source: 'current_position',
+      currently_here: true });
+    await api.locationSetPreference('while_using').catch(() => undefined);
+    await api.locationPostSignal({ latitude: fix.latitude, longitude: fix.longitude,
+      accuracy_meters: fix.accuracyMeters, reverse_geocode: true }).catch(() => undefined);
+  });
+
   const installa = webPushSupport() === 'install_required';
   const fatti = st ? 5 - st.missing.length : 0;
 
@@ -98,8 +123,11 @@ export default function Inizia() {
           })} /> : null}
       </Passo>
 
-      <Passo n={3} fatto={!!st?.home} titolo="Casa tua" testo="Da qui partono i calcoli quando il telefono non dà la posizione, e da qui viene il meteo del mattino e dei panni stesi.">
+      <Passo n={3} fatto={!!st?.home} titolo="Casa tua" testo="Se sei a casa adesso basta un tocco. Da qui partono i calcoli quando il telefono non dà la posizione, e da qui viene il meteo del mattino e dei panni stesi.">
         {!st?.home ? <View style={{ gap: 8, alignSelf: 'stretch' }}>
+          <Bottone label="Sono a casa adesso: usa il GPS" busy={busy === 'home-gps'} testID="setup-home-gps"
+            onPress={() => void casaQui()} />
+          <Text style={[oraType.small, { color: ora.ink3 }]}>Oppure scrivi l'indirizzo:</Text>
           <TextInput value={q} onChangeText={setQ} placeholder="Indirizzo di casa" autoCorrect={false}
             style={[styles.input, { borderColor: ora.hairline, color: ora.ink }]} testID="setup-home-input" />
           {sugg.filter(s => s.place_id).slice(0, 5).map(s => (
@@ -125,11 +153,30 @@ export default function Inizia() {
         </View>
       </Passo>
 
-      <Passo n={5} fatto={!!st?.morning_brief} titolo="Il punto del mattino" testo="Ogni mattina la giornata in una notifica. Scegli l'ora, o spegnilo.">
-        {!st?.morning_brief ? <Bottone label="Va bene alle 8" busy={busy === 'brief'} testID="setup-brief"
-          onPress={() => void fai('brief', () => api.setMorningBrief({ enabled: true, hour: 8 }))} /> : null}
+      <Passo n={5} fatto={!!st?.morning_brief} titolo="Il punto del mattino" testo="Ogni mattina la giornata in una notifica: appuntamenti, scadenze, promemoria e meteo. Scegli a che ora, o spegnilo. Puoi cambiarlo anche in Impostazioni.">
+        <View style={styles.row}>
+          {ORE_BRIEF.map(h => {
+            const on = !!st?.morning_brief && st.brief.enabled && st.brief.hour === h;
+            return (
+              <Pressable key={h} accessibilityRole="button" testID={`setup-brief-${h}`}
+                onPress={() => void fai('brief', () => api.setMorningBrief({ enabled: true, hour: h }))}
+                style={[styles.chip, on && { backgroundColor: ora.cta, borderColor: ora.cta }]}>
+                <Text style={{ color: on ? '#fff' : ora.ink, fontWeight: '600' }}>{`${h}:00`}</Text>
+              </Pressable>
+            );
+          })}
+          {(() => {
+            const off = !!st?.morning_brief && !st.brief.enabled;
+            return (
+              <Pressable accessibilityRole="button" testID="setup-brief-off"
+                onPress={() => void fai('brief', () => api.setMorningBrief({ enabled: false }))}
+                style={[styles.chip, off && { backgroundColor: ora.ink2, borderColor: ora.ink2 }]}>
+                <Text style={{ color: off ? '#fff' : ora.ink, fontWeight: '600' }}>Non mi serve</Text>
+              </Pressable>
+            );
+          })()}
+        </View>
       </Passo>
-      {st?.morning_brief ? <MorningBrief /> : null}
 
       <OraCard style={styles.card} testID="setup-prove">
         <Text style={[oraType.title, { color: ora.ink }]}>Prova subito</Text>
