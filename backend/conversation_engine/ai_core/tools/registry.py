@@ -222,6 +222,20 @@ class ToolRegistry:
                 tags=["memo", "recurring", "memory"],
             )
         )
+        from places.travel_mode import set_travel_mode_cap
+        self.register(CapabilitySpec(
+            capability="set_travel_mode",
+            description=(
+                "Remember how the person usually moves, used to compute when to leave for "
+                "appointments: drive, walk, transit or bicycle. Use when they say e.g. 'vado sempre "
+                "a piedi', 'non ho la macchina', 'mi muovo in bici'."
+            ),
+            input_schema={"type": "object", "properties": {
+                "mode": {"type": "string", "enum": ["drive", "walk", "transit", "bicycle"]}},
+                "required": ["mode"]},
+            classification="personal", side_effect="REVERSIBLE_WRITE", freshness="stable",
+            risk="write_soft", handler=set_travel_mode_cap, tags=["travel", "departure"],
+        ))
         from memos.caps import cancel_reminder, list_reminders, set_reminder
         self.register(CapabilitySpec(
             capability="set_reminder",

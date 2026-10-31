@@ -711,6 +711,16 @@ export const api = {
   /** Where the shortcut sends what was dictated. */
   siriAskUrl: () => `${BASE}/api/siri/ask`,
 
+  /** First-run guide: what ORA still needs to work on its own. */
+  setupStatus: () => request<{
+    notifications: boolean; location: boolean; home: boolean; travel_mode: boolean; morning_brief: boolean;
+    travel: 'drive' | 'walk' | 'transit' | 'bicycle'; brief: { enabled: boolean; hour: number };
+    done: boolean; dismissed: boolean; missing: string[];
+  }>('/brief/setup'),
+  setupDismiss: () => request<{ ok: boolean }>('/brief/setup/dismiss', { method: 'POST' }),
+  setTravelMode: (mode: 'drive' | 'walk' | 'transit' | 'bicycle') =>
+    request<{ ok: boolean; mode: string; label: string }>('/brief/travel-mode', { method: 'PUT', body: JSON.stringify({ mode }) }),
+
   /** The morning brief: on/off and the hour (5-11). */
   morningBrief: () => request<{ enabled: boolean; hour: number }>('/brief/morning'),
   setMorningBrief: (body: { enabled?: boolean; hour?: number }) =>

@@ -120,3 +120,19 @@ async def test_a_business_in_a_town_falls_back_to_the_town(monkeypatch):
     d = await ln.destination_for(AsyncMongoMockClient().leave_dest_v1, OWNER, "parrucchiere a Montalto di Castro",
                                  {"latitude": 42.25, "longitude": 11.76})
     assert d == {"latitude": 42.35, "longitude": 11.61, "label": "Montalto di Castro"}
+
+
+@pytest.mark.asyncio
+async def test_the_persons_way_of_moving_is_tried_first(roads):
+    from places import travel_mode
+
+    db = AsyncMongoMockClient().leave_mode_v1
+    await db.users.insert_one({"user_id": OWNER})
+    out = await travel_mode.set_mode(db, OWNER, "walk")
+    assert out == {"ok": True, "mode": "walk", "label": "a piedi"}
+    assert (await travel_mode.set_mode(db, OWNER, "plane"))["ok"] is False
+    res = await ln.plan_event(db, OWNER, EVENT, now=NOW.astimezone(timezone.utc), tz=ROME)
+    assert res["mode"] == "a piedi"
+    assert roads.await_args_list[0].kwargs["travel_mode"] == "walk"
+    row = await db.reminders.find_one({})
+    assert "travelmode=walking" in row["meta"]["route_url"]

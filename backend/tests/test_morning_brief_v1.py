@@ -105,3 +105,28 @@ async def test_without_a_saved_home_the_last_drying_place_is_used(monkeypatch):
     await db.reminders.insert_one({"user_id": OWNER, "updated_at": "2026-10-27T20:00:00+00:00",
                                    "meta": {"kind": "drying_end", "situation_id": "sit_1", "point": [42.25, 11.76]}})
     assert await morning._where(db, OWNER) == (42.25, 11.76, "Tarquinia")
+
+
+@pytest.mark.asyncio
+async def test_setup_status_lists_what_is_missing(monkeypatch):
+    from brief import router as br
+    from location.service import LocationService
+    from unittest.mock import AsyncMock
+
+    db = AsyncMongoMockClient().setup_v1
+    monkeypatch.setattr(br, "db", db)
+    monkeypatch.setattr(LocationService, "get_preference", AsyncMock(return_value="off"))
+    await db.users.insert_one({"user_id": OWNER})
+    out = await br.setup_status(user={"user_id": OWNER})
+    assert out["missing"] == ["notifications", "location", "home", "travel_mode", "morning_brief"] and not out["done"]
+    await db.push_endpoints.insert_one({"owner_id": OWNER, "status": "active"})
+    await db.life_places.insert_one({"user_id": OWNER, "role": "home", "state": "confirmed",
+                                     "coordinates": {"latitude": 42.2, "longitude": 11.7}})
+    from places.travel_mode import set_mode
+    await set_mode(db, OWNER, "drive")
+    await morning.set_preference(db, OWNER, enabled=True)
+    monkeypatch.setattr(LocationService, "get_preference", AsyncMock(return_value="while_using"))
+    out = await br.setup_status(user={"user_id": OWNER})
+    assert out["done"] and out["missing"] == []
+    await br.setup_dismiss(user={"user_id": OWNER})
+    assert (await br.setup_status(user={"user_id": OWNER}))["dismissed"]
