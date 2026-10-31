@@ -155,9 +155,10 @@ async def plan_event(db, owner: str, event: Dict[str, Any], *, now: datetime, tz
     dest = await destination_for(db, owner, location, origin)
     if dest is None:
         return {"status": "destination_unresolved"}
+    from places.travel_mode import get as preferred_mode, order
     route = None
     mode = "drive"
-    for mode in ("drive", "transit", "walk"):
+    for mode in order(await preferred_mode(db, owner)):
         if mode not in routing.capabilities().get("modes", []):
             continue
         r = await routing.get_route(origin={k: origin[k] for k in ("latitude", "longitude")},
@@ -171,7 +172,7 @@ async def plan_event(db, owner: str, event: Dict[str, Any], *, now: datetime, tz
     minutes = math.ceil(route["duration_seconds"] / 60)
     leave = start - timedelta(minutes=minutes + MARGIN_MINUTES)
     late = leave <= now
-    labels = {"drive": "in auto", "transit": "con i mezzi", "walk": "a piedi"}
+    from places.travel_mode import LABELS as labels
     from_where = {"here": "", "home": " da casa", "last_known": " dall'ultima posizione nota"}[origin["kind"]]
     clock = start.astimezone(tz).strftime("%H:%M")
     if late:

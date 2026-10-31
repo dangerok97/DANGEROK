@@ -172,6 +172,15 @@ class AICoreOrchestrator:
         try:
             result = await run_cognitive_loop(**kwargs)
             phase = "error" if result.error else "done"
+            if not result.error and kwargs.get("db") is not None:
+                # An appointment said in words lands in the calendar even when
+                # the model did not write it (30/10), and the answer says so.
+                from conversation_engine.ai_core.appointment_net import ensure_after_turn
+                added = await ensure_after_turn(kwargs["db"], sess.user_id, str(kwargs.get("user_message") or ""),
+                                                session_id=sess.id)
+                if added:
+                    result.ora_text = (f"{result.ora_text.rstrip()}\n\n{added}" if (result.ora_text or "").strip()
+                                       else added)
             return result
         finally:
             await report_activity(self.db, sess, phase, keep_area=True)
