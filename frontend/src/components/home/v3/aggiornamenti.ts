@@ -47,7 +47,7 @@ export type Aggiornamento = {
   /** Information is true to its source, but no concrete next step is committed. */
   solo_informazione?: boolean;
   /** Un promemoria chiesto dalla persona, o l'esito di una chiamata chiesta da lei. */
-  promemoria?: 'reminder' | 'phone_call' | 'morning_brief' | 'habit';
+  promemoria?: 'reminder' | 'phone_call' | 'morning_brief' | 'evening_brief' | 'ora_check' | 'habit';
   /** Percorso pronto (Google Maps) per un avviso di partenza. */
   percorso?: string;
   lavoro?: 'verify' | 'prepare';
@@ -119,6 +119,8 @@ export function elencoAggiornamenti(home: HomeV2Response | null | undefined): Ag
     perche: '',
     fonte: o.reminder.kind === 'phone_call' ? 'La telefonata che mi hai chiesto'
       : o.reminder.kind === 'morning_brief' ? 'Il punto del mattino'
+      : o.reminder.kind === 'evening_brief' ? 'La sera prima'
+      : o.reminder.kind === 'ora_check' ? 'Il controllo automatico di ORA'
       : o.reminder.kind === 'habit' ? 'I promemoria che mi chiedi più spesso' : 'Il promemoria che mi hai chiesto',
     stato: '',
     cosa_sta_facendo: '',
@@ -206,6 +208,8 @@ export function comeSiChiamaQuesto(a: Aggiornamento): string {
   if (a.promemoria === 'reminder') return 'Il promemoria che mi hai chiesto';
   if (a.promemoria === 'phone_call') return 'La telefonata che mi hai chiesto';
   if (a.promemoria === 'morning_brief') return 'La tua giornata in breve';
+  if (a.promemoria === 'evening_brief') return 'Cosa c\'è domani';
+  if (a.promemoria === 'ora_check') return 'Il controllo automatico di ORA';
   if (a.promemoria === 'habit') return 'Una proposta di ORA';
   return comeSiChiama(a.genere);
 }

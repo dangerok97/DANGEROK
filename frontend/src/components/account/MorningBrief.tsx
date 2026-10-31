@@ -15,7 +15,7 @@ import { ActionBtn } from '@/src/components/ui/ActionBtn';
 import { SettingCard } from '@/src/components/account';
 import { humanizeError } from '@/src/utils/errors';
 
-export const BRIEF_HOURS = [6, 7, 8, 9, 10];
+export const BRIEF_HOURS = [6, 7, 8, 9, 10, 11];
 
 export function MorningBrief() {
   const { colors } = useTheme();

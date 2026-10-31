@@ -106,6 +106,8 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
             why_it_matters=("Mi avevi chiesto di fare questa telefonata."
                             if row.get("origin") == "phone_call_result" else
                             "Il punto del mattino che ricevi ogni giorno." if row.get("origin") == "morning_brief"
+                            else "Cosa c'è domani, detto la sera prima." if row.get("origin") == "evening_brief"
+                            else "Il controllo che ORA fa ogni giorno su sé stessa." if row.get("origin") == "canary"
                             else "Mi hai chiesto di ricordartelo."),
             why_now=(f"È il momento: {title}" + (f" — {body}" if body else ""))[:400],
             relevance="high",
@@ -115,7 +117,8 @@ async def fire_due(db, *, now: Optional[datetime] = None) -> Dict[str, int]:
             initiative="inform",
             what_ora_can_do="Ricordartelo adesso.",
             evidence=[EvidenceRef(kind={"phone_call_result": "phone_call", "morning_brief": "morning_brief",
-                                        "leave_notice": "leave_notice"}.get(
+                                        "leave_notice": "leave_notice", "evening_brief": "evening_brief",
+                                        "canary": "ora_check"}.get(
                                       str(row.get("origin") or ""), "reminder"),
                                   ref=rid, summary=title[:240])]
                      + ([EvidenceRef(kind="route", ref=str((row.get("meta") or {})["route_url"])[:120],
@@ -175,6 +178,26 @@ def push_decision(subject: Any) -> Dict[str, Any]:
             "confidence": "strong", "sensitivity": "personal", "requires_recheck": True,
             "copy": {"title": "È ora di metterti in moto", "body": summary[:200],
                      "public_title": "È ora di partire", "public_body": "Apri ORA per il percorso."},
+        }
+    if "evening_brief" in kinds:
+        return {
+            "mode": "push", "timing": "now",
+            "reason_to_interrupt": "Domani hai qualcosa: meglio saperlo stasera.",
+            "reason_to_open": "Cosa c'è domani e quando partire.",
+            "what_decided_the_mode": "avviso della sera prima attivo",
+            "confidence": "strong", "sensitivity": "personal", "requires_recheck": True,
+            "copy": {"title": "Domani", "body": summary[:200],
+                     "public_title": "Domani", "public_body": "Apri ORA per la giornata di domani."},
+        }
+    if "ora_check" in kinds:
+        return {
+            "mode": "push", "timing": "now",
+            "reason_to_interrupt": "Il controllo automatico ha trovato un problema.",
+            "reason_to_open": "Cosa non funziona.",
+            "what_decided_the_mode": "controllo automatico di ORA",
+            "confidence": "strong", "sensitivity": "personal", "requires_recheck": True,
+            "copy": {"title": "Controllo di ORA", "body": summary[:200],
+                     "public_title": "Controllo di ORA", "public_body": "Apri ORA per i dettagli."},
         }
     if "morning_brief" in kinds:
         return {

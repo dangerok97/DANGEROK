@@ -35,6 +35,23 @@ async def morning_today(user=Depends(get_current_user)):
     return await full(db, user["user_id"], datetime.fromisoformat(clock["local_datetime"]))
 
 
+@router.get("/evening")
+async def get_evening(user=Depends(get_current_user)):
+    from brief.evening import preference as evening
+    return await evening(db, user["user_id"])
+
+
+class EveningIn(BaseModel):
+    enabled: Optional[bool] = None
+    hour: Optional[int] = Field(default=None, ge=18, le=22)
+
+
+@router.put("/evening")
+async def put_evening(body: EveningIn, user=Depends(get_current_user)):
+    from brief.evening import set_preference as set_evening
+    return await set_evening(db, user["user_id"], enabled=body.enabled, hour=body.hour)
+
+
 class TravelIn(BaseModel):
     mode: str
 

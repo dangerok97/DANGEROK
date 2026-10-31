@@ -152,7 +152,7 @@ async def _reminders(db, owner: str, local_now: datetime) -> List[str]:
     end = datetime.combine(local_now.date() + timedelta(days=1), time(0), tzinfo=local_now.tzinfo)
     rows = await db.reminders.find(
         {"user_id": owner, "status": {"$in": ["open", "active", "pending"]},
-         "notified_state": {"$exists": False}, "origin": {"$nin": [ORIGIN, "phone_call_result"]},
+         "notified_state": {"$exists": False}, "origin": {"$nin": [ORIGIN, "phone_call_result", "evening_brief", "canary", "leave_notice"]},
          "due_at": {"$gte": local_now.astimezone(timezone.utc).isoformat(),
                     "$lt": end.astimezone(timezone.utc).isoformat()}},
         {"_id": 0, "title": 1, "due_at": 1}).sort("due_at", 1).to_list(5)
@@ -255,6 +255,56 @@ async def _where(db, owner: str):
     return None
 
 
+def _n(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+_DONE = {
+    "leave_planned": lambda n: f"Ho calcolato quando partire per {_n(n, 'appuntamento', 'appuntamenti')}",
+    "drying_planned": lambda n: "Ho fatto il calcolo dal meteo per il bucato steso",
+    "drying_replanned": lambda n: "Ho ricalcolato col meteo aggiornato quando si asciuga il bucato",
+    "situation_auto_closed": lambda n: f"Ho chiuso {_n(n, 'cosa già finita', 'cose già finite')}",
+    "watch_without_alarm": lambda n: f"Ho rimesso in moto {_n(n, 'controllo fermo', 'controlli fermi')}",
+    "watch_overdue": lambda n: f"Ho recuperato {_n(n, 'controllo in ritardo', 'controlli in ritardo')}",
+    "event_unattended": lambda n: f"Ho messo sotto controllo {_n(n, 'appuntamento', 'appuntamenti')} vicino",
+    "deadline_unattended": lambda n: f"Ho programmato il controllo di {_n(n, 'scadenza', 'scadenze')}",
+    "need_retired": lambda n: f"Ho tolto da Home {_n(n, 'richiesta non più attuale', 'richieste non più attuali')}",
+    "habit_proposed": lambda n: "Ho notato un promemoria che chiedi spesso",
+}
+_SAID = {
+    "situation_stated_time": ("avviso su una cosa che seguivo", "avvisi su cose che seguivo"),
+    "leave_notice": ("avviso di partenza", "avvisi di partenza"),
+    "chat_reminder": ("promemoria che mi avevi chiesto", "promemoria che mi avevi chiesto"),
+}
+
+
+async def _done_alone(db, owner: str, now_utc: datetime) -> List[str]:
+    """What ORA did on its own in the last 24 hours, without being asked at that moment."""
+    since = (now_utc - timedelta(hours=24)).isoformat()
+    out: List[str] = []
+    try:
+        seen: Dict[str, set] = {}
+        async for r in db.ops_self_checks.find({"owner_id": owner, "at": {"$gte": since}}, {"_id": 0, "findings": 1}):
+            for f in r.get("findings") or []:
+                if f.get("repaired") and f.get("code") in _DONE:
+                    seen.setdefault(f["code"], set()).add(str(f.get("ref") or len(seen.get(f["code"], ()))))
+        out += [_DONE[code](len(refs)) for code, refs in seen.items()]
+    except Exception as exc:
+        logger.info("brief done-alone checks skipped: %s", type(exc).__name__)
+    try:
+        counts: Dict[str, int] = {}
+        async for r in db.reminders.find({"user_id": owner, "notified_state": "raised",
+                                          "notified_at": {"$gte": since}, "origin": {"$in": list(_SAID)}},
+                                         {"_id": 0, "origin": 1}):
+            counts[r["origin"]] = counts.get(r["origin"], 0) + 1
+        for origin, n in counts.items():
+            one, many = _SAID[origin]
+            out.append(f"Ti ho mandato {_n(n, one, many)}")
+    except Exception as exc:
+        logger.info("brief done-alone reminders skipped: %s", type(exc).__name__)
+    return out[:6]
+
+
 def compose(appointments: List[str], deadlines: List[str], reminders: List[str], weather: str,
             drying: str = "") -> str:
     """The notification body: the day in two or three short sentences."""
@@ -295,6 +345,10 @@ async def full(db, owner: str, local_now: datetime) -> Dict[str, Any]:
                          "title": f"Il tempo{' a ' + w['place'] if w.get('place') else ''}", "lines": lines})
     sections.append({"key": "today", "icon": "calendar-outline", "title": "Oggi",
                      "lines": agenda["today"] or ["Niente in agenda."]})
+    done = await _done_alone(db, owner, local_now.astimezone(timezone.utc))
+    if done:
+        sections.append({"key": "done", "icon": "sparkles-outline", "title": "Nelle ultime 24 ore, da sola",
+                         "lines": done})
     if reminders:
         sections.append({"key": "reminders", "icon": "alarm-outline", "title": "Promemoria di oggi", "lines": reminders})
     if deadlines:

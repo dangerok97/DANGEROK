@@ -354,6 +354,8 @@ class Opportunity(BaseModel):
             # asked for: not "something ORA noticed" (owner screenshot 27/10).
             "reminder": ({"kind": "phone_call" if any(e.kind == "phone_call" for e in self.evidence)
                           else "morning_brief" if any(e.kind == "morning_brief" for e in self.evidence)
+                          else "evening_brief" if any(e.kind == "evening_brief" for e in self.evidence)
+                          else "ora_check" if any(e.kind == "ora_check" for e in self.evidence)
                           else "reminder",
                           **({"route_url": next(e.ref for e in self.evidence if e.kind == "route")}
                              if any(e.kind == "route" for e in self.evidence) else {})}

@@ -25,6 +25,17 @@ WORDS = {
 }
 
 
+@router.get("/canary")
+async def canary_runs(user=Depends(get_current_user)):
+    """ORA's daily end-to-end test of itself: what passed, what did not."""
+    from ops.canary import WORDS as CANARY_WORDS, latest
+    runs = await latest(db)
+    return {"runs": [{"day": r["_id"], "ok": r.get("ok"), "at": r.get("at"),
+                      "checks": [{"name": c["name"], "ok": c["ok"],
+                                  "text": CANARY_WORDS.get(c["name"], c["name"]), "detail": c.get("detail", "")}
+                                 for c in r.get("checks", [])]} for r in runs]}
+
+
 @router.get("/self-check")
 async def self_check(user=Depends(get_current_user)):
     report = await selfcheck.latest(db, user["user_id"])

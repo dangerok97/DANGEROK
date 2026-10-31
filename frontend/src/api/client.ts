@@ -731,6 +731,12 @@ export const api = {
 
   /** The morning brief: on/off and the hour (5-11). */
   morningBrief: () => request<{ enabled: boolean; hour: number }>('/brief/morning'),
+  eveningBrief: () => request<{ enabled: boolean; hour: number }>('/brief/evening'),
+  setEveningBrief: (body: { enabled?: boolean; hour?: number }) =>
+    request<{ enabled: boolean; hour: number }>('/brief/evening', { method: 'PUT', body: JSON.stringify(body) }),
+  /** ORA's daily end-to-end test of itself. */
+  oraCheck: () => request<{ runs: Array<{ day: string; ok: boolean; at?: string;
+    checks: Array<{ name: string; ok: boolean; text: string; detail: string }> }> }>('/ops/canary'),
   /** The whole morning brief, built now: the page behind the notification. */
   morningToday: () => request<MorningToday>('/brief/morning/today'),
   setMorningBrief: (body: { enabled?: boolean; hour?: number }) =>
@@ -3463,7 +3469,7 @@ export type HomeOpportunity = {
   question?: string | null;
   seen?: boolean;
   /** A reminder the person asked for, or the outcome of a call they asked for. */
-  reminder?: { kind: 'reminder' | 'phone_call' | 'morning_brief' | 'habit'; route_url?: string } | null;
+  reminder?: { kind: 'reminder' | 'phone_call' | 'morning_brief' | 'evening_brief' | 'ora_check' | 'habit'; route_url?: string } | null;
 };
 
 /**

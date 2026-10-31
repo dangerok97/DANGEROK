@@ -87,6 +87,33 @@ async def upcoming(db, user_id: str, now: datetime, *, days: int = HORIZON_DAYS)
             out.append({"ref": f"plan:{plan.get('id')}", "title": str(plan.get("title") or "")[:120],
                         "kind": "plan_target", "due": due, "date_only": date_only})
 
+    # Bills and payments read from mail and documents (financial/): they had a
+    # due date in financial_facts and never reached the deadlines, so neither
+    # the morning brief nor the self-check ever said «scade la bolletta».
+    try:
+        facts = await db.financial_facts.find(
+            {"owner_id": user_id, "status": "known", "kind": "commitment", "direction": {"$ne": "incoming"},
+             "due_at": {"$nin": [None, ""]}},
+            {"_id": 0, "id": 1, "what": 1, "due_at": 1, "money": 1, "counterparty": 1},
+        ).limit(100).to_list(100)
+    except Exception:
+        facts = []
+    seen_bills: set = set()
+    for f in facts:
+        due, date_only = _when(f.get("due_at"), tz)
+        if due is None or not start <= due <= end:
+            continue
+        title = " ".join(str(f.get("what") or "Pagamento").split())[:90]
+        money = f.get("money") or {}
+        if money.get("amount") is not None and str(money.get("currency") or "EUR").upper() == "EUR":
+            title += f" (€{float(money['amount']):.2f})".replace(".", ",").replace(",00)", ")")
+        key = (title.casefold(), due.date())
+        if key in seen_bills:
+            continue
+        seen_bills.add(key)
+        out.append({"ref": f"financial:{f.get('id')}", "title": title[:120], "kind": "bill",
+                    "due": due, "date_only": date_only})
+
     out.sort(key=lambda r: r["due"])
     return out[:MAX_ROWS]
 

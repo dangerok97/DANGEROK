@@ -91,6 +91,8 @@ export default function DettaglioAggiornamento() {
     <PaginaOra
       titolo={a?.promemoria === 'reminder' ? 'Promemoria' : a?.promemoria === 'phone_call' ? 'Telefonata'
         : a?.promemoria === 'morning_brief' ? 'Il punto del mattino'
+        : a?.promemoria === 'evening_brief' ? 'Domani'
+        : a?.promemoria === 'ora_check' ? 'Controllo di ORA'
         : a?.promemoria === 'habit' ? 'Una proposta' : 'Aggiornamento di ORA'}
       sottotitolo={a ? comeSiChiamaQuesto(a) : undefined}
       attiva="index"
@@ -151,14 +153,15 @@ function DettaglioPromemoria({ a, onClosed }: { a: Aggiornamento; onClosed: () =
     }
   };
   // A call outcome and the morning brief are news to read: «Ok», no snooze.
-  const telefonata = a.promemoria === 'phone_call' || a.promemoria === 'morning_brief';
+  const telefonata = a.promemoria === 'phone_call' || a.promemoria === 'morning_brief'
+    || a.promemoria === 'evening_brief' || a.promemoria === 'ora_check';
   const mattino = a.promemoria === 'morning_brief';
   return (
     <>
       {mattino ? <PuntoDelMattino fallback={a.cosa} /> : (
       <OraCard style={styles.voce} testID="promemoria-testo">
         <View style={styles.testa}>
-          <Ionicons name={a.promemoria === 'morning_brief' ? 'sunny-outline' : telefonata ? 'call-outline' : 'alarm-outline'} size={18} color={ora.deep} />
+          <Ionicons name={a.promemoria === 'morning_brief' ? 'sunny-outline' : a.promemoria === 'evening_brief' ? 'moon-outline' : a.promemoria === 'ora_check' ? 'pulse-outline' : telefonata ? 'call-outline' : 'alarm-outline'} size={18} color={ora.deep} />
           <Text style={[oraType.small, { color: ora.ink3, fontWeight: '600' }]}>
             {(quandoAggiornamento(a.quando) || '').toUpperCase()}
           </Text>
