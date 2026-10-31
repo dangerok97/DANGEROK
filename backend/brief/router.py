@@ -25,6 +25,16 @@ async def put_morning(body: MorningIn, user=Depends(get_current_user)):
     return await set_preference(db, user["user_id"], enabled=body.enabled, hour=body.hour)
 
 
+@router.get("/morning/today")
+async def morning_today(user=Depends(get_current_user)):
+    """The whole brief, built now: the page behind the morning notification."""
+    from datetime import datetime
+    from brief.morning import full
+    from timezone_service import user_clock_context
+    clock = await user_clock_context(db, user["user_id"])
+    return await full(db, user["user_id"], datetime.fromisoformat(clock["local_datetime"]))
+
+
 class TravelIn(BaseModel):
     mode: str
 

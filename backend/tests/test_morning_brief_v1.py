@@ -12,12 +12,28 @@ OWNER = "usr_brief_v1"
 
 
 def test_compose_reads_like_a_morning_line():
-    text = morning.compose(["Dentista alle 10:30"], ["F24 oggi"], ["Pastiglia alle 20:00"],
-                           "Tarquinia, 12-19 °C, pioggia 10%: se stendi alle 09:00, asciutti verso le 15:10")
-    assert text == ("Oggi: Dentista alle 10:30; F24 oggi. Promemoria: Pastiglia alle 20:00. "
-                    "Tarquinia, 12-19 °C, pioggia 10%: se stendi alle 09:00, asciutti verso le 15:10.")
+    text = morning.compose(["10:30 Dentista"], ["F24: scade oggi"], ["Pastiglia alle 20:00"],
+                           "Sereno, 11–20 °C, niente pioggia", "Bucato: se stendi alle 9, è asciutto verso le 14.")
+    assert text == ("Sereno, 11–20 °C, niente pioggia. Oggi: 10:30 Dentista. Scadenze: F24: scade oggi. "
+                    "Promemoria: Pastiglia alle 20:00. Bucato: se stendi alle 9, è asciutto verso le 14.")
     assert morning.compose([], [], [], "") == ""
+    assert morning.compose([], [], [], "Sereno").startswith("Sereno. Niente in agenda oggi.")
     assert len(morning.compose(["x" * 100] * 3, ["y" * 100], [], "")) == morning.MAX_CHARS
+
+
+def test_people_say_the_hour_not_14_01():
+    assert morning.clock(datetime(2026, 10, 31, 14, 1)) == "14"
+    assert morning.clock(datetime(2026, 10, 31, 14, 23)) == "14:30"
+    assert morning.clock(datetime(2026, 10, 31, 9, 0)) == "9"
+    assert morning.day_label(datetime(2026, 10, 31).date()) == "Sabato 31 ottobre"
+
+
+def test_weather_line_in_words():
+    w = {"today": {"condition_label": "Sereno", "min_c": 11, "max_c": 20, "rain_chance_pct": 0}}
+    assert morning.weather_line(w) == "Sereno, 11–20 °C, niente pioggia"
+    w["today"]["rain_chance_pct"] = 60
+    assert morning.weather_line(w).endswith("pioggia 60%")
+    assert morning.weather_line(None) == ""
 
 
 @pytest.fixture
@@ -28,19 +44,19 @@ def world(monkeypatch):
     async def user_clock(_db, _owner, *, now=None):
         return {"local_datetime": clock["now"].isoformat()}
 
-    async def apps(db, owner, local_now):
-        return ["Dentista alle 10:30"]
+    async def agenda(db, owner, local_now):
+        return {"today": ["10:30 · Dentista"], "tomorrow": []}
 
     async def nothing(db, owner, local_now):
         return [] if not isinstance(local_now, str) else ""
 
     async def no_weather(db, owner, local_now):
-        return ""
+        return None
 
     monkeypatch.setattr(timezone_service, "user_clock_context", user_clock)
-    monkeypatch.setattr(morning, "_appointments", apps)
+    monkeypatch.setattr(morning, "_agenda", agenda)
     monkeypatch.setattr(morning, "_deadlines", nothing)
-    monkeypatch.setattr(morning, "_home_weather", no_weather)
+    monkeypatch.setattr(morning, "_weather", no_weather)
     return clock
 
 
@@ -55,7 +71,7 @@ async def test_once_a_day_at_the_hour_through_the_reminder_lane(world):
     assert out["queued"] == 1
     assert (await morning.fire_due(db))["queued"] == 0  # not twice the same day
     row = await db.reminders.find_one({"origin": "morning_brief"})
-    assert row["title"].startswith("Oggi: Dentista alle 10:30")
+    assert row["title"].startswith("Oggi: 10:30 Dentista")
     await one_shot.fire_due(db)
     opp = await db.opportunities.find_one({})
     from opportunities.models import Opportunity
@@ -130,3 +146,16 @@ async def test_setup_status_lists_what_is_missing(monkeypatch):
     assert out["done"] and out["missing"] == []
     await br.setup_dismiss(user={"user_id": OWNER})
     assert (await br.setup_status(user={"user_id": OWNER}))["dismissed"]
+
+
+@pytest.mark.asyncio
+async def test_the_page_has_the_whole_day(world):
+    db = AsyncMongoMockClient().brief_full_v1
+    await db.users.insert_one({"user_id": OWNER, "name": "Francesco Rossi"})
+    await db.situations.insert_one({"user_id": OWNER, "status": "active", "summary": "Lavatrice avviata",
+                                    "next_check_summary": "finisce verso le 10", "updated_at": "x"})
+    out = await morning.full(db, OWNER, world["now"])
+    assert out["greeting"] == "Buongiorno, Francesco" and out["day"] == "Venerdì 30 ottobre"
+    keys = [s["key"] for s in out["sections"]]
+    assert keys == ["today", "watching", "missing"]  # no home: says how to get the weather
+    assert out["sections"][1]["lines"] == ["Lavatrice avviata — finisce verso le 10"]

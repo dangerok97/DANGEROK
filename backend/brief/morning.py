@@ -5,8 +5,12 @@ ORA knew today's appointments, the deadlines, the reminders and the weather
 of the person's home, and said none of it together. At the person's chosen
 hour (08:00 unless changed) one notification sums the day up:
 
-    Oggi: dentista alle 10:30; scade F24. Promemoria: pastiglia alle 20.
-    Tarquinia 12-19 °C, pioggia 10%: se stendi alle 9, asciutti verso le 15.
+    Sereno, 11–20 °C, niente pioggia. Oggi: 10:30 Dentista. Scadenze: F24:
+    scade domani. Bucato: se stendi alle 9, è asciutto verso le 14.
+
+Opening it shows the whole day (brief/router GET /brief/morning/today, built
+live): the weather today and tomorrow, the agenda with the leave times, the
+reminders, the week's deadlines, what ORA is following, tomorrow.
 
 Built only from stored facts and the hourly forecast, no model: it arrives
 even when the model is out of quota. Nothing to say means no notification.
@@ -57,33 +61,91 @@ def _hhmm(value: Any, tz) -> str:
         return ""
 
 
-async def _appointments(db, owner: str, local_now: datetime) -> List[str]:
+_GIORNI = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")
+_MESI = ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto",
+         "settembre", "ottobre", "novembre", "dicembre")
+
+
+def day_label(d) -> str:
+    """«Sabato 31 ottobre»."""
+    return f"{_GIORNI[d.weekday()].capitalize()} {d.day} {_MESI[d.month - 1]}"
+
+
+def clock(moment: datetime) -> str:
+    """«le 14», «le 14:30»: a person says the hour, not 14:01."""
+    q = round((moment.hour * 60 + moment.minute) / 15) * 15
+    h, m = divmod(q % (24 * 60), 60)
+    return f"{h}" if m == 0 else f"{h}:{m:02d}"
+
+
+def _when_days(days: int) -> str:
+    return "oggi" if days == 0 else "domani" if days == 1 else f"tra {days} giorni"
+
+
+async def _agenda(db, owner: str, local_now: datetime) -> Dict[str, List[str]]:
+    """Today's and tomorrow's appointments, with the leave time where ORA computed one."""
     from opportunities.snapshot import _calendar
 
-    out = []
+    leaves: Dict[str, str] = {}
+    try:
+        rows = await db.reminders.find(
+            {"user_id": owner, "origin": "leave_notice", "status": "open"}, {"_id": 0, "due_at": 1, "meta": 1}
+        ).to_list(20)
+        for r in rows:
+            ref = (r.get("meta") or {}).get("event_ref")
+            if ref:
+                leaves[str(ref)] = _hhmm(r.get("due_at"), local_now.tzinfo)
+    except Exception:
+        pass
+    out: Dict[str, List[str]] = {"today": [], "tomorrow": []}
     for e in await _calendar(db, owner, local_now):
-        if e.get("in_days") != 0:
+        day = {0: "today", 1: "tomorrow"}.get(e.get("in_days"))
+        if day is None:
             continue
-        title = " ".join(str(e.get("title") or "Appuntamento").split())[:40]
-        clock = "" if e.get("all_day") else _hhmm(e.get("starts_at"), local_now.tzinfo)
-        out.append(f"{title} alle {clock}" if clock else title)
-    return out[:3]
+        title = " ".join(str(e.get("title") or "Appuntamento").split())[:60]
+        at = "" if e.get("all_day") else _hhmm(e.get("starts_at"), local_now.tzinfo)
+        line = f"{at} · {title}" if at else f"Tutto il giorno · {title}"
+        place = " ".join(str(e.get("location") or "").split())[:50]
+        if place:
+            line += f" ({place})"
+        if day == "today" and leaves.get(str(e.get("ref"))):
+            line += f" — parti alle {leaves[str(e.get('ref'))]}"
+        out[day].append(line)
+    return {k: v[:5] for k, v in out.items()}
+
+
+async def _appointments(db, owner: str, local_now: datetime) -> List[str]:
+    return (await _agenda(db, owner, local_now))["today"]
 
 
 async def _deadlines(db, owner: str, local_now: datetime) -> List[str]:
+    """Open deadlines of the coming week, said as people say them."""
     from opportunities.deadlines import as_facts, upcoming
 
-    facts = as_facts(await upcoming(db, owner, local_now, days=1), local_now)
+    facts = as_facts(await upcoming(db, owner, local_now, days=7), local_now)
     out = []
-    for f in facts:
-        title = " ".join(str(f.get("title") or "").split())[:40]
-        if f.get("overdue"):
-            out.append(f"{title} (scaduta)")
-        elif f.get("days_left") == 0:
-            out.append(f"{title} oggi")
-        elif f.get("days_left") == 1:
-            out.append(f"{title} domani")
-    return out[:3]
+    for f in sorted(facts, key=lambda f: (not f.get("overdue"), f.get("days_left", 99))):
+        title = " ".join(str(f.get("title") or "").split())[:60]
+        out.append(f"{title}: scaduta" if f.get("overdue") else f"{title}: scade {_when_days(int(f.get('days_left') or 0))}")
+    return out[:4]
+
+
+async def _watching(db, owner: str) -> List[str]:
+    """What ORA is following right now, in the person's words."""
+    try:
+        rows = await db.situations.find(
+            {"user_id": owner, "status": {"$in": ["active", "changed"]}},
+            {"_id": 0, "summary": 1, "tracking_summary": 1, "next_check_summary": 1},
+        ).sort("updated_at", -1).to_list(3)
+    except Exception:
+        return []
+    out = []
+    for r in rows:
+        text = " ".join(str(r.get("tracking_summary") or r.get("summary") or "").split())[:90]
+        if text:
+            nxt = " ".join(str(r.get("next_check_summary") or "").split())[:60]
+            out.append(f"{text} — {nxt}" if nxt else text)
+    return out
 
 
 async def _reminders(db, owner: str, local_now: datetime) -> List[str]:
@@ -98,42 +160,66 @@ async def _reminders(db, owner: str, local_now: datetime) -> List[str]:
             for r in rows][:3]
 
 
-async def _home_weather(db, owner: str, local_now: datetime) -> str:
-    """Today at home, and whether a load hung out at 9 would dry today."""
+async def _weather(db, owner: str, local_now: datetime) -> Optional[Dict[str, Any]]:
+    """Today and tomorrow at home, and whether a load hung out this morning dries today."""
     try:
         point = await _where(db, owner)
         if point is None:
-            return ""
+            return None
         lat, lon, label = point
         import weather as weather_service
         data = await weather_service.forecast_at(lat=lat, lon=lon, place=label)
         if not data.get("available"):
-            return ""
-        today = (data.get("days") or [{}])[0]
-        place = (label or "Da te")[:24]
-        bits = [place]
-        if today.get("min_c") is not None and today.get("max_c") is not None:
-            bits.append(f"{today['min_c']}-{today['max_c']} °C")
-        if today.get("rain_chance_pct") is not None:
-            bits.append(f"pioggia {today['rain_chance_pct']}%")
-        text = " ".join(bits[:1]) + (", " + ", ".join(bits[1:]) if len(bits) > 1 else "")
+            return None
+        days = data.get("days") or [{}]
+        today, tomorrow = days[0], (days[1] if len(days) > 1 else {})
+        out: Dict[str, Any] = {"place": (label or "")[:40], "today": today, "tomorrow": tomorrow,
+                               "sunset": data.get("sunset") or "", "drying": None}
         from situations import outdoor_drying as od
         from situations.calibration import factor
         hang = local_now.replace(hour=9, minute=0, second=0, microsecond=0)
         if local_now > hang:
-            hang = local_now
+            q = (local_now.minute // 15 + 1) * 15
+            hang = local_now.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=q)
         hours = await od._fetch_hours(lat, lon, hang)
-        units = od.LOAD_UNITS * await factor(db, owner, "drying")
-        result = od.compute(hours, start=hang.astimezone(timezone.utc), now=hang.astimezone(timezone.utc), units=units)
-        dry, dusk = result.get("dry_at"), result.get("dusk_at")
-        if dry and (dusk is None or dry <= dusk + timedelta(minutes=30)):
-            text += f": se stendi alle {hang.strftime('%H:%M')}, asciutti verso le {dry.astimezone(local_now.tzinfo).strftime('%H:%M')}"
-        elif hours:
-            text += ": oggi i panni fuori non si asciugano entro sera"
-        return text
+        if hours:
+            units = od.LOAD_UNITS * await factor(db, owner, "drying")
+            r = od.compute(hours, start=hang.astimezone(timezone.utc), now=hang.astimezone(timezone.utc), units=units)
+            dry, dusk, rain = r.get("dry_at"), r.get("dusk_at"), r.get("rain_at")
+            tz = local_now.tzinfo
+            if rain is not None:
+                out["drying"] = {"good": False, "text": f"Bucato: meglio non stendere fuori, pioggia verso le {clock(rain.astimezone(tz))}."}
+            elif dry and (dusk is None or dry <= dusk + timedelta(minutes=30)):
+                out["drying"] = {"good": True, "text": (f"Buona giornata per il bucato: se stendi alle {clock(hang)}, "
+                                                        f"è asciutto verso le {clock(dry.astimezone(tz))}.")}
+            else:
+                out["drying"] = {"good": False, "text": "Bucato: oggi fuori non si asciuga prima di sera."}
+        return out
     except Exception as exc:
         logger.info("brief weather skipped: %s", type(exc).__name__)
+        return None
+
+
+def weather_line(w: Optional[Dict[str, Any]], key: str = "today") -> str:
+    """«Sereno, 11–20 °C, niente pioggia»."""
+    if not w:
         return ""
+    d = w.get(key) or {}
+    bits = []
+    if d.get("condition_label"):
+        bits.append(str(d["condition_label"]))
+    if d.get("min_c") is not None and d.get("max_c") is not None:
+        bits.append(f"{d['min_c']}–{d['max_c']} °C")
+    rain = d.get("rain_chance_pct")
+    if rain is not None:
+        bits.append("niente pioggia" if rain < 15 else f"pioggia {rain}%")
+    return ", ".join(bits)
+
+
+async def _home_weather(db, owner: str, local_now: datetime) -> str:
+    w = await _weather(db, owner, local_now)
+    line = weather_line(w)
+    return (f"{w['place']}: {line}" if w and w.get("place") else line) if line else ""
 
 
 async def _where(db, owner: str):
@@ -169,22 +255,72 @@ async def _where(db, owner: str):
     return None
 
 
-def compose(appointments: List[str], deadlines: List[str], reminders: List[str], weather: str) -> str:
+def compose(appointments: List[str], deadlines: List[str], reminders: List[str], weather: str,
+            drying: str = "") -> str:
+    """The notification body: the day in two or three short sentences."""
     parts = []
-    today = appointments + deadlines
-    if today:
-        parts.append("Oggi: " + "; ".join(today) + ".")
-    if reminders:
-        parts.append("Promemoria: " + "; ".join(reminders) + ".")
     if weather:
         parts.append(weather[0].upper() + weather[1:] + ".")
+    parts.append(("Oggi: " + "; ".join(appointments) + ".") if appointments else "Niente in agenda oggi.")
+    if deadlines:
+        parts.append("Scadenze: " + "; ".join(deadlines) + ".")
+    if reminders:
+        parts.append("Promemoria: " + "; ".join(reminders) + ".")
+    if drying:
+        parts.append(drying)
+    if not (weather or appointments or deadlines or reminders or drying):
+        return ""
     text = " ".join(parts)
     return text if len(text) <= MAX_CHARS else text[:MAX_CHARS - 1].rstrip() + "…"
 
 
+async def full(db, owner: str, local_now: datetime) -> Dict[str, Any]:
+    """The whole brief: what the notification says and what the page shows."""
+    row = await db.users.find_one({"user_id": owner}, {"_id": 0, "name": 1}) or {}
+    first = str(row.get("name") or "").split(" ")[0][:30]
+    hello = "Buongiorno" if local_now.hour < 13 else "Buon pomeriggio" if local_now.hour < 18 else "Buonasera"
+    agenda = await _agenda(db, owner, local_now)
+    deadlines = await _deadlines(db, owner, local_now)
+    reminders = await _reminders(db, owner, local_now)
+    w = await _weather(db, owner, local_now)
+    watching = await _watching(db, owner)
+    sections: List[Dict[str, Any]] = []
+    if w:
+        lines = [weather_line(w)]
+        if w.get("sunset"):
+            lines.append(f"Tramonto alle {w['sunset']}")
+        if weather_line(w, "tomorrow"):
+            lines.append(f"Domani: {weather_line(w, 'tomorrow')}")
+        sections.append({"key": "weather", "icon": (w["today"].get("icon") or "partly-sunny-outline"),
+                         "title": f"Il tempo{' a ' + w['place'] if w.get('place') else ''}", "lines": lines})
+    sections.append({"key": "today", "icon": "calendar-outline", "title": "Oggi",
+                     "lines": agenda["today"] or ["Niente in agenda."]})
+    if reminders:
+        sections.append({"key": "reminders", "icon": "alarm-outline", "title": "Promemoria di oggi", "lines": reminders})
+    if deadlines:
+        sections.append({"key": "deadlines", "icon": "time-outline", "title": "Scadenze", "lines": deadlines})
+    if w and w.get("drying"):
+        sections.append({"key": "drying", "icon": "shirt-outline", "title": "Bucato", "lines": [w["drying"]["text"]],
+                         "good": w["drying"]["good"]})
+    if watching:
+        sections.append({"key": "watching", "icon": "eye-outline", "title": "Sto seguendo", "lines": watching})
+    if agenda["tomorrow"]:
+        sections.append({"key": "tomorrow", "icon": "calendar-clear-outline", "title": "Domani", "lines": agenda["tomorrow"]})
+    if not w:
+        sections.append({"key": "missing", "icon": "home-outline", "title": "Manca il meteo",
+                         "lines": ["Dimmi dov'è casa (Prepara ORA) e ogni mattina ti dico che tempo fa e se è giornata da bucato."]})
+    weather_short = weather_line(w)
+    drying_short = ""
+    if w and w.get("drying") and w["drying"]["good"]:
+        drying_short = w["drying"]["text"].replace("Buona giornata per il bucato: ", "Bucato: ")
+    headline = compose([a.replace(" · ", " ") for a in agenda["today"][:3]], deadlines[:2], reminders[:2],
+                       weather_short, drying_short)
+    return {"greeting": f"{hello}{', ' + first if first else ''}", "day": day_label(local_now),
+            "headline": headline, "sections": sections, "at": local_now.isoformat(timespec="minutes")}
+
+
 async def build(db, owner: str, local_now: datetime) -> str:
-    return compose(await _appointments(db, owner, local_now), await _deadlines(db, owner, local_now),
-                   await _reminders(db, owner, local_now), await _home_weather(db, owner, local_now))
+    return (await full(db, owner, local_now))["headline"]
 
 
 async def fire_due(db, *, now: Optional[datetime] = None, limit: int = 50) -> Dict[str, int]:
@@ -221,7 +357,8 @@ async def fire_due(db, *, now: Optional[datetime] = None, limit: int = 50) -> Di
         stamp = now.isoformat()
         await db.reminders.insert_one({
             "id": rid, "user_id": owner, "title": text, "status": "open", "due_at": stamp,
-            "origin": ORIGIN, "created_at": stamp, "updated_at": stamp, "meta": {"kind": ORIGIN},
+            "origin": ORIGIN, "created_at": stamp, "updated_at": stamp,
+            "meta": {"kind": ORIGIN},
         })
         out["queued"] += 1
     if out["queued"] or out["empty"]:

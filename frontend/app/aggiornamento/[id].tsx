@@ -30,6 +30,7 @@ import {
 import { rimuoviAggiornamento } from '@/src/components/home/v3/rimuoviAggiornamento';
 import { ora, oraType } from '@/src/theme/oraSurface';
 import { humanizeError } from '@/src/utils/errors';
+import { PuntoDelMattino } from '@/src/components/brief/PuntoDelMattino';
 
 export default function DettaglioAggiornamento() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -151,8 +152,10 @@ function DettaglioPromemoria({ a, onClosed }: { a: Aggiornamento; onClosed: () =
   };
   // A call outcome and the morning brief are news to read: «Ok», no snooze.
   const telefonata = a.promemoria === 'phone_call' || a.promemoria === 'morning_brief';
+  const mattino = a.promemoria === 'morning_brief';
   return (
     <>
+      {mattino ? <PuntoDelMattino fallback={a.cosa} /> : (
       <OraCard style={styles.voce} testID="promemoria-testo">
         <View style={styles.testa}>
           <Ionicons name={a.promemoria === 'morning_brief' ? 'sunny-outline' : telefonata ? 'call-outline' : 'alarm-outline'} size={18} color={ora.deep} />
@@ -168,7 +171,7 @@ function DettaglioPromemoria({ a, onClosed }: { a: Aggiornamento; onClosed: () =
             <Text style={{ color: '#fff', fontWeight: '600' }}>Apri il percorso</Text>
           </Pressable>
         ) : null}
-      </OraCard>
+      </OraCard>)}
       {!fatto && a.promemoria === 'habit' ? (
         <View style={styles.bottoni}>
           <Pressable accessibilityRole="button" testID="abitudine-si"
