@@ -188,7 +188,7 @@ class FinancialStore:
         # Non e' un conflitto e non e' una versione nuova: e' la stessa cosa,
         # vista di nuovo. Si aggiorna quando l'ho vista e si va avanti.
         for other in siblings:
-            if _says_the_same_thing(fact, other):
+            if _says_the_same_thing(fact, other) and not _separate_occurrences(fact, other):
                 await self.db[FACTS].update_one(
                     {"id": other.id},
                     {"$set": {"observed_at": fact.observed_at},
@@ -216,7 +216,7 @@ class FinancialStore:
                 )
                 fact.supersedes = other.id
                 outcome = "superseded"
-            elif _says_something_different(fact, other):
+            elif _says_something_different(fact, other) and not _separate_occurrences(fact, other):
                 # Due versioni dello stesso fatto che valgono insieme. Restano
                 # tutte e due: e' il conflitto, ed e' un'informazione.
                 await self.db[FACTS].update_one(
@@ -309,6 +309,13 @@ class FinancialStore:
         out = []
         for versions in by_name.values():
             if len(versions) < 2:
+                continue
+            if all_separate_occurrences(versions):
+                # Two card payments on different days were stored as one
+                # disputed fact (owner, 02/11). Not a disagreement: heal them.
+                await self.db[FACTS].update_many(
+                    {"owner_id": owner_id, "id": {"$in": [v.id for v in versions]}, "status": "disputed"},
+                    {"$set": {"status": "known"}})
                 continue
             out.append({
                 "what": versions[0].what,
@@ -411,6 +418,42 @@ def _same_date_claim(first: Optional[str], second: Optional[str]) -> bool:
     # source's time by truncating both strings to their calendar date.
     left_at, right_at = _moment(left), _moment(right)
     return left_at is not None and right_at is not None and left_at == right_at
+
+
+def _single_occurrence(fact: FinancialFact) -> bool:
+    """A payment made, an invoice arrived: something that happens once."""
+    if fact.cadence == "recurring":
+        return False
+    return (fact.kind == "event" or fact.cadence == "one_time"
+            or (bool(fact.occurred_at) and not fact.due_at and fact.kind != "income"))
+
+
+def _source_refs(fact: FinancialFact) -> set:
+    return {str(p.source_ref).strip().removeprefix("mail:") for p in fact.provenance if p.source_ref}
+
+
+def _separate_occurrences(fresh: FinancialFact, older: FinancialFact) -> bool:
+    """
+    Two things that each happen once, told by two different messages.
+
+    «Pagamento con carta di credito ING» €10,29 one day and €3,70 another are
+    two payments, not two versions of one: the name is the card's notice,
+    not the identity of the thing (owner, 02/11). Only the same message read
+    again can contradict itself.
+    """
+    if not (_single_occurrence(fresh) and _single_occurrence(older)):
+        return False
+    left, right = _source_refs(fresh), _source_refs(older)
+    if left and right and left & right:
+        return False
+    if not left or not right:
+        # Without a message to tell them apart, different moments still do.
+        return not _same_date_claim(fresh.occurred_at, older.occurred_at)
+    return True
+
+
+def all_separate_occurrences(versions: List[FinancialFact]) -> bool:
+    return all(_separate_occurrences(a, b) for i, a in enumerate(versions) for b in versions[i + 1:])
 
 
 def _says_something_different(fresh: FinancialFact, older: FinancialFact) -> bool:
