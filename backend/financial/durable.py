@@ -278,8 +278,9 @@ async def open_questions(db, owner_id: str) -> List[Dict[str, Any]]:
         by_thing.setdefault(identity_of(fact), []).append(fact)
 
     out: List[Dict[str, Any]] = []
+    from financial.store import all_separate_occurrences
     for versions in by_thing.values():
-        if len(versions) < 2:
+        if len(versions) < 2 or all_separate_occurrences(versions):
             continue
         out.append({
             "what": versions[0].what,
