@@ -639,6 +639,10 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         # All-day dates retain their calendar day; timed events use the viewer's zone.
         day = at if item.get("all_day") else at.astimezone(user_zone)
         item["day_label"] = f"{_WEEKDAYS_IT[day.weekday()]} {day.day} {_MONTHS_IT[day.month - 1]} {day.year}"
+        # The clock the person reads. 3/11: a 17:00 event stored as
+        # 16:00+00:00 was told as «alle 16:00»; the model must not convert.
+        if not item.get("all_day"):
+            item["time_label"] = day.strftime("%H:%M")
 
     # Bounded, deterministic overlap detection — evidence only; the AI
     # decides whether a conflict matters, this never blocks/asks by itself.
