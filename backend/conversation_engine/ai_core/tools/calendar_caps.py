@@ -583,7 +583,9 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         # riga non prova che l'evento non ci sia — la finestra e' limitata, la
         # lettura puo' essere in ritardo — quindi il caso non confermato si
         # chiama `unconfirmed`, che e' quello che sappiamo davvero.
-        confirmed = {str(e.get("external_id") or "") for e in mirrored} - {""}
+        gone = {str(e.get("external_id") or "") for e in mirrored
+                if str(plain(e.get("normalized_payload")).get("status") or "").lower() == "cancelled"} - {""}
+        confirmed = {str(e.get("external_id") or "") for e in mirrored} - {""} - gone
         already_ours = {
             str(d.get("google_event_id") or "") for d in drafts
         } - {""}
@@ -598,8 +600,15 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 item["sync_status"] = "unconfirmed"
                 item["confirmed_by_calendar"] = False
 
+        listed: set = set()
         for e in mirrored:
             p = plain(e.get("normalized_payload"))
+            handle = str(e.get("external_id") or "")
+            # A deleted event stays deleted, whatever a twin mirror row says
+            # (3/11); and one provider id is one appointment.
+            if handle in gone or (handle and handle in listed):
+                continue
+            listed.add(handle)
             if str(e.get("external_id") or "") in already_ours:
                 # Lo stesso appuntamento, gia' in lista come cosa di ORA e
                 # adesso confermato dal calendario. Elencarlo due volte
@@ -639,6 +648,10 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         # All-day dates retain their calendar day; timed events use the viewer's zone.
         day = at if item.get("all_day") else at.astimezone(user_zone)
         item["day_label"] = f"{_WEEKDAYS_IT[day.weekday()]} {day.day} {_MONTHS_IT[day.month - 1]} {day.year}"
+        # The clock the person reads. 3/11: a 17:00 event stored as
+        # 16:00+00:00 was told as «alle 16:00»; the model must not convert.
+        if not item.get("all_day"):
+            item["time_label"] = day.strftime("%H:%M")
 
     # Bounded, deterministic overlap detection — evidence only; the AI
     # decides whether a conflict matters, this never blocks/asks by itself.
