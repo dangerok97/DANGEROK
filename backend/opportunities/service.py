@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import re
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from opportunities import snapshot as life_snapshot
@@ -43,6 +43,10 @@ IDENTITY_KEY = re.compile(r"^[a-z0-9][a-z0-9_\-:.]{2,119}$")
 # How many one scan may raise. Not a judgement about which are worth it — the
 # model already made that — but a bound on how much can arrive at once.
 MAX_PER_SCAN = 3
+
+
+# An undated opportunity outlives itself by its own declared nature.
+STALE_AFTER_DAYS = {"perishable": 2, "changing": 7, "stable": 21}
 
 
 def _now() -> datetime:
@@ -597,10 +601,23 @@ class OpportunityService:
         passing is arithmetic rather than judgement. It is still recorded as a
         decision, with `code_expiry` as its source.
         """
-        now = _now().isoformat()
+        moment = _now()
+        now = moment.isoformat()
         closed = 0
         for opportunity in await self.repo.list(user_id, statuses=["active"]):
-            if opportunity.valid_until and opportunity.valid_until < now:
+            outlived = bool(opportunity.valid_until and opportunity.valid_until < now)
+            if not opportunity.valid_until:
+                # No date given: the kind of thing still has an age. «Hai una
+                # visita oggi alle 13:30» from 12/10 was still active on 3/11,
+                # with twenty more asks like it (owner audit). Arithmetic on
+                # the age the review itself declared, not a judgement.
+                limit = STALE_AFTER_DAYS.get(opportunity.time_sensitivity, 21)
+                try:
+                    born = datetime.fromisoformat(str(opportunity.created_at).replace("Z", "+00:00"))
+                    outlived = born.tzinfo is not None and moment - born > timedelta(days=limit)
+                except ValueError:
+                    outlived = False
+            if outlived:
                 opportunity.status = "expired"
                 opportunity.decision_provenance = "code_expiry"
                 opportunity.last_reviewed_at = now
@@ -611,7 +628,8 @@ class OpportunityService:
                         owner_id=user_id,
                         outcome="expire",
                         source="code_expiry",
-                        rationale="il termine indicato è passato",
+                        rationale="il termine indicato è passato" if opportunity.valid_until
+                        else "troppo vecchia per essere ancora attuale",
                     )
                 )
                 await self._close_deliveries(

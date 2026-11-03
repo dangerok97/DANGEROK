@@ -162,6 +162,19 @@ class PlacesService:
                 previous.role_confirmed_by_user = False
                 await self.repo.save_place(previous)
 
+        if not place.locality and place.coordinates is not None:
+            # «Sono a casa adesso»: a point with no town. The weather, the
+            # morning brief and the person all say «Tarquinia», not
+            # «Casa (lat, lon)» (owner audit 3/11). Best effort, coarse only.
+            try:
+                import asyncio
+                from action_engine.travel.maps import nominatim_reverse_city
+                city = await asyncio.wait_for(nominatim_reverse_city(
+                    place.coordinates.latitude, place.coordinates.longitude), timeout=4)
+                if city:
+                    place.locality = str(city).strip()[:160]
+            except Exception:
+                pass
         await self._link_to_life_graph(place)
         saved = await self.repo.save_place(place)
 
