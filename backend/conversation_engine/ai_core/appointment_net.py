@@ -38,6 +38,40 @@ _WHAT = re.compile(r"\b(appuntamento|visita|colloquio|riunione|incontro|controll
 _STOP_WHO = {"casa", "me", "te", "lui", "lei", "noi", "voi", "loro", "solo", "sola"}
 
 
+def stated_day(text: str, *, now: datetime):
+    """
+    The day the person named in words, or None when they named none.
+
+    «Venerdì alle 17 ho la palestra» on Tuesday is Friday: test 3/11, the
+    model wrote it on Tuesday, in Google Calendar. Day words are arithmetic.
+    """
+    low = " ".join(str(text or "").split()).casefold()
+    if not low:
+        return None
+    if "dopodomani" in low:
+        return now.date() + timedelta(days=2)
+    if re.search(r"\bdomani\b", low):
+        return now.date() + timedelta(days=1)
+    if re.search(r"\b(?:oggi|stasera|stamattina|stamani|stanotte|oggi pomeriggio)\b", low):
+        return now.date()
+    for name, wd in _DAYS.items():
+        if re.search(rf"\b{name}\b", low):
+            if re.search(rf"\b{name}\s+(?:scors|passat)", low):
+                return None  # the past is not a plan
+            ahead = (wd - now.weekday()) % 7
+            if ahead == 0 and not re.search(r"\b(?:oggi|stasera)\b", low):
+                # «Martedì» said on a Tuesday: today if the hour is still ahead,
+                # otherwise next week. The caller compares with the hour.
+                return now.date()
+            return now.date() + timedelta(days=ahead)
+    return None
+
+
+_HO_THE = re.compile(r"\bho\s+(?:il|la|lo|l'|un|una|i|le)\s*([a-zà-ù]+)", re.I)
+_NOT_A_TITLE = {"appuntamento", "visita", "prenotazione", "incontro", "riunione", "colloquio", "controllo",
+                "turno", "impegno", "cosa"}
+
+
 def parse(text: str, *, now: datetime) -> Optional[Dict[str, Any]]:
     """{'start', 'title', 'location'} from the person's words, or None."""
     raw = " ".join(str(text or "").split())
@@ -80,6 +114,11 @@ def parse(text: str, *, now: datetime) -> Optional[Dict[str, Any]]:
         words = [w for w in who.group(1).split() if w.casefold() not in
                  {"a", "ad", "in", "presso", "alle", "per", "verso", "oggi", "domani", "dopodomani"}]
         title = (words[0] if words else "").strip()
+    if not title:
+        # «ho la palestra», «ho il calcetto»: the thing itself is the title.
+        ho = _HO_THE.search(raw)
+        if ho and ho.group(1).casefold() not in _NOT_A_TITLE:
+            title = ho.group(1)
     if not title:
         what = _WHAT.search(raw)
         title = " ".join(x for x in (what.group(1), what.group(2)) if x) if what else "Appuntamento"

@@ -1121,6 +1121,40 @@ async def _create_ora_calendar_event(
     )
 
 
+_DAY_WORDS = (r"\b(?:dopodomani|domani|oggi|stasera|stamattina|luned[iì]|marted[iì]|mercoled[iì]|"
+              r"gioved[iì]|venerd[iì]|sabato|domenica)\b")
+
+
+def _the_day_they_said(start: Any, end: Any, spoken: str, tz_name: str):
+    """(start, end) moved to the one day the person named, if the model chose another."""
+    import re
+    try:
+        from conversation_engine.ai_core.appointment_net import stated_day
+        if len(re.findall(_DAY_WORDS, spoken.casefold())) != 1:
+            return start, end
+        zone = ZoneInfo(tz_name or "Europe/Rome")
+        local_now = datetime.now(zone)
+        said = stated_day(spoken, now=local_now)
+        begin = _parse_dt(start)
+        if said is None or begin is None:
+            return start, end
+        local = begin.astimezone(zone) if begin.tzinfo else begin.replace(tzinfo=zone)
+        if local.date() == said:
+            return start, end
+        shift = timedelta(days=(said - local.date()).days)
+        fixed = local + shift
+        if fixed <= local_now:
+            return start, end  # «martedì» on a Tuesday after the hour: next week stands
+        finish = _parse_dt(end) if end else None
+        if finish is not None:
+            finish = (finish.astimezone(zone) if finish.tzinfo else finish.replace(tzinfo=zone)) + shift
+        logger.info("calendar create: day corrected to the one the person said (%+d days)", shift.days)
+        return fixed.isoformat(), (finish.isoformat() if finish is not None else end)
+    except Exception as exc:
+        logger.info("calendar day check skipped: %s", type(exc).__name__)
+        return start, end
+
+
 async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, Any]) -> Observation:
     """
     REVERSIBLE_WRITE, behind a real authority gate.
@@ -1176,6 +1210,14 @@ async def create_calendar_event(arguments: Dict[str, Any], runtime: Dict[str, An
         resolved = await resolve_user_timezone(db, uid)
         tz = resolved.tz_name
         tz_authority = resolved.authority
+
+    # IL GIORNO DETTO A PAROLE E' ARITMETICA, NON GIUDIZIO.
+    #
+    # Test 3/11 sul conto del proprietario: «Venerdì alle 17 ho la palestra»
+    # detto martedì e' finito su Google Calendar martedì alle 17. Quando la
+    # frase della persona nomina un solo giorno («venerdì», «domani») e il
+    # modello ha scelto un'altra data alla stessa ora, vale la frase.
+    start, end = _the_day_they_said(start, end, str(runtime.get("user_message") or ""), str(tz))
 
     # Spostare non si fa creando. Due modi di saperlo, e nessuno dei due si
     # fida del fatto che il modello scelga lo strumento giusto.

@@ -171,6 +171,30 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
         "repaired": sum(1 for f in findings if f.get("repaired")),
         "healthy": not any(not f.get("repaired") for f in findings),
     }
+    try:
+        # A place saved from GPS before the town was looked up: look it up once.
+        row = await db.life_places.find_one(
+            {"user_id": owner, "role": "home", "locality": {"$in": ["", None]},
+             "coordinates": {"$ne": None}, "locality_lookup_at": {"$exists": False}},
+            {"_id": 0, "id": 1, "coordinates": 1})
+        if row and (row.get("coordinates") or {}).get("latitude") is not None:
+            import asyncio
+            from action_engine.travel.maps import nominatim_reverse_city
+            await db.life_places.update_one({"user_id": owner, "id": row["id"]},
+                                            {"$set": {"locality_lookup_at": now.isoformat()}})
+            city = await asyncio.wait_for(nominatim_reverse_city(
+                row["coordinates"]["latitude"], row["coordinates"]["longitude"]), timeout=4)
+            if city:
+                await db.life_places.update_one({"user_id": owner, "id": row["id"]},
+                                                {"$set": {"locality": str(city).strip()[:160]}})
+    except Exception as exc:
+        logger.info("self_check locality deferred: %s", type(exc).__name__)
+    try:
+        # What outlived itself leaves Home and the reviews' view.
+        from opportunities.service import OpportunityService
+        await OpportunityService(db).expire_past(owner)
+    except Exception as exc:
+        logger.info("self_check expiry deferred: %s", type(exc).__name__)
     await db.ops_self_checks.insert_one(dict(report))
     old = await db.ops_self_checks.find({"owner_id": owner}, {"_id": 1}).sort("at", -1).skip(KEEP_REPORTS).to_list(200)
     if old:

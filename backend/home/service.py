@@ -192,7 +192,12 @@ class HomeService:
         # excluded for *not being about anything to do*: a quiet Home is a
         # legitimate answer, and inventing a hero out of "here is what I can now
         # do" is the thing this rule removes.
-        fallback_pool = [i for i in focus_pool if not (i.meta or {}).get("knowledge_only")]
+        # Nor a flow's leftover whose horizon is long gone: «Admin: Conosco un
+        # pagamento entro fine mese», due 12/10, still headed Home on 3/11
+        # (owner audit) only because nothing else was there.
+        fallback_pool = [i for i in focus_pool if not (i.meta or {}).get("knowledge_only")
+                         and not ((i.meta or {}).get("plan_shell")
+                                  and (i.meta or {}).get("temporal_state") in (TEMPORAL_EXPIRED_STALE, TEMPORAL_SUPERSEDED))]
         primary = (eligible[0] if eligible else None) or (
             fallback_pool[0] if fallback_pool else None
         )
