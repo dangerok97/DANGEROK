@@ -172,7 +172,12 @@ class AICoreOrchestrator:
         try:
             result = await run_cognitive_loop(**kwargs)
             phase = "error" if result.error else "done"
-            if not result.error and kwargs.get("db") is not None:
+            if result.error == "provider_unavailable" and kwargs.get("db") is not None:
+                # No model answered: do by code what code can (3/11 test).
+                from conversation_engine.ai_core.offline import answer as offline_answer
+                result.ora_text = await offline_answer(kwargs["db"], sess.user_id,
+                                                       str(kwargs.get("user_message") or ""), session_id=sess.id)
+            if result.error in (None, "", "provider_unavailable") and kwargs.get("db") is not None:
                 # An appointment said in words lands in the calendar even when
                 # the model did not write it (30/10), and the answer says so.
                 from conversation_engine.ai_core.appointment_net import ensure_after_turn
