@@ -132,7 +132,10 @@ async def google_calendar_records(
             continue
         key = calendar_source_key(attrs)
         before = newest.get(key)
-        if before is None or str(row.get("ingested_at") or "") > str(before.get("ingested_at") or ""):
+        cancelled = str(attrs.get("status") or "").lower() == "cancelled"
+        if before is not None and str(google_calendar_attributes(before).get("status") or "").lower() == "cancelled":
+            continue  # a deletion is final for a provider id, whatever a twin row says (3/11)
+        if before is None or cancelled or str(row.get("ingested_at") or "") > str(before.get("ingested_at") or ""):
             newest[key] = row
     return list(newest.values())
 

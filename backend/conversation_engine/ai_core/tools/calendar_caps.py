@@ -583,7 +583,9 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
         # riga non prova che l'evento non ci sia — la finestra e' limitata, la
         # lettura puo' essere in ritardo — quindi il caso non confermato si
         # chiama `unconfirmed`, che e' quello che sappiamo davvero.
-        confirmed = {str(e.get("external_id") or "") for e in mirrored} - {""}
+        gone = {str(e.get("external_id") or "") for e in mirrored
+                if str(plain(e.get("normalized_payload")).get("status") or "").lower() == "cancelled"} - {""}
+        confirmed = {str(e.get("external_id") or "") for e in mirrored} - {""} - gone
         already_ours = {
             str(d.get("google_event_id") or "") for d in drafts
         } - {""}
@@ -598,8 +600,15 @@ async def get_calendar_events(arguments: Dict[str, Any], runtime: Dict[str, Any]
                 item["sync_status"] = "unconfirmed"
                 item["confirmed_by_calendar"] = False
 
+        listed: set = set()
         for e in mirrored:
             p = plain(e.get("normalized_payload"))
+            handle = str(e.get("external_id") or "")
+            # A deleted event stays deleted, whatever a twin mirror row says
+            # (3/11); and one provider id is one appointment.
+            if handle in gone or (handle and handle in listed):
+                continue
+            listed.add(handle)
             if str(e.get("external_id") or "") in already_ours:
                 # Lo stesso appuntamento, gia' in lista come cosa di ORA e
                 # adesso confermato dal calendario. Elencarlo due volte

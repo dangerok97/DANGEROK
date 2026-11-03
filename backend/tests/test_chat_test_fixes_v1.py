@@ -65,3 +65,19 @@ async def test_without_a_model_reminders_and_appliances_still_work(clock):
     assert await db.reminders.count_documents({"user_id": OWNER}) == 3
     assert await offline.answer(db, OWNER, "Che tempo fa domani?") == offline.UNAVAILABLE
     assert await offline.answer(db, OWNER, "Ho messo la moka") == offline.UNAVAILABLE
+
+
+@pytest.mark.asyncio
+async def test_a_deleted_google_event_stays_deleted_whatever_its_twin_says():
+    from opportunities.snapshot import _appointments_that_still_stand
+    db = AsyncMongoMockClient().twin_v1
+    start = (TUE + timedelta(hours=8)).astimezone(ROME)
+    def row(status, at):
+        v = lambda x: {"value": x}
+        return {"user_id": OWNER, "source_record_type": "calendar_event", "connector_id": "calendar_google",
+                "external_id": "g1", "ingested_at": at, "ingestion_status": "ingested",
+                "normalized_payload": {"title": v("Palestra a Tarquinia"), "starts_at": v(start.isoformat()),
+                                       "status": v(status)}}
+    await db.ingestion_events.insert_many([row("cancelled", "2026-11-03T07:32:45.572"),
+                                           row("confirmed", "2026-11-03T07:32:45.580")])
+    assert await _appointments_that_still_stand(db, OWNER, TUE, TUE + timedelta(days=2)) == []

@@ -496,7 +496,12 @@ async def _appointments_that_still_stand(
         return []
 
     out: List[Dict[str, Any]] = []
-    by_ref: set = set()
+    # A deletion is final for a provider id. Test 3/11: the same Google event
+    # had two mirror rows, one cancelled and one still «confirmed» with a
+    # later timestamp, and the deleted event kept being told as today's.
+    gone = {str(r.get("external_id") or "") for r in rows
+            if str(plain(r.get("normalized_payload")).get("status") or "").lower() == "cancelled"}
+    by_ref: set = set(gone)
     same_thing: set = set()
     for row in rows:
         payload = plain(row.get("normalized_payload"))
