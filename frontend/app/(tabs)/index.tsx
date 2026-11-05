@@ -39,6 +39,7 @@ import {
 } from '@/src/api/client';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { SetupCard } from '@/src/components/home/SetupCard';
+import { GiornataCard } from '@/src/components/home/GiornataCard';
 import { triggerHaptic } from '@/src/theme/haptics';
 import { useOnlineStatus, isNetworkError } from '@/src/hooks/use-online-status';
 import { humanizeError } from '@/src/utils/errors';
@@ -458,6 +459,7 @@ export default function HomeScreen() {
         onOpenWeather={() => router.push('/meteo')}
       />
       <SetupCard />
+      <GiornataCard />
       {!online ? <OfflineBanner /> : null}
       {errorBanner ? (
         <ErrorBanner message={errorBanner} onDismiss={() => setErrorBanner(null)} />

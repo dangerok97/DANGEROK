@@ -93,7 +93,7 @@ async def upcoming(db, user_id: str, now: datetime, *, days: int = HORIZON_DAYS)
     try:
         facts = await db.financial_facts.find(
             {"owner_id": user_id, "status": "known", "kind": "commitment", "direction": {"$ne": "incoming"},
-             "due_at": {"$nin": [None, ""]}},
+             "due_at": {"$nin": [None, ""]}, "settled_by": {"$exists": False}},
             {"_id": 0, "id": 1, "what": 1, "due_at": 1, "money": 1, "counterparty": 1},
         ).limit(100).to_list(100)
     except Exception:
