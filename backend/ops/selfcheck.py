@@ -190,6 +190,13 @@ async def check_owner(db, owner: str, *, now: Optional[datetime] = None) -> dict
     except Exception as exc:
         logger.info("self_check locality deferred: %s", type(exc).__name__)
     try:
+        # A bill seen paid on the bank account stops being a deadline.
+        from financial.settled import settle
+        report["findings"] += await settle(db, owner, now=now)
+        report["repaired"] = sum(1 for f in report["findings"] if f.get("repaired"))
+    except Exception as exc:
+        logger.info("self_check settling deferred: %s", type(exc).__name__)
+    try:
         # What outlived itself leaves Home and the reviews' view.
         from opportunities.service import OpportunityService
         await OpportunityService(db).expire_past(owner)

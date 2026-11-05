@@ -270,6 +270,7 @@ _DONE = {
     "deadline_unattended": lambda n: f"Ho programmato il controllo di {_n(n, 'scadenza', 'scadenze')}",
     "need_retired": lambda n: f"Ho tolto da Home {_n(n, 'richiesta non più attuale', 'richieste non più attuali')}",
     "habit_proposed": lambda n: "Ho notato un promemoria che chiedi spesso",
+    "bill_settled": lambda n: f"Ho visto sul conto che hai pagato {_n(n, 'bolletta', 'bollette')}: non te le ricordo più",
 }
 _SAID = {
     "situation_stated_time": ("avviso su una cosa che seguivo", "avvisi su cose che seguivo"),

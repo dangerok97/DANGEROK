@@ -21,6 +21,7 @@ WORDS = {
     "situation_auto_closed": "Ho chiuso una cosa già finita che nessuno aveva chiuso",
     "drying_planned": "Una cosa stesa fuori non aveva ancora il calcolo dal meteo: l'ho fatto",
     "drying_replanned": "Ho ricalcolato con il meteo aggiornato quando si asciuga una cosa stesa fuori",
+    "bill_settled": "Ho visto sul conto che una bolletta è stata pagata: non te la ricordo più",
     "event_unattended": "Un appuntamento delle prossime ore non era seguito: lo guardo un'ora prima",
 }
 
