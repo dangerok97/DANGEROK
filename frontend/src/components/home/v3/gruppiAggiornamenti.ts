@@ -45,7 +45,7 @@ export function raggruppa(righe: Aggiornamento[]) {
 export function sintesiAggiornamenti(righe: Aggiornamento[]): string {
   const g = raggruppa(righe);
   const parti: string[] = [];
-  if (g.adesso.length) parti.push(g.adesso.length === 1 ? '1 cosa urgente' : `${g.adesso.length} cose urgenti`);
+  if (g.adesso.length) parti.push(g.adesso.length === 1 ? '1 cosa adesso' : `${g.adesso.length} cose adesso`);
   if (g.per_te.length) parti.push(g.per_te.length === 1 ? '1 cosa per te' : `${g.per_te.length} cose per te`);
   if (g.in_corso.length) parti.push(g.in_corso.length === 1 ? '1 la segue ORA' : `${g.in_corso.length} le segue ORA`);
   if (g.da_sapere.length) parti.push(g.da_sapere.length === 1 ? '1 da sapere' : `${g.da_sapere.length} da sapere`);

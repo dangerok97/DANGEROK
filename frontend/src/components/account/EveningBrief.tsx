@@ -48,6 +48,8 @@ export function EveningBrief() {
           </Text>
         </View>
         <Switch value={!!state?.enabled} onValueChange={(v) => void save({ enabled: v })}
+          trackColor={{ false: colors.border, true: colors.accent }} thumbColor="#FFFFFF"
+          {...({ activeThumbColor: '#FFFFFF', activeTrackColor: colors.accent } as object)}
           disabled={!state} testID="evening-brief-switch" accessibilityLabel="Avviso della sera prima" />
       </View>
       <Text style={[styles.description, { color: colors.textSecondary }]}>

@@ -4,7 +4,7 @@
  * returned through a provider-signed WhatsApp webhook.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { api, type WhatsAppLinkStatus, type WhatsAppPairing } from '@/src/api/client';
@@ -39,6 +39,7 @@ export function WhatsAppConnection() {
   const [pairing, setPairing] = useState<WhatsAppPairing | null>(null);
   const [alertHistory, setAlertHistory] = useState<RecentWhatsAppAlert[]>([]);
   const [historyChecked, setHistoryChecked] = useState(false);
+  const [moreInfo, setMoreInfo] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -189,12 +190,21 @@ export function WhatsAppConnection() {
       </View>
 
       <Text style={[styles.description, { color: colors.textSecondary }]}>
-        Scrivi o parla a ORA anche su WhatsApp: stesso account, stessa memoria,
-        calendario e competenze. Puoi inviare testo, vocali, foto, documenti e
-        posizioni condivise. Quando servono GPS live, fotocamera in tempo reale
-        o permessi del telefono, ORA ti dà il link per completare nell'app.
-        Nessun avviso WhatsApp automatico è attivo senza consenso esplicito.
+        Scrivi o parla a ORA anche su WhatsApp, con la stessa memoria dell'app.
       </Text>
+      {/* The rest on request: seven lines were the whole card (6/11 review). */}
+      {moreInfo ? (
+        <Text style={[styles.description, { color: colors.textSecondary }]} testID="whatsapp-more">
+          Puoi inviare testo, vocali, foto, documenti e posizioni condivise. Quando servono GPS
+          live, fotocamera o permessi del telefono, ORA ti dà il link per completare nell'app.
+          Nessun avviso WhatsApp automatico è attivo senza il tuo consenso.
+        </Text>
+      ) : (
+        <Pressable onPress={() => setMoreInfo(true)} accessibilityRole="button" testID="whatsapp-more-toggle"
+          style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
+          <Text style={[styles.description, { color: colors.accent, fontWeight: '600' }]}>Scopri di più</Text>
+        </Pressable>
+      )}
 
       {status?.linked && status.shared_ai_core && typeof status.shared_capability_count === 'number' ? (
         <Text testID="whatsapp-shared-core" style={[styles.description, { color: colors.textSecondary }]}>

@@ -48,6 +48,8 @@ export function MorningBrief() {
           </Text>
         </View>
         <Switch value={!!state?.enabled} onValueChange={(v) => void save({ enabled: v })}
+          trackColor={{ false: colors.border, true: colors.accent }} thumbColor="#FFFFFF"
+          {...({ activeThumbColor: '#FFFFFF', activeTrackColor: colors.accent } as object)}
           disabled={!state} testID="morning-brief-switch" accessibilityLabel="Punto del mattino" />
       </View>
       <Text style={[styles.description, { color: colors.textSecondary }]}>

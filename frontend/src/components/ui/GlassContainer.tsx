@@ -28,11 +28,16 @@ export function GlassContainer({
   const tint = isDark ? 'dark' : 'light';
 
   if (Platform.OS === 'web') {
+    // No blur on the web: a 78% white bar let the page show through the tab
+    // labels («IN SINTESI» under «Home», 6/11 review). The bar is opaque,
+    // lifted by a soft shadow instead.
+    const solid = glassRole === 'tabBar';
     return (
       <View
         style={[
           styles.base,
-          { backgroundColor: colors.surfaceGlass, borderColor: colors.border },
+          { backgroundColor: solid ? colors.surface : colors.surfaceGlass, borderColor: colors.border },
+          solid ? styles.lift : null,
           style,
         ]}
         accessibilityLabel={glassRole}
@@ -63,6 +68,13 @@ const styles = StyleSheet.create({
   clip: {
     overflow: 'hidden',
     borderRadius: tokens.radius.xl,
+  },
+  lift: {
+    // Web-only shadow (react-native-web maps it to box-shadow).
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -2 },
   },
   base: {
     borderWidth: StyleSheet.hairlineWidth,

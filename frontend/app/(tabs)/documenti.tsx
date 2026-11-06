@@ -15,6 +15,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,6 +24,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -225,9 +227,37 @@ export default function DocumentiScreen() {
   const filtering = query.trim() !== '' || kind !== 'all' || status !== 'all';
   const phaseLabel = uploadLabel(phase);
 
+  // Phone: one compact row, the library right under it. Three 300px cards
+  // stacked at 70% width pushed the documents below the fold (6/11 review).
+  const phoneActions = (
+    <View style={styles.compactActions} testID="documents-actions-compact">
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => void onUpload()}
+        disabled={phase === 'uploading'}
+        style={({ pressed }) => [styles.compactPrimary, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}
+        testID="documents-upload"
+      >
+        <Ionicons name="cloud-upload-outline" size={18} color={colors.onAccent} />
+        <Text style={[styles.compactLabel, { color: colors.onAccent }]}>
+          {phase === 'uploading' ? 'Caricamento…' : 'Carica documento'}
+        </Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={askOra}
+        style={({ pressed }) => [styles.compactSecondary, { borderColor: colors.border, backgroundColor: colors.surface }, pressed && { opacity: 0.85 }]}
+        testID="documents-ask-question"
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.accent} />
+        <Text style={[styles.compactLabel, { color: colors.textPrimary }]}>Chiedi a ORA</Text>
+      </Pressable>
+    </View>
+  );
+
   const main = (
     <>
-      <View style={styles.actions}>
+      {!twoColumn ? phoneActions : <View style={styles.actions}>
         <ActionCard
           icon="cloud-upload-outline"
           title="Carica documento"
@@ -257,7 +287,7 @@ export default function DocumentiScreen() {
           onPress={askOra}
           testID="documents-ask-ora"
         />
-      </View>
+      </View>}
 
       {phaseLabel && phase !== 'idle' ? (
         <Text
@@ -410,6 +440,17 @@ const styles = StyleSheet.create({
   railCol: { gap: tokens.spacing.lg },
   stackAll: { gap: tokens.spacing.lg },
   actions: { flexDirection: 'row', gap: tokens.spacing.md, flexWrap: 'wrap' },
+  compactActions: { flexDirection: 'row', gap: tokens.spacing.sm, flexWrap: 'wrap' },
+  compactPrimary: {
+    flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    minHeight: tokens.touch.min, paddingHorizontal: tokens.spacing.lg, borderRadius: tokens.radius.md,
+  },
+  compactSecondary: {
+    flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    minHeight: tokens.touch.min, paddingHorizontal: tokens.spacing.lg, borderRadius: tokens.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  compactLabel: { fontSize: 15, fontWeight: '600' },
   phase: { fontSize: 13, lineHeight: 19 },
   list: {
     borderRadius: tokens.radius.lg,

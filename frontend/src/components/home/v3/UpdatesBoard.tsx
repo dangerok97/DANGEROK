@@ -141,6 +141,11 @@ const ICONE: Record<Aggiornamento['genere'], keyof typeof Ionicons.glyphMap> = {
   spunto: 'information-circle-outline',
 };
 
+/** Red only for what went or is going wrong, never for the person's own reminder. */
+export function allarme(a: Aggiornamento): boolean {
+  return !a.promemoria;
+}
+
 function etichetta(a: Aggiornamento, g: GruppoAggiornamento): string | null {
   if (g === 'adesso') return 'Adesso';
   if (g !== 'per_te') return null;
@@ -167,9 +172,15 @@ function UpdateCard({
   const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
   const tag = etichetta(a, gruppo);
-  const urgent = gruppo === 'adesso';
+  // «Adesso» is about time, not danger. A reminder the person set is due
+  // now, not alarming: red was kept for what ORA found going wrong
+  // (6/11 review: «Chiamare il commercialista» in a red box with a red
+  // button). The group, its label and its place stay the same.
+  const urgent = gruppo === 'adesso' && allarme(a);
   const tone = urgent
     ? { fg: colors.error, bg: colors.errorBg }
+    : gruppo === 'adesso'
+      ? { fg: colors.accent, bg: colors.accentMuted }
     : gruppo === 'per_te'
       ? { fg: colors.warning, bg: colors.warningBg }
       : { fg: colors.accent, bg: colors.accentMuted };
@@ -223,7 +234,7 @@ function UpdateCard({
             testID={`${testID}-apri`}
           >
             <Text style={[styles.btnText, { color: colors.onAccent }]}>
-              {urgent ? 'Apri' : a.cosa_serve ? 'Rispondi' : 'Rivedi'}
+              {gruppo === 'adesso' ? 'Apri' : a.cosa_serve ? 'Rispondi' : 'Rivedi'}
             </Text>
           </Pressable>
           {onDismiss ? (

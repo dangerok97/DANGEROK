@@ -317,7 +317,12 @@ export function UpdatesFeed({
     it is the last line of defence: whatever arrives, this section stays a
     section and never becomes a list.
   */
-  const raised = (opportunities || []).filter(o => !aggiornamentoScaduto(o.valid_until)).slice(0, 2);
+  // The morning brief already is «La tua giornata» right above: here it was
+  // the same day told twice (6/11 review). It stays in the full page.
+  const raised = (opportunities || [])
+    .filter(o => !aggiornamentoScaduto(o.valid_until))
+    .filter(o => (o as { reminder?: { kind?: string } | null }).reminder?.kind !== 'morning_brief')
+    .slice(0, 2);
   /*
     Outcomes, not workflow. Two at most, like everything else here: a person
     wanting to know whether something is handled does not want a project
@@ -369,10 +374,10 @@ export function UpdatesFeed({
 
   return (
     <SectionShell
-      title="Aggiornamenti di ORA"
+      title="Aggiornamenti"
       icon="sparkles-outline"
       subtitle={sintesiAggiornamenti(righe) || 'Ecco cosa sta succedendo, in modo chiaro.'}
-      linkLabel={total === 1 ? '1 aggiornamento' : `${total} aggiornamenti`}
+      linkLabel="Tutti"
       onLink={onSeeAll}
       footerLabel={onSeeAll ? 'Vedi tutti gli aggiornamenti' : undefined}
       onFooter={onSeeAll}

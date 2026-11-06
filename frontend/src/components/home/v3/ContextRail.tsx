@@ -35,7 +35,14 @@ export function ContextRail({
   onSeeSummary,
   onEventSaved,
   onOpenManualEvent,
+  compact = false,
 }: {
+  /**
+   * Phone: the week, not the month, and no second date line (the greeting
+   * above already says the day). A full empty month under the Home took a
+   * whole screen to say nothing (6/11 review). «Mostra il mese» opens it.
+   */
+  compact?: boolean;
   items: HomeItem[];
   situation?: HomeCurrentSituation | null;
   questionCount: number;
@@ -61,6 +68,7 @@ export function ContextRail({
     not a mode you have to leave.
   */
   const [selected, setSelected] = useState<Date | null>(null);
+  const [wholeMonth, setWholeMonth] = useState(false);
   const [manual, setManual] = useState<{ id: string; title: string; starts_at: string }[]>([]);
   const [manualMarks, setManualMarks] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -158,6 +166,17 @@ export function ContextRail({
     return cells;
   }, [cursor]);
 
+  /** In compact mode, only the row holding today (or the chosen day, or the 1st). */
+  const shown = useMemo(() => {
+    if (!compact || wholeMonth) return grid;
+    const anchor = selected && selected.getMonth() === cursor.getMonth() && selected.getFullYear() === cursor.getFullYear()
+      ? selected.getDate()
+      : today.getMonth() === cursor.getMonth() && today.getFullYear() === cursor.getFullYear() ? today.getDate() : 1;
+    const at = grid.indexOf(anchor);
+    const row = Math.max(0, Math.floor(at / 7));
+    return grid.slice(row * 7, row * 7 + 7);
+  }, [compact, wholeMonth, grid, selected, cursor, today]);
+
   const shiftMonth = (delta: number) =>
     setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
 
@@ -194,14 +213,14 @@ export function ContextRail({
         Il giorno, prima di tutto. Non è una card: è la riga che dice dove sei
         nel tempo, e da lì in giù si legge l'agenda.
       */}
-      <View style={styles.dayHead} testID="rail-today">
+      {compact ? null : <View style={styles.dayHead} testID="rail-today">
         <Text style={[oraType.body, { color: ora.ink, fontWeight: '600' }]}>
           {capitalize(today.toLocaleDateString('it-IT', {
             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
           }))}
         </Text>
         <Text style={[oraType.small, { color: ora.ink3 }]}>{partOfDayGreeting(today)}</Text>
-      </View>
+      </View>}
 
       {/* Calendar */}
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -257,7 +276,7 @@ export function ContextRail({
         </View>
 
         <View style={styles.grid}>
-          {grid.map((day, idx) => {
+          {shown.map((day, idx) => {
             if (day === null) return <View key={`b${idx}`} style={styles.cell} />;
             const cellDate = new Date(cursor.getFullYear(), cursor.getMonth(), day);
             const isToday = isSameDay(cellDate, today);
@@ -314,6 +333,18 @@ export function ContextRail({
             );
           })}
         </View>
+        {compact ? (
+          <Pressable
+            onPress={() => setWholeMonth((v) => !v)}
+            accessibilityRole="button"
+            style={styles.monthToggle}
+            testID="rail-month-toggle"
+          >
+            <Text style={[oraType.small, { color: colors.accent, fontWeight: '600' }]}>
+              {wholeMonth ? 'Mostra solo la settimana' : 'Mostra il mese'}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {/*
@@ -477,6 +508,7 @@ export function ContextRail({
 }
 
 const styles = StyleSheet.create({
+  monthToggle: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
   rail: { gap: tokens.spacing.lg },
   panel: {
     borderRadius: ora.radius.card,
