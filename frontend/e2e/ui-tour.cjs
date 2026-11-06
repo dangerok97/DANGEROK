@@ -73,7 +73,7 @@ function answer(p, method) {
   if (p === '/api/opportunities') return { opportunities: home.opportunities };
   if (p === '/api/places') return { places: [], candidates: [], routines: [], pending_candidates: false, permission: { preference: 'off', state: 'off' } };
   if (p === '/api/financial/overview') return { collegamento: { stato: 'non_collegato', in_parole: 'Nessuna banca collegata.' }, conti: [], cosa_ho_capito: [], fonti_non_piu_collegate: [], collegato_alla_tua_vita: [], da_capire: [], movimenti_recenti: [], vale_la_pena_mostrarlo: false };
-  if (p === '/api/life-setup/status') return { ok: true, should_show: false, module_visible: true, wizard: false, session: null };
+  if (p === '/api/life-setup/status') return { ok: true, enabled: true, should_show: false, module_visible: true, wizard: false, session: { status: 'completed' } };
   if (p === '/api/life-profile/knowledge-map') return { stars: [
       { id: 's1', area: 'home', branch_id: null, title: 'Casa', statement: 'Vivi a Tarquinia', status: 'known', provenance: 'Detto da te', icon_key: 'home' },
       { id: 's2', area: 'work', branch_id: null, title: 'Lavoro', statement: 'Ufficio a Viterbo', status: 'known', provenance: 'Detto da te', icon_key: 'briefcase' },
