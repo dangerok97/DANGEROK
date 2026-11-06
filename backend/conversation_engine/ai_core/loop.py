@@ -4877,9 +4877,9 @@ def _how_long_we_wait(entry_point: str) -> Optional[float]:
 
     `None` vuol dire «come sempre», ed è la risposta per tutto il resto.
     """
-    from llm.manager import VOICE_FIRST_ATTEMPT_S
+    from llm.manager import CHAT_FIRST_ATTEMPT_S, VOICE_FIRST_ATTEMPT_S
 
-    return VOICE_FIRST_ATTEMPT_S if entry_point in ("phone", "voice") else None
+    return VOICE_FIRST_ATTEMPT_S if entry_point in ("phone", "voice") else CHAT_FIRST_ATTEMPT_S
 
 
 #     COSA SI STA FACENDO, IN ITALIANO E SENZA INVENTARE.

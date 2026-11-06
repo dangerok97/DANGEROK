@@ -95,10 +95,13 @@ def test_the_voice_budget_is_ten_seconds_and_comes_from_where_the_words_entered(
     assert VOICE_FIRST_ATTEMPT_S == 10.0
     assert _how_long_we_wait("phone") == 10.0
     assert _how_long_we_wait("voice") == 10.0
+    # 6/11: anche lo scritto ha un budget per il primo tentativo, più largo
+    # della voce e più largo del peggiore sano misurato (11,6 s).
+    from llm.manager import CHAT_FIRST_ATTEMPT_S
+
+    assert CHAT_FIRST_ATTEMPT_S == 12.0
     for altrove in ("text", "home", "documents", "proactive", "memoria", ""):
-        assert _how_long_we_wait(altrove) is None, (
-            f"{altrove} non dovrebbe avere un budget stretto"
-        )
+        assert _how_long_we_wait(altrove) == CHAT_FIRST_ATTEMPT_S, altrove
 
 
 def test_a_stuck_primary_is_left_after_the_budget_not_after_the_global_deadline():

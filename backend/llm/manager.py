@@ -151,6 +151,15 @@ DEFAULT_ATTEMPT_DEADLINE_S = 25.0
 # l'ultimo, tengono la deadline globale.
 VOICE_FIRST_ATTEMPT_S = 10.0
 
+#     ANCHE CHI SCRIVE ASPETTA.
+# 6/11, registri del pomeriggio: il primario risponde in 0,5–2 secondi, una
+# volta in 11,6; quando si impianta lo fa per tutti i venticinque della scadenza
+# globale — sei volte in tre ore, e ogni volta il turno scritto restava fermo
+# 25 secondi prima di passare alla riserva che rispondeva in 3–6. Dodici è più
+# del peggiore sano mai visto; vale, come per la voce, solo per il primo
+# tentativo e solo se dietro c'è qualcuno disponibile.
+CHAT_FIRST_ATTEMPT_S = 12.0
+
 
 def _attempt_deadline() -> float:
     """Quanto si aspetta un singolo provider, prima di provare il prossimo."""

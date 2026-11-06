@@ -316,7 +316,7 @@ async def _call_rows(db, user_id: str, now: datetime) -> List[Dict[str, Any]]:
         from telephone.history import as_a_card
         from telephone.service import TelephoneService
 
-        chiamate, _ = await TelephoneService(db).recent(user_id, limit=12)
+        chiamate, _, _ = await TelephoneService(db).recent(user_id, limit=12)
         #     UN AGGIORNAMENTO CHE DICE «FATTO» DEVE ESSERE STATO FATTO.
         # Qui la riga è ancora più esposta che in Chiamate: è una cosa che ORA
         # spinge davanti a qualcuno senza che l'abbia chiesta. Se il calendario
