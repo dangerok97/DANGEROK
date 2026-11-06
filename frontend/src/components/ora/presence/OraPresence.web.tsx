@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 // Explicit extension is intentional: do not resolve this platform wrapper recursively.
 import { OraPresence as StandardPresence } from './OraPresence.tsx';
 import { PresenceCanvas } from './PresenceCanvas';
-import { geometryFor } from './knowledge';
+import { geometryFor, refNamesStar } from './knowledge';
 import { useKnowledgeMap } from './useKnowledgeMap';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { presencePalette as palette } from '@/src/theme/presence';
@@ -73,7 +73,7 @@ function MobilePresenceConversation({
   const candidate = useMemo(() => {
     if (requestedSpotlight && map?.stars.some(star => star.id === requestedSpotlight)) return requestedSpotlight;
     if (requestedSpotlightRef) {
-      const byRef = map?.stars.find(star => (star.source_refs || []).includes(requestedSpotlightRef));
+      const byRef = map?.stars.find(star => (star.source_refs || []).includes(requestedSpotlightRef) || refNamesStar(star, requestedSpotlightRef));
       if (byRef?.id) return byRef.id;
     }
     const changed = [...learned.changedStars]
@@ -91,7 +91,7 @@ function MobilePresenceConversation({
     // older inspected point so the expanded map cannot keep the camera pinned.
     setInspection(null);
     setSpotlight(candidate);
-    const timer = setTimeout(() => setSpotlight(null), 8000);
+    const timer = setTimeout(() => setSpotlight(null), 12000);
     return () => clearTimeout(timer);
   }, [candidate, refreshKey]);
 

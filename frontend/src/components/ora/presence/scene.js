@@ -125,6 +125,12 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     }
     if(pointer&&!dragging)hovered=hitTest(pointer.x,pointer.y,pointer.touch);
     const inspected=hovered>=0?hovered:selected>=0?selected:spotlight;
+    // Focus: the star being talked about and its direct links stay lit, the
+    // rest of the sky steps back so the eye goes where the conversation is.
+    const focusIndex=spotlight>=0?spotlight:selected;
+    const near=new Set();if(focusIndex>=0){near.add(focusIndex);edges.forEach(e=>{if(e.a===focusIndex)near.add(e.b);else if(e.b===focusIndex)near.add(e.a);});}
+    const dimming=focusIndex>=0&&!points[focusIndex].hub?.42:1;
+    const live=!options.reduced&&!options.paused;
     if(canvas.style)canvas.style.cursor=dragging?'grabbing':hovered>=0?'pointer':'grab';
     ctx.globalCompositeOperation='lighter';
     edges.forEach(e=>{
@@ -139,30 +145,50 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const alpha=Math.min(.9,(.028+depth*.12+energy*.22)*(e.trunk?1.5:1)*state.light+(related?.45:0)+trail);
       const warm=arrival||activeHub>=0?(arrival||e.a===activeHub||e.b===activeHub):e.trunk&&e.a===0&&(e.b===4||e.b===1);
       const first=points[e.a].distance<=points[e.b].distance?a:b,second=first===a?b:a;
-      ctx.strokeStyle=warm?'rgba('+palette.warmEdge+','+alpha+')':'rgba('+palette.edge+','+alpha+')';ctx.lineWidth=related?1.45:e.trunk?.8:.45+depth*.25;ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(first.x+(second.x-first.x)*appear,first.y+(second.y-first.y)*appear);ctx.stroke();
+      // Constellation lines bend a little, each its own way: straight segments
+      // read as a wiring diagram, a soft arc reads as a connection.
+      const dx=second.x-first.x,dy=second.y-first.y,bend=(e.trunk?.10:.17)*(e.phase-.5);
+      const cx=(first.x+second.x)*.5-dy*bend,cy=(first.y+second.y)*.5+dx*bend;
+      const along=u=>{const v=1-u;return [v*v*first.x+2*v*u*cx+u*u*second.x,v*v*first.y+2*v*u*cy+u*u*second.y];};
+      const focusEdge=focusIndex>=0&&(e.a===focusIndex||e.b===focusIndex);
+      ctx.globalAlpha=appear*(focusIndex>=0&&!focusEdge?dimming:1);
+      ctx.strokeStyle=warm||focusEdge?'rgba('+palette.warmEdge+','+Math.min(.95,alpha+(focusEdge?.25:0))+')':'rgba('+palette.edge+','+alpha+')';ctx.lineWidth=focusEdge?1.6:related?1.45:e.trunk?.8:.45+depth*.25;ctx.beginPath();ctx.moveTo(first.x,first.y);
+      if(appear>=.999)ctx.quadraticCurveTo(cx,cy,second.x,second.y);
+      else{for(let k=1;k<=12;k++){const pt=along(appear*k/12);ctx.lineTo(pt[0],pt[1]);}}
+      ctx.stroke();
+      if(focusEdge&&live&&appear===1){
+        // Light travelling towards the star in focus, from each of its links.
+        const toward=e.a===focusIndex?(first===a?0:1):(first===b?0:1);
+        for(let k=0;k<2;k++){const raw=((t*.55+e.phase+k*.5)%1),u=toward?raw:1-raw,pt=along(u),s2=Math.sin(raw*Math.PI);
+          glow(pt[0],pt[1],9,.5*s2,true);ctx.fillStyle='rgba('+palette.warmPoint+','+(.85*s2)+')';ctx.beginPath();ctx.arc(pt[0],pt[1],1.3,0,Math.PI*2);ctx.fill();}
+      }
       if(arrival&&appear>.2){
         const u=ease(birthAge/1.35),px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;
         glow(px,py,16,.55*appear,true);
       }
-      if(e.packet&&mode!=='idle'&&appear===1){
-        const u=(t*(e.trunk?.34:.19)*state.speed+e.phase)%1;const strength=Math.sin(u*Math.PI)*(.25+energy*.85)*state.light;
-        const px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;
-        const u0=Math.max(0,u-.09);
-        const grad=ctx.createLinearGradient(a.x+(b.x-a.x)*u0,a.y+(b.y-a.y)*u0,px,py);grad.addColorStop(0,'rgba('+palette.trail+',0)');grad.addColorStop(1,warm?'rgba('+palette.warmPacket+','+strength+')':'rgba('+palette.packet+','+strength+')');
-        ctx.strokeStyle=grad;ctx.lineWidth=e.trunk?1.8:1;ctx.beginPath();ctx.moveTo(a.x+(b.x-a.x)*u0,a.y+(b.y-a.y)*u0);ctx.lineTo(px,py);ctx.stroke();
-        if(e.trunk){glow(px,py,7,strength*.35,warm);ctx.fillStyle=warm?'rgba('+palette.warmPoint+','+strength+')':'rgba('+palette.point+','+strength+')';ctx.beginPath();ctx.arc(px,py,.85+a.depth*.3,0,Math.PI*2);ctx.fill();}
+      // Signals run along the arcs: brisk while ORA works, slow and faint at rest,
+      // so the map breathes without ever looking busy.
+      const resting=mode==='idle';
+      if(e.packet&&appear===1&&live&&(!resting||e.trunk)){
+        const u=(t*(e.trunk?.34:.19)*(resting?.32:state.speed)+e.phase)%1;const strength=Math.sin(u*Math.PI)*(.25+energy*.85)*state.light*(resting?.38:1)*(focusIndex>=0&&!focusEdge?dimming:1);
+        const head=along(u),u0=Math.max(0,u-.09),tail=along(u0),mid=along((u+u0)/2);
+        const grad=ctx.createLinearGradient(tail[0],tail[1],head[0],head[1]);grad.addColorStop(0,'rgba('+palette.trail+',0)');grad.addColorStop(1,warm?'rgba('+palette.warmPacket+','+strength+')':'rgba('+palette.packet+','+strength+')');
+        ctx.strokeStyle=grad;ctx.lineWidth=e.trunk?1.8:1;ctx.beginPath();ctx.moveTo(tail[0],tail[1]);ctx.lineTo(mid[0],mid[1]);ctx.lineTo(head[0],head[1]);ctx.stroke();
+        if(e.trunk){glow(head[0],head[1],7,strength*.35,warm);ctx.fillStyle=warm?'rgba('+palette.warmPoint+','+strength+')':'rgba('+palette.point+','+strength+')';ctx.beginPath();ctx.arc(head[0],head[1],.85+a.depth*.3,0,Math.PI*2);ctx.fill();}
       }
     });
     sorted.sort((a,b)=>projected[a].z-projected[b].z);
     for(const i of sorted){
       const p=points[i],q=projected[i],bright=(.19+q.depth*.64+q.energy*.32)*state.light;
       if(q.appear<.005)continue;
-      ctx.globalAlpha=q.appear;
+      ctx.globalAlpha=q.appear*(focusIndex>=0&&!near.has(i)?dimming:1);
       const isInspected=i===inspected;
+      // Each star breathes on its own clock: same family, never in lockstep.
+      const twinkle=live&&!p.hub?.5+.5*Math.sin(t*(1.05+((p.phase*7.3)%1)*.85)+p.phase):0;
       const age=t-(births.get(p.id)??-100);
       const arriving=!p.hub&&!options.reduced&&!options.paused&&age>=0&&age<2.8;
       const bloom=arriving?Math.sin(Math.PI*age/2.8):0;
-      const r=p.radius*q.scale*(.64+q.depth*.38)*(1+q.energy*.28)+(isInspected?2.8:0);
+      const r=p.radius*q.scale*(.64+q.depth*.38)*(1+q.energy*.28+twinkle*.09)+(isInspected?2.8:0);
       const spotlighted=i===spotlight;
       if(isInspected){
         glow(q.x,q.y,spotlighted?34:24,spotlighted?1.25:.95,false,spotlighted&&!!p.temporary);
@@ -172,8 +198,10 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       }
       const temporary=!p.hub&&!!p.temporary;
       const warm=!temporary&&(p.complete||p.tentative||(activeHub>=0?p.group===activeHub:i===0||i===4));
-      if(p.hub){glow(q.x,q.y,16+q.energy*19,.25+q.energy*.53,warm);glow(q.x,q.y,5+q.energy*4,.60,warm);}
-      else {glow(q.x,q.y,temporary?15:(p.complete?17:8),Math.max(.22+q.energy*.3,bloom*.9),warm||arriving,temporary);}
+      if(p.hub){glow(q.x,q.y,16+q.energy*19,.25+q.energy*.53,warm);glow(q.x,q.y,5+q.energy*4,.60,warm);
+        // A slow ripple leaves each area now and then, staggered, like a heartbeat seen from afar.
+        if(live&&q.appear>.9){const rp=((t+p.phase*2.3)%7.5)/7.5;if(rp<.3){const k=rp/.3;ctx.strokeStyle='rgba('+(warm?palette.warmNode:palette.node)+','+((1-k)*.22*q.depth)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,6+k*34*q.scale,0,Math.PI*2);ctx.stroke();}}}
+      else {glow(q.x,q.y,(temporary?15:(p.complete?17:8))*(1+twinkle*.35),Math.max(.22+q.energy*.3+twinkle*.14,bloom*.9),warm||arriving,temporary);}
       if(arriving&&q.appear>.12){
         ctx.strokeStyle='rgba('+(temporary?palette.temporaryNode:palette.warmNode)+','+(bloom*.65*q.appear)+')';ctx.lineWidth=1.2;
         ctx.beginPath();ctx.arc(q.x,q.y,5+age*11,0,Math.PI*2);ctx.stroke();
@@ -182,6 +210,11 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       if(p.kind==='branch'){ctx.strokeStyle='rgba('+palette.warmNode+','+(p.complete?.85:.2)+')';ctx.lineWidth=p.complete?1.5:.6;ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.stroke();}
       if(!p.hub&&p.kind==='node'&&!p.tentative){ctx.strokeStyle='rgba('+(temporary?palette.temporaryPoint:palette.point)+','+(.3+q.energy*.3)+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(q.x-3.6,q.y);ctx.lineTo(q.x+3.6,q.y);ctx.moveTo(q.x,q.y-3.6);ctx.lineTo(q.x,q.y+3.6);ctx.stroke();}
       ctx.fillStyle='rgba('+(temporary?palette.temporaryNode:(warm?palette.warmNode:palette.node))+','+Math.min(.98,bright)+')';ctx.beginPath();ctx.arc(q.x,q.y,r+(spotlighted&&temporary?1.8:0),0,Math.PI*2);ctx.fill();
+      if(spotlighted&&!temporary&&q.appear>.72&&live){
+        const pulse=.5+.5*Math.sin(t*3.2);
+        glow(q.x,q.y,34+pulse*10,.32+pulse*.26,true);
+        ctx.strokeStyle='rgba('+palette.warmNode+','+(.35+pulse*.4)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,15+pulse*4,0,Math.PI*2);ctx.stroke();
+      }
       if(spotlighted&&temporary&&q.appear>.72){
         const pulse=.55+.45*Math.sin(t*4.6);
         glow(q.x,q.y,42+pulse*12,.42+pulse*.35,false,true);
@@ -232,7 +265,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const mix=instant?1:1-Math.exp(-dt*3.2);
     for(const axis of ['x','y','z'])camera[axis]+=(target[axis]*.82*growth-camera[axis])*mix;
     const requestedZoom=Number.isFinite(options.zoomOverride)?Math.max(.72,Math.min(1.55,options.zoomOverride)):1;
-    camera.zoom+=(((focused?1.38:activeHub>=0?1.65:active?1.12:1)*requestedZoom)-camera.zoom)*mix;
+    camera.zoom+=(((focused?1.55:activeHub>=0?1.65:active?1.12:1)*requestedZoom)-camera.zoom)*mix;
   }
   function schedule(){if(!frame&&!destroyed&&!options.paused&&!options.reduced&&options.active&&visible&&inViewport)frame=requestAnimationFrame(tick);}
   function stop(){if(frame)cancelAnimationFrame(frame);frame=0;last=0;}

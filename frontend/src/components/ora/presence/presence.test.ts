@@ -149,3 +149,15 @@ test('spotlight drives both glow and camera target', () => {
   assert.ok(sceneSource.includes("const target=focused||"));
   assert.ok(sceneSource.includes("i===spotlight?.82"));
 });
+
+test('a ref read by the conversation names its star whatever the prefix', async () => {
+  const { refNamesStar } = await import('./knowledge.ts');
+  const star = { id: 's', area: 'home', branch_id: null, title: 'Casa', statement: 'x', status: 'known', provenance: 'p',
+    source_refs: ['life_profile:casa:indirizzo', 'user_memory:mem_9'] } as any;
+  assert.ok(refNamesStar(star, 'profile:casa:indirizzo'));
+  assert.ok(refNamesStar(star, 'mem_9'));
+  assert.ok(!refNamesStar(star, 'profile:lavoro:ufficio'));
+  assert.ok(!refNamesStar(star, ''));
+  assert.ok(sceneSource.includes('ctx.quadraticCurveTo(cx,cy,second.x,second.y)'), 'constellation lines are arcs');
+  assert.ok(sceneSource.includes('const near=new Set()'), 'focus dims what is not connected to the star');
+});
