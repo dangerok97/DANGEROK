@@ -3,6 +3,19 @@ import { AppState } from 'react-native';
 import { api } from '@/src/api/client';
 import { changedStars, newStars, type KnowledgeMap } from './knowledge';
 
+// Two presences can be mounted at once (the chat strip and the map behind it):
+// on 6/11 every activity change fetched the map twice in the same instant. A
+// read already in flight for the same account is shared, never kept.
+let shared: { owner: string; at: number; promise: Promise<KnowledgeMap> } | null = null;
+export function readKnowledgeMap(owner: string, now = Date.now()): Promise<KnowledgeMap> {
+  if (shared && shared.owner === owner && now - shared.at < 1500) return shared.promise;
+  const promise = api.knowledgeMap();
+  const mine = { owner, at: now, promise };
+  shared = mine;
+  promise.catch(() => { if (shared === mine) shared = null; });
+  return promise;
+}
+
 /** No persistent copy of personal information; late responses cannot cross accounts. */
 export function useKnowledgeMap(userId?: string, active = true, refreshKey?: unknown) {
   const [result, setResult] = useState<{ owner: string; data: KnowledgeMap; addedIds: string[]; changedIds: string[] } | null>(null);
@@ -17,7 +30,7 @@ export function useKnowledgeMap(userId?: string, active = true, refreshKey?: unk
     const read = async () => {
       const readId = ++latestRead;
       try {
-        const data = await api.knowledgeMap();
+        const data = await readKnowledgeMap(userId);
         if (live && generation.current === ticket && readId === latestRead) {
           setResult(prev => {
             const previous = prev?.owner === userId ? prev.data : null;
