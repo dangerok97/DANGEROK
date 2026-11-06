@@ -1,0 +1,33 @@
+name: UI tour (screenshots, simulated data)
+on:
+  push:
+    branches: [ui-tour-run]
+permissions:
+  contents: write
+jobs:
+  tour:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx expo export --platform web --output-dir dist-tour
+        env:
+          EXPO_PUBLIC_BACKEND_URL: same-origin
+      - run: npx playwright install --with-deps chromium
+      - run: node e2e/ui-tour.cjs "$PWD/dist-tour" "$PWD/tour-shots" | tee tour-shots-log.txt
+      - name: Publish screenshots to branch ui-tour-shots
+        run: |
+          mkdir -p /tmp/shots && cp tour-shots/*.png tour-shots-log.txt /tmp/shots/
+          cd /tmp/shots
+          git init -q && git checkout -q -b ui-tour-shots
+          git config user.name "ora-ci" && git config user.email "ora-ci@users.noreply.github.com"
+          git add . && git commit -qm "UI tour screenshots ${GITHUB_SHA}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" ui-tour-shots

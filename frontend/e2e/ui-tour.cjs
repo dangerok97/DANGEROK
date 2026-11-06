@@ -1,0 +1,117 @@
+// UI tour of the real exported ORA web app with an offline, simulated API.
+// No real account or provider is contacted: every /api call is answered here,
+// every non-local request is aborted.
+const { chromium } = require('@playwright/test');
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT = process.argv[2];
+const OUT = process.argv[3];
+const PORT = 8094;
+fs.mkdirSync(OUT, { recursive: true });
+
+const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
+const server = http.createServer((req, res) => {
+  const p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let f = path.resolve(ROOT, '.' + p);
+  if (!f.startsWith(ROOT) || !fs.existsSync(f) || !fs.statSync(f).isFile()) f = path.join(ROOT, 'index.html');
+  res.writeHead(200, { 'content-type': mime[path.extname(f)] || 'application/octet-stream' });
+  res.end(fs.readFileSync(f));
+}).listen(PORT, '127.0.0.1');
+
+const now = new Date();
+const iso = (h) => new Date(now.getTime() + h * 3600e3).toISOString();
+const user = { user_id: 'tour', name: 'Francesco Esempio', first_name: 'Francesco', last_name: 'Esempio',
+  email: 'tour@example.invalid', provider: 'password', identity_confirmed: true, knowledge_tutorial_version: 1 };
+const weather = { available: true, label: 'Nuvoloso', condition: 'cloudy', icon: 'cloudy-outline', temperature_c: 14, place: 'Tarquinia' };
+const opp = (id, title, why, extra = {}) => ({ id, title, why_now: why, created_at: iso(-2), status: 'active', ...extra });
+const home = {
+  primary_focus: null, explanation: null, current_situation: null, priorities: [], insights: [], resume_item: null,
+  ora_ti_consiglia: [], open_questions: [], agent_work: [], connection_warnings: [], ambient: null,
+  google_calendar: { connected: true, show_banner: false }, weather, generated_at: now.toISOString(),
+  ranking_version: 'tour', partial: false,
+  opportunities: [
+    opp('o1', 'Buongiorno, ecco la tua giornata', 'Nuvoloso, 11–19 °C, niente pioggia. Niente in agenda oggi.', { reminder: { kind: 'morning_brief' } }),
+    opp('o2', 'Chiamare il commercialista', 'Mi hai chiesto di ricordartelo alle 11:30.', { reminder: { kind: 'reminder' } }),
+    opp('o3', 'È ora di metterti in moto per «Palestra» alle 17:00', 'Circa 12 min in auto da casa, con 10 min di margine.', { reminder: { kind: 'reminder', route_url: 'https://www.google.com/maps/dir/?api=1&destination=42.25,11.75' } }),
+  ],
+};
+const brief = {
+  greeting: 'Buongiorno, Francesco', day: 'Venerdì 6 novembre', headline: 'Nuvoloso, 11–19 °C, niente pioggia.',
+  at: now.toISOString().slice(0, 16),
+  sections: [
+    { key: 'weather', icon: 'cloudy-outline', title: 'Il tempo a Tarquinia', lines: ['Nuvoloso, 11–19 °C, niente pioggia', 'Tramonto alle 17:02', 'Domani: Pioggia, 10–16 °C, pioggia 70%'] },
+    { key: 'today', icon: 'calendar-outline', title: 'Oggi', lines: ['10:30 · Dentista (Viterbo) — parti alle 9:52', '17:00 · Palestra (Tarquinia)'] },
+    { key: 'done', icon: 'sparkles-outline', title: 'Nelle ultime 24 ore, da sola', lines: ['Ho calcolato quando partire per 2 appuntamenti', 'Ho visto sul conto che hai pagato 1 bolletta: non te le ricordo più'] },
+    { key: 'reminders', icon: 'alarm-outline', title: 'Promemoria di oggi', lines: ['Chiamare il commercialista alle 11:30'] },
+    { key: 'deadlines', icon: 'time-outline', title: 'Scadenze', lines: ['Bolletta gas (€40): scade domani'] },
+    { key: 'drying', icon: 'shirt-outline', title: 'Bucato', lines: ['Buona giornata per il bucato: se stendi alle 9, è asciutto verso le 14.'], good: true },
+    { key: 'tomorrow', icon: 'calendar-clear-outline', title: 'Domani', lines: ['9:00 · Medico (Viterbo)'] },
+  ],
+};
+const setup = { notifications: true, location: true, home: false, travel_mode: false, morning_brief: true, travel: 'drive',
+  brief: { enabled: true, hour: 8 }, done: false, dismissed: false, missing: ['home', 'travel_mode'] };
+const weatherDetail = { ...weather, feels_like_c: 13, humidity_pct: 72, wind_kmh: 14, condition_label: 'Nuvoloso',
+  sunrise: '06:48', sunset: '17:02',
+  hours: Array.from({ length: 8 }, (_, i) => ({ time: iso(i).slice(11, 16), temperature_c: 13 + (i % 4), rain_chance_pct: 5 * i, icon: 'cloudy-outline' })),
+  days: Array.from({ length: 5 }, (_, i) => ({ date: iso(24 * i).slice(0, 10), label: ['Oggi', 'Domani', 'Dom', 'Lun', 'Mar'][i], min_c: 10 + i, max_c: 18 + (i % 2), rain_chance_pct: [0, 70, 30, 10, 0][i], icon: 'cloudy-outline' })) };
+
+function answer(p, method) {
+  if (p.includes('providers')) return { google: { configured: false, platforms: {} }, apple: { configured: false, platforms: {} }, password: { configured: true } };
+  if (p.includes('/auth/') && method === 'POST') return { token: 'offline-tour-token', user };
+  if (p.endsWith('/me') || p.endsWith('/auth/user')) return user;
+  if (p === '/api/home') return home;
+  if (p === '/api/brief/morning/today') return brief;
+  if (p === '/api/brief/setup') return setup;
+  if (p === '/api/brief/morning') return { enabled: true, hour: 8 };
+  if (p === '/api/brief/evening') return { enabled: true, hour: 20 };
+  if (p === '/api/ops/canary') return { runs: [{ day: now.toISOString().slice(0, 10), ok: true, checks: [] }] };
+  if (p === '/api/ops/self-check') return { checked: true, at: now.toISOString(), watches: 2, healthy: true, items: [] };
+  if (p === '/api/weather') return weatherDetail;
+  if (p === '/api/opportunities') return { opportunities: home.opportunities };
+  if (p === '/api/places') return { places: [], candidates: [], routines: [], pending_candidates: false, permission: { preference: 'off', state: 'off' } };
+  if (p === '/api/financial/overview') return { collegamento: { stato: 'non_collegato', in_parole: 'Nessuna banca collegata.' }, conti: [], cosa_ho_capito: [], fonti_non_piu_collegate: [], collegato_alla_tua_vita: [], da_capire: [], movimenti_recenti: [], vale_la_pena_mostrarlo: false };
+  return {};
+}
+
+(async () => {
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'it-IT', timezoneId: 'Europe/Rome' });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(String(e).slice(0, 200)));
+  await page.route(u => !['127.0.0.1', 'localhost'].includes(u.hostname) && u.protocol.startsWith('http'), r => r.abort());
+  await page.route('**/api/**', async r => {
+    const req = r.request();
+    const p = new URL(req.url()).pathname;
+    const h = { 'access-control-allow-origin': req.headers()['origin'] || `http://127.0.0.1:${PORT}`, 'access-control-allow-credentials': 'true',
+      'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
+    if (req.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: h });
+    return r.fulfill({ status: 200, headers: h, json: answer(p, req.method()) });
+  });
+  const base = `http://127.0.0.1:${PORT}`;
+  const shot = async (name, full = true) => {
+    await page.waitForTimeout(1800);
+    await page.screenshot({ path: path.join(OUT, name + '.png'), fullPage: full });
+  };
+  await page.goto(base + '/login');
+  await shot('01-login', false);
+  try {
+    await page.getByTestId('login-email-button').click({ timeout: 8000 });
+    await page.getByTestId('login-email-input').fill('tour@example.invalid');
+    await page.getByTestId('login-password-input').fill('OfflineTour123!');
+    await shot('02-login-email', false);
+    await page.getByTestId('login-submit-button').click();
+    await page.waitForTimeout(3000);
+  } catch (e) { errors.push('login: ' + String(e).slice(0, 120)); }
+  for (const [name, route] of [['03-home', '/'], ['04-giornata', '/giornata'], ['05-inizia', '/inizia'], ['06-ora', '/ora'],
+    ['07-vita', '/vita'], ['08-attivita', '/attivita'], ['09-documenti', '/documenti'], ['10-settings', '/settings'],
+    ['11-meteo', '/meteo'], ['12-aggiornamenti', '/aggiornamenti']]) {
+    try { await page.goto(base + route); await shot(name); } catch (e) { errors.push(name + ': ' + String(e).slice(0, 120)); }
+  }
+  console.log(JSON.stringify({ errors }, null, 1));
+  await browser.close();
+  server.close();
+})();
