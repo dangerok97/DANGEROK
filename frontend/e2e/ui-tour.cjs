@@ -81,7 +81,8 @@ function answer(p, method) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'it-IT', timezoneId: 'Europe/Rome' });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', e => errors.push(String(e).slice(0, 200)));
+  page.on('pageerror', e => errors.push(String(e.stack || e).slice(0, 900)));
+  const unknown = new Set();
   await page.route(u => !['127.0.0.1', 'localhost'].includes(u.hostname) && u.protocol.startsWith('http'), r => r.abort());
   await page.route('**/api/**', async r => {
     const req = r.request();
@@ -89,12 +90,21 @@ function answer(p, method) {
     const h = { 'access-control-allow-origin': req.headers()['origin'] || `http://127.0.0.1:${PORT}`, 'access-control-allow-credentials': 'true',
       'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     if (req.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: h });
-    return r.fulfill({ status: 200, headers: h, json: answer(p, req.method()) });
+    const a = answer(p, req.method());
+    if (a && typeof a === 'object' && !Array.isArray(a) && Object.keys(a).length === 0) unknown.add(req.method() + ' ' + p);
+    return r.fulfill({ status: 200, headers: h, json: a });
   });
   const base = `http://127.0.0.1:${PORT}`;
   const shot = async (name, full = true) => {
-    await page.waitForTimeout(1800);
-    await page.screenshot({ path: path.join(OUT, name + '.png'), fullPage: full });
+    await page.waitForTimeout(2200);
+    await page.screenshot({ path: path.join(OUT, name + '.png') });
+    if (!full) return;
+    for (let i = 1; i <= 3; i++) {
+      await page.mouse.move(195, 420);
+      await page.mouse.wheel(0, 700);
+      await page.waitForTimeout(700);
+      await page.screenshot({ path: path.join(OUT, `${name}-${i}.png`) });
+    }
   };
   await page.goto(base + '/login');
   await shot('01-login', false);
@@ -111,7 +121,7 @@ function answer(p, method) {
     ['11-meteo', '/meteo'], ['12-aggiornamenti', '/aggiornamenti']]) {
     try { await page.goto(base + route); await shot(name); } catch (e) { errors.push(name + ': ' + String(e).slice(0, 120)); }
   }
-  console.log(JSON.stringify({ errors }, null, 1));
+  console.log(JSON.stringify({ errors, unknown: [...unknown] }, null, 1));
   await browser.close();
   server.close();
 })();
