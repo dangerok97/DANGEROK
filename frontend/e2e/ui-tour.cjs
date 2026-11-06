@@ -73,6 +73,32 @@ function answer(p, method) {
   if (p === '/api/opportunities') return { opportunities: home.opportunities };
   if (p === '/api/places') return { places: [], candidates: [], routines: [], pending_candidates: false, permission: { preference: 'off', state: 'off' } };
   if (p === '/api/financial/overview') return { collegamento: { stato: 'non_collegato', in_parole: 'Nessuna banca collegata.' }, conti: [], cosa_ho_capito: [], fonti_non_piu_collegate: [], collegato_alla_tua_vita: [], da_capire: [], movimenti_recenti: [], vale_la_pena_mostrarlo: false };
+  if (p === '/api/life-setup/status') return { ok: true, should_show: false, module_visible: true, wizard: false, session: null };
+  if (p === '/api/life-profile/knowledge-map') return { stars: [
+      { id: 's1', area: 'home', branch_id: null, title: 'Casa', statement: 'Vivi a Tarquinia', status: 'known', provenance: 'Detto da te', icon_key: 'home' },
+      { id: 's2', area: 'work', branch_id: null, title: 'Lavoro', statement: 'Ufficio a Viterbo', status: 'known', provenance: 'Detto da te', icon_key: 'briefcase' },
+      { id: 's3', area: 'health', branch_id: null, title: 'Salute', statement: 'Dentista ogni 6 mesi', status: 'known', provenance: 'Dal calendario', icon_key: 'medkit' },
+      { id: 's4', area: 'memory', branch_id: null, title: 'Memoria temporanea', semantic_kind: 'Panni stesi', icon_key: 'shirt', statement: 'Panni stesi in giardino', status: 'known', provenance: 'Detto da te', temporary: true, situation_id: 'sit1', updated_at: now.toISOString() },
+    ], count: 4, known_count: 4, temporary_count: 1, percent: 38, branches: [], revision: 'tour' };
+  if (p === '/api/life-profile/setup') return { ok: true, percent: 38, areas: [], recommended: null, current_area_id: null, objective: null, transition: null };
+  if (p === '/api/life-map') return { ok: true, areas: [] };
+  if (p === '/api/opportunities/surface') return { opportunities: home.opportunities };
+  if (p === '/api/activity') return { ok: true, attention: null, questions: [
+      { id: 'q1', title: 'Vuoi che ti ricordi la pastiglia ogni giorno alle 20?', detail: 'Me l\'hai chiesto 3 volte questa settimana.', needs_consent: true, kind: 'habit', at: iso(-3) }],
+    waiting: [{ id: 'w1', title: 'Lavatrice in funzione', waiting_for: 'Fine del ciclo', when: 'verso le 10:30' }],
+    updates: [{ id: 'u1', title: 'Ho calcolato quando partire per il dentista', context: 'Parti alle 9:52', actor: 'ora', at: iso(-1) },
+              { id: 'u2', title: 'Bolletta luce pagata', context: 'Vista sul conto', actor: 'observed', at: iso(-5) }],
+    deadlines: [{ id: 'd1', title: 'Bolletta gas (€40)', at: iso(24) }], completed: [{ id: 'c1', title: 'Chiamare Asia', at: iso(-20) }],
+    summary: [{ label: 'Fatte da sola', value: 6, icon: 'sparkles-outline' }, { label: 'In attesa', value: 1, icon: 'time-outline' }], generated_at: now.toISOString() };
+  if (p === '/api/documents/library') return { ok: true, items: [
+      { id: 'doc1', title: 'Carta d\'identità', kind: 'identity', uploaded_at: iso(-200), status: 'ready', summary: 'Scade il 12/03/2029', expiry: { at: '2029-03-12', title: 'Scadenza carta d\'identità' } },
+      { id: 'doc2', title: 'Bolletta gas ottobre', kind: 'bill', uploaded_at: iso(-30), status: 'ready', summary: '€40, scade il 7/11' }] };
+  if (p === '/api/connected-sources') return { sources: [{ id: 'g', what: 'Google Calendar', state: 'ok', last_read_at: iso(-0.2) },
+      { id: 'm', what: 'Gmail', state: 'ok', last_read_at: iso(-0.3) }, { id: 'b', what: 'Conto ING', state: 'ok', last_read_at: iso(-1) }] };
+  if (p.endsWith('/instances')) return { instances: [] };
+  if (p === '/api/documents/calendar/google/status') return { connected: true };
+  if (p === '/api/whatsapp/status') return { connected: false };
+  if (p === '/api/siri/key') return { active: false };
   return {};
 }
 
@@ -118,7 +144,7 @@ function answer(p, method) {
   } catch (e) { errors.push('login: ' + String(e).slice(0, 120)); }
   for (const [name, route] of [['03-home', '/'], ['04-giornata', '/giornata'], ['05-inizia', '/inizia'], ['06-ora', '/ora'],
     ['07-vita', '/vita'], ['08-attivita', '/attivita'], ['09-documenti', '/documenti'], ['10-settings', '/settings'],
-    ['11-meteo', '/meteo'], ['12-aggiornamenti', '/aggiornamenti']]) {
+    ['11-meteo', '/meteo'], ['12-aggiornamenti', '/aggiornamenti'], ['13-luoghi', '/luoghi'], ['14-cucina', '/cucina'], ['15-portafoglio', '/portafoglio']]) {
     try { await page.goto(base + route); await shot(name); } catch (e) { errors.push(name + ': ' + String(e).slice(0, 120)); }
   }
   console.log(JSON.stringify({ errors, unknown: [...unknown] }, null, 1));
