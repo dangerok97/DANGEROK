@@ -160,7 +160,9 @@ test('camera approaches the real selected area smoothly and returns to standby',
   assert.equal(h.scene.snapshot().activeHub, 5);
   assert.ok(h.scene.snapshot().camera.zoom > 1.6);
   assert.ok(h.scene.snapshot().camera.x > .6);
-  h.scene.update({ mode: 'idle', area: null }); h.frames(150);
+  h.scene.update({ mode: 'idle', area: null }); h.frames(60);
+  assert.equal(h.scene.snapshot().activeHub, 5, 'the area stays lit a moment after the tool ends (no flash back)');
+  h.frames(480);
   assert.equal(h.scene.snapshot().activeHub, -1);
   assert.ok(Math.abs(h.scene.snapshot().camera.zoom - 1) < .001);
   h.scene.destroy();
@@ -173,7 +175,7 @@ test('a fast completed reply can focus each topic in idle, then release it', () 
     assert.equal(h.scene.snapshot().activeHub, index);
     assert.ok(h.scene.snapshot().camera.zoom > 1.6);
   }
-  h.scene.update({ area: null }); h.frames(150);
+  h.scene.update({ area: null }); h.frames(560);
   assert.equal(h.scene.snapshot().activeHub, -1);
   assert.ok(Math.abs(h.scene.snapshot().camera.zoom - 1) < .001);
   h.scene.destroy();
@@ -292,5 +294,17 @@ test('knowledge selections identify the exact saved fact, including on touch', (
   h.pointer('pointerdown', p.x, p.y, 'touch'); h.pointer('pointerup', p.x, p.y, 'touch');
   assert.equal(h.selections[0]?.id, 'star_exact');
   assert.equal(h.selections[0]?.kind, 'node');
+  h.scene.destroy();
+});
+
+test('a reload that brings the stars back does not make the whole sky be born again', () => {
+  const h = harness();
+  h.frames(200);
+  h.scene.update({ stars: fixtureStars.slice(0, 10) }); h.frames(5);
+  h.scene.update({ stars: fixtureStars }); h.frames(5);
+  const born = h.scene.snapshot().births;
+  assert.equal(born, 0, 'stars already seen do not bloom again');
+  h.scene.update({ stars: [...fixtureStars, { id: 'star_new_one', area: 'people', kind: 'node' }] }); h.frames(5);
+  assert.equal(h.scene.snapshot().births, 1, 'one truly new star blooms');
   h.scene.destroy();
 });

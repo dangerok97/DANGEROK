@@ -80,6 +80,12 @@ async def start(
 
     #     IL TIPO SI LEGGE DALLA RICHIESTA, E UN MESSAGGIO DICHIARATO VINCE.
     messaggio = " ".join((message or "").split())[:400] or the_message_in(frase)
+    #     LE PAROLE SONO QUELLE DELLA PERSONA, ANCHE NELLE MAIUSCOLE.
+    # Test del 6/11: «dille che la amo» è tornato dal modello come «la AMo».
+    # Quando il messaggio è scritto nella frase, si prende dalla frase.
+    dove = frase.casefold().find(messaggio.casefold()) if messaggio else -1
+    if dove >= 0 and len(frase) == len(frase.casefold()):
+        messaggio = frase[dove:dove + len(messaggio)]
     tipo = "deliver_message" if messaggio else (
         (operation or "").strip() or kind_of_request(frase))
     prep = MissionPreparation(
