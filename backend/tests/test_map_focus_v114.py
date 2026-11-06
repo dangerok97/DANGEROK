@@ -90,3 +90,14 @@ async def test_temporary_star_exposes_exact_situation_ref():
     result = await knowledge_map(db, "owner")
     star = next(s for s in result["stars"] if s.get("situation_id") == "sit_focus")
     assert star["source_refs"] == ["situation:sit_focus"]
+
+
+def test_a_memory_read_to_answer_focuses_the_map():
+    """6/11: talking about something ORA already knows brings its star into view."""
+    from types import SimpleNamespace
+    decision = SimpleNamespace(display_focus_ref=None)
+    read = {"name": "search_life_memory", "status": "ok", "payload": {"facts": []},
+            "provenance": ["memory:index", "profile:casa:indirizzo", "mem_2"]}
+    assert _display_focus_ref(decision, [read], None) == "profile:casa:indirizzo"
+    assert _display_focus_ref(decision, [{**read, "provenance": ["memory:index"]}], None) is None
+    assert _display_focus_ref(decision, [{**read, "status": "error"}], None) is None

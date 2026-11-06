@@ -106,3 +106,16 @@ export function changedStars(previous: KnowledgeMap | null, next: KnowledgeMap):
   const before = new Map(previous.stars.map(star => [star.id, visualStarKey(star)]));
   return next.stars.filter(star => before.get(star.id) !== visualStarKey(star));
 }
+
+/**
+ * Whether a backend ref names this star. The conversation reports what it read
+ * as «profile:casa:indirizzo» or a bare memory id, the map stores
+ * «life_profile:casa:indirizzo» or «user_memory:<id>»: same thing, two spellings
+ * (6/11: the map never moved when ORA *read* a memory, only when it wrote one).
+ */
+export function refNamesStar(star: KnowledgeStar, ref: string | null | undefined): boolean {
+  const want = String(ref || '').trim();
+  if (!want) return false;
+  const bare = (value: string) => value.replace(/^(life_profile|profile|user_memory|memory):/, '');
+  return (star.source_refs || []).some(have => have === want || bare(have) === bare(want));
+}

@@ -6,7 +6,7 @@ import { PresenceCanvas } from './PresenceCanvas';
 import { AREA_LABELS, AREA_DETAILS, AREA_IDS, COMPLETED_FOCUS_MS, completionFocusKey, presenceFocus, type PresenceActivity, type PresenceMode, type PresenceNode } from './state';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { openingSession } from './openingSession';
-import { geometryFor, type KnowledgeMap } from './knowledge';
+import { geometryFor, type KnowledgeMap, refNamesStar } from './knowledge';
 import { useKnowledgeMap } from './useKnowledgeMap';
 import { useRouter } from 'expo-router';
 import { OraCockpitContext } from '../OraCockpitContext';
@@ -34,7 +34,7 @@ export function OraPresence({ mode = 'idle', activity = null, compact = false, a
   const autoSpotlightId = useMemo(() => {
     if (spotlightId && map?.stars.some(star => star.id === spotlightId)) return spotlightId;
     if (spotlightRef) {
-      const byRef = map?.stars.find(star => (star.source_refs || []).includes(spotlightRef));
+      const byRef = map?.stars.find(star => (star.source_refs || []).includes(spotlightRef) || refNamesStar(star, spotlightRef));
       if (byRef?.id) return byRef.id;
     }
 

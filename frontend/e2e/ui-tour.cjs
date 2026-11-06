@@ -84,7 +84,13 @@ function answer(p, method) {
       { id: 's2', area: 'work', branch_id: null, title: 'Lavoro', statement: 'Ufficio a Viterbo', status: 'known', provenance: 'Detto da te', icon_key: 'briefcase' },
       { id: 's3', area: 'health', branch_id: null, title: 'Salute', statement: 'Dentista ogni 6 mesi', status: 'known', provenance: 'Dal calendario', icon_key: 'medkit' },
       { id: 's4', area: 'memory', branch_id: null, title: 'Memoria temporanea', semantic_kind: 'Panni stesi', icon_key: 'shirt', statement: 'Panni stesi in giardino', status: 'known', provenance: 'Detto da te', temporary: true, situation_id: 'sit1', updated_at: now.toISOString() },
-    ], count: 4, known_count: 4, temporary_count: 1, percent: 38, branches: [], revision: 'tour' };
+      { id: 's5', area: 'home', branch_id: null, title: 'Orto', statement: 'Pomodori in giardino', status: 'known', provenance: 'Detto da te', icon_key: 'leaf' },
+      { id: 's6', area: 'work', branch_id: null, title: 'Collega', statement: 'Marco, stesso ufficio', status: 'known', provenance: 'Detto da te', icon_key: 'person' },
+      { id: 's7', area: 'health', branch_id: null, title: 'Palestra', statement: 'Martedì e giovedì', status: 'known', provenance: 'Dal calendario', icon_key: 'barbell' },
+      { id: 's8', area: 'people', branch_id: null, title: 'Asia', statement: 'Sorella', status: 'known', provenance: 'Detto da te', icon_key: 'heart' },
+      { id: 's9', area: 'mobility', branch_id: null, title: 'Auto', statement: 'Revisione a marzo', status: 'known', provenance: 'Detto da te', icon_key: 'car' },
+      { id: 's10', area: 'money', branch_id: null, title: 'Conto ING', statement: 'Conto principale', status: 'known', provenance: 'Dalla banca', icon_key: 'card' },
+    ], count: 10, known_count: 10, temporary_count: 1, percent: 38, branches: [], revision: 'tour' };
   if (p === '/api/life-profile/setup') return { ok: true, percent: 38, areas: [], recommended: null, current_area_id: null, objective: null, transition: null };
   if (p === '/api/life-map') return { ok: true, areas: [] };
   if (p === '/api/opportunities/surface') return { opportunities: home.opportunities };
@@ -152,6 +158,27 @@ function answer(p, method) {
     ['11-meteo', '/meteo'], ['12-aggiornamenti', '/aggiornamenti'], ['13-luoghi', '/luoghi'], ['14-cucina', '/cucina'], ['15-portafoglio', '/portafoglio']]) {
     try { await page.goto(base + route); await shot(name); } catch (e) { errors.push(name + ': ' + String(e).slice(0, 120)); }
   }
+  // The star map: two moments of the animation, then a star opened (focus).
+  try {
+    await page.goto(base + '/vita');
+    await page.waitForTimeout(4500);
+    await page.screenshot({ path: path.join(OUT, '20-mappa-a.png') });
+    await page.waitForTimeout(1700);
+    await page.screenshot({ path: path.join(OUT, '20-mappa-b.png') });
+    let hit = null;
+    for (let y = 150; y < 700 && !hit; y += 14) for (let x = 20; x < 380 && !hit; x += 14) {
+      await page.mouse.move(x, y);
+      const c = await page.evaluate(() => [...document.querySelectorAll('canvas')].map(k => k.style.cursor).join(','));
+      if (c.includes('pointer')) hit = [x, y];
+    }
+    if (hit) {
+      await page.mouse.click(hit[0], hit[1]);
+      await page.waitForTimeout(1500);
+      await page.screenshot({ path: path.join(OUT, '21-mappa-focus-a.png') });
+      await page.waitForTimeout(1500);
+      await page.screenshot({ path: path.join(OUT, '21-mappa-focus-b.png') });
+    } else errors.push('map: no star under the pointer');
+  } catch (e) { errors.push('map: ' + String(e).slice(0, 160)); }
   console.log(JSON.stringify({ errors, unknown: [...unknown] }, null, 1));
   await browser.close();
   server.close();

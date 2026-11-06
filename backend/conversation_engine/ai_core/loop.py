@@ -653,6 +653,19 @@ def _display_focus_ref(decision, observations, situation_result) -> Optional[str
     sid = str(persisted.get("id") or "").strip()
     if sid:
         return f"situation:{sid}"[:160]
+
+    # Talking about something ORA already knows: the memory it read to answer
+    # is the star the conversation is about (6/11: the map moved only when a
+    # memory was written, never when one was used). Only a single, concrete
+    # persisted fact focuses the map; an index or a broad read does not.
+    for obs in reversed(list(observations or [])):
+        if not isinstance(obs, dict) or obs.get("name") != "search_life_memory" or obs.get("status") != "ok":
+            continue
+        refs = [str(ref).strip() for ref in (obs.get("provenance") or [])
+                if str(ref).strip() and ":index" not in str(ref) and not str(ref).startswith(("presence:", "account:"))]
+        if refs:
+            return refs[0][:160]
+        break
     return None
 
 
