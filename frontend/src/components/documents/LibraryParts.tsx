@@ -11,6 +11,7 @@ import {
   dayBadge,
   expiryDateLabel,
   expiryLabel,
+  expiryIsNear,
   statusLabel,
   uploadedLabel,
   type DocItem,
@@ -356,8 +357,10 @@ export function DocumentRow({
   compact?: boolean;
 }) {
   const { colors } = useTheme();
-  const expiring = item.expiry ? expiryDateLabel(item.expiry.at) : null;
-  const countdown = item.expiry ? expiryLabel(item.expiry.at) : null;
+  // Only a near expiry is a warning; a far one is a plain fact on the summary line.
+  const near = !!item.expiry && expiryIsNear(item.expiry.at);
+  const expiring = near && item.expiry ? expiryDateLabel(item.expiry.at) : null;
+  const countdown = near && item.expiry ? expiryLabel(item.expiry.at) : null;
   const label = statusLabel(item.status);
 
   const tone =
