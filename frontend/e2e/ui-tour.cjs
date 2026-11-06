@@ -73,6 +73,11 @@ function answer(p, method) {
   if (p === '/api/opportunities') return { opportunities: home.opportunities };
   if (p === '/api/places') return { places: [], candidates: [], routines: [], pending_candidates: false, permission: { preference: 'off', state: 'off' } };
   if (p === '/api/financial/overview') return { collegamento: { stato: 'non_collegato', in_parole: 'Nessuna banca collegata.' }, conti: [], cosa_ho_capito: [], fonti_non_piu_collegate: [], collegato_alla_tua_vita: [], da_capire: [], movimenti_recenti: [], vale_la_pena_mostrarlo: false };
+  if (p === '/api/calendar/events/home/month') return [];
+  if (p === '/api/location/preference') return { ok: true, mode: 'while_using', background_available: false, native_available: false };
+  if (p === '/api/recipes/items') return { items: [] };
+  if (p === '/api/wallet/cards') return { cards: [] };
+  if (p === '/api/energy-offers/monitoring') return { enabled: false, offers: [], items: [] };
   if (p === '/api/life-setup/status') return { ok: true, enabled: true, should_show: false, module_visible: true, wizard: false, session: { status: 'completed' } };
   if (p === '/api/life-profile/knowledge-map') return { stars: [
       { id: 's1', area: 'home', branch_id: null, title: 'Casa', statement: 'Vivi a Tarquinia', status: 'known', provenance: 'Detto da te', icon_key: 'home' },
