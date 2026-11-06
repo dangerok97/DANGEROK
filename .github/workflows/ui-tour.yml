@@ -1,7 +1,7 @@
 name: UI tour (screenshots, simulated data)
 on:
   push:
-    branches: [ui-tour-run, feat/ui-polish]
+    branches: [ui-tour-run]
 permissions:
   contents: write
 jobs:
