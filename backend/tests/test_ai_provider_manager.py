@@ -466,3 +466,46 @@ def test_real_gemini_enrichment_optional():
             res["analysis"].get("model")
 
     _run(body())
+
+
+def test_gemini_network_blip_is_not_reported_as_a_missing_model():
+    """6/11: primary had a network error, the alternate 404'd, and the only fast
+    provider was benched 60 s as «model_unavailable». The first cause counts."""
+    from llm.errors import LLMNetworkError
+    from llm.providers.gemini import GeminiProvider
+    import google.genai as genai_mod
+
+    class _Err(Exception):
+        def __init__(self, code, msg):
+            super().__init__(msg)
+            self.code = code
+
+    async def fake_generate_content(**kwargs):
+        if kwargs["model"] == "gemini-flash-lite-latest":
+            raise _Err(503, "service unavailable")
+        raise _Err(404, "model is not found")
+
+    class _Models:
+        generate_content = staticmethod(fake_generate_content)
+
+    class _Aio:
+        models = _Models()
+
+        async def aclose(self):
+            return None
+
+    class _Client:
+        def __init__(self, *a, **k):
+            self.aio = _Aio()
+
+    async def body():
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key-not-real",
+                                     "GEMINI_MODEL": "gemini-flash-lite-latest"}, clear=False), \
+                patch.object(genai_mod, "Client", _Client):
+            try:
+                await GeminiProvider().chat(system="s", user="u", json_mode=True)
+            except LLMNetworkError:
+                return
+            raise AssertionError("expected the primary's network error")
+
+    _run(body())

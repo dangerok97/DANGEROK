@@ -30,12 +30,22 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     {x:-.55,y:.55,z:-.41,id:'finances',name:'FINANZE',dx:-14,dy:24,align:'right'},
     {x:.10,y:-.07,z:-.68,id:'calls',name:'CHIAMATE',dx:16,dy:-20,align:'left'}
   ];
+  // An area lit by a tool stays lit a moment after the tool ends: the 6/11
+  // video showed «Chiamate» for half a second, then a jump back to the whole map.
+  const AREA_HOLD_MS=3500;let heldArea=null,heldUntil=0;
+  let sceneNow=0;const clock=()=>sceneNow;
+  function shownArea(){if(options.area)return options.area;return heldArea&&clock()<heldUntil?heldArea:null;}
   let points=[],edges=[],projected=[],sorted=[],furthest=1,geometryKey='';
   let growth=1;
   const births=new Map();
+  // Every star ever drawn. A reload that briefly returns fewer stars, or a map
+  // that arrives after an empty one, must not make the whole sky "be born"
+  // again: in the 6/11 video a dozen birth rings fired at once on a reload.
+  const seen=new Set();
   function rebuild(nodes,first=false){
     const key=JSON.stringify([!!options.intro,nodes||[]]);if(key===geometryKey)return;geometryKey=key;
-    const oldIds=new Set(points.map(p=>p.id));
+    const fresh=(nodes||[]).filter(n=>n&&n.id&&!seen.has(n.id)).length;
+    const quiet=first||seen.size===0||fresh>3;
     points=hubs.map((h,i)=>({...h,group:i,areaGroup:i,hub:true,radius:2.7,phase:i*.83,distance:0}));
     const groups=hubs.map(()=>[]);
     for(const node of nodes||[]){
@@ -48,7 +58,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const p={x:introPosition?.[0]??h.x+Math.cos(a)*r*v,y:introPosition?.[1]??h.y+u*r*.85,z:introPosition?.[2]??h.z+Math.sin(a)*r*v,
         id:node.id,kind:branch?'branch':'node',tentative:!!node.tentative,temporary:!!node.temporary,complete:!!node.complete,
         group:g,areaGroup:g,hub:false,radius:branch?2.5:1.3+random()*.65,phase:random()*6.28};
-      if(!births.has(p.id)||!oldIds.has(p.id))births.set(p.id,first?t-4:t);
+      if(!seen.has(p.id)){births.set(p.id,quiet?t-4:t);seen.add(p.id);}else if(!births.has(p.id))births.set(p.id,t-4);
       points.push(p);groups[g].push(points.length-1);
     }
     const liveIds=new Set(points.map(p=>p.id));for(const id of births.keys())if(!liveIds.has(id))births.delete(id);
@@ -106,12 +116,12 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const atmosphere=ctx.createRadialGradient(width*.49,height*.47,0,width*.5,height*.5,Math.max(width,height)*.55);atmosphere.addColorStop(0,palette.atmosphere);atmosphere.addColorStop(.60,palette.depth);atmosphere.addColorStop(1,palette.background);ctx.fillStyle=atmosphere;ctx.fillRect(0,0,width,height);
     dust.forEach(s=>{const x=(s.x*width+Math.sin(t*.04+s.phase)*9+width)%width,y=s.y*height;ctx.fillStyle='rgba('+palette.dust+','+(.09+s.z*.22)+')';ctx.beginPath();ctx.arc(x,y,.35+s.z*.6,0,Math.PI*2);ctx.fill();});
     const active=mode==='think'||mode==='speak';
-    activeHub=hubs.findIndex(h=>h.id===options.area);
+    activeHub=hubs.findIndex(h=>h.id===shownArea());
     // A small, broad double pulse: activity should feel alive without jolting the map.
     const beatPhase=(t%1.65)/1.65;
     const beat=active&&!options.reduced&&!options.paused?(Math.exp(-Math.pow((beatPhase-.16)/.085,2))+.38*Math.exp(-Math.pow((beatPhase-.37)/.105,2))):0;
     const breathe=1+Math.sin(t*1.48)*state.breath+beat*.014;
-    const scale=Math.min(width*(options.intro?.43:.39),height*(options.intro?.76:.43))*camera.zoom;
+    const scale=Math.min(width*(options.intro?.43:.39),height*(options.intro?.76:height<220?.56:.43))*camera.zoom;
     const spotlight=points.findIndex(p=>p.id===options.spotlightId);
     const yaw=rotation+dragYaw,pitch=.06+Math.sin(t*.10)*.09+dragPitch;
     for(let i=0;i<points.length;i++){
@@ -200,12 +210,12 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const warm=!temporary&&(p.complete||p.tentative||(activeHub>=0?p.group===activeHub:i===0||i===4));
       if(p.hub){glow(q.x,q.y,16+q.energy*19,.25+q.energy*.53,warm);glow(q.x,q.y,5+q.energy*4,.60,warm);
         // A slow ripple leaves each area now and then, staggered, like a heartbeat seen from afar.
-        if(live&&q.appear>.9){const rp=((t+p.phase*2.3)%7.5)/7.5;if(rp<.3){const k=rp/.3;ctx.strokeStyle='rgba('+(warm?palette.warmNode:palette.node)+','+((1-k)*.22*q.depth)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,6+k*34*q.scale,0,Math.PI*2);ctx.stroke();}}}
+        if(live&&q.appear>.9){const rp=((t+p.phase*2.3)%7.5)/7.5;if(rp<.3){const k=rp/.3;ctx.strokeStyle='rgba('+(warm?palette.warmNode:palette.node)+','+((1-k)*.16*q.depth)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,6+k*20,0,Math.PI*2);ctx.stroke();}}}
       else {glow(q.x,q.y,(temporary?15:(p.complete?17:8))*(1+twinkle*.35),Math.max(.22+q.energy*.3+twinkle*.14,bloom*.9),warm||arriving,temporary);}
       if(arriving&&q.appear>.12){
         ctx.strokeStyle='rgba('+(temporary?palette.temporaryNode:palette.warmNode)+','+(bloom*.65*q.appear)+')';ctx.lineWidth=1.2;
-        ctx.beginPath();ctx.arc(q.x,q.y,5+age*11,0,Math.PI*2);ctx.stroke();
-        glow(q.x,q.y,24+age*9,bloom*.42,!temporary,temporary);
+        ctx.beginPath();ctx.arc(q.x,q.y,5+age*7,0,Math.PI*2);ctx.stroke();
+        glow(q.x,q.y,18+age*6,bloom*.36,!temporary,temporary);
       }
       if(p.kind==='branch'){ctx.strokeStyle='rgba('+palette.warmNode+','+(p.complete?.85:.2)+')';ctx.lineWidth=p.complete?1.5:.6;ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.stroke();}
       if(!p.hub&&p.kind==='node'&&!p.tentative){ctx.strokeStyle='rgba('+(temporary?palette.temporaryPoint:palette.point)+','+(.3+q.energy*.3)+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(q.x-3.6,q.y);ctx.lineTo(q.x+3.6,q.y);ctx.moveTo(q.x,q.y-3.6);ctx.lineTo(q.x,q.y+3.6);ctx.stroke();}
@@ -259,18 +269,23 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   }
   function moveCamera(dt,instant=false){
     const active=mode==='think'||mode==='speak';
-    activeHub=options.intro?-1:hubs.findIndex(h=>h.id===options.area);
+    activeHub=options.intro?-1:hubs.findIndex(h=>h.id===shownArea());
     const focused=points.find(p=>p.id===options.spotlightId);
     const target=focused||(activeHub>=0?hubs[activeHub]:{x:0,y:0,z:0});
-    const mix=instant?1:1-Math.exp(-dt*3.2);
+    // A glide, not a cut: about a second to travel, so a change of subject reads as movement.
+    const mix=instant?1:1-Math.exp(-dt*2.1);
     for(const axis of ['x','y','z'])camera[axis]+=(target[axis]*.82*growth-camera[axis])*mix;
     const requestedZoom=Number.isFinite(options.zoomOverride)?Math.max(.72,Math.min(1.55,options.zoomOverride)):1;
-    camera.zoom+=(((focused?1.55:activeHub>=0?1.65:active?1.12:1)*requestedZoom)-camera.zoom)*mix;
+    // In the short strip above the chat a full zoom pushes most of the area off
+    // the edges: there it leans in, rather than diving.
+    const wanted=focused?1.55:activeHub>=0?1.65:active?1.12:1;
+    const lean=height<220?1+(wanted-1)*.45:wanted;
+    camera.zoom+=((lean*requestedZoom)-camera.zoom)*mix;
   }
   function schedule(){if(!frame&&!destroyed&&!options.paused&&!options.reduced&&options.active&&visible&&inViewport)frame=requestAnimationFrame(tick);}
   function stop(){if(frame)cancelAnimationFrame(frame);frame=0;last=0;}
   function tick(now){
-    frame=0;const dt=last?Math.min(.05,(now-last)/1000):.016;last=now;
+    frame=0;const dt=last?Math.min(.05,(now-last)/1000):.016;last=now;sceneNow+=dt*1000;
     opening=Math.min(openingSeconds,opening+dt);
     const targetGrowth=.55+.45*(1-Math.exp(-points.filter(p=>p.kind==='node').length/35));
     growth+=(targetGrowth-growth)*(1-Math.exp(-dt*2));
@@ -282,6 +297,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   function update(next){
     const reveal=next.revealKey&&next.revealKey!==options.revealKey;
     const reset=next.resetKey!==undefined&&next.resetKey!==options.resetKey;
+    if(options.area&&'area' in next&&next.area!==options.area){heldArea=options.area;heldUntil=clock()+AREA_HOLD_MS;}
+    if(next.area)heldArea=null;
     options={...options,...next};mode=modes[options.mode]?options.mode:'idle';
     rebuild(options.stars);
     if(options.reduced||options.paused)growth=.55+.45*(1-Math.exp(-points.filter(p=>p.kind==='node').length/35));
@@ -329,5 +346,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,births:points.filter(p=>!p.hub&&t-(births.get(p.id)??-100)<2.8).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }

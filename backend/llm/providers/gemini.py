@@ -24,7 +24,8 @@ from llm.errors import (
 logger = logging.getLogger("ora.llm.gemini")
 
 # Secondary model after configured GEMINI_MODEL (then Provider Manager failover).
-_DEFAULT_ALTERNATE = "gemini-2.0-flash"
+# gemini-2.0-flash was retired (404 on 6/11): the alternate must exist.
+_DEFAULT_ALTERNATE = "gemini-flash-latest"
 
 
 def _api_key(env_var: str = "GEMINI_API_KEY") -> str:
@@ -161,6 +162,7 @@ class GeminiProvider(BaseLLMProvider):
 
         models_tried: list[str] = []
         last_error: Optional[BaseException] = None
+        first_error: Optional[BaseException] = None
         t0 = time.perf_counter()
 
         try:
@@ -191,6 +193,8 @@ class GeminiProvider(BaseLLMProvider):
                         isinstance(mapped, LLMInvalidResponseError)
                         and str(mapped) in ("blocked", "invalid", "empty")
                     )
+                    if first_error is None:
+                        first_error = mapped
                     if retryable and idx + 1 < len(candidates):
                         logger.warning(
                             "Gemini model=%s outcome=%s trying_alternate",
@@ -198,6 +202,17 @@ class GeminiProvider(BaseLLMProvider):
                             type(mapped).__name__,
                         )
                         continue
+                    #     UN INTOPPO DI RETE NON È UN MODELLO SPARITO.
+                    # 6/11: il modello principale ha avuto un errore di rete,
+                    # il modello alternativo non esiste per quella chiave (404)
+                    # e il provider — l'unico veloce in quel momento — è finito
+                    # in panchina 60 s invece di 5: il resto del turno è andato
+                    # sulla riserva lenta, 26 secondi per una risposta. Conta
+                    # la causa del primo tentativo.
+                    if (fallback_used and isinstance(mapped, LLMModelUnavailableError)
+                            and first_error is not None and first_error is not mapped
+                            and not isinstance(first_error, LLMModelUnavailableError)):
+                        raise first_error from e
                     raise mapped from e
 
                 text = ""
