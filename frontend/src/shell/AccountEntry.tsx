@@ -53,6 +53,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: -6,
+    // Always the far right of whatever row it lands in: in a wrapping
+    // header it used to sit mid-row next to the weather pill (6/11 review).
+    marginLeft: 'auto',
   },
   pressed: { opacity: 0.7 },
 });

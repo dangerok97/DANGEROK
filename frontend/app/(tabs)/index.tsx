@@ -608,6 +608,7 @@ export default function HomeScreen() {
             {mainColumn}
             {!loading ? (
               <ContextRail
+                compact
                 items={items}
                 situation={home?.current_situation}
                 questionCount={pendingQuestionCount}

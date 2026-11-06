@@ -78,8 +78,21 @@ export function expiryDateLabel(value?: string | null): string | null {
   if (!value) return null;
   const t = Date.parse(value);
   if (Number.isNaN(t)) return null;
-  const d = new Date(t).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  const when = new Date(t);
+  const d = when.toLocaleDateString('it-IT', when.getFullYear() === new Date().getFullYear()
+    ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
   return `Scade il ${d}`;
+}
+
+/** Days within which an expiry is worth a warning colour (6/11 review: an ID
+ *  card expiring in 2029 showed three amber lines and a countdown of 857 days). */
+export const EXPIRY_NEAR_DAYS = 60;
+
+export function expiryIsNear(value?: string | null, now: Date = new Date()): boolean {
+  if (!value) return false;
+  const t = Date.parse(value);
+  if (Number.isNaN(t)) return false;
+  return (t - now.getTime()) / 86400000 <= EXPIRY_NEAR_DAYS;
 }
 
 /** The day badge on a deadline row: { day: "31", month: "AGO" }. */

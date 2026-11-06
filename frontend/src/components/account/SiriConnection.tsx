@@ -7,7 +7,7 @@
  * it is shown once, and making a new one or turning Siri off revokes it.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
@@ -128,6 +128,7 @@ export function SiriConnection() {
     }
   };
 
+  const [showSteps, setShowSteps] = useState(false);
   const used = when(status?.last_used_at ?? null);
 
   return (
@@ -149,10 +150,7 @@ export function SiriConnection() {
       </View>
 
       <Text style={[styles.description, { color: colors.textSecondary }]}>
-        Di’ «Ehi Siri, {SIRI_SHORTCUT_NAME.toLowerCase()}» e parla: ORA riceve la frase come
-        se l’avessi scritta in chat e Siri ti legge la risposta. Se ORA ci mette di più,
-        ti arriva una notifica. Quello che chiede una tua conferma resta da confermare
-        nell’app.
+        Di’ «Ehi Siri, {SIRI_SHORTCUT_NAME.toLowerCase()}» e parla: Siri ti legge la risposta di ORA.
       </Text>
 
       {key ? (
@@ -178,7 +176,19 @@ export function SiriConnection() {
         </View>
       ) : null}
 
-      <View style={styles.steps} testID="siri-steps">
+      {/*
+        Five technical steps (POST, JSON, Authorization) were the whole card
+        even for someone who never wants Siri (6/11 review). They appear when
+        a key is created, or on request.
+      */}
+      {!key && !showSteps ? (
+        <Pressable onPress={() => setShowSteps(true)} accessibilityRole="button" testID="siri-show-steps"
+          style={styles.showSteps}>
+          <Text style={[styles.stepTitle, { color: colors.accent }]}>Come si imposta</Text>
+          <Ionicons name="chevron-down" size={16} color={colors.accent} />
+        </Pressable>
+      ) : null}
+      {key || showSteps ? <View style={styles.steps} testID="siri-steps">
         {SIRI_STEPS.map((step, i) => (
           <View key={step.title} style={styles.step}>
             <Text style={[styles.stepNum, { color: colors.accent }]}>{i + 1}</Text>
@@ -192,7 +202,7 @@ export function SiriConnection() {
         ))}
         <Text style={[styles.description, { color: colors.textSecondary }]}>{SIRI_LOCATION_TIP}</Text>
         <Text testID="siri-share-tip" style={[styles.description, { color: colors.textSecondary }]}>{SIRI_SHARE_TIP}</Text>
-      </View>
+      </View> : null}
 
       <View style={styles.buttons}>
         <ActionBtn
@@ -222,6 +232,7 @@ export function SiriConnection() {
 }
 
 const styles = StyleSheet.create({
+  showSteps: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, alignSelf: 'flex-start' },
   header: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md },
   icon: { width: 40, height: 40, borderRadius: tokens.radius.sm, alignItems: 'center', justifyContent: 'center' },
   headerText: { flex: 1, minWidth: 0, gap: 2 },

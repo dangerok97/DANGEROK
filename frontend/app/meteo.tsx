@@ -188,8 +188,10 @@ const styles = StyleSheet.create({
   adesso: { gap: 18, padding: 22 },
   adessoTesta: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   gradi: { fontSize: 40, fontWeight: '700', color: ora.ink, letterSpacing: -1 },
-  dettagli: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
-  dato: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 130 },
+  // Two columns on a phone, three when there is room: five values in a single
+  // column took the whole screen (6/11 review).
+  dettagli: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, columnGap: 12, alignSelf: 'stretch' },
+  dato: { flexDirection: 'row', alignItems: 'center', gap: 8, flexBasis: '45%', flexGrow: 1, minWidth: 120, maxWidth: 220 },
   blocco: { gap: 14, padding: 22 },
   ore: { flexDirection: 'row', gap: 22, paddingVertical: 4 },
   ora: { alignItems: 'center', gap: 6, minWidth: 54 },

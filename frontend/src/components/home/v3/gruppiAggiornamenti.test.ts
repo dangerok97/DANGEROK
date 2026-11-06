@@ -29,7 +29,7 @@ const rows = [
 ];
 const g = raggruppa(rows);
 assert.deepEqual([g.adesso.length, g.per_te.length, g.in_corso.length, g.da_sapere.length], [1, 1, 2, 0]);
-assert.equal(sintesiAggiornamenti(rows), '1 cosa urgente · 1 cosa per te · 2 le segue ORA');
+assert.equal(sintesiAggiornamenti(rows), '1 cosa adesso · 1 cosa per te · 2 le segue ORA');
 assert.equal(sintesiAggiornamenti([]), '');
 
 console.log('gruppiAggiornamenti: all assertions passed');

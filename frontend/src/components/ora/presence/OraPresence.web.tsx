@@ -158,7 +158,7 @@ function MobilePresenceConversation({
           </Text>
           <Text style={styles.highlightStatement} numberOfLines={2}>{highlighted.statement}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={highlighted.temporary ? '#ffaaaa' : palette.label} />
+        <Ionicons name="chevron-forward" size={16} color={highlighted.temporary ? '#f7d29a' : palette.label} />
       </Pressable> : null}
 
       <View style={styles.conversation} testID="ora-mobile-conversation-panel">
@@ -201,12 +201,13 @@ const styles = StyleSheet.create({
   note: { color: palette.muted, fontSize: 11, lineHeight: 16 },
   retry: { minHeight: 44, paddingHorizontal: 8, justifyContent: 'center' },
   preview: { position: 'relative', flexShrink: 0, overflow: 'hidden', marginHorizontal: 8, borderRadius: 14 },
-  highlight: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44, paddingHorizontal: 12, paddingVertical: 7, marginHorizontal: 10, marginBottom: 6, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,110,110,.35)', backgroundColor: 'rgba(58,15,24,.55)' },
+  highlight: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44, paddingHorizontal: 12, paddingVertical: 7, marginHorizontal: 10, marginBottom: 6, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(245,184,96,.35)', backgroundColor: 'rgba(48,36,16,.55)' },
   highlightPermanent: { borderColor: palette.border, backgroundColor: 'rgba(10,27,39,.72)' },
   highlightText: { flex: 1, minWidth: 0 },
-  redStar: { color: '#ff7373', fontSize: 18 },
+  // Temporary is «for now», not danger: amber, not alarm red (6/11 review).
+  redStar: { color: '#f5b860', fontSize: 18 },
   permanentStar: { color: palette.label },
-  highlightLabel: { color: '#ffaaaa', fontSize: 9, letterSpacing: 0.7, lineHeight: 14 },
+  highlightLabel: { color: '#f7d29a', fontSize: 9, letterSpacing: 0.7, lineHeight: 14 },
   highlightLabelPermanent: { color: palette.label },
   highlightStatement: { color: palette.text, fontSize: 12, lineHeight: 17 },
   conversation: { flex: 1, minHeight: 0, minWidth: 0, marginHorizontal: 8, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: palette.border, backgroundColor: '#09121b', overflow: 'hidden' },

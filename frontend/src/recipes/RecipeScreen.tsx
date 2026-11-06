@@ -248,24 +248,25 @@ function RecipeScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.backgroundPrimary }} edges={['top']}>
       <ScrollView ref={scroll} keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.page, { paddingBottom: ambient.paddingBottom + 45 }]}>
-        <View style={styles.header}>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={[styles.eyebrow, secondary]}>VITA / CUCINA</Text>
-            <Text style={[styles.h1, primary]}>Il mio ricettario</Text>
-            <Text style={[styles.lead, secondary]}>Incolla un link da Instagram, TikTok, YouTube o da un sito: ORA legge la ricetta e la mette in ordine.</Text>
-          </View>
-          <View style={{ gap: 8, alignItems: 'flex-end' }}>
-            <Pressable onPress={() => router.push('/cucina-piano' as any)}
-              accessibilityRole="button" accessibilityLabel="Apri piano pasti e lista della spesa"
-              style={[styles.smallButton, { borderColor: colors.accent, backgroundColor: colors.accentMuted }]}>
-              <Text style={[styles.note, primary]}>Piano e spesa</Text>
-            </Pressable>
-            <Pressable testID="recipes-back" onPress={() => router.push('/vita' as any)}
-              accessibilityRole="button" accessibilityLabel="Torna a Vita"
-              style={[styles.smallButton, { borderColor: colors.border }]}>
-              <Ionicons name="arrow-back" size={21} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+        {/*
+          The same head as every other page: «‹ Vita» to go back, then the
+          title. A boxed arrow on the right and a breadcrumb was a third style
+          of header in the app (6/11 review).
+        */}
+        <Pressable testID="recipes-back" onPress={() => router.push('/vita' as any)}
+          accessibilityRole="button" accessibilityLabel="Torna a Vita" style={styles.backLink}>
+          <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
+          <Text style={[styles.body, secondary]}>Vita</Text>
+        </Pressable>
+        <View style={{ gap: 6 }}>
+          <Text style={[styles.h1, primary]}>Il mio ricettario</Text>
+          <Text style={[styles.lead, secondary]}>Incolla un link da Instagram, TikTok, YouTube o da un sito: ORA legge la ricetta e la mette in ordine.</Text>
+          <Pressable onPress={() => router.push('/cucina-piano' as any)}
+            accessibilityRole="button" accessibilityLabel="Apri piano pasti e lista della spesa"
+            style={[styles.planLink, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Ionicons name="calendar-outline" size={16} color={colors.accent} />
+            <Text style={[styles.note, primary, { fontWeight: '600' }]}>Piano pasti e spesa</Text>
+          </Pressable>
         </View>
         {error ? <Text testID="recipes-error" style={[styles.alert, { color: colors.error,
           backgroundColor: colors.backgroundSecondary }]}>{error}</Text> : null}
@@ -568,6 +569,9 @@ function CookingMode({ recipe, lines, onClose, onDone }: {
 const styles = StyleSheet.create({
   page: { width: '100%', maxWidth: 920, alignSelf: 'center', padding: tokens.spacing.lg, gap: 18 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 14, justifyContent: 'space-between' },
+  backLink: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', minHeight: 44, marginLeft: -6 },
+  planLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40,
+    paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, marginTop: 6 },
   h1: { fontSize: 30, lineHeight: 38, fontWeight: '700' },
   h2: { fontSize: 21, lineHeight: 27, fontWeight: '700' },
   eyebrow: { fontSize: 12, fontWeight: '700', letterSpacing: 1.2 },
