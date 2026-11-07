@@ -308,3 +308,24 @@ test('a reload that brings the stars back does not make the whole sky be born ag
   assert.equal(h.scene.snapshot().births, 1, 'one truly new star blooms');
   h.scene.destroy();
 });
+
+test('while ORA reasons a light hops among the stars of the area it uses (7/11)', () => {
+  const h = harness();
+  h.frames(200);
+  assert.equal(h.scene.snapshot().thoughtHops, 0, 'at rest nothing hops');
+  h.scene.update({ mode: 'think', area: 'calls' }); h.frames(240);
+  const snap = h.scene.snapshot();
+  assert.ok(snap.thoughtHops >= 3, 'several hops in four seconds');
+  assert.ok(snap.thoughtAt >= 0);
+  h.scene.update({ mode: 'idle', area: null }); h.frames(5);
+  assert.equal(h.scene.snapshot().thoughtHops, 0, 'the trail is gone once the answer is there');
+  h.scene.destroy();
+});
+
+test('a recent star does not steal the camera while ORA reasons', () => {
+  const h = harness();
+  h.frames(200);
+  h.scene.update({ mode: 'think', area: 'calls', spotlightId: fixtureStars[3].id }); h.frames(240);
+  assert.equal(h.scene.snapshot().activeHub, 7, 'the camera is on the area at work');
+  h.scene.destroy();
+});

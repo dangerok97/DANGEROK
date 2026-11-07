@@ -34,6 +34,53 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   // video showed «Chiamate» for half a second, then a jump back to the whole map.
   const AREA_HOLD_MS=3500;let heldArea=null,heldUntil=0;
   let sceneNow=0;const clock=()=>sceneNow;
+  // THE REASONING, MADE VISIBLE (7/11: «voglio che i ragionamenti si vedano»).
+  // While ORA works a point of light hops from star to star of the area it is
+  // using — from the hub when it changes area — leaving a fading trail, and
+  // each star it reaches flares. Only geometry: which star, never what it says.
+  const thought={hops:[],next:0,at:-1,area:null};
+  function stepThought(){
+    if(mode!=='think'||options.reduced||options.paused||!points.length){thought.hops.length=0;thought.at=-1;thought.area=null;return;}
+    const area=activeHub;
+    let pool=[];for(let i=0;i<points.length;i++){const p=points[i];if(!p.hub&&(area<0||p.group===area))pool.push(i);}
+    // An area with fewer than three stars is read together with its hub and
+    // the stars nearest to it, so the thought still visibly moves.
+    if(pool.length<3){const hub=area>=0?hubs[area]:hubs[0];
+      const near=points.map((p,i)=>[i,Math.hypot(p.x-hub.x,p.y-hub.y,p.z-hub.z)]).filter(([i])=>!points[i].hub||points[i].group===area).sort((a,b)=>a[1]-b[1]).slice(0,7).map(([i])=>i);
+      pool=[...new Set([...pool,...near])];}
+    if(!pool.length)return;
+    if(thought.area!==area){
+      // A change of area travels from where the thought was to the new hub.
+      const hubIndex=area>=0?points.findIndex(p=>p.hub&&p.group===area):0;
+      if(hubIndex>=0){thought.hops.push({from:thought.at>=0?thought.at:0,to:hubIndex,start:t,long:true});thought.at=hubIndex;}
+      thought.area=area;thought.next=t+.9;
+    }
+    if(t<thought.next)return;
+    let seedStep=Math.floor(t*7.3)+thought.hops.length*13;
+    let to=pool[(seedStep*2654435761>>>0)%pool.length];
+    if(to===thought.at&&pool.length>1)to=pool[(pool.indexOf(to)+1)%pool.length];
+    thought.hops.push({from:thought.at>=0?thought.at:0,to,start:t,long:false});
+    thought.at=to;thought.next=t+.42+((seedStep%5)*.05);
+    while(thought.hops.length>7)thought.hops.shift();
+  }
+  function drawThought(projected){
+    for(const h of thought.hops){
+      const a=projected[h.from],b=projected[h.to];if(!a||!b||a.appear<.3||b.appear<.3)continue;
+      const span=h.long?.85:.34,age=t-h.start,u=ease(Math.min(1,age/span));
+      const fade=Math.max(0,1-Math.max(0,age-span)/1.6);if(fade<=0)continue;
+      const hx=a.x+(b.x-a.x)*u,hy=a.y+(b.y-a.y)*u;
+      const grad=ctx.createLinearGradient(a.x,a.y,hx,hy);
+      grad.addColorStop(0,'rgba('+palette.warmPacket+',0)');grad.addColorStop(1,'rgba('+palette.warmPacket+','+(.95*fade)+')');
+      ctx.globalAlpha=1;ctx.strokeStyle=grad;ctx.lineWidth=h.long?2.2:1.6;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(hx,hy);ctx.stroke();
+      if(u<1){glow(hx,hy,h.long?16:11,.85,true);ctx.fillStyle='rgba('+palette.warmPoint+',.95)';ctx.beginPath();ctx.arc(hx,hy,h.long?2:1.5,0,Math.PI*2);ctx.fill();}
+      else{
+        // The star it reached flares, then lets go.
+        const k=Math.min(1,(age-span)/.7);
+        glow(b.x,b.y,14+k*10,(1-k)*.9,true);
+        ctx.strokeStyle='rgba('+palette.warmNode+','+((1-k)*.55)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(b.x,b.y,4+k*12,0,Math.PI*2);ctx.stroke();
+      }
+    }
+  }
   function shownArea(){if(options.area)return options.area;return heldArea&&clock()<heldUntil?heldArea:null;}
   let points=[],edges=[],projected=[],sorted=[],furthest=1,geometryKey='';
   let growth=1;
@@ -122,7 +169,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     const beat=active&&!options.reduced&&!options.paused?(Math.exp(-Math.pow((beatPhase-.16)/.085,2))+.38*Math.exp(-Math.pow((beatPhase-.37)/.105,2))):0;
     const breathe=1+Math.sin(t*1.48)*state.breath+beat*.014;
     const scale=Math.min(width*(options.intro?.43:.39),height*(options.intro?.76:height<220?.56:.43))*camera.zoom;
-    const spotlight=points.findIndex(p=>p.id===options.spotlightId);
+    // While ORA reasons the reasoning owns the sky: a recent star waits its turn.
+    const spotlight=mode==='think'?-1:points.findIndex(p=>p.id===options.spotlightId);
     const yaw=rotation+dragYaw,pitch=.06+Math.sin(t*.10)*.09+dragPitch;
     for(let i=0;i<points.length;i++){
       const p=points[i],q=projectPoint(p,yaw,pitch,scale,breathe);
@@ -187,6 +235,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
         if(e.trunk){glow(head[0],head[1],7,strength*.35,warm);ctx.fillStyle=warm?'rgba('+palette.warmPoint+','+strength+')':'rgba('+palette.point+','+strength+')';ctx.beginPath();ctx.arc(head[0],head[1],.85+a.depth*.3,0,Math.PI*2);ctx.fill();}
       }
     });
+    if(mode==='think'&&live)drawThought(projected);
     sorted.sort((a,b)=>projected[a].z-projected[b].z);
     for(const i of sorted){
       const p=points[i],q=projected[i],bright=(.19+q.depth*.64+q.energy*.32)*state.light;
@@ -210,7 +259,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const warm=!temporary&&(p.complete||p.tentative||(activeHub>=0?p.group===activeHub:i===0||i===4));
       if(p.hub){glow(q.x,q.y,16+q.energy*19,.25+q.energy*.53,warm);glow(q.x,q.y,5+q.energy*4,.60,warm);
         // A slow ripple leaves each area now and then, staggered, like a heartbeat seen from afar.
-        if(live&&q.appear>.9){const rp=((t+p.phase*2.3)%7.5)/7.5;if(rp<.3){const k=rp/.3;ctx.strokeStyle='rgba('+(warm?palette.warmNode:palette.node)+','+((1-k)*.16*q.depth)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,6+k*20,0,Math.PI*2);ctx.stroke();}}}
+        if(live&&q.appear>.9){const working=mode==='think'&&p.group===activeHub;const period=working?1.25:7.5;const rp=((t+(working?0:p.phase*2.3))%period)/period;if(rp<(working?.8:.3)){const k=rp/(working?.8:.3);ctx.strokeStyle='rgba('+(warm?palette.warmNode:palette.node)+','+((1-k)*(working?.42:.16)*q.depth)+')';ctx.lineWidth=working?1.2:1;ctx.beginPath();ctx.arc(q.x,q.y,6+k*(working?26:20),0,Math.PI*2);ctx.stroke();}}}
       else {glow(q.x,q.y,(temporary?15:(p.complete?17:8))*(1+twinkle*.35),Math.max(.22+q.energy*.3+twinkle*.14,bloom*.9),warm||arriving,temporary);}
       if(arriving&&q.appear>.12){
         ctx.strokeStyle='rgba('+(temporary?palette.temporaryNode:palette.warmNode)+','+(bloom*.65*q.appear)+')';ctx.lineWidth=1.2;
@@ -270,7 +319,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   function moveCamera(dt,instant=false){
     const active=mode==='think'||mode==='speak';
     activeHub=options.intro?-1:hubs.findIndex(h=>h.id===shownArea());
-    const focused=points.find(p=>p.id===options.spotlightId);
+    const focused=mode==='think'?null:points.find(p=>p.id===options.spotlightId);
     const target=focused||(activeHub>=0?hubs[activeHub]:{x:0,y:0,z:0});
     // A glide, not a cut: about a second to travel, so a change of subject reads as movement.
     const mix=instant?1:1-Math.exp(-dt*2.1);
@@ -291,7 +340,7 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
     growth+=(targetGrowth-growth)*(1-Math.exp(-dt*2));
     // Inspecting a point holds it still so a click can reliably reach it.
     if(!dragging&&hovered<0&&selected<0){t+=dt;rotation+=dt*(mode==='idle'?.045:.012);if(opening===openingSeconds)moveCamera(dt);dragYaw+=inertia;inertia*=.93;}
-    draw();schedule();
+    stepThought();draw();schedule();
   }
   function size(){const box=canvas.getBoundingClientRect();width=Math.max(1,box.width);height=Math.max(1,box.height);pixelRatio=Math.min(window.devicePixelRatio||1,1.75);canvas.width=Math.round(width*pixelRatio);canvas.height=Math.round(height*pixelRatio);draw();}
   function update(next){
@@ -346,5 +395,5 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   size();update(initial);
   return {update,destroy(){destroyed=true;stop();cleanups.forEach(fn=>fn());},
     // Deterministic geometry inspection, with no personal data.
-    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,births:points.filter(p=>!p.hub&&t-(births.get(p.id)??-100)<2.8).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
+    snapshot(){return {camera:{...camera},rotation:{yaw:dragYaw,pitch:dragPitch},hovered,selected,activeHub,points:points.length,knowledgeStars:points.filter(p=>p.kind==='node').length,edges:edges.length,frame,mode,opening:opening/openingSeconds,visiblePoints:projected.filter(p=>p.appear>.01).length,thoughtHops:thought.hops.length,thoughtAt:thought.at,births:points.filter(p=>!p.hub&&t-(births.get(p.id)??-100)<2.8).length,projected:projected.map((p,i)=>({x:p.x,y:p.y,...nodeInfo(i)}))};}};
 }
