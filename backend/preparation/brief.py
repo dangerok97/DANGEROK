@@ -163,11 +163,20 @@ def reads_like(prep: MissionPreparation) -> str:
         # Le parole restano quelle di chi le ha dette, fra virgolette: è la
         # versione che fa fede, e rileggerle è l'ultima occasione per
         # accorgersi che ORA ha capito storto.
+        #     E SI RILEGGE COME LO SENTIRÀ LEI, NON COME L'HAI SCRITTO TU.
+        # 7/11: «consegno il tuo messaggio: «la amo»» sembrava voler dire che
+        # ORA avrebbe detto «la amo». Quando la frase è semplice si mostra
+        # quella vera: «Francesco mi ha chiesto di dirti che ti ama».
+        from telephone.requests import as_said_to
+
         dove = (" al numero che hai già confermato"
                 if prep.number_trust == "trusted" else "")
-        return (f"Chiamerò {chi}{dove}. Prima mi assicuro di parlare con "
-                f"{chi.split()[0]}, poi consegno il tuo messaggio: "
-                f"«{prep.message_to_deliver}». Se risponde qualcun altro, "
+        nome = chi.split()[0]
+        detta = as_said_to(prep.message_to_deliver, prep.sender_name)
+        cosa = (f"dirò: «{detta}»." if detta
+                else f"consegno il tuo messaggio, da parte tua: «{prep.message_to_deliver}».")
+        return (f"Chiamerò {chi}{dove}. Quando sono sicura di parlare con "
+                f"{nome}, {cosa} Se risponde qualcun altro, "
                 "non dico niente del messaggio.")
     adesso = _how_it_is_now(prep)
     voluto = _when_we_want_it(prep)

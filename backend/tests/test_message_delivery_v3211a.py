@@ -201,8 +201,10 @@ async def test_confirmed_number_makes_it_ready_with_a_human_summary(mondo):
     assert p["number_confirmed"] is True
     s = p["summary"]
     assert s.startswith("Chiamerò Giulia Test")
+    # Senza nome di chi manda si citano le sue parole; il caso col nome è
+    # in test_message_said_to_recipient.py.
     assert "«la amo»" in s
-    assert "Prima mi assicuro di parlare con Giulia" in s
+    assert "Quando sono sicura di parlare con Giulia" in s
     for tecnico in ("prep_", "deliver_message", "{", "READY"):
         assert tecnico not in s
     assert p["say_this"].endswith("Vuoi che chiami Giulia?")

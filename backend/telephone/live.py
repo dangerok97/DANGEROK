@@ -2336,8 +2336,12 @@ class MissionVoiceSession:
             self._recipient_ok = True
             self._identity_is_settled()
             self.mission.heard("detail", str(argomenti.get("how_they_confirmed") or "")[:200])
+            from telephone.requests import as_said_to
+
+            detta = as_said_to(messaggio, packet.on_behalf_of)
             return {
                 "message_to_deliver": messaggio,
+                **({"say_this": detta} if detta else {}),
                 "from": packet.on_behalf_of,
                 "say_it_like_this": (
                     f"Il messaggio è di {packet.on_behalf_of}, scritto con le "
