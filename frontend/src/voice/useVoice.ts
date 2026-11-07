@@ -106,7 +106,9 @@ export function useVoice(opts: {
       },
       onTrouble: (why) => {
         session.current = null;
-        if (alive.current) fire({ type: 'trouble', why });
+        if (!alive.current) return;
+        fire({ type: 'trouble', why });
+        setTimeout(() => { if (alive.current) fire({ type: 'settled' }); }, 8000);
       },
     });
     if (session.current) fire({ type: 'allowed' });
