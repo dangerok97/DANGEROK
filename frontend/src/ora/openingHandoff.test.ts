@@ -102,6 +102,7 @@ test('production URL handoff preserves the first reply focus, including replies 
   const compiled = ts.transpileModule(`module.exports = ${callback}`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   let timer: { callback: () => void; delay: number } | null = null;
   const routes: string[] = [];
+  const replaced: string[] = [];
   const context = {
     sessionId: 'new-session', paramId: null as string | null, busy: false, live: { on: false },
     planId: null, objectId: null, planItemId: null, documentId: null,
@@ -110,6 +111,8 @@ test('production URL handoff preserves the first reply focus, including replies 
     Date: { now: () => 9000 }, router: { replace: (url: string) => routes.push(url) },
     setTimeout: (callback: () => void, delay: number) => { timer = { callback, delay }; return 1; },
     clearTimeout: () => { timer = null; },
+    Platform: { OS: 'ios' }, addressed: { current: null as string | null },
+    window: { history: { state: null, replaceState: (_s: unknown, _t: string, url: string) => replaced.push(url) } },
   };
   function run() {
     const module = { exports: null as unknown as () => (() => void) | undefined };
@@ -131,4 +134,11 @@ test('production URL handoff preserves the first reply focus, including replies 
   context.Date.now = () => 10000;
   run(); assert.equal(timer!.delay, 0, 'do not hold navigation after expiry');
   timer!.callback(); assert.deepEqual(routes, ['/ora/new-session?entry=ora']);
+
+  // 7/11: on the web the address is rewritten, the screen is not remounted.
+  context.Platform.OS = 'web';
+  run(); timer!.callback();
+  assert.deepEqual(replaced, ['/ora/new-session?entry=ora']);
+  assert.deepEqual(routes, ['/ora/new-session?entry=ora'], 'no remount on web');
+  timer = null; run(); assert.equal(timer, null, 'the address is rewritten once');
 });
