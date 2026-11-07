@@ -42,7 +42,12 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
   function stepThought(){
     if(mode!=='think'||options.reduced||options.paused||!points.length){thought.hops.length=0;thought.at=-1;thought.area=null;return;}
     const area=activeHub;
-    const pool=[];for(let i=0;i<points.length;i++){const p=points[i];if(p.hub?(area<0&&i!==0):(area<0||p.group===area))pool.push(i);}
+    let pool=[];for(let i=0;i<points.length;i++){const p=points[i];if(!p.hub&&(area<0||p.group===area))pool.push(i);}
+    // An area with fewer than three stars is read together with its hub and
+    // the stars nearest to it, so the thought still visibly moves.
+    if(pool.length<3){const hub=area>=0?hubs[area]:hubs[0];
+      const near=points.map((p,i)=>[i,Math.hypot(p.x-hub.x,p.y-hub.y,p.z-hub.z)]).filter(([i])=>!points[i].hub||points[i].group===area).sort((a,b)=>a[1]-b[1]).slice(0,7).map(([i])=>i);
+      pool=[...new Set([...pool,...near])];}
     if(!pool.length)return;
     if(thought.area!==area){
       // A change of area travels from where the thought was to the new hub.
@@ -65,8 +70,8 @@ export function createPresenceScene(canvas, initial, palette, events={}) {
       const fade=Math.max(0,1-Math.max(0,age-span)/1.6);if(fade<=0)continue;
       const hx=a.x+(b.x-a.x)*u,hy=a.y+(b.y-a.y)*u;
       const grad=ctx.createLinearGradient(a.x,a.y,hx,hy);
-      grad.addColorStop(0,'rgba('+palette.warmPacket+',0)');grad.addColorStop(1,'rgba('+palette.warmPacket+','+(.75*fade)+')');
-      ctx.globalAlpha=1;ctx.strokeStyle=grad;ctx.lineWidth=h.long?1.8:1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(hx,hy);ctx.stroke();
+      grad.addColorStop(0,'rgba('+palette.warmPacket+',0)');grad.addColorStop(1,'rgba('+palette.warmPacket+','+(.95*fade)+')');
+      ctx.globalAlpha=1;ctx.strokeStyle=grad;ctx.lineWidth=h.long?2.2:1.6;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(hx,hy);ctx.stroke();
       if(u<1){glow(hx,hy,h.long?16:11,.85,true);ctx.fillStyle='rgba('+palette.warmPoint+',.95)';ctx.beginPath();ctx.arc(hx,hy,h.long?2:1.5,0,Math.PI*2);ctx.fill();}
       else{
         // The star it reached flares, then lets go.
