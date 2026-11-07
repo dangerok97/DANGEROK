@@ -1211,6 +1211,7 @@ function OraConversationBody({
   });
   const liveRef = useRef(live);
   liveRef.current = live;
+  const addressed = useRef<string | null>(null);
 
   // A fast response is rendered immediately. Only URL replacement waits for
   // the entrance and final focus to finish; remounting sooner loses activity
@@ -1231,7 +1232,26 @@ function OraConversationBody({
     const now = Date.now();
     const remaining = Math.max(0, openingStartedAt.current + 2800 - now,
       focusCompletedAt.current ? focusCompletedAt.current + COMPLETED_FOCUS_MS - now : 0);
-    const timer = setTimeout(() => router.replace(`/ora/${sessionId}?${q.toString()}` as any), remaining);
+    const href = `/ora/${sessionId}?${q.toString()}`;
+    //     SUL WEB L'INDIRIZZO CAMBIA, LO SCHERMO NO.
+    // 7/11 video: subito dopo la prima risposta tutto spariva in «Sto
+    // recuperando la conversazione…» e la mappa ripartiva da capo: cambiare
+    // rotta smonta e rimonta la chat per rileggere quello che è già a schermo.
+    // Sul web basta riscrivere l'indirizzo (ricarica e «indietro» ritrovano
+    // la conversazione); sul telefono non c'è indirizzo da mostrare.
+    if (Platform.OS === 'web') {
+      if (addressed.current === sessionId) return;
+      const timer = setTimeout(() => {
+        try {
+          window.history.replaceState(window.history.state, '', href);
+          addressed.current = sessionId;
+        } catch {
+          router.replace(href as any);
+        }
+      }, remaining);
+      return () => clearTimeout(timer);
+    }
+    const timer = setTimeout(() => router.replace(href as any), remaining);
     return () => clearTimeout(timer);
   }, [sessionId, paramId, live.on, busy, planId, objectId, planItemId, documentId,
     opportunityId, needId, goalId, entryPoint, router]);

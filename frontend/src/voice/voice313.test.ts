@@ -661,3 +661,12 @@ for (const [name, fn] of tests) {
 }
 console.log(`\n${tests.length - failed}/${tests.length} passati`);
 if (failed) process.exit(1);
+
+test('a passing voice hiccup is forgotten, a block is not (7/11)', async () => {
+  const { nextVoice, VOICE_START, voiceSays } = await import('./speech.ts');
+  const hiccup = nextVoice(VOICE_START, { type: 'trouble', why: 'could_not_understand' });
+  assert.ok(voiceSays(hiccup));
+  assert.equal(nextVoice(hiccup, { type: 'settled' }).trouble, null);
+  const blocked = nextVoice(VOICE_START, { type: 'trouble', why: 'no_permission' });
+  assert.equal(nextVoice(blocked, { type: 'settled' }).trouble, 'no_permission');
+});

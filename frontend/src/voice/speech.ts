@@ -65,7 +65,8 @@ export type VoiceEvent =
   | { type: 'speaking' }
   | { type: 'done' }
   | { type: 'quiet' }
-  | { type: 'trouble'; why: VoiceTrouble };
+  | { type: 'trouble'; why: VoiceTrouble }
+  | { type: 'settled' };
 
 /**
  * Cosa può andare storto, e come si dice.
@@ -135,7 +136,7 @@ export function nextVoice(state: VoiceState, event: VoiceEvent): VoiceState {
       return { ...state, phase: 'heard', interim: '', said: words };
     }
     case 'sent':
-      return { ...state, phase: 'thinking' };
+      return { ...state, phase: 'thinking', trouble: null };
     case 'answered':
       return { ...state, phase: 'preparing' };
     case 'speaking':
@@ -145,6 +146,11 @@ export function nextVoice(state: VoiceState, event: VoiceEvent): VoiceState {
     case 'quiet':
       // Chi tocca il microfono mentre ORA parla vuole parlare, non spegnere.
       return { ...state, phase: 'idle', interim: '' };
+    case 'settled':
+      // 7/11: «Non ho capito bene» restava sotto la chat per tutta la
+      // conversazione scritta che veniva dopo. Un intoppo passeggero si
+      // dimentica; un blocco (permesso, browser) resta finché c'è.
+      return state.phase === 'blocked' ? state : { ...state, trouble: null };
     case 'trouble':
       return {
         ...state,

@@ -6,13 +6,16 @@ import { changedStars, newStars, type KnowledgeMap } from './knowledge';
 // Two presences can be mounted at once (the chat strip and the map behind it):
 // on 6/11 every activity change fetched the map twice in the same instant. A
 // read already in flight for the same account is shared, never kept.
-let shared: { owner: string; at: number; promise: Promise<KnowledgeMap> } | null = null;
-export function readKnowledgeMap(owner: string, now = Date.now()): Promise<KnowledgeMap> {
-  if (shared && shared.owner === owner && now - shared.at < 1500) return shared.promise;
+// Only a read still on the way is shared: once it lands, the next read is a
+// fresh one (a deleted node must disappear on the reload that follows).
+let shared: { owner: string; promise: Promise<KnowledgeMap> } | null = null;
+export function readKnowledgeMap(owner: string): Promise<KnowledgeMap> {
+  if (shared && shared.owner === owner) return shared.promise;
   const promise = api.knowledgeMap();
-  const mine = { owner, at: now, promise };
+  const mine = { owner, promise };
   shared = mine;
-  promise.catch(() => { if (shared === mine) shared = null; });
+  const done = () => { if (shared === mine) shared = null; };
+  promise.then(done, done);
   return promise;
 }
 
