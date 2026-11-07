@@ -129,6 +129,8 @@ class MissionPreparation(BaseModel):
     # È la versione che fa fede. Chi telefonerà potrà dirlo con calore e in
     # terza persona; questa riga resta com'è stata detta.
     message_to_deliver: str = Field(default="", max_length=400)
+    # Chi lo manda, come lo si nomina a chi lo riceve: «Francesco mi ha chiesto…».
+    sender_name: str = Field(default="", max_length=80)
 
     # --- chi chiamare -----------------------------------------------------
     contact_candidates: List[ContactCandidate] = Field(default_factory=list)

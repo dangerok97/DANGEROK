@@ -44,6 +44,30 @@ from preparation.readiness import evaluate
 logger = logging.getLogger("ora.preparation.service")
 
 
+def _words_of(frase: str, messaggio: str) -> str:
+    """Il messaggio con le parole e le maiuscole della frase, quando c'è dentro."""
+    if not messaggio:
+        return messaggio
+    dove = frase.casefold().find(messaggio.casefold())
+    if dove >= 0 and len(frase) == len(frase.casefold()):
+        return frase[dove:dove + len(messaggio)]
+    return messaggio
+
+
+async def _sender(db, owner_id: str) -> str:
+    try:
+        from account_identity import owner_full_name
+
+        row = await db.users.find_one({"user_id": owner_id},
+                                      {"_id": 0, "name": 1, "first_name": 1, "last_name": 1})
+        nome = owner_full_name(row or {})
+        nome = nome.title() if nome.islower() else nome
+        return (nome.split() or [""])[0][:80]
+    except Exception as e:
+        logger.info("nome di chi manda non letto: %s", type(e).__name__)
+        return ""
+
+
 def _op(prep: MissionPreparation, operation: str) -> str:
     """Il tipo stabilito all'inizio vince su quello passato dopo."""
     return (prep.operation or operation or "").strip()
@@ -70,6 +94,18 @@ async def start(
     chiave = request_key_for(owner_id, frase)
     esistente = await by_key(db, chiave)
     if esistente is not None:
+        #     UNA PRATICA DI IERI NON SI PORTA DIETRO GLI ERRORI DI IERI.
+        # 7/11: la stessa frase ha ritrovato la preparazione del 6/11, con
+        # dentro ancora «la AMo» del modello e senza il nome di chi manda.
+        giuste = _words_of(frase, esistente.message_to_deliver)
+        if giuste != esistente.message_to_deliver or (
+                esistente.message_to_deliver and not esistente.sender_name):
+            esistente.message_to_deliver = giuste
+            esistente.sender_name = esistente.sender_name or await _sender(db, owner_id)
+            try:
+                esistente = await save(db, esistente)
+            except Exception as e:
+                logger.info("preparazione non riallineata: %s", type(e).__name__)
         had_conflicts = bool(esistente.identity_conflicts)
         if await _check_identity(db, esistente) or had_conflicts:
             return await _settle(db, esistente, operation)
@@ -83,9 +119,7 @@ async def start(
     #     LE PAROLE SONO QUELLE DELLA PERSONA, ANCHE NELLE MAIUSCOLE.
     # Test del 6/11: «dille che la amo» è tornato dal modello come «la AMo».
     # Quando il messaggio è scritto nella frase, si prende dalla frase.
-    dove = frase.casefold().find(messaggio.casefold()) if messaggio else -1
-    if dove >= 0 and len(frase) == len(frase.casefold()):
-        messaggio = frase[dove:dove + len(messaggio)]
+    messaggio = _words_of(frase, messaggio)
     tipo = "deliver_message" if messaggio else (
         (operation or "").strip() or kind_of_request(frase))
     prep = MissionPreparation(
@@ -96,6 +130,7 @@ async def start(
         counterparty=(" ".join((counterparty or "").split()) or who_in(frase))[:160],
         operation=tipo,
         message_to_deliver=messaggio,
+        sender_name=await _sender(db, owner_id) if messaggio else "",
         idempotency_key=chiave,
     )
     try:
