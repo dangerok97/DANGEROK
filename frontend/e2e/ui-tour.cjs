@@ -121,12 +121,29 @@ function answer(p, method) {
   page.on('pageerror', e => errors.push(String(e.stack || e).slice(0, 900)));
   const unknown = new Set();
   await page.route(u => !['127.0.0.1', 'localhost'].includes(u.hostname) && u.protocol.startsWith('http'), r => r.abort());
+  const thinking = { id: '', at: 0 };
   await page.route('**/api/**', async r => {
     const req = r.request();
     const p = new URL(req.url()).pathname;
     const h = { 'access-control-allow-origin': req.headers()['origin'] || `http://127.0.0.1:${PORT}`, 'access-control-allow-credentials': 'true',
       'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     if (req.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: h });
+    // A reasoning turn: 9 s of work with a moving activity, like the real loop.
+    if (p === '/api/conversation/ai-core/start' && req.method() === 'POST') {
+      let body = {}; try { body = JSON.parse(req.postData() || '{}'); } catch {}
+      thinking.id = body.activity_request_id || ''; thinking.at = Date.now();
+      await new Promise(done => setTimeout(done, 9000));
+      return r.fulfill({ status: 200, headers: h, json: { ok: true, session_id: 'tour_session', ora_text: 'Chiamerò Asia. Vuoi che la chiami?',
+        activity: { request_id: thinking.id, sequence: 9, phase: 'done', area: 'people', touched: ['memory', 'calls', 'people'], updated_at: Date.now() / 1000 } } });
+    }
+    if (p.endsWith('/progress') && p.includes('/requests/')) {
+      const k = Math.min(5, Math.floor((Date.now() - thinking.at) / 1800));
+      const steps = [['processing', null], ['context', 'memory'], ['tool', 'calls'], ['tool', 'calls'], ['context', 'people'], ['tool', 'people']];
+      const [phase, area] = steps[k];
+      return r.fulfill({ status: 200, headers: h, json: { ok: true, working_on: 'tour',
+        activity: { request_id: decodeURIComponent(p.split('/requests/')[1].split('/')[0]), sequence: k + 1, phase, area,
+          touched: steps.slice(0, k + 1).map(x => x[1]).filter(Boolean), updated_at: Date.now() / 1000, basis: phase === 'tool' ? 'tool' : 'topic' } } });
+    }
     const a = answer(p, req.method());
     if (a && typeof a === 'object' && !Array.isArray(a) && Object.keys(a).length === 0) unknown.add(req.method() + ' ' + p);
     return r.fulfill({ status: 200, headers: h, json: a });
@@ -158,6 +175,22 @@ function answer(p, method) {
     ['11-meteo', '/meteo'], ['12-aggiornamenti', '/aggiornamenti'], ['13-luoghi', '/luoghi'], ['14-cucina', '/cucina'], ['15-portafoglio', '/portafoglio']]) {
     try { await page.goto(base + route); await shot(name); } catch (e) { errors.push(name + ': ' + String(e).slice(0, 120)); }
   }
+  // ORA reasoning on a message: the map strip, every 400 ms, while it works.
+  try {
+    await page.goto(base + '/ora');
+    await page.waitForTimeout(3500);
+    const box = await page.getByTestId('ora-mobile-map-preview').boundingBox();
+    const input = page.getByPlaceholder(/Scrivi un messaggio/);
+    await input.click();
+    await input.fill('Chiama Asia e dille che le voglio bene');
+    await page.getByLabel('Invia messaggio').click();
+    await page.waitForTimeout(200);
+    for (let i = 0; i < 30; i++) {
+      await page.screenshot({ path: path.join(OUT, `30-ragiona-${String(i).padStart(2, '0')}.png`), clip: box || undefined });
+      await page.waitForTimeout(400);
+    }
+    await page.screenshot({ path: path.join(OUT, '31-ragiona-fine.png') });
+  } catch (e) { errors.push('reasoning: ' + String(e).slice(0, 200)); }
   // The star map: two moments of the animation, then a star opened (focus).
   try {
     await page.goto(base + '/vita');
