@@ -145,7 +145,8 @@ test('new and materially updated permanent stars both become spotlight candidate
 });
 
 test('spotlight drives both glow and camera target', () => {
-  assert.ok(sceneSource.includes("const focused=points.find(p=>p.id===options.spotlightId)"));
+  // Outside reasoning: while ORA thinks the area at work owns the camera (7/11).
+  assert.ok(sceneSource.includes("const focused=mode==='think'?null:points.find(p=>p.id===options.spotlightId)"));
   assert.ok(sceneSource.includes("const target=focused||"));
   assert.ok(sceneSource.includes("i===spotlight?.82"));
 });
