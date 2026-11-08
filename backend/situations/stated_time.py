@@ -144,8 +144,17 @@ def _aware(value: Any) -> Optional[datetime]:
 async def arm(db, owner: str, situation, user_message: str) -> Optional[dict]:
     """Create or move the reminder for this Situation's stated moment. Never raises."""
     try:
+        #     I PANNI STESI NON ASPETTANO CHE IL MODELLO SCRIVA UNO SCOPO.
+        # 8/11: «Ho appena steso i panni» → la situazione è nata senza
+        # attention_intent e questo cancello ha saltato il calcolo dal meteo:
+        # nessun avviso, e in chat un verbale sul «controllo non programmato».
+        # L'asciugatura sa da sola cosa guardare; il resto resta legato a uno
+        # scopo dichiarato.
         if not (situation.attention_intent or situation.next_check_summary):
-            return None
+            from situations import outdoor_drying
+            if not outdoor_drying.applies(situation.summary or "", user_message,
+                                          " ".join(getattr(situation, "facts", None) or [])):
+                return None
         if situation.status not in ("active", "changed"):
             return None
         from timezone_service import user_clock_context
