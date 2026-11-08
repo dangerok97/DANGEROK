@@ -191,3 +191,21 @@ async def test_typical_fallback_steps_aside_for_the_watch_estimate(monkeypatch):
                                      "updated_at": "2026-10-26T09:00:00+00:00",
                                      "situation_outcome": {"window_start": "2026-10-26T12:40:00+01:00"}})
     assert await already_said(db, OWNER, row)
+
+
+@pytest.mark.asyncio
+async def test_laundry_hung_out_is_planned_even_without_a_model_intent(monkeypatch):
+    """8/11: «Ho appena steso i panni» — no attention_intent, no reminder."""
+    from situations import outdoor_drying
+
+    await _clock(monkeypatch)
+    called = {}
+
+    async def fake_plan(db, owner, situation, **kw):
+        called["yes"] = True
+        return {"at_local": "17:10", "dry_at_local": "17:10", "not_today": False}
+
+    monkeypatch.setattr(outdoor_drying, "plan", fake_plan)
+    db = AsyncMongoMockClient().stated_laundry_v1
+    out = await arm(db, OWNER, _Sit(attention_intent=None), "Ho appena steso i panni")
+    assert called and out and out.get("drying")

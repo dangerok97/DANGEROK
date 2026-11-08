@@ -100,6 +100,25 @@ def goal_id_for(owner, situation_id):
     return "gol_sit_" + hashlib.sha256(f"{owner}:{situation_id}".encode()).hexdigest()[:24]
 
 
+async def code_watch(db, owner, situation_id):
+    """
+    The reminder the runtime itself set for this Situation, still to come.
+
+    8/11 «Ho appena steso i panni»: the drying plan computed from the hourly
+    forecast was armed (and notifies by itself), but the follow-up guard looked
+    only for a model-scheduled check, found none and replaced the whole reply
+    with its internal diagnosis. A plan made by code from the forecast or from
+    the person's own words IS the follow-up.
+    """
+    try:
+        return await db.reminders.find_one(
+            {"user_id": owner, "meta.situation_id": str(situation_id), "status": "open",
+             "notified_state": {"$exists": False}},
+            {"_id": 0, "id": 1, "due_at": 1, "title": 1, "meta": 1})
+    except Exception:
+        return None
+
+
 def followup_diagnosis(state):
     """Explain the actual persisted state; never infer weather or physical results.
 

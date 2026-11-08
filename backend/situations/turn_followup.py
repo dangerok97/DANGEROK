@@ -139,7 +139,7 @@ class FollowupTurnGate:
 
     async def refresh(self, facts, focus=None, current=None) -> None:
         from situations.repository import SituationRepository
-        from situations.followup import read_followup
+        from situations.followup import code_watch, read_followup
 
         self.pending = []
         self.active_ids = set()
@@ -163,6 +163,8 @@ class FollowupTurnGate:
                 purpose = item.attention_intent or item.next_check_summary
                 if not purpose:
                     continue
+                if await code_watch(self.db, self.owner, sid):
+                    continue  # the runtime's own plan (forecast or stated time) covers it
                 state = await read_followup(self.db, self.owner, sid)
                 if state['status'] in ('scheduled', 'due', 'running', 'stopped'):
                     continue

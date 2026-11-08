@@ -5104,6 +5104,29 @@ def _guidance_state_from(state: Dict[str, Any]):
         return GoalState()
 
 
+def drying_sentence(p: Dict[str, Any]) -> str:
+    """
+    «Ho appena steso i panni» → when they dry, from the hourly forecast at
+    that place, and that ORA will say it (8/11: the reply was a status report
+    about an unscheduled check). An estimate, said as one.
+    """
+    where = f" a {p['place']}" if p.get("place") else ""
+    weather = f" ({p['weather']})" if p.get("weather") else ""
+    if p.get("not_today"):
+        share = p.get("done_fraction_by_evening")
+        part = f", e a quell'ora saranno asciutti circa al {round(share * 100)}%" if isinstance(share, (int, float)) and share < 1 else ""
+        text = (f"Con il meteo di oggi{where}{weather} non si asciugano del tutto prima di sera: "
+                f"ti avviso verso le {p.get('at_local')} per ritirarli{part}.")
+    elif p.get("dry_at_local") or p.get("at_local"):
+        text = (f"Con il meteo di oggi{where}{weather} dovrebbero essere asciutti verso le "
+                f"{p.get('dry_at_local') or p.get('at_local')}: ti avviso io.")
+    else:
+        return "Li seguo con il meteo orario e ti avviso quando conviene ritirarli."
+    if p.get("rain_at_local"):
+        text += f" Attenzione: il meteo dà pioggia verso le {p['rain_at_local']}, ti avviso prima per ritirarli."
+    return text + " È una stima dal meteo, la ricalcolo ogni ora."
+
+
 _BARE_ACK_RE = re.compile(r"(?i)^\s*(ok|va bene|capito|ricevuto|perfetto)[.!…\s]*$")
 
 
@@ -5130,12 +5153,19 @@ def _with_situation_handoff(
     ):
         return text or ""
 
+    stated = result.get("stated_reminder") or {}
+    if stated.get("drying"):
+        # The forecast did the work: the answer is the forecast's, said by code.
+        return drying_sentence(stated)
+
     situation = result.get("situation") or {}
     intent = " ".join(str(situation.get("attention_intent") or "").split()).strip()
     intent = intent.rstrip(" .;:")
 
     followup = result.get("follow_up") or {}
-    confirmed = followup.get("status") in ("scheduled", "due", "running")
+    # A reminder the runtime set itself (drying from the forecast, a stated
+    # time) is a confirmed watch: it notifies without the model's check.
+    confirmed = followup.get("status") in ("scheduled", "due", "running") or bool(result.get("stated_reminder"))
     sentence = "Ho registrato la situazione tra quelle attive."
     if confirmed:
         sentence += " Il controllo risulta programmato; puoi consultarne lo stato nella scheda."
