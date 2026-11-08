@@ -58,6 +58,28 @@ const weatherDetail = { ...weather, feels_like_c: 13, humidity_pct: 72, wind_kmh
   hours: Array.from({ length: 8 }, (_, i) => ({ time: iso(i).slice(11, 16), temperature_c: 13 + (i % 4), rain_chance_pct: 5 * i, icon: 'cloudy-outline' })),
   days: Array.from({ length: 5 }, (_, i) => ({ date: iso(24 * i).slice(0, 10), label: ['Oggi', 'Domani', 'Dom', 'Lun', 'Mar'][i], min_c: 10 + i, max_c: 18 + (i % 2), rain_chance_pct: [0, 70, 30, 10, 0][i], icon: 'cloudy-outline' })) };
 
+const monday = (() => { const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
+const recipe = (id, title, minutes, ing, steps, extra = {}) => ({ id, revision: 1, title, source_url: 'https://example.invalid/' + id, source_text: '',
+  ingredients: ing, steps, tags: extra.tags || [], servings: extra.servings ?? 2, favorite: !!extra.favorite, status: extra.status || 'to_try',
+  image_url: '', total_minutes: minutes, created_at: iso(-200), updated_at: iso(-20) });
+const recipes = [
+  recipe('a'.repeat(32), 'Carbonara', 25, ['320 g di spaghetti', '4 tuorli', '150 g di guanciale', 'Pecorino', 'Pepe nero'], ['Cuoci la pasta', 'Rosola il guanciale', 'Manteca con tuorli e pecorino'], { favorite: true, status: 'cooked', tags: ['pasta', 'veloce'] }),
+  recipe('b'.repeat(32), 'Frittata di zucchine', 20, ['2 uova', '3 zucchine', 'Parmigiano'], ['Taglia le zucchine', 'Sbatti le uova', 'Cuoci 8 minuti per lato']),
+  recipe('c'.repeat(32), 'Cacio e pepe', 15, ['Pecorino romano grattugiato', '320 g di tonnarelli', 'Pepe'], ['Tosta il pepe', 'Crema di pecorino', 'Manteca'], { tags: ['pasta'] }),
+  recipe('d'.repeat(32), 'Pollo al curry (da Instagram)', null, [], [], {}),
+];
+const garment = (id, name, category, color, formality, seasons, status = 'available') => ({ id, revision: 1, name, category, color, formality, seasons, status,
+  photo: null, back_photo: null, has_back: false, created_at: iso(-300), updated_at: iso(-30), visual_profile: null });
+const garments = [
+  garment('g1', 'Maglione blu', 'top', 'blu', 'casual', ['fall', 'winter']),
+  garment('g2', 'Camicia bianca', 'top', 'bianco', 'smart', ['spring', 'summer', 'fall']),
+  garment('g3', 'Pantaloni grigi', 'bottom', 'grigio', 'smart', ['fall', 'winter', 'spring']),
+  garment('g4', 'Jeans', 'bottom', 'blu', 'casual', ['spring', 'fall', 'winter']),
+  garment('g5', 'Sneakers bianche', 'shoes', 'bianco', 'casual', ['spring', 'summer', 'fall']),
+  garment('g6', 'Giacca di lana', 'outerwear', 'marrone', 'smart', ['fall', 'winter']),
+  garment('g7', 'Felpa nera', 'top', 'nero', 'casual', ['fall', 'winter'], 'laundry'),
+];
+
 function answer(p, method) {
   if (p.includes('providers')) return { google: { configured: false, platforms: {} }, apple: { configured: false, platforms: {} }, password: { configured: true } };
   if (p.includes('/auth/') && method === 'POST') return { token: 'offline-tour-token', user };
@@ -75,7 +97,23 @@ function answer(p, method) {
   if (p === '/api/financial/overview') return { collegamento: { stato: 'non_collegato', in_parole: 'Nessuna banca collegata.' }, conti: [], cosa_ho_capito: [], fonti_non_piu_collegate: [], collegato_alla_tua_vita: [], da_capire: [], movimenti_recenti: [], vale_la_pena_mostrarlo: false };
   if (p === '/api/calendar/events/home/month') return [];
   if (p === '/api/location/preference') return { ok: true, mode: 'while_using', background_available: false, native_available: false };
-  if (p === '/api/recipes/items') return { items: [] };
+  if (p === '/api/recipes/items') return { items: recipes };
+  if (p === '/api/cooking/plan') return { plan: { week_start: monday, revision: 3, household_size: 2, budget_eur: 70, preferences: [],
+    slots: [{ day: 0, meal: 'dinner', recipe_id: recipes[0].id, servings: 2 }, { day: 2, meal: 'lunch', recipe_id: recipes[1].id, servings: 2 }, { day: 4, meal: 'dinner', recipe_id: recipes[2].id, servings: 4 }] } };
+  if (p === '/api/cooking/shopping-list') return { items: [
+    { id: 'i1', name: '320 g di spaghetti', category: 'Pasta e cereali', checked: false, kind: 'recipe', recipe_title: 'Carbonara' },
+    { id: 'i2', name: '4 tuorli', category: 'Latticini e uova', checked: false, kind: 'recipe', recipe_title: 'Carbonara' },
+    { id: 'i3', name: '2 uova', category: 'Latticini e uova', checked: false, kind: 'recipe', recipe_title: 'Frittata di zucchine' },
+    { id: 'i4', name: '150 g di guanciale', category: 'Carne e pesce', checked: true, kind: 'recipe', recipe_title: 'Carbonara' },
+    { id: 'i5', name: '3 zucchine', category: 'Frutta e verdura', checked: false, kind: 'recipe', recipe_title: 'Frittata di zucchine' },
+    { id: 'i6', name: 'Pecorino', category: 'Latticini e uova', checked: false, kind: 'recipe', recipe_title: 'Carbonara' },
+    { id: 'i7', name: 'Pecorino romano grattugiato', category: 'Latticini e uova', checked: false, kind: 'recipe', recipe_title: 'Cacio e pepe' },
+    { id: 'i8', name: 'Detersivo piatti', category: 'Altro', checked: false, kind: 'manual' }] };
+  if (p === '/api/wardrobe/items') return { items: garments };
+  if (p === '/api/wardrobe/outfits') return { engine: 'rules-v1', ai_status: 'unavailable', occasion: 'everyday', missing: [], message: 'Uso regole preliminari: lo stylist AI non è disponibile.',
+    weather: { temperature_c: 14, condition: 'cloudy', label: 'Nuvoloso', place: 'Tarquinia' },
+    outfits: [{ item_ids: ['g1', 'g3', 'g5', 'g6'], title: 'Blu e grigio', why: 'Colori neutri, giacca per 14 °C.', verdict: 'good', score: 6.5 },
+      { item_ids: ['g2', 'g4', 'g5'], title: 'Bianco e jeans', why: 'Semplice e curato.', verdict: 'acceptable', cautions: ['Senza giacca a 14 °C'], score: 4 }] };
   if (p === '/api/wallet/cards') return { cards: [] };
   if (p === '/api/energy-offers/monitoring') return { enabled: false, offers: [], items: [] };
   if (p === '/api/life-setup/status') return { ok: true, enabled: true, should_show: false, module_visible: true, wizard: false, session: { status: 'completed' } };
@@ -175,6 +213,19 @@ function answer(p, method) {
     ['11-meteo', '/meteo'], ['12-aggiornamenti', '/aggiornamenti'], ['13-luoghi', '/luoghi'], ['14-cucina', '/cucina'], ['15-portafoglio', '/portafoglio']]) {
     try { await page.goto(base + route); await shot(name); } catch (e) { errors.push(name + ': ' + String(e).slice(0, 120)); }
   }
+  // Food and wardrobe, as a person with a few recipes and clothes sees them.
+  for (const [name, route] of [['40-cucina', '/cucina'], ['41-cucina-piano', '/cucina-piano'], ['42-guardaroba', '/guardaroba']]) {
+    try { await page.goto(base + route); await shot(name); } catch (e) { errors.push(name + ': ' + String(e).slice(0, 120)); }
+  }
+  try {
+    await page.goto(base + '/cucina'); await page.waitForTimeout(2500);
+    await page.getByLabel('Apri Carbonara').first().click(); await shot('43-ricetta');
+  } catch (e) { errors.push('ricetta: ' + String(e).slice(0, 160)); }
+  try {
+    await page.goto(base + '/guardaroba'); await page.waitForTimeout(2500);
+    const go = page.getByRole('button', { name: /Proponi|Suggerisci|Scegli|look/i }).first();
+    await go.click(); await shot('44-guardaroba-look');
+  } catch (e) { errors.push('look: ' + String(e).slice(0, 160)); }
   // ORA reasoning on a message: the map strip, every 400 ms, while it works.
   try {
     await page.goto(base + '/ora');

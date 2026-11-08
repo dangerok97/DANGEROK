@@ -373,13 +373,17 @@ function RecipeScreen() {
             <View key={item.id} testID="recipes-item" style={[styles.recipeCard,
               { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Pressable onPress={() => setViewing(item)} accessibilityRole="button"
-                accessibilityLabel={`Apri ${item.title}`} style={{ gap: 10 }}>
+                accessibilityLabel={`Apri ${item.title}`} style={styles.cardMain}>
+                {/* 8/11: without a photo each recipe was a big empty grey box —
+                    four recipes, four screens. A small mark is enough. */}
                 {item.image_url ? <Image source={{ uri: item.image_url }} style={styles.cardImage} contentFit="cover" />
                   : <View style={[styles.cardImage, styles.placeholder, { backgroundColor: colors.backgroundSecondary }]}>
-                    <Ionicons name="restaurant-outline" size={30} color={colors.textTertiary} />
+                    <Ionicons name="restaurant-outline" size={22} color={colors.textTertiary} />
                   </View>}
-                <Text style={[styles.cardTitle, primary]} numberOfLines={2}>{item.title}</Text>
-                <Text style={[styles.note, secondary]}>{stateLabel(item)} · {item.ingredients.length} ingredienti · {item.steps.length} passaggi{item.total_minutes ? ` · ${minutesLabel(item.total_minutes)}` : ''}</Text>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={[styles.cardTitle, primary]} numberOfLines={2}>{item.title}</Text>
+                  <Text style={[styles.note, secondary]}>{stateLabel(item)}{item.total_minutes ? ` · ${minutesLabel(item.total_minutes)}` : ''}{item.ingredients.length ? ` · ${item.ingredients.length} ingredienti` : ''}</Text>
+                </View>
               </Pressable>
               <View style={styles.actionsRow}>
                 <Pressable accessibilityRole="button"
@@ -390,7 +394,7 @@ function RecipeScreen() {
                 </Pressable>
                 <Pressable accessibilityRole="button" onPress={() => edit(item)}
                   style={[styles.smallButton, { borderColor: colors.border }]}>
-                  <Text style={[styles.smallButtonText, primary]}>Apri / modifica</Text>
+                  <Text style={[styles.smallButtonText, primary]}>Modifica</Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void remove(item); }}
                   style={[styles.smallButton, { borderColor: deleteTarget === item.id ? colors.error : colors.border }]}>
@@ -593,11 +597,12 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 13, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  recipeCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 12, flexGrow: 1, flexBasis: 260, maxWidth: '100%' },
-  cardImage: { width: '100%', height: 150, borderRadius: 12 },
+  recipeCard: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 10, flexGrow: 1, flexBasis: 260, maxWidth: '100%' },
+  cardMain: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cardImage: { width: 64, height: 64, borderRadius: 12 },
   heroImage: { width: '100%', height: 220, borderRadius: 16 },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
-  cardTitle: { fontSize: 18, lineHeight: 24, fontWeight: '700' },
+  cardTitle: { fontSize: 17, lineHeight: 22, fontWeight: '700' },
   actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   smallButton: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center', minHeight: 42 },

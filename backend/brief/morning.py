@@ -325,6 +325,78 @@ def compose(appointments: List[str], deadlines: List[str], reminders: List[str],
     return text if len(text) <= MAX_CHARS else text[:MAX_CHARS - 1].rstrip() + "…"
 
 
+_MEAL_NAMES = {"breakfast": "Colazione", "lunch": "Pranzo", "dinner": "Cena"}
+
+
+async def _meals(db, owner: str, local_now: datetime) -> List[str]:
+    """
+    What is planned at the table today, from the meal plan (8/11): the plan
+    and the recipes lived in Cucina and nowhere else, so nobody was told at
+    lunch time what dinner was supposed to be.
+    """
+    try:
+        monday = (local_now.date() - timedelta(days=local_now.weekday())).isoformat()
+        plan = await db.ora_meal_plans.find_one({"_id": f"{owner}:{monday}", "user_id": owner},
+                                                {"_id": 0, "slots": 1})
+        slots = [x for x in (plan or {}).get("slots") or [] if x.get("day") == local_now.weekday()]
+        if not slots:
+            return []
+        ids = list({str(x.get("recipe_id")) for x in slots})
+        recipes = {r["id"]: r async for r in db.ora_recipes.find(
+            {"user_id": owner, "id": {"$in": ids}}, {"_id": 0, "id": 1, "title": 1, "total_minutes": 1})}
+        order = list(_MEAL_NAMES)
+        lines = []
+        for slot in sorted(slots, key=lambda x: order.index(x.get("meal")) if x.get("meal") in order else 9):
+            r = recipes.get(str(slot.get("recipe_id")))
+            if not r:
+                continue
+            minutes = r.get("total_minutes")
+            lines.append(f"{_MEAL_NAMES.get(slot.get('meal'), 'Pasto')}: {' '.join(str(r.get('title') or '').split())[:60]}"
+                         + (f" ({minutes} min)" if isinstance(minutes, int) and minutes > 0 else ""))
+        return lines
+    except Exception as exc:
+        logger.info("morning meals skipped: %s", type(exc).__name__)
+        return []
+
+
+async def _look(db, owner: str, w: Optional[Dict[str, Any]]) -> List[str]:
+    """
+    A look for today's weather from the clothes the person owns (8/11): the
+    wardrobe chose only when asked. Rules, no model, no photo: the same
+    deterministic pass the Guardaroba falls back to.
+    """
+    try:
+        from wardrobe.recommend import recommend
+
+        today = (w or {}).get("today") or {}
+        hi, lo = today.get("max_c"), today.get("min_c")
+        if not isinstance(hi, (int, float)) or not isinstance(lo, (int, float)):
+            return []
+        temperature = round((hi + lo) / 2)
+        items = await db.wardrobe_items.find(
+            {"user_id": owner}, {"_id": 0, "id": 1, "name": 1, "category": 1, "color": 1, "formality": 1,
+                                 "seasons": 1, "status": 1}).to_list(80)
+        if len(items) < 3:
+            return []
+        out = recommend(items, "everyday", temperature, max_looks=1)
+        looks = out.get("outfits") or []
+        if not looks:
+            return []
+        by_id = {str(i.get("id")): i for i in items}
+        names = [" ".join(str(by_id[x].get("name") or "").split())[:40] for x in looks[0]["item_ids"] if x in by_id]
+        if not names:
+            return []
+        said = names[0] + "".join((", " if k < len(names) - 2 else " e ") + n[:1].lower() + n[1:]
+                                  for k, n in enumerate(names[1:]))
+        lines = [said[:1].upper() + said[1:]]
+        if out.get("layer_missing"):
+            lines.append(f"Con {temperature} °C serve una giacca, ma nel guardaroba non ne trovo una disponibile.")
+        return lines
+    except Exception as exc:
+        logger.info("morning look skipped: %s", type(exc).__name__)
+        return []
+
+
 async def full(db, owner: str, local_now: datetime) -> Dict[str, Any]:
     """The whole brief: what the notification says and what the page shows."""
     row = await db.users.find_one({"user_id": owner}, {"_id": 0, "name": 1}) or {}
@@ -354,6 +426,12 @@ async def full(db, owner: str, local_now: datetime) -> Dict[str, Any]:
         sections.append({"key": "reminders", "icon": "alarm-outline", "title": "Promemoria di oggi", "lines": reminders})
     if deadlines:
         sections.append({"key": "deadlines", "icon": "time-outline", "title": "Scadenze", "lines": deadlines})
+    meals = await _meals(db, owner, local_now)
+    if meals:
+        sections.append({"key": "meals", "icon": "restaurant-outline", "title": "In tavola oggi", "lines": meals})
+    look = await _look(db, owner, w)
+    if look:
+        sections.append({"key": "look", "icon": "shirt-outline", "title": "Cosa mettere", "lines": look})
     if w and w.get("drying"):
         sections.append({"key": "drying", "icon": "shirt-outline", "title": "Bucato", "lines": [w["drying"]["text"]],
                          "good": w["drying"]["good"]})
