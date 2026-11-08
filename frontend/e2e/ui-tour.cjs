@@ -219,7 +219,7 @@ function answer(p, method) {
   }
   try {
     await page.goto(base + '/cucina'); await page.waitForTimeout(2500);
-    await page.getByText('Apri / modifica').first().click(); await shot('43-ricetta');
+    await page.getByLabel('Apri Carbonara').first().click(); await shot('43-ricetta');
   } catch (e) { errors.push('ricetta: ' + String(e).slice(0, 160)); }
   try {
     await page.goto(base + '/guardaroba'); await page.waitForTimeout(2500);

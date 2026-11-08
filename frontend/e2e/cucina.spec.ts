@@ -151,7 +151,7 @@ test('text recipe can be edited, searched, favorited and deleted after confirmat
   await page.getByTestId('recipes-search').fill('pizza');
   await expect(page.getByText('Nessuna ricetta trovata.')).toBeVisible();
   await page.getByTestId('recipes-search').fill('');
-  await item.getByRole('button', { name: 'Apri / modifica' }).click();
+  await item.getByRole('button', { name: 'Modifica' }).click();
   await page.getByTestId('recipes-steps').fill('Cuoci la pasta\nUnisci le zucchine');
   await page.getByRole('button', { name: 'Salva nel ricettario' }).click();
   await expect(page.getByTestId('recipes-notice')).toContainText('Modifiche salvate');

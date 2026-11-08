@@ -27,3 +27,30 @@ test('labels and filters', () => {
   assert.ok(matchesFilter(r, 'favorite') && matchesFilter(r, 'quick') && matchesFilter(r, 'tag:primo'));
   assert.ok(!matchesFilter(r, 'to_try'));
 });
+
+test('the week reads as days of a month, not an ISO date (8/11)', async () => {
+  const { weekLabel } = await import('./cooking.ts');
+  const y = new Date().getFullYear();
+  assert.equal(weekLabel(`${y}-11-02`), '2–8 novembre');
+  assert.equal(weekLabel(`${y}-11-30`), '30 novembre – 6 dicembre');
+});
+
+test('meals have Italian names', async () => {
+  const { mealLabel } = await import('./cooking.ts');
+  assert.equal(mealLabel('lunch'), 'Pranzo');
+  assert.equal(mealLabel('dinner'), 'Cena');
+});
+
+test('the shopping list goes by aisle, the trolley at the end', async () => {
+  const { shoppingAisles } = await import('./cooking.ts');
+  const { aisles, done } = shoppingAisles([
+    { name: 'zucchine', category: 'Frutta e verdura', checked: false },
+    { name: 'detersivo', category: 'Altro', checked: false },
+    { name: 'uova', category: 'Latticini e uova', checked: false },
+    { name: 'guanciale', category: 'Carne e pesce', checked: true },
+    { name: 'pecorino', category: 'Latticini e uova', checked: false },
+  ]);
+  assert.deepEqual(aisles.map(a => a.aisle), ['Frutta e verdura', 'Latticini e uova', 'Altro']);
+  assert.deepEqual(aisles[1].items.map(i => i.name), ['pecorino', 'uova']);
+  assert.deepEqual(done.map(i => i.name), ['guanciale']);
+});

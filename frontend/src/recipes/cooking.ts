@@ -66,3 +66,40 @@ export function matchesFilter(
   if (filter === 'quick') return !!recipe.total_minutes && recipe.total_minutes <= 30;
   return recipe.tags.map(t => t.toLocaleLowerCase('it')).includes(filter.slice(4));
 }
+
+const MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto',
+  'settembre', 'ottobre', 'novembre', 'dicembre'];
+
+/** «2–8 novembre», «30 novembre – 6 dicembre»: never the raw ISO date. */
+export function weekLabel(weekStart: string): string {
+  const start = new Date(`${weekStart}T12:00:00`);
+  if (Number.isNaN(start.getTime())) return weekStart;
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  const year = start.getFullYear() !== new Date().getFullYear() ? ` ${end.getFullYear()}` : '';
+  if (start.getMonth() === end.getMonth()) return `${start.getDate()}–${end.getDate()} ${MONTHS[end.getMonth()]}${year}`;
+  return `${start.getDate()} ${MONTHS[start.getMonth()]} – ${end.getDate()} ${MONTHS[end.getMonth()]}${year}`;
+}
+
+export const MEALS = [
+  { value: 'breakfast', label: 'Colazione' },
+  { value: 'lunch', label: 'Pranzo' },
+  { value: 'dinner', label: 'Cena' },
+] as const;
+export type Meal = typeof MEALS[number]['value'];
+export const mealLabel = (meal: string) => MEALS.find(m => m.value === meal)?.label ?? meal;
+
+/**
+ * The shopping list as one walks a shop: by aisle, what is still to take
+ * first, what is already in the trolley at the end.
+ */
+export function shoppingAisles<T extends { category: string; checked: boolean; name: string }>(items: T[]) {
+  const open = new Map<string, T[]>();
+  for (const item of items.filter(i => !i.checked)) {
+    const aisle = item.category || 'Altro';
+    if (!open.has(aisle)) open.set(aisle, []);
+    open.get(aisle)!.push(item);
+  }
+  const aisles = [...open.entries()].sort(([a], [b]) => (a === 'Altro' ? 1 : b === 'Altro' ? -1 : a.localeCompare(b, 'it')))
+    .map(([aisle, list]) => ({ aisle, items: list.sort((x, y) => x.name.localeCompare(y.name, 'it')) }));
+  return { aisles, done: items.filter(i => i.checked) };
+}

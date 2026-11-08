@@ -15,7 +15,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { api, type MorningToday } from '@/src/api/client';
 import { ora, oraType } from '@/src/theme/oraSurface';
 
-const KEYS = ['today', 'reminders', 'deadlines', 'watching', 'drying', 'tomorrow', 'done'];
+const KEYS = ['today', 'reminders', 'deadlines', 'meals', 'watching', 'drying', 'tomorrow', 'done'];
 const EMPTY = new Set(['Niente in agenda.']);
 
 /** Only sections that say something: an empty day shows nothing here. */

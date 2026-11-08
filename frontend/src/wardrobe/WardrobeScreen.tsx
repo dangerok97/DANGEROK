@@ -305,11 +305,11 @@ function WardrobeScreen() {
       <Text style={[s.chipText, { color: active ? colors.accent : colors.textPrimary }]}>{text}</Text>
     </Pressable>
   );
-  const action = (text: string, onPress: () => void, primary = false, disabled = false) => (
+  const action = (text: string, onPress: () => void, primary = false, disabled = false, small = false) => (
     <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled}
-      style={[s.action, { backgroundColor: primary ? colors.accent : colors.surface,
+      style={[s.action, small && s.actionSmall, { backgroundColor: primary ? colors.accent : colors.surface,
         borderColor: primary ? colors.accent : colors.border, opacity: disabled ? .5 : 1 }]}>
-      <Text style={[s.actionText, { color: primary ? colors.onAccent : colors.textPrimary }]}>{text}</Text>
+      <Text style={[s.actionText, small && s.actionTextSmall, { color: primary ? colors.onAccent : colors.textPrimary }]}>{text}</Text>
     </Pressable>
   );
 
@@ -364,17 +364,22 @@ function WardrobeScreen() {
                   {item.visual_profile?.back_graphic === 'large' ? ' · Retro con grafica vistosa' : ''}
                 </Text> : null}
                 {item.photo ? action(item.visual_profile ? 'Rianalizza stile' : 'Analizza stile con AI',
-                  () => { void scanAppearance(item); }, false, busy || analyzing) : null}
+                  () => { void scanAppearance(item); }, false, busy || analyzing, true) : null}
                 {item.visual_profile ? action('Rimuovi analisi visiva',
-                  () => { void clearAppearance(item); }, false, busy) : null}
+                  () => { void clearAppearance(item); }, false, busy, true) : null}
                 {item.status === 'available'
-                  ? action('Messo a lavare', () => { void setStatus(item, 'laundry'); }, false, busy)
-                  : action(item.status === 'laundry' ? 'Lavato, di nuovo disponibile' : 'Di nuovo disponibile',
-                    () => { void setStatus(item, 'available'); }, false, busy)}
-                <View style={s.inline}>
-                  {action('Modifica', () => edit(item), false, busy)}
-                  {item.back_photo ? action('Rimuovi retro', () => setRemoveBackTarget(item), false, busy) : null}
-                  {action('Elimina', () => setDeleteTarget(item), false, busy)}
+                  ? action('Messo a lavare', () => { void setStatus(item, 'laundry'); }, false, busy, true)
+                  : action(item.status === 'laundry' ? 'Lavato' : 'Di nuovo disponibile',
+                    () => { void setStatus(item, 'available'); }, false, busy, true)}
+                {/* 8/11: three full buttons per garment made a 7-item wardrobe four
+                    screens long. Editing and deleting are quiet links. */}
+                <View style={s.links}>
+                  <Pressable accessibilityRole="button" onPress={() => edit(item)} disabled={busy} hitSlop={6}>
+                    <Text style={[s.link, { color: colors.accent }]}>Modifica</Text></Pressable>
+                  {item.back_photo ? <Pressable accessibilityRole="button" onPress={() => setRemoveBackTarget(item)} disabled={busy} hitSlop={6}>
+                    <Text style={[s.link, muted]}>Rimuovi retro</Text></Pressable> : null}
+                  <Pressable accessibilityRole="button" onPress={() => setDeleteTarget(item)} disabled={busy} hitSlop={6}>
+                    <Text style={[s.link, muted]}>Elimina</Text></Pressable>
                 </View>
                 {removeBackTarget?.id === item.id ? <View testID="wardrobe-remove-back-confirm" style={{ gap: 8 }}>
                   <Text style={[s.note, foreground]}>Eliminare solo la foto del retro?</Text>
@@ -524,8 +529,7 @@ function WardrobeScreen() {
                           style={[s.outfitPhoto, { width: '49%' }]} contentFit="contain" /> : null}
                       </View>
                       <Text style={[s.outfitCategory, muted]}>{label(item.category)}</Text>
-                      <Text numberOfLines={3} style={[s.outfitName, foreground]}>{item.name}</Text>
-                      <Text style={[s.outfitColor, muted]}>{item.color}</Text>
+                      <Text numberOfLines={2} style={[s.outfitName, foreground]}>{item.name}</Text>
                     </View> : null;
                   })}
                 </View>
@@ -576,9 +580,14 @@ const s = StyleSheet.create({
   chipText: { fontSize: 13, fontWeight: '600' },
   action: { borderWidth: 1, borderRadius: 11, paddingHorizontal: 13, paddingVertical: 11, alignItems: 'center', justifyContent: 'center', minHeight: 41 },
   actionText: { fontSize: 14, fontWeight: '600' },
+  actionSmall: { minHeight: 34, paddingVertical: 7, paddingHorizontal: 10 },
+  actionTextSmall: { fontSize: 13 },
+  links: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, paddingTop: 2 },
+  link: { fontSize: 13, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  item: { width: 214, maxWidth: '100%', borderWidth: 1, borderRadius: 14, padding: 10, gap: 7 },
-  photo: { width: '100%', height: 145, borderRadius: 10 },
+  // Two garments per row on a phone (the fixed 214 px left half the row empty).
+  item: { width: '48%', minWidth: 140, maxWidth: 230, flexGrow: 1, borderWidth: 1, borderRadius: 14, padding: 10, gap: 7 },
+  photo: { width: '100%', height: 120, borderRadius: 10 },
   dualPhotos: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   photoLabel: { textAlign: 'center', fontSize: 11 },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
@@ -587,10 +596,11 @@ const s = StyleSheet.create({
   inline: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   look: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },
   outfitItems: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  outfitItem: { width: 148, maxWidth: '100%', borderWidth: 1, borderRadius: 12,
-    padding: 9, gap: 5, overflow: 'hidden' },
+  // A look reads as one outfit: its pieces side by side, not one per screen.
+  outfitItem: { width: '31%', minWidth: 92, maxWidth: 150, flexGrow: 1, borderWidth: 1, borderRadius: 12,
+    padding: 7, gap: 4, overflow: 'hidden' },
   outfitViewPhotos: { flexDirection: 'row', flexWrap: 'nowrap', gap: 4 },
-  outfitPhoto: { height: 128, borderRadius: 9 },
+  outfitPhoto: { height: 84, borderRadius: 9 },
   outfitCategory: { fontSize: 12, lineHeight: 16 },
   outfitName: { fontWeight: '600', fontSize: 14, lineHeight: 18, minHeight: 18 },
   outfitColor: { fontSize: 12 },
